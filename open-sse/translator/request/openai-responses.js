@@ -300,12 +300,12 @@ function buildReasoningInputItem(msg) {
  */
 export function openaiToOpenAIResponsesRequest(model, body, stream, credentials) {
   // Body already in Responses API format (e.g. Cursor CLI calling /chat/completions with input[])
-  if (body.input) return { ...body, model, stream: true };
+  if (body.input) return { ...body, model, stream: stream !== false };
 
   const result = {
     model,
     input: [],
-    stream: true,
+    stream: stream !== false,
     store: false
   };
 

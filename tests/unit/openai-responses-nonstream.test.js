@@ -9,6 +9,7 @@ vi.mock("@/lib/usageDb.js", () => ({
 const { FORMATS } = await import("../../open-sse/translator/formats.js");
 const { translateNonStreamingResponse } = await import("../../open-sse/handlers/chatCore/nonStreamingHandler.js");
 const { handleForcedSSEToJson } = await import("../../open-sse/handlers/chatCore/sseToJsonHandler.js");
+const { openaiToOpenAIResponsesRequest } = await import("../../open-sse/translator/request/openai-responses.js");
 
 // A chat.completion body as returned by a chat-native upstream (e.g. op-ericding)
 const CHAT_TOOL_BODY = {
@@ -82,6 +83,36 @@ describe("non-stream Chat upstream for a Responses-API client (op-ericding bug)"
     const out = translateNonStreamingResponse(CHAT_TOOL_BODY, FORMATS.OPENAI, FORMATS.OPENAI);
     expect(out.object).toBe("chat.completion");
     expect(out.choices[0].message.tool_calls[0].function.name).toBe("shell");
+  });
+});
+
+describe("non-stream Responses upstream for a Chat client (OpenCode Go Luna)", () => {
+  it("preserves stream:false when translating Chat to Responses", () => {
+    const out = openaiToOpenAIResponsesRequest("gpt-5.6-luna", {
+      messages: [{ role: "user", content: "Hello" }],
+      stream: false,
+    }, false, {});
+    expect(out.stream).toBe(false);
+  });
+
+  it("translates Responses output_text into Chat message content", () => {
+    const out = translateNonStreamingResponse({
+      id: "resp_luna",
+      object: "response",
+      status: "completed",
+      model: "gpt-5.6-luna",
+      output: [{
+        type: "message",
+        role: "assistant",
+        content: [{ type: "output_text", text: "OK", annotations: [] }],
+      }],
+      usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+    }, FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI);
+
+    expect(out.object).toBe("chat.completion");
+    expect(out.choices[0].message.content).toBe("OK");
+    expect(out.choices[0].finish_reason).toBe("stop");
+    expect(out.usage).toEqual({ prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 });
   });
 });
 

@@ -89,8 +89,15 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // sourceFormat-matched transport if that format is declared (opencode-go models
   // differ — kimi/glm only do /chat/completions). Undeclared models keep the
   // upstream default (use the transport), preserving behavior for glm/deepseek/...
-  const useTransport = (!modelSupportedFormats || modelSupportedFormats.includes(sourceFormat)) ? runtimeTransport : null;
+  let useTransport = (!modelSupportedFormats || modelSupportedFormats.includes(sourceFormat)) ? runtimeTransport : null;
   const targetFormat = modelTargetFormat || useTransport?.format || getTargetFormat(provider, credentials);
+  // A model may be available only on a non-default transport.  For example,
+  // OpenCode Go Luna is Responses-only.  When a chat-format client selects it
+  // directly or through a combo, translate to the model's declared target and
+  // send it to that transport rather than the provider's default chat URL.
+  if (!useTransport && modelSupportedFormats?.includes(targetFormat)) {
+    useTransport = resolveTransport(provider, targetFormat);
+  }
   if (useTransport && credentials) credentials.runtimeTransport = useTransport;
   const stripList = getModelStrip(alias, model);
   const upstreamModel = getModelUpstreamId(alias, model);

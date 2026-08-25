@@ -163,6 +163,11 @@ describe("applyThinking per provider format", () => {
     const out = apply("openai", "gpt-5.3-codex", { reasoning_effort: "xhigh" }, "codex");
     expect(out.reasoning_effort).toBe("xhigh");
   });
+  it("OpenCode Go Luna uses Responses reasoning.effort, not Chat reasoning_effort", () => {
+    const out = apply("openai-responses", "gpt-5.6-luna", { reasoning_effort: "minimal" }, "opencode-go");
+    expect(out.reasoning).toEqual({ effort: "low", summary: "auto" });
+    expect(out.reasoning_effort).toBeUndefined();
+  });
   it.each([
     ["gpt-5.6-sol", "max", "max"],
     ["gpt-5.6-sol", "ultra", "ultra"],

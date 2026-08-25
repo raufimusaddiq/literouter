@@ -137,6 +137,9 @@ function toLevel(cfg) {
 }
 
 function normalizeOpenAILevel(level, supportedLevels) {
+  if (level === "minimal" && supportedLevels && !supportedLevels.includes("minimal") && supportedLevels.includes("low")) {
+    return "low";
+  }
   if (level !== "max" && level !== "ultra") return level;
   if (supportedLevels?.includes(level)) return level;
   if (level === "ultra" && supportedLevels?.includes("max")) return "max";
@@ -233,6 +236,15 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels) {
       if (none && canDisable) { body.reasoning_effort = "none"; break; }
       const level = toLevel(eff);
       if (level) body.reasoning_effort = normalizeOpenAILevel(level, supportedLevels);
+      break;
+    }
+    case "openai-responses": {
+      if (none && canDisable) { body.reasoning = { effort: "none", summary: "auto" }; break; }
+      const level = toLevel(eff);
+      body.reasoning = { summary: "auto" };
+      if (level && level !== "auto") {
+        body.reasoning.effort = normalizeOpenAILevel(level, supportedLevels);
+      }
       break;
     }
     case "claude-adaptive": {

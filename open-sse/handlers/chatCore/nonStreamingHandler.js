@@ -138,11 +138,69 @@ function openAICompletionToResponses(responseBody, customToolNames = null) {
   };
 }
 
+function responsesToOpenAICompletion(responseBody) {
+  if (!Array.isArray(responseBody?.output)) return responseBody;
+
+  let text = "";
+  let reasoning = "";
+  const toolCalls = [];
+
+  for (const item of responseBody.output) {
+    if (item?.type === RESPONSES_ITEM.MESSAGE) {
+      for (const part of item.content || []) {
+        if (part?.type === RESPONSES_ITEM.OUTPUT_TEXT && typeof part.text === "string") text += part.text;
+      }
+    } else if (item?.type === RESPONSES_ITEM.REASONING) {
+      for (const part of item.summary || []) {
+        if (typeof part?.text === "string") reasoning += part.text;
+      }
+    } else if (item?.type === RESPONSES_ITEM.FUNCTION_CALL || item?.type === RESPONSES_ITEM.CUSTOM_TOOL_CALL) {
+      toolCalls.push({
+        id: item.call_id || item.id || `call_${toolCalls.length}`,
+        type: "function",
+        function: {
+          name: item.name || "",
+          arguments: item.type === RESPONSES_ITEM.CUSTOM_TOOL_CALL
+            ? JSON.stringify({ input: item.input || "" })
+            : (typeof item.arguments === "string" ? item.arguments : JSON.stringify(item.arguments || {})),
+        },
+      });
+    }
+  }
+
+  const message = { role: ROLE.ASSISTANT, content: text };
+  if (reasoning) message.reasoning_content = reasoning;
+  if (toolCalls.length) message.tool_calls = toolCalls;
+
+  const usage = responseBody.usage || {};
+  return {
+    id: String(responseBody.id || `resp_${Date.now()}`).replace(/^resp_/, "chatcmpl-"),
+    object: "chat.completion",
+    created: responseBody.created_at || Math.floor(Date.now() / 1000),
+    model: responseBody.model || "unknown",
+    choices: [{
+      index: 0,
+      message,
+      finish_reason: toolCalls.length ? "tool_calls" : (responseBody.status === "incomplete" ? "length" : "stop"),
+    }],
+    usage: {
+      prompt_tokens: usage.input_tokens || 0,
+      completion_tokens: usage.output_tokens || 0,
+      total_tokens: usage.total_tokens || (usage.input_tokens || 0) + (usage.output_tokens || 0),
+    },
+  };
+}
+
 /**
  * Translate non-streaming response body from provider format → OpenAI format.
  */
 export function translateNonStreamingResponse(responseBody, targetFormat, sourceFormat, customToolNames = null) {
   if (targetFormat === sourceFormat) return responseBody;
+  // Responses-native upstream serving a Chat Completions client (for example
+  // OpenCode Go Luna selected directly or as the primary Combo model).
+  if (targetFormat === FORMATS.OPENAI_RESPONSES && sourceFormat === FORMATS.OPENAI) {
+    return responsesToOpenAICompletion(responseBody);
+  }
   // Provider responded in OpenAI Chat Completions shape but the client speaks
   // Responses API — convert so tool_calls/text surface as Responses `output`.
   if (targetFormat === FORMATS.OPENAI && sourceFormat === FORMATS.OPENAI_RESPONSES) {
