@@ -345,6 +345,21 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     log?.debug?.("PROXY", `${provider.toUpperCase()} | ${model} | conn=${connectionName} | no_proxy=${proxyOptions.connectionNoProxy}`);
   }
 
+  // OpenCode Go's GPT-5.6 Luna Responses endpoint rejects sampling controls
+  // and requires at least 16 output tokens. Chat/Responses clients commonly
+  // send temperature by default (and lightweight probes use 8 tokens), so
+  // normalize here after all request transforms and before the executor.
+  if (provider === "opencode-go" && model === "gpt-5.6-luna") {
+    delete translatedBody.temperature;
+    delete translatedBody.top_p;
+    if (translatedBody.max_output_tokens !== undefined) {
+      translatedBody.max_output_tokens = Math.max(16, Number(translatedBody.max_output_tokens) || 16);
+    }
+    if (translatedBody.max_tokens !== undefined) {
+      translatedBody.max_tokens = Math.max(16, Number(translatedBody.max_tokens) || 16);
+    }
+  }
+
   // Execute request
   let providerResponse, providerUrl, providerHeaders, finalBody;
   // Most executors return their registry format. Cursor AgentService is an
