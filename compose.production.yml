@@ -11,6 +11,7 @@ services:
       PORT: "20128"
       HOSTNAME: "0.0.0.0"
       NODE_ENV: production
+      ENABLE_REQUEST_LOGS: "true"
     expose:
       - "20128"
     volumes:

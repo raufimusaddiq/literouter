@@ -4,7 +4,7 @@ import { PROVIDERS } from "../../open-sse/config/providers.js";
 import { resolveTransport } from "../../open-sse/services/provider.js";
 
 // Chat-only models (no /messages, no /responses support on opencode-go)
-const CHAT_ONLY = ["glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6", "mimo-v2.5", "mimo-v2.5-pro"];
+const CHAT_ONLY = ["ox-alpha-free", "glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6", "mimo-v2.5", "mimo-v2.5-pro"];
 // Models that also expose the Anthropic /messages endpoint
 const CLAUDE_CAPABLE = ["minimax-m3", "minimax-m2.7", "minimax-m2.5", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus"];
 // Models that also expose the OpenAI /responses endpoint
@@ -29,6 +29,7 @@ describe("OpenCode Go model catalog", () => {
     const ids = (PROVIDER_MODELS["opencode-go"] || []).map((m) => m.id);
     expect(ids).toEqual([
       "gpt-5.6-luna",
+      "ox-alpha-free",
       "glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6",
       "deepseek-v4-pro", "deepseek-v4-flash",
       "mimo-v2.5", "mimo-v2.5-pro",

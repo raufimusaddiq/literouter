@@ -35,6 +35,10 @@ export default {
     // target format and supported transport so chat-format clients (including
     // combos) are translated instead of being sent to /chat/completions.
     { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", targetFormat: "openai-responses", supportedFormats: ["openai-responses"] },
+    // Dynamically advertised by /models, but the OpenCode Go Responses endpoint
+    // returns HTTP 500 for it. Route Responses/Claude clients through Chat and
+    // let 9Router translate the request and response formats.
+    { id: "ox-alpha-free", name: "OX Alpha Free", supportedFormats: ["openai"] },
     { id: "glm-5.2", name: "GLM 5.2", supportedFormats: ["openai"] },
     { id: "glm-5.1", name: "GLM 5.1", supportedFormats: ["openai"] },
     { id: "kimi-k2.7-code", name: "Kimi K2.7 Code", supportedFormats: ["openai"] },
