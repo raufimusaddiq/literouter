@@ -1,0 +1,40 @@
+services:
+  9router:
+    image: 9router:responses-fix
+    pull_policy: never
+    container_name: 9router
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      DATA_DIR: /app/data
+      PORT: "20128"
+      HOSTNAME: "0.0.0.0"
+      NODE_ENV: production
+    expose:
+      - "20128"
+    volumes:
+      - 9router-data:/app/data
+    networks:
+      - idx-public
+    mem_limit: 512m
+    mem_reservation: 128m
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:20128/api/auth/status').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  9router-data:
+    name: 9router-data
+
+networks:
+  idx-public:
+    external: true
+    name: idx_default

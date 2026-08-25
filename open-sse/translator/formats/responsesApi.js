@@ -24,6 +24,45 @@ export function normalizeResponsesInput(input) {
 }
 
 /**
+ * Normalize an outbound Responses API request without changing valid native
+ * requests. Some compatible clients emit a single content block object even
+ * though the Responses contract requires message content to be a string or an
+ * array. Chat Completions clients also use max_tokens for the same limit.
+ */
+export function normalizeResponsesRequest(body) {
+  if (!body || typeof body !== "object") return body;
+
+  let result = body;
+  if (body.max_tokens !== undefined) {
+    result = { ...result };
+    if (result.max_output_tokens === undefined) {
+      result.max_output_tokens = result.max_tokens;
+    }
+    delete result.max_tokens;
+  }
+
+  if (!Array.isArray(body.input)) return result;
+
+  let changed = false;
+  const input = body.input.map((item) => {
+    if (
+      item &&
+      typeof item === "object" &&
+      !Array.isArray(item) &&
+      item.content &&
+      typeof item.content === "object" &&
+      !Array.isArray(item.content)
+    ) {
+      changed = true;
+      return { ...item, content: [item.content] };
+    }
+    return item;
+  });
+
+  return changed ? { ...result, input } : result;
+}
+
+/**
  * Convert OpenAI Responses API format to standard chat completions format
  * Responses API uses: { input: [...], instructions: "..." }
  * Chat API uses: { messages: [...] }

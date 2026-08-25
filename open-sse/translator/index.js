@@ -1,6 +1,7 @@
 import { FORMATS } from "./formats.js";
 import { ensureToolCallIds, fixMissingToolResponses } from "./concerns/toolCall.js";
 import { prepareClaudeRequest } from "./formats/claude.js";
+import { normalizeResponsesRequest } from "./formats/responsesApi.js";
 import { cloakClaudeTools } from "../utils/claudeCloaking.js";
 import { filterToOpenAIFormat } from "./formats/openai.js";
 import { normalizeThinkingConfig } from "../services/provider.js";
@@ -106,6 +107,13 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
         }
       }
     }
+  }
+
+  // Keep Responses passthrough tolerant of compatible clients that send one
+  // content block as an object, and normalize Chat's token-limit field after
+  // translation. OpenAI-compatible Responses providers reject both shapes.
+  if (targetFormat === FORMATS.OPENAI_RESPONSES) {
+    result = normalizeResponsesRequest(result);
   }
 
   // Normalize thinking to the target provider-native format (config-driven, capability-aware).

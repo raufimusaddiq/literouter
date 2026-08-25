@@ -6,6 +6,7 @@ import { FORMATS } from "../../open-sse/translator/formats.js";
 
 const R2O = (body) => translateRequest(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI, "m", body, true, null, null);
 const O2R = (body) => translateRequest(FORMATS.OPENAI, FORMATS.OPENAI_RESPONSES, "m", body, true, null, null);
+const R2R = (body) => translateRequest(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI_RESPONSES, "m", body, true, null, null);
 
 describe("Codex CLI Responses → OpenAI", () => {
   // openai-responses.js:103 — function_call with empty name skipped, can leave tool_calls: []
@@ -71,5 +72,42 @@ describe("OpenAI → Codex Responses (reverse)", () => {
     });
     const fc = out.input.find((i) => i.type === "function_call");
     expect(fc.call_id.length).toBeLessThanOrEqual(64);
+  });
+
+  it("maps Chat Completions max_tokens to Responses max_output_tokens", () => {
+    const out = O2R({
+      messages: [{ role: "user", content: "Hello" }],
+      max_tokens: 1024,
+    });
+
+    expect(out.max_output_tokens).toBe(1024);
+    expect(out).not.toHaveProperty("max_tokens");
+  });
+});
+
+describe("Codex Responses → Codex Responses normalization", () => {
+  it("wraps a single message content object in an array", () => {
+    const content = { type: "input_text", text: "Hello" };
+    const out = R2R({
+      input: [
+        { role: "developer", content: "Follow the rules." },
+        { role: "user", content },
+      ],
+    });
+
+    expect(out.input[1].content).toEqual([content]);
+  });
+
+  it("preserves valid string and array message content", () => {
+    const content = [{ type: "input_text", text: "Hello" }];
+    const out = R2R({
+      input: [
+        { role: "developer", content: "Follow the rules." },
+        { role: "user", content },
+      ],
+    });
+
+    expect(out.input[0].content).toBe("Follow the rules.");
+    expect(out.input[1].content).toEqual(content);
   });
 });
