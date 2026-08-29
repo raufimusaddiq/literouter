@@ -488,3 +488,6 @@ export class CodexExecutor extends BaseExecutor {
     return body;
   }
 }
+
+// Exported so peer executors (opencode-go) can reuse the store=false sanitization.
+export { stripStoredItemReferences, normalizeCodexTools, convertSystemToDeveloperRole };
