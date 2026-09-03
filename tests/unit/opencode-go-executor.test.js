@@ -106,6 +106,13 @@ describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
     expect(headers["Authorization"]).toBe("Bearer sk-test");
   });
 
+  it("sends a stable x-opencode-session for each conversation", () => {
+    const credentials = { apiKey: "sk-test", connectionId: "ocg-account", rawHeaders: { "x-opencode-session": "conversation-123" } };
+    const body = { model: "gpt-5.6-luna", input: [{ type: "message", role: "user", content: "hi" }] };
+    executor.transformRequest("gpt-5.6-luna", body, true, credentials);
+    expect(executor.buildHeaders(credentials, true)["x-opencode-session"]).toBe("conversation-123");
+  });
+
   it("does NOT inject Codex default instructions (overrides OpenCode Go system prompt)", () => {
     const body = { model: "gpt-5.6-luna", input: [{ type: "message", role: "user", content: "hi" }] };
     executor.transformRequest("gpt-5.6-luna", body, true, null);

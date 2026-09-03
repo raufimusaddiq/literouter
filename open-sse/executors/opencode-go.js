@@ -3,6 +3,7 @@ import { PROVIDERS } from "../config/providers.js";
 import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
 import { stripStoredItemReferences, normalizeCodexTools, convertSystemToDeveloperRole } from "./codex.js";
 import { normalizeResponsesInput } from "../translator/formats/responsesApi.js";
+import { resolveSessionId } from "../utils/sessionManager.js";
 
 // OpenCode Go's Responses endpoint runs with store=false, identical to Codex,
 // but uses a plain OpenAI-compatible Bearer token (no ChatGPT-Account-ID,
@@ -54,10 +55,17 @@ export class OpencodeGoExecutor extends BaseExecutor {
         headers["anthropic-version"] = ANTHROPIC_API_VERSION;
       }
     }
+    headers["x-opencode-session"] = this._currentSessionId || credentials?.connectionId || crypto.randomUUID();
     return headers;
   }
 
   transformRequest(model, body, stream, credentials) {
+    this._currentSessionId = resolveSessionId({
+      headers: credentials?.rawHeaders,
+      body,
+      connectionId: credentials?.connectionId,
+      scope: "opencode-go",
+    });
     // Always strip previous_response_id (store=false on both transports).
     delete body.previous_response_id;
 
