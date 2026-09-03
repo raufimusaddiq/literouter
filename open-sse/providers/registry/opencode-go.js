@@ -34,7 +34,7 @@ export default {
     // Luna is exposed only through OpenCode Go's Responses API.  Pin both the
     // target format and supported transport so chat-format clients (including
     // combos) are translated instead of being sent to /chat/completions.
-    { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", targetFormat: "openai-responses", supportedFormats: ["openai-responses"] },
+    { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", targetFormat: "openai-responses", supportedFormats: ["openai-responses"], forceStream: true },
     // Dynamically advertised by /models, but the OpenCode Go Responses endpoint
     // returns HTTP 500 for it. Route Responses/Claude clients through Chat and
     // let 9Router translate the request and response formats.

@@ -62,6 +62,12 @@ export function getModelSupportedFormats(aliasOrId, modelId) {
   return modelSupportedFormats(findModel(models, modelId, aliasOrId));
 }
 
+export function getModelForceStream(aliasOrId, modelId) {
+  const models = PROVIDER_MODELS[aliasOrId];
+  if (!models) return false;
+  return findModel(models, modelId, aliasOrId)?.forceStream === true;
+}
+
 export function getModelType(aliasOrId, modelId) {
   const models = PROVIDER_MODELS[aliasOrId];
   if (!models) return null;

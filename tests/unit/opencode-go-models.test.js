@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PROVIDER_MODELS, getModelSupportedFormats, getModelTargetFormat } from "../../open-sse/config/providerModels.js";
+import { PROVIDER_MODELS, getModelForceStream, getModelSupportedFormats, getModelTargetFormat } from "../../open-sse/config/providerModels.js";
 import { PROVIDERS } from "../../open-sse/config/providers.js";
 import { resolveTransport } from "../../open-sse/services/provider.js";
 
@@ -67,6 +67,13 @@ describe("OpenCode Go per-model supportedFormats", () => {
 });
 
 describe("OpenCode Go multi-endpoint transports", () => {
+  it("forces upstream streaming only for Luna", () => {
+    expect(PROVIDERS["opencode-go"].forceStream).not.toBe(true);
+    expect(getModelForceStream("opencode-go", "gpt-5.6-luna")).toBe(true);
+    expect(getModelForceStream("opencode-go", "mimo-v2.5")).toBe(false);
+    expect(getModelForceStream("opencode-go", "minimax-m3")).toBe(false);
+  });
+
   it("declares openai / claude / openai-responses transports", () => {
     const formats = (PROVIDERS["opencode-go"].transports || []).map((t) => t.format);
     expect(formats).toEqual(["openai", "claude", "openai-responses"]);

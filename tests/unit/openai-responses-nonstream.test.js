@@ -114,6 +114,84 @@ describe("non-stream Responses upstream for a Chat client (OpenCode Go Luna)", (
     expect(out.choices[0].finish_reason).toBe("stop");
     expect(out.usage).toEqual({ prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 });
   });
+
+  it("normalizes a JSON response with a trailing SSE terminator", async () => {
+    const upstreamBody = {
+      id: "resp_luna",
+      object: "response",
+      status: "completed",
+      model: "gpt-5.6-luna",
+      output: [{
+        type: "message",
+        role: "assistant",
+        content: [{ type: "output_text", text: "OK", annotations: [] }],
+      }],
+      usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+    };
+    const result = await handleForcedSSEToJson({
+      providerResponse: new Response(`${JSON.stringify(upstreamBody)}data: [DONE]\n`, {
+        headers: { "content-type": "application/json" },
+      }),
+      sourceFormat: FORMATS.OPENAI_RESPONSES,
+      targetFormat: FORMATS.OPENAI_RESPONSES,
+      provider: "opencode-go",
+      model: "gpt-5.6-luna",
+      body: { model: "gpt-5.6-luna", input: [], stream: false },
+      stream: true,
+      requestStartTime: Date.now(),
+      connectionId: "test-connection",
+      clientRawRequest: { endpoint: "/v1/responses" },
+      trackDone: vi.fn(),
+      appendLog: vi.fn(),
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.response.headers.get("content-type")).toContain("application/json");
+    await expect(result.response.json()).resolves.toMatchObject({
+      object: "response",
+      status: "completed",
+      output: [{ content: [{ text: "OK" }] }],
+    });
+  });
+
+  it("returns Anthropic JSON for a Claude client behind Luna", async () => {
+    const upstreamBody = {
+      id: "resp_luna",
+      object: "response",
+      status: "completed",
+      model: "gpt-5.6-luna",
+      output: [{
+        type: "message",
+        role: "assistant",
+        content: [{ type: "output_text", text: "OK", annotations: [] }],
+      }],
+      usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+    };
+    const result = await handleForcedSSEToJson({
+      providerResponse: new Response(`${JSON.stringify(upstreamBody)}data: [DONE]\n`, {
+        headers: { "content-type": "application/json" },
+      }),
+      sourceFormat: FORMATS.CLAUDE,
+      targetFormat: FORMATS.OPENAI_RESPONSES,
+      provider: "opencode-go",
+      model: "gpt-5.6-luna",
+      body: { model: "gpt-5.6-luna", input: [], stream: false },
+      stream: true,
+      requestStartTime: Date.now(),
+      connectionId: "test-connection",
+      clientRawRequest: { endpoint: "/v1/messages" },
+      trackDone: vi.fn(),
+      appendLog: vi.fn(),
+    });
+
+    expect(result.success).toBe(true);
+    await expect(result.response.json()).resolves.toMatchObject({
+      type: "message",
+      role: "assistant",
+      content: [{ type: "text", text: "OK" }],
+      usage: { input_tokens: 10, output_tokens: 2 },
+    });
+  });
 });
 
 describe("forced-SSE JSON path for a Responses-API client behind a chat upstream", () => {
@@ -175,5 +253,17 @@ describe("forced-SSE JSON path for a Responses-API client behind a chat upstream
     const json = await result.response.json();
     expect(json.object).toBe("chat.completion");
     expect(json.choices[0].message.tool_calls[0].function.name).toBe("shell");
+  });
+
+  it("returns Anthropic JSON for a Claude client", async () => {
+    const result = await handleForcedSSEToJson(sseCtx(FORMATS.CLAUDE, FORMATS.OPENAI));
+    expect(result.success).toBe(true);
+    const json = await result.response.json();
+    expect(json).toMatchObject({
+      type: "message",
+      role: "assistant",
+      stop_reason: "tool_use",
+      content: [{ type: "tool_use", name: "shell", input: { cmd: "pwd" } }],
+    });
   });
 });

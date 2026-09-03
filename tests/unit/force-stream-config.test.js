@@ -49,6 +49,8 @@ vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
 
 vi.mock("../../open-sse/translator/formats/claude.js", () => ({
   normalizeClaudePassthrough: vi.fn(),
+  anchorClaudeCache: vi.fn(),
+  prepareClaudeRequest: vi.fn((body) => body),
 }));
 
 vi.mock("../../open-sse/utils/toolDeduper.js", () => ({
@@ -71,6 +73,7 @@ vi.mock("../../open-sse/rtk/index.js", () => ({
 vi.mock("../../open-sse/rtk/headroom.js", () => ({
   compressWithHeadroom: vi.fn(async () => null),
   formatHeadroomLog: vi.fn(() => ""),
+  formatHeadroomSizeLog: vi.fn(() => ""),
 }));
 
 vi.mock("../../open-sse/providers/capabilities.js", () => ({
@@ -125,6 +128,15 @@ function makeOptions(bodyStream) {
   };
 }
 
+function makeClaudeOptions(bodyStream) {
+  const options = makeOptions(bodyStream);
+  options.modelInfo = { provider: "deepseek", model: "deepseek-chat" };
+  options.body.model = "deepseek/deepseek-chat";
+  options.clientRawRequest.endpoint = "/v1/messages";
+  options.sourceFormatOverride = "claude";
+  return options;
+}
+
 describe("forceStream provider config", () => {
   beforeEach(() => {
     executeMock.mockReset();
@@ -149,5 +161,14 @@ describe("forceStream provider config", () => {
 
     expect(executeMock).toHaveBeenCalledTimes(1);
     expect(executeMock.mock.calls[0][0].stream).toBe(true);
+  });
+
+  it.each([undefined, false])("defaults Claude clients to non-streaming when body.stream is %s", async (bodyStream) => {
+    const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
+
+    await handleChatCore(makeClaudeOptions(bodyStream));
+
+    expect(executeMock).toHaveBeenCalledTimes(1);
+    expect(executeMock.mock.calls[0][0].stream).toBe(false);
   });
 });

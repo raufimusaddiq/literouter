@@ -2,6 +2,7 @@ import { convertResponsesStreamToJson } from "../../transformer/streamToJsonConv
 import { createErrorResult } from "../../utils/error.js";
 import { HTTP_STATUS } from "../../config/runtimeConfig.js";
 import { FORMATS } from "../../translator/formats.js";
+import { openAICompletionToClaudeMessage, responsesToClaudeMessage } from "../../translator/response/nonstream-to-claude.js";
 import { PROVIDERS } from "../../config/providers.js";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail.js";
 import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index.js";
@@ -181,8 +182,10 @@ export function parseSSEToOpenAIResponse(rawSSE, fallbackModel) {
  */
 export async function handleForcedSSEToJson({ providerResponse, sourceFormat, targetFormat, provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, customToolNames, trackDone, appendLog, reqTag, log }) {
   const contentType = providerResponse.headers.get("content-type") || "";
+  const isCodexResponsesApi = isResponsesProvider(provider) || targetFormat === FORMATS.OPENAI_RESPONSES;
   const isSSE = contentType.includes("text/event-stream") || (contentType === "" && isResponsesProvider(provider));
-  if (!isSSE) return null; // not handled here
+  const isResponsesJson = isCodexResponsesApi && contentType.includes("application/json");
+  if (!isSSE && !isResponsesJson) return null; // not handled here
 
   trackDone();
 
@@ -196,10 +199,11 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
   // Branch on the UPSTREAM format (targetFormat = format we spoke to the provider in),
   // not the client format: a Responses-API client behind a chat-native forced-streaming
   // provider still receives chat SSE chunks, which must go through the standard path.
-  const isCodexResponsesApi = isResponsesProvider(provider) || targetFormat === FORMATS.OPENAI_RESPONSES;
   if (isCodexResponsesApi) {
     try {
-      const jsonResponse = await convertResponsesStreamToJson(providerResponse.body);
+      const jsonResponse = isResponsesJson
+        ? JSON.parse((await providerResponse.text()).replace(/\s*data:\s*\[DONE\]\s*$/, "").trim())
+        : await convertResponsesStreamToJson(providerResponse.body);
       if (onRequestSuccess) await onRequestSuccess();
 
       const usage = jsonResponse.usage || {};
@@ -226,6 +230,11 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
       // Client is Responses API → return as-is
       if (sourceFormat === FORMATS.OPENAI_RESPONSES) {
         return { success: true, response: new Response(JSON.stringify(jsonResponse), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
+      }
+
+      if (sourceFormat === FORMATS.CLAUDE) {
+        const finalResp = responsesToClaudeMessage(jsonResponse);
+        return { success: true, response: new Response(JSON.stringify(finalResp), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
       }
 
       // Build client-format response.
@@ -349,7 +358,9 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
     // already imports parseSSEToOpenAIResponse from this module.
     const finalBody = sourceFormat === FORMATS.OPENAI_RESPONSES
       ? chatCompletionToResponses(parsed, customToolNames)
-      : parsed;
+      : sourceFormat === FORMATS.CLAUDE
+        ? openAICompletionToClaudeMessage(parsed)
+        : parsed;
 
     return { success: true, response: new Response(JSON.stringify(finalBody), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
   } catch (err) {
