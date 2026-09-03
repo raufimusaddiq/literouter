@@ -1,5 +1,6 @@
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
+import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
 import { stripStoredItemReferences, normalizeCodexTools, convertSystemToDeveloperRole } from "./codex.js";
 import { normalizeResponsesInput } from "../translator/formats/responsesApi.js";
 
@@ -42,7 +43,18 @@ export class OpencodeGoExecutor extends BaseExecutor {
   }
 
   buildHeaders(credentials, stream = true) {
-    return super.buildHeaders(credentials, stream);
+    const headers = super.buildHeaders(credentials, stream);
+    const auth = credentials?.runtimeTransport?.auth;
+    const token = credentials?.apiKey || credentials?.accessToken;
+    if (auth?.header && token) {
+      delete headers.Authorization;
+      delete headers["x-api-key"];
+      headers[auth.header] = auth.scheme === "bearer" ? `Bearer ${token}` : token;
+      if (auth.anthropicVersion && !headers["anthropic-version"]) {
+        headers["anthropic-version"] = ANTHROPIC_API_VERSION;
+      }
+    }
+    return headers;
   }
 
   transformRequest(model, body, stream, credentials) {

@@ -111,6 +111,15 @@ describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
     executor.transformRequest("gpt-5.6-luna", body, true, null);
     expect(body.instructions).toBeUndefined();
   });
+
+  it("uses x-api-key for the Claude transport", () => {
+    const headers = executor.buildHeaders({ apiKey: "sk-test", runtimeTransport: {
+      auth: { combined: true, header: "x-api-key", scheme: "raw", anthropicVersion: true },
+    } }, false);
+    expect(headers["x-api-key"]).toBe("sk-test");
+    expect(headers.Authorization).toBeUndefined();
+    expect(headers["anthropic-version"]).toBe("2023-06-01");
+  });
 });
 
 describe("OpencodeGoExecutor — every model accepted (no breakage)", () => {
