@@ -4,9 +4,9 @@
 // no longer reach OpenCode Go's /responses endpoint, while chat-completion
 // requests for non-Luna models still pass through untouched.
 import { describe, expect, it, beforeEach } from "vitest";
-import { OpencodeGoExecutor } from "../../open-sse/executors/opencode-go.js";
+import { OpenCodeGoExecutor } from "../../open-sse/executors/opencode-go.js";
 
-const executor = new OpencodeGoExecutor();
+const executor = new OpenCodeGoExecutor();
 
 // Mirror of PROVIDER_MODELS["opencode-go"]
 const ALL_MODELS = [
@@ -17,6 +17,7 @@ const ALL_MODELS = [
   "mimo-v2.5", "mimo-v2.5-pro",
   "minimax-m3", "minimax-m2.7", "minimax-m2.5",
   "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus",
+  "muse-spark-1.2-contributor", "muse-spark-1.3-contributor",
 ];
 
 describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
@@ -26,8 +27,8 @@ describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
       previous_response_id: "resp_anything",
       input: [{ type: "message", role: "user", content: "ping" }],
     };
-    executor.transformRequest("gpt-5.6-luna", body, true, null);
-    expect(body.previous_response_id).toBeUndefined();
+    const transformed = executor.transformRequest("gpt-5.6-luna", body, true, null);
+    expect(transformed.previous_response_id).toBeUndefined();
   });
 
   it("strips server-generated item IDs (rs_/fc_/resp_/msg_) from input[]", () => {
@@ -41,10 +42,10 @@ describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
         { id: "msg_user2", type: "message", role: "user", content: [{ type: "input_text", text: "next" }] },
       ],
     };
-    executor.transformRequest("gpt-5.6-luna", body, true, null);
-    expect(body.input).toHaveLength(4);
-    expect(body.input.map((i) => i.id)).toEqual([undefined, undefined, undefined, undefined]);
-    expect(body.input.some((i) => i.type === "item_reference")).toBe(false);
+    const transformed = executor.transformRequest("gpt-5.6-luna", body, true, null);
+    expect(transformed.input).toHaveLength(4);
+    expect(transformed.input.map((i) => i.id)).toEqual([undefined, undefined, undefined, undefined]);
+    expect(transformed.input.some((i) => i.type === "item_reference")).toBe(false);
   });
 
   it("forces store=false so upstream never tries to resolve prior items", () => {
@@ -53,8 +54,8 @@ describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
       store: true,
       input: [{ type: "message", role: "user", content: "hi" }],
     };
-    executor.transformRequest("gpt-5.6-luna", body, true, null);
-    expect(body.store).toBe(false);
+    const transformed = executor.transformRequest("gpt-5.6-luna", body, true, null);
+    expect(transformed.store).toBe(false);
   });
 
   it("forces stream=true (OpenCode Go Responses requires it)", () => {
@@ -63,8 +64,8 @@ describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
       stream: false,
       input: [{ type: "message", role: "user", content: "hi" }],
     };
-    executor.transformRequest("gpt-5.6-luna", body, true, null);
-    expect(body.stream).toBe(true);
+    const transformed = executor.transformRequest("gpt-5.6-luna", body, true, null);
+    expect(transformed.stream).toBe(true);
   });
 
   it("strips sampling controls that OpenCode Go's Responses rejects", () => {
@@ -79,14 +80,14 @@ describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
       stream_options: { include_usage: true },
       input: [{ type: "message", role: "user", content: "hi" }],
     };
-    executor.transformRequest("gpt-5.6-luna", body, true, null);
-    expect(body.temperature).toBeUndefined();
-    expect(body.top_p).toBeUndefined();
-    expect(body.max_tokens).toBeUndefined();
-    expect(body.max_output_tokens).toBeUndefined();
-    expect(body.max_completion_tokens).toBeUndefined();
-    expect(body.metadata).toBeUndefined();
-    expect(body.stream_options).toBeUndefined();
+    const transformed = executor.transformRequest("gpt-5.6-luna", body, true, null);
+    expect(transformed.temperature).toBeUndefined();
+    expect(transformed.top_p).toBeUndefined();
+    expect(transformed.max_tokens).toBeUndefined();
+    expect(transformed.max_output_tokens).toBeUndefined();
+    expect(transformed.max_completion_tokens).toBeUndefined();
+    expect(transformed.metadata).toBeUndefined();
+    expect(transformed.stream_options).toBeUndefined();
   });
 
   it("converts role=system to role=developer so prompts hit the cacheable prefix", () => {
@@ -94,8 +95,8 @@ describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
       model: "gpt-5.6-luna",
       input: [{ role: "system", type: "message", content: [{ type: "input_text", text: "be terse" }] }],
     };
-    executor.transformRequest("gpt-5.6-luna", body, true, null);
-    expect(body.input[0].role).toBe("developer");
+    const transformed = executor.transformRequest("gpt-5.6-luna", body, true, null);
+    expect(transformed.input[0].role).toBe("developer");
   });
 
   it("does NOT inject Codex-specific identity headers (regression guard)", () => {
@@ -115,8 +116,8 @@ describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
 
   it("does NOT inject Codex default instructions (overrides OpenCode Go system prompt)", () => {
     const body = { model: "gpt-5.6-luna", input: [{ type: "message", role: "user", content: "hi" }] };
-    executor.transformRequest("gpt-5.6-luna", body, true, null);
-    expect(body.instructions).toBeUndefined();
+    const transformed = executor.transformRequest("gpt-5.6-luna", body, true, null);
+    expect(transformed.instructions).toBeUndefined();
   });
 
   it("uses x-api-key for the Claude transport", () => {
@@ -130,9 +131,9 @@ describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
 });
 
 describe("OpencodeGoExecutor — every model accepted (no breakage)", () => {
-  it.each(ALL_MODELS)("model %s — sanitization runs without throwing", () => {
+  it.each(ALL_MODELS)("model %s — transforms without throwing", (model) => {
     const body = {
-      model: "%s",
+      model,
       stream: false,
       temperature: 0.5,
       previous_response_id: "resp_x",
@@ -143,12 +144,17 @@ describe("OpencodeGoExecutor — every model accepted (no breakage)", () => {
       ],
       tools: [{ type: "function", function: { name: "ping", description: "", parameters: { type: "object", properties: {} } } }],
     };
-    executor.transformRequest("%s", body, true, null);
-    expect(body.previous_response_id).toBeUndefined();
-    expect(body.temperature).toBeUndefined();
-    expect(body.store).toBe(false);
-    expect(body.stream).toBe(true);
-    expect(Array.isArray(body.input)).toBe(true);
+    const transformed = executor.transformRequest(model, body, true, null);
+    expect(transformed.previous_response_id).toBeUndefined();
+    expect(Array.isArray(transformed.input)).toBe(true);
+    if (model === "gpt-5.6-luna" || model.startsWith("muse-spark-")) {
+      expect(transformed.store).toBe(false);
+      expect(transformed.stream).toBe(true);
+    } else {
+      expect(transformed.store).toBeUndefined();
+      expect(transformed.stream).toBe(false);
+    }
+    expect(transformed.temperature).toBe(model === "gpt-5.6-luna" ? undefined : 0.5);
   });
 });
 
@@ -166,12 +172,12 @@ describe("OpencodeGoExecutor — chat-completion regression (non-Luna models)", 
         { role: "user", content: "hi" },
       ],
     };
-    executor.transformRequest("glm-5.2", body, true, null);
-    expect(body.messages).toEqual([
+    const transformed = executor.transformRequest("glm-5.2", body, true, null);
+    expect(transformed.messages).toEqual([
       { role: "system", content: "sys" },
       { role: "user", content: "hi" },
     ]);
-    expect(body.input).toBeUndefined();
+    expect(transformed.input).toBeUndefined();
   });
 
   it("strips previous_response_id even when sent with messages (defense in depth)", () => {
@@ -180,7 +186,7 @@ describe("OpencodeGoExecutor — chat-completion regression (non-Luna models)", 
       messages: [{ role: "user", content: "hi" }],
       previous_response_id: "resp_should_be_gone",
     };
-    executor.transformRequest("deepseek-v4-flash", body, true, null);
-    expect(body.previous_response_id).toBeUndefined();
+    const transformed = executor.transformRequest("deepseek-v4-flash", body, true, null);
+    expect(transformed.previous_response_id).toBeUndefined();
   });
 });
