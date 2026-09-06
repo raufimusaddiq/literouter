@@ -1,107 +1,198 @@
-import { BaseExecutor } from "./base.js";
-import { PROVIDERS } from "../config/providers.js";
-import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
-import { stripStoredItemReferences, normalizeCodexTools, convertSystemToDeveloperRole } from "./codex.js";
-import { normalizeResponsesInput } from "../translator/formats/responsesApi.js";
+import crypto from "node:crypto";
+import { DefaultExecutor } from "./default.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
+import { isMuseSparkModel } from "../providers/models/helpers.js";
+import { stripStoredItemReferences, convertSystemToDeveloperRole } from "./codex.js";
+import {
+  normalizeResponsesInput,
+  clampResponsesCallId,
+  coerceResponsesArguments,
+  coerceResponsesOutput,
+} from "../translator/formats/responsesApi.js";
 
-// OpenCode Go's Responses endpoint runs with store=false, identical to Codex,
-// but uses a plain OpenAI-compatible Bearer token (no ChatGPT-Account-ID,
-// no codex_cli_rs originator, no session_id). Reuse CodexExecutor's sanitization
-// (server-generated item IDs stripped, previous_response_id deleted) without
-// any Codex-account-specific header injection.
+const SESSION_HEADER = "x-opencode-session";
+const SESSION_FIELD = "_opencodeGoSession";
+const MAX_SESSION_LENGTH = 256;
 
-// Allowlist of fields accepted by OpenAI Responses API.
-const RESPONSES_API_ALLOWLIST = new Set([
-  "model", "input", "instructions", "tools", "tool_choice", "stream", "store",
-  "reasoning", "service_tier", "include", "prompt_cache_key", "client_metadata",
-  "text",
-]);
-
-// Fields OpenAI /responses rejects — strip for the Responses path only.
-const RESPONSES_OMIT_FIELDS = [
+const RESPONSES_BASE_URL = "https://opencode.ai/zen/go/v1/responses";
+const MAX_TOOL_NAME_LEN = 128;
+const LUNA_MODEL = "gpt-5.6-luna";
+const LUNA_RESPONSES_OMIT_FIELDS = [
   "temperature", "top_p", "frequency_penalty", "presence_penalty",
-  "logprobs", "top_logprobs",
-  "n", "seed", "max_tokens", "max_completion_tokens", "max_output_tokens",
-  "user", "prompt_cache_retention", "metadata", "stream_options", "safety_identifier",
-  "previous_response_id",
+  "logprobs", "top_logprobs", "n", "seed", "max_tokens",
+  "max_completion_tokens", "max_output_tokens", "user",
+  "prompt_cache_retention", "metadata", "stream_options",
+  "safety_identifier", "previous_response_id",
 ];
 
-export class OpencodeGoExecutor extends BaseExecutor {
+function normalizeSession(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!normalized || normalized.length > MAX_SESSION_LENGTH) return null;
+  return normalized;
+}
+
+function nativeSession(headers) {
+  if (!headers || typeof headers !== "object") return null;
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === SESSION_HEADER) return normalizeSession(value);
+  }
+  return null;
+}
+
+function translatedSession(sessionId, clientTool) {
+  const digest = crypto
+    .createHash("sha256")
+    .update(`opencode-go\0${clientTool || "generic"}\0${sessionId}`)
+    .digest("hex")
+    .slice(0, 32);
+  return `ses_${digest}`;
+}
+
+// Strip the thinking suffix "model(level)" so checks hit the base id.
+function baseModelId(model) {
+  return String(model || "").replace(/\([^()]+\)\s*$/, "").trim();
+}
+
+function isResponsesModel(model) {
+  const base = baseModelId(model);
+  return base === LUNA_MODEL || isMuseSparkModel(base);
+}
+
+// Flatten Chat Completions tool declarations into the Responses flat shape and
+// drop hosted/nameless tools the /responses endpoint rejects.
+function normalizeResponsesTools(body) {
+  if (!Array.isArray(body.tools)) return;
+  const validNames = new Set();
+  body.tools = body.tools.filter((tool) => {
+    if (!tool || typeof tool !== "object" || Array.isArray(tool)) return false;
+    const fn = tool.function && typeof tool.function === "object" && !Array.isArray(tool.function) ? tool.function : null;
+    const rawName = typeof tool.name === "string" ? tool.name : (typeof fn?.name === "string" ? fn.name : "");
+    const name = rawName.trim();
+    if (!name) return false;
+    const description = typeof tool.description === "string" ? tool.description : (typeof fn?.description === "string" ? fn.description : "");
+    let parameters = (tool.parameters && typeof tool.parameters === "object" && !Array.isArray(tool.parameters))
+      ? tool.parameters
+      : (fn?.parameters && typeof fn.parameters === "object" && !Array.isArray(fn.parameters) ? fn.parameters : { type: "object", properties: {} });
+    // Mirror the request translator: {type:"object"} without properties is rejected
+    // by strict Responses backends, so fill in the empty properties map.
+    if (parameters.type === "object" && !parameters.properties) parameters = { ...parameters, properties: {} };
+    for (const k of Object.keys(tool)) delete tool[k];
+    tool.type = "function";
+    tool.name = name.slice(0, MAX_TOOL_NAME_LEN);
+    if (description) tool.description = description;
+    tool.parameters = parameters;
+    validNames.add(tool.name);
+    return true;
+  });
+  if (body.tool_choice && typeof body.tool_choice === "object" && !Array.isArray(body.tool_choice)) {
+    if (body.tool_choice.type === "function") {
+      const n = typeof body.tool_choice.name === "string" ? body.tool_choice.name.trim() : "";
+      if (!n || !validNames.has(n)) delete body.tool_choice;
+    }
+  }
+}
+
+// Last line of defense for native Responses clients (sourceFormat === targetFormat
+// skips translation): coerce items in place so malformed tool payloads 400 here
+// with a clear shape instead of upstream as InputValidationError.
+function sanitizeResponsesItems(body) {
+  if (!Array.isArray(body.input)) return;
+  body.input = body.input.filter((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return true;
+    if (item.type === "function_call") {
+      if (!item.name || typeof item.name !== "string" || item.name.trim() === "") return false;
+      item.name = item.name.trim().slice(0, MAX_TOOL_NAME_LEN);
+      item.call_id = clampResponsesCallId(item.call_id);
+      item.arguments = coerceResponsesArguments(item.arguments);
+      return true;
+    }
+    if (item.type === "function_call_output") {
+      item.call_id = clampResponsesCallId(item.call_id);
+      item.output = coerceResponsesOutput(item.output);
+      return true;
+    }
+    return true;
+  });
+}
+
+export class OpenCodeGoExecutor extends DefaultExecutor {
   constructor() {
-    super("opencode-go", PROVIDERS["opencode-go"]);
-    this._currentSessionId = null;
+    super("opencode-go");
   }
 
-  // Use the sourceFormat-matched transport set by chatCore (resolves to the
-  // /responses endpoint for the Responses path, /chat/completions otherwise).
   buildUrl(model, stream, urlIndex = 0, credentials = null) {
-    const rt = credentials?.runtimeTransport;
-    if (rt?.baseUrl) {
-      return rt.urlSuffix ? `${rt.baseUrl}${rt.urlSuffix}` : rt.baseUrl;
-    }
+    // Muse Spark lives on /responses even when a stale runtimeTransport leaks in.
+    if (isResponsesModel(model)) return RESPONSES_BASE_URL;
     return super.buildUrl(model, stream, urlIndex, credentials);
   }
 
-  buildHeaders(credentials, stream = true) {
-    const headers = super.buildHeaders(credentials, stream);
-    const auth = credentials?.runtimeTransport?.auth;
-    const token = credentials?.apiKey || credentials?.accessToken;
-    if (auth?.header && token) {
-      delete headers.Authorization;
-      delete headers["x-api-key"];
-      headers[auth.header] = auth.scheme === "bearer" ? `Bearer ${token}` : token;
-      if (auth.anthropicVersion && !headers["anthropic-version"]) {
-        headers["anthropic-version"] = ANTHROPIC_API_VERSION;
-      }
+  prepareRequestCredentials({ body, credentials, providerSessionId, clientTool } = {}) {
+    const sourceCredentials = credentials || {};
+    const native = nativeSession(sourceCredentials.rawHeaders);
+    const resolved = normalizeSession(providerSessionId) || resolveSessionId({
+      headers: sourceCredentials.rawHeaders,
+      body,
+      connectionId: sourceCredentials.connectionId,
+      scope: "opencode-go",
+    });
+
+    return {
+      ...sourceCredentials,
+      [SESSION_FIELD]: native || translatedSession(resolved, clientTool),
+    };
+  }
+
+  async execute(args) {
+    const credentials = this.prepareRequestCredentials(args);
+    return super.execute({ ...args, credentials });
+  }
+
+  buildHeaders(credentials, stream = true, url, model) {
+    const headers = super.buildHeaders(credentials || {}, stream, url, model);
+    const prepared = credentials?.[SESSION_FIELD];
+    if (prepared) {
+      headers[SESSION_HEADER] = prepared;
+      return headers;
     }
-    headers["x-opencode-session"] = this._currentSessionId || credentials?.connectionId || crypto.randomUUID();
+
+    const fallback = this.prepareRequestCredentials({ credentials });
+    headers[SESSION_HEADER] = fallback[SESSION_FIELD];
     return headers;
   }
 
   transformRequest(model, body, stream, credentials) {
-    this._currentSessionId = resolveSessionId({
-      headers: credentials?.rawHeaders,
-      body,
-      connectionId: credentials?.connectionId,
-      scope: "opencode-go",
-    });
-    // Always strip previous_response_id (store=false on both transports).
-    delete body.previous_response_id;
-
-    // Responses-format path (input[] present) — this is the Luna case.
-    if (Array.isArray(body.input)) {
-      const normalized = normalizeResponsesInput(body.input);
-      if (normalized) body.input = normalized;
-
-      if (!body.input || body.input.length === 0) {
-        body.input = [{ type: "message", role: "user", content: [{ type: "input_text", text: "..." }] }];
-      }
-
-      convertSystemToDeveloperRole(body);
-      stripStoredItemReferences(body);
-      normalizeCodexTools(body);
-
-      // OpenCode Go Responses requires streaming.
-      body.stream = true;
-
-      // Pin store=false so upstream persists nothing and the next turn never
-      // references an item it cannot resolve.
-      body.store = false;
-
-      // Strip fields OpenCode Go's /responses endpoint rejects.
-      for (const k of RESPONSES_OMIT_FIELDS) {
-        delete body[k];
-      }
-
-      // Final allowlist — strip unknown fields that could trigger upstream rejection.
-      for (const k of Object.keys(body)) {
-        if (!RESPONSES_API_ALLOWLIST.has(k)) delete body[k];
-      }
+    const out = super.transformRequest(model, body);
+    delete out.previous_response_id;
+    if (!isResponsesModel(model || body?.model)) return out;
+    const normalized = normalizeResponsesInput(out.input);
+    if (normalized) out.input = normalized;
+    if (!Array.isArray(out.input) || out.input.length === 0) {
+      out.input = [{ type: "message", role: "user", content: [{ type: "input_text", text: "..." }] }];
     }
-
-    // Chat-completions path (messages[] present) — only strip previous_response_id.
-    // Non-Luna models (glm, kimi, deepseek) work here and must not be altered.
-    return body;
+    // Responses names the output cap max_output_tokens, not max_tokens.
+    if (out.max_output_tokens === undefined) {
+      if (out.max_completion_tokens !== undefined) out.max_output_tokens = out.max_completion_tokens;
+      else if (out.max_tokens !== undefined) out.max_output_tokens = out.max_tokens;
+    }
+    delete out.max_tokens;
+    delete out.max_completion_tokens;
+    if (out.reasoning_effort !== undefined && out.reasoning === undefined) {
+      out.reasoning = { effort: out.reasoning_effort, summary: "auto" };
+    }
+    if (out.reasoning && typeof out.reasoning === "object" && !Array.isArray(out.reasoning)) {
+      if (!out.reasoning.summary) out.reasoning.summary = "auto";
+    }
+    delete out.reasoning_effort;
+    out.stream = true;
+    out.store = false;
+    normalizeResponsesTools(out);
+    if (baseModelId(model || body?.model) === LUNA_MODEL) {
+      convertSystemToDeveloperRole(out);
+      stripStoredItemReferences(out);
+      for (const field of LUNA_RESPONSES_OMIT_FIELDS) delete out[field];
+    }
+    sanitizeResponsesItems(out);
+    return out;
   }
 }

@@ -1,40 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { PROVIDER_MODELS, getModelForceStream, getModelSupportedFormats, getModelTargetFormat } from "../../open-sse/config/providerModels.js";
+import { PROVIDER_MODELS, getModelSupportedFormats } from "../../open-sse/config/providerModels.js";
 import { PROVIDERS } from "../../open-sse/config/providers.js";
 import { resolveTransport } from "../../open-sse/services/provider.js";
 
 // Chat-only models (no /messages, no /responses support on opencode-go)
-const CHAT_ONLY = ["ox-alpha-free", "glm-5.3-flash", "glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6", "mimo-v2.5", "mimo-v2.5-pro"];
+const CHAT_ONLY = ["glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6", "mimo-v2.5", "mimo-v2.5-pro"];
 // Models that also expose the Anthropic /messages endpoint
 const CLAUDE_CAPABLE = ["minimax-m3", "minimax-m2.7", "minimax-m2.5", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus"];
 // Models that also expose the OpenAI /responses endpoint
-const RESPONSES_CAPABLE = ["deepseek-v4-pro", "deepseek-v4-flash", "deepseek-v4-flash-vision-exp"];
-const RESPONSES_ONLY = ["gpt-5.6-luna"];
+const RESPONSES_CAPABLE = ["deepseek-v4-pro", "deepseek-v4-flash"];
 
 // Mirror of chatCore's per-model transport guard: use the sourceFormat-matched
 // transport only when the model declares support for that sourceFormat.
 function pickTransport(provider, sourceFormat, alias, model) {
   const supported = getModelSupportedFormats(alias, model);
   const rt = resolveTransport(provider, sourceFormat);
-  let selected = supported?.includes(sourceFormat) ? rt : null;
-  const targetFormat = getModelTargetFormat(alias, model) || selected?.format || "openai";
-  if (!selected && supported?.includes(targetFormat)) {
-    selected = resolveTransport(provider, targetFormat);
-  }
-  return selected;
+  return supported?.includes(sourceFormat) ? rt : null;
 }
 
 describe("OpenCode Go model catalog", () => {
   it("matches the documented model IDs", () => {
     const ids = (PROVIDER_MODELS["opencode-go"] || []).map((m) => m.id);
     expect(ids).toEqual([
-      "gpt-5.6-luna",
-      "ox-alpha-free",
       "glm-5.3-flash", "glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6",
       "deepseek-v4-pro", "deepseek-v4-flash", "deepseek-v4-flash-vision-exp",
       "mimo-v2.5", "mimo-v2.5-pro",
       "minimax-m3", "minimax-m2.7", "minimax-m2.5",
       "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus",
+      "muse-spark-1.2-contributor", "muse-spark-1.3-contributor",
+      "gpt-5.6-luna", "ox-alpha-free",
     ]);
   });
 });
@@ -57,23 +51,9 @@ describe("OpenCode Go per-model supportedFormats", () => {
       expect(getModelSupportedFormats("opencode-go", m)).toEqual(["openai"]);
     }
   });
-
-  it("declares Luna as Responses-only", () => {
-    for (const m of RESPONSES_ONLY) {
-      expect(getModelSupportedFormats("opencode-go", m)).toEqual(["openai-responses"]);
-      expect(getModelTargetFormat("opencode-go", m)).toBe("openai-responses");
-    }
-  });
 });
 
 describe("OpenCode Go multi-endpoint transports", () => {
-  it("forces upstream streaming only for Luna", () => {
-    expect(PROVIDERS["opencode-go"].forceStream).not.toBe(true);
-    expect(getModelForceStream("opencode-go", "gpt-5.6-luna")).toBe(true);
-    expect(getModelForceStream("opencode-go", "mimo-v2.5")).toBe(false);
-    expect(getModelForceStream("opencode-go", "minimax-m3")).toBe(false);
-  });
-
   it("declares openai / claude / openai-responses transports", () => {
     const formats = (PROVIDERS["opencode-go"].transports || []).map((t) => t.format);
     expect(formats).toEqual(["openai", "claude", "openai-responses"]);
@@ -99,9 +79,9 @@ describe("OpenCode Go per-model transport guard (chatCore logic)", () => {
     }
   });
 
-  it("routes chat-only models to their supported chat transport on a claude-format request", () => {
+  it("does NOT route chat-only models to /messages on a claude-format request", () => {
     for (const m of CHAT_ONLY) {
-      expect(pickTransport("opencode-go", "claude", "opencode-go", m)?.baseUrl).toBe("https://opencode.ai/zen/go/v1/chat/completions");
+      expect(pickTransport("opencode-go", "claude", "opencode-go", m)).toBeNull();
     }
   });
 
@@ -111,15 +91,18 @@ describe("OpenCode Go per-model transport guard (chatCore logic)", () => {
     }
   });
 
-  it("routes Luna chat-format requests to /responses for combo compatibility", () => {
-    for (const m of RESPONSES_ONLY) {
-      expect(pickTransport("opencode-go", "openai", "opencode-go", m)?.baseUrl).toBe("https://opencode.ai/zen/go/v1/responses");
+  it("routes Muse Spark (responses-only) to /responses, never to /messages", () => {
+    for (const m of ["muse-spark-1.2-contributor", "muse-spark-1.3-contributor"]) {
+      expect(getModelSupportedFormats("opencode-go", m)).toEqual(["openai-responses"]);
+      expect(pickTransport("opencode-go", "openai-responses", "opencode-go", m)?.baseUrl).toBe("https://opencode.ai/zen/go/v1/responses");
+      expect(pickTransport("opencode-go", "claude", "opencode-go", m)).toBeNull();
+      expect(pickTransport("opencode-go", "openai", "opencode-go", m)).toBeNull();
     }
   });
 
-  it("routes MiniMax to chat instead of unsupported /responses", () => {
+  it("does NOT route MiniMax (no responses support) to /responses", () => {
     for (const m of CLAUDE_CAPABLE) {
-      expect(pickTransport("opencode-go", "openai-responses", "opencode-go", m)?.baseUrl).toBe("https://opencode.ai/zen/go/v1/chat/completions");
+      expect(pickTransport("opencode-go", "openai-responses", "opencode-go", m)).toBeNull();
     }
   });
 });
