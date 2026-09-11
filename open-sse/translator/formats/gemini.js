@@ -101,7 +101,6 @@ export function convertOpenAIContentToParts(content) {
 
   return parts;
 }
-
 // Extract text content from OpenAI content
 export function extractTextContent(content, separator = "") {
   if (typeof content === "string") return content;
@@ -430,5 +429,22 @@ export function cleanJSONSchemaForAntigravity(schema) {
   addPlaceholders(cleaned);
 
   return cleaned;
+}
+
+// Merge adjacent same-role messages, strip empty parts, ensure initial user turn
+export function normalizeGeminiContents(contents) {
+  const out = [];
+  for (const c of contents || []) {
+    if (!c?.role || !Array.isArray(c.parts)) continue;
+    const parts = c.parts.filter(p => p && Object.keys(p).length > 0);
+    if (parts.length === 0) continue;
+    const last = out.at(-1);
+    if (last?.role === c.role) last.parts.push(...parts);
+    else out.push({ ...c, parts: [...parts] });
+  }
+  if (out.length > 0 && out[0].role !== "user") {
+    out.unshift({ role: "user", parts: [{ text: "..." }] });
+  }
+  return out;
 }
 
