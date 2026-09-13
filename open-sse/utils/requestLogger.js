@@ -7,6 +7,10 @@ const LOGGING_ENABLED = typeof process !== "undefined" && process.env?.ENABLE_RE
 let fs = null;
 let path = null;
 let LOGS_DIR = null;
+const LOG_MAX_SESSIONS = Math.max(1, Number.parseInt(process.env.REQUEST_LOG_MAX_SESSIONS || "1000", 10));
+const LOG_MAX_BYTES = Math.max(1, Number.parseInt(process.env.REQUEST_LOG_MAX_SIZE_MB || "1024", 10)) * 1024 * 1024;
+const LOG_PRUNE_INTERVAL_MS = 5 * 60 * 1000;
+let lastPruneAt = 0;
 
 // Lazy load Node.js modules (avoid top-level await)
 async function ensureNodeModules() {
@@ -17,6 +21,39 @@ async function ensureNodeModules() {
     LOGS_DIR = path.join(typeof process !== "undefined" && process.cwd ? process.cwd() : ".", "logs");
   } catch {
     // Running in non-Node environment (Worker, Browser, etc.)
+  }
+}
+
+function getDirectorySize(directory) {
+  return fs.readdirSync(directory, { withFileTypes: true }).reduce((total, entry) => {
+    const entryPath = path.join(directory, entry.name);
+    return total + (entry.isDirectory() ? getDirectorySize(entryPath) : fs.statSync(entryPath).size);
+  }, 0);
+}
+
+function pruneLogSessions() {
+  if (!fs || !LOGS_DIR || Date.now() - lastPruneAt < LOG_PRUNE_INTERVAL_MS) return;
+  lastPruneAt = Date.now();
+
+  try {
+    if (!fs.existsSync(LOGS_DIR)) return;
+    const sessions = fs.readdirSync(LOGS_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => {
+        const sessionPath = path.join(LOGS_DIR, entry.name);
+        const stats = fs.statSync(sessionPath);
+        return { sessionPath, mtime: stats.mtimeMs, size: getDirectorySize(sessionPath) };
+      })
+      .sort((a, b) => a.mtime - b.mtime);
+    let totalBytes = sessions.reduce((total, session) => total + session.size, 0);
+
+    while (sessions.length > LOG_MAX_SESSIONS || totalBytes > LOG_MAX_BYTES) {
+      const oldest = sessions.shift();
+      fs.rmSync(oldest.sessionPath, { recursive: true, force: true });
+      totalBytes -= oldest.size;
+    }
+  } catch (err) {
+    console.log("[LOG] Failed to rotate request logs:", err.message);
   }
 }
 
@@ -42,6 +79,7 @@ async function createLogSession(sourceFormat, targetFormat, model) {
     if (!fs.existsSync(LOGS_DIR)) {
       fs.mkdirSync(LOGS_DIR, { recursive: true });
     }
+    pruneLogSessions();
     
     const timestamp = formatTimestamp();
     const safeModel = (model || "unknown").replace(/[/:]/g, "-");
