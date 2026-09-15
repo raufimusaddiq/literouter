@@ -52,7 +52,15 @@ const collapsed = source.replace(
   base,
 );
 if (!collapsed.includes(base)) throw new Error("9router upstream line not found");
-fs.writeFileSync(file, collapsed.replace(base, mode === "solo" ? base : swap));
+const updated = collapsed.replace(base, mode === "solo" ? base : swap);
+// The Caddyfile is bind-mounted, so replacing it would break the mount inode.
+const fd = fs.openSync(file, "r+");
+try {
+  fs.writeSync(fd, updated, 0, "utf8");
+  fs.ftruncateSync(fd, Buffer.byteLength(updated));
+} finally {
+  fs.closeSync(fd);
+}
 NODE
   caddy_reload
 }
