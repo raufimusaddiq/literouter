@@ -1,6 +1,6 @@
 services:
   9router:
-    image: 9router:v0.5.75-luna-local-logrotate
+    image: 9router:v0.5.75-luna-local-logrotate2
     pull_policy: never
     container_name: 9router
     restart: unless-stopped
