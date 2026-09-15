@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # Zero-downtime redeploy for 9router.
 #
-# Starts a standby container on the same data volume, points Caddy at both
-# instances, recreates the primary, then reverts Caddy to the primary alone.
-# Caddy gets `lb_try_duration` only during the swap window, which is what makes
-# a mid-restart connection refusal retry onto the standby instead of a 502.
+# Starts a standby container on the same data volume, switches Caddy to the
+# standby while the primary is recreated, then reverts Caddy to the primary.
 #
 # Usage: scripts/deploy-9router.sh [image-tag]   (default: compose image)
 set -euo pipefail
@@ -29,25 +27,19 @@ caddy_reload() {
 }
 
 set_upstreams() {
-  # "solo" restores the single primary; "swap" adds the standby plus a retry
-  # window. Rewriting via Node keeps the multi-line block exact and idempotent.
+  # "solo" restores the single primary; "standby" sends all traffic to the
+  # standby during the recreate window. Docker removes and re-adds the primary
+  # DNS entry on recreate, which intermittently breaks Caddy's resolution, so
+  # the reliable overlap is a direct switch to a stable standby hostname.
   node - "$CADDYFILE" "$1" <<'NODE'
 const fs = require("fs");
 const [, , file, mode] = process.argv;
 const base = "    reverse_proxy 9router:20128";
-const swap = [
-  "    reverse_proxy 9router:20128 9router-green:20128 {",
-  "        lb_policy first",
-  "        lb_try_duration 60s",
-  "        lb_try_interval 100ms",
-  "        fail_duration 5s",
-  "        max_fails 1",
-  "    }",
-].join("\n");
+const swap = "    reverse_proxy 9router-green:20128";
 const source = fs.readFileSync(file, "utf8");
-const collapsed = source.replace(/ {4}reverse_proxy 9router:20128(?: 9router-green:20128 \{\n(?:.*\n)*? {4}\})?/m, base);
+const collapsed = source.replace(/ {4}reverse_proxy 9router(?:-green)?:20128(?: \{\n(?:.*\n)*? {4}\})?/m, base);
 if (!collapsed.includes(base)) throw new Error("9router upstream line not found");
-fs.writeFileSync(file, collapsed.replace(base, mode === "swap" ? swap : base));
+fs.writeFileSync(file, collapsed.replace(base, mode === "solo" ? base : swap));
 NODE
   caddy_reload
 }
@@ -86,9 +78,9 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 
-# Both upstreams plus a retry window: a refused connection rolls onto the
-# standby, and an actively failing instance is ejected for the swap.
-set_upstreams swap
+# Single stable upstream while the primary is recreated. Caddy keeps the same
+# resolved standby address; no DNS removal/addition happens for it.
+set_upstreams standby
 sleep 2
 
 docker compose -f "$COMPOSE_FILE" up -d --no-deps --force-recreate "$PRIMARY"
