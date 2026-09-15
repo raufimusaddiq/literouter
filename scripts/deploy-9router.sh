@@ -24,8 +24,12 @@ IMAGE="${1:-$(sed -n 's/^ *image: //p' "$COMPOSE_FILE" | head -1)}"
 [ -n "$IMAGE" ] || { echo "no image tag resolved" >&2; exit 1; }
 
 caddy_reload() {
+  # Copy the config in instead of trusting /etc/caddy/Caddyfile: a bind-mounted
+  # single file stays pinned to its original inode, so an editor that replaces
+  # the host file leaves the container serving the old contents forever.
+  docker cp "$CADDYFILE" idx-caddy:/tmp/9router-deploy-Caddyfile
   docker exec idx-caddy sh -lc \
-    "caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile > /tmp/caddy-adapt.json && wget -qO- --header='Origin: http://localhost' --header='Content-Type: application/json' --post-file=/tmp/caddy-adapt.json http://127.0.0.1:2019/load" >/dev/null
+    "caddy adapt --config /tmp/9router-deploy-Caddyfile --adapter caddyfile > /tmp/9router-deploy.json && wget -qO- --header='Origin: http://localhost' --header='Content-Type: application/json' --post-file=/tmp/9router-deploy.json http://127.0.0.1:2019/load" >/dev/null
 }
 
 set_upstreams() {
