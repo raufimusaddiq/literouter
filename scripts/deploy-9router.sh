@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Zero-downtime redeploy for 9router.
 #
-# Starts a standby container on the same data volume, switches Caddy to the
-# standby while the primary is recreated, then reverts Caddy to the primary.
+# Starts a standby on a pinned IP, points Caddy at both pinned addresses with
+# a retry window, recreates the primary, then reverts to the primary address.
 #
 # Usage: scripts/deploy-9router.sh [image-tag]   (default: compose image)
 set -euo pipefail
@@ -13,6 +13,8 @@ CADDYFILE=/opt/idx/infra/caddy/Caddyfile
 STANDBY=9router-green
 PRIMARY=9router
 HEALTH_URL=http://127.0.0.1:20128/api/auth/status
+PRIMARY_IP=172.18.0.8
+STANDBY_IP=172.18.0.18
 NETWORK=idx_default
 VOLUME=9router-data
 
@@ -34,10 +36,21 @@ set_upstreams() {
   node - "$CADDYFILE" "$1" <<'NODE'
 const fs = require("fs");
 const [, , file, mode] = process.argv;
-const base = "    reverse_proxy 9router:20128";
-const swap = "    reverse_proxy 9router-green:20128";
+const base = "    reverse_proxy 172.18.0.8:20128";
+const swap = [
+  "    reverse_proxy 172.18.0.8:20128 172.18.0.18:20128 {",
+  "        lb_policy first",
+  "        lb_try_duration 60s",
+  "        lb_try_interval 100ms",
+  "        fail_duration 5s",
+  "        max_fails 1",
+  "    }",
+].join("\n");
 const source = fs.readFileSync(file, "utf8");
-const collapsed = source.replace(/ {4}reverse_proxy 9router(?:-green)?:20128(?: \{\n(?:.*\n)*? {4}\})?/m, base);
+const collapsed = source.replace(
+  / {4}reverse_proxy (?:(?:9router(?:-green)?|172\.18\.0\.\d+):20128 ?)+(?:\{\n(?:.*\n)*? {4}\})?/m,
+  base,
+);
 if (!collapsed.includes(base)) throw new Error("9router upstream line not found");
 fs.writeFileSync(file, collapsed.replace(base, mode === "solo" ? base : swap));
 NODE
@@ -68,7 +81,7 @@ docker run -d --name "$STANDBY" \
   -e DATA_DIR=/app/data -e PORT=20128 -e HOSTNAME=0.0.0.0 -e NODE_ENV=production \
   -e ENABLE_REQUEST_LOGS=true -e REQUEST_LOG_MAX_SIZE_MB=1024 -e REQUEST_LOG_MAX_SESSIONS=1000 \
   -e MODEL_CATALOG_SYNC=off -e DISABLE_BACKGROUND_TOKEN_REFRESH=true \
-  --network "$NETWORK" --network-alias "$STANDBY" \
+  --network "$NETWORK" --network-alias "$STANDBY" --ip "$STANDBY_IP" \
   --mount source="$VOLUME",target=/app/data \
   --log-driver=json-file --log-opt max-size=10m --log-opt max-file=5 \
   "$IMAGE" >/dev/null

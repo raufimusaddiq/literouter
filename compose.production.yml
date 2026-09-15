@@ -24,7 +24,10 @@ services:
     volumes:
       - 9router-data:/app/data
     networks:
-      - idx-public
+      idx-public:
+        # Static IP so Caddy can fail over by address without relying on Docker
+        # DNS, which drops the name for the duration of a recreate.
+        ipv4_address: 172.18.0.8
     mem_limit: 512m
     mem_reservation: 128m
     healthcheck:
