@@ -41,15 +41,10 @@ set_upstreams() {
 const fs = require("fs");
 const [, , file, mode] = process.argv;
 const base = "    reverse_proxy 172.18.0.8:20128";
-const swap = [
-  "    reverse_proxy 172.18.0.8:20128 172.18.0.18:20128 {",
-  "        lb_policy first",
-  "        lb_try_duration 60s",
-  "        lb_try_interval 100ms",
-  "        fail_duration 5s",
-  "        max_fails 1",
-  "    }",
-].join("\n");
+// A single stable upstream for the whole recreate. Two upstreams look safer
+// but the primary accepts TCP before it can serve, so a request can hang
+// instead of failing over; one standby address has no such race.
+const swap = "    reverse_proxy 172.18.0.18:20128";
 const source = fs.readFileSync(file, "utf8");
 const collapsed = source.replace(
   / {4}reverse_proxy (?:(?:9router(?:-green)?|172\.18\.0\.\d+):20128 ?)+(?:\{\n(?:.*\n)*? {4}\})?/m,
