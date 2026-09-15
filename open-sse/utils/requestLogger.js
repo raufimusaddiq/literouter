@@ -9,8 +9,9 @@ let path = null;
 let LOGS_DIR = null;
 const LOG_MAX_SESSIONS = Math.max(1, Number.parseInt(process.env.REQUEST_LOG_MAX_SESSIONS || "1000", 10));
 const LOG_MAX_BYTES = Math.max(1, Number.parseInt(process.env.REQUEST_LOG_MAX_SIZE_MB || "1024", 10)) * 1024 * 1024;
-const LOG_PRUNE_INTERVAL_MS = 5 * 60 * 1000;
+const LOG_PRUNE_INTERVAL_MS = Math.max(0, Number.parseInt(process.env.REQUEST_LOG_PRUNE_INTERVAL_MS || "300000", 10));
 let lastPruneAt = 0;
+let sessionCount = 0;
 
 // Lazy load Node.js modules (avoid top-level await)
 async function ensureNodeModules() {
@@ -31,12 +32,15 @@ function getDirectorySize(directory) {
   }, 0);
 }
 
-function pruneLogSessions() {
-  if (!fs || !LOGS_DIR || Date.now() - lastPruneAt < LOG_PRUNE_INTERVAL_MS) return;
+function pruneLogSessions(force = false) {
+  if (!fs || !LOGS_DIR || (!force && Date.now() - lastPruneAt < LOG_PRUNE_INTERVAL_MS)) return;
   lastPruneAt = Date.now();
 
   try {
-    if (!fs.existsSync(LOGS_DIR)) return;
+    if (!fs.existsSync(LOGS_DIR)) {
+      sessionCount = 0;
+      return;
+    }
     const sessions = fs.readdirSync(LOGS_DIR, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => {
@@ -52,6 +56,7 @@ function pruneLogSessions() {
       fs.rmSync(oldest.sessionPath, { recursive: true, force: true });
       totalBytes -= oldest.size;
     }
+    sessionCount = sessions.length;
   } catch (err) {
     console.log("[LOG] Failed to rotate request logs:", err.message);
   }
@@ -79,7 +84,6 @@ async function createLogSession(sourceFormat, targetFormat, model) {
     if (!fs.existsSync(LOGS_DIR)) {
       fs.mkdirSync(LOGS_DIR, { recursive: true });
     }
-    pruneLogSessions();
     
     const timestamp = formatTimestamp();
     const safeModel = (model || "unknown").replace(/[/:]/g, "-");
@@ -87,7 +91,10 @@ async function createLogSession(sourceFormat, targetFormat, model) {
     const sessionPath = path.join(LOGS_DIR, folderName);
     
     fs.mkdirSync(sessionPath, { recursive: true });
-    
+    sessionCount += 1;
+    // Session cap is enforced on the next write; the size cap waits for the interval.
+    pruneLogSessions(sessionCount > LOG_MAX_SESSIONS);
+
     return sessionPath;
   } catch (err) {
     console.log("[LOG] Failed to create log session:", err.message);

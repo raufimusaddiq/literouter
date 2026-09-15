@@ -20,11 +20,34 @@ test("request logs stay within session and size limits", async () => {
     fs.utimesSync(path.join(tempDir, "logs", "old-1"), new Date(0), new Date(0));
     fs.utimesSync(path.join(tempDir, "logs", "old-2"), new Date(1_000), new Date(1_000));
 
-    const { createRequestLogger } = await import("../../open-sse/utils/requestLogger.js");
+    const { createRequestLogger } = await import("../../open-sse/utils/requestLogger.js?case=size");
     await createRequestLogger("openai", "openai", "test-model");
     const sessions = fs.readdirSync(path.join(tempDir, "logs"));
     assert.equal(sessions.length, 2);
     assert.equal(sessions.includes("old-1"), false);
+  } finally {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("session cap is enforced immediately after back-to-back requests", async () => {
+  process.env.ENABLE_REQUEST_LOGS = "true";
+  process.env.REQUEST_LOG_MAX_SIZE_MB = "1024";
+  process.env.REQUEST_LOG_MAX_SESSIONS = "2";
+  process.env.REQUEST_LOG_PRUNE_INTERVAL_MS = "300000";
+  const originalCwd = process.cwd();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-request-logs-fast-"));
+  process.chdir(tempDir);
+
+  try {
+    const { createRequestLogger } = await import("../../open-sse/utils/requestLogger.js?case=session");
+    for (let i = 0; i < 4; i += 1) {
+      const logger = await createRequestLogger("openai", "openai", `model-${i}`);
+      fs.writeFileSync(path.join(logger.sessionPath, "big.txt"), "x".repeat(1000));
+    }
+
+    assert.equal(fs.readdirSync(path.join(tempDir, "logs")).length, 2);
   } finally {
     process.chdir(originalCwd);
     fs.rmSync(tempDir, { recursive: true, force: true });
