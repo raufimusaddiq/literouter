@@ -24,10 +24,13 @@ services:
     volumes:
       - 9router-data:/app/data
     networks:
+      # Caddy reaches 9router over this two-member network so the static IP
+      # below can never be handed out by idx_default's DHCP pool. Keeping the
+      # dynamic idx-public attachment preserves the `9router` DNS name for
+      # in-network consumers (richmod, meridian).
+      idx-edge:
+        ipv4_address: 172.30.0.2
       idx-public:
-        # Static IP so Caddy can fail over by address without relying on Docker
-        # DNS, which drops the name for the duration of a recreate.
-        ipv4_address: 172.18.0.8
     mem_limit: 512m
     mem_reservation: 128m
     healthcheck:
@@ -49,3 +52,6 @@ networks:
   idx-public:
     external: true
     name: idx_default
+  idx-edge:
+    external: true
+    name: 9router_edge

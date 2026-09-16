@@ -13,15 +13,26 @@ CADDYFILE=/opt/idx/infra/caddy/Caddyfile
 STANDBY=9router-green
 PRIMARY=9router
 HEALTH_URL=http://127.0.0.1:20128/api/auth/status
-PRIMARY_IP=172.18.0.8
-STANDBY_IP=172.18.0.18
-NETWORK=idx_default
+# Both the primary and the standby live on the dedicated 9router_edge network.
+# Caddy's upstream points at PRIMARY_IP there, so the deploy never touches an
+# address that idx_default's dynamic pool could hand to another container.
+PRIMARY_IP=172.30.0.2
+STANDBY_IP=172.30.0.3
+NETWORK=9router_edge
 VOLUME=9router-data
 
 cd "$REPO_DIR"
 
 IMAGE="${1:-$(sed -n 's/^ *image: //p' "$COMPOSE_FILE" | head -1)}"
 [ -n "$IMAGE" ] || { echo "no image tag resolved" >&2; exit 1; }
+
+ensure_network() {
+  # Recreate the network if it was pruned. Caddy's attachment to it is owned by
+  # the idx compose stack (docker-compose.cloud.yml); re-attach manually with
+  # `docker network connect --ip 172.30.0.10 9router_edge idx-caddy` if needed.
+  docker network inspect "$NETWORK" >/dev/null 2>&1 && return 0
+  docker network create --driver bridge --subnet 172.30.0.0/24 --gateway 172.30.0.1 "$NETWORK" >/dev/null
+}
 
 caddy_reload() {
   # Copy the config in instead of trusting /etc/caddy/Caddyfile: a bind-mounted
@@ -40,14 +51,14 @@ set_upstreams() {
   node - "$CADDYFILE" "$1" <<'NODE'
 const fs = require("fs");
 const [, , file, mode] = process.argv;
-const base = "    reverse_proxy 172.18.0.8:20128";
+const base = "    reverse_proxy 172.30.0.2:20128";
 // A single stable upstream for the whole recreate. Two upstreams look safer
 // but the primary accepts TCP before it can serve, so a request can hang
 // instead of failing over; one standby address has no such race.
-const swap = "    reverse_proxy 172.18.0.18:20128";
+const swap = "    reverse_proxy 172.30.0.3:20128";
 const source = fs.readFileSync(file, "utf8");
 const collapsed = source.replace(
-  / {4}reverse_proxy (?:(?:9router(?:-green)?|172\.18\.0\.\d+):20128 ?)+(?:\{\n(?:.*\n)*? {4}\})?/m,
+  / {4}reverse_proxy (?:(?:9router(?:-green)?|172\.\d+\.\d+\.\d+):20128 ?)+(?:\{\n(?:.*\n)*? {4}\})?/m,
   base,
 );
 if (!collapsed.includes(base)) throw new Error("9router upstream line not found");
@@ -82,6 +93,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "image: $IMAGE"
+ensure_network
 docker rm -f "$STANDBY" >/dev/null 2>&1 || true
 docker run -d --name "$STANDBY" \
   --env-file "$REPO_DIR/.env.production" \

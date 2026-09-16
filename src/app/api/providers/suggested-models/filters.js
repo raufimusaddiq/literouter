@@ -5,6 +5,12 @@ const KNOWN_FREE_OPENCODE_MODELS = ["big-pickle"];
 const DEAD_FREE_OPENCODE_MODELS = new Set(["deepseek-v4-flash-free"]);
 
 export const FILTERS = {
+  // Kenari /v1/models: keep chat-capable entries (service list is large).
+  kenari: (models) =>
+    (Array.isArray(models) ? models : [])
+      .filter((m) => m.id && (m.endpoints || []).includes("chat"))
+      .map((m) => ({ id: m.id, name: m.id, contextLength: m.context_length })),
+
   "openrouter-free": (models) =>
     models
       .filter(
