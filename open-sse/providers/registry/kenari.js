@@ -24,6 +24,12 @@ export default {
     usage: {
       url: "https://kenari.id/v1/account/quota",
     },
+    quirks: {
+      // /v1/responses only honors flat `function` tools and rejects text.format
+      // structured outputs — convert Codex's `custom` exec tool and strip
+      // text.format so Codex keeps its native custom-tool wire events.
+      responsesFunctionToolsOnly: true,
+    },
   },
   // Multi-endpoint: Chat + Responses + Claude-compatible. Pick the transport
   // matching the client sourceFormat so most clients skip translation.
@@ -45,8 +51,7 @@ export default {
     },
   ],
   models: [
-    { id: "agnes-2-0-flash:free", name: "agnes-2-0-flash:free" },
-    { id: "agnes-2-5-flash:free", name: "agnes-2-5-flash:free" },
+    { id: "agnes-2-0-flash:free", name: "agnes-2-0-flash:free" },    { id: "agnes-2-5-flash:free", name: "agnes-2-5-flash:free" },
     { id: "agnes-3-0-flash:free", name: "agnes-3-0-flash:free" },
     { id: "claude-fable-5", name: "claude-fable-5" },
     { id: "claude-opus-4-7", name: "claude-opus-4-7" },

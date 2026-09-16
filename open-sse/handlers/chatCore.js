@@ -29,6 +29,7 @@ import { getCapabilitiesForModel } from "../providers/capabilities.js";
 import { stripUnsupportedModalities } from "../translator/concerns/modality.js";
 import { prefetchRemoteImages } from "../translator/concerns/prefetch.js";
 import { defaultClaudeToolType, shouldDefaultClaudeToolType } from "../translator/concerns/toolCall.js";
+import { applyResponsesFunctionToolsQuirk } from "../translator/concerns/responsesFunctionTools.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
 
 /**
@@ -203,6 +204,18 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     delete translatedBody._customToolNames;
     translatedBody.model = stripThinkingSuffix(upstreamModel);
     stripContinuityFields(translatedBody);
+  }
+
+  // Kenari /v1/responses subset: convert `custom` tools → `function` (freeform
+  // `input` param) and drop text.format structured outputs. Same-format
+  // passthrough skips translation, so this is the only normalization point.
+  // Converted names ride on _customToolNames for the response-side rewrite.
+  if (PROVIDERS[provider]?.quirks?.responsesFunctionToolsOnly && targetFormat === FORMATS.OPENAI_RESPONSES) {
+    const before = customToolNames;
+    translatedBody = applyResponsesFunctionToolsQuirk(translatedBody);
+    const names = translatedBody._customToolNames;
+    delete translatedBody._customToolNames;
+    customToolNames = new Set([...(names || []), ...(before || [])]);
   }
 
   // Dedupe duplicate built-in tools when equivalent MCP tools are present (Claude clients only).

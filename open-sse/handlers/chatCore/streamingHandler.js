@@ -1,6 +1,7 @@
 import { FORMATS } from "../../translator/formats.js";
 import { needsTranslation } from "../../translator/index.js";
-import { createSSETransformStreamWithLogger, createPassthroughStreamWithLogger } from "../../utils/stream.js";
+import { createSSETransformStreamWithLogger, createPassthroughStreamWithLogger, createResponsesRewriteStreamWithLogger } from "../../utils/stream.js";
+import { createResponsesEventRewriter } from "../../translator/concerns/responsesFunctionTools.js";
 import { pipeWithDisconnect } from "../../utils/streamHandler.js";
 import { PROVIDERS } from "../../config/providers.js";
 import { STREAM_STALL_TIMEOUT_MS } from "../../config/runtimeConfig.js";
@@ -35,6 +36,14 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
 
   if (needsTranslation(targetFormat, sourceFormat)) {
     return createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider, reqLogger, toolNameMap, model, connectionId, body, onStreamComplete, apiKey, customToolNames, credentials);
+  }
+
+  // Quirk providers (kenari /v1/responses): same-format Responses stream, but
+  // function_call events for converted custom tools must be rewritten back to
+  // Codex's native custom_tool_call events before re-emission.
+  if (PROVIDERS[provider]?.quirks?.responsesFunctionToolsOnly && targetFormat === FORMATS.OPENAI_RESPONSES && sourceFormat === FORMATS.OPENAI_RESPONSES) {
+    const rewriteEvent = createResponsesEventRewriter(customToolNames);
+    return createResponsesRewriteStreamWithLogger(provider, reqLogger, model, connectionId, body, onStreamComplete, apiKey, rewriteEvent);
   }
 
   return createPassthroughStreamWithLogger(provider, reqLogger, model, connectionId, body, onStreamComplete, apiKey);

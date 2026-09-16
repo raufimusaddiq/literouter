@@ -50,7 +50,8 @@ export function createSSEStream(options = {}) {
     body = null,
     onStreamComplete = null,
     apiKey = null,
-    credentials = null
+    credentials = null,
+    rewriteEvent = null
   } = options;
 
   let buffer = "";
@@ -322,7 +323,20 @@ export function createSSEStream(options = {}) {
 
         // Responses same-format passthrough: re-emit with original event framing
         if (keepsOpenAIResponsesFormat && openAIResponsesEventName) {
-          const output = formatSSE({ event: openAIResponsesEventName, data: parsed }, sourceFormat);
+          // Optional per-event rewrite (e.g. kenari quirk: function_call →
+          // custom_tool_call for converted tools). null = suppress event.
+          let emitEvent = openAIResponsesEventName;
+          let emitData = parsed;
+          if (rewriteEvent) {
+            const rewritten = rewriteEvent(openAIResponsesEventName, parsed);
+            if (!rewritten) {
+              currentOpenAIResponsesEvent = null;
+              continue;
+            }
+            emitEvent = rewritten.event;
+            emitData = rewritten.data;
+          }
+          const output = formatSSE({ event: emitEvent, data: emitData }, sourceFormat);
           reqLogger?.appendConvertedChunk?.(output);
           controller.enqueue(sharedEncoder.encode(output));
           currentOpenAIResponsesEvent = null;
@@ -516,5 +530,25 @@ export function createPassthroughStreamWithLogger(provider = null, reqLogger = n
     body,
     onStreamComplete,
     apiKey
+  });
+}
+
+// Same-format Responses passthrough with a per-event rewrite hook (e.g. kenari's
+// function→custom_tool mapping). Kept in TRANSLATE mode so the Responses framing
+// logic (event-name capture, terminal detection, [DONE] synthesis) still applies;
+// the rewriter swaps payloads before they are re-emitted.
+export function createResponsesRewriteStreamWithLogger(provider = null, reqLogger = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null, rewriteEvent = null) {
+  return createSSEStream({
+    mode: STREAM_MODE.TRANSLATE,
+    targetFormat: FORMATS.OPENAI_RESPONSES,
+    sourceFormat: FORMATS.OPENAI_RESPONSES,
+    provider,
+    reqLogger,
+    model,
+    connectionId,
+    body,
+    onStreamComplete,
+    apiKey,
+    rewriteEvent
   });
 }
