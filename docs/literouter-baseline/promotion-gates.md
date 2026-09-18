@@ -12,6 +12,25 @@ PRD section 26 lists seven gates. Status below is evidence-backed as of 2026-09-
 | 6 | Startup/RSS/image/latency measurements recorded | PASS | `phase-startup-minimization.md`, `phase-latency-resource.md`, `phase-bundle-analysis.md` |
 | 7 | Rollback to the prior production image is tested | PASS | `phase-rollback-rehearsal.md`; re-verified against a copy of production data: 3 providers, 40872 usage rows, health ok |
 
+## Client endpoint compatibility
+
+PRD section 21 requires existing clients to keep working against the same
+shared endpoint. Every ingress alias a client might already be pointed at was
+probed live on staging:
+
+```text
+POST /v1/chat/completions  200
+POST /v1/responses         200
+POST /v1/messages          200
+POST /api/v1/messages      200
+POST /responses            200
+POST /codex/responses      200
+GET  /v1/models            200
+GET  /v1beta/models        200
+```
+
+No client needs an endpoint change.
+
 ## Gate 2, blocked on a decision
 
 The Kenari and OpenCode Go live smoke tests need real provider credentials in
