@@ -73,7 +73,7 @@ This initiative is a focused 9Router-derived profile.
 
 It MUST prefer extraction, feature boundaries, lazy initialization, and dependency pruning over replacing the routing engine with a new platform.
 
-The first supported target is a single production-like LiteRouter process using in-memory runtime state plus SQLite durability. Multi-replica coordination is explicitly deferred until there is a concrete need.
+The first supported target is a single production-like LiteRouter process using in-memory runtime state, Redis for shared/ephemeral runtime state where useful, and SQLite for durable configuration/history. Multi-replica coordination is explicitly deferred until there is a concrete need, but Redis support should not depend on multi-replica mode.
 
 ---
 
@@ -119,9 +119,8 @@ Unless required as a dependency of a retained feature, the following are outside
 - notification/reporting features unrelated to routing,
 - other secondary platform features that are not used by the routing gateway.
 
-The following are also deferred from the minimalization initiative unless a retained feature proves they are required:
+The following are deferred from the minimalization initiative unless a retained feature proves they are required:
 
-- Redis as a mandatory dependency,
 - multi-replica/distributed routing coordination,
 - new OAuth provider integrations,
 - new media capabilities,
@@ -620,30 +619,33 @@ Persistent storage remains the source of durable configuration, not a mandatory 
 
 LiteRouter MUST distinguish durable persistence from hot-path caching.
 
-### 15.1 Default architecture: in-memory + SQLite
+### 15.1 Default architecture: in-memory + Redis + SQLite
 
-The default single-instance deployment should use:
+The default deployment may run Redis in the same Docker stack as LiteRouter.
 
 ```text
-                    LiteRouter process
-                           |
-              +------------+-------------+
-              |                          |
-              v                          v
-      in-memory hot state             SQLite
-      -------------------             ------
-      providers                       durable config
-      accounts                        credentials metadata
-      combos                          provider/account config
-      aliases                         combo definitions
-      API-key lookup                  aliases/settings
-      quota/cooldown                  complete Usage history
-      health state                    quota snapshots where needed
-      RR cursors                      migrations
-      transport caps
+                         LiteRouter
+                            |
+             +--------------+--------------+
+             |              |              |
+             v              v              v
+        in-memory L1      Redis          SQLite
+        ------------      -----          ------
+        providers         cooldown       durable config
+        accounts          quota state    credentials metadata
+        combos            RR counters    provider/account config
+        aliases           health         combo definitions
+        API-key lookup    cache version  aliases/settings
+        transport caps    invalidation   complete Usage history
+        local health      short TTL data quota snapshots
+                         locks/counters   migrations
 ```
 
-SQLite is the durable source of truth. In-memory state is the request-path cache.
+SQLite remains the durable source of truth.
+
+In-memory state remains the fastest request-path cache.
+
+Redis is a first-class runtime-state component for TTL state, counters, locks, invalidation, and other shared/ephemeral data.
 
 A normal request MUST NOT require a synchronous SQLite lookup for configuration that is already cached and valid.
 
@@ -670,18 +672,23 @@ It should not be consulted synchronously for every:
 - round-robin selection,
 - cooldown check.
 
-### 15.3 Redis is optional, not a default dependency
+### 15.3 Redis runtime state
 
-Redis MAY be supported as an optional shared runtime-state backend, but LiteRouter minimal MUST NOT require Redis for the normal single-instance deployment.
+Redis is an approved first-class component of LiteRouter minimal and may run as a separate container in the same Docker deployment.
 
-Redis becomes justified when one or more of these are true:
+Redis is appropriate for:
 
-- LiteRouter runs multiple replicas/processes that must coordinate routing state;
-- round-robin cursors must be shared across replicas;
-- cooldown/rate-limit/quota state must be shared immediately across replicas;
-- distributed locks are required for OAuth refresh or other singleton work;
-- high-volume counters need shared atomic increments;
-- a deployment explicitly requires shared ephemeral cache/state.
+- cooldown and rate-limit TTL state,
+- quota/runtime availability state that benefits from TTL,
+- round-robin counters/cursors,
+- health/runtime status,
+- atomic counters,
+- OAuth refresh locks,
+- short-lived cache entries,
+- configuration versioning/invalidation,
+- future multi-replica coordination.
+
+Redis MUST NOT become the sole durable source for provider, combo, Usage, or other configuration/history that must survive cache loss.
 
 Conceptual multi-instance deployment:
 
@@ -698,25 +705,24 @@ balancer -----+---- LiteRouter B ----+---- Redis
                          +---------------- SQLite / durable store
 ```
 
-Redis must not become the sole durable source for provider, combo, Usage, or other configuration/history that must survive cache loss.
-
 ### 15.4 Cache ownership
 
 Recommended ownership:
 
-| State | Single instance | Multi-instance |
+| State | Primary runtime owner | Durable/source owner |
 | --- | --- | --- |
-| Provider/account config | memory, sourced from SQLite | local memory + invalidation/versioning |
-| Combo definitions | memory, sourced from SQLite | local memory + invalidation/versioning |
-| Model aliases | memory, sourced from SQLite | local memory + invalidation/versioning |
-| API-key lookup | memory, sourced from SQLite | local memory + invalidation/versioning |
-| Transport capabilities | memory | local memory; durable definition in SQLite |
-| Quota/cooldown | memory + persistence where needed | Redis/shared state where correctness requires it |
-| Health state | memory | Redis optional/shared when needed |
-| Round-robin cursor | memory | Redis atomic counter when global RR is required |
-| OAuth refresh lock | local mutex | Redis/distributed lock if multiple replicas can refresh the same credential |
-| Usage history | SQLite/durable storage | durable storage; Redis only as optional buffering/counter layer |
-| UI session/cache | memory where safe | Redis optional |
+| Provider/account config | in-memory L1 | SQLite |
+| Combo definitions | in-memory L1 | SQLite |
+| Model aliases | in-memory L1 | SQLite |
+| API-key lookup | in-memory L1 | SQLite |
+| Transport capabilities | in-memory L1 | SQLite |
+| Quota/cooldown | Redis + local read-through cache where useful | SQLite snapshot only if needed |
+| Health state | Redis + local cache | ephemeral |
+| Round-robin cursor | Redis atomic counter or local cursor with Redis checkpoint | ephemeral |
+| OAuth refresh lock | Redis lock | ephemeral |
+| Config version/invalidation | Redis | SQLite config remains source of truth |
+| Usage history | optional Redis buffer/counters | SQLite |
+| UI session/cache | Redis or memory | ephemeral |
 
 ### 15.5 Cache invalidation requirements
 
@@ -729,7 +735,7 @@ When Providers, Combos, aliases, API keys, or routing settings change through th
 3. new requests must see the new configuration immediately after successful mutation;
 4. stale cache must never require a process restart to clear.
 
-If Redis is enabled for multi-instance operation, configuration changes must propagate through a lightweight version/pub-sub invalidation mechanism or equivalent.
+Configuration changes should propagate through Redis versioning/pub-sub invalidation or an equivalent mechanism so in-memory L1 state cannot remain stale after a successful UI mutation.
 
 ### 15.6 Usage write path
 
@@ -751,7 +757,7 @@ upstream response
 
 The event path must provide backpressure/bounded buffering and a safe shutdown flush policy. Optimization must not silently lose data required by `/dashboard/usage`.
 
-Redis may optionally act as a queue/counter buffer in a distributed deployment, but is not required for the default architecture.
+Redis may act as the bounded short-lived buffer/counter layer for Usage aggregation before durable SQLite persistence, as long as the existing Usage contract is preserved and shutdown/recovery behavior is explicit.
 
 ### 15.7 Redis vs SQLite decision rule
 
@@ -771,22 +777,22 @@ Use **in-memory state** when the state:
 Use **Redis** when the state:
 
 - is hot/ephemeral,
-- must be shared atomically across multiple LiteRouter replicas,
-- benefits from TTL, distributed locks, pub/sub, or atomic counters.
+- benefits from TTL,
+- requires atomic counters or locks,
+- needs configuration invalidation/pub-sub,
+- may later be shared across multiple LiteRouter replicas.
 
-For the expected initial LiteRouter deployment, the recommended default is:
-
-```text
-in-memory hot cache + SQLite persistence
-```
-
-not:
+For the expected initial LiteRouter deployment, the recommended architecture is:
 
 ```text
-Redis + SQLite
+in-memory L1
+    +
+Redis runtime/shared state
+    +
+SQLite durable config + Usage history
 ```
 
-Redis should be introduced only after there is a concrete multi-instance/shared-state requirement or measurements show a real bottleneck that Redis solves.
+Redis may run as a small dedicated container in the same Docker Compose stack as LiteRouter.
 
 ---
 
