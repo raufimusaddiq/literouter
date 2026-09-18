@@ -40,6 +40,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
     name: "",
     prefix: "",
     ...(config.hasApiType ? { apiType: "chat" } : {}),
+    transports: config.hasApiType ? ["chat_completions"] : ["messages"],
     baseUrl: config.defaultBaseUrl,
   });
 
@@ -72,6 +73,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
           name: formData.name,
           prefix: formData.prefix,
           ...(config.hasApiType ? { apiType: formData.apiType } : {}),
+          transports: formData.transports,
           baseUrl: formData.baseUrl,
           type: config.type,
         }),
@@ -158,6 +160,28 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
             onChange={(e) => setFormData({ ...formData, apiType: e.target.value })}
           />
         )}
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-text-primary">Native transports</span>
+          {[
+            ["chat_completions", "OpenAI Chat Completions", "/chat/completions"],
+            ["responses", "OpenAI Responses", "/responses"],
+            ["messages", "Anthropic Messages", "/messages"],
+          ].map(([value, label, path]) => (
+            <label key={value} className="flex items-center gap-2 text-sm text-text-muted">
+              <input
+                type="checkbox"
+                checked={formData.transports.includes(value)}
+                onChange={(e) => setFormData((prev) => ({
+                  ...prev,
+                  transports: e.target.checked
+                    ? [...new Set([...prev.transports, value])]
+                    : prev.transports.filter((transport) => transport !== value),
+                }))}
+              />
+              {label} <code className="text-xs">{path}</code>
+            </label>
+          ))}
+        </div>
         <Input
           label="Base URL"
           value={formData.baseUrl}
