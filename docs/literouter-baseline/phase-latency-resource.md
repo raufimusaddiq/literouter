@@ -41,6 +41,35 @@ provider connections of its own and runs with `MODEL_CATALOG_SYNC=off` and
 comparison; a production-equivalent staging dataset is required before treating
 this as a sizing claim.
 
+## CPU under concurrent streaming
+
+PRD section 16 requires a CPU measurement under representative concurrent
+streaming traffic, not just an idle sample. Ten simultaneous streaming
+`POST /v1/chat/completions` requests were issued to staging, each
+asking for a long (600-word) completion so the streams stayed open while CPU was
+sampled once per second.
+
+| Sample | Staging CPU | Staging RSS |
+| --- | --- | --- |
+| 1 | 12.38% | 77.2 MiB |
+| 2 | 66.41% | 79.6 MiB |
+| 3 | 59.91% | 80.9 MiB |
+| 4 | 31.40% | 81.0 MiB |
+| 5 (drained) | 0.06% | 81.0 MiB |
+| 6 (drained) | 0.27% | 80.7 MiB |
+
+Peak CPU is 66% of one core while ten streams are open, and it returns to
+idle within two samples of the last stream completing. RSS grows by ~5 MiB
+across the burst and does not return to its floor, which is the expected
+in-process cache and V8 heap growth rather than a leak: the same container held
+steady at 75-81 MiB across the earlier measurements.
+
+For reference, production sampled at 0.00% CPU and 98.9 MiB RSS in the same
+idle window. The comparison that matters for the acceptance criterion is the
+hot-path latency table above, since CPU share on a shared host is noisy; the
+streaming burst here is to show that concurrency does not saturate the
+container or grow memory without bound.
+
 ## Startup
 
 Staging reaches `✓ Ready in 0ms` (Next.js reports the already-compiled server)
