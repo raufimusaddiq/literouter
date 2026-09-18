@@ -175,6 +175,7 @@ function invalidateRuntimeCaches() {
   if (global.__liteRouterSettingsCache) { global.__liteRouterSettingsCache.raw = null; global.__liteRouterSettingsCache.merged = null; }
   if (global.__liteRouterConnectionCache) { global.__liteRouterConnectionCache.rows = null; global.__liteRouterConnectionCache.expiresAt = 0; }
   if (global.__liteRouterComboCache) { global.__liteRouterComboCache.rows = null; global.__liteRouterComboCache.expiresAt = 0; }
+  if (global.__liteRouterApiKeyCache) { global.__liteRouterApiKeyCache.rows = null; global.__liteRouterApiKeyCache.expiresAt = 0; }
 }
 
 // Eager init helper (optional)
