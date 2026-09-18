@@ -67,6 +67,14 @@ Those two pages are compatibility contracts.
 
 All retained functionality must remain configurable from the web UI. LiteRouter must not require editing source code to add a normal API-key or compatible provider.
 
+### 2.5 Focused profile, not a rewrite
+
+This initiative is a focused 9Router-derived profile.
+
+It MUST prefer extraction, feature boundaries, lazy initialization, and dependency pruning over replacing the routing engine with a new platform.
+
+The first supported target is a single production-like LiteRouter process using in-memory runtime state plus SQLite durability. Multi-replica coordination is explicitly deferred until there is a concrete need.
+
 ---
 
 ## 3. Goals
@@ -110,6 +118,14 @@ Unless required as a dependency of a retained feature, the following are outside
 - provider recommendation/marketing surfaces,
 - notification/reporting features unrelated to routing,
 - other secondary platform features that are not used by the routing gateway.
+
+The following are also deferred from the minimalization initiative unless a retained feature proves they are required:
+
+- Redis as a mandatory dependency,
+- multi-replica/distributed routing coordination,
+- new OAuth provider integrations,
+- new media capabilities,
+- dashboard redesigns, especially Usage and Quota.
 
 Removal must be dependency-aware. A library/module may remain internally when required by a retained feature, but it should not be initialized or exposed merely because it existed upstream.
 
@@ -272,6 +288,21 @@ LiteRouter may still modify data required for retained router features, includin
 
 Usage instrumentation may inspect/tee streams but should not force protocol conversion.
 
+The required request-processing precedence is:
+
+```text
+resolve route/provider
+  -> use native transport when available
+  -> apply only explicitly enabled request transforms
+     (RTK / Caveman / Ponytail as applicable)
+  -> translate only when native transport is unavailable
+  -> send upstream
+```
+
+"Native passthrough" means no protocol conversion is performed. It does not require byte-for-byte forwarding when an explicitly enabled transform needs to parse or modify the body.
+
+When no transform is enabled, unknown/forward-compatible JSON fields must be preserved wherever safe and LiteRouter should avoid unnecessary body reconstruction.
+
 If token-saving transforms are disabled, the router should avoid unnecessary request-body reconstruction.
 
 ---
@@ -416,6 +447,8 @@ Internal storage/query implementation may be optimized, but the feature surface 
 
 Usage writes should be moved off the synchronous routing path where safely possible, but **not** at the cost of missing or incomplete data.
 
+If Usage persistence becomes asynchronous, the buffer MUST be bounded, must flush on graceful shutdown, and must not silently drop records required by the existing Usage contract. On saturation, the implementation must use an explicit fallback such as bounded backpressure or direct durable persistence rather than unbounded memory growth or silent loss.
+
 ---
 
 ## 12. Quota compatibility contract
@@ -434,6 +467,18 @@ This includes, where currently available:
 - existing visual representation.
 
 Quota collection must remain decoupled from every normal request whenever polling/caching is possible, while current routing correctness must be preserved.
+
+Runtime quota state must be explicit rather than inferred from missing values. At minimum the router should be able to distinguish:
+
+```text
+available
+exhausted
+cooldown
+unknown
+error
+```
+
+`unknown` and `error` are not equivalent to `exhausted`. Retry/fallback policy must define which states are eligible for another route and must always have a finite retry bound; no quota or provider failure may create an infinite fallback loop.
 
 ---
 
@@ -813,6 +858,22 @@ Existing provider, combo, quota, usage, and token-saver configuration should mig
 
 The deployment endpoint used by existing applications must not require application-level changes solely because LiteRouter becomes minimal.
 
+### 19.1 Isolated staging requirement
+
+Changes that alter the LiteRouter profile must be validated in an isolated staging deployment before production promotion.
+
+Staging MUST NOT share mutable runtime state with production. At minimum it needs separate:
+
+- container/process identity,
+- listen port,
+- SQLite/data volume,
+- runtime network/namespace where practical,
+- secrets/credentials or explicitly scoped staging credentials.
+
+Exact Docker resource names and port numbers are deployment details, not part of the product contract. A deployment may use names such as `literouter-staging`, `literouter-staging-data`, and a dedicated staging port, but the PRD should not hard-code them.
+
+Production data must be backed up before any migration that changes persisted state.
+
 ---
 
 ## 20. Testing requirements
@@ -896,7 +957,11 @@ The minimalization initiative is complete only when all of the following are tru
 - provider management remains available in the UI;
 - unused product surfaces are no longer initialized/exposed in the minimal product;
 - before/after resource and latency measurements are documented;
-- routing hot-path performance is not worse than the current baseline under equivalent test traffic.
+- routing hot-path performance is not worse than the current baseline under equivalent test traffic;
+- Usage buffering is bounded and shutdown flushing is tested;
+- fallback/retry paths are finite and deterministic;
+- staging is isolated from production state;
+- rollback to the previous production image/version has been tested.
 
 ---
 
@@ -904,39 +969,51 @@ The minimalization initiative is complete only when all of the following are tru
 
 Recommended order:
 
-### Phase 1 — lock compatibility
+### Phase 1 — baseline and lock compatibility
 
-- create regression tests for Usage, Quota, Combo, and all three transports;
-- measure current runtime/resource baseline;
-- define provider transport capability schema.
+- capture current Usage and Quota UI/API behavior;
+- create routing fixtures for Combo, round-robin, account fallback, quota states, streaming, tool calls, and all three transports;
+- measure startup time, idle RSS, production image/bundle size, and representative streaming latency;
+- record a rollback image/reference.
 
-### Phase 2 — native transport routing
+### Phase 2 — extract hot-path runtime state with no behavior change
 
-- implement per-provider transport capabilities;
-- implement native passthrough preference;
-- add Generic Provider UI controls;
-- keep translator as fallback.
+- cache providers, accounts, aliases, Combos, API-key lookups, quota/cooldown state, and round-robin cursors in memory;
+- remove avoidable synchronous SQLite reads from request routing;
+- keep SQLite as durable source of truth;
+- prove behavior parity before feature removal.
 
-### Phase 3 — remove hot-path overhead
+### Phase 3 — strengthen deterministic routing tests
 
-- cache routing state;
-- remove avoidable synchronous storage access;
-- make usage persistence non-blocking where behavior can remain identical;
-- lazy-load provider adapters.
+- assert finite fallback/retry bounds;
+- cover explicit quota states;
+- verify streaming and tool-call behavior;
+- make native-vs-translated routing observable in tests.
 
 ### Phase 4 — product-surface reduction
 
-- remove/hide non-goal dashboard pages;
+- hide or stop initializing one non-retained feature at a time;
+- run the full retained regression suite after each removal;
 - disable unused background schedulers/services;
-- prune dependencies proven unused.
+- prune dependencies only after runtime references are proven absent.
 
-### Phase 5 — verify parity and performance
+### Phase 5 — Generic Provider native transports
+
+- define per-provider transport capability schema;
+- implement native passthrough preference;
+- add Generic Provider UI controls;
+- preserve translator fallback for unsupported transports;
+- verify unknown-field preservation when transforms are disabled.
+
+### Phase 6 — verify parity, performance, and promotion readiness
 
 - Usage parity suite;
 - Quota parity suite;
 - routing/fallback suite;
 - token-saver suite;
-- before/after performance report.
+- before/after startup/RSS/image/latency measurements;
+- isolated staging smoke tests for active production clients;
+- backup and rollback rehearsal before production promotion.
 
 ---
 
