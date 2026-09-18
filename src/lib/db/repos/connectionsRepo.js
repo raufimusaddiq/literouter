@@ -12,6 +12,11 @@ const OPTIONAL_FIELDS = [
 
 const MODEL_LOCK_PREFIX = "modelLock_";
 
+// ponytail: one-process cache, Redis invalidation when multi-replica writes matter
+const connectionCache = global.__liteRouterConnectionCache ??= { rows: null, expiresAt: 0 };
+const CACHE_TTL_MS = 5000;
+function invalidateConnectionCache() { connectionCache.rows = null; connectionCache.expiresAt = 0; }
+
 function resetHealthStateOnActivation(existing, patch) {
   if (patch?.testStatus !== "active") return patch;
 
@@ -90,14 +95,15 @@ function deriveConnectionName(data, fallbackName) {
 }
 
 export async function getProviderConnections(filter = {}) {
-  const db = await getAdapter();
-  const where = [];
-  const params = [];
-  if (filter.provider) { where.push("provider = ?"); params.push(filter.provider); }
-  if (filter.isActive !== undefined) { where.push("isActive = ?"); params.push(filter.isActive ? 1 : 0); }
-  const sql = `SELECT * FROM providerConnections${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-  const rows = db.all(sql, params);
-  const list = rows.map(rowToConn);
+  if (!connectionCache.rows || connectionCache.expiresAt <= Date.now()) {
+    const db = await getAdapter();
+    connectionCache.rows = db.all("SELECT * FROM providerConnections").map(rowToConn);
+    connectionCache.expiresAt = Date.now() + CACHE_TTL_MS;
+  }
+  const list = connectionCache.rows.filter((c) =>
+    (!filter.provider || c.provider === filter.provider)
+    && (filter.isActive === undefined || c.isActive === Boolean(filter.isActive))
+  ).map((c) => structuredClone(c));
   list.sort((a, b) => (a.priority || 999) - (b.priority || 999));
   return list;
 }
@@ -173,6 +179,7 @@ export async function createProviderConnection(data) {
       const merged = { ...existing, ...normalized, updatedAt: now };
       upsert(db, merged);
       result = merged;
+      invalidateConnectionCache();
       return;
     }
 
@@ -206,6 +213,7 @@ export async function createProviderConnection(data) {
     upsert(db, conn);
     reorderInTx(db, data.provider);
     result = conn;
+    invalidateConnectionCache();
   });
 
   return result;
@@ -224,6 +232,7 @@ export async function updateProviderConnection(id, data) {
     upsert(db, merged);
     if (data.priority !== undefined) reorderInTx(db, existing.provider);
     result = merged;
+    invalidateConnectionCache();
   });
   return result;
 }
@@ -237,6 +246,7 @@ export async function deleteProviderConnection(id) {
     db.run(`DELETE FROM providerConnections WHERE id = ?`, [id]);
     reorderInTx(db, row.provider);
     ok = true;
+    invalidateConnectionCache();
   });
   return ok;
 }
@@ -245,12 +255,14 @@ export async function deleteProviderConnectionsByProvider(providerId) {
   const db = await getAdapter();
   const before = db.get(`SELECT COUNT(*) AS n FROM providerConnections WHERE provider = ?`, [providerId]);
   db.run(`DELETE FROM providerConnections WHERE provider = ?`, [providerId]);
+  invalidateConnectionCache();
   return before?.n || 0;
 }
 
 export async function reorderProviderConnections(providerId) {
   const db = await getAdapter();
   db.transaction(() => reorderInTx(db, providerId));
+  invalidateConnectionCache();
 }
 
 export async function cleanupProviderConnections() {
@@ -281,5 +293,6 @@ export async function cleanupProviderConnections() {
       if (dirty) upsert(db, conn);
     }
   });
+  if (cleaned) invalidateConnectionCache();
   return cleaned;
 }
