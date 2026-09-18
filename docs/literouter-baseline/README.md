@@ -43,14 +43,24 @@ volume `literouter-staging-data`, `MINIMAL_PROFILE=true`,
 
 Redis is cache-only. Production volume and port are never shared.
 
-## Known pre-existing test failures (not introduced by this work)
+## Full-suite comparison (baseline vs staging)
 
-Verified failing on an unmodified checkout as well:
+Run with `npm --prefix tests test -- --run` in a clean worktree at
+`origin-literouter/main` versus the current `staging` branch:
 
-- `unit/combo-autoswitch.test.js` — 2 failures (search capability detection,
-  identity assertion in `reorderByCapabilities`).
-- `unit/translator-request-normalization.test.js` — 4 failures (content array
-  flattening, `parseSSELine` NDJSON).
+| | Test files | Tests |
+| --- | --- | --- |
+| `main` baseline | 34 failed \| 223 passed \| 11 skipped (268) | 139 failed \| 2396 passed (2608) |
+| `staging` | 34 failed \| 226 passed \| 11 skipped (271) | 139 failed \| 2401 passed (2613) |
+
+Identical failure count. The 139 failures (34 files, e.g.
+`windsurf-executor.test.js` registry assertions, `combo-autoswitch.test.js`,
+`translator-request-normalization.test.js`) are pre-existing on `main` and are
+not introduced by the LiteRouter work. Staging adds 3 passing test files and 5
+passing tests.
+
+Any future PR must keep the failure set at or below this baseline; comparing
+absolute pass counts without a baseline is misleading.
 
 ## Storage watch
 
