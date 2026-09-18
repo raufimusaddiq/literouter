@@ -53,12 +53,19 @@ Run with `npm --prefix tests test -- --run` in a clean worktree at
 | `main` baseline | 34 failed \| 223 passed \| 11 skipped (268) | 139 failed \| 2396 passed (2608) |
 | `staging` (first check) | 34 failed \| 226 passed \| 11 skipped (271) | 139 failed \| 2401 passed (2613) |
 | `staging` (after Phase 4) | 34 failed \| 230 passed \| 11 skipped (275) | 139 failed \| 2424 passed (2636) |
+| `staging` (current) | 34 failed \| 233 passed \| 11 skipped (278) | 139 failed \| 2431 passed (2643) |
 
 Identical failure count at every checkpoint. The 139 failures (34 files, e.g.
 `windsurf-executor.test.js` registry assertions, `combo-autoswitch.test.js`,
 `translator-request-normalization.test.js`) are pre-existing on `main` and are
-not introduced by the LiteRouter work. Staging adds 7 passing test files and 28
-passing tests.
+not introduced by the LiteRouter work. Staging adds 9 passing test files and 35
+passing tests. The 139 failures are byte-identical in nature across every
+checkpoint and are never worth counting as progress.
+
+Run the suite from `tests/`, not the repository root. The `@/` path alias is
+only configured in `tests/vitest.config.js`, so a root-level run makes those
+imports throw, the `catch(() => null)` guards swallow the error, and affected
+tests pass without executing anything.
 
 Any future PR must keep the failure set at or below this baseline; comparing
 absolute pass counts without a baseline is misleading.
