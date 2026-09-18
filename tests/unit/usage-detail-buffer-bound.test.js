@@ -19,12 +19,22 @@ describe("request details buffer", () => {
     if (typeof size === "number") expect(size).toBeLessThanOrEqual(10);
   });
 
-  it("flushRequestDetails resolves within its timeout", async () => {
+  it("flushRequestDetails drains the buffer synchronously", async () => {
     const mod = await import("../../src/lib/db/repos/requestDetailsRepo.js").catch(() => null);
     if (!mod) return;
-    const started = Date.now();
     const ok = await mod.flushRequestDetails(3000);
     expect(typeof ok).toBe("boolean");
-    expect(Date.now() - started).toBeLessThan(4000);
+    expect(mod.__buffer__.size()).toBe(0);
+  });
+
+  it("installs a synchronous signal drain", async () => {
+    const mod = await import("../../src/lib/db/repos/requestDetailsRepo.js").catch(() => null);
+    if (!mod) return;
+    mod.ensureShutdownHandler();
+    // The handler must be sync: Next also listens for these signals and closes
+    // the DB, so an async drain would find a dead connection.
+    const listeners = process.listeners("SIGTERM");
+    expect(listeners.length).toBeGreaterThan(0);
+    expect(listeners.some((fn) => fn.constructor.name !== "AsyncFunction")).toBe(true);
   });
 });

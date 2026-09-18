@@ -200,14 +200,8 @@ export async function saveRequestDetail(detail) {
 export async function flushRequestDetails(timeoutMs = 3000) {
   if (bufferState.writeBuffer.length === 0) return true;
   if (bufferState.flushTimer) { clearTimeout(bufferState.flushTimer); bufferState.flushTimer = null; }
-  let timer = null;
-  const deadline = new Promise((resolve) => {
-    timer = setTimeout(() => resolve("timeout"), timeoutMs);
-  });
-  const drained = flushToDatabase().then(() => (bufferState.writeBuffer.length === 0 ? "ok" : "timeout"));
-  const result = await Promise.race([drained, deadline]);
-  if (timer) clearTimeout(timer);
-  return result === "ok";
+  drainSync();
+  return bufferState.writeBuffer.length === 0;
 }
 
 export async function getRequestDetails(filter = {}) {
@@ -255,22 +249,15 @@ export async function getRequestDetailById(id) {
   return row ? parseJson(row.data, null) : null;
 }
 
-const _shutdownHandler = async () => {
-  console.log(`[requestDetailsRepo] shutdown drain: ${bufferState.writeBuffer.length} buffered`);
-  if (bufferState.flushTimer) { clearTimeout(bufferState.flushTimer); bufferState.flushTimer = null; }
-  if (bufferState.writeBuffer.length > 0) await flushToDatabase();
-  console.log(`[requestDetailsRepo] shutdown drain done: ${bufferState.writeBuffer.length} remaining`);
-};
-
-// `exit` handlers must be synchronous, and Next's own SIGTERM cleanup calls
-// process.exit() before our async drain can finish. So the real safety net is a
-// synchronous write here; better-sqlite3 is sync, so this is a direct call.
-function _syncDrainOnExit() {
-  if (!bufferState.syncAdapter || bufferState.writeBuffer.length === 0) return;
+// Next's own SIGTERM cleanup closes the DB ("connection is not open") though it
+// does not exit immediately, so the drain must run synchronously and first.
+function drainSync() {
+  if (bufferState.writeBuffer.length === 0) return;
   try {
-    writeDetailsSync(bufferState.syncAdapter, bufferState.writeBuffer.splice(0, bufferState.writeBuffer.length));
+    const db = bufferState.syncAdapter || getAdapterSync();
+    writeDetailsSync(db, bufferState.writeBuffer.splice(0, bufferState.writeBuffer.length));
   } catch (e) {
-    console.error("[requestDetailsRepo] sync exit drain failed:", e);
+    console.error("[requestDetailsRepo] sync drain failed:", e);
   }
 }
 
@@ -312,10 +299,9 @@ function writeDetailsSync(db, items) {
 export function ensureShutdownHandler() {
   if (globalThis.__liteRouterDetailShutdownHook) return;
   globalThis.__liteRouterDetailShutdownHook = true;
-  process.on("beforeExit", _shutdownHandler);
-  process.on("SIGINT", _shutdownHandler);
-  process.on("SIGTERM", _shutdownHandler);
-  // Last-resort synchronous drain: Next's SIGTERM cleanup calls process.exit()
-  // before the async drain settles, so this is the only guaranteed path.
-  process.on("exit", _syncDrainOnExit);
+  // Synchronous and registered first: Next also listens on these signals and
+  // closes the DB, so any async drain would find a dead connection.
+  process.on("beforeExit", drainSync);
+  process.on("SIGINT", drainSync);
+  process.on("SIGTERM", drainSync);
 }
