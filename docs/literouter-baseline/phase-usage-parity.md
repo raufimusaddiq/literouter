@@ -1,0 +1,66 @@
+# Usage and Quota parity evidence (staging, live)
+
+## Seeded traffic
+
+Six requests through a mock Generic Provider covering all three ingress
+transports (3x `/v1/chat/completions`, 2x `/v1/responses`, plus a messages
+request), all HTTP 200.
+
+## Persisted Usage data
+
+`usageHistory` recorded every request with the full field set the Usage contract
+needs:
+
+```json
+{
+  "timestamp": "2026-09-18T18:47:04.919Z",
+  "provider": "openai-compatible-chat-ab9d0c7c-...",
+  "model": "test-model",
+  "endpoint": "/v1/responses",
+  "promptTokens": 11,
+  "completionTokens": 5,
+  "cost": 0,
+  "status": "ok"
+}
+```
+
+`usageDaily` aggregation row written in the same transaction (1 row).
+
+## Usage API surface
+
+| Endpoint | Result |
+| --- | --- |
+| `/api/usage/stats` | totals, byProvider, byModel, tokens, cost |
+| `/api/usage/history?days=1\|7\|30` | same aggregate, all windows |
+| `/api/usage/chart?days=7` | HTTP 200 |
+| `/api/usage/providers` | provider list with resolved node name |
+| `/api/usage/request-details?limit=5` | detail rows with provider/model/connectionId |
+
+## Retained dashboard pages under MINIMAL_PROFILE
+
+All returned HTTP 200 with rendered content:
+
+| Page | HTML bytes |
+| --- | --- |
+| `/dashboard` | 27169 |
+| `/dashboard/providers` | 27560 |
+| `/dashboard/combos` | 27669 |
+| `/dashboard/usage` | 27169 |
+| `/dashboard/quota` | 33983 |
+| `/dashboard/token-saver` | 30631 |
+| `/dashboard/endpoint` | 200 OK |
+
+## Data-path findings
+
+- `saveUsageStats` intentionally skips writes when both token counts are zero.
+  The first seed round produced no rows for exactly that reason (mock upstream
+  returned no usage block), which is correct behavior, not a regression. The mock
+  was given a `usage` block and persistence was confirmed.
+- Quota page reads `/api/providers/client` and `/api/usage/<connectionId>`; both
+  return 200. There is no `/api/quota` route — earlier 404 was a wrong probe.
+
+## Production dataset reference
+
+Production `usageHistory` at capture: 39742 rows, 3676452347 prompt tokens,
+15455251 completion tokens, 25 `usageDaily` rows. Staging writes the identical
+schema, so production data remains readable without migration.
