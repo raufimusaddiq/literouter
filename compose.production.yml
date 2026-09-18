@@ -1,6 +1,6 @@
 services:
   9router:
-    image: 9router:v0.5.75-kenari-fix
+    image: 9router:v0.5.81-kenari-luna
     pull_policy: never
     container_name: 9router
     restart: unless-stopped
