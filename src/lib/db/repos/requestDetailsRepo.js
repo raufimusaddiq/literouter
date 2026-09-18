@@ -246,8 +246,10 @@ export async function getRequestDetailById(id) {
 }
 
 const _shutdownHandler = async () => {
+  console.log(`[requestDetailsRepo] shutdown drain: ${bufferState.writeBuffer.length} buffered`);
   if (bufferState.flushTimer) { clearTimeout(bufferState.flushTimer); bufferState.flushTimer = null; }
   if (bufferState.writeBuffer.length > 0) await flushToDatabase();
+  console.log(`[requestDetailsRepo] shutdown drain done: ${bufferState.writeBuffer.length} remaining`);
 };
 
 // Exported (not just called inline) so bundlers keep the handler reachable;
