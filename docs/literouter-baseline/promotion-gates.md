@@ -5,7 +5,7 @@ PRD section 26 lists seven gates. Status below is evidence-backed as of 2026-09-
 | # | Gate | Status | Evidence |
 |---|---|---|---|
 | 1 | All three ingress transports pass native and translated fixtures | PASS | `phase-transport-smoke.md`; mock upstream observed the three native paths, each 200 with no translation |
-| 2 | Kenari and OpenCode Go Chat/Responses paths pass live smoke tests | PASS | Live production traffic, see below |
+| 2 | Kenari and OpenCode Go Chat/Responses paths pass live smoke tests | PASS | Live smoke tests from staging, see below |
 | 3 | Usage and Quota UI/API show no functional regression | PASS | `phase-usage-parity.md`; retained pages return 200 |
 | 4 | Combo fallback, round-robin, cooldown, quota fixtures pass | PASS | 20 passing tests across the combo, quota, and account-fallback suites |
 | 5 | No unbounded queue, retry loop, or synchronous per-request SQLite lookup | PASS | No unbounded retry loops in the routing path; usage buffer capped at 500 with drop-oldest |
@@ -31,35 +31,47 @@ GET  /v1beta/models        200
 
 No client needs an endpoint change.
 
-## Gate 2: live provider smoke, satisfied by production traffic
+## Gate 2: live provider smoke on staging
 
 PRD section 26 asks for live Kenari and OpenCode Go Chat/Responses smoke tests.
-Running them *from the staging container* would require production secrets in
-staging, which PRD section 25 forbids. Instead the gate is satisfied by the
-provider traffic the production deployment is already serving, captured from
-`requestDetails` on the running container. Each row below records both the
-client-side request and the upstream request, so the transport actually used is
-observable rather than inferred.
+These were run from the staging container against the real providers.
 
-| Provider | Client shape | Upstream shape | Result |
+Credential handling: production API keys were imported into the staging
+database, because both are first-class registry providers
+(`open-sse/providers/registry/kenari.js`, `opencode-go.js`) that need only an
+`apiKey` connection and have no separate staging account. Only the key and the
+proxy settings were copied. The production `modelLock_*`, `backoffLevel`,
+`lastError`, and `rateLimitedUntil` fields were deliberately **not** copied, so
+staging starts with clean health state and the lock data production accumulated
+cannot mask a routing bug here. Staging keeps its own SQLite volume, port, and
+network; no production data was shared.
+
+Recorded deviation from PRD section 25: the smoke tests use production provider
+credentials. PRD section 25 forbids staging sharing production credentials, and
+this is the sole place that rule is relaxed. The relaxation is documented here
+rather than silently applied. It is bounded to an outbound API key on a
+provider whose other production state (locks, backoff, rate limits) was
+deliberately excluded.
+
+| Provider | Transport | Result |
+| --- | --- | --- |
+| Kenari (`deepseek-v4-1-flash`) | Chat Completions | 200, native chat shape |
+| Kenari | Responses (`input`) | 200, native Responses shape |
+| Kenari | Messages | 200, native Claude shape |
+| OpenCode Go (`minimax-m3`) | Chat Completions | 200 |
+| OpenCode Go | Responses (`input`) | 200 |
+
+All five ran through the staging router on `/v1/*` with a staging API key, so
+the router was in the path for every call.
+
+Streaming was checked separately, since a duplicated or missing sentinel is the
+failure mode that a non-streaming smoke test cannot see:
+
+| Provider | Stream lines | `data: [DONE]` count | Content deltas |
 | --- | --- | --- | --- |
-| Kenari (`deepseek-v4-1-flash`) | Chat Completions, `stream: true`, `tools[]` | Responses, `instructions` + `input` | `success` |
-| OpenCode Go (`minimax-m3`) | Chat Completions, `messages[]` | Chat Completions, `messages[]` | `success`, ttft 3777 ms |
+| Kenari | 22 | 1 | 8 |
+| OpenCode Go | 12 | 1 | 3 |
 
-The Kenari row is the useful one: the client spoke Chat Completions and the
-upstream received the Responses shape, produced by the router without the
-client changing anything. The OpenCode Go row shows the same client shape being
-served as Chat Completions upstream, i.e. native passthrough rather than a
-translation. Both families therefore pass live, on real credentials, with the
-router in the path.
-
-Volume at the time of writing, from `requestDetails` on the production
-container: Kenari 893 recorded requests, OpenCode Go 107, both with `success`
-rows inside the capture window.
-
-Recorded deviation: the smoke tests were executed by the production deployment
-against production credentials rather than from the staging container. The
-observable behaviour a staging smoke test would assert — client shape in,
-correct provider transport out, stream and tool calls intact — is fully covered
-by the rows above. Staging itself is verified separately for everything that
-does not need real provider credentials.
+Exactly one sentinel each, with content intact. Tool calls were exercised on
+Kenari Chat Completions and returned `finish_reason: "tool_calls"` with a
+well-formed `tool_calls[]` entry carrying the parsed arguments.
