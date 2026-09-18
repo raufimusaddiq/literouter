@@ -134,6 +134,11 @@ export function createSSEStream(options = {}) {
 
         // Passthrough mode: normalize and forward
         if (mode === STREAM_MODE.PASSTHROUGH) {
+          // The upstream sentinel is never forwarded verbatim: it is synthesized
+          // exactly once at stream end below, so forwarding it here would emit
+          // two `data: [DONE]` frames.
+          if (trimmed === "data: [DONE]" || trimmed === "data:[DONE]") continue;
+
           let output;
           let injectedUsage = false;
           let responsesTerminal = false;
