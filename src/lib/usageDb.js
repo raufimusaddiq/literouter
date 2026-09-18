@@ -7,7 +7,3 @@ export {
   flushRequestDetails,
   ensureRequestDetailShutdownHandler,
 } from "@/lib/db/index.js";
-
-// Register the bounded-buffer drain at import time. Importing this shim is
-// enough to guarantee a SIGTERM drain exists in every bundled server entry.
-ensureRequestDetailShutdownHandler();

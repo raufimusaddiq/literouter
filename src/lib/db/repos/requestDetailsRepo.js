@@ -156,6 +156,8 @@ export async function saveRequestDetail(detail) {
   const config = await getObservabilityConfig();
   if (!config.enabled) {return;}
 
+  ensureShutdownHandler();
+
   // ponytail: drop-oldest on overflow; switch to a Redis stream/disk spool if
   // losing observability rows under sustained DB stall becomes unacceptable.
   if (bufferState.writeBuffer.length >= config.maxBuffered) {
