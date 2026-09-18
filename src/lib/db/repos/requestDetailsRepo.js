@@ -58,9 +58,14 @@ async function getObservabilityConfig() {
   return cachedConfig;
 }
 
-let writeBuffer = [];
-let flushTimer = null;
-let isFlushing = false;
+// Next bundles this module once per route/entry, so module-level state is NOT
+// shared. Anchor the queue on globalThis so every instance drains the same
+// buffer and a shutdown flush sees rows written by request handlers.
+const bufferState = (globalThis.__liteRouterDetailBuffer ||= {
+  writeBuffer: [],
+  flushTimer: null,
+  isFlushing: false,
+});
 
 function sanitizeHeaders(headers) {
   if (!headers || typeof headers !== "object") return {};
@@ -75,7 +80,7 @@ function sanitizeHeaders(headers) {
 export const __test__ = { sanitizeHeaders };
 
 // Read-only hook for the bounded-buffer check.
-export const __buffer__ = { size: () => writeBuffer.length };
+export const __buffer__ = { size: () => bufferState.writeBuffer.length };
 
 function generateDetailId(model) {
   const timestamp = new Date().toISOString();
@@ -93,13 +98,13 @@ function truncateField(obj, maxSize) {
 }
 
 async function flushToDatabase() {
-  if (isFlushing) return;
-  if (writeBuffer.length === 0) return;
-  isFlushing = true;
+  if (bufferState.isFlushing) return;
+  if (bufferState.writeBuffer.length === 0) return;
+  bufferState.isFlushing = true;
   try {
     // Drain entire buffer (loop in case more pushed during await)
-    while (writeBuffer.length > 0) {
-      const items = writeBuffer.splice(0, writeBuffer.length);
+    while (bufferState.writeBuffer.length > 0) {
+      const items = bufferState.writeBuffer.splice(0, bufferState.writeBuffer.length);
       const db = await getAdapter();
       const config = await getObservabilityConfig();
 
@@ -143,7 +148,7 @@ async function flushToDatabase() {
   } catch (e) {
     console.error("[requestDetailsRepo] Batch write failed:", e);
   } finally {
-    isFlushing = false;
+    bufferState.isFlushing = false;
   }
 }
 
@@ -153,8 +158,8 @@ export async function saveRequestDetail(detail) {
 
   // ponytail: drop-oldest on overflow; switch to a Redis stream/disk spool if
   // losing observability rows under sustained DB stall becomes unacceptable.
-  if (writeBuffer.length >= config.maxBuffered) {
-    const dropped = writeBuffer.shift();
+  if (bufferState.writeBuffer.length >= config.maxBuffered) {
+    const dropped = bufferState.writeBuffer.shift();
     if (!dropped.__overflowLogged) {
       dropped.__overflowLogged = true;
       console.error(
@@ -163,16 +168,16 @@ export async function saveRequestDetail(detail) {
     }
   }
 
-  writeBuffer.push(detail);
+  bufferState.writeBuffer.push(detail);
 
   // Trigger immediate flush if batch threshold reached.
   // flushToDatabase() drains entire buffer in a loop, so all pushes during await are persisted.
-  if (writeBuffer.length >= config.batchSize) {
-    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+  if (bufferState.writeBuffer.length >= config.batchSize) {
+    if (bufferState.flushTimer) { clearTimeout(bufferState.flushTimer); bufferState.flushTimer = null; }
     flushToDatabase().catch((e) => console.error("[requestDetailsRepo] flush err:", e));
-  } else if (!flushTimer) {
-    flushTimer = setTimeout(() => {
-      flushTimer = null;
+  } else if (!bufferState.flushTimer) {
+    bufferState.flushTimer = setTimeout(() => {
+      bufferState.flushTimer = null;
       flushToDatabase().catch(() => {});
     }, config.flushIntervalMs);
   }
@@ -181,13 +186,13 @@ export async function saveRequestDetail(detail) {
 // Fixed-timeout drain for shutdown. Never blocks exit indefinitely; the caller
 // gets false when the deadline hits with rows still buffered.
 export async function flushRequestDetails(timeoutMs = 3000) {
-  if (writeBuffer.length === 0) return true;
-  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+  if (bufferState.writeBuffer.length === 0) return true;
+  if (bufferState.flushTimer) { clearTimeout(bufferState.flushTimer); bufferState.flushTimer = null; }
   let timer = null;
   const deadline = new Promise((resolve) => {
     timer = setTimeout(() => resolve("timeout"), timeoutMs);
   });
-  const drained = flushToDatabase().then(() => (writeBuffer.length === 0 ? "ok" : "timeout"));
+  const drained = flushToDatabase().then(() => (bufferState.writeBuffer.length === 0 ? "ok" : "timeout"));
   const result = await Promise.race([drained, deadline]);
   if (timer) clearTimeout(timer);
   return result === "ok";
@@ -239,8 +244,8 @@ export async function getRequestDetailById(id) {
 }
 
 const _shutdownHandler = async () => {
-  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
-  if (writeBuffer.length > 0) await flushToDatabase();
+  if (bufferState.flushTimer) { clearTimeout(bufferState.flushTimer); bufferState.flushTimer = null; }
+  if (bufferState.writeBuffer.length > 0) await flushToDatabase();
 };
 
 function ensureShutdownHandler() {

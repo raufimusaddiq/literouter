@@ -10,22 +10,5 @@ export async function register() {
 
     const { startModelCatalogSync } = await import("@/lib/modelCatalog/sync.js");
     startModelCatalogSync();
-
-    // Planned shutdown (docker stop / SIGTERM) must drain the bounded
-    // request-details buffer. Bounded so a stalled DB cannot block exit.
-    if (!global.__liteRouterFlushHook) {
-      global.__liteRouterFlushHook = true;
-      const flush = async () => {
-        try {
-          const { flushRequestDetails } = await import("@/lib/db/index.js");
-          await flushRequestDetails(3000);
-        } catch {
-          /* exiting anyway */
-        }
-        process.exit(0);
-      };
-      process.once("SIGTERM", flush);
-      process.once("SIGINT", flush);
-    }
   }
 }
