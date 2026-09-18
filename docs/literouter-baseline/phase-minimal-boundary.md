@@ -50,3 +50,34 @@ All three ingress transports still returned 200 after the boundary change.
 `tests/unit/minimal-profile-boundary.test.js` asserts the gate is keyed on
 `MINIMAL_PROFILE`, that every non-retained surface is listed, and that no
 retained API or ingress path is shadowed.
+
+## Additions (2026-09-19)
+
+Auditing the dashboard route tree against PRD section 18 found two live gaps:
+
+- `/dashboard/console-log` returned 200 in the minimal profile. The page is
+  fully served by `/api/translator/console-logs*`, which was already hidden, so
+  the page was a dead surface in minimal mode.
+- `/api/version/update` and `/api/version/shutdown` (the built-in updater and
+  shutdown installer flows, named in PRD section 18) were still reachable.
+
+All three are now hidden. Verified live on `literouter-staging`:
+
+```text
+307 /dashboard/console-log
+404 /api/version/update
+404 /api/version/shutdown
+200 /dashboard  /dashboard/providers  /dashboard/combos  /dashboard/usage
+200 /dashboard/quota  /dashboard/token-saver  /dashboard/endpoint
+```
+
+Deliberately *not* hidden:
+
+- `/dashboard/profile` is a settings client over retained `/api/settings`, and
+  is not on the PRD section 18 removal list.
+- Fusion (panel + judge) is a combo strategy rendered inside the retained
+  Combos page, not a separate surface. Hiding it would break PRD section 21
+  ("Combo works"), which outranks the section 18 candidate list.
+
+Retained regression after the change: 34 tests across nine suites pass, and all
+three ingress transports still return 200.
