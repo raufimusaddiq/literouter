@@ -81,3 +81,17 @@ Deliberately *not* hidden:
 
 Retained regression after the change: 34 tests across nine suites pass, and all
 three ingress transports still return 200.
+
+## Migration compatibility (PRD section 19)
+
+The minimal profile must load existing 9Router configuration without manual
+database editing. Verified by running the current staging image with
+`MINIMAL_PROFILE=true` against a copy of the production database:
+
+```text
+providers: 3   combos: 4   keys: 5   usage: 40956
+health: {"ok":true}
+```
+
+Providers, combos, API keys, and usage history all survived unchanged, and the
+service booted healthy. No migration step or manual edit was required.

@@ -49,6 +49,36 @@ and passes its healthcheck within ~30 s of container start (healthcheck
 
 ## Verified live during this measurement
 
+## Re-measurement (2026-09-19, current build)
+
+Re-run after the request-detail buffering work and the minimal-boundary
+additions, with staging now carrying its own provider connections and real
+traffic rather than an empty dataset.
+
+Hot path, n=30 warm non-streaming `POST /v1/chat/completions`:
+
+| Metric | Production baseline | Staging (current) |
+| --- | --- | --- |
+| Median | 16.53 ms | 13.64 ms |
+| p95 | 25.36 ms | 19.40 ms |
+| Min | 10.44 ms | 11.97 ms |
+| Max | 40.88 ms | 20.63 ms |
+
+A cold first sample reads higher (median 16.55 ms, p95 33.21 ms) because the
+first requests pay route compilation. The warm steady state is what the
+acceptance criterion covers, and it remains better than baseline.
+
+Idle RSS, both containers sampled together:
+
+| Container | RSS |
+| --- | --- |
+| `9router` (production) | 118.1 MiB |
+| `literouter-staging` | 68.9 MiB |
+
+Staging now holds its own connections and traffic history, so this is closer to
+like-for-like than the original sample, though staging still runs with the
+minimal profile active and no tunnel/MITM managers loaded.
+
 - All three ingress transports returned HTTP 200 with native passthrough.
 - Usage rows written with provider, model, endpoint, tokens, cost, status.
 - Retained dashboard pages all return 200 under `MINIMAL_PROFILE=true`.
