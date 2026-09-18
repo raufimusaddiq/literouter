@@ -21,6 +21,7 @@ services:
       DISABLE_BACKGROUND_TOKEN_REFRESH: "true"
       REDIS_URL: redis://idx-redis:6379
       REDIS_KEY_PREFIX: "literouter:staging:"
+      MINIMAL_PROFILE: "true"
     ports:
       - "127.0.0.1:20129:20129"
     volumes:

@@ -26,7 +26,7 @@ const navItems = [
   { href: "/dashboard/quota", label: "Quota Tracker", icon: "data_usage" },
   { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
   // { href: "/dashboard/pxpipe", label: "PXPIPE", icon: "image" },
-  { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
+  { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal", nonMinimal: true },
 ];
 
 const debugItems = [
@@ -49,6 +49,7 @@ export default function Sidebar({ onClose }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [shutdownCountdown, setShutdownCountdown] = useState(0);
   const [enableTranslator, setEnableTranslator] = useState(false);
+  const [minimalProfile, setMinimalProfile] = useState(false);
   const { copied, copy } = useCopyToClipboard(2000);
 
   const INSTALL_CMD = UPDATER_CONFIG.installCmdLatest;
@@ -56,7 +57,10 @@ export default function Sidebar({ onClose }) {
   useEffect(() => {
     fetch("/api/settings")
       .then(res => res.json())
-      .then(data => { if (data.enableTranslator) setEnableTranslator(true); })
+      .then(data => {
+        if (data.enableTranslator) setEnableTranslator(true);
+        if (data.minimalProfile) setMinimalProfile(true);
+      })
       .catch(() => {});
   }, []);
 
@@ -158,7 +162,7 @@ export default function Sidebar({ onClose }) {
 
         {/* Navigation */}
         <nav className="flex-1 px-4 py-2 space-y-0.5 overflow-y-auto custom-scrollbar">
-          {navItems.map((item) => (
+          {navItems.filter((item) => !minimalProfile || !item.nonMinimal).map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -189,6 +193,7 @@ export default function Sidebar({ onClose }) {
             </p>
 
             {/* Media Providers accordion */}
+            {!minimalProfile && (
             <button
               onClick={() => setMediaOpen((v) => !v)}
               className={cn(
@@ -204,7 +209,8 @@ export default function Sidebar({ onClose }) {
                 expand_more
               </span>
             </button>
-            {mediaOpen && (
+            )}
+            {!minimalProfile && mediaOpen && (
               <div className="pl-4">
                 {MEDIA_PROVIDER_KINDS.filter((k) => VISIBLE_MEDIA_KINDS.includes(k.id)).map((kind) => (
                   <Link
@@ -239,7 +245,7 @@ export default function Sidebar({ onClose }) {
               </div>
             )}
 
-            {systemItems.map((item) => (
+            {(minimalProfile ? [] : systemItems).map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -264,7 +270,7 @@ export default function Sidebar({ onClose }) {
             ))}
 
             {/* Debug items (inside System section, before Settings) */}
-            {debugItems.map((item) => {
+            {(minimalProfile ? [] : debugItems).map((item) => {
               const show = item.href !== "/dashboard/translator" || enableTranslator;
               return show ? (
                 <Link
@@ -292,6 +298,7 @@ export default function Sidebar({ onClose }) {
             })}
 
             {/* Remote */}
+            {!minimalProfile && (
             <button
               onClick={() => setShowRemoteModal(true)}
               className={cn(
@@ -307,6 +314,7 @@ export default function Sidebar({ onClose }) {
                 New
               </span> */}
             </button>
+            )}
 
             {/* 9English */}
             <a
