@@ -19,12 +19,15 @@ services:
       REQUEST_LOG_MAX_SESSIONS: "250"
       MODEL_CATALOG_SYNC: off
       DISABLE_BACKGROUND_TOKEN_REFRESH: "true"
+      REDIS_URL: redis://idx-redis:6379
+      REDIS_KEY_PREFIX: "literouter:staging:"
     ports:
       - "127.0.0.1:20129:20129"
     volumes:
       - literouter-staging-data:/app/data
     networks:
       - literouter-staging
+      - idx-default
     mem_limit: 512m
     mem_reservation: 128m
     healthcheck:
@@ -41,3 +44,6 @@ volumes:
 networks:
   literouter-staging:
     name: literouter-staging
+  idx-default:
+    external: true
+    name: idx_default
