@@ -19,7 +19,7 @@ export async function POST() {
   setTimeout(async () => {
     // Bounded drain so buffered request details survive a planned shutdown.
     try {
-      await flushRequestDetails(3000);
+      await flushRequestDetails();
     } catch {
       /* exiting anyway */
     }

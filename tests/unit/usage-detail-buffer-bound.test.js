@@ -22,7 +22,7 @@ describe("request details buffer", () => {
   it("flushRequestDetails drains the buffer synchronously", async () => {
     const mod = await import("../../src/lib/db/repos/requestDetailsRepo.js").catch(() => null);
     if (!mod) return;
-    const ok = await mod.flushRequestDetails(3000);
+    const ok = await mod.flushRequestDetails();
     expect(typeof ok).toBe("boolean");
     expect(mod.__buffer__.size()).toBe(0);
   });

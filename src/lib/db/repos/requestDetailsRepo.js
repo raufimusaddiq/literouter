@@ -197,9 +197,11 @@ export async function saveRequestDetail(detail) {
 
 // Fixed-timeout drain for shutdown. Never blocks exit indefinitely; the caller
 // gets false when the deadline hits with rows still buffered.
-export async function flushRequestDetails(timeoutMs = 3000) {
+export async function flushRequestDetails() {
   if (bufferState.writeBuffer.length === 0) return true;
   if (bufferState.flushTimer) { clearTimeout(bufferState.flushTimer); bufferState.flushTimer = null; }
+  // Synchronous: better-sqlite3 is sync, so a drain needs no await and cannot
+  // lose a race against a shutdown that closes the connection.
   drainSync();
   return bufferState.writeBuffer.length === 0;
 }
@@ -260,6 +262,10 @@ function drainSync() {
     console.error("[requestDetailsRepo] sync drain failed:", e);
   }
 }
+
+// The SQLite adapter closes the connection on SIGTERM/SIGINT, so it calls this
+// before `db.close()` to give buffered rows their last chance to persist.
+globalThis.__liteRouterDrainSync = drainSync;
 
 function writeDetailsSync(db, items) {
   const maxRecords = bufferState.maxRecords || DEFAULT_MAX_RECORDS;
