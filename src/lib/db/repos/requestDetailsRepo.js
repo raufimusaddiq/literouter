@@ -5,6 +5,7 @@ const DEFAULT_MAX_RECORDS = 200;
 const DEFAULT_BATCH_SIZE = 20;
 const DEFAULT_FLUSH_INTERVAL_MS = 5000;
 const DEFAULT_MAX_JSON_SIZE = 5 * 1024;
+const DEFAULT_MAX_BUFFERED = 500;
 const CONFIG_CACHE_TTL_MS = 5000;
 
 let cachedConfig = null;
@@ -24,6 +25,7 @@ async function getObservabilityConfig() {
         batchSize: settings.observabilityBatchSize || parseInt(process.env.OBSERVABILITY_BATCH_SIZE || String(DEFAULT_BATCH_SIZE), 10),
         flushIntervalMs: settings.observabilityFlushIntervalMs || parseInt(process.env.OBSERVABILITY_FLUSH_INTERVAL_MS || String(DEFAULT_FLUSH_INTERVAL_MS), 10),
         maxJsonSize: (settings.observabilityMaxJsonSize || parseInt(process.env.OBSERVABILITY_MAX_JSON_SIZE || "5", 10)) * 1024,
+        maxBuffered: settings.observabilityMaxBuffered || parseInt(process.env.OBSERVABILITY_MAX_BUFFERED || String(DEFAULT_MAX_BUFFERED), 10),
       };
       cachedConfigTs = Date.now();
       return cachedConfig;
@@ -40,6 +42,7 @@ async function getObservabilityConfig() {
       batchSize: settings.observabilityBatchSize || parseInt(process.env.OBSERVABILITY_BATCH_SIZE || String(DEFAULT_BATCH_SIZE), 10),
       flushIntervalMs: settings.observabilityFlushIntervalMs || parseInt(process.env.OBSERVABILITY_FLUSH_INTERVAL_MS || String(DEFAULT_FLUSH_INTERVAL_MS), 10),
       maxJsonSize: (settings.observabilityMaxJsonSize || parseInt(process.env.OBSERVABILITY_MAX_JSON_SIZE || "5", 10)) * 1024,
+      maxBuffered: settings.observabilityMaxBuffered || parseInt(process.env.OBSERVABILITY_MAX_BUFFERED || String(DEFAULT_MAX_BUFFERED), 10),
     };
   } catch {
     cachedConfig = {
@@ -48,6 +51,7 @@ async function getObservabilityConfig() {
       batchSize: DEFAULT_BATCH_SIZE,
       flushIntervalMs: DEFAULT_FLUSH_INTERVAL_MS,
       maxJsonSize: DEFAULT_MAX_JSON_SIZE,
+      maxBuffered: DEFAULT_MAX_BUFFERED,
     };
   }
   cachedConfigTs = Date.now();
@@ -69,6 +73,9 @@ function sanitizeHeaders(headers) {
 }
 
 export const __test__ = { sanitizeHeaders };
+
+// Read-only hook for the bounded-buffer check.
+export const __buffer__ = { size: () => writeBuffer.length };
 
 function generateDetailId(model) {
   const timestamp = new Date().toISOString();
@@ -144,6 +151,18 @@ export async function saveRequestDetail(detail) {
   const config = await getObservabilityConfig();
   if (!config.enabled) {return;}
 
+  // ponytail: drop-oldest on overflow; switch to a Redis stream/disk spool if
+  // losing observability rows under sustained DB stall becomes unacceptable.
+  if (writeBuffer.length >= config.maxBuffered) {
+    const dropped = writeBuffer.shift();
+    if (!dropped.__overflowLogged) {
+      dropped.__overflowLogged = true;
+      console.error(
+        `[requestDetailsRepo] write buffer full (${config.maxBuffered}); dropping oldest detail(s) until the DB catches up`
+      );
+    }
+  }
+
   writeBuffer.push(detail);
 
   // Trigger immediate flush if batch threshold reached.
@@ -157,6 +176,21 @@ export async function saveRequestDetail(detail) {
       flushToDatabase().catch(() => {});
     }, config.flushIntervalMs);
   }
+}
+
+// Fixed-timeout drain for shutdown. Never blocks exit indefinitely; the caller
+// gets false when the deadline hits with rows still buffered.
+export async function flushRequestDetails(timeoutMs = 3000) {
+  if (writeBuffer.length === 0) return true;
+  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+  let timer = null;
+  const deadline = new Promise((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), timeoutMs);
+  });
+  const drained = flushToDatabase().then(() => (writeBuffer.length === 0 ? "ok" : "timeout"));
+  const result = await Promise.race([drained, deadline]);
+  if (timer) clearTimeout(timer);
+  return result === "ok";
 }
 
 export async function getRequestDetails(filter = {}) {
