@@ -66,7 +66,7 @@ const DEFAULT_SETTINGS = {
 
 async function readRaw() {
   // ponytail: process-local cache, invalidated on write; add Redis version key if multi-process writes appear
-  const cache = global.__liteRouterSettingsCache ??= { raw: null };
+  const cache = global.__liteRouterSettingsCache ??= { raw: null, merged: null };
   if (cache.raw) return cache.raw;
   const db = await getAdapter();
   const row = db.get(`SELECT data FROM settings WHERE id = 1`);
@@ -96,8 +96,9 @@ export function mergeWithDefaults(raw) {
 export async function getSettings() {
   // Cache the merged object too: mergeWithDefaults + raw parse dominated the
   // call cost, and every caller only reads the result.
-  const merged = global.__liteRouterSettingsCache.merged ??= mergeWithDefaults(await readRaw());
-  return merged;
+  const cache = global.__liteRouterSettingsCache ??= { raw: null, merged: null };
+  if (!cache.merged) cache.merged = mergeWithDefaults(await readRaw());
+  return cache.merged;
 }
 
 // Atomic read-merge-write inside transaction (prevents losing concurrent updates)
@@ -113,7 +114,7 @@ export async function updateSettings(updates) {
       [stringifyJson(next)],
     );
   });
-  const cache = (global.__liteRouterSettingsCache ??= {});
+  const cache = (global.__liteRouterSettingsCache ??= { raw: null, merged: null });
   cache.raw = next;
   cache.merged = mergeWithDefaults(next);
   return cache.merged;
