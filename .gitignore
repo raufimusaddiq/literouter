@@ -51,6 +51,8 @@ source/*
 .cursor/*
 docs/*
 !docs/ARCHITECTURE.md
+!docs/literouter-baseline/
+!docs/literouter-baseline/**
 test/*
 open-sse/test/*
 RM.vn.md
