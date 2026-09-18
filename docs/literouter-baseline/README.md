@@ -51,12 +51,13 @@ Run with `npm --prefix tests test -- --run` in a clean worktree at
 | | Test files | Tests |
 | --- | --- | --- |
 | `main` baseline | 34 failed \| 223 passed \| 11 skipped (268) | 139 failed \| 2396 passed (2608) |
-| `staging` | 34 failed \| 226 passed \| 11 skipped (271) | 139 failed \| 2401 passed (2613) |
+| `staging` (first check) | 34 failed \| 226 passed \| 11 skipped (271) | 139 failed \| 2401 passed (2613) |
+| `staging` (after Phase 4) | 34 failed \| 230 passed \| 11 skipped (275) | 139 failed \| 2424 passed (2636) |
 
-Identical failure count. The 139 failures (34 files, e.g.
+Identical failure count at every checkpoint. The 139 failures (34 files, e.g.
 `windsurf-executor.test.js` registry assertions, `combo-autoswitch.test.js`,
 `translator-request-normalization.test.js`) are pre-existing on `main` and are
-not introduced by the LiteRouter work. Staging adds 3 passing test files and 5
+not introduced by the LiteRouter work. Staging adds 7 passing test files and 28
 passing tests.
 
 Any future PR must keep the failure set at or below this baseline; comparing
