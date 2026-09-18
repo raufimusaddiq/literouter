@@ -66,6 +66,7 @@ export {
 export {
   saveRequestDetail, getRequestDetails, getRequestDetailById, getDistinctProviders,
   flushRequestDetails,
+  ensureShutdownHandler as ensureRequestDetailShutdownHandler,
 } from "./repos/requestDetailsRepo.js";
 
 // Export/import full DB

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { flushRequestDetails } from "@/lib/db/index.js";
+import { flushRequestDetails } from "@/lib/db/repos/requestDetailsRepo.js";
 
 export async function POST() {
   if (process.env.NODE_ENV === "production") {
