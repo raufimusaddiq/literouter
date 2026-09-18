@@ -230,7 +230,17 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   let lastError = null;
   let lastStatus = null;
 
+  // Bound account fallback explicitly. excludeConnectionIds already prevents
+  // repeats, but quota refresh paths can re-evaluate providers, so cap attempts
+  // to keep retry behavior finite and deterministic (PRD 24).
+  const maxAccountAttempts = Math.max(1, Number(process.env.MAX_ACCOUNT_FALLBACK_ATTEMPTS) || 10);
+  let accountAttempts = 0;
+
   while (true) {
+    if (++accountAttempts > maxAccountAttempts) {
+      log.warn("FALLBACK", `attempt cap ${maxAccountAttempts} reached for ${provider}/${model}`);
+      return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
+    }
     const credentials = await getProviderCredentials(provider, excludeConnectionIds, model);
 
     // All accounts unavailable
