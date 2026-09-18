@@ -14,11 +14,14 @@ describe("minimal profile route boundary", () => {
     for (const prefix of [
       "/dashboard/basic-chat",
       "/dashboard/cli-tools",
+      "/dashboard/console-log",
       "/dashboard/mitm",
       "/dashboard/media-providers",
       "/dashboard/proxy-pools",
       "/dashboard/skills",
       "/dashboard/translator",
+      "/api/version/update",
+      "/api/version/shutdown",
     ]) {
       expect(hidden).toContain(prefix);
     }

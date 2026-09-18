@@ -94,6 +94,7 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const MINIMAL_HIDDEN_PREFIXES = [
   "/dashboard/basic-chat",
   "/dashboard/cli-tools",
+  "/dashboard/console-log",
   "/dashboard/mitm",
   "/dashboard/media-providers",
   "/dashboard/proxy-pools",
@@ -108,6 +109,9 @@ const MINIMAL_HIDDEN_PREFIXES = [
   "/api/headroom",
   "/api/mcp",
   "/api/tunnel",
+  // Built-in updater / shutdown installer flows (PRD section 18).
+  "/api/version/update",
+  "/api/version/shutdown",
 ];
 
 // Accepts a Host header, a URL hostname or a raw socket address. Splitting on the first
