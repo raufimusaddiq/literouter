@@ -58,3 +58,26 @@ source, so it is not a silent no-op.
 
 Streaming content, the Responses stream, the Messages stream, and non-streaming
 requests were all re-checked after the change and are unaffected.
+
+## Not a defect: default streaming
+
+While verifying the above, a request sent **without** a `stream` field returned
+`content-type: text/event-stream` ending in `data: [DONE]`. That looks like a
+non-streaming response with junk appended, but it is correct behaviour.
+
+`open-sse/handlers/chatCore.js` computes:
+
+```js
+let stream = providerRequiresStreaming ? true : (sourceFormat === FORMATS.CLAUDE ? body.stream === true : body.stream !== false);
+```
+
+So for OpenAI-family formats, an absent `stream` defaults to streaming, matching
+the OpenAI-compatible default. Only an explicit `stream: false` returns JSON:
+
+| Request | Content-Type | Body tail |
+| --- | --- | --- |
+| no `stream` field | `text/event-stream` | ends `data: [DONE]` |
+| `stream: false` | `application/json` | ends `}` |
+| `stream: true` | `text/event-stream` | ends `data: [DONE]` |
+
+Recorded so this is not re-investigated as a bug.

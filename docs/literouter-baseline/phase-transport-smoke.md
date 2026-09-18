@@ -66,6 +66,39 @@ still available as a fallback.
 
 ## Transport cardinality
 
+## Streaming, tool calls, and reasoning (2026-09-19)
+
+PRD section 20 requires these three cases on all three ingress transports. The
+mock upstream was extended to emit them; results on `literouter-staging`:
+
+Streaming (`stream: true`), exactly one terminator each:
+
+| Ingress | Upstream path | Sentinel count | Content |
+| --- | --- | --- | --- |
+| `/v1/chat/completions` | `/v1/chat/completions` | 1 | `stream-ok` present |
+| `/v1/responses` | `/v1/responses` | 1 | terminates on `response.completed` |
+| `/v1/messages` | `/v1/messages` | 1 | `stream-ok` present |
+
+Tool calls:
+
+| Ingress | Result |
+| --- | --- |
+| `/v1/chat/completions` | `tool_calls[0].function.name == "get_weather"`, `finish_reason: tool_calls` |
+| `/v1/messages` | `content[0].type == "tool_use"`, `stop_reason: "tool_use"` |
+
+Reasoning, with a mock that returns `reasoning_content`:
+
+| Route | Result |
+| --- | --- |
+| native (`mockmulti`, openai→openai) | reasoning carried in the OpenAI shape |
+| translated (`mocksingle`, claude→openai) | reasoning becomes a Claude `thinking` content block |
+
+Two apparent failures during this pass were faults in the test harness, not the
+router, and are noted so they are not re-investigated: a chat-shaped body
+returned from the Messages endpoint was correctly passed through untouched
+(the mock was wrong), and a request with no `stream` field legitimately streams
+because an absent `stream` defaults to true for OpenAI-family formats.
+
 `GET /api/provider-nodes/routes?id=` was checked for each advertised set:
 
 | Node | `transports` | Routes returned |
