@@ -1,4 +1,4 @@
-import { getAdapter } from "../driver.js";
+import { getAdapter, getAdapterSync } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
 const DEFAULT_MAX_RECORDS = 200;
@@ -65,6 +65,8 @@ const bufferState = (globalThis.__liteRouterDetailBuffer ||= {
   writeBuffer: [],
   flushTimer: null,
   isFlushing: false,
+  syncAdapter: null,
+  maxRecords: 200,
 });
 
 function sanitizeHeaders(headers) {
@@ -157,6 +159,14 @@ export async function saveRequestDetail(detail) {
   if (!config.enabled) {return;}
 
   ensureShutdownHandler();
+
+  // Cache a sync handle + record cap so the exit drain needs no await.
+  try {
+    if (!bufferState.syncAdapter) bufferState.syncAdapter = getAdapterSync();
+    bufferState.maxRecords = config.maxRecords || DEFAULT_MAX_RECORDS;
+  } catch {
+    /* sync adapter unavailable (node:sqlite path) — async drain still applies */
+  }
 
   // ponytail: drop-oldest on overflow; switch to a Redis stream/disk spool if
   // losing observability rows under sustained DB stall becomes unacceptable.
@@ -252,6 +262,51 @@ const _shutdownHandler = async () => {
   console.log(`[requestDetailsRepo] shutdown drain done: ${bufferState.writeBuffer.length} remaining`);
 };
 
+// `exit` handlers must be synchronous, and Next's own SIGTERM cleanup calls
+// process.exit() before our async drain can finish. So the real safety net is a
+// synchronous write here; better-sqlite3 is sync, so this is a direct call.
+function _syncDrainOnExit() {
+  if (!bufferState.syncAdapter || bufferState.writeBuffer.length === 0) return;
+  try {
+    writeDetailsSync(bufferState.syncAdapter, bufferState.writeBuffer.splice(0, bufferState.writeBuffer.length));
+  } catch (e) {
+    console.error("[requestDetailsRepo] sync exit drain failed:", e);
+  }
+}
+
+function writeDetailsSync(db, items) {
+  const maxRecords = bufferState.maxRecords || DEFAULT_MAX_RECORDS;
+  db.transaction(() => {
+    for (const item of items) {
+      if (!item.id) item.id = generateDetailId(item.model);
+      if (!item.timestamp) item.timestamp = new Date().toISOString();
+      if (item.request?.headers) item.request.headers = sanitizeHeaders(item.request.headers);
+      const record = {
+        id: item.id,
+        provider: item.provider || null,
+        model: item.model || null,
+        connectionId: item.connectionId || null,
+        timestamp: item.timestamp,
+        status: item.status || null,
+        latency: item.latency || {},
+        tokens: item.tokens || {},
+        request: truncateField(item.request, 5 * 1024),
+        providerRequest: truncateField(item.providerRequest, 5 * 1024),
+        providerResponse: truncateField(item.providerResponse, 5 * 1024),
+        response: truncateField(item.response, 5 * 1024),
+      };
+      db.run(
+        `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`,
+        [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, stringifyJson(record)]
+      );
+    }
+    const cnt = db.get(`SELECT COUNT(*) as c FROM requestDetails`);
+    if (cnt && cnt.c > maxRecords) {
+      db.run(`DELETE FROM requestDetails WHERE id IN (SELECT id FROM requestDetails ORDER BY timestamp ASC LIMIT ?)`, [cnt.c - maxRecords]);
+    }
+  });
+}
+
 // Exported (not just called inline) so bundlers keep the handler reachable;
 // an unreferenced module-level side effect gets tree-shaken out of the route.
 export function ensureShutdownHandler() {
@@ -260,4 +315,7 @@ export function ensureShutdownHandler() {
   process.on("beforeExit", _shutdownHandler);
   process.on("SIGINT", _shutdownHandler);
   process.on("SIGTERM", _shutdownHandler);
+  // Last-resort synchronous drain: Next's SIGTERM cleanup calls process.exit()
+  // before the async drain settles, so this is the only guaranteed path.
+  process.on("exit", _syncDrainOnExit);
 }
