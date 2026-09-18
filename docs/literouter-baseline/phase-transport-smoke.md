@@ -38,6 +38,45 @@ Router log for the Responses request confirms no conversion:
 POST mockmulti/test-model → openai-compatible-.../test-model · FMT: openai-responses→openai-responses
 ```
 
+## Native-vs-translated precedence (2026-09-19)
+
+PRD section 23 requires native transport first and translation only when the
+provider cannot serve the incoming transport. Both branches were exercised on
+the same ingress, against two nodes on the same mock upstream.
+
+Nodes: `mockmulti` advertises all three transports, `mocksingle` advertises only
+`chat_completions`. Both have an active connection.
+
+`POST /v1/messages` with `mockmulti/test-model`:
+
+```text
+FMT: claude→claude · ACC:Mock Multi Key
+```
+
+`POST /v1/messages` with `mocksingle/test-model`:
+
+```text
+FMT: claude→openai · ACC:Mock Single Key
+```
+
+Both returned HTTP 200. The multi-transport node passed Claude through
+unchanged; the chat-only node translated and returned a valid Claude-shaped
+response (`content[].type == "text"`, `stop_reason`), proving translation is
+still available as a fallback.
+
+## Transport cardinality
+
+`GET /api/provider-nodes/routes?id=` was checked for each advertised set:
+
+| Node | `transports` | Routes returned |
+|---|---|---|
+| `mocksingle` | `["chat_completions"]` | 1 (`/chat/completions`) |
+| `mocktwo` | `["chat_completions","responses"]` | 2 |
+| `mockmulti` | all three | 3 (`/chat/completions`, `/responses`, `/messages`) |
+
+One, two, and three native transports all configure and resolve correctly
+(PRD section 21).
+
 ## Unknown-field preservation
 
 The Responses request included `forward_compatible_field: "keep-me"`. The mock
