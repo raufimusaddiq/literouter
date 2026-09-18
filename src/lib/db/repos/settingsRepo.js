@@ -65,9 +65,13 @@ const DEFAULT_SETTINGS = {
 };
 
 async function readRaw() {
+  // ponytail: process-local cache, invalidated on write; add Redis version key if multi-process writes appear
+  const cache = global.__liteRouterSettingsCache ??= { raw: null };
+  if (cache.raw) return cache.raw;
   const db = await getAdapter();
   const row = db.get(`SELECT data FROM settings WHERE id = 1`);
-  return row ? parseJson(row.data, {}) : {};
+  cache.raw = row ? parseJson(row.data, {}) : {};
+  return cache.raw;
 }
 
 // Merge raw settings with defaults; backward-compat for missing keys
@@ -107,6 +111,7 @@ export async function updateSettings(updates) {
       [stringifyJson(next)],
     );
   });
+  (global.__liteRouterSettingsCache ??= {}).raw = next;
   return mergeWithDefaults(next);
 }
 
