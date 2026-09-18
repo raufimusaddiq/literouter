@@ -174,9 +174,20 @@ Use provider-specific adapters when special behavior is required, for example:
 - non-standard model discovery,
 - provider-specific request semantics.
 
-Existing adapters may be retained when they provide real compatibility value.
+The existing **LLM/text provider catalog is a compatibility contract** for the minimal product.
 
-They should not all perform work at startup. Provider-specific code should be lazy-loaded where practical.
+Any current provider whose effective service kind includes `llm` must remain available through the Providers UI and routing engine, including the current connection modes where applicable:
+
+- free/no-auth providers,
+- free-tier providers,
+- OAuth providers,
+- API-key providers,
+- web-cookie/session providers,
+- dual-auth providers.
+
+A provider adapter must not be removed merely because it is rarely used. It may only be removed from the minimal product when it is media-only/non-LLM, superseded by a fully compatible Generic Provider path without losing auth/quota semantics, or explicitly removed by a later product decision.
+
+Provider-specific adapters should not all perform work at startup. They should be lazy-loaded or initialized on demand where practical.
 
 ### 6.2 Generic compatible providers
 
@@ -211,6 +222,18 @@ A provider may support:
 The UI must allow these capabilities to be configured without source changes.
 
 Optional capability probing may be added, but manual configuration must always be possible.
+
+Generic Provider management must retain the useful connection workflow that exists today:
+
+- test/validate credentials and endpoint,
+- discover models when a compatible model-list endpoint exists,
+- allow a manual model ID when discovery is unavailable,
+- show connection/health status,
+- support multiple connections/accounts where the routing model permits it.
+
+Existing `openai-compatible` and `anthropic-compatible` nodes must remain readable and migratable. The new Generic Provider model should unify their capabilities rather than requiring users to recreate working connections manually.
+
+A Generic Provider may use one shared credential/base URL for all enabled transports, with an optional per-transport path override. Per-transport base URL or header overrides may be added only when required by a real upstream compatibility case; they are not required for the first minimal implementation.
 
 ---
 
@@ -356,11 +379,15 @@ Keep the existing account fallback behavior, including handling of temporary una
 
 The existing Combo feature is core product functionality.
 
-The UI and runtime must continue supporting the routing strategies actively provided by the current Combo implementation, especially:
+The minimal Combo product MUST retain:
 
 - ordered fallback,
 - round-robin/pool behavior,
-- automatic progression to another candidate after eligible failures.
+- automatic progression to another candidate after eligible failures,
+- cross-provider and cross-account targets,
+- reorder/edit semantics in the existing Combo UI.
+
+The first minimal profile does **not** require Fusion/panel+judge or capability-adapter routing. Those may remain disabled/removed unless explicitly brought back by a later product decision.
 
 Do not simplify Combo into a static alias.
 
@@ -505,11 +532,17 @@ Must continue supporting:
 - list provider connections,
 - add provider,
 - edit provider,
+- enable/disable provider connections where currently supported,
 - remove provider,
-- OAuth connection where retained,
+- the existing LLM provider catalog and current auth modes,
+- OAuth connection where currently supported,
 - API-key connection,
+- web-cookie/session connection where currently supported,
 - Generic Provider,
-- account state,
+- multiple accounts/connections,
+- test/validate connection,
+- model discovery plus manual model fallback,
+- account/connection state,
 - relevant model configuration,
 - relevant quota/health state.
 
@@ -796,8 +829,11 @@ Hard-retain:
 - SSE/streaming,
 - multi-provider,
 - multi-account,
-- OAuth/token refresh for retained providers,
-- API-key providers,
+- the existing LLM/text provider catalog,
+- free/no-auth and free-tier LLM providers,
+- OAuth/token refresh for retained LLM providers,
+- API-key LLM providers,
+- web-cookie/session LLM providers where currently supported,
 - Generic Provider,
 - per-transport native passthrough,
 - protocol translation fallback,
@@ -827,6 +863,8 @@ Initial candidates:
 - MITM,
 - Proxy Pools,
 - Skills,
+- Fusion/panel+judge Combo mode,
+- capability-adapter routing UI/runtime when not required by retained routing,
 - Translator playground UI,
 - unrelated media endpoints,
 - cloud sync,
