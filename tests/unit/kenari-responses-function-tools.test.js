@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyResponsesFunctionToolsQuirk,
+  convertResponsesCustomToolHistory,
   convertResponsesCustomTools,
   createResponsesEventRewriter,
   rewriteResponsesCustomToolOutput,
@@ -69,14 +70,77 @@ describe("convertResponsesCustomTools", () => {
 });
 
 describe("applyResponsesFunctionToolsQuirk", () => {
-  it("applies both conversions in one pass", () => {
+  it("applies tool, text.format, and history conversions in one pass", () => {
     const body = applyResponsesFunctionToolsQuirk({
       tools: [EXEC_CUSTOM_TOOL],
       text: { verbosity: "low", format: { type: "json_schema" } },
+      input: [{ type: "custom_tool_call", id: "ctc_1", call_id: "call_x", name: "exec", input: "ls" }],
     });
     expect(body.tools[0].type).toBe("function");
     expect(body._customToolNames).toEqual(["exec"]);
     expect(body.text).toEqual({ verbosity: "low" });
+    expect(body.input[0].type).toBe("function_call");
+    expect(body.input[0].arguments).toBe(JSON.stringify({ input: "ls" }));
+  });
+});
+
+describe("convertResponsesCustomToolHistory", () => {
+  const CALL_ITEM = {
+    type: "custom_tool_call",
+    id: "ctc_1",
+    call_id: "call_x",
+    name: "exec",
+    input: "echo hi",
+  };
+  const OUTPUT_ITEM = {
+    type: "custom_tool_call_output",
+    id: "ctco_9",
+    call_id: "call_x",
+    output: [
+      { type: "input_text", text: "Script completed\n" },
+      { type: "input_text", text: "hello" },
+    ],
+  };
+
+  it("converts custom_tool_call to function_call with {input} arguments", () => {
+    const { input } = convertResponsesCustomToolHistory({ input: [CALL_ITEM, { type: "message", role: "user" }] });
+    expect(input[0]).toEqual({
+      type: "function_call",
+      id: "fc_1",
+      call_id: "call_x",
+      name: "exec",
+      arguments: JSON.stringify({ input: "echo hi" }),
+    });
+    expect(input[1]).toEqual({ type: "message", role: "user" });
+  });
+
+  it("converts custom_tool_call_output to function_call_output with string output", () => {
+    const { input } = convertResponsesCustomToolHistory({ input: [OUTPUT_ITEM] });
+    expect(input[0]).toEqual({
+      type: "function_call_output",
+      id: "fco_9",
+      call_id: "call_x",
+      output: "Script completed\nhello",
+    });
+  });
+
+  it("keeps an already-converted arguments string on replay", () => {
+    const { input } = convertResponsesCustomToolHistory({
+      input: [{ ...CALL_ITEM, input: undefined, arguments: "{\"input\":\"kept\"}" }],
+    });
+    expect(input[0].arguments).toBe("{\"input\":\"kept\"}");
+  });
+
+  it("is a no-op without custom items", () => {
+    const body = { input: [{ type: "message", role: "user" }, { type: "function_call", id: "fc_1" }] };
+    expect(convertResponsesCustomToolHistory(body)).toBe(body);
+  });
+
+  it("handles string output", () => {
+    const { input } = convertResponsesCustomToolHistory({
+      input: [{ ...OUTPUT_ITEM, output: "plain" }],
+    });
+    expect(input[0].output).toBe("plain");
   });
 });
 
@@ -93,6 +157,8 @@ describe("createResponsesEventRewriter", () => {
     expect(data.item.type).toBe("custom_tool_call");
     expect(data.item.id).toBe("ctc_1");
     expect(data.item.call_id).toBe("call_x");
+    expect(data.item.input).toBe("");
+    expect(data.item.arguments).toBeUndefined();
   });
 
   it("suppresses function_call_arguments.delta for converted tools (freeform arrives whole)", () => {

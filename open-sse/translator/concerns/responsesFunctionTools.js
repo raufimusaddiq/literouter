@@ -18,6 +18,7 @@
 // handlers can map tool calls back without extra wiring.
 
 import { RESPONSES_ITEM } from "../schema/index.js";
+import { coerceResponsesOutput } from "../formats/responsesApi.js";
 
 // ---- Request side ----
 
@@ -73,7 +74,67 @@ export function convertResponsesCustomTools(body) {
 
 export function applyResponsesFunctionToolsQuirk(body) {
   if (!body || typeof body !== "object") return body;
-  return convertResponsesCustomTools(stripResponsesTextFormat(body)).body;
+  return convertResponsesCustomTools(convertResponsesCustomToolHistory(stripResponsesTextFormat(body))).body;
+}
+
+// History replay: Codex sends prior turns back as `custom_tool_call` /
+// `custom_tool_call_output` items (its native wire), but the endpoint only
+// accepts `function_call` / `function_call_output`. Without this the model
+// cannot see its own previous exec calls/outputs and reports a "tooling
+// outage" (exec cell not found / nothing returned).
+//  - input (freeform string) → arguments JSON {"input": ...} — the exact shape
+//    the converted function tool declares
+//  - output (string or content array) → string
+//  - ctc_/ctco_ item ids → fc_/fco_ so the id family matches the item type
+export function convertResponsesCustomToolHistory(body) {
+  if (!body || typeof body !== "object" || !Array.isArray(body.input)) return body;
+
+  let changed = false;
+  const input = body.input.map((item) => {
+    if (!item || typeof item !== "object") return item;
+
+    if (item.type === RESPONSES_ITEM.CUSTOM_TOOL_CALL) {
+      changed = true;
+      const { type, input: freeform, id, ...rest } = item;
+      return {
+        ...rest,
+        type: RESPONSES_ITEM.FUNCTION_CALL,
+        id: remapCustomItemId(id, "ctc_", "fc_"),
+        arguments: freeformCallArguments(freeform, rest.arguments),
+      };
+    }
+
+    if (item.type === RESPONSES_ITEM.CUSTOM_TOOL_CALL_OUTPUT) {
+      changed = true;
+      const { type, output, id, ...rest } = item;
+      return {
+        ...rest,
+        type: RESPONSES_ITEM.FUNCTION_CALL_OUTPUT,
+        id: remapCustomItemId(id, "ctco_", "fco_"),
+        output: coerceResponsesOutput(output),
+      };
+    }
+
+    return item;
+  });
+
+  return changed ? { ...body, input } : body;
+}
+
+function remapCustomItemId(id, fromPrefix, toPrefix) {
+  return typeof id === "string" && id.startsWith(fromPrefix) ? `${toPrefix}${id.slice(fromPrefix.length)}` : id;
+}
+
+// Freeform custom-tool input → the arguments JSON the converted `function`
+// tool declares: {"input": "<freeform>"}. Falls back to an existing arguments
+// string (already-converted replay), else "{}".
+function freeformCallArguments(freeform, fallback) {
+  if (typeof freeform === "string") {
+    try {
+      return JSON.stringify({ input: freeform });
+    } catch { /* unstringifiable — fall through */ }
+  }
+  return typeof fallback === "string" && fallback ? fallback : "{}";
 }
 
 // ---- Response side (streaming) ----
@@ -89,11 +150,10 @@ function asCustomItem(item, withInput = null) {
     ...item,
     type: RESPONSES_ITEM.CUSTOM_TOOL_CALL,
     id: typeof item.id === "string" && item.id.startsWith("fc_") ? `ctc_${item.id.slice(3)}` : item.id,
+    // custom_tool_call items carry `input`, never `arguments`
+    input: withInput !== null ? withInput : "",
   };
-  if (withInput !== null) {
-    out.input = withInput;
-    delete out.arguments;
-  }
+  delete out.arguments;
   return out;
 }
 
