@@ -67,6 +67,14 @@ Those two pages are compatibility contracts.
 
 All retained functionality must remain configurable from the web UI. LiteRouter must not require editing source code to add a normal API-key or compatible provider.
 
+### 2.5 Focused profile, not a rewrite
+
+This initiative is a focused 9Router-derived profile.
+
+It MUST prefer extraction, feature boundaries, lazy initialization, and dependency pruning over replacing the routing engine with a new platform.
+
+The first supported target is a single production-like LiteRouter process using in-memory runtime state, Redis for shared/ephemeral runtime state where useful, and SQLite for durable configuration/history. Multi-replica coordination is explicitly deferred until there is a concrete need, but Redis support should not depend on multi-replica mode.
+
 ---
 
 ## 3. Goals
@@ -96,6 +104,7 @@ The minimal profile does not need to be a general AI workstation or feature show
 Unless required as a dependency of a retained feature, the following are outside the target product:
 
 - built-in basic chat playground,
+- built-in Cloudflare Tunnel/Tailscale lifecycle management,
 - media-provider management,
 - image/video generation product surfaces,
 - speech/STT/TTS product surfaces,
@@ -106,10 +115,19 @@ Unless required as a dependency of a retained feature, the following are outside
 - separate translator playground UI,
 - proxy-pool product UI,
 - cloud sync,
+- SAML/OIDC enterprise SSO for the private minimal deployment,
+- self-update/shutdown installer flows,
 - promotional/onboarding flows,
 - provider recommendation/marketing surfaces,
 - notification/reporting features unrelated to routing,
 - other secondary platform features that are not used by the routing gateway.
+
+The following are deferred from the minimalization initiative unless a retained feature proves they are required:
+
+- multi-replica/distributed routing coordination,
+- new OAuth provider integrations,
+- new media capabilities,
+- dashboard redesigns, especially Usage and Quota.
 
 Removal must be dependency-aware. A library/module may remain internally when required by a retained feature, but it should not be initialized or exposed merely because it existed upstream.
 
@@ -158,9 +176,20 @@ Use provider-specific adapters when special behavior is required, for example:
 - non-standard model discovery,
 - provider-specific request semantics.
 
-Existing adapters may be retained when they provide real compatibility value.
+The existing **LLM/text provider catalog is a compatibility contract** for the minimal product.
 
-They should not all perform work at startup. Provider-specific code should be lazy-loaded where practical.
+Any current provider whose effective service kind includes `llm` must remain available through the Providers UI and routing engine, including the current connection modes where applicable:
+
+- free/no-auth providers,
+- free-tier providers,
+- OAuth providers,
+- API-key providers,
+- web-cookie/session providers,
+- dual-auth providers.
+
+A provider adapter must not be removed merely because it is rarely used. It may only be removed from the minimal product when it is media-only/non-LLM, superseded by a fully compatible Generic Provider path without losing auth/quota semantics, or explicitly removed by a later product decision.
+
+Provider-specific adapters should not all perform work at startup. They should be lazy-loaded or initialized on demand where practical.
 
 ### 6.2 Generic compatible providers
 
@@ -195,6 +224,18 @@ A provider may support:
 The UI must allow these capabilities to be configured without source changes.
 
 Optional capability probing may be added, but manual configuration must always be possible.
+
+Generic Provider management must retain the useful connection workflow that exists today:
+
+- test/validate credentials and endpoint,
+- discover models when a compatible model-list endpoint exists,
+- allow a manual model ID when discovery is unavailable,
+- show connection/health status,
+- support multiple connections/accounts where the routing model permits it.
+
+Existing `openai-compatible` and `anthropic-compatible` nodes must remain readable and migratable. The new Generic Provider model should unify their capabilities rather than requiring users to recreate working connections manually.
+
+A Generic Provider may use one shared credential/base URL for all enabled transports, with an optional per-transport path override. Per-transport base URL or header overrides may be added only when required by a real upstream compatibility case; they are not required for the first minimal implementation.
 
 ---
 
@@ -272,6 +313,21 @@ LiteRouter may still modify data required for retained router features, includin
 
 Usage instrumentation may inspect/tee streams but should not force protocol conversion.
 
+The required request-processing precedence is:
+
+```text
+resolve route/provider
+  -> use native transport when available
+  -> apply only explicitly enabled request transforms
+     (RTK / Caveman / Ponytail as applicable)
+  -> translate only when native transport is unavailable
+  -> send upstream
+```
+
+"Native passthrough" means no protocol conversion is performed. It does not require byte-for-byte forwarding when an explicitly enabled transform needs to parse or modify the body.
+
+When no transform is enabled, unknown/forward-compatible JSON fields must be preserved wherever safe and LiteRouter should avoid unnecessary body reconstruction.
+
 If token-saving transforms are disabled, the router should avoid unnecessary request-body reconstruction.
 
 ---
@@ -325,11 +381,15 @@ Keep the existing account fallback behavior, including handling of temporary una
 
 The existing Combo feature is core product functionality.
 
-The UI and runtime must continue supporting the routing strategies actively provided by the current Combo implementation, especially:
+The minimal Combo product MUST retain:
 
 - ordered fallback,
 - round-robin/pool behavior,
-- automatic progression to another candidate after eligible failures.
+- automatic progression to another candidate after eligible failures,
+- cross-provider and cross-account targets,
+- reorder/edit semantics in the existing Combo UI.
+
+The first minimal profile does **not** require Fusion/panel+judge or capability-adapter routing. Those may remain disabled/removed unless explicitly brought back by a later product decision.
 
 Do not simplify Combo into a static alias.
 
@@ -416,6 +476,8 @@ Internal storage/query implementation may be optimized, but the feature surface 
 
 Usage writes should be moved off the synchronous routing path where safely possible, but **not** at the cost of missing or incomplete data.
 
+If Usage persistence becomes asynchronous, the buffer MUST be bounded, must flush on graceful shutdown, and must not silently drop records required by the existing Usage contract. On saturation, the implementation must use an explicit fallback such as bounded backpressure or direct durable persistence rather than unbounded memory growth or silent loss.
+
 ---
 
 ## 12. Quota compatibility contract
@@ -434,6 +496,18 @@ This includes, where currently available:
 - existing visual representation.
 
 Quota collection must remain decoupled from every normal request whenever polling/caching is possible, while current routing correctness must be preserved.
+
+Runtime quota state must be explicit rather than inferred from missing values. At minimum the router should be able to distinguish:
+
+```text
+available
+exhausted
+cooldown
+unknown
+error
+```
+
+`unknown` and `error` are not equivalent to `exhausted`. Retry/fallback policy must define which states are eligible for another route and must always have a finite retry bound; no quota or provider failure may create an infinite fallback loop.
 
 ---
 
@@ -460,11 +534,17 @@ Must continue supporting:
 - list provider connections,
 - add provider,
 - edit provider,
+- enable/disable provider connections where currently supported,
 - remove provider,
-- OAuth connection where retained,
+- the existing LLM provider catalog and current auth modes,
+- OAuth connection where currently supported,
 - API-key connection,
+- web-cookie/session connection where currently supported,
 - Generic Provider,
-- account state,
+- multiple accounts/connections,
+- test/validate connection,
+- model discovery plus manual model fallback,
+- account/connection state,
 - relevant model configuration,
 - relevant quota/health state.
 
@@ -482,9 +562,48 @@ Native transports
 
 The user may enable one, two, or all three.
 
+### Endpoint & API Keys
+
+Keep the endpoint/key page focused on gateway access:
+
+- show/copy the LiteRouter base endpoint,
+- create, name, list, reveal/copy, revoke, and delete client API keys,
+- enable/disable API-key requirement,
+- retain the dashboard login/password safety controls needed for a remotely exposed admin UI,
+- show the three supported API transports and minimal connection examples where useful.
+
+The minimal product does **not** need to provision or manage infrastructure connectivity itself. Remove from this product surface unless explicitly restored later:
+
+- Cloudflare Tunnel provisioning/watchdog,
+- Tailscale installation/login/management,
+- automatic tunnel downloads/installers,
+- machine-specific remote exposure helpers.
+
+LiteRouter may be deployed behind Caddy, Cloudflare, Tailscale, or another reverse proxy/network layer, but those are deployment concerns rather than router product features.
+
 ### Combos
 
 Keep the existing Combo management UX required to build and reorder routing targets and choose the retained routing behavior.
+
+### Settings
+
+Keep a small router-focused Settings surface for:
+
+- dashboard password/login security,
+- routing defaults that are still used by retained provider/account selection,
+- round-robin/sticky behavior when retained by the routing engine,
+- data backup/export/import needed to protect LiteRouter configuration and Usage history,
+- minimal appearance controls only if they do not retain a large dependency/runtime surface.
+
+Remove or disable from the minimal product unless explicitly needed later:
+
+- SAML SSO,
+- OIDC/enterprise SSO,
+- built-in app updater/shutdown workflow,
+- 9Router/9Remote promotional integrations,
+- external promotional links,
+- language/i18n selection if LiteRouter is intentionally maintained as a private single-language deployment,
+- outbound proxy management UI when normal provider routing does not require it.
 
 ### Usage and Quota
 
@@ -542,30 +661,33 @@ Persistent storage remains the source of durable configuration, not a mandatory 
 
 LiteRouter MUST distinguish durable persistence from hot-path caching.
 
-### 15.1 Default architecture: in-memory + SQLite
+### 15.1 Default architecture: in-memory + Redis + SQLite
 
-The default single-instance deployment should use:
+The default deployment may run Redis in the same Docker stack as LiteRouter.
 
 ```text
-                    LiteRouter process
-                           |
-              +------------+-------------+
-              |                          |
-              v                          v
-      in-memory hot state             SQLite
-      -------------------             ------
-      providers                       durable config
-      accounts                        credentials metadata
-      combos                          provider/account config
-      aliases                         combo definitions
-      API-key lookup                  aliases/settings
-      quota/cooldown                  complete Usage history
-      health state                    quota snapshots where needed
-      RR cursors                      migrations
-      transport caps
+                         LiteRouter
+                            |
+             +--------------+--------------+
+             |              |              |
+             v              v              v
+        in-memory L1      Redis          SQLite
+        ------------      -----          ------
+        providers         cooldown       durable config
+        accounts          quota state    credentials metadata
+        combos            RR counters    provider/account config
+        aliases           health         combo definitions
+        API-key lookup    cache version  aliases/settings
+        transport caps    invalidation   complete Usage history
+        local health      short TTL data quota snapshots
+                         locks/counters   migrations
 ```
 
-SQLite is the durable source of truth. In-memory state is the request-path cache.
+SQLite remains the durable source of truth.
+
+In-memory state remains the fastest request-path cache.
+
+Redis is a first-class runtime-state component for TTL state, counters, locks, invalidation, and other shared/ephemeral data.
 
 A normal request MUST NOT require a synchronous SQLite lookup for configuration that is already cached and valid.
 
@@ -592,18 +714,23 @@ It should not be consulted synchronously for every:
 - round-robin selection,
 - cooldown check.
 
-### 15.3 Redis is optional, not a default dependency
+### 15.3 Redis runtime state
 
-Redis MAY be supported as an optional shared runtime-state backend, but LiteRouter minimal MUST NOT require Redis for the normal single-instance deployment.
+Redis is an approved first-class component of LiteRouter minimal and may run as a separate container in the same Docker deployment.
 
-Redis becomes justified when one or more of these are true:
+Redis is appropriate for:
 
-- LiteRouter runs multiple replicas/processes that must coordinate routing state;
-- round-robin cursors must be shared across replicas;
-- cooldown/rate-limit/quota state must be shared immediately across replicas;
-- distributed locks are required for OAuth refresh or other singleton work;
-- high-volume counters need shared atomic increments;
-- a deployment explicitly requires shared ephemeral cache/state.
+- cooldown and rate-limit TTL state,
+- quota/runtime availability state that benefits from TTL,
+- round-robin counters/cursors,
+- health/runtime status,
+- atomic counters,
+- OAuth refresh locks,
+- short-lived cache entries,
+- configuration versioning/invalidation,
+- future multi-replica coordination.
+
+Redis MUST NOT become the sole durable source for provider, combo, Usage, or other configuration/history that must survive cache loss.
 
 Conceptual multi-instance deployment:
 
@@ -620,25 +747,24 @@ balancer -----+---- LiteRouter B ----+---- Redis
                          +---------------- SQLite / durable store
 ```
 
-Redis must not become the sole durable source for provider, combo, Usage, or other configuration/history that must survive cache loss.
-
 ### 15.4 Cache ownership
 
 Recommended ownership:
 
-| State | Single instance | Multi-instance |
+| State | Primary runtime owner | Durable/source owner |
 | --- | --- | --- |
-| Provider/account config | memory, sourced from SQLite | local memory + invalidation/versioning |
-| Combo definitions | memory, sourced from SQLite | local memory + invalidation/versioning |
-| Model aliases | memory, sourced from SQLite | local memory + invalidation/versioning |
-| API-key lookup | memory, sourced from SQLite | local memory + invalidation/versioning |
-| Transport capabilities | memory | local memory; durable definition in SQLite |
-| Quota/cooldown | memory + persistence where needed | Redis/shared state where correctness requires it |
-| Health state | memory | Redis optional/shared when needed |
-| Round-robin cursor | memory | Redis atomic counter when global RR is required |
-| OAuth refresh lock | local mutex | Redis/distributed lock if multiple replicas can refresh the same credential |
-| Usage history | SQLite/durable storage | durable storage; Redis only as optional buffering/counter layer |
-| UI session/cache | memory where safe | Redis optional |
+| Provider/account config | in-memory L1 | SQLite |
+| Combo definitions | in-memory L1 | SQLite |
+| Model aliases | in-memory L1 | SQLite |
+| API-key lookup | in-memory L1 | SQLite |
+| Transport capabilities | in-memory L1 | SQLite |
+| Quota/cooldown | Redis + local read-through cache where useful | SQLite snapshot only if needed |
+| Health state | Redis + local cache | ephemeral |
+| Round-robin cursor | Redis atomic counter or local cursor with Redis checkpoint | ephemeral |
+| OAuth refresh lock | Redis lock | ephemeral |
+| Config version/invalidation | Redis | SQLite config remains source of truth |
+| Usage history | optional Redis buffer/counters | SQLite |
+| UI session/cache | Redis or memory | ephemeral |
 
 ### 15.5 Cache invalidation requirements
 
@@ -651,7 +777,7 @@ When Providers, Combos, aliases, API keys, or routing settings change through th
 3. new requests must see the new configuration immediately after successful mutation;
 4. stale cache must never require a process restart to clear.
 
-If Redis is enabled for multi-instance operation, configuration changes must propagate through a lightweight version/pub-sub invalidation mechanism or equivalent.
+Configuration changes should propagate through Redis versioning/pub-sub invalidation or an equivalent mechanism so in-memory L1 state cannot remain stale after a successful UI mutation.
 
 ### 15.6 Usage write path
 
@@ -673,7 +799,7 @@ upstream response
 
 The event path must provide backpressure/bounded buffering and a safe shutdown flush policy. Optimization must not silently lose data required by `/dashboard/usage`.
 
-Redis may optionally act as a queue/counter buffer in a distributed deployment, but is not required for the default architecture.
+Redis may act as the bounded short-lived buffer/counter layer for Usage aggregation before durable SQLite persistence, as long as the existing Usage contract is preserved and shutdown/recovery behavior is explicit.
 
 ### 15.7 Redis vs SQLite decision rule
 
@@ -693,22 +819,22 @@ Use **in-memory state** when the state:
 Use **Redis** when the state:
 
 - is hot/ephemeral,
-- must be shared atomically across multiple LiteRouter replicas,
-- benefits from TTL, distributed locks, pub/sub, or atomic counters.
+- benefits from TTL,
+- requires atomic counters or locks,
+- needs configuration invalidation/pub-sub,
+- may later be shared across multiple LiteRouter replicas.
 
-For the expected initial LiteRouter deployment, the recommended default is:
-
-```text
-in-memory hot cache + SQLite persistence
-```
-
-not:
+For the expected initial LiteRouter deployment, the recommended architecture is:
 
 ```text
-Redis + SQLite
+in-memory L1
+    +
+Redis runtime/shared state
+    +
+SQLite durable config + Usage history
 ```
 
-Redis should be introduced only after there is a concrete multi-instance/shared-state requirement or measurements show a real bottleneck that Redis solves.
+Redis may run as a small dedicated container in the same Docker Compose stack as LiteRouter.
 
 ---
 
@@ -744,6 +870,8 @@ Implementation PRs must publish before/after measurements for:
 Hard-retain:
 
 - web UI,
+- focused Endpoint & API Key management,
+- dashboard password/login protection,
 - client API-key authentication/current endpoint access model,
 - `/v1/chat/completions`,
 - `/v1/responses`,
@@ -751,8 +879,11 @@ Hard-retain:
 - SSE/streaming,
 - multi-provider,
 - multi-account,
-- OAuth/token refresh for retained providers,
-- API-key providers,
+- the existing LLM/text provider catalog,
+- free/no-auth and free-tier LLM providers,
+- OAuth/token refresh for retained LLM providers,
+- API-key LLM providers,
+- web-cookie/session LLM providers where currently supported,
 - Generic Provider,
 - per-transport native passthrough,
 - protocol translation fallback,
@@ -776,15 +907,21 @@ Hard-retain:
 Initial candidates:
 
 - Basic Chat,
+- Cloudflare Tunnel/Tailscale provisioning UI and runtime managers,
 - CLI Tools configuration UI,
 - Console Log page if all required diagnostics remain available through retained Usage/details,
 - Media Providers,
 - MITM,
 - Proxy Pools,
 - Skills,
+- Fusion/panel+judge Combo mode,
+- capability-adapter routing UI/runtime when not required by retained routing,
 - Translator playground UI,
 - unrelated media endpoints,
 - cloud sync,
+- SAML/OIDC enterprise SSO,
+- built-in updater/shutdown installer flows,
+- 9Remote/9English/donation/promotional product surfaces,
 - promotional landing/onboarding content,
 - unused notification/reporting systems,
 - unused provider-specific background services,
@@ -812,6 +949,22 @@ Preferred strategy:
 Existing provider, combo, quota, usage, and token-saver configuration should migrate without manual database editing.
 
 The deployment endpoint used by existing applications must not require application-level changes solely because LiteRouter becomes minimal.
+
+### 19.1 Isolated staging requirement
+
+Changes that alter the LiteRouter profile must be validated in an isolated staging deployment before production promotion.
+
+Staging MUST NOT share mutable runtime state with production. At minimum it needs separate:
+
+- container/process identity,
+- listen port,
+- SQLite/data volume,
+- runtime network/namespace where practical,
+- secrets/credentials or explicitly scoped staging credentials.
+
+Exact Docker resource names and port numbers are deployment details, not part of the product contract. A deployment may use names such as `literouter-staging`, `literouter-staging-data`, and a dedicated staging port, but the PRD should not hard-code them.
+
+Production data must be backed up before any migration that changes persisted state.
 
 ---
 
@@ -896,7 +1049,11 @@ The minimalization initiative is complete only when all of the following are tru
 - provider management remains available in the UI;
 - unused product surfaces are no longer initialized/exposed in the minimal product;
 - before/after resource and latency measurements are documented;
-- routing hot-path performance is not worse than the current baseline under equivalent test traffic.
+- routing hot-path performance is not worse than the current baseline under equivalent test traffic;
+- Usage buffering is bounded and shutdown flushing is tested;
+- fallback/retry paths are finite and deterministic;
+- staging is isolated from production state;
+- rollback to the previous production image/version has been tested.
 
 ## 22. Scope tightening
 
@@ -990,39 +1147,51 @@ current 9Router deployment.
 
 Recommended order:
 
-### Phase 1 — lock compatibility
+### Phase 1 — baseline and lock compatibility
 
-- create regression tests for Usage, Quota, Combo, and all three transports;
-- measure current runtime/resource baseline;
-- define provider transport capability schema.
+- capture current Usage and Quota UI/API behavior;
+- create routing fixtures for Combo, round-robin, account fallback, quota states, streaming, tool calls, and all three transports;
+- measure startup time, idle RSS, production image/bundle size, and representative streaming latency;
+- record a rollback image/reference.
 
-### Phase 2 — native transport routing
+### Phase 2 — extract hot-path runtime state with no behavior change
 
-- implement per-provider transport capabilities;
-- implement native passthrough preference;
-- add Generic Provider UI controls;
-- keep translator as fallback.
+- cache providers, accounts, aliases, Combos, API-key lookups, quota/cooldown state, and round-robin cursors in memory;
+- remove avoidable synchronous SQLite reads from request routing;
+- keep SQLite as durable source of truth;
+- prove behavior parity before feature removal.
 
-### Phase 3 — remove hot-path overhead
+### Phase 3 — strengthen deterministic routing tests
 
-- cache routing state;
-- remove avoidable synchronous storage access;
-- make usage persistence non-blocking where behavior can remain identical;
-- lazy-load provider adapters.
+- assert finite fallback/retry bounds;
+- cover explicit quota states;
+- verify streaming and tool-call behavior;
+- make native-vs-translated routing observable in tests.
 
 ### Phase 4 — product-surface reduction
 
-- remove/hide non-goal dashboard pages;
+- hide or stop initializing one non-retained feature at a time;
+- run the full retained regression suite after each removal;
 - disable unused background schedulers/services;
-- prune dependencies proven unused.
+- prune dependencies only after runtime references are proven absent.
 
-### Phase 5 — verify parity and performance
+### Phase 5 — Generic Provider native transports
+
+- define per-provider transport capability schema;
+- implement native passthrough preference;
+- add Generic Provider UI controls;
+- preserve translator fallback for unsupported transports;
+- verify unknown-field preservation when transforms are disabled.
+
+### Phase 6 — verify parity, performance, and promotion readiness
 
 - Usage parity suite;
 - Quota parity suite;
 - routing/fallback suite;
 - token-saver suite;
-- before/after performance report.
+- before/after startup/RSS/image/latency measurements;
+- isolated staging smoke tests for active production clients;
+- backup and rollback rehearsal before production promotion.
 
 ---
 
