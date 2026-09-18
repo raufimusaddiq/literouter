@@ -47,3 +47,26 @@ deletion carries a real regression risk and no current runtime benefit.
 Stopping at hide-and-deprioritize for now. Actual code deletion is the next
 expensive step and should be done route-by-route with the retained regression
 suite re-run after each removal, as section 25 of the PRD specifies.
+
+## Dependency pruning review (2026-09-19)
+
+Measured against the shipped image (`literouter:staging`):
+
+| Package | Size in image | Verdict |
+| --- | --- | --- |
+| `next` | 201.7 MB | required |
+| `sql.js` | 23.1 MB | keep — last-resort DB driver |
+| `@img` | 18.5 MB | required (sharp/platform binaries) |
+| `better-sqlite3` | 2.3 MB | required — the driver this deployment actually runs |
+
+`sql.js` looks like an easy 23 MB win because the running container logs
+`[DB] Driver: better-sqlite3`. It is not dead weight: `package.json` documents
+it as the runtime fallback when `better-sqlite3` and `node:sqlite` are both
+unavailable, and `driver.js` selects it last in the chain. Deleting it would
+trade 23 MB of image for a real robustness loss on any host where the native
+build is missing. Declined.
+
+No dependency was pruned in this pass. Every remaining large package is either
+on the hot path (`next`), on a retained page (`@xyflow/react` for Usage
+topology, `recharts` for Usage/Quota charts, `@dnd-kit/*` for combo reordering),
+or a documented fallback.
