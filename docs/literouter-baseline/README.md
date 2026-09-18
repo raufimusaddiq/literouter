@@ -53,7 +53,7 @@ Run with `npm --prefix tests test -- --run` in a clean worktree at
 | `main` baseline | 34 failed \| 223 passed \| 11 skipped (268) | 139 failed \| 2396 passed (2608) |
 | `staging` (first check) | 34 failed \| 226 passed \| 11 skipped (271) | 139 failed \| 2401 passed (2613) |
 | `staging` (after Phase 4) | 34 failed \| 230 passed \| 11 skipped (275) | 139 failed \| 2424 passed (2636) |
-| `staging` (current) | 34 failed \| 233 passed \| 11 skipped (278) | 139 failed \| 2431 passed (2643) |
+| `staging` (current) | 34 failed \| 235 passed \| 11 skipped (280) | 139 failed \| 2435 passed (2647) |
 
 Identical failure count at every checkpoint. The 139 failures (34 files, e.g.
 `windsurf-executor.test.js` registry assertions, `combo-autoswitch.test.js`,
