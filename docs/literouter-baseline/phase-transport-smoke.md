@@ -99,6 +99,28 @@ returned from the Messages endpoint was correctly passed through untouched
 (the mock was wrong), and a request with no `stream` field legitimately streams
 because an absent `stream` defaults to true for OpenAI-family formats.
 
+## Upstream errors and cooldown (live)
+
+The mock was given error injection via a `err-<status>` model name, and the
+router was driven through it:
+
+| Forced upstream status | Client sees | Cooldown in message |
+| --- | --- | --- |
+| 500 | 503 | 30s |
+| 404 | 503 | 30s |
+| 429 | 503 | 2s |
+
+The router normalises upstream failures to 503 for the client while preserving
+the upstream status and the applied cooldown in the message body, so an operator
+can still tell what happened. A normal request immediately after the cooldown
+expired returned 200, confirming the account returns to rotation.
+
+Unit coverage for the same logic: `account-fallback-4xx` (request-scoped 400s do
+not cool the account down, account-scoped 4xx still fall back, unmatched 5xx
+keeps a transient cooldown), `base-executor-retry` (retry counts, url fallback,
+network errors), and `antigravity-retry-hook` (Retry-After parsing and cap
+vetoes). All execute and pass from the `tests/` directory.
+
 `GET /api/provider-nodes/routes?id=` was checked for each advertised set:
 
 | Node | `transports` | Routes returned |
