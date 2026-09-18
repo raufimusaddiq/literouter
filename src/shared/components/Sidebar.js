@@ -30,13 +30,13 @@ const navItems = [
 ];
 
 const debugItems = [
-  { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
-  { href: "/dashboard/translator", label: "Translator", icon: "translate" },
+  { href: "/dashboard/console-log", label: "Console Log", icon: "terminal", nonMinimal: true },
+  { href: "/dashboard/translator", label: "Translator", icon: "translate", nonMinimal: true },
 ];
 
 const systemItems = [
-  { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan" },
-  { href: "/dashboard/skills", label: "Skills", icon: "extension" },
+  { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan", nonMinimal: true },
+  { href: "/dashboard/skills", label: "Skills", icon: "extension", nonMinimal: true },
 ];
 
 export default function Sidebar({ onClose }) {

@@ -61,6 +61,33 @@ All returned HTTP 200 with rendered content:
 
 ## Production dataset reference
 
+## Rendered parity (2026-09-19)
+
+HTTP status codes alone do not prove a page works, so the retained dashboard
+pages were driven in a real browser (Playwright, Chromium) against
+`literouter-staging`. Each page was checked for rendered text and for uncaught
+JavaScript errors.
+
+| Page | Rendered | JS errors |
+| --- | --- | --- |
+| `/dashboard/providers` | yes | 0 |
+| `/dashboard/combos` | yes | 0 |
+| `/dashboard/usage` | yes | 0 |
+| `/dashboard/quota` | yes | 0 |
+| `/dashboard/token-saver` | yes | 0 |
+| `/dashboard/endpoint` | yes | 0 |
+
+The sidebar was checked in the same browser session. Non-retained entries
+(CLI Tools, Proxy Pools, Console Log, Skills, Translator) are absent from the
+rendered navigation, while the retained entries remain. Note the SSR payload
+still contains the markup; the client removes it once `/api/settings` reports
+`minimalProfile: true`, and the dashboard guard redirects any direct hit, so a
+pre-hydration click cannot reach a non-retained page.
+
+Live pages hold an SSE connection open (`/api/usage/stream`), so
+`wait_until="networkidle"` never settles — `domcontentloaded` plus a fixed wait
+is the correct probe for these routes.
+
 Production `usageHistory` at capture: 39742 rows, 3676452347 prompt tokens,
 15455251 completion tokens, 25 `usageDaily` rows. Staging writes the identical
 schema, so production data remains readable without migration.
