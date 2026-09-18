@@ -718,6 +718,13 @@ It should not be consulted synchronously for every:
 
 Redis is an approved first-class component of LiteRouter minimal and may run as a separate container in the same Docker deployment.
 
+Redis is a **cache-only tier in the minimal profile**. It runs without disk
+persistence (`appendonly no`, no RDB snapshots); process restarts may freely
+empty Redis because every value it holds is reconstructible from SQLite or the
+live request path. Durable state lives only in SQLite. If a future phase needs
+Redis to hold data that must survive a Redis restart, that is a deliberate
+change requiring a persistence plan in that phase's PR.
+
 Redis is appropriate for:
 
 - cooldown and rate-limit TTL state,
@@ -731,6 +738,11 @@ Redis is appropriate for:
 - future multi-replica coordination.
 
 Redis MUST NOT become the sole durable source for provider, combo, Usage, or other configuration/history that must survive cache loss.
+
+Connection is a plain `REDIS_URL` (for example `redis://idx-redis:6379`).
+LiteRouter MUST namespace all keys with a deployable prefix
+(for example `literouter:staging:`) so multiple deployments can share one
+Redis server without key collisions.
 
 Conceptual multi-instance deployment:
 
