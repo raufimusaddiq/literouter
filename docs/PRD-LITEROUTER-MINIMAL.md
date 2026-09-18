@@ -104,6 +104,7 @@ The minimal profile does not need to be a general AI workstation or feature show
 Unless required as a dependency of a retained feature, the following are outside the target product:
 
 - built-in basic chat playground,
+- built-in Cloudflare Tunnel/Tailscale lifecycle management,
 - media-provider management,
 - image/video generation product surfaces,
 - speech/STT/TTS product surfaces,
@@ -114,6 +115,8 @@ Unless required as a dependency of a retained feature, the following are outside
 - separate translator playground UI,
 - proxy-pool product UI,
 - cloud sync,
+- SAML/OIDC enterprise SSO for the private minimal deployment,
+- self-update/shutdown installer flows,
 - promotional/onboarding flows,
 - provider recommendation/marketing surfaces,
 - notification/reporting features unrelated to routing,
@@ -559,9 +562,48 @@ Native transports
 
 The user may enable one, two, or all three.
 
+### Endpoint & API Keys
+
+Keep the endpoint/key page focused on gateway access:
+
+- show/copy the LiteRouter base endpoint,
+- create, name, list, reveal/copy, revoke, and delete client API keys,
+- enable/disable API-key requirement,
+- retain the dashboard login/password safety controls needed for a remotely exposed admin UI,
+- show the three supported API transports and minimal connection examples where useful.
+
+The minimal product does **not** need to provision or manage infrastructure connectivity itself. Remove from this product surface unless explicitly restored later:
+
+- Cloudflare Tunnel provisioning/watchdog,
+- Tailscale installation/login/management,
+- automatic tunnel downloads/installers,
+- machine-specific remote exposure helpers.
+
+LiteRouter may be deployed behind Caddy, Cloudflare, Tailscale, or another reverse proxy/network layer, but those are deployment concerns rather than router product features.
+
 ### Combos
 
 Keep the existing Combo management UX required to build and reorder routing targets and choose the retained routing behavior.
+
+### Settings
+
+Keep a small router-focused Settings surface for:
+
+- dashboard password/login security,
+- routing defaults that are still used by retained provider/account selection,
+- round-robin/sticky behavior when retained by the routing engine,
+- data backup/export/import needed to protect LiteRouter configuration and Usage history,
+- minimal appearance controls only if they do not retain a large dependency/runtime surface.
+
+Remove or disable from the minimal product unless explicitly needed later:
+
+- SAML SSO,
+- OIDC/enterprise SSO,
+- built-in app updater/shutdown workflow,
+- 9Router/9Remote promotional integrations,
+- external promotional links,
+- language/i18n selection if LiteRouter is intentionally maintained as a private single-language deployment,
+- outbound proxy management UI when normal provider routing does not require it.
 
 ### Usage and Quota
 
@@ -828,6 +870,8 @@ Implementation PRs must publish before/after measurements for:
 Hard-retain:
 
 - web UI,
+- focused Endpoint & API Key management,
+- dashboard password/login protection,
 - client API-key authentication/current endpoint access model,
 - `/v1/chat/completions`,
 - `/v1/responses`,
@@ -863,6 +907,7 @@ Hard-retain:
 Initial candidates:
 
 - Basic Chat,
+- Cloudflare Tunnel/Tailscale provisioning UI and runtime managers,
 - CLI Tools configuration UI,
 - Console Log page if all required diagnostics remain available through retained Usage/details,
 - Media Providers,
@@ -874,6 +919,9 @@ Initial candidates:
 - Translator playground UI,
 - unrelated media endpoints,
 - cloud sync,
+- SAML/OIDC enterprise SSO,
+- built-in updater/shutdown installer flows,
+- 9Remote/9English/donation/promotional product surfaces,
 - promotional landing/onboarding content,
 - unused notification/reporting systems,
 - unused provider-specific background services,
