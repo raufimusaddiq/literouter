@@ -94,8 +94,10 @@ export function mergeWithDefaults(raw) {
 }
 
 export async function getSettings() {
-  const raw = await readRaw();
-  return mergeWithDefaults(raw);
+  // Cache the merged object too: mergeWithDefaults + raw parse dominated the
+  // call cost, and every caller only reads the result.
+  const merged = global.__liteRouterSettingsCache.merged ??= mergeWithDefaults(await readRaw());
+  return merged;
 }
 
 // Atomic read-merge-write inside transaction (prevents losing concurrent updates)
@@ -111,8 +113,10 @@ export async function updateSettings(updates) {
       [stringifyJson(next)],
     );
   });
-  (global.__liteRouterSettingsCache ??= {}).raw = next;
-  return mergeWithDefaults(next);
+  const cache = (global.__liteRouterSettingsCache ??= {});
+  cache.raw = next;
+  cache.merged = mergeWithDefaults(next);
+  return cache.merged;
 }
 
 export async function isCloudEnabled() {
