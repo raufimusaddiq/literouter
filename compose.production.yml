@@ -1,0 +1,57 @@
+services:
+  9router:
+    image: 9router:v0.5.81-kenari-luna
+    pull_policy: never
+    container_name: 9router
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    env_file:
+      - .env.production
+    environment:
+      DATA_DIR: /app/data
+      PORT: "20128"
+      HOSTNAME: "0.0.0.0"
+      NODE_ENV: production
+      ENABLE_REQUEST_LOGS: "true"
+      REQUEST_LOG_MAX_SIZE_MB: "1024"
+      REQUEST_LOG_MAX_SESSIONS: "1000"
+    expose:
+      - "20128"
+    volumes:
+      - 9router-data:/app/data
+    networks:
+      # Caddy reaches 9router over this two-member network so the static IP
+      # below can never be handed out by idx_default's DHCP pool. Keeping the
+      # dynamic idx-public attachment preserves the `9router` DNS name for
+      # in-network consumers (richmod, meridian).
+      idx-edge:
+        ipv4_address: 172.30.0.2
+      idx-public:
+    mem_limit: 512m
+    mem_reservation: 128m
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:20128/api/auth/status').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  9router-data:
+    name: 9router-data
+
+networks:
+  idx-public:
+    external: true
+    name: idx_default
+  idx-edge:
+    external: true
+    name: 9router_edge
