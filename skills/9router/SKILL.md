@@ -1,6 +1,6 @@
 ---
 name: 9router
-description: Entry point for 9Router — local/remote AI gateway with OpenAI-compatible REST for chat, image, TTS, embeddings, web search, web fetch. Use when the user mentions 9Router, NINEROUTER_URL, or wants AI without writing provider boilerplate. This skill covers setup + indexes capability skills; fetch the relevant capability SKILL.md from the URLs below when needed.
+description: Entry point for 9Router — local/remote AI gateway with OpenAI-compatible REST for chat, image, embeddings, web search, web fetch. Use when the user mentions 9Router, NINEROUTER_URL, or wants AI without writing provider boilerplate. This skill covers setup + indexes capability skills; fetch the relevant capability SKILL.md from the URLs below when needed.
 ---
 
 # 9Router
@@ -23,10 +23,8 @@ Verify: `curl $NINEROUTER_URL/api/health` → `{"ok":true}`
 ```bash
 curl $NINEROUTER_URL/v1/models                  # chat/LLM (default)
 curl $NINEROUTER_URL/v1/models/image            # image-gen
-curl $NINEROUTER_URL/v1/models/tts              # text-to-speech
 curl $NINEROUTER_URL/v1/models/embedding        # embeddings
 curl $NINEROUTER_URL/v1/models/web              # web search + fetch (entries have `kind` field)
-curl $NINEROUTER_URL/v1/models/stt              # speech-to-text
 curl $NINEROUTER_URL/v1/models/image-to-text    # vision
 ```
 

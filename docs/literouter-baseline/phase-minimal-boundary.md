@@ -44,14 +44,16 @@ Hidden dashboard routes — all HTTP 307 (redirect to `/dashboard`):
 307 /dashboard/translator
 ```
 
-Deleted dashboard routes — HTTP 307 by falling through to the `/` redirect,
-since the route no longer exists to be gated:
+Deleted dashboard routes — HTTP 404 for an authenticated session, because the
+route no longer exists to be gated. A deleted path is indistinguishable from a
+path that never existed; unauthenticated requests redirect to `/login`, not to
+`/dashboard`.
 
 ```text
-307 /dashboard/basic-chat
-307 /dashboard/cli-tools
-307 /dashboard/mitm
-307 /dashboard/media-providers
+404 /dashboard/basic-chat
+404 /dashboard/cli-tools
+404 /dashboard/mitm
+404 /dashboard/media-providers
 ```
 
 Hidden APIs — HTTP 404: `proxy-pools`, `tunnel/enable`.
