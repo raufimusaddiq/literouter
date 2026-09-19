@@ -1,10 +1,9 @@
 services:
   literouter-staging:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: literouter:staging
-    pull_policy: never
+    # Built by .github/workflows/staging-image.yml; this box only pulls.
+    # Pin a commit with LITEROUTER_STAGING_TAG=staging-<sha>.
+    image: ghcr.io/raufimusaddiq/literouter-staging:${LITEROUTER_STAGING_TAG:-staging-latest}
+    pull_policy: always
     container_name: literouter-staging
     restart: unless-stopped
     env_file:
