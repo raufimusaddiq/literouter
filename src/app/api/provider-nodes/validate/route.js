@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
-import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
+import { assertPublicUrlResolved } from "@/shared/utils/ssrfGuard.js";
+import { isLocalRequest } from "@/dashboardGuard";
 
 // Fetch with timeout wrapper
 const fetchWithTimeout = (url, options, timeout = 10000) => {
-  return fetchPublic(url, { ...options, signal: AbortSignal.timeout(timeout) });
+  return Promise.race([
+    fetch(url, options),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Request timeout")), timeout)
+    )
+  ]);
 };
 
 // Validate URL format
@@ -60,10 +66,14 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
     }
 
-    try {
-      await assertPublicUrlResolved(baseUrl);
-    } catch {
-      return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+    // SSRF guard for remote callers; the local operator keeps self-hosted
+    // nodes on the LAN (LM Studio, vLLM, ollama-openai-compat).
+    if (!isLocalRequest(request)) {
+      try {
+        await assertPublicUrlResolved(baseUrl);
+      } catch {
+        return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+      }
     }
 
     // Anthropic Compatible Validation

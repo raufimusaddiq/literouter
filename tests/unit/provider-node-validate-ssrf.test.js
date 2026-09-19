@@ -29,4 +29,33 @@ describe("POST /api/provider-nodes/validate SSRF guard", () => {
     expect(res.status).toBe(400);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("does not fetch a hostname that resolves to a private address", async () => {
+    lookupMock.mockResolvedValue([{ address: "10.0.0.7", family: 4 }]);
+
+    const res = await POST(request("http://10.0.0.7.nip.io:1234/v1"));
+
+    expect(res.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps allowing a LAN node for the local operator", async () => {
+    process.env.NINEROUTER_PEER_TOKEN = "test-peer";
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: [] }) });
+
+    const local = new Request("http://localhost/api/provider-nodes/validate", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-9r-peer-token": "test-peer",
+        "x-9r-real-ip": "127.0.0.1",
+      },
+      body: JSON.stringify({ baseUrl: "http://192.168.1.50:1234/v1", apiKey: "k", type: "openai-compatible" }),
+    });
+
+    const res = await POST(local);
+
+    expect(res.status).not.toBe(400);
+    expect(fetchMock).toHaveBeenCalled();
+  });
 });
