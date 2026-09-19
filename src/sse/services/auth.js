@@ -9,6 +9,18 @@ import * as log from "../utils/logger.js";
 // Mutex to prevent race conditions during account selection
 let selectionMutex = Promise.resolve();
 
+// PRD 9.3: round-robin state must not require a synchronous database operation
+// per request. The cursor is derived from lastUsedAt/consecutiveUseCount, which
+// are durable, so persist in the background — the request path never waits on
+// the write. updateProviderConnection clears the connection cache
+// synchronously, so the next selection re-reads the row with the new cursor and
+// rotation still advances. An overlay cache is therefore unnecessary.
+function persistConnectionUsage(id, patch) {
+  updateProviderConnection(id, patch).catch((e) => {
+    log.warn("AUTH", `failed to persist round-robin cursor for ${id}: ${e?.message || e}`);
+  });
+}
+
 const GITHUB_MONTHLY_USAGE_LIMIT = "you've reached your additional usage limit for your plan";
 
 function githubMonthlyResetMs(status, errorText, provider) {
@@ -165,11 +177,10 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       if (current && current.lastUsedAt && currentCount < stickyLimit) {
         // Stay with current account
         connection = current;
-        // Update lastUsedAt and increment count (await to ensure persistence)
-        await updateProviderConnection(connection.id, {
-          lastUsedAt: new Date().toISOString(),
-          consecutiveUseCount: (connection.consecutiveUseCount || 0) + 1
-        });
+        // Advance the cursor in memory, persist off the request path (PRD 9.3).
+        const nextCount = (connection.consecutiveUseCount || 0) + 1;
+        const lastUsedAt = new Date().toISOString();
+        persistConnectionUsage(connection.id, { lastUsedAt, consecutiveUseCount: nextCount });
       } else {
         // Pick the least recently used (excluding current if possible)
         const sortedByOldest = [...availableConnections].sort((a, b) => {
@@ -181,10 +192,10 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
 
         connection = sortedByOldest[0];
 
-        // Update lastUsedAt and reset count to 1 (await to ensure persistence)
-        await updateProviderConnection(connection.id, {
+        // Reset count to 1 in memory, persist off the request path (PRD 9.3).
+        persistConnectionUsage(connection.id, {
           lastUsedAt: new Date().toISOString(),
-          consecutiveUseCount: 1
+          consecutiveUseCount: 1,
         });
       }
     } else {
