@@ -26,7 +26,7 @@ async function showSettingsMenu(breadcrumb = []) {
     headerContent: async (data) => {
       const lines = [];
 
-      lines.push(`  Endpoint: ${data?.settings?.baseUrl || "http://localhost:20128"}/v1`);
+      lines.push(`  Endpoint: http://localhost:20127/v1`);
 
       // RTK section
       const rtkOn = data?.settings?.rtkEnabled !== false;
