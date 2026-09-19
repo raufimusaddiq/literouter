@@ -204,7 +204,7 @@ describe("Claude → Kiro (direct route)", () => {
 
     expect(sysText(first)).toContain("stable instruction");
     expect(sysText(second)).toContain("stable instruction");
-    
+
     expect(first.conversationState.currentMessage.userInputMessage.content).toContain("Current time");
   });
 });

@@ -36,13 +36,13 @@ describe("openaiToClaudeRequest", () => {
       // Should have system array with instructions
       expect(result.system).toBeDefined();
       expect(Array.isArray(result.system)).toBe(true);
-      
+
       // Check that system prompt includes schema
       const systemText = result.system
         .filter(s => s.type === "text")
         .map(s => s.text)
         .join("\n");
-      
+
       expect(systemText).toContain("You must respond with valid JSON");
       expect(systemText).toContain("\"answer\"");
       expect(systemText).toContain("\"explanation\"");
@@ -62,12 +62,12 @@ describe("openaiToClaudeRequest", () => {
       // Should have system array with instructions
       expect(result.system).toBeDefined();
       expect(Array.isArray(result.system)).toBe(true);
-      
+
       const systemText = result.system
         .filter(s => s.type === "text")
         .map(s => s.text)
         .join("\n");
-      
+
       expect(systemText).toContain("You must respond with valid JSON");
       expect(systemText).toContain("Respond ONLY with a JSON object");
     });
@@ -81,12 +81,12 @@ describe("openaiToClaudeRequest", () => {
 
       // Should have system but without JSON instructions
       expect(result.system).toBeDefined();
-      
+
       const systemText = result.system
         .filter(s => s.type === "text")
         .map(s => s.text)
         .join("\n");
-      
+
       // Should NOT contain JSON-specific instructions
       expect(systemText).not.toContain("You must respond with valid JSON");
     });
@@ -117,7 +117,7 @@ describe("openaiToClaudeRequest", () => {
         .filter(s => s.type === "text")
         .map(s => s.text)
         .join("\n");
-      
+
       expect(systemText).toContain("You are a helpful math tutor");
       expect(systemText).toContain("You must respond with valid JSON");
     });
