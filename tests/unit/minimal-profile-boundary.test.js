@@ -13,7 +13,6 @@ describe("minimal profile route boundary", () => {
   it("hides the non-retained product surfaces", () => {
     for (const prefix of [
       "/dashboard/proxy-pools",
-      "/dashboard/skills",
       "/api/version/update",
       "/api/version/shutdown",
     ]) {

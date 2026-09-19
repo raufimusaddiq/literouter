@@ -84,10 +84,8 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 // a surface nothing retained imports is deleted outright, not gated here.
 const MINIMAL_HIDDEN_PREFIXES = [
   "/dashboard/proxy-pools",
-  "/dashboard/skills",
   "/dashboard/pxpipe",
   "/api/proxy-pools",
-  "/api/skills",
   "/api/headroom",
   "/api/mcp",
   // Built-in updater / shutdown installer flows (PRD section 18).
