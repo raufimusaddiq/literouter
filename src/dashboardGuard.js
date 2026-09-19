@@ -93,7 +93,6 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 // Non-retained product surfaces (PRD section 18). Hidden only when
 // MINIMAL_PROFILE=true; each entry maps to a dashboard route and its API.
 const MINIMAL_HIDDEN_PREFIXES = [
-  "/dashboard/basic-chat",
   "/dashboard/cli-tools",
   "/dashboard/mitm",
   "/dashboard/media-providers",
