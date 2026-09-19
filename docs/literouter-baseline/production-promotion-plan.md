@@ -42,13 +42,19 @@ serving live traffic against a shared durable target. That overlap is not
 needed to satisfy this objective, and paying for it would mean adopting a
 network database purely to serve a transition measured in seconds.
 
-Evidence that one writer at a time is already safe (both rehearsed on the live
-volume, recorded in `phase-rollback-rehearsal.md`):
+Evidence that one writer at a time is already safe, both recorded against a
+**copy** of `9router-data` rather than the live volume:
 
-- The LiteRouter candidate boots, serves `/v1/models`, completes a real
-  provider call, and streams SSE from a *mounted copy* of `9router-data`.
-- The prior production image boots from a copy of the same data with no schema
-  error, so rollback stays viable after Phase 3's migration.
+- `phase-minimal-boundary.md` — the current staging image with
+  `MINIMAL_PROFILE=true` reads that copy (`providers: 3 combos: 4 keys: 5
+  usage: 40956`) and reports `health: {"ok":true}`.
+- `phase-rollback-rehearsal.md` — the *prior* production image boots from the
+  same copy with no schema error and reads its provider and usage tables, so a
+  rollback needs no schema downgrade.
+
+Not recorded anywhere yet, and therefore required by Phase 2 below: a candidate
+boot from that copy that serves `/v1/models`, completes one real provider call,
+and streams one SSE response.
 - SQLite's WAL is durable; a container that is stopped and replaced cannot
   leave a half-written transaction for the successor.
 
@@ -132,11 +138,15 @@ between the two containers while a public health sweep observes continuous
 `200`s. That rehearsal has already been run on staging and on the live edge
 (16/16 during a mid-flight upstream flip).
 
-### Phase 3 — zero-downtime promotion
+### Phase 3 — promotion with a bounded write window
 
 After Phase 2 passes on staging, create the release PR `staging -> main`.
 Require CI, Hermes approval, clean merge state, an immutable image digest, and
 the full promotion-gates suite on the exact merge SHA.
+
+Zero *downtime* in the strict sense — no failed request at any instant — is not
+what this sequence provides. It provides zero downtime for the public endpoint
+except during the swap window in step 2, and zero data loss throughout.
 
 Cutover procedure — one writer at a time, no overlap:
 

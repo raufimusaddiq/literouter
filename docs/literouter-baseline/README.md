@@ -22,10 +22,11 @@ the capture id, never a bare number, because the volume keeps growing:
 
 | Capture | Taken (UTC) | usageHistory | usageDaily | requestDetails | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `live-20260920T2335Z` | 2026-09-19T23:35Z | 50289 | 26 | 1000 | one-shot copy of `9router-data`, `integrity_check = ok` |
+| `live-20260920T0735Z` | 2026-09-20T07:35Z | 50289 | 26 | 1000 | one-shot copy of `9router-data`, `integrity_check = ok` |
 
 Earlier phase documents record the counts they saw at their own capture time
-(39733–40872 `usageHistory`); those numbers are superseded by the table above
+(39733, 39742, 39903, 40154, 40872, 40956 `usageHistory`); those numbers are
+superseded by the table above
 and are retained only as the evidence for the check that was run.
 
 Rollback reference: `literouter:v0.5.81-kenari-luna` (production), previous
