@@ -12,7 +12,6 @@ describe("minimal profile route boundary", () => {
 
   it("hides the non-retained product surfaces", () => {
     for (const prefix of [
-      "/dashboard/basic-chat",
       "/dashboard/cli-tools",
       "/dashboard/mitm",
       "/dashboard/media-providers",
@@ -24,6 +23,17 @@ describe("minimal profile route boundary", () => {
     ]) {
       expect(hidden).toContain(prefix);
     }
+  });
+
+  // Basic Chat was deleted outright rather than hidden: nothing retained
+  // imported it, so the minimal profile carries no route and no guard entry.
+  it("deletes Basic Chat instead of hiding a live route", () => {
+    expect(hidden).not.toContain("/dashboard/basic-chat");
+    expect(() =>
+      readFileSync(
+        new URL("../../src/app/(dashboard)/dashboard/basic-chat/page.js", import.meta.url)
+      )
+    ).toThrow();
   });
 
   it("never shadows a retained API", () => {
