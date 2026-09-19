@@ -138,13 +138,6 @@ export async function POST(request) {
         const apiVersion = providerSpecificData?.apiVersion || "2024-10-01-preview";
         const organization = providerSpecificData?.organization;
 
-        // Guarded here as well as in the pre-gate: this branch builds its fetch
-        // URL straight from request-body data, so the target is re-validated
-        // immediately before use.
-        if (remote) {
-          try { await assertPublicUrlResolved(endpoint); }
-          catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
-        }
         const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
         const headers = {
           "api-key": apiKey,
@@ -152,10 +145,8 @@ export async function POST(request) {
         };
         if (organization) headers["OpenAI-Organization"] = organization;
 
-        // codeql[js/request-forgery]
-        // Remote calls reach this only through fetchPublic (resolved-host and
-        // redirect checks); trusted local operators intentionally keep private Azure/Ollama endpoints.
-        const azureRes = await validateFetch(url, {
+        // Azure endpoints are always public; fetchPublic validates DNS and every redirect.
+        const azureRes = await fetchPublic(url, {
           method: "POST",
           headers,
           body: JSON.stringify({
