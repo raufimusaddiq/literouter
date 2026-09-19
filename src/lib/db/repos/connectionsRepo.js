@@ -221,6 +221,12 @@ export async function createProviderConnection(data) {
 
 // Critical: OAuth refresh token race — atomic merge inside transaction
 export async function updateProviderConnection(id, data) {
+  // Clear the snapshot before the first await. getAdapter() is async, so
+  // invalidating inside the transaction happens a microtask later, and a
+  // selection that interleaves in that window would read the stale row — which
+  // is exactly what round-robin depends on being fresh. Clearing up front makes
+  // the freshness guarantee independent of how the write is scheduled.
+  invalidateConnectionCache();
   const db = await getAdapter();
   let result;
   db.transaction(() => {
