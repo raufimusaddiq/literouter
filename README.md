@@ -95,10 +95,8 @@ A chat burst adds no Redis keys, by design.
 The tunnel/Tailscale/MITM runtime was **deleted**, not hidden
 (PR #14, 59 files, 7,381 lines), along with the other non-routing surfaces
 (media providers, CLI-tools menu, Basic Chat, skills page, translator playground,
-proxy-pools UI). Two pieces are kept on purpose because they guard existing
-installs: the tunnel-hostname access-control gate in `dashboardGuard.js` and
-`auth/login`, and the `mitmAlias` / `mitmSudoEncrypted` DB keys so an old
-SQLite file still migrates.
+proxy-pools UI). The remaining tunnel/MITM settings, hostname checks and
+`mitmAlias` migration state are purged in the follow-up deletion migration.
 
 ### Performance vs packaged 9Router
 

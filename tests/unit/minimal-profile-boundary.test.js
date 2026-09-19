@@ -106,6 +106,18 @@ describe("minimal profile route boundary", () => {
     }
   });
 
+  it("deletes tunnel and MITM compatibility branches after their runtimes", () => {
+    const settings = readFileSync(
+      new URL("../../src/lib/db/repos/settingsRepo.js", import.meta.url),
+      "utf8"
+    );
+    const db = readFileSync(new URL("../../src/lib/db/index.js", import.meta.url), "utf8");
+    const defaults = settings.match(/const DEFAULT_SETTINGS = \{([\s\S]*?)\n\};/)?.[1] || "";
+    expect(defaults).not.toMatch(/tunnel|tailscale|mitmRouterBaseUrl|mitmSudoEncrypted/);
+    expect(db).not.toContain("mitmAlias");
+    expect(source).not.toMatch(/tunnelDashboardAccess|tunnelUrl|tailscaleUrl/);
+  });
+
   it("deletes the Proxy Pools UI and deploy routes", () => {
     for (const path of [
       "../../src/app/(dashboard)/dashboard/proxy-pools/page.js",
