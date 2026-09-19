@@ -193,7 +193,13 @@ describe("openaiToClaudeResponse", () => {
       }]
     };
 
-    const result = openaiToClaudeResponse(chunk, state);
+    // Tool arguments are buffered and emitted once the turn finishes, so the
+    // finish_reason chunk is what carries the sanitized input_json_delta.
+    openaiToClaudeResponse(chunk, state);
+    const result = openaiToClaudeResponse({
+      ...chunk,
+      choices: [{ delta: {}, finish_reason: "tool_calls" }],
+    }, state);
     const inputDelta = result.find(event => event.delta?.type === "input_json_delta");
 
     expect(inputDelta).toBeDefined();
