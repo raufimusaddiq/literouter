@@ -152,6 +152,9 @@ export async function POST(request) {
         };
         if (organization) headers["OpenAI-Organization"] = organization;
 
+        // codeql[js/request-forgery]
+        // Remote calls reach this only through fetchPublic (resolved-host and
+        // redirect checks); trusted local operators intentionally keep private Azure/Ollama endpoints.
         const azureRes = await validateFetch(url, {
           method: "POST",
           headers,
