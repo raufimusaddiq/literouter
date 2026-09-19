@@ -106,8 +106,8 @@ n=30, non-streaming, mock upstream:
 | คอนเทนเนอร์ | RSS ตอนว่าง | RSS หลัง burst | ลิมิต |
 | --- | --- | --- | --- |
 | 9Router (โปรดักชัน) | 192 MiB | 236.6 MiB | 512 MiB |
-| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
-| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | not sampled | 5.8 MiB | 256 MiB |
 
 ```text
 image size: ~1.03 GB both
@@ -267,7 +267,7 @@ LiteRouter ทำงานได้อย่างราบรื่นกับ
       <td align="center" width="150">
         <img src="../public/providers/kiro.png" width="70" alt="Kiro"/><br/>
         <b>Kiro AI</b><br/>
-        <sub>Claude 4.5 + GLM-5 + MiniMax • ไม่จำกัด ฟรี</sub>
+        <sub>GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next • ไม่จำกัด ฟรี</sub>
       </td>
       <td align="center" width="150">
         <img src="../public/providers/opencode.png" width="70" alt="OpenCode"/><br/>

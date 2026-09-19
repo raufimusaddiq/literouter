@@ -102,9 +102,9 @@ Thời gian thực, upstream thật (kn/deepseek-v4-1-flash, n=24, 8 concurrent)
 
 | Container | RSS rảnh | RSS sau burst | Giới hạn |
 | --- | --- | --- | --- |
-| 9Router (prod) | 192 MiB | 236.6 MiB | 512 MiB |
-| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
-| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+| 9Router (prod) | 112-192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | not sampled | 5.8 MiB | 256 MiB |
 
 ```text
 image size: ~1.03 GB both
@@ -125,7 +125,7 @@ npm install -g 9router
 
 **2. Kết nối nhà cung cấp MIỄN PHÍ (không cần đăng ký):**
 
-Bảng điều khiển → Providers → Kết nối **Kiro AI** (~50 credits/tháng miễn phí: Claude 4.5 + GLM-5 + MiniMax) hoặc **OpenCode Free** (không cần auth) → Xong!
+Bảng điều khiển → Providers → Kết nối **Kiro AI** (~50 credits/tháng miễn phí: GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next) hoặc **OpenCode Free** (không cần auth) → Xong!
 
 **3. Sử dụng trong công cụ CLI của bạn:**
 
@@ -838,7 +838,6 @@ Bảng điều khiển → Kết nối Qwen
 
 Các mô hình:
   vertex/gemini-2.5-flash
-  vertex/gemini-2.5-flash
 ```
 
 ### Kiro (Claude MIỄN PHÍ)
@@ -1111,7 +1110,6 @@ Ghi chú:
 **Kiro (`kr/`)** - MIỄN PHÍ (~50 credits/tháng):
 - `kr/glm-5`
 - `kr/deepseek-3.2`
-- `kr/qwen3-coder-next`
 - `kr/qwen3-coder-next`
 
 </details>

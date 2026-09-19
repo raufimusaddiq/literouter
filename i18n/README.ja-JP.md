@@ -102,8 +102,8 @@ n=30, non-streaming, mock upstream:
 | コンテナ | アイドル RSS | バースト後 RSS | 上限 |
 | --- | --- | --- | --- |
 | 9Router (本番) | 192 MiB | 236.6 MiB | 512 MiB |
-| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
-| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | not sampled | 5.8 MiB | 256 MiB |
 
 ```text
 image size: ~1.03 GB both
@@ -836,7 +836,6 @@ deprecated フラグ付きで、`gc/` モデルへのリクエストは失敗し
 → 無制限使用
 
 モデル:
-  vertex/gemini-2.5-flash
   vertex/gemini-2.5-flash
 ```
 

@@ -104,8 +104,8 @@ n=30, non-streaming, mock upstream:
 | Контейнер | RSS в простое | RSS после burst | Лимит |
 | --- | --- | --- | --- |
 | 9Router (прод) | 192 MiB | 236.6 MiB | 512 MiB |
-| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
-| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | not sampled | 5.8 MiB | 256 MiB |
 
 ```text
 image size: ~1.03 GB both
@@ -837,7 +837,6 @@ LiteRouter только маршрутизирует ваши запросы к 
 → Безлимитное использование
 
 Модели:
-  vertex/gemini-2.5-flash
   vertex/gemini-2.5-flash
 ```
 

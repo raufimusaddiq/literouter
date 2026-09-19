@@ -107,9 +107,9 @@ Upstream real, burst (kn/deepseek-v4-1-flash, n=24, 8 concurrent):
 
 | Contenedor | RSS en reposo | RSS tras burst | Límite |
 | --- | --- | --- | --- |
-| 9Router (prod) | 192 MiB | 236.6 MiB | 512 MiB |
-| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
-| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+| 9Router (prod) | 112-192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | not sampled | 5.8 MiB | 256 MiB |
 
 ```text
 image size: ~1.03 GB both
@@ -369,7 +369,7 @@ LiteRouter funciona a la perfección con todas las principales herramientas de c
       <td align="center" width="150">
         <img src="../public/providers/kiro.png" width="70" alt="Kiro"/><br/>
         <b>Kiro AI</b><br/>
-        <sub>Claude 4.5 + GLM-5 + MiniMax<br/>gratuito</sub>
+        <sub>GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next<br/>gratuito</sub>
       </td>
       <td align="center" width="150">
         <img src="../public/providers/opencode.png" width="70" alt="OpenCode Free"/><br/>
@@ -666,7 +666,7 @@ Traducción fluida entre formatos:
 | **💰 ECONÓMICO**      | GLM-5.1 / GLM-5        | $0.6/1M        | Diario 10:00              | Respaldo económico                          |
 |                       | MiniMax M2.7           | $0.2/1M        | Ventana de 5 horas        | La opción más barata                        |
 |                       | Kimi K2.5              | $9/mes fijos   | 10M tokens/mes            | Coste predecible                            |
-| **🆓 GRATUITO**       | Kiro AI                | $0             | Ilimitado                 | Claude 4.5 + GLM-5 + MiniMax gratis         |
+| **🆓 GRATUITO**       | Kiro AI                | $0             | ~50 créditos/mes     | GLM 5 + DeepSeek 3.2 gratis                 |
 |                       | OpenCode Free          | $0             | Ilimitado                 | Sin autenticación, modelos automáticos      |
 |                       | Vertex AI              | $300 de crédito | Cuentas GCP nuevas       | Gemini 3 Pro + DeepSeek + GLM-5             |
 
@@ -821,7 +821,7 @@ LiteRouter es un proxy/enrutador local. No tiene tu tarjeta de crédito, no pued
 
 Estos son servicios gratuitos ofrecidos por esas respectivas empresas:
 
-- **Kiro AI**: Claude 4.5 + GLM-5 + MiniMax gratuitos e ilimitados mediante AWS Builder ID / Google / GitHub OAuth
+- **Kiro AI**: GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next gratis mediante AWS Builder ID / Google / GitHub OAuth
 - **OpenCode Free**: Proxy de paso sin autenticación, modelos obtenidos automáticamente de `opencode.ai/zen/v1/models`
 - **Vertex AI**: $300 de crédito gratuito para cuentas nuevas de Google Cloud (90 días)
 
@@ -904,7 +904,6 @@ Panel de control → Providers → Conecta Claude Code
 
 Modelos:
   cc/claude-opus-5
-  cc/claude-opus-5
   cc/claude-sonnet-4-6
   cc/claude-haiku-4-5-20251001
 ```
@@ -946,7 +945,6 @@ Panel de control → Providers → Conecta Cursor
 → Suscripción mensual
 
 Modelos:
-  cu/claude-4.6-opus-max
   cu/claude-4.6-opus-max
   cu/gpt-5.3-codex
 ```
@@ -993,7 +991,7 @@ Modelos:
 <details>
 <summary><b>🆓 Proveedores GRATUITOS (recomendados)</b></summary>
 
-### Kiro AI (Claude 4.5 + GLM-5 + MiniMax GRATIS)
+### Kiro AI (GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next GRATIS)
 
 ```bash
 Panel de control → Conecta Kiro
@@ -1285,7 +1283,6 @@ Notas:
 **Claude Code (`cc/`)** - Pro/Max:
 
 - `cc/claude-opus-5`
-- `cc/claude-opus-5`
 - `cc/claude-sonnet-4-6`
 - `cc/claude-sonnet-4-5-20250929`
 - `cc/claude-haiku-4-5-20251001`
@@ -1307,7 +1304,6 @@ Notas:
 **Cursor (`cu/`)** - Suscripción:
 
 - `cu/claude-4.6-opus-max`
-- `cu/claude-4.6-opus-max`
 - `cu/gpt-5.3-codex`
 - `cu/kimi-k2.5`
 
@@ -1323,7 +1319,6 @@ Notas:
 
 **Kimi (`kimi/`)** - $9/mes fijos:
 
-- `kimi/kimi-k2.5`
 - `kimi/kimi-k2.5`
 
 **Kiro (`kr/`)** - gratuito:

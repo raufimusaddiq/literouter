@@ -103,9 +103,9 @@ n=30, non-streaming, mock upstream:
 
 | 容器 | 空闲 RSS | 突发后 RSS | 上限 |
 | --- | --- | --- | --- |
-| 9Router (生产) | 192 MiB | 236.6 MiB | 512 MiB |
-| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
-| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+| 9Router (生产) | 112-192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | not sampled | 5.8 MiB | 256 MiB |
 
 ```text
 image size: ~1.03 GB both
@@ -837,7 +837,6 @@ Dashboard → Connect Qwen
 → Unlimited usage
 
 Models:
-  vertex/gemini-2.5-flash
   vertex/gemini-2.5-flash
 ```
 

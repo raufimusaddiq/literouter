@@ -118,10 +118,10 @@ LiteRouter 不是重写。它是上游 9Router 加上 `MINIMAL_PROFILE` 运行�
 | 容器 | 空闲 RSS | 突发后 RSS | 上限 |
 | --- | --- | --- | --- |
 | 9Router（生产） | 192 MiB | 236.6 MiB | 512 MiB |
-| LiteRouter | 34–89 MiB | 72.3 MiB | 512 MiB |
-| Redis（仅 LiteRouter） | ~4.8 MiB | 5.8 MiB | 256 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis（仅 LiteRouter） | 未采样 | 5.8 MiB | 256 MiB |
 
-RSS 下降约 **3–4 倍**。其中一部分来自精简配置（无提供商连接、无目录同步、
+RSS 下降约 **1.7–2.8 倍**。其中一部分来自精简配置（无提供商连接、无目录同步、
 无后台刷新），因此应将其理解为裁剪功能集的代价，而不是纯粹的代码效率声明。
 
 **镜像大小没有变化** — 两者均约 1.03 GB。`.next/standalone`（81 MB）、
@@ -143,7 +143,7 @@ npm install -g 9router
 
 **2. 连接免费提供商（无需注册）：**
 
-控制面板 → 提供商 → 连接 **Kiro AI**（约 50 积分/月免费：Claude 4.5 + GLM-5 + MiniMax）或 **OpenCode Free**（无需认证）→ 完成！
+控制面板 → 提供商 → 连接 **Kiro AI**（约 50 积分/月免费：GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next）或 **OpenCode Free**（无需认证）→ 完成！
 
 **3. 在 CLI 工具中使用：**
 
@@ -592,7 +592,7 @@ LiteRouter 与所有主流 AI 编程工具无缝协作：
 | **💰 低价** | GLM-5.1 / GLM-5   | $0.6/1M | 每日 10AM | 预算备份 |
 | | MiniMax M2.7 | $0.2/1M | 5小时滚动 | 最便宜选项 |
 | | Kimi K2.5 | $9/月固定 | 10M tokens/月 | 可预测成本 |
- | **🆓 免费** | Kiro AI | $0 | 50 积分/月 | Claude 4.5 + GLM-5 + MiniMax 免费（之上为付费档位） |
+ | **🆓 免费** | Kiro AI | $0 | ~50 积分/月 | GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next（之上为付费档位） |
  | | OpenCode Free | $0 |  varies* | 无需认证，自动获取模型（列表会变化） |
  | | Vertex AI | $300 额度 | 新 GCP 账户 | Gemini 3 Pro + DeepSeek + GLM-5（使用 Vertex AI Studio 端点消耗免费额度） |
 
@@ -832,7 +832,6 @@ LiteRouter 的智能切换可以防止意外费用：
   cx/gpt-5.5
   cx/gpt-5.4
   cx/gpt-5.3-codex
-  cx/gpt-5.3-codex
 ```
 
 ### GitHub Copilot
@@ -857,7 +856,6 @@ LiteRouter 的智能切换可以防止意外费用：
 → 每月订阅
 
 模型：
-  cu/claude-4.6-opus-max
   cu/claude-4.6-opus-max
   cu/gpt-5.3-codex
 ```
@@ -917,7 +915,7 @@ LiteRouter 的智能切换可以防止意外费用：
   kr/qwen3-coder-next
 ```
 
-**专业提示：** Claude 最佳免费选项。无需 API key，无需付款，完全无限量。
+**专业提示：** 无需 API key，无需付款；用量上限约 50 积分/月。
 
 ### OpenCode Free（无需认证，自动获取模型）
 
@@ -1191,7 +1189,6 @@ docker stop 9router && docker rm 9router
 
 **Claude Code（`cc/`）** - Pro/Max：
 - `cc/claude-opus-5`
-- `cc/claude-opus-5`
 - `cc/claude-sonnet-4-6`
 - `cc/claude-sonnet-4-5-20250929`
 - `cc/claude-haiku-4-5-20251001`
@@ -1210,13 +1207,11 @@ docker stop 9router && docker rm 9router
 
 **Cursor（`cu/`）** - 订阅：
 - `cu/claude-4.6-opus-max`
-- `cu/claude-4.6-opus-max`
 - `cu/gpt-5.3-codex`
 - `cu/kimi-k2.5`
 
 **GLM（`glm/`）** - $0.6/1M：
 - `glm/glm-5.1`
-- `glm/glm-5`
 - `glm/glm-5`
 
 **MiniMax（`minimax/`）** - $0.2/1M：

@@ -107,9 +107,9 @@ Upstream real, burst (kn/deepseek-v4-1-flash, n=24, 8 concurrent):
 
 | Contêiner | RSS ocioso | RSS pós-burst | Limite |
 | --- | --- | --- | --- |
-| 9Router (prod) | 192 MiB | 236.6 MiB | 512 MiB |
-| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
-| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+| 9Router (prod) | 112-192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | not sampled | 5.8 MiB | 256 MiB |
 
 ```text
 image size: ~1.03 GB both
@@ -131,7 +131,7 @@ npm install -g 9router
 
 **2. Conecte um provedor GRATUITO (sem necessidade de inscrição):**
 
-Painel → Provedores → Conecte **Kiro AI** (~50 créditos/mês grátis: Claude 4.5 + GLM-5 + MiniMax) ou **OpenCode Free** (sem autenticação) → Pronto!
+Painel → Provedores → Conecte **Kiro AI** (~50 créditos/mês grátis: GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next) ou **OpenCode Free** (sem autenticação) → Pronto!
 
 **3. Use em sua ferramenta CLI:**
 
@@ -406,7 +406,7 @@ LiteRouter funciona perfeitamente com todas as principais ferramentas de codific
       <td align="center" width="150">
         <img src="../public/providers/kiro.png" width="70" alt="Kiro"/><br/>
         <b>Kiro AI</b><br/>
-        <sub>Claude 4.5 + GLM-5 + MiniMax<br/>50 créditos/mês grátis</sub>
+        <sub>GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next<br/>50 créditos/mês grátis</sub>
 </td>
       <td align="center" width="150">
         <img src="../public/providers/opencode.png" width="70" alt="OpenCode Free"/><br/>
@@ -707,7 +707,7 @@ Tradução perfeita entre formatos:
 | **💰 BARATO** | GLM-5.1/GLM-5 | $0.6/1M | Diariamente 10h | Backup de orçamento |
 |                     | MiniMax M2.7 | $0.2/1M | Rolamento de 5 horas | Opção mais barata |
 |                     | Kimi K2.5 | $9/mo plano | 10 milhões de tokens/mês | Custo previsível |
- | **🆓 GRÁTIS** | Kiro AI | $0 | 50 créditos/mês | Claude 4.5 + GLM-5 + MiniMax grátis (níveis pagos acima) |
+ | **🆓 GRÁTIS** | Kiro AI | $0 | 50 créditos/mês | GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next grátis (níveis pagos acima) |
  |                     | OpenCode Free | $0 | Varia* | Sem autenticação, modelos de busca automática (a lista muda ao longo do tempo) |
 |                     | Vertex AI | Créditos $300 | Novas contas do GCP | Gemini 3 Pro + DeepSeek + GLM-5 (use o endpoint Vertex AI Studio para obter créditos gratuitos) |
 
@@ -945,7 +945,6 @@ Painel → Provedores → Conectar Claude Code
 
 Modelos:
   cc/claude-opus-5
-  cc/claude-opus-5
   cc/claude-sonnet-4-6
   cc/claude-haiku-4-5-20251001
 ```
@@ -987,7 +986,6 @@ Painel → Provedores → Conectar Cursor
 → Assinatura mensal
 
 Modelos:
-  cu/claude-4.6-opus-max
   cu/claude-4.6-opus-max
   cu/gpt-5.3-codex
 ```
@@ -1034,7 +1032,7 @@ Modelos:
 <details>
 <summary><b>🆓 Provedores GRATUITOS (recomendado)</b></summary>
 
-### Kiro AI (Claude 4.5 + GLM-5 + MiniMax GRATUITO)
+### Kiro AI (GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next GRATUITO)
 
 ```bash
 Painel → Conectar Kiro
@@ -1332,7 +1330,6 @@ Notas:
 **Claude Code (`cc/`)** - Pro/Máx:
 
 -`cc/claude-opus-5`
--`cc/claude-opus-5`
 -`cc/claude-sonnet-4-6`
 -`cc/claude-sonnet-4-5-20250929`
 -`cc/claude-haiku-4-5-20251001`
@@ -1354,7 +1351,6 @@ Notas:
 **Cursor (`cu/`)** - Assinatura:
 
 -`cu/claude-4.6-opus-max`
--`cu/claude-4.6-opus-max`
 -`cu/gpt-5.3-codex`
 -`cu/kimi-k2.5`
 
@@ -1370,7 +1366,6 @@ Notas:
 
 **Kimi (`kimi/`)** - $9/mo plana:
 
--`kimi/kimi-k2.5`
 -`kimi/kimi-k2.5`
 
 **Kiro (`kr/`)** - Gratuito (~50 créditos/mês, níveis pagos acima):

@@ -108,8 +108,8 @@ upstream واقعی، به‌صورت burst (kn/deepseek-v4-1-flash، n=24، ۸ 
 | Contenedor | RSS en reposo | RSS tras burst | Límite |
 | --- | --- | --- | --- |
 | 9Router (پروداکشن) | 192 MiB | 236.6 MiB | 512 MiB |
-| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
-| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | not sampled | 5.8 MiB | 256 MiB |
 
 ```text
 حجم ایمیج: هر دو حدود ۱.۰۳ گیگابایت
@@ -370,7 +370,7 @@ LiteRouter به‌طور یکپارچه با تمام ابزارهای اصلی 
       <td align="center" width="150">
         <img src="./public/providers/kiro.png" width="70" alt="Kiro"/><br/>
         <b>Kiro AI</b><br/>
-        <sub>Claude 4.5 + GLM-5 + MiniMax<br/>نامحدود رایگان</sub>
+        <sub>GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next<br/>نامحدود رایگان</sub>
       </td>
       <td align="center" width="150">
         <img src="./public/providers/opencode.png" width="70" alt="OpenCode Free"/><br/>
@@ -665,7 +665,7 @@ http://host.docker.internal:8787
 | **💰 ارزان**        | GLM-5.1 / GLM-5       | ۰.۶ دلار/میلیون      | روزانه ساعت ۱۰ صبح       | پشتیبان بودجه                           |
 |                     | MiniMax M2.7          | ۰.۲ دلار/میلیون      | ۵ ساعته گردشی   | ارزان‌ترین گزینه                         |
 |                     | Kimi K2.5             | ۹ دلار/ماه مسطح   | ۱۰ میلیون توکن/ماه    | هزینه قابل پیش‌بینی                        |
-| **🆓 رایگان**         | Kiro AI               | ۰ دلار           | نامحدود        | Claude 4.5 + GLM-5 + MiniMax رایگان       |
+| **🆓 رایگان**         | Kiro AI               | ۰ دلار           | نامحدود        | GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next رایگان       |
 |                     | OpenCode Free         | ۰ دلار           | نامحدود        | بدون احراز هویت، دریافت خودکار مدل‌ها              |
 |                     | Vertex AI             | ۳۰۰ دلار اعتبار | حساب‌های جدید GCP | Gemini 3 Pro + DeepSeek + GLM-5         |
 
@@ -820,7 +820,7 @@ LiteRouter یک پروکسی/مسیریاب محلی است. کارت اعتبا
 
 اینها خدمات رایگانی هستند که توسط آن شرکت‌ها ارائه می‌شوند:
 
-- **Kiro AI**: Claude 4.5 + GLM-5 + MiniMax نامحدود رایگان از طریق AWS Builder ID / Google / GitHub OAuth
+- **Kiro AI**: GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next نامحدود رایگان از طریق AWS Builder ID / Google / GitHub OAuth
 - **OpenCode Free**: پروکسی عبوری بدون احراز هویت، مدل‌ها به‌طور خودکار از `opencode.ai/zen/v1/models` دریافت می‌شوند
 - **Vertex AI**: ۳۰۰ دلار اعتبار رایگان برای حساب‌های جدید Google Cloud (۹۰ روز)
 
@@ -903,7 +903,6 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
 
 مدل‌ها:
   cc/claude-opus-5
-  cc/claude-opus-5
   cc/claude-sonnet-4-6
   cc/claude-haiku-4-5-20251001
 ```
@@ -945,7 +944,6 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
 → اشتراک ماهانه
 
 مدل‌ها:
-  cu/claude-4.6-opus-max
   cu/claude-4.6-opus-max
   cu/gpt-5.3-codex
 ```
@@ -992,7 +990,7 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
 <details>
 <summary><b>🆓 ارائه‌دهندگان رایگان (توصیه شده)</b></summary>
 
-### Kiro AI (Claude 4.5 + GLM-5 + MiniMax رایگان)
+### Kiro AI (GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next رایگان)
 
 ```bash
 داشبورد → اتصال Kiro
@@ -1290,7 +1288,6 @@ docker pull decolua/9router:latest   # به‌روزرسانی به آخرین �
 **Claude Code (`cc/`)** - Pro/Max:
 
 - `cc/claude-opus-5`
-- `cc/claude-opus-5`
 - `cc/claude-sonnet-4-6`
 - `cc/claude-sonnet-4-5-20250929`
 - `cc/claude-haiku-4-5-20251001`
@@ -1312,7 +1309,6 @@ docker pull decolua/9router:latest   # به‌روزرسانی به آخرین �
 **Cursor (`cu/`)** - اشتراک:
 
 - `cu/claude-4.6-opus-max`
-- `cu/claude-4.6-opus-max`
 - `cu/gpt-5.3-codex`
 - `cu/kimi-k2.5`
 
@@ -1328,7 +1324,6 @@ docker pull decolua/9router:latest   # به‌روزرسانی به آخرین �
 
 **Kimi (`kimi/`)** - ۹ دلار/ماه مسطح:
 
-- `kimi/kimi-k2.5`
 - `kimi/kimi-k2.5`
 
 **Kiro (`kr/`)** - رایگان نامحدود:

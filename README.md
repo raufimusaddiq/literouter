@@ -120,11 +120,11 @@ Real upstream burst, `kn/deepseek-v4-1-flash`, n=24, 8 concurrent:
 
 | Container | Idle RSS | Post-burst RSS | Limit |
 | --- | --- | --- | --- |
-| 9Router (prod) | 192 MiB | 236.6 MiB | 512 MiB |
-| LiteRouter | 34–89 MiB | 72.3 MiB | 512 MiB |
-| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+| 9Router (prod) | 112-192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | not sampled | 5.8 MiB | 256 MiB |
 
-RSS drops roughly **3–4×**. Part of that is the minimal profile (no provider
+RSS drops roughly **1.7-2.8×** on the recorded samples. Part of that is the minimal profile (no provider
 connections, no catalog sync, no background refresh), so read it as the cost of
 the trimmed feature set, not as a pure code-efficiency claim.
 
@@ -151,7 +151,7 @@ npm install -g 9router
 
 **2. Connect a FREE provider (no signup needed):**
 
-Dashboard → Providers → Connect **Kiro AI** (~50 credits/month free: Claude 4.5 + GLM-5 + MiniMax) or **OpenCode Free** (no auth) → Done!
+Dashboard → Providers → Connect **Kiro AI** (~50 credits/month free: GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next) or **OpenCode Free** (no auth) → Done!
 
 **3. Use in your CLI tool:**
 
@@ -728,7 +728,7 @@ Seamless translation between formats:
 | **💰 CHEAP**        | GLM-5.1 / GLM-5       | $0.6/1M      | Daily 10AM       | Budget backup                           |
 |                     | MiniMax M2.7          | $0.2/1M      | 5-hour rolling   | Cheapest option                         |
 |                     | Kimi K2.5             | $9/mo flat   | 10M tokens/mo    | Predictable cost                        |
- | **🆓 FREE**         | Kiro AI               | $0           | 50 credits/mo    | Claude 4.5 + GLM-5 + MiniMax free (paid tiers above) |
+ | **🆓 FREE**         | Kiro AI               | $0           | ~50 credits/mo   | GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next (paid tiers above) |
  |                     | OpenCode Free         | $0           | Varies*          | No auth, auto-fetch models (list changes over time) |
  |                     | Vertex AI             | $300 credits | New GCP accounts | Gemini 3 Pro + DeepSeek + GLM-5 (use Vertex AI Studio endpoint for free credits) |
 
@@ -834,8 +834,8 @@ Monthly cost: $20-200 (subscriptions) + $10-20 (backup)
 ```
 Combo: "openclaw-free"
   1. kr/glm-5                  (GLM 5 free)
-  2. kr/glm-5                  (GLM-5 free)
-  3. kr/deepseek-3.2           (DeepSeek free)
+  2. kr/deepseek-3.2           (DeepSeek free)
+  3. oc/<auto>                 (OpenCode Free, no auth)
 
 Monthly cost: $0
 Access via: WhatsApp, Telegram, Slack, Discord, iMessage, Signal...
@@ -1009,7 +1009,7 @@ Dashboard → Providers → Connect Cursor
 
 Models:
   cu/claude-4.6-opus-max
-  cu/claude-4.6-opus-max
+  cu/claude-4.5-sonnet-thinking
   cu/gpt-5.3-codex
 ```
 
@@ -1068,7 +1068,7 @@ Models:
   kr/qwen3-coder-next
 ```
 
-**Pro Tip:** Best free option for Claude. No API key, no payment, fully unlimited.
+**Pro Tip:** No API key and no payment; usage is capped by the ~50 credits/month.
 
 ### OpenCode Free (No auth, auto-fetch models)
 
@@ -1131,7 +1131,7 @@ Monthly cost example (100M tokens):
 Name: free-combo
 Models:
   1. kr/glm-5 (GLM 5 free via Kiro, ~50 credits/mo)
-  2. kr/glm-5 (GLM-5 free via Kiro)
+  2. kr/deepseek-3.2 (DeepSeek free via Kiro)
   3. vertex/gemini-3.1-pro-preview ($300 free credits)
 
 Cost: $0 forever (+ 20-40% token savings via RTK)!
@@ -1365,7 +1365,7 @@ Notes:
 **Cursor (`cu/`)** - Subscription:
 
 - `cu/claude-4.6-opus-max`
-- `cu/claude-4.6-opus-max`
+- `cu/claude-4.5-sonnet-thinking`
 - `cu/gpt-5.3-codex`
 - `cu/kimi-k2.5`
 
@@ -1387,7 +1387,6 @@ Notes:
 - `kr/glm-5`
 - `kr/deepseek-3.2`
 - `kr/qwen3-coder-next`
-- `kr/glm-5`
 - `kr/deepseek-3.2`
 - `kr/qwen3-coder-next`
 - `kr/deepseek-3.2`
