@@ -890,13 +890,7 @@ codex "your prompt"
 
 ### OpenClaw
 
-**オプション1 — ダッシュボード（推奨）：**
-
-```
-ダッシュボード → CLI Tools → OpenClaw → モデルを選択 → 適用
-```
-
-**オプション2 — 手動:** `~/.openclaw/openclaw.json` を編集:
+**オプション1 — 手動:** `~/.openclaw/openclaw.json` を編集:
 
 ```json
 {

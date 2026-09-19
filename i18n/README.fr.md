@@ -1072,13 +1072,7 @@ codex "votre prompt"
 
 ### OpenClaw
 
-**Option 1 — Tableau de bord (recommandée) :**
-
-```
-Tableau de bord → CLI Tools → OpenClaw → Sélectionnez le modèle → Appliquer
-```
-
-**Option 2 — Manuel :** Modifiez `~/.openclaw/openclaw.json` :
+**Option 1 — Manuel :** Modifiez `~/.openclaw/openclaw.json` :
 
 ```json
 {
@@ -1442,4 +1436,3 @@ Licence MIT - voir [LICENSE](LICENSE) pour plus de détails.
 <div align="center">
   <sub>Conçu avec ❤️ pour les développeurs qui codent 24h/24 et 7j/7</sub>
 </div>
-
