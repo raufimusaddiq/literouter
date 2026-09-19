@@ -2,13 +2,12 @@ import { NextResponse } from "next/server";
 import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
 import { isLocalRequest } from "@/dashboardGuard";
 
-// Fetch with timeout wrapper
-// `remote` decides whether redirects are re-validated per hop (fetchPublic) or
-// whether the local operator is allowed to reach a LAN node directly (fetch).
-const fetchWithTimeout = (url, options, timeout = 10000) => {
-  const { remote = false, ...init } = options || {};
+// Remote callers go through fetchPublic: it re-resolves the host and re-validates
+// every redirect hop. The trusted local operator may fetch a LAN node directly.
+const fetchNode = (url, { remote, ...init }, timeout = 10000) => {
   const withTimeout = { ...init, signal: AbortSignal.timeout(timeout) };
-  return remote ? fetchPublic(url, withTimeout) : fetch(url, withTimeout);
+  if (remote) return fetchPublic(url, withTimeout);
+  return fetch(url, { ...withTimeout, redirect: "error" });
 };
 
 // Validate URL format
@@ -84,7 +83,7 @@ export async function POST(request) {
       }
 
       const modelsUrl = `${normalizedBase}/models`;
-      const res = await fetchWithTimeout(modelsUrl, {
+      const res = await fetchNode(modelsUrl, {
         method: "GET",
         remote,
         headers: {
@@ -103,7 +102,7 @@ export async function POST(request) {
 
       // Fallback: try chat/completions if modelId provided
       if (modelId) {
-        const chatRes = await fetchWithTimeout(`${normalizedBase}/chat/completions`, {
+        const chatRes = await fetchNode(`${normalizedBase}/chat/completions`, {
           method: "POST",
           remote,
           headers: {
@@ -133,7 +132,7 @@ export async function POST(request) {
 
     // OpenAI Compatible Validation (Default)
     const modelsUrl = `${baseUrl.replace(/\/$/, "")}/models`;
-    const res = await fetchWithTimeout(modelsUrl, {
+    const res = await fetchNode(modelsUrl, {
       remote,
       headers: { "Authorization": `Bearer ${apiKey}` },
     });
@@ -147,7 +146,7 @@ export async function POST(request) {
 
     // Fallback: try chat/completions if modelId provided
     if (modelId) {
-      const chatRes = await fetchWithTimeout(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      const chatRes = await fetchNode(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
         remote,
         headers: {
