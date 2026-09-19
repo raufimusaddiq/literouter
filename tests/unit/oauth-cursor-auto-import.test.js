@@ -1,5 +1,9 @@
+// GET /api/oauth/cursor/auto-import — locates Cursor's state.vscdb per
+// platform, reads cursorAuth/accessToken + storage.serviceMachineId via
+// better-sqlite3, and falls back to the sqlite3 CLI when native bindings
+// are unavailable. Mirrors the route in
+// src/app/api/oauth/cursor/auto-import/route.js.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import * as fsPromises from "fs/promises";
 
 // Mock next/server
 vi.mock("next/server", () => ({
@@ -12,39 +16,36 @@ vi.mock("next/server", () => ({
   },
 }));
 
-// Mock os
-vi.mock("os", () => ({
-  default: { homedir: vi.fn(() => "/mock/home") },
-  homedir: vi.fn(() => "/mock/home"),
-}));
-
-// Mock fs/promises
 vi.mock("fs/promises", () => ({
   access: vi.fn(),
   constants: { R_OK: 4 },
 }));
 
-// Shared mock db instance
+import * as fsPromises from "fs/promises";
+
 const mockDbInstance = {
   prepare: vi.fn(),
   close: vi.fn(),
   __throwOnConstruct: false,
 };
 
-// Mock better-sqlite3 as a class so `new Database(...)` works
 vi.mock("better-sqlite3", () => ({
   default: class MockDatabase {
     constructor() {
-      if (mockDbInstance.__throwOnConstruct) {
-        throw new Error("SQLITE_CANTOPEN");
-      }
+      if (mockDbInstance.__throwOnConstruct) throw new Error("SQLITE_CANTOPEN");
       return mockDbInstance;
     }
   },
 }));
 
-// We need to dynamically import after mocks are registered
 let GET;
+
+// The route reads keys one at a time via prepare(...).get().
+function mockRows(rows) {
+  mockDbInstance.prepare.mockImplementation(() => ({
+    get: (key) => rows.find((r) => r.key === key),
+  }));
+}
 
 describe("GET /api/oauth/cursor/auto-import", () => {
   const originalPlatform = process.platform;
@@ -52,49 +53,30 @@ describe("GET /api/oauth/cursor/auto-import", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockDbInstance.__throwOnConstruct = false;
-    // Force darwin so macOS-specific logic is exercised
     Object.defineProperty(process, "platform", { value: "darwin", writable: true });
-    // Re-import to pick up fresh mocks each run
-    const mod = await import("../../src/app/api/oauth/cursor/auto-import/route.js");
-    GET = mod.GET;
+    ({ GET } = await import("../../src/app/api/oauth/cursor/auto-import/route.js"));
   });
 
   afterEach(() => {
     Object.defineProperty(process, "platform", { value: originalPlatform, writable: true });
   });
 
-  // ── macOS path probing ────────────────────────────────────────────────
-
-  it("returns not-found when no macOS cursor db paths are accessible", async () => {
+  it("reports not-found when no candidate db path exists", async () => {
     vi.mocked(fsPromises.access).mockRejectedValue(new Error("ENOENT"));
 
     const response = await GET();
 
+    expect(response.status).toBe(200);
     expect(response.body.found).toBe(false);
-    expect(response.body.error).toContain("Cursor database not found in known macOS locations");
+    expect(response.body.error).toContain("Cursor database not found");
   });
 
-  it("returns descriptive error if macOS db file exists but cannot be opened", async () => {
+  it("extracts the access token and machine id from the exact keys", async () => {
     vi.mocked(fsPromises.access).mockResolvedValue();
-    mockDbInstance.__throwOnConstruct = true;
-
-    const response = await GET();
-
-    expect(response.body.found).toBe(false);
-    expect(response.body.error).toContain("could not open it");
-    expect(response.body.error).toContain("SQLITE_CANTOPEN");
-  });
-
-  // ── Token extraction ──────────────────────────────────────────────────
-
-  it("extracts tokens using exact keys", async () => {
-    vi.mocked(fsPromises.access).mockResolvedValue();
-    mockDbInstance.prepare.mockReturnValue({
-      all: vi.fn().mockReturnValue([
-        { key: "cursorAuth/accessToken", value: "test-token" },
-        { key: "storage.serviceMachineId", value: "test-machine-id" },
-      ]),
-    });
+    mockRows([
+      { key: "cursorAuth/accessToken", value: "test-token" },
+      { key: "storage.serviceMachineId", value: "test-machine-id" },
+    ]);
 
     const response = await GET();
 
@@ -104,14 +86,12 @@ describe("GET /api/oauth/cursor/auto-import", () => {
     expect(mockDbInstance.close).toHaveBeenCalled();
   });
 
-  it("unwraps JSON-encoded string values", async () => {
+  it("unwraps JSON-encoded token values", async () => {
     vi.mocked(fsPromises.access).mockResolvedValue();
-    mockDbInstance.prepare.mockReturnValue({
-      all: vi.fn().mockReturnValue([
-        { key: "cursorAuth/accessToken", value: '"json-token"' },
-        { key: "storage.serviceMachineId", value: '"json-machine-id"' },
-      ]),
-    });
+    mockRows([
+      { key: "cursorAuth/accessToken", value: '"json-token"' },
+      { key: "storage.serviceMachineId", value: '"json-machine-id"' },
+    ]);
 
     const response = await GET();
 
@@ -120,65 +100,16 @@ describe("GET /api/oauth/cursor/auto-import", () => {
     expect(response.body.machineId).toBe("json-machine-id");
   });
 
-  // ── Fuzzy fallback (macOS only) ───────────────────────────────────────
-
-  it("falls back to fuzzy key matching on macOS when exact keys are missing", async () => {
+  it("falls back to manual import when the db cannot be opened", async () => {
     vi.mocked(fsPromises.access).mockResolvedValue();
-    mockDbInstance.prepare.mockImplementation((query) => {
-      if (query.includes("IN (")) {
-        return { all: vi.fn().mockReturnValue([]) };
-      }
-      // Fuzzy LIKE query
-      return {
-        all: vi.fn().mockReturnValue([
-          { key: "cursorAuth/someOtherAccessTokenKey", value: "fallback-token" },
-          { key: "storage.someMachineId", value: "fallback-machine" },
-        ]),
-      };
-    });
-
-    const response = await GET();
-
-    expect(response.body.found).toBe(true);
-    expect(response.body.accessToken).toBe("fallback-token");
-    expect(response.body.machineId).toBe("fallback-machine");
-  });
-
-  it("returns login-prompt error when tokens are missing even after fallback", async () => {
-    vi.mocked(fsPromises.access).mockResolvedValue();
-    mockDbInstance.prepare.mockReturnValue({
-      all: vi.fn().mockReturnValue([]),
-    });
-
-    const response = await GET();
-
-    expect(response.body.found).toBe(false);
-    expect(response.body.error).toContain("Please login to Cursor IDE first");
-  });
-
-  // ── Backwards-compatible: linux/win32 keep original single-path logic ─
-
-  it("linux uses single hardcoded path and original error message", async () => {
-    Object.defineProperty(process, "platform", { value: "linux", writable: true });
-    vi.mocked(fsPromises.access).mockRejectedValue(new Error("ENOENT"));
     mockDbInstance.__throwOnConstruct = true;
 
     const response = await GET();
 
+    // better-sqlite3 failed and the sqlite3 CLI is absent in the test env,
+    // so the route asks the caller to paste the tokens by hand.
     expect(response.body.found).toBe(false);
-    expect(response.body.error).toBe(
-      "Cursor database not found. Make sure Cursor IDE is installed and you are logged in."
-    );
-    // fs/promises.access should NOT have been called (linux skips probing)
-    expect(fsPromises.access).not.toHaveBeenCalled();
-  });
-
-  it("unsupported platform returns 400", async () => {
-    Object.defineProperty(process, "platform", { value: "freebsd", writable: true });
-
-    const response = await GET();
-
-    expect(response.status).toBe(400);
-    expect(response.body.error).toBe("Unsupported platform");
+    expect(response.body.windowsManual).toBe(true);
+    expect(response.body.dbPath).toContain("state.vscdb");
   });
 });

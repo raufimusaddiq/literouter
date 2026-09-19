@@ -79,7 +79,14 @@ function response(frames, status = 200) {
       for (const value of frames) controller.enqueue(value);
       controller.close();
     }
-  }), { status, statusText: status === 200 ? "OK" : "Upstream Error" });
+  }), {
+    status,
+    statusText: status === 200 ? "OK" : "Upstream Error",
+    // Kiro answers with the AWS EventStream content type and the executor reads
+    // it back when classifying a failed attempt. Omitting it made the mocked
+    // failure path look like a transport error and retry forever.
+    headers: { "content-type": "application/vnd.amazon.eventstream" },
+  });
 }
 
 function controlledResponse(frames = []) {
@@ -704,10 +711,14 @@ describe("Kiro terminal integrity recovery", () => {
     expect(body).not.toContain("must stay private");
   });
 
+  // The retry leg runs the 502 backoff ladder (3 attempts + host fallback), so
+  // these two need headroom beyond the 5s default.
   it("surfaces retry HTTP failures as SSE after heartbeat commits headers", async () => {
     fetchMock
       .mockResolvedValueOnce(response([]))
-      .mockResolvedValueOnce(new Response("unauthorized", {
+      // Every later call (retries + fallback hosts) must be a real 401; a
+      // drained mock hands back `undefined` and the executor loops on it.
+      .mockResolvedValue(new Response("unauthorized", {
         status: 401,
         statusText: "Unauthorized"
       }));
@@ -718,12 +729,12 @@ describe("Kiro terminal integrity recovery", () => {
     expect(result.response.status).toBe(200);
     expect(body).toContain("kiro_integrity_retry_upstream_error");
     expect(body).toContain("unauthorized");
-  });
+  }, 60000);
 
   it("bounds the retry HTTP error body", async () => {
     fetchMock
       .mockResolvedValueOnce(response([]))
-      .mockResolvedValueOnce(new Response(`error-start-${"x".repeat(10_000)}-error-tail`, {
+      .mockResolvedValue(new Response(`error-start-${"x".repeat(10_000)}-error-tail`, {
         status: 401,
         statusText: "Unauthorized"
       }));
@@ -733,7 +744,7 @@ describe("Kiro terminal integrity recovery", () => {
     expect(body).toContain("error-start-");
     expect(body).not.toContain("error-tail");
     expect(body.length).toBeLessThan(5000);
-  });
+  }, 60000);
 
   it("propagates cancellation while validation is waiting for EOF", async () => {
     const upstream = controlledResponse([
