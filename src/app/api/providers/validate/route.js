@@ -6,6 +6,8 @@ import { resolveOllamaLocalHost, resolveXiaomiTokenplanBaseUrl, PROVIDERS } from
 import { openaiToCommandCodeRequest } from "open-sse/translator/request/openai-to-commandcode.js";
 import { resolveQoderCredentials, resolveQoderModels } from "open-sse/services/qoderModels.js";
 import { normalizeProviderId } from "@/lib/providerNormalization";
+import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
+import { isLocalRequest } from "@/dashboardGuard";
 
 // POST /api/providers/validate - Validate API key with provider
 export async function POST(request) {
@@ -13,6 +15,26 @@ export async function POST(request) {
     const body = await request.json();
     const provider = normalizeProviderId(body.provider);
     const { apiKey, providerSpecificData } = body;
+    const remote = !isLocalRequest(request);
+    const validateFetch = remote ? fetchPublic : fetch;
+
+    // One gate for every caller-controlled URL this route fetches. Branches below
+    // vary a lot (provider node, azure endpoint, ollama host), so guarding each
+    // call site separately kept missing sinks; this rejects any private/metadata
+    // target before the branch runs. Local operators keep self-hosted nodes.
+    if (remote) {
+      const candidates = [
+        providerSpecificData?.azureEndpoint,
+        providerSpecificData?.baseUrl,
+      ];
+      try {
+        for (const candidate of candidates) {
+          if (typeof candidate === "string" && candidate.trim()) await assertPublicUrlResolved(candidate.trim());
+        }
+      } catch {
+        return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+      }
+    }
 
     const isNoAuth = AI_PROVIDERS[provider]?.noAuth === true;
     if (!provider || (!apiKey && provider !== "ollama-local" && !isNoAuth)) {
@@ -29,8 +51,14 @@ export async function POST(request) {
         if (!node) {
           return NextResponse.json({ error: "OpenAI Compatible node not found" }, { status: 404 });
         }
+        // SSRF guard for remote callers; a local operator may target a
+        // self-hosted node on the private network.
+        if (remote) {
+          try { await assertPublicUrlResolved(node.baseUrl?.trim() || ""); }
+          catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
+        }
         const modelsUrl = `${node.baseUrl?.replace(/\/$/, "")}/models`;
-        const res = await fetch(modelsUrl, {
+        const res = await validateFetch(modelsUrl, {
           headers: { "Authorization": `Bearer ${apiKey}` },
         });
         isValid = res.ok;
@@ -46,6 +74,10 @@ export async function POST(request) {
           return NextResponse.json({ error: "Anthropic Compatible node not found" }, { status: 404 });
         }
 
+        if (remote) {
+          try { await assertPublicUrlResolved(node.baseUrl?.trim() || ""); }
+          catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
+        }
         let normalizedBase = node.baseUrl?.trim().replace(/\/$/, "") || "";
         if (normalizedBase.endsWith("/messages")) {
           normalizedBase = normalizedBase.slice(0, -9); // remove /messages
@@ -54,7 +86,7 @@ export async function POST(request) {
         const messagesUrl = `${normalizedBase}/v1/messages`;
         const model = node.defaultModel || "claude-3-haiku-20240307";
 
-        const res = await fetch(messagesUrl, {
+        const res = await validateFetch(messagesUrl, {
           method: "POST",
           headers: {
             "x-api-key": apiKey,
@@ -101,7 +133,6 @@ export async function POST(request) {
       }
 
       if (provider === "azure") {
-        const { providerSpecificData } = body;
         const endpoint = (providerSpecificData?.azureEndpoint || "").replace(/\/$/, "");
         const deployment = providerSpecificData?.deployment || "gpt-4";
         const apiVersion = providerSpecificData?.apiVersion || "2024-10-01-preview";
@@ -114,7 +145,8 @@ export async function POST(request) {
         };
         if (organization) headers["OpenAI-Organization"] = organization;
 
-        const azureRes = await fetch(url, {
+        // Azure endpoints are always public; fetchPublic validates DNS and every redirect.
+        const azureRes = await fetchPublic(url, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -257,7 +289,7 @@ export async function POST(request) {
           };
           const headers = {};
           if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-          const res = await fetch(endpoints[provider], { headers, signal: AbortSignal.timeout(8000) });
+          const res = await validateFetch(endpoints[provider], { headers, signal: AbortSignal.timeout(8000) });
           // xai returns 400 for bad key, 403 for valid-but-no-credit. Other providers use 401.
           if (provider === "xai") {
             isValid = res.status === 200 || res.status === 403;
