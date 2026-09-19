@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./images/literouter.png?1" alt="LiteRouter Dashboard" width="800"/>
+  <img src="./images/9router.png?1" alt="LiteRouter Dashboard" width="800"/>
 
   # LiteRouter - FREE AI Router & Token Saver
 
@@ -8,7 +8,7 @@
   **Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to 40+ AI Providers & 100+ Models.**
 
   [![License](https://img.shields.io/github/license/raufimusaddiq/literouter.svg)](https://github.com/raufimusaddiq/literouter/blob/staging/LICENSE)
-  [![CI](https://github.com/raufimusaddiq/literouter/actions/workflows/ci.yml/badge.svg?branch=staging)](https://github.com/raufimusaddiq/literouter/actions/workflows/ci.yml)
+  [![CI](https://github.com/raufimusaddiq/literouter/actions/workflows/test.yml/badge.svg?branch=staging)](https://github.com/raufimusaddiq/literouter/actions/workflows/test.yml)
 
 > **LiteRouter** is a fork of [9Router](https://github.com/decolua/9router) (MIT), trimmed to a minimal-profile router.
 
@@ -84,13 +84,17 @@ schema are unchanged — which is why upstream fixes stay cherry-pickable.
 | Token refresh | background job on | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
 | Hot-read cache | none | in-process (connections, combos, settings) |
 | Cross-instance cache | — | Redis, **cache-only** (no persistence) |
-| Tunnel / MITM | shipped | removed |
-| Cloud sync | shipped | removed |
+| Tunnel / MITM | shipped | present, unused in the staging profile |
+| Cloud sync | shipped | present, unused in the staging profile |
 | Source of truth | SQLite | SQLite (unchanged) |
 
 Redis here is not a datastore. It holds one connection-cache version key used to
 invalidate the in-process cache across instances; SQLite remains authoritative.
 A chat burst adds no Redis keys, by design.
+
+The tunnel/MITM and cloud-sync **code is still in the tree** — the minimal
+profile leaves them unused rather than deleting them, so upstream changes to
+them stay mergeable.
 
 ### Performance vs packaged 9Router
 
@@ -796,7 +800,7 @@ vs. $20 + hitting limits = frustration
 ```
 Combo: "free-forever"
   1. kr/glm-5                  (GLM 5 free via Kiro, ~50 credits/mo)
-  2. kr/glm-5                  (GLM-5 free via Kiro)
+  2. kr/deepseek-3.2           (DeepSeek free via Kiro)
   3. oc/<auto>                 (OpenCode Free, no auth)
 
 Monthly cost: $0
@@ -890,7 +894,6 @@ LiteRouter just routes your requests to them - there's no "catch" or future bill
 - ❌ **iFlow**: Was free unlimited, now changed to paid (2026)
 - ❌ **Qwen Code**: Free OAuth tier fully discontinued by Alibaba on 2026-04-15
 - ❌ **Gemini CLI**: Service shut down on 2026-06-18; provider entry is marked `deprecated` and `gc/` models fail
-- ❌ **Gemini CLI**: Service fully shut down by Google on 2026-06-18 (replaced by the closed-source Antigravity CLI). Discontinued — do not use.
 
 </details>
 

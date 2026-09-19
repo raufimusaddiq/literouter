@@ -1,6 +1,6 @@
 
 <div align="center">
-  <img src="./images/literouter.png?1" alt="LiteRouter Dashboard" width="800"/>
+  <img src="./images/9router.png?1" alt="LiteRouter Dashboard" width="800"/>
 
   # LiteRouter - 免费 AI 路由器与 Token 节省器
 
@@ -84,12 +84,15 @@ LiteRouter 不是重写。它是上游 9Router 加上 `MINIMAL_PROFILE` 运行�
 | Token 刷新 | 后台任务开启 | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
 | 热读缓存 | 无 | 进程内（连接、组合、设置） |
 | 跨实例缓存 | — | Redis，**仅作缓存**（不持久化） |
-| 隧道 / MITM | 有 | 已移除 |
-| 云同步 | 有 | 已移除 |
+| 隧道 / MITM | 有 | 保留，但在精简配置中未使用 |
+| 云同步 | 有 | 保留，但在精简配置中未使用 |
 | 数据源 | SQLite | SQLite（未改动） |
 
 这里的 Redis 不是数据存储。它只保存一个连接缓存版本键，用于跨实例失效
 进程内缓存；SQLite 仍是权威数据源。聊天突发请求不会产生 Redis 键，这是设计如此。
+
+隧道/MITM 与云同步的**代码仍在仓库中**——精简配置只是不使用它们，而非删除，
+以便上游的相关改动仍可合并。
 
 ### 与打包版 9Router 的性能对比
 
@@ -657,7 +660,7 @@ LiteRouter 与所有主流 AI 编程工具无缝协作：
 ```
 组合："free-forever"
   1. kr/glm-5                  （通过 Kiro 免费使用 GLM 5，约 50 积分/月）
-  2. kr/glm-5                  （通过 Kiro 免费使用 GLM-5）
+  2. kr/deepseek-3.2           （通过 Kiro 免费使用 DeepSeek）
   3. oc/<auto>                 （OpenCode Free，无需认证）
 
 月成本：$0
