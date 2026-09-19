@@ -97,11 +97,9 @@ function isLoopbackPeer(request) {
   if (hasTrustedPeerHeaders(request)) {
     return isLoopbackHostname(request.headers.get("x-9r-real-ip"));
   }
-  // Bare `next dev` forks its server, so the wrapper never loads and no peer address
-  // reaches us. Host is spoofable, so this stays confined to development.
-  if (process.env.NODE_ENV === "development") {
-    return isLoopbackHostname(request.headers.get("host"));
-  }
+  // The Host header is attacker-supplied on any reachable listener, so it is never
+  // used to grant local-operator trust. `next dev` runs with TRUST_PROXY unset and
+  // the dashboardGuard disabled path handles that workflow instead.
   return false;
 }
 

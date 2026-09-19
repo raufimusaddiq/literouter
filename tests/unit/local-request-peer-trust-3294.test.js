@@ -152,12 +152,14 @@ describe("peer header trust", () => {
     expect(response.status).toBe(401);
   });
 
-  it("accepts the legacy Host fallback only in development", async () => {
+  it("never trusts a spoofable Host header, even in development", async () => {
     process.env.NODE_ENV = "development";
 
     const response = await proxy(request("/api/v1/models", { host: "localhost:20127" }));
 
-    expect(response).toBe(mocks.nextResponse);
+    // A client can set any Host value, so it must not unlock the local-operator
+    // exemptions (SSRF guard bypass, localhost-only routes).
+    expect(response.status).toBe(401);
   });
 });
 
