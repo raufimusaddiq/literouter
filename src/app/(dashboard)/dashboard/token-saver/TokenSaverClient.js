@@ -475,15 +475,20 @@ export default function TokenSaverClient() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card id="rtk">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">
-              bolt
-            </span>
-            Token Saver
-          </h2>
+      <div className="flex flex-col gap-4 rounded-[1.125rem] bg-surface-2 p-4 ring-1 ring-border-subtle sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Token saver</p>
+          <p className="text-sm text-text-main">Compression layers applied before requests leave the router.</p>
         </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${rtkEnabled ? "bg-success/15 text-success" : "bg-surface-3 text-text-muted"}`}>RTK {rtkEnabled ? "on" : "off"}</span>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${headroomRunning ? "bg-success/15 text-success" : "bg-surface-3 text-text-muted"}`}>Headroom {headroomRunning ? "on" : "off"}</span>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${cavemanEnabled ? "bg-success/15 text-success" : "bg-surface-3 text-text-muted"}`}>Caveman {cavemanEnabled ? "on" : "off"}</span>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${ponytailEnabled ? "bg-success/15 text-success" : "bg-surface-3 text-text-muted"}`}>Ponytail {ponytailEnabled ? "on" : "off"}</span>
+        </div>
+      </div>
+
+      <Card id="rtk">
         <div className="flex items-center justify-between pt-2 pb-4 border-b border-border gap-4">
           <div className="min-w-0 flex-1">
             <p className="font-medium">

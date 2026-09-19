@@ -1361,19 +1361,19 @@ export default function ProviderDetailPage() {
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 px-1 sm:gap-8 sm:px-0">
+    <div className="flex min-w-0 flex-col gap-6">
       {/* Header */}
-      <div className="min-w-0">
+      <div className="min-w-0 rounded-[1.125rem] bg-surface-2 p-5 ring-1 ring-border-subtle">
         <Link
           href="/dashboard/providers"
-          className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary transition-colors mb-4"
+          className="mb-4 inline-flex items-center gap-1 text-sm text-text-muted transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-primary"
         >
           <span className="material-symbols-outlined text-lg">arrow_back</span>
           Back to Providers
         </Link>
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <div
-            className="flex size-12 shrink-0 items-center justify-center rounded-lg"
+            className="flex size-14 shrink-0 items-center justify-center rounded-2xl ring-1 ring-border-subtle"
             style={{ backgroundColor: `${providerInfo.color}15` }}
           >
             {headerImgError || !getHeaderIconPath() ? (
@@ -1399,7 +1399,7 @@ export default function ProviderDetailPage() {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{providerInfo.name}</h1>
+              <h1 className="truncate text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">{providerInfo.name}</h1>
               {(providerInfo.notice?.apiKeyUrl || providerInfo.notice?.signupUrl || providerInfo.website) && (
                 <a
                   href={providerInfo.notice?.apiKeyUrl || providerInfo.notice?.signupUrl || providerInfo.website}
@@ -1412,8 +1412,8 @@ export default function ProviderDetailPage() {
                 </a>
               )}
             </div>
-            <p className="text-text-muted">
-              {connections.length} connection{connections.length === 1 ? "" : "s"}
+            <p className="mt-1 text-sm text-text-muted">
+              {connections.length} connection{connections.length === 1 ? "" : "s"} · LiteRouter provider
             </p>
           </div>
         </div>
