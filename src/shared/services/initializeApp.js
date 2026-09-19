@@ -3,8 +3,6 @@ import { redisEnabled, redisPing } from "@/lib/redis.js";
 
 // Cached module handles. Kept separate from the import promise so synchronous
 // call sites (signal cleanup) can use them once startup has resolved them.
-const g0 = (global.__initAppModules ??= { bridges: null });
-
 process.setMaxListeners(20);
 
 // Defer heavy startup work so the first HTTP request (login → dashboard) isn't
@@ -20,7 +18,6 @@ export async function initializeApp() {
   try {
     if (!g.signalHandlersRegistered) {
       const cleanup = () => {
-        try { g0.bridges?.killAllBridges(); } catch { /* best effort */ }
         process.exit();
       };
       process.on("SIGINT", cleanup);
@@ -41,8 +38,6 @@ async function runHeavyStartup() {
   if (redisEnabled()) redisPing().then((ok) => console.log(`[Redis] ${ok ? "connected" : "fallback mode"}`));
   await cleanupProviderConnections();
   const settings = await getSettings();
-
-  if (!g0.bridges) import("@/lib/mcp/stdioSseBridge").then((m) => { g0.bridges = m; }).catch(() => {});
 
   if (hasQuotaAutoPingEnabled(settings)) {
     import("@/shared/services/quotaAutoPing")

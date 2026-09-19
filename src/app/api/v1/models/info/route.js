@@ -4,8 +4,6 @@ import { getModelKind } from "@/shared/constants/models";
 
 const KIND_ENDPOINT = {
   llm: "/v1/chat/completions",
-  image: "/v1/images/generations",
-  embedding: "/v1/embeddings",
   imageToText: "/v1/chat/completions",
   webSearch: "/v1/search",
   webFetch: "/v1/fetch",

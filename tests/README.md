@@ -1,6 +1,6 @@
 # 9Router Embeddings Tests
 
-Unit tests for the `/v1/embeddings` endpoint implementation.
+Unit tests for LiteRouter gateway behavior.
 
 ## Setup
 

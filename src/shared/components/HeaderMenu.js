@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import { useTheme } from "@/shared/hooks/useTheme";
-import ChangelogModal from "./ChangelogModal";
-import { ConfirmModal } from "./Modal";
 
 function MenuItem({ icon, label, onClick, trailing, danger }) {
   return (
@@ -35,22 +33,8 @@ MenuItem.propTypes = {
 
 export default function HeaderMenu({ onLogout }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [changelogOpen, setChangelogOpen] = useState(false);
-  const [shutdownOpen, setShutdownOpen] = useState(false);
-  const [isShuttingDown, setIsShuttingDown] = useState(false);
   const { toggleTheme, isDark } = useTheme();
   const menuRef = useRef(null);
-
-  const handleShutdown = async () => {
-    setIsShuttingDown(true);
-    try {
-      await fetch("/api/version/shutdown", { method: "POST" });
-    } catch (e) {
-      // Expected to fail as server shuts down; ignore error
-    }
-    setIsShuttingDown(false);
-    setShutdownOpen(false);
-  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -80,20 +64,9 @@ export default function HeaderMenu({ onLogout }) {
         {isOpen && (
           <div className="absolute right-0 top-full mt-2 w-60 bg-surface border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 overflow-hidden py-1">
             <MenuItem
-              icon="history"
-              label="Change Log"
-              onClick={() => { close(); setChangelogOpen(true); }}
-            />
-            <MenuItem
               icon={isDark ? "light_mode" : "dark_mode"}
               label="Theme"
               onClick={() => { toggleTheme(); close(); }}
-            />
-            <MenuItem
-              icon="power_settings_new"
-              label="Shutdown"
-              danger
-              onClick={() => { close(); setShutdownOpen(true); }}
             />
             <MenuItem
               icon="logout"
@@ -105,18 +78,6 @@ export default function HeaderMenu({ onLogout }) {
         )}
       </div>
 
-      <ChangelogModal isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} />
-      <ConfirmModal
-        isOpen={shutdownOpen}
-        onClose={() => setShutdownOpen(false)}
-        onConfirm={handleShutdown}
-        title="Close Proxy"
-        message="Are you sure you want to close the proxy server?"
-        confirmText="Close"
-        cancelText="Cancel"
-        variant="danger"
-        loading={isShuttingDown}
-      />
     </>
   );
 }

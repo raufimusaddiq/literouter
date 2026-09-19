@@ -22,7 +22,7 @@ export async function POST(request, { params }) {
     const isCompatible = isOpenAICompatibleProvider(providerId) || isAnthropicCompatibleProvider(providerId);
     const alias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
 
-    let models = getProviderModels(alias);
+    let models = getProviderModels(alias).filter((model) => (model.kind || model.type || "llm") === "llm");
 
     const baseUrl = `http://127.0.0.1:${process.env.PORT || UPDATER_CONFIG.appPort}`;
 
@@ -32,7 +32,7 @@ export async function POST(request, { params }) {
         const modelsRes = await fetch(`${baseUrl}/api/providers/${id}/models`);
         if (modelsRes.ok) {
           const data = await modelsRes.json();
-          models = (data.models || []).map((m) => ({ id: m.id || m.name, name: m.name || m.id }));
+          models = (data.models || []).map((m) => ({ id: m.id || m.name, name: m.name || m.id, kind: "llm" }));
         }
       } catch { /* fallback to empty */ }
     }
