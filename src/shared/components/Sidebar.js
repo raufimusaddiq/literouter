@@ -30,7 +30,10 @@ const navItems = [
 ];
 
 const debugItems = [
-  { href: "/dashboard/console-log", label: "Console Log", icon: "terminal", nonMinimal: true },
+  // Retained: the only in-browser view of server-side console output. The PRD
+  // allowed removing it only if the retained Usage/details views covered the
+  // same diagnostics, and they do not (those show request records, not logs).
+  { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
   { href: "/dashboard/translator", label: "Translator", icon: "translate", nonMinimal: true },
 ];
 
