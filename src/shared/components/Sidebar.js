@@ -26,7 +26,6 @@ const debugItems = [
   // allowed removing it only if the retained Usage/details views covered the
   // same diagnostics, and they do not (those show request records, not logs).
   { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
-  { href: "/dashboard/translator", label: "Translator", icon: "translate", nonMinimal: true },
 ];
 
 const systemItems = [
@@ -42,7 +41,6 @@ export default function Sidebar({ onClose }) {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [shutdownCountdown, setShutdownCountdown] = useState(0);
-  const [enableTranslator, setEnableTranslator] = useState(false);
   const [minimalProfile, setMinimalProfile] = useState(false);
   const { copied, copy } = useCopyToClipboard(2000);
 
@@ -52,7 +50,6 @@ export default function Sidebar({ onClose }) {
     fetch("/api/settings")
       .then(res => res.json())
       .then(data => {
-        if (data.enableTranslator) setEnableTranslator(true);
         if (data.minimalProfile) setMinimalProfile(true);
       })
       .catch(() => {});
@@ -213,9 +210,7 @@ export default function Sidebar({ onClose }) {
             {/* Debug items (inside System section, before Settings). Filtered per
                 item via `nonMinimal`, mirroring `navItems` above: blanking the
                 whole group would also drop retained entries such as Console Log. */}
-            {debugItems.filter((item) => !minimalProfile || !item.nonMinimal).map((item) => {
-              const show = item.href !== "/dashboard/translator" || enableTranslator;
-              return show ? (
+            {debugItems.filter((item) => !minimalProfile || !item.nonMinimal).map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
@@ -237,8 +232,7 @@ export default function Sidebar({ onClose }) {
                   </span>
                   <span className="text-[13px] font-medium">{item.label}</span>
                 </Link>
-              ) : null;
-            })}
+            ))}
 
             {/* Remote */}
             {!minimalProfile && (
