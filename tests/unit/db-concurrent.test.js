@@ -32,6 +32,11 @@ describe("DB Concurrency — atomic safety", () => {
         provider: "openai", model: "gpt-4", connectionId: "c1",
         tokens: { prompt_tokens: 10, completion_tokens: 5 },
         endpoint: "/v1/chat", status: "ok",
+        // saveRequestUsage intentionally collapses rows that share
+        // (timestamp, provider, model, connectionId, apiKey, tokens) so a
+        // retried/duplicated write does not double-count. Distinct ms are
+        // required for this test to exercise real concurrency.
+        timestamp: new Date(Date.now() + i).toISOString(),
       }));
     }
     await Promise.all(promises);
@@ -59,8 +64,8 @@ describe("DB Concurrency — atomic safety", () => {
     }
     await Promise.all(promises);
 
-    // Wait for any timer-based flush
-    await new Promise((r) => setTimeout(r, 6000));
+    // Deterministic drain instead of racing the interval flush timer.
+    await db.flushRequestDetails();
 
     const list = await db.getRequestDetails({ provider: "openai", pageSize: 500 });
     expect(list.pagination.totalItems).toBeGreaterThanOrEqual(N);
@@ -72,6 +77,7 @@ describe("DB Concurrency — atomic safety", () => {
       ops.push(db.saveRequestUsage({
         provider: "anthropic", model: `m-${i % 3}`, connectionId: "c2",
         tokens: { prompt_tokens: 20 }, status: "ok",
+        timestamp: new Date(Date.now() + i).toISOString(),
       }));
       ops.push(db.setModelAlias(`a-${i}`, `target-${i}`));
       ops.push(db.disableModels("openai", [`d-${i}`]));
@@ -157,6 +163,7 @@ describe("DB Concurrency — atomic safety", () => {
         provider: "google", model: "gemini-pro", connectionId: "cG",
         tokens: { prompt_tokens: 100, completion_tokens: 50 },
         status: "ok",
+        timestamp: new Date(Date.now() + i).toISOString(),
       }));
     }
     await Promise.all(promises);

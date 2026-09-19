@@ -54,9 +54,10 @@ describe("Claude Code CLI context → OpenAI", () => {
     expect(JSON.stringify(out)).toContain("ENCRYPTED_BLOB");
   });
 
-  // claude-to-openai.js:155-173 — tool_result image block stringified into raw JSON
-  // KNOWN BUG
-  it.fails("tool_result image block is preserved", () => {
+  // The OpenAI tool role is text-only, so the translator keeps the tool message
+  // empty and re-attaches a tool_result image as an image_url block on the
+  // following user turn, tagged with the originating tool_use_id.
+  it("tool_result image block is preserved", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       messages: [
         { role: "assistant", content: [{ type: "tool_use", id: "call_1", name: "screenshot", input: {} }] },
@@ -68,6 +69,11 @@ describe("Claude Code CLI context → OpenAI", () => {
       ],
     });
     const tool = out.messages.find((m) => m.role === "tool");
+    // The tool row itself is text-only, never a stringified block array.
     expect(tool?.content, "image turned into raw JSON").not.toMatch(/^\[/);
+    // The image survives on a user turn, tagged with the call it came from.
+    const json = JSON.stringify(out.messages);
+    expect(json, "tool_result image lost").toContain("data:image/png;base64,IMG");
+    expect(json).toContain("[Image from tool result call_1]");
   });
 });

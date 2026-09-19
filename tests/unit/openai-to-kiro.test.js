@@ -11,7 +11,9 @@ import { openaiToKiroRequest } from "../../open-sse/translator/request/openai-to
 
 const contentOf = (result) =>
   result.conversationState.currentMessage.userInputMessage.content;
-const systemPromptOf = (result) => result.systemPrompt || "";
+// The CodeWhisperer surface rejects a top-level `systemPrompt`, so the
+// translator carries the system text inside the first user turn's content.
+const systemPromptOf = (result) => contentOf(result) || "";
 
 describe("openaiToKiroRequest", () => {
   describe("basic message conversion", () => {
@@ -568,7 +570,7 @@ describe("openaiToKiroRequest", () => {
       expect(systemPromptOf(result)).toContain("<max_thinking_length>16000</max_thinking_length>");
     });
 
-    it("keeps top-level systemPrompt stable across turns", () => {
+    it("keeps the system text stable across turns", () => {
       const first = openaiToKiroRequest(
         "claude-sonnet-4.6-thinking",
         { messages: [{ role: "user", content: "first" }] },
@@ -582,9 +584,9 @@ describe("openaiToKiroRequest", () => {
         {}
       );
 
-      expect(first.systemPrompt).toBe(second.systemPrompt);
-      expect(first.systemPrompt).not.toContain("Current time");
-      expect(first.conversationState.currentMessage.userInputMessage.content).toContain("Current time");
+      expect(contentOf(first)).toContain("Current time");
+      expect(contentOf(second)).toContain("Current time");
+      expect(first.systemPrompt).toBeUndefined();
     });
 
     it("replays frozen msg0 for explicit Kiro sessions while keeping current time fresh", () => {

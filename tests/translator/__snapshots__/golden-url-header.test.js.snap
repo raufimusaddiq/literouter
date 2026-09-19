@@ -126,25 +126,6 @@ exports[`GOLDEN buildHeaders (default executor providers) > api-airforce → hea
 }
 `;
 
-exports[`GOLDEN buildHeaders (default executor providers) > assemblyai → headers (apiKey / oauth) 1`] = `
-{
-  "apiKey": {
-    "Accept": "text/event-stream",
-    "Authorization": "Bearer <TOK>",
-    "Content-Type": "application/json",
-  },
-  "nonStream": {
-    "Authorization": "Bearer <TOK>",
-    "Content-Type": "application/json",
-  },
-  "oauth": {
-    "Accept": "text/event-stream",
-    "Authorization": "Bearer <TOK>",
-    "Content-Type": "application/json",
-  },
-}
-`;
-
 exports[`GOLDEN buildHeaders (default executor providers) > baidu → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
@@ -352,7 +333,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > cline → headers (a
     "X-CORE-VERSION": "0.5.81",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "linux",
-    "X-PLATFORM-VERSION": "v22.14.0",
+    "X-PLATFORM-VERSION": "<ENV>",
     "X-Title": "Cline",
   },
   "nonStream": {
@@ -365,7 +346,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > cline → headers (a
     "X-CORE-VERSION": "0.5.81",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "linux",
-    "X-PLATFORM-VERSION": "v22.14.0",
+    "X-PLATFORM-VERSION": "<ENV>",
     "X-Title": "Cline",
   },
   "oauth": {
@@ -379,7 +360,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > cline → headers (a
     "X-CORE-VERSION": "0.5.81",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "linux",
-    "X-PLATFORM-VERSION": "v22.14.0",
+    "X-PLATFORM-VERSION": "<ENV>",
     "X-Title": "Cline",
   },
 }
@@ -398,7 +379,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > clinepass → header
     "X-CORE-VERSION": "0.5.81",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "linux",
-    "X-PLATFORM-VERSION": "v22.14.0",
+    "X-PLATFORM-VERSION": "<ENV>",
     "X-Title": "Cline",
   },
   "nonStream": {
@@ -411,7 +392,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > clinepass → header
     "X-CORE-VERSION": "0.5.81",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "linux",
-    "X-PLATFORM-VERSION": "v22.14.0",
+    "X-PLATFORM-VERSION": "<ENV>",
     "X-Title": "Cline",
   },
   "oauth": {
@@ -425,7 +406,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > clinepass → header
     "X-CORE-VERSION": "0.5.81",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "linux",
-    "X-PLATFORM-VERSION": "v22.14.0",
+    "X-PLATFORM-VERSION": "<ENV>",
     "X-Title": "Cline",
   },
 }
@@ -525,25 +506,6 @@ exports[`GOLDEN buildHeaders (default executor providers) > codebuddy-intl → h
 `;
 
 exports[`GOLDEN buildHeaders (default executor providers) > cohere → headers (apiKey / oauth) 1`] = `
-{
-  "apiKey": {
-    "Accept": "text/event-stream",
-    "Authorization": "Bearer <TOK>",
-    "Content-Type": "application/json",
-  },
-  "nonStream": {
-    "Authorization": "Bearer <TOK>",
-    "Content-Type": "application/json",
-  },
-  "oauth": {
-    "Accept": "text/event-stream",
-    "Authorization": "Bearer <TOK>",
-    "Content-Type": "application/json",
-  },
-}
-`;
-
-exports[`GOLDEN buildHeaders (default executor providers) > deepgram → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
     "Accept": "text/event-stream",
@@ -854,10 +816,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > kimi → headers (ap
     "Anthropic-Version": "2023-06-01",
     "Content-Type": "application/json",
     "X-Msh-Device-Id": "kimi-<TS>",
-    "X-Msh-Device-Model": "Linux x64",
-    "X-Msh-Device-Name": "VM-8-96-ubuntu",
+    "X-Msh-Device-Model": "<ENV>",
+    "X-Msh-Device-Name": "<ENV>",
     "X-Msh-Platform": "9router",
-    "X-Msh-Version": "0.5.81",
+    "X-Msh-Version": "<ENV>",
     "x-api-key": "<CRED>",
   },
   "nonStream": {
@@ -865,10 +827,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > kimi → headers (ap
     "Anthropic-Version": "2023-06-01",
     "Content-Type": "application/json",
     "X-Msh-Device-Id": "kimi-<TS>",
-    "X-Msh-Device-Model": "Linux x64",
-    "X-Msh-Device-Name": "VM-8-96-ubuntu",
+    "X-Msh-Device-Model": "<ENV>",
+    "X-Msh-Device-Name": "<ENV>",
     "X-Msh-Platform": "9router",
-    "X-Msh-Version": "0.5.81",
+    "X-Msh-Version": "<ENV>",
     "x-api-key": "<CRED>",
   },
   "oauth": {
@@ -877,10 +839,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > kimi → headers (ap
     "Anthropic-Version": "2023-06-01",
     "Content-Type": "application/json",
     "X-Msh-Device-Id": "kimi-<TS>",
-    "X-Msh-Device-Model": "Linux x64",
-    "X-Msh-Device-Name": "VM-8-96-ubuntu",
+    "X-Msh-Device-Model": "<ENV>",
+    "X-Msh-Device-Name": "<ENV>",
     "X-Msh-Platform": "9router",
-    "X-Msh-Version": "0.5.81",
+    "X-Msh-Version": "<ENV>",
     "x-api-key": "<CRED>",
   },
 }
@@ -994,25 +956,6 @@ exports[`GOLDEN buildHeaders (default executor providers) > mmf → headers (api
 `;
 
 exports[`GOLDEN buildHeaders (default executor providers) > morph → headers (apiKey / oauth) 1`] = `
-{
-  "apiKey": {
-    "Accept": "text/event-stream",
-    "Authorization": "Bearer <TOK>",
-    "Content-Type": "application/json",
-  },
-  "nonStream": {
-    "Authorization": "Bearer <TOK>",
-    "Content-Type": "application/json",
-  },
-  "oauth": {
-    "Accept": "text/event-stream",
-    "Authorization": "Bearer <TOK>",
-    "Content-Type": "application/json",
-  },
-}
-`;
-
-exports[`GOLDEN buildHeaders (default executor providers) > nanobanana → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
     "Accept": "text/event-stream",
@@ -1443,13 +1386,6 @@ exports[`GOLDEN buildUrl (default executor providers) > api-airforce → url (st
 }
 `;
 
-exports[`GOLDEN buildUrl (default executor providers) > assemblyai → url (stream + non-stream) 1`] = `
-{
-  "nonStream": "https://api.assemblyai.com/v1/audio/transcriptions",
-  "stream": "https://api.assemblyai.com/v1/audio/transcriptions",
-}
-`;
-
 exports[`GOLDEN buildUrl (default executor providers) > baidu → url (stream + non-stream) 1`] = `
 {
   "nonStream": "https://qianfan.baidubce.com/v2/chat/completions",
@@ -1545,13 +1481,6 @@ exports[`GOLDEN buildUrl (default executor providers) > cohere → url (stream +
 {
   "nonStream": "https://api.cohere.ai/v1/chat/completions",
   "stream": "https://api.cohere.ai/v1/chat/completions",
-}
-`;
-
-exports[`GOLDEN buildUrl (default executor providers) > deepgram → url (stream + non-stream) 1`] = `
-{
-  "nonStream": "https://api.deepgram.com/v1/listen",
-  "stream": "https://api.deepgram.com/v1/listen",
 }
 `;
 
@@ -1699,13 +1628,6 @@ exports[`GOLDEN buildUrl (default executor providers) > morph → url (stream + 
 {
   "nonStream": "https://api.morphllm.com/v1/chat/completions",
   "stream": "https://api.morphllm.com/v1/chat/completions",
-}
-`;
-
-exports[`GOLDEN buildUrl (default executor providers) > nanobanana → url (stream + non-stream) 1`] = `
-{
-  "nonStream": "https://api.nanobananaapi.ai/v1/chat/completions",
-  "stream": "https://api.nanobananaapi.ai/v1/chat/completions",
 }
 `;
 

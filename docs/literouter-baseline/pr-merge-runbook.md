@@ -12,6 +12,19 @@ raises no blocker.** A 🟡 outcome with suggestions is a merge, not a hold.
    has never reported — see below.
 4. Disk has room: `df -h /` (keep ≥ 5 GB free). Builds, not the app, consume it.
 
+## Unit tests in CI
+
+`.github/workflows/test.yml` runs the vitest suite on every PR and on pushes to
+`staging`/`main`. It installs root deps (`next`, `undici`, `uuid`, …) plus the
+runner's own lockfile, then `npx vitest run` from `tests/`.
+
+Files named `*.live.test.js` hit real upstreams and are excluded via
+`tests/vitest.config.js` — they must never gate a merge. Run one by hand with:
+
+```bash
+cd tests && npx vitest run --exclude '' unit/<name>.live.test.js
+```
+
 ## Merge
 
 ```bash
@@ -22,23 +35,23 @@ gh pr merge <n> --repo raufimusaddiq/literouter --merge --delete-branch=false
 
 ## `BLOCKED` with no failing check
 
-`Hermes Review` is a required status check on `staging` (classic protection,
-`strict: true`). Hermes authenticates as the `personal-code-reviewer[bot]` GitHub
-App, which **can** create check runs — but the run occasionally fails to POST
-(`GITHUB_POST_FAILED`, HTTP 403) and then nothing ever satisfies the gate.
+`Hermes Review` is required on `staging` and processes PRs FIFO. Never push an
+empty “re-trigger” commit while review is queued or in progress: it moves the
+PR to the back of the queue and invalidates the current review. Wait for Hermes
+to post its verdict. If its check fails or the feedback is stale, push only the
+real fix, then wait again; do not trigger it manually.
 
-Recovery: push an empty commit to the PR branch and let Hermes re-run.
+Hermes is slow (minutes). Wait with polling so the user never has to ask for
+status. Poll the verdict on the PR's current head, not the check row alone:
 
 ```bash
-git fetch origin-literouter <branch>:pr-tmp
-git checkout pr-tmp
-git commit --allow-empty -m 'chore: re-trigger review'
-git push origin-literouter pr-tmp:<branch>
-git checkout staging && git branch -D pr-tmp
+gh pr view <n> --repo raufimusaddiq/literouter \
+  --json reviews --jq '.reviews[-1] | {state, submitted: .submittedAt}'
 ```
 
-This has worked both times it was needed (PR #4, 2026-09-19). Drop the dummy
-commit before merging if the history matters; it is harmless otherwise.
+`APPROVED` on the current head clears the gate. `CHANGES_REQUESTED` on an older
+head is stale — re-check the findings against the code before acting. Keep
+polling until a verdict lands on the current head.
 
 ## After merge
 

@@ -13,7 +13,9 @@ let adapter;
 
 async function saveDetail(detail) {
   await db.saveRequestDetail(detail);
-  await new Promise((r) => setTimeout(r, 120));
+  // Deterministic drain. The repo buffers writes and flushes on an interval
+  // (default 5s), so a fixed sleep races the timer and reads back null.
+  await db.flushRequestDetails();
 }
 
 beforeAll(async () => {
@@ -22,7 +24,7 @@ beforeAll(async () => {
   vi.resetModules();
   db = await import("@/lib/db/index.js");
   await db.initDb();
-  await db.updateSettings({ enableObservability2: true, observabilityBatchSize: 1 });
+  await db.updateSettings({ enableObservability: true, observabilityBatchSize: 1 });
 
   const { getAdapter } = await import("@/lib/db/driver.js");
   adapter = await getAdapter();
