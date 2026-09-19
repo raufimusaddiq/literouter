@@ -24,7 +24,7 @@ Các vấn đề và giải pháp phổ biến khi dùng LiteRouter.
 2. **Dùng fallback combo:**
    ```
    Dashboard → Combos → Create fallback chain
-   Example: cc/claude-opus → glm/glm-4.7 → if/kimi-k2
+   Example: cc/claude-opus-5 → glm/glm-5.1 → kr/deepseek-3.2
    ```
 
 3. **Xác minh kết nối provider:**
@@ -52,16 +52,16 @@ Các vấn đề và giải pháp phổ biến khi dùng LiteRouter.
 
 2. **Chuyển sang tier rẻ:**
    ```
-   Use: glm/glm-4.7 ($0.6/1M tokens)
-        minimax/MiniMax-M2.1 ($0.20/1M tokens)
+   Use: glm/glm-5.1 ($0.6/1M tokens)
+        minimax/MiniMax-M2.7 ($0.20/1M tokens)
    ```
 
 3. **Thêm fallback combo:**
    ```
    Dashboard → Combos → Add backup models
-   Primary: cc/claude-opus (subscription)
-   Backup: glm/glm-4.7 (cheap)
-   Emergency: if/kimi-k2 (free)
+   Primary: cc/claude-opus-5 (subscription)
+   Backup: glm/glm-5.1 (cheap)
+   Emergency: kr/deepseek-3.2 (free)
    ```
 
 ---
@@ -110,17 +110,17 @@ Các vấn đề và giải pháp phổ biến khi dùng LiteRouter.
 
 2. **Chuyển sang model rẻ hơn:**
    ```
-   Replace: cc/claude-opus ($20-100/month subscription)
-   With: glm/glm-4.7 ($0.6/1M tokens)
-         minimax/MiniMax-M2.1 ($0.20/1M tokens)
+   Replace: cc/claude-opus-5 ($20-100/month subscription)
+   With: glm/glm-5.1 ($0.6/1M tokens)
+         minimax/MiniMax-M2.7 ($0.20/1M tokens)
    ```
 
 3. **Dùng free tier:**
    ```
-   if/kimi-k2-thinking (FREE)
-   qw/qwen3-coder-plus (FREE)
-   kr/claude-sonnet-4.5 (FREE)
-   gc/gemini-3-flash-preview (FREE 180K/month)
+   kr/glm-5 (FREE)
+   vertex/gemini-3.1-pro-preview (FREE)
+   kr/glm-5 (FREE)
+   vertex/gemini-3-flash-preview (free credit)
    ```
 
 4. **Tối ưu prompt:**
@@ -235,8 +235,8 @@ Các vấn đề và giải pháp phổ biến khi dùng LiteRouter.
 
 2. **Kiểm tra format model ID:**
    ```
-   Correct: cc/claude-opus-4-5-20251101
-   Wrong: claude-opus-4-5-20251101
+   Correct: cc/claude-opus-5
+   Wrong: claude-opus-5
 
    Format: [provider-prefix]/[model-name]
    ```
@@ -274,14 +274,14 @@ Các vấn đề và giải pháp phổ biến khi dùng LiteRouter.
 2. **Chuyển sang model nhanh hơn:**
    ```
    Fast: cc/claude-haiku-4-5 (Haiku is faster than Opus)
-         gc/gemini-3-flash-preview
-         qw/qwen3-coder-flash
+         vertex/gemini-3-flash-preview
+         vertex/gemini-3-flash-preview
    ```
 
 3. **Dùng streaming:**
    ```json
    {
-     "model": "cc/claude-opus-4-5",
+     "model": "cc/claude-opus-5",
      "messages": [...],
      "stream": true
    }

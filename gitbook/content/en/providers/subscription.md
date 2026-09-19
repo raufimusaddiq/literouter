@@ -8,10 +8,9 @@ Maximize your existing AI subscriptions with smart quota tracking and automatic 
 
 Subscription tier providers are your **primary** choice - you're already paying for them, so get full value:
 
-- ✅ **Claude Code** (Pro/Max) - Claude 4.5 Opus/Sonnet/Haiku
-- ✅ **OpenAI Codex** (Plus/Pro) - GPT 5.2 Codex, GPT 5.1 Codex Max
-- ✅ **Gemini CLI** (FREE tier!) - 180K completions/month
-- ✅ **GitHub Copilot** - GPT-5, Claude 4.5, Gemini 3
+- ✅ **Claude Code** (Pro/Max) - Claude Opus 5, Sonnet 5, Haiku 4.5
+- ✅ **OpenAI Codex** (Plus/Pro) - GPT-5.5, GPT-5.4, GPT-5.3 Codex
+- ✅ **GitHub Copilot** - GPT-5.4, Claude Sonnet 4.6, Gemini 3.1 Pro
 - ✅ **Antigravity** (Google) - Gemini 3 Pro, Claude Sonnet 4.5
 
 **Strategy:** Use these first, track quota in real-time, fallback to cheap/free when exhausted.
@@ -46,8 +45,8 @@ Subscription tier providers are your **primary** choice - you're already paying 
 **Step 3: Use in CLI**
 
 ```
-Model: cc/claude-opus-4-5-20251101
-       cc/claude-sonnet-4-5-20250929
+Model: cc/claude-opus-5
+       cc/claude-sonnet-5
        cc/claude-haiku-4-5-20251001
 ```
 
@@ -55,8 +54,8 @@ Model: cc/claude-opus-4-5-20251101
 
 | Model ID | Description | Best For |
 |----------|-------------|----------|
-| `cc/claude-opus-4-5-20251101` | Claude 4.5 Opus | Complex tasks, architecture |
-| `cc/claude-sonnet-4-5-20250929` | Claude 4.5 Sonnet | Balanced speed/quality |
+| `cc/claude-opus-5` | Claude Opus 5 | Complex tasks, architecture |
+| `cc/claude-sonnet-5` | Claude Sonnet 5 | Balanced speed/quality |
 | `cc/claude-haiku-4-5-20251001` | Claude 4.5 Haiku | Fast responses |
 
 ### Pro Tips
@@ -74,8 +73,8 @@ Model: cc/claude-opus-4-5-20251101
 
 | Plan | Monthly Cost | Quota Reset | Models |
 |------|--------------|-------------|--------|
-| Plus | $20 | 5-hour + Weekly | GPT 5.2, GPT 5.1 |
-| Pro | $200 | 5-hour + Weekly | GPT 5.2 Codex, GPT 5.1 Max |
+| Plus | $20 | 5-hour + Weekly | GPT-5.5, GPT-5.4 |
+| Pro | $200 | 5-hour + Weekly | GPT-5.5, GPT-5.3 Codex |
 
 ### Setup
 
@@ -96,20 +95,20 @@ Model: cc/claude-opus-4-5-20251101
 **Step 3: Use in CLI**
 
 ```
-Model: cx/gpt-5.2-codex
-       cx/gpt-5.1-codex-max
-       cx/gpt-5.2
-       cx/gpt-5.1-codex
+Model: cx/gpt-5.5
+       cx/gpt-5.4
+       cx/gpt-5.3-codex
+       cx/gpt-5.5
 ```
 
 ### Available Models
 
 | Model ID | Description | Best For |
 |----------|-------------|----------|
-| `cx/gpt-5.2-codex` | GPT 5.2 Codex | Latest coding model |
-| `cx/gpt-5.1-codex-max` | GPT 5.1 Codex Max | Maximum context |
-| `cx/gpt-5.2` | GPT 5.2 | General tasks |
-| `cx/gpt-5.1-codex` | GPT 5.1 Codex | Stable coding |
+| `cx/gpt-5.5` | GPT-5.5 | Latest general model |
+| `cx/gpt-5.4` | GPT-5.4 | General tasks |
+| `cx/gpt-5.3-codex` | GPT-5.3 Codex | Latest coding model |
+| `cx/gpt-5.5` | GPT-5.2 Codex | Stable coding |
 
 ### Image Generation
 
@@ -140,56 +139,11 @@ underlying model and its image tool depends on the connected account.
 
 ---
 
-## Gemini CLI (FREE 180K/month!)
+## Gemini CLI (discontinued)
 
-### Pricing
+**Gemini CLI's free tier shut down on 2026-06-18.** The provider entry is still in the catalog but flagged deprecated, and requests to it will fail. Do not build a combo around `gc/` models.
 
-| Plan | Monthly Cost | Quota | Reset |
-|------|--------------|-------|-------|
-| FREE | $0 | 180K completions/month + 1K/day | Daily + Monthly |
-
-**Best Value:** Huge free tier! Use this before paid tiers.
-
-### Setup
-
-**Step 1: Connect via Dashboard**
-
-```bash
-9router
-# Dashboard → Providers → Connect Gemini CLI
-```
-
-**Step 2: Google OAuth**
-
-- Click "Connect Gemini CLI"
-- Browser opens → Login to Google account
-- Grant permissions
-- Auto token refresh enabled
-
-**Step 3: Use in CLI**
-
-```
-Model: gc/gemini-3-flash-preview
-       gc/gemini-3-pro-preview
-       gc/gemini-2.5-pro
-       gc/gemini-2.5-flash
-```
-
-### Available Models
-
-| Model ID | Description | Best For |
-|----------|-------------|----------|
-| `gc/gemini-3-flash-preview` | Gemini 3 Flash Preview | Fast responses |
-| `gc/gemini-3-pro-preview` | Gemini 3 Pro Preview | Complex tasks |
-| `gc/gemini-2.5-pro` | Gemini 2.5 Pro | Stable production |
-| `gc/gemini-2.5-flash` | Gemini 2.5 Flash | Quick tasks |
-
-### Pro Tips
-
-- **180K completions/month** - Massive free tier
-- **1K/day limit** - Daily quota resets at midnight
-- **Use first** - Free tier, use before paid subscriptions
-- **No credit card** - Completely free with Google account
+Use **Vertex AI** instead if you want Gemini at zero cost on a new Google Cloud account. See [Free Providers](./free.md).
 
 ---
 
@@ -199,8 +153,8 @@ Model: gc/gemini-3-flash-preview
 
 | Plan | Monthly Cost | Quota Reset | Models |
 |------|--------------|-------------|--------|
-| Individual | $10 | Monthly (1st) | GPT-5, Claude 4.5, Gemini 3 |
-| Business | $19 | Monthly (1st) | GPT-5, Claude 4.5, Gemini 3 |
+| Individual | $10 | Monthly (1st) | GPT-5.4, Claude Sonnet 4.6, Gemini 3.1 Pro |
+| Business | $19 | Monthly (1st) | GPT-5.4, Claude Sonnet 4.6, Gemini 3.1 Pro |
 
 ### Setup
 
@@ -221,20 +175,20 @@ Model: gc/gemini-3-flash-preview
 **Step 3: Use in CLI**
 
 ```
-Model: gh/gpt-5
-       gh/gpt-5.1-codex-max
-       gh/claude-4.5-sonnet
-       gh/gemini-3-pro
+Model: gh/gpt-5.4
+       gh/claude-sonnet-4.6
+       gh/claude-opus-4.7
+       gh/gemini-3.1-pro-preview
 ```
 
 ### Available Models
 
 | Model ID | Description | Best For |
 |----------|-------------|----------|
-| `gh/gpt-5` | GPT-5 | Latest OpenAI model |
-| `gh/gpt-5.1-codex-max` | GPT-5.1 Codex Max | Maximum context |
-| `gh/claude-4.5-sonnet` | Claude 4.5 Sonnet | Anthropic quality |
-| `gh/gemini-3-pro` | Gemini 3 Pro | Google quality |
+| `gh/gpt-5.4` | GPT-5.4 | Latest OpenAI model |
+| `gh/claude-sonnet-4.6` | Claude Sonnet 4.6 | Anthropic quality |
+| `gh/claude-opus-4.7` | Claude Opus 4.7 | Highest Anthropic quality |
+| `gh/gemini-3.1-pro-preview` | Gemini 3.1 Pro | Google quality |
 
 ### Pro Tips
 
@@ -300,7 +254,6 @@ Model: ag/gemini-3-pro-high
 | **Claude Code Max** | $100 | 5-hour + Weekly | ⭐⭐⭐⭐⭐ Highest quota |
 | **Codex Plus** | $20 | 5-hour + Weekly | ⭐⭐⭐⭐ Good value |
 | **Codex Pro** | $200 | 5-hour + Weekly | ⭐⭐⭐⭐⭐ 10× quota |
-| **Gemini CLI** | **$0** | Daily + Monthly | ⭐⭐⭐⭐⭐ FREE 180K/month! |
 | **GitHub Copilot** | $10-19 | Monthly (1st) | ⭐⭐⭐⭐ Multi-model |
 | **Antigravity** | **$0** | Daily + Monthly | ⭐⭐⭐⭐ FREE Claude! |
 
@@ -313,8 +266,8 @@ Model: ag/gemini-3-pro-high
 ```
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
-  OpenAI API Key: [from 9router dashboard]
-  Model: cc/claude-opus-4-5-20251101
+  OpenAI API Key: [from LiteRouter dashboard]
+  Model: cc/claude-opus-5
 ```
 
 ### Create Combo (Recommended)
@@ -324,14 +277,14 @@ Dashboard → Combos → Create New
 
 Name: premium-coding
 Models:
-  1. gc/gemini-3-flash-preview (FREE, use first)
-  2. cc/claude-opus-4-5-20251101 (Subscription)
-  3. cx/gpt-5.2-codex (Subscription backup)
+  1. cc/claude-opus-5 (Subscription)
+  2. cx/gpt-5.5 (Subscription backup)
+  3. glm/glm-5.1 (Cheap backup)
 
 Use in CLI: premium-coding
 ```
 
-**Result:** Maximize free tier → Use subscription → Auto fallback
+**Result:** Use subscription → Auto fallback → Stay cheap
 
 ---
 
@@ -351,7 +304,7 @@ Claude Code Pro
 ├─ Quota: 75% used
 ├─ Reset: 2h 15m (5-hour)
 ├─ Weekly reset: 3 days
-└─ Fallback: glm/glm-4.7 (cheap tier)
+└─ Fallback: glm/glm-5.1 (cheap tier)
 ```
 
 ---
@@ -362,9 +315,9 @@ Claude Code Pro
 
 ```
 Priority:
-1. Gemini CLI (180K/month FREE)
-2. Antigravity (FREE Claude)
-3. Claude Code/Codex (paid subscriptions)
+1. Claude Code/Codex (paid subscriptions)
+2. GLM / MiniMax (cheap)
+3. Kiro / Vertex AI (free credits)
 ```
 
 ### 2. Track Quota Daily
@@ -377,19 +330,19 @@ Priority:
 
 ```
 Example combo:
-1. gc/gemini-3-flash-preview (FREE primary)
-2. cc/claude-opus-4-5 (Complex tasks)
-3. glm/glm-4.7 (Cheap backup)
-4. if/kimi-k2-thinking (FREE fallback)
+1. cc/claude-opus-5 (Complex tasks)
+2. cx/gpt-5.5 (Subscription backup)
+3. glm/glm-5.1 (Cheap backup)
+4. kr/glm-5 (FREE credit fallback)
 ```
 
 ### 4. Optimize by Time
 
 ```
 Morning: Fresh 5-hour quota (Claude/Codex)
-Afternoon: Gemini CLI (1K/day)
+Afternoon: Kiro free credits
 Evening: Subscription quota
-Night: Cheap/free tier
+Night: Cheap tier
 ```
 
 ---
@@ -413,8 +366,8 @@ Night: Cheap/free tier
 
 **Solution:**
 - Subscription quota out
-- Add fallback: `cc/claude-opus → glm/glm-4.7`
-- Use free tier: `if/kimi-k2-thinking`
+- Add fallback: `cc/claude-opus-5 → glm/glm-5.1`
+- Use free credits: `kr/glm-5`
 
 ---
 

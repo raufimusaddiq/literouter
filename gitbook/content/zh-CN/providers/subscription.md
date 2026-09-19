@@ -10,7 +10,6 @@
 
 - ✅ **Claude Code**(Pro/Max)- Claude 4.5 Opus/Sonnet/Haiku
 - ✅ **OpenAI Codex**(Plus/Pro)- GPT 5.2 Codex、GPT 5.1 Codex Max
-- ✅ **Gemini CLI**(免费层!)- 每月 180K 次补全
 - ✅ **GitHub Copilot** - GPT-5、Claude 4.5、Gemini 3
 - ✅ **Antigravity**(Google)- Gemini 3 Pro、Claude Sonnet 4.5
 
@@ -46,8 +45,8 @@
 **步骤 3:在 CLI 中使用**
 
 ```
-Model: cc/claude-opus-4-5-20251101
-       cc/claude-sonnet-4-5-20250929
+Model: cc/claude-opus-5
+       cc/claude-sonnet-5
        cc/claude-haiku-4-5-20251001
 ```
 
@@ -55,8 +54,8 @@ Model: cc/claude-opus-4-5-20251101
 
 | 模型 ID | 描述 | 最佳场景 |
 |----------|-------------|----------|
-| `cc/claude-opus-4-5-20251101` | Claude 4.5 Opus | 复杂任务、架构 |
-| `cc/claude-sonnet-4-5-20250929` | Claude 4.5 Sonnet | 平衡速度/质量 |
+| `cc/claude-opus-5` | Claude 4.5 Opus | 复杂任务、架构 |
+| `cc/claude-sonnet-5` | Claude 4.5 Sonnet | 平衡速度/质量 |
 | `cc/claude-haiku-4-5-20251001` | Claude 4.5 Haiku | 快速响应 |
 
 ### 专业建议
@@ -96,9 +95,9 @@ Model: cc/claude-opus-4-5-20251101
 **步骤 3:在 CLI 中使用**
 
 ```
-Model: cx/gpt-5.2-codex
-       cx/gpt-5.1-codex-max
-       cx/gpt-5.2
+Model: cx/gpt-5.5
+       cx/gpt-5.4
+       cx/gpt-5.5
        cx/gpt-5.1-codex
 ```
 
@@ -106,9 +105,9 @@ Model: cx/gpt-5.2-codex
 
 | 模型 ID | 描述 | 最佳场景 |
 |----------|-------------|----------|
-| `cx/gpt-5.2-codex` | GPT 5.2 Codex | 最新编码模型 |
-| `cx/gpt-5.1-codex-max` | GPT 5.1 Codex Max | 最大上下文 |
-| `cx/gpt-5.2` | GPT 5.2 | 通用任务 |
+| `cx/gpt-5.5` | GPT 5.2 Codex | 最新编码模型 |
+| `cx/gpt-5.4` | GPT 5.1 Codex Max | 最大上下文 |
+| `cx/gpt-5.5` | GPT 5.2 | 通用任务 |
 | `cx/gpt-5.1-codex` | GPT 5.1 Codex | 稳定编码 |
 
 ### 专业建议
@@ -119,56 +118,11 @@ Model: cx/gpt-5.2-codex
 
 ---
 
-## Gemini CLI(每月免费 180K!)
+## Gemini CLI(已停用)
 
-### 价格
+**Gemini CLI 的免费层已于 2026-06-18 关闭。** 该 provider 仍在目录中但标记为已弃用, 对 `gc/` 模型的请求会失败。不要围绕它构建组合。
 
-| 套餐 | 月费 | 配额 | 重置 |
-|------|--------------|-------|-------|
-| 免费 | $0 | 180K 次补全/月 + 每日 1K | 每日 + 每月 |
-
-**最佳性价比:** 巨大的免费层!请在付费层之前使用。
-
-### 设置
-
-**步骤 1:通过仪表盘连接**
-
-```bash
-9router
-# 仪表盘 → 提供商 → 连接 Gemini CLI
-```
-
-**步骤 2:Google OAuth**
-
-- 点击 "Connect Gemini CLI"
-- 浏览器打开 → 登录 Google 账户
-- 授予权限
-- 启用自动 token 刷新
-
-**步骤 3:在 CLI 中使用**
-
-```
-Model: gc/gemini-3-flash-preview
-       gc/gemini-3-pro-preview
-       gc/gemini-2.5-pro
-       gc/gemini-2.5-flash
-```
-
-### 可用模型
-
-| 模型 ID | 描述 | 最佳场景 |
-|----------|-------------|----------|
-| `gc/gemini-3-flash-preview` | Gemini 3 Flash Preview | 快速响应 |
-| `gc/gemini-3-pro-preview` | Gemini 3 Pro Preview | 复杂任务 |
-| `gc/gemini-2.5-pro` | Gemini 2.5 Pro | 稳定生产 |
-| `gc/gemini-2.5-flash` | Gemini 2.5 Flash | 快速任务 |
-
-### 专业建议
-
-- **每月 180K 次补全** - 大量免费层
-- **每日 1K 限制** - 每天午夜重置
-- **优先使用** - 免费层,先于付费订阅
-- **无需信用卡** - Google 账户完全免费
+如果你想在新建 Google Cloud 账号上以零成本使用 Gemini, 请改用 **Vertex AI**。见 [免费 Provider](./free.md)。
 
 ---
 
@@ -200,20 +154,20 @@ Model: gc/gemini-3-flash-preview
 **步骤 3:在 CLI 中使用**
 
 ```
-Model: gh/gpt-5
-       gh/gpt-5.1-codex-max
-       gh/claude-4.5-sonnet
-       gh/gemini-3-pro
+Model: gh/gpt-5.4
+       gh/gpt-5.4.4
+       gh/claude-sonnet-4.6
+       gh/gemini-3.1-pro-preview
 ```
 
 ### 可用模型
 
 | 模型 ID | 描述 | 最佳场景 |
 |----------|-------------|----------|
-| `gh/gpt-5` | GPT-5 | 最新 OpenAI 模型 |
-| `gh/gpt-5.1-codex-max` | GPT-5.1 Codex Max | 最大上下文 |
-| `gh/claude-4.5-sonnet` | Claude 4.5 Sonnet | Anthropic 质量 |
-| `gh/gemini-3-pro` | Gemini 3 Pro | Google 质量 |
+| `gh/gpt-5.4` | GPT-5 | 最新 OpenAI 模型 |
+| `gh/gpt-5.4.4` | GPT-5.1 Codex Max | 最大上下文 |
+| `gh/claude-sonnet-4.6` | Claude 4.5 Sonnet | Anthropic 质量 |
+| `gh/gemini-3.1-pro-preview` | Gemini 3 Pro | Google 质量 |
 
 ### 专业建议
 
@@ -229,7 +183,7 @@ Model: gh/gpt-5
 
 | 套餐 | 月费 | 配额 | 模型 |
 |------|--------------|-------|--------|
-| 免费 | $0 | 类似 Gemini CLI | Gemini 3 Pro、Claude Sonnet 4.5 |
+| 免费 | $0 | 类似 Kiro 免费层 | Gemini 3 Pro、Claude Sonnet 4.5 |
 
 ### 设置
 
@@ -252,7 +206,7 @@ Model: gh/gpt-5
 ```
 Model: ag/gemini-3-pro-high
        ag/claude-sonnet-4-5
-       ag/claude-opus-4-5-thinking
+       ag/claude-sonnet-4-5
 ```
 
 ### 可用模型
@@ -261,13 +215,13 @@ Model: ag/gemini-3-pro-high
 |----------|-------------|----------|
 | `ag/gemini-3-pro-high` | Gemini 3 Pro High | 高质量响应 |
 | `ag/claude-sonnet-4-5` | Claude Sonnet 4.5 | Anthropic 质量 |
-| `ag/claude-opus-4-5-thinking` | Claude Opus 4.5 Thinking | 复杂推理 |
+| `ag/claude-sonnet-4-5` | Claude Opus 4.5 Thinking | 复杂推理 |
 
 ### 专业建议
 
 - **免费层** - Google 账户零成本
 - **可访问 Claude** - 免费的 Claude Sonnet/Opus
-- **配额类似 Gemini CLI** - 每日/每月上限
+- **配额类似 Kiro 免费层** - 每日/每月上限
 
 ---
 
@@ -279,7 +233,6 @@ Model: ag/gemini-3-pro-high
 | **Claude Code Max** | $100 | 5 小时 + 每周 | ⭐⭐⭐⭐⭐ 最高配额 |
 | **Codex Plus** | $20 | 5 小时 + 每周 | ⭐⭐⭐⭐ 良好性价比 |
 | **Codex Pro** | $200 | 5 小时 + 每周 | ⭐⭐⭐⭐⭐ 10× 配额 |
-| **Gemini CLI** | **$0** | 每日 + 每月 | ⭐⭐⭐⭐⭐ 免费 180K/月! |
 | **GitHub Copilot** | $10-19 | 每月(1 日) | ⭐⭐⭐⭐ 多模型 |
 | **Antigravity** | **$0** | 每日 + 每月 | ⭐⭐⭐⭐ 免费 Claude! |
 
@@ -293,7 +246,7 @@ Model: ag/gemini-3-pro-high
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
   OpenAI API Key: [从 9router 仪表盘获取]
-  Model: cc/claude-opus-4-5-20251101
+  Model: cc/claude-opus-5
 ```
 
 ### 创建组合(推荐)
@@ -303,9 +256,9 @@ Settings → Models → Advanced:
 
 名称: premium-coding
 模型:
-  1. gc/gemini-3-flash-preview (免费, 优先使用)
-  2. cc/claude-opus-4-5-20251101 (订阅)
-  3. cx/gpt-5.2-codex (订阅备用)
+  1. vertex/gemini-3-flash-preview (免费, 优先使用)
+  2. cc/claude-opus-5 (订阅)
+  3. cx/gpt-5.5 (订阅备用)
 
 CLI 中使用: premium-coding
 ```
@@ -330,7 +283,7 @@ Claude Code Pro
 ├─ 配额: 已用 75%
 ├─ 重置: 2h 15m(5 小时)
 ├─ 每周重置: 3 天
-└─ 回退: glm/glm-4.7(低价层)
+└─ 回退: glm/glm-5.1(低价层)
 ```
 
 ---
@@ -341,7 +294,6 @@ Claude Code Pro
 
 ```
 优先级:
-1. Gemini CLI(每月免费 180K)
 2. Antigravity(免费 Claude)
 3. Claude Code/Codex(付费订阅)
 ```
@@ -356,17 +308,17 @@ Claude Code Pro
 
 ```
 示例组合:
-1. gc/gemini-3-flash-preview(免费主力)
-2. cc/claude-opus-4-5(复杂任务)
-3. glm/glm-4.7(低价备用)
-4. if/kimi-k2-thinking(免费回退)
+1. vertex/gemini-3-flash-preview(免费主力)
+2. cc/claude-opus-5(复杂任务)
+3. glm/glm-5.1(低价备用)
+4. kr/glm-5(免费回退)
 ```
 
 ### 4. 按时间优化
 
 ```
 早上: 全新 5 小时配额(Claude/Codex)
-下午: Gemini CLI(每日 1K)
+下午: Kiro 免费额度
 晚上: 订阅配额
 深夜: 低价/免费层
 ```
@@ -392,8 +344,8 @@ Claude Code Pro
 
 **方案:**
 - 订阅配额已用尽
-- 添加回退:`cc/claude-opus → glm/glm-4.7`
-- 使用免费层:`if/kimi-k2-thinking`
+- 添加回退:`cc/claude-opus-5 → glm/glm-5.1`
+- 使用免费层:`kr/glm-5`
 
 ---
 

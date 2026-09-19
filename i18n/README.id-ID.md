@@ -56,14 +56,62 @@
        │   ↓ kuota habis
        ├─→ [Tier 2: Murah] GLM ($0.6/1M), MiniMax ($0.2/1M)
        │   ↓ batas budget tercapai
-       └─→ [Tier 3: Gratis] iFlow, Qwen, Kiro (unlimited)
+       └─→ [Tier 3: Gratis] Kiro, OpenCode Free, Vertex
 
 Hasil: ngoding tanpa berhenti, biaya minimum
 ```
 
 ---
 
-## ⚡ Mulai Cepat
+---
+
+## ⚖️ LiteRouter vs 9Router
+
+LiteRouter bukan penulisan ulang. Ini 9Router upstream plus flag runtime
+`MINIMAL_PROFILE`, cache hot-path kecil, dan subsistem tambahan yang dimatikan.
+Mesin routing, provider registry, transport matrix, dashboard dan schema SQLite
+tidak berubah — karena itu perbaikan dari upstream tetap bisa di-cherry-pick.
+
+### Yang sebenarnya berbeda
+
+| Area | 9Router / LiteRouter |
+| --- | --- |
+| Profil runtime | penuh | `MINIMAL_PROFILE=true` |
+| Sync katalog model | latar belakang | `MODEL_CATALOG_SYNC=off` |
+| Refresh token | job latar belakang | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
+| Cache hot-read | tidak ada | in-process (connections, combos, settings) |
+| Cache antar-instance | — | Redis, **cache saja** (tanpa persistensi) |
+| Tunnel / MITM | ada | dihapus |
+| Cloud sync | ada | dihapus |
+| Sumber kebenaran | SQLite | SQLite (tidak berubah) |
+
+### Performa vs 9Router terpaket
+
+```text
+n=30, non-streaming, mock upstream:
+  median   16.53 ms -> 13.64 ms   (-17.5%)
+  p95      25.36 ms -> 19.40 ms   (-23.5%)
+
+Upstream nyata, burst (kn/deepseek-v4-1-flash, n=24, 8 concurrent):
+  median   1715 ms  -> 1580 ms    (-7.9%)
+  p95      2053 ms  -> 2062 ms    noise
+```
+
+### Pemakaian RAM
+
+| Container | RSS idle | RSS pasca-burst | Limit |
+| --- | --- | --- | --- |
+| 9Router (prod) | 192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+
+```text
+image size: ~1.03 GB both
+```
+
+---
+
+
 
 **1. Install secara global:**
 
@@ -84,7 +132,7 @@ Dashboard → Providers → hubungkan **Claude Code** atau **Antigravity** → l
 Konfigurasi Claude Code/Codex/Gemini CLI/OpenClaw/Cursor/Cline:
   Endpoint: http://localhost:20128/v1
   API Key: [salin dari dashboard]
-  Model: if/kimi-k2-thinking
+  Model: kr/glm-5
 ```
 
 **Cuma itu!** Mulai ngoding dengan model AI gratis.
@@ -234,8 +282,8 @@ LiteRouter bekerja mulus dengan semua tool AI coding utama:
   <table>
     <tr>
       <td align="center" width="150">
-        <img src="../public/providers/iflow.png" width="70" alt="iFlow"/><br/>
-        <b>iFlow AI</b><br/>
+        <img src="../public/providers/kiro.png" width="70" alt="Kiro"/><br/>
+        <b>Kiro AI</b><br/>
         <sub>8+ model • unlimited</sub>
       </td>
       <td align="center" width="150">
@@ -244,9 +292,9 @@ LiteRouter bekerja mulus dengan semua tool AI coding utama:
         <sub>3+ model • unlimited</sub>
       </td>
       <td align="center" width="150">
-        <img src="../public/providers/gemini-cli.png" width="70" alt="Gemini CLI"/><br/>
-        <b>Gemini CLI</b><br/>
-        <sub>180 ribu request/bulan gratis</sub>
+        <img src="../public/providers/gemini.png" width="70" alt="Vertex AI"/><br/>
+        <b>Vertex AI</b><br/>
+        <sub>$300 credits</sub>
       </td>
       <td align="center" width="150">
         <img src="../public/providers/kiro.png" width="70" alt="Kiro"/><br/>
@@ -369,9 +417,9 @@ Buat combo dengan fallback otomatis:
 
 ```
 Combo: "my-coding-stack"
-  1. cc/claude-opus-4-6        (langganan)
-  2. glm/glm-4.7               (backup murah, $0.6/1M)
-  3. if/kimi-k2-thinking       (fallback gratis)
+  1. cc/claude-opus-5        (langganan)
+  2. glm/glm-5.1               (backup murah, $0.6/1M)
+  3. kr/glm-5       (fallback gratis)
 
 → Otomatis beralih saat kuota habis atau terjadi error
 ```
@@ -443,8 +491,8 @@ Konversi mulus antar format:
 > "Biaya" yang ditampilkan pada analitik penggunaan **hanya untuk pelacakan dan perbandingan**.
 > LiteRouter sendiri **tidak menagih apa pun**. Kamu hanya membayar langsung ke provider jika memakai layanan berbayar.
 >
-> **Contoh:** jika dashboard menampilkan "Total biaya $290" untuk pemakaian model iFlow,
-> itu adalah jumlah yang seharusnya kamu bayar bila memakai API berbayar secara langsung. Biaya sebenarnya = **$0** (iFlow gratis tanpa batas).
+> **Contoh:** jika dashboard menampilkan "Total biaya $290" untuk pemakaian model gratis,
+> itu adalah jumlah yang seharusnya kamu bayar bila memakai API berbayar secara langsung. Biaya sebenarnya = **$0** (Kiro gratis dalam batas tier).
 >
 > Anggap saja ini "pelacak penghematan" yang menunjukkan berapa banyak yang kamu hemat lewat model gratis dan routing LiteRouter!
 
@@ -465,16 +513,15 @@ Konversi mulus antar format:
 |------|----------|-------|-------------|-------------|
 | **💳 Langganan** | Claude Code (Pro) | $20/bulan | 5 jam + mingguan | Yang sudah punya langganan |
 | | Codex (Plus/Pro) | $20-200/bulan | 5 jam + mingguan | Pengguna OpenAI |
-| | Gemini CLI | **Gratis** | 180rb/bulan + 1rb/hari | Semua orang! |
 | | GitHub Copilot | $10-19/bulan | Bulanan | Pengguna GitHub |
-| **💰 Murah** | GLM-4.7 | $0.6/1M | Setiap hari jam 10.00 | Backup hemat |
-| | MiniMax M2.1 | $0.2/1M | Rolling 5 jam | Opsi paling murah |
+| **💰 Murah** | GLM-5.1 | $0.6/1M | Setiap hari jam 10.00 | Backup hemat |
+| | MiniMax M2.7 | $0.2/1M | Rolling 5 jam | Opsi paling murah |
 | | Kimi K2 | $9/bulan flat | 10 juta token/bulan | Biaya yang bisa diprediksi |
-| **🆓 Gratis** | iFlow | $0 | Unlimited | 8 model gratis |
+| **🆓 Gratis** | Kiro | $0 | ~50 credits/bulan | GLM 5 + DeepSeek 3.2 gratis |
 | | Qwen | $0 | Unlimited | 3 model gratis |
 | | Kiro | $0 | Unlimited | Claude gratis |
 
-**💡 Tips pro:** combo Gemini CLI (180rb request/bulan gratis) + iFlow (gratis unlimited) = biaya $0!
+**💡 Tips pro:** combo Kiro + OpenCode Free + Vertex AI = $0 dalam batas tier gratis!
 
 ---
 
@@ -485,7 +532,7 @@ Konversi mulus antar format:
 ✅ **Software LiteRouter = gratis selamanya** (open source, tanpa tagihan)
 ✅ **"Biaya" di dashboard = tampilan/pelacakan saja** (bukan tagihan sungguhan)
 ✅ **Pembayaran langsung ke provider** (langganan atau biaya API)
-✅ **Provider gratis tetap gratis** (iFlow, Kiro, Qwen = $0 unlimited)
+✅ **Provider gratis tetap gratis** (Kiro, OpenCode Free, Vertex = $0 unlimited)
 ❌ **LiteRouter tidak mengirim invoice** atau menagih kartumu
 
 **Cara kerja tampilan biaya:**
@@ -500,7 +547,7 @@ Tampilan dashboard:
 • Biaya tertampil: $290
 
 Kenyataannya:
-• Provider: iFlow (gratis unlimited)
+• Provider: Kiro (gratis)
 • Yang benar-benar dibayar: $0.00
 • Arti $290: jumlah yang kamu hemat dengan memakai model gratis!
 ```
@@ -508,7 +555,7 @@ Kenyataannya:
 **Aturan pembayaran:**
 - **Provider langganan** (Claude Code, Codex): bayar langsung di website masing-masing
 - **Provider murah** (GLM, MiniMax): bayar langsung, LiteRouter hanya melakukan routing
-- **Provider gratis** (iFlow, Kiro, Qwen): benar-benar gratis selamanya, tanpa biaya tersembunyi
+- **Provider gratis** (Kiro, OpenCode Free, Vertex): benar-benar gratis selamanya, tanpa biaya tersembunyi
 - **LiteRouter**: tidak menagih apa pun
 
 ---
@@ -522,9 +569,9 @@ Kenyataannya:
 **Solusi:**
 ```
 Combo: "maximize-claude"
-  1. cc/claude-opus-4-6        (manfaatkan langganan semaksimal mungkin)
-  2. glm/glm-4.7               (backup murah saat kuota habis)
-  3. if/kimi-k2-thinking       (fallback darurat gratis)
+  1. cc/claude-opus-5        (manfaatkan langganan semaksimal mungkin)
+  2. glm/glm-5.1               (backup murah saat kuota habis)
+  3. kr/glm-5       (fallback darurat gratis)
 
 Biaya bulanan: $20 (langganan) + ~$5 (backup) = total $25
 vs. $20 + kena limit = frustrasi
@@ -537,9 +584,9 @@ vs. $20 + kena limit = frustrasi
 **Solusi:**
 ```
 Combo: "free-forever"
-  1. gc/gemini-3-flash         (180rb request/bulan gratis)
-  2. if/kimi-k2-thinking       (gratis unlimited)
-  3. qw/qwen3-coder-plus       (gratis unlimited)
+  1. vertex/gemini-3-flash-preview (kredit $300 GCP)
+  2. kr/glm-5       (gratis unlimited)
+  3. vertex/gemini-2.5-flash    (kredit $300 GCP)
 
 Biaya bulanan: $0
 Kualitas: model siap produksi
@@ -552,11 +599,11 @@ Kualitas: model siap produksi
 **Solusi:**
 ```
 Combo: "always-on"
-  1. cc/claude-opus-4-6        (kualitas terbaik)
-  2. cx/gpt-5.2-codex          (langganan kedua)
-  3. glm/glm-4.7               (murah, reset harian)
-  4. minimax/MiniMax-M2.1      (paling murah, reset 5 jam)
-  5. if/kimi-k2-thinking       (gratis unlimited)
+  1. cc/claude-opus-5        (kualitas terbaik)
+  2. cx/gpt-5.4               (langganan kedua)
+  3. glm/glm-5.1               (murah, reset harian)
+  4. minimax/MiniMax-M2.7      (paling murah, reset 5 jam)
+  5. kr/glm-5       (gratis unlimited)
 
 Hasil: 5 lapis fallback = zero downtime
 Biaya bulanan: $20-200 (langganan) + $10-20 (backup)
@@ -569,9 +616,9 @@ Biaya bulanan: $20-200 (langganan) + $10-20 (backup)
 **Solusi:**
 ```
 Combo: "openclaw-free"
-  1. if/glm-4.7                (gratis unlimited)
-  2. if/minimax-m2.1           (gratis unlimited)
-  3. if/kimi-k2-thinking       (gratis unlimited)
+  1. kr/glm-5                (gratis unlimited)
+  2. kr/deepseek-3.2           (gratis unlimited)
+  3. kr/glm-5       (gratis unlimited)
 
 Biaya bulanan: $0
 Cara akses: WhatsApp, Telegram, Slack, Discord, iMessage, Signal...
@@ -588,7 +635,7 @@ Dashboard melacak pemakaian token dan menampilkan **estimasi biaya** seandainya 
 
 **Contoh:**
 - **Tampilan dashboard:** "Total biaya $290"
-- **Kenyataan:** sedang memakai iFlow (gratis unlimited)
+- **Kenyataan:** sedang memakai Kiro (gratis)
 - **Biaya sebenarnya:** **$0.00**
 - **Arti $290:** jumlah yang **dihemat** karena memakai model gratis alih-alih API berbayar!
 
@@ -613,10 +660,10 @@ LiteRouter adalah proxy/router lokal. Ia tidak menyimpan informasi kartu kredit,
 <details>
 <summary><b>🆓 Apakah provider gratis benar-benar unlimited?</b></summary>
 
-**Ya!** Provider yang ditandai gratis (iFlow, Kiro, Qwen) benar-benar unlimited dan **tanpa biaya tersembunyi**.
+**Ya!** Provider yang ditandai gratis (Kiro, OpenCode Free, Vertex) benar-benar unlimited dan **tanpa biaya tersembunyi**.
 
 Ini adalah layanan gratis yang disediakan masing-masing perusahaan:
-- **iFlow**: akses gratis unlimited ke 8+ model via OAuth
+- **Kiro**: ~50 credits/bulan gratis, GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next
 - **Kiro**: model Claude gratis unlimited via AWS Builder ID
 - **Qwen**: akses gratis unlimited ke model Qwen via device authentication
 
@@ -633,15 +680,15 @@ LiteRouter hanya me-routing request — tidak ada "jebakan" atau tagihan di kemu
 
 1. **Mulai dari combo 100% gratis:**
    ```
-   1. gc/gemini-3-flash (180rb/bulan gratis dari Google)
-   2. if/kimi-k2-thinking (gratis unlimited dari iFlow)
-   3. qw/qwen3-coder-plus (gratis unlimited dari Qwen)
+   1. vertex/gemini-3-flash-preview (kredit $300 GCP)
+   2. kr/deepseek-3.2 (gratis dari Kiro)
+   3. vertex/gemini-2.5-flash (kredit $300 GCP)
    ```
    **Biaya: $0/bulan**
 
 2. **Tambahkan backup murah hanya bila perlu:**
    ```
-   4. glm/glm-4.7 ($0.6 per 1 juta token)
+   4. glm/glm-5.1 ($0.6 per 1 juta token)
    ```
    **Tambahan biaya: bayar sesuai pemakaian saja**
 
@@ -688,7 +735,7 @@ Dashboard → Providers → hubungkan Claude Code
 → pelacakan kuota 5 jam + mingguan
 
 Model:
-  cc/claude-opus-4-6
+  cc/claude-opus-5
   cc/claude-sonnet-4-5-20250929
   cc/claude-haiku-4-5-20251001
 ```
@@ -703,11 +750,10 @@ Dashboard → Providers → hubungkan Codex
 → reset 5 jam + mingguan
 
 Model:
-  cx/gpt-5.2-codex
-  cx/gpt-5.1-codex-max
+    cx/gpt-5.1-codex-max
 ```
 
-### Gemini CLI (180rb request/bulan gratis!)
+### Gemini CLI (DIPENSIUNKAN)
 
 ```bash
 Dashboard → Providers → hubungkan Gemini CLI
@@ -715,8 +761,8 @@ Dashboard → Providers → hubungkan Gemini CLI
 → 180rb/bulan + 1rb/hari
 
 Model:
-  gc/gemini-3-flash-preview
-  gc/gemini-2.5-pro
+  vertex/gemini-3-flash-preview-preview
+  vertex/gemini-3.1-pro-preview
 ```
 
 **Value terbaik:** free tier-nya besar sekali! Pakai ini sebelum tier berbayar.
@@ -730,7 +776,7 @@ Dashboard → Providers → hubungkan GitHub
 
 Model:
   gh/gpt-5
-  gh/claude-4.5-sonnet
+  gh/claude-sonnet-4.6
   gh/gemini-3-pro
 ```
 
@@ -739,7 +785,7 @@ Model:
 <details>
 <summary><b>💰 Provider Murah (backup)</b></summary>
 
-### GLM-4.7 (reset harian, $0.6/1M)
+### GLM-5.1 (reset harian, $0.6/1M)
 
 1. Daftar: [Zhipu AI](https://open.bigmodel.cn/)
 2. Ambil API key dari Coding Plan
@@ -747,17 +793,17 @@ Model:
    - Provider: `glm`
    - API Key: `your-key`
 
-**Pemakaian:** `glm/glm-4.7`
+**Pemakaian:** `glm/glm-5.1`
 
 **Tips pro:** Coding Plan memberi kuota 3x lipat dengan biaya 1/7! Reset setiap hari jam 10.00.
 
-### MiniMax M2.1 (reset 5 jam, $0.20/1M)
+### MiniMax M2.7 (reset 5 jam, $0.20/1M)
 
 1. Daftar: [MiniMax](https://www.minimax.io/)
 2. Ambil API key
 3. Dashboard → tambahkan API key
 
-**Pemakaian:** `minimax/MiniMax-M2.1`
+**Pemakaian:** `minimax/MiniMax-M2.7`
 
 **Tips pro:** opsi termurah dengan konteks panjang (1 juta token)!
 
@@ -776,19 +822,17 @@ Model:
 <details>
 <summary><b>🆓 Provider Gratis (backup darurat)</b></summary>
 
-### iFlow (8 model gratis)
+### Kiro (~50 credit/bulan gratis)
 
 ```bash
-Dashboard → hubungkan iFlow
-→ login OAuth iFlow
-→ pemakaian unlimited
+Dashboard → Connect Kiro
+→ AWS Builder ID / Google / GitHub
+→ ~50 credit/bulan + 500 trial credit 30 hari pertama
 
 Model:
-  if/kimi-k2-thinking
-  if/qwen3-coder-plus
-  if/glm-4.7
-  if/minimax-m2
-  if/deepseek-r1
+  kr/glm-5
+  kr/deepseek-3.2
+  kr/qwen3-coder-next
 ```
 
 ### Qwen (3 model gratis)
@@ -799,8 +843,8 @@ Dashboard → hubungkan Qwen
 → pemakaian unlimited
 
 Model:
-  qw/qwen3-coder-plus
-  qw/qwen3-coder-flash
+  vertex/gemini-2.5-flash
+  vertex/gemini-2.5-flash
 ```
 
 ### Kiro (Claude gratis)
@@ -811,8 +855,8 @@ Dashboard → hubungkan Kiro
 → pemakaian unlimited
 
 Model:
-  kr/claude-sonnet-4.5
-  kr/claude-haiku-4.5
+  kr/glm-5
+  kr/qwen3-coder-next
 ```
 
 </details>
@@ -827,9 +871,9 @@ Dashboard → Combos → buat baru
 
 Nama: premium-coding
 Model:
-  1. cc/claude-opus-4-6 (langganan, utama)
-  2. glm/glm-4.7 (backup murah, $0.6/1M)
-  3. minimax/MiniMax-M2.1 (fallback termurah, $0.20/1M)
+  1. cc/claude-opus-5 (langganan, utama)
+  2. glm/glm-5.1 (backup murah, $0.6/1M)
+  3. minimax/MiniMax-M2.7 (fallback termurah, $0.20/1M)
 
 Pemakaian di CLI: premium-coding
 
@@ -845,10 +889,10 @@ Contoh biaya bulanan (100 juta token):
 ```
 Nama: free-forever
 Model:
-  1. gc/gemini-3-flash (180rb request/bulan gratis)
-  2. if/kimi-k2-thinking (gratis unlimited)
-  3. qw/qwen3-coder-plus (gratis unlimited)
-  4. kr/claude-sonnet-4.5 (gratis unlimited)
+  1. vertex/gemini-3-flash-preview (kredit $300 GCP)
+  2. kr/glm-5 (gratis unlimited)
+  3. vertex/gemini-2.5-flash (kredit $300 GCP)
+  4. kr/glm-5 (gratis unlimited)
 
 Biaya bulanan: $0
 ```
@@ -915,7 +959,7 @@ Atur `BASE_URL` dan `CLOUD_URL` sebagai environment variable di dashboard Cloudf
 |---------|----------------------|--------|
 | Tool CLI tidak bisa konek | Endpoint salah | Pastikan `http://localhost:20128/v1` |
 | 401 / Unauthorized | API key salah | Salin ulang key dari dashboard |
-| Model tidak ditemukan | Prefix provider salah | Pakai format `provider/model`, mis. `if/kimi-k2-thinking` |
+| Model tidak ditemukan | Prefix provider salah | Pakai format `provider/model`, mis. `kr/glm-5` |
 | Selalu fallback ke gratis | Kuota langganan habis | Cek hitung mundur reset di dashboard |
 | OAuth gagal | Port callback terpakai | Tutup proses lain (mis. port 1455 untuk Codex) |
 | UI menggantung saat sync | DNS/jaringan cloud bermasalah | Cek `CLOUD_URL`; sync memakai timeout fail-fast |

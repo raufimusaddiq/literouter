@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./images/9router.png?1" alt="LiteRouter Dashboard" width="800"/>
+  <img src="./images/literouter.png?1" alt="LiteRouter Dashboard" width="800"/>
 
   # LiteRouter - FREE AI Router & Token Saver
 
@@ -7,15 +7,12 @@
 
   **Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to 40+ AI Providers & 100+ Models.**
 
-  [![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router)
-  [![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router)
-  [![Docker Pulls](https://img.shields.io/docker/pulls/decolua/9router.svg?logo=docker&label=Docker%20pulls)](https://hub.docker.com/r/decolua/9router)
-  [![GHCR](https://img.shields.io/badge/GHCR-decolua%2F9router-blue?logo=github)](https://github.com/decolua/9router/pkgs/container/9router)
-  [![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
+  [![License](https://img.shields.io/github/license/raufimusaddiq/literouter.svg)](https://github.com/raufimusaddiq/literouter/blob/staging/LICENSE)
+  [![CI](https://github.com/raufimusaddiq/literouter/actions/workflows/ci.yml/badge.svg?branch=staging)](https://github.com/raufimusaddiq/literouter/actions/workflows/ci.yml)
 
-<a href="https://trendshift.io/repositories/22628" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22628" alt="decolua%2F9router | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+> **LiteRouter** is a fork of [9Router](https://github.com/decolua/9router) (MIT), trimmed to a minimal-profile router.
 
-[🚀 Quick Start](#-quick-start) • [💡 Features](#-key-features) • [📖 Setup](#-setup-guide) • [🌐 Website](https://9router.com)
+[🚀 Quick Start](#-quick-start) • [💡 Features](#-key-features) • [⚖️ LiteRouter vs 9Router](#-literouter-vs-9router) • [📖 Setup](#-setup-guide)
 
 [🇧🇷 Português (Brasil)](./i18n/README.pt-BR.md) • [🇻🇳 Tiếng Việt](./i18n/README.vi.md) • [🇨🇳 中文](./i18n/README.zh-CN.md) • [🇯🇵 日本語](./i18n/README.ja-JP.md) • [🇷🇺 Русский](./i18n/README.ru.md) • [🇹🇭 ไทย](./i18n/README.th.md) • [🇮🇷 فارسی](./i18n/README.fa_IR.md) • [🇮🇩 Indonesia](./i18n/README.id-ID.md) • [🇪🇸 Español](./i18n/README.es.md) • [🇫🇷 Français](./i18n/README.fr.md)
 
@@ -71,6 +68,69 @@ Result: Never stop coding, minimal cost + 20-40% token savings via RTK
 
 ---
 
+## ⚖️ LiteRouter vs 9Router
+
+LiteRouter is not a rewrite. It is upstream 9Router with a `MINIMAL_PROFILE`
+runtime flag, a small hot-path cache, and the ancillary subsystems turned off.
+The routing engine, provider registry, transport matrix, dashboard and SQLite
+schema are unchanged — which is why upstream fixes stay cherry-pickable.
+
+### What is actually different
+
+| Area | 9Router | LiteRouter |
+| --- | --- | --- |
+| Runtime profile | full | `MINIMAL_PROFILE=true` |
+| Model catalog sync | background refresh on | `MODEL_CATALOG_SYNC=off` |
+| Token refresh | background job on | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
+| Hot-read cache | none | in-process (connections, combos, settings) |
+| Cross-instance cache | — | Redis, **cache-only** (no persistence) |
+| Tunnel / MITM | shipped | removed |
+| Cloud sync | shipped | removed |
+| Source of truth | SQLite | SQLite (unchanged) |
+
+Redis here is not a datastore. It holds one connection-cache version key used to
+invalidate the in-process cache across instances; SQLite remains authoritative.
+A chat burst adds no Redis keys, by design.
+
+### Performance vs packaged 9Router
+
+Measured on the same host against the identical mock upstream, so the delta is
+router overhead rather than upstream variance. Full method in
+[`docs/literouter-baseline/phase-latency-resource.md`](./docs/literouter-baseline/phase-latency-resource.md).
+
+Hot path, n=30, non-streaming:
+
+| Metric | 9Router (prod) | LiteRouter | Change |
+| --- | --- | --- | --- |
+| Median | 16.53 ms | 13.64 ms | −17.5% |
+| p95 | 25.36 ms | 19.40 ms | −23.5% |
+
+Real upstream burst, `kn/deepseek-v4-1-flash`, n=24, 8 concurrent:
+
+| Metric | 9Router (prod) | LiteRouter | Change |
+| --- | --- | --- | --- |
+| Median | 1715 ms | 1580 ms | −7.9% |
+| p95 | 2053 ms | 2062 ms | noise |
+
+### RAM usage
+
+| Container | Idle RSS | Post-burst RSS | Limit |
+| --- | --- | --- | --- |
+| 9Router (prod) | 192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 34–89 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+
+RSS drops roughly **3–4×**. Part of that is the minimal profile (no provider
+connections, no catalog sync, no background refresh), so read it as the cost of
+the trimmed feature set, not as a pure code-efficiency claim.
+
+**Image size is a wash** — ~1.03 GB for both. `.next/standalone` (81 MB),
+`next` (201.7 MB) and `sql.js` (23 MB, last-resort SQLite driver) dominate, and
+none of them are removed by the minimal profile. See
+[`docs/literouter-baseline/phase-bundle-analysis.md`](./docs/literouter-baseline/phase-bundle-analysis.md).
+
+---
+
 ## ⚡ Quick Start
 
 **1. Install globally:**
@@ -79,6 +139,9 @@ Result: Never stop coding, minimal cost + 20-40% token savings via RTK
 npm install -g 9router
 9router
 ```
+
+> The published npm package is upstream 9Router. LiteRouter is built from this
+> repository (see *Run from source* below) or pulled from the staging image.
 
 🎉 Dashboard opens at `http://localhost:20128`
 
@@ -92,7 +155,7 @@ Dashboard → Providers → Connect **Kiro AI** (~50 credits/month free: Claude 
 Claude Code/Codex/OpenClaw/Cursor/Cline Settings:
   Endpoint: http://localhost:20128/v1
   API Key: [copy from dashboard]
-  Model: kr/claude-sonnet-4.5
+  Model: kr/glm-5
 ```
 
 **That's it!** Start coding with FREE AI models.
@@ -359,7 +422,7 @@ LiteRouter works seamlessly with all major AI coding tools:
       <td align="center" width="150">
         <img src="./public/providers/kiro.png" width="70" alt="Kiro"/><br/>
         <b>Kiro AI</b><br/>
-        <sub>Claude 4.5 + GLM-5 + MiniMax<br/>50 credits/month free</sub>
+        <sub>GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next<br/>~50 credits/month free</sub>
       </td>
       <td align="center" width="150">
         <img src="./public/providers/opencode.png" width="70" alt="OpenCode Free"/><br/>
@@ -369,7 +432,7 @@ LiteRouter works seamlessly with all major AI coding tools:
       <td align="center" width="150">
         <img src="./public/providers/gemini.png" width="70" alt="Vertex AI"/><br/>
         <b>Vertex AI</b><br/>
-        <sub>Gemini 3 Pro + GLM-5 + DeepSeek<br/>$300 credits free</sub>
+        <sub>Gemini 3.1 Pro/Flash + 2.5 Flash<br/>$300 credits free</sub>
       </td>
     </tr>
   </table>
@@ -557,9 +620,9 @@ Create combos with automatic fallback:
 
 ```
 Combo: "my-coding-stack"
-  1. cc/claude-opus-4-6        (your subscription)
-  2. glm/glm-4.7               (cheap backup, $0.6/1M)
-  3. if/kimi-k2-thinking       (free fallback)
+  1. cc/claude-opus-5        (your subscription)
+  2. glm/glm-5.1               (cheap backup, $0.6/1M)
+  3. kr/glm-5                   (free fallback)
 
 → Auto switches when quota runs out or errors occur
 ```
@@ -658,7 +721,7 @@ Seamless translation between formats:
 |                     | Codex (Plus/Pro)      | $20-200/mo   | 5h + weekly      | OpenAI users                            |
 |                     | GitHub Copilot        | $10-19/mo    | Monthly          | GitHub users                            |
 |                     | Cursor IDE            | $20/mo       | Monthly          | Cursor users                            |
-| **💰 CHEAP**        | GLM-5.1 / GLM-4.7     | $0.6/1M      | Daily 10AM       | Budget backup                           |
+| **💰 CHEAP**        | GLM-5.1 / GLM-5       | $0.6/1M      | Daily 10AM       | Budget backup                           |
 |                     | MiniMax M2.7          | $0.2/1M      | 5-hour rolling   | Cheapest option                         |
 |                     | Kimi K2.5             | $9/mo flat   | 10M tokens/mo    | Predictable cost                        |
  | **🆓 FREE**         | Kiro AI               | $0           | 50 credits/mo    | Claude 4.5 + GLM-5 + MiniMax free (paid tiers above) |
@@ -701,7 +764,7 @@ Reality Check:
 
 - **Subscription providers** (Claude Code, Codex): Pay them directly via their websites
 - **Cheap providers** (GLM, MiniMax): Pay them directly, LiteRouter just routes
-- **FREE providers** (iFlow, Kiro, Qwen): Genuinely free forever, no hidden charges
+- **FREE providers** (Kiro, OpenCode Free, Vertex AI): Genuinely free within their tier limits, no hidden charges
 - **LiteRouter**: Never charges anything, ever
 
 ---
@@ -716,9 +779,9 @@ Reality Check:
 
 ```
 Combo: "maximize-claude"
-  1. cc/claude-opus-4-7        (use subscription fully)
+  1. cc/claude-opus-5        (use subscription fully)
   2. glm/glm-5.1               (cheap backup when quota out)
-  3. kr/claude-sonnet-4.5      (free emergency fallback)
+  3. kr/glm-5                  (free emergency fallback)
 
 Monthly cost: $20 (subscription) + ~$5 (backup) = $25 total
 vs. $20 + hitting limits = frustration
@@ -732,7 +795,7 @@ vs. $20 + hitting limits = frustration
 
 ```
 Combo: "free-forever"
-  1. kr/claude-sonnet-4.5      (Claude 4.5 free via Kiro, ~50 credits/mo)
+  1. kr/glm-5                  (GLM 5 free via Kiro, ~50 credits/mo)
   2. kr/glm-5                  (GLM-5 free via Kiro)
   3. oc/<auto>                 (OpenCode Free, no auth)
 
@@ -748,11 +811,11 @@ Quality: Production-ready models + RTK saves 20-40% tokens
 
 ```
 Combo: "always-on"
-  1. cc/claude-opus-4-7        (best quality)
+  1. cc/claude-opus-5        (best quality)
   2. cx/gpt-5.5                (second subscription)
   3. glm/glm-5.1               (cheap, resets daily)
   4. minimax/MiniMax-M2.7      (cheapest, 5h reset)
-  5. kr/claude-sonnet-4.5      (free via Kiro, ~50 credits/mo)
+  5. kr/glm-5                  (free via Kiro, ~50 credits/mo)
 
 Result: 5 layers of fallback = zero downtime
 Monthly cost: $20-200 (subscriptions) + $10-20 (backup)
@@ -766,9 +829,9 @@ Monthly cost: $20-200 (subscriptions) + $10-20 (backup)
 
 ```
 Combo: "openclaw-free"
-  1. kr/claude-sonnet-4.5      (Claude 4.5 free)
+  1. kr/glm-5                  (GLM 5 free)
   2. kr/glm-5                  (GLM-5 free)
-  3. kr/MiniMax-M2.5           (MiniMax free)
+  3. kr/deepseek-3.2           (DeepSeek free)
 
 Monthly cost: $0
 Access via: WhatsApp, Telegram, Slack, Discord, iMessage, Signal...
@@ -826,6 +889,7 @@ LiteRouter just routes your requests to them - there's no "catch" or future bill
 
 - ❌ **iFlow**: Was free unlimited, now changed to paid (2026)
 - ❌ **Qwen Code**: Free OAuth tier fully discontinued by Alibaba on 2026-04-15
+- ❌ **Gemini CLI**: Service shut down on 2026-06-18; provider entry is marked `deprecated` and `gc/` models fail
 - ❌ **Gemini CLI**: Service fully shut down by Google on 2026-06-18 (replaced by the closed-source Antigravity CLI). Discontinued — do not use.
 
 </details>
@@ -848,7 +912,7 @@ LiteRouter just routes your requests to them - there's no "catch" or future bill
 2. **Add cheap backup** only if you need it:
 
    ```
-   4. glm/glm-4.7 ($0.6/1M tokens)
+   4. glm/glm-5.1 ($0.6/1M tokens)
    ```
 
    **Additional cost: Only pay for what you actually use**
@@ -898,8 +962,8 @@ Dashboard → Providers → Connect Claude Code
 → 5-hour + weekly quota tracking
 
 Models:
-  cc/claude-opus-4-7
-  cc/claude-opus-4-6
+  cc/claude-opus-5
+  cc/claude-sonnet-5
   cc/claude-sonnet-4-6
   cc/claude-haiku-4-5-20251001
 ```
@@ -917,7 +981,6 @@ Models:
   cx/gpt-5.5
   cx/gpt-5.4
   cx/gpt-5.3-codex
-  cx/gpt-5.2-codex
 ```
 
 ### GitHub Copilot
@@ -932,7 +995,6 @@ Models:
   gh/claude-opus-4.7
   gh/claude-sonnet-4.6
   gh/gemini-3.1-pro-preview
-  gh/grok-code-fast-1
 ```
 
 ### Cursor IDE
@@ -944,7 +1006,7 @@ Dashboard → Providers → Connect Cursor
 
 Models:
   cu/claude-4.6-opus-max
-  cu/claude-4.5-sonnet-thinking
+  cu/claude-4.6-opus-max
   cu/gpt-5.3-codex
 ```
 
@@ -953,7 +1015,7 @@ Models:
 <details>
 <summary><b>💰 Cheap Providers (Backup)</b></summary>
 
-### GLM-5.1 / GLM-4.7 (Daily reset, $0.6/1M)
+### GLM-5.1 / GLM-5 (Daily reset, $0.6/1M)
 
 1. Sign up: [Zhipu AI](https://open.bigmodel.cn/)
 2. Get API key from Coding Plan
@@ -961,7 +1023,7 @@ Models:
    - Provider: `glm`
    - API Key: `your-key`
 
-**Use:** `glm/glm-5.1`, `glm/glm-5`, `glm/glm-4.7`
+**Use:** `glm/glm-5.1`, `glm/glm-5`
 
 **Pro Tip:** Coding Plan offers 3× quota at 1/7 cost! Reset daily 10:00 AM.
 
@@ -971,7 +1033,7 @@ Models:
 2. Get API key
 3. Dashboard → Add API Key
 
-**Use:** `minimax/MiniMax-M2.7`, `minimax/MiniMax-M2.5`
+**Use:** `minimax/MiniMax-M2.7`
 
 **Pro Tip:** Cheapest option for long context (1M tokens)!
 
@@ -981,7 +1043,7 @@ Models:
 2. Get API key
 3. Dashboard → Add API Key
 
-**Use:** `kimi/kimi-k2.5`, `kimi/kimi-k2.5-thinking`
+**Use:** `kimi/kimi-k2.5`, `kimi/kimi-k2.5`
 
 **Pro Tip:** Fixed $9/month for 10M tokens = $0.90/1M effective cost!
 
@@ -990,20 +1052,17 @@ Models:
 <details>
 <summary><b>🆓 FREE Providers (Recommended)</b></summary>
 
-### Kiro AI (Claude 4.5 + GLM-5 + MiniMax FREE)
+### Kiro AI (GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next FREE)
 
 ```bash
 Dashboard → Connect Kiro
 → AWS Builder ID, AWS IAM Identity Center, Google, or GitHub
-→ Unlimited usage
+→ ~50 credits/month free (500 trial credits first 30 days)
 
 Models:
-  kr/claude-sonnet-4.5
-  kr/claude-haiku-4.5
   kr/glm-5
-  kr/MiniMax-M2.5
-  kr/qwen3-coder-next
   kr/deepseek-3.2
+  kr/qwen3-coder-next
 ```
 
 **Pro Tip:** Best free option for Claude. No API key, no payment, fully unlimited.
@@ -1050,7 +1109,7 @@ Dashboard → Combos → Create New
 
 Name: premium-coding
 Models:
-  1. cc/claude-opus-4-7 (Subscription primary)
+  1. cc/claude-opus-5 (Subscription primary)
   2. glm/glm-5.1 (Cheap backup, $0.6/1M)
   3. minimax/MiniMax-M2.7 (Cheapest fallback, $0.20/1M)
 
@@ -1068,7 +1127,7 @@ Monthly cost example (100M tokens):
 ```
 Name: free-combo
 Models:
-  1. kr/claude-sonnet-4.5 (Claude 4.5 free via Kiro, ~50 credits/mo)
+  1. kr/glm-5 (GLM 5 free via Kiro, ~50 credits/mo)
   2. kr/glm-5 (GLM-5 free via Kiro)
   3. vertex/gemini-3.1-pro-preview ($300 free credits)
 
@@ -1086,7 +1145,7 @@ Cost: $0 forever (+ 20-40% token savings via RTK)!
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
   OpenAI API Key: [from 9router dashboard]
-  Model: cc/claude-opus-4-7
+  Model: cc/claude-opus-5
 ```
 
 Or use combo: `premium-coding`
@@ -1120,7 +1179,7 @@ codex "your prompt"
   "agents": {
     "defaults": {
       "model": {
-        "primary": "9router/kr/claude-sonnet-4.5"
+        "primary": "literouter/kr/glm-5"
       }
     }
   },
@@ -1132,7 +1191,7 @@ codex "your prompt"
         "api": "openai-completions",
         "models": [
           {
-            "id": "kr/claude-sonnet-4.5",
+            "id": "kr/glm-5",
             "name": "Claude Sonnet 4.5 (Kiro Free)"
           }
         ]
@@ -1150,7 +1209,7 @@ codex "your prompt"
 Provider: OpenAI Compatible
 Base URL: http://localhost:20128/v1
 API Key: [from dashboard]
-Model: cc/claude-opus-4-7
+Model: cc/claude-opus-5
 ```
 
 </details>
@@ -1281,10 +1340,9 @@ Notes:
 
 **Claude Code (`cc/`)** - Pro/Max:
 
-- `cc/claude-opus-4-7`
-- `cc/claude-opus-4-6`
+- `cc/claude-opus-5`
+- `cc/claude-sonnet-5`
 - `cc/claude-sonnet-4-6`
-- `cc/claude-sonnet-4-5-20250929`
 - `cc/claude-haiku-4-5-20251001`
 
 **Codex (`cx/`)** - Plus/Pro:
@@ -1292,7 +1350,6 @@ Notes:
 - `cx/gpt-5.5`
 - `cx/gpt-5.4`
 - `cx/gpt-5.3-codex`
-- `cx/gpt-5.2-codex`
 - `cx/gpt-5.1-codex-max`
 
 **GitHub Copilot (`gh/`)**:
@@ -1301,12 +1358,11 @@ Notes:
 - `gh/claude-opus-4.7`
 - `gh/claude-sonnet-4.6`
 - `gh/gemini-3.1-pro-preview`
-- `gh/grok-code-fast-1`
 
 **Cursor (`cu/`)** - Subscription:
 
 - `cu/claude-4.6-opus-max`
-- `cu/claude-4.5-sonnet-thinking`
+- `cu/claude-4.6-opus-max`
 - `cu/gpt-5.3-codex`
 - `cu/kimi-k2.5`
 
@@ -1314,24 +1370,22 @@ Notes:
 
 - `glm/glm-5.1`
 - `glm/glm-5`
-- `glm/glm-4.7`
 
 **MiniMax (`minimax/`)** - $0.2/1M:
 
 - `minimax/MiniMax-M2.7`
-- `minimax/MiniMax-M2.5`
 
 **Kimi (`kimi/`)** - $9/mo flat:
 
 - `kimi/kimi-k2.5`
-- `kimi/kimi-k2.5-thinking`
 
 **Kiro (`kr/`)** - Free (~50 credits/month, paid tiers above):
 
-- `kr/claude-sonnet-4.5`
-- `kr/claude-haiku-4.5`
 - `kr/glm-5`
-- `kr/MiniMax-M2.5`
+- `kr/deepseek-3.2`
+- `kr/qwen3-coder-next`
+- `kr/glm-5`
+- `kr/deepseek-3.2`
 - `kr/qwen3-coder-next`
 - `kr/deepseek-3.2`
 
@@ -1361,7 +1415,7 @@ Notes:
 **Rate limiting**
 
 - Subscription quota out → Fallback to GLM/MiniMax
-- Add combo: `cc/claude-opus-4-7 → glm/glm-5.1 → kr/claude-sonnet-4.5`
+- Add combo: `cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5`
 
 **OAuth token expired**
 
@@ -1411,7 +1465,7 @@ Authorization: Bearer your-api-key
 Content-Type: application/json
 
 {
-  "model": "cc/claude-opus-4-6",
+  "model": "cc/claude-opus-5",
   "messages": [
     {"role": "user", "content": "Write a function to..."}
   ],

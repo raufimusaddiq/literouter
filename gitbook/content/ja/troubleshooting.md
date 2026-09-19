@@ -24,7 +24,7 @@ LiteRouter利用時の一般的な問題と解決策。
 2. **コンボフォールバックを使用:**
    ```
    Dashboard → Combos → フォールバックチェーンを作成
-   例: cc/claude-opus → glm/glm-4.7 → if/kimi-k2
+   例: cc/claude-opus-5 → glm/glm-5.1 → kr/deepseek-3.2
    ```
 
 3. **プロバイダー接続を確認:**
@@ -52,16 +52,16 @@ LiteRouter利用時の一般的な問題と解決策。
 
 2. **低価格階層へ切替:**
    ```
-   使用: glm/glm-4.7 (100万トークンあたり$0.6)
-        minimax/MiniMax-M2.1 (100万トークンあたり$0.20)
+   使用: glm/glm-5.1 (100万トークンあたり$0.6)
+        minimax/MiniMax-M2.7 (100万トークンあたり$0.20)
    ```
 
 3. **フォールバックコンボを追加:**
    ```
    Dashboard → Combos → バックアップモデルを追加
-   優先: cc/claude-opus (サブスクリプション)
-   バックアップ: glm/glm-4.7 (低価格)
-   緊急時: if/kimi-k2 (無料)
+   優先: cc/claude-opus-5 (サブスクリプション)
+   バックアップ: glm/glm-5.1 (低価格)
+   緊急時: kr/deepseek-3.2 (無料)
    ```
 
 ---
@@ -110,17 +110,17 @@ LiteRouter利用時の一般的な問題と解決策。
 
 2. **より安いモデルへ切替:**
    ```
-   置換: cc/claude-opus (月$20〜100サブスクリプション)
-   へ: glm/glm-4.7 (100万トークンあたり$0.6)
-       minimax/MiniMax-M2.1 (100万トークンあたり$0.20)
+   置換: cc/claude-opus-5 (月$20〜100サブスクリプション)
+   へ: glm/glm-5.1 (100万トークンあたり$0.6)
+       minimax/MiniMax-M2.7 (100万トークンあたり$0.20)
    ```
 
 3. **無料階層を使用:**
    ```
-   if/kimi-k2-thinking (無料)
-   qw/qwen3-coder-plus (無料)
-   kr/claude-sonnet-4.5 (無料)
-   gc/gemini-3-flash-preview (月18万無料)
+   kr/glm-5 (無料)
+   vertex/gemini-3.1-pro-preview (無料)
+   kr/glm-5 (無料)
+   vertex/gemini-3-flash-preview (無料クレジット)
    ```
 
 4. **プロンプトを最適化:**
@@ -235,8 +235,8 @@ LiteRouter利用時の一般的な問題と解決策。
 
 2. **モデルID形式を確認:**
    ```
-   正しい: cc/claude-opus-4-5-20251101
-   誤り: claude-opus-4-5-20251101
+   正しい: cc/claude-opus-5
+   誤り: claude-opus-5
 
    形式: [provider-prefix]/[model-name]
    ```
@@ -274,14 +274,14 @@ LiteRouter利用時の一般的な問題と解決策。
 2. **高速モデルへ切替:**
    ```
    高速: cc/claude-haiku-4-5 (HaikuはOpusより高速)
-         gc/gemini-3-flash-preview
-         qw/qwen3-coder-flash
+         vertex/gemini-3-flash-preview
+         vertex/gemini-3-flash-preview
    ```
 
 3. **ストリーミングを使用:**
    ```json
    {
-     "model": "cc/claude-opus-4-5",
+     "model": "cc/claude-opus-5",
      "messages": [...],
      "stream": true
    }

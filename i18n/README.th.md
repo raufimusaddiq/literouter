@@ -69,6 +69,53 @@
 
 ---
 
+## ⚖️ LiteRouter เทียบกับ 9Router
+
+LiteRouter ไม่ใช่การเขียนใหม่ แต่คือ 9Router upstream บวกธงรันไทม์ `MINIMAL_PROFILE`,
+แคช hot-path ขนาดเล็ก และปิดระบบย่อยเสริมออก
+เอนจิน routing, provider registry, transport matrix, แดชบอร์ด และ schema SQLite
+ไม่เปลี่ยนแปลง — จึงยัง cherry-pick fix จาก upstream ได้
+
+### สิ่งที่ต่างจริง
+
+| ด้าน | 9Router / LiteRouter |
+| --- | --- |
+| โปรไฟล์รันไทม์ | เต็ม | `MINIMAL_PROFILE=true` |
+| ซิงก์แค็ตตาล็อกโมเดล | เบื้องหลัง | `MODEL_CATALOG_SYNC=off` |
+| รีเฟรชโทเคน | job เบื้องหลัง | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
+| แคช hot-read | ไม่มี | ในโปรเซส (connections, combos, settings) |
+| แคชข้ามอินสแตนซ์ | — | Redis, **แคชเท่านั้น** (ไม่เก็บถาวร) |
+| ทันเนล / MITM | มี | ตัดออก |
+| Cloud sync | มี | ตัดออก |
+| แหล่งข้อมูลจริง | SQLite | SQLite (ไม่เปลี่ยน) |
+
+### ประสิทธิภาพเทียบกับ 9Router แบบแพ็กเกจ
+
+```text
+n=30, non-streaming, mock upstream:
+  median   16.53 ms -> 13.64 ms   (-17.5%)
+  p95      25.36 ms -> 19.40 ms   (-23.5%)
+
+อัปสตรีมจริง แบบ burst (kn/deepseek-v4-1-flash, n=24, 8 concurrent):
+  median   1715 ms  -> 1580 ms    (-7.9%)
+  p95      2053 ms  -> 2062 ms    noise
+```
+
+### การใช้ RAM
+
+| คอนเทนเนอร์ | RSS ตอนว่าง | RSS หลัง burst | ลิมิต |
+| --- | --- | --- | --- |
+| 9Router (โปรดักชัน) | 192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+
+```text
+image size: ~1.03 GB both
+```
+
+
+---
+
 ## ⚡ เริ่มต้นใช้งาน
 
 **1. ติดตั้งแบบ Global:**
@@ -90,7 +137,7 @@ npm install -g 9router
 ตั้งค่า Claude Code/Codex/OpenClaw/Cursor/Cline:
   Endpoint: http://localhost:20128/v1
   API Key: [คัดลอกจากแดชบอร์ด]
-  Model: kr/claude-sonnet-4.5
+  Model: kr/glm-5
 ```
 
 **เสร็จแล้ว!** เริ่มเขียนโค้ดด้วยโมเดล AI ฟรี
@@ -410,9 +457,9 @@ Ponytail ฉีด prompt *"lazy senior dev"* เข้าไปในทุก�
 
 ```
 Combo: "my-coding-stack"
-  1. cc/claude-opus-4-6        (สมาชิกของคุณ)
-  2. glm/glm-4.7               (สำรองราคาถูก, $0.6/1M)
-  3. if/kimi-k2-thinking       (fallback ฟรี)
+  1. cc/claude-opus-5        (สมาชิกของคุณ)
+  2. glm/glm-5.1               (สำรองราคาถูก, $0.6/1M)
+  3. kr/glm-5       (fallback ฟรี)
 
 → สลับอัตโนมัติเมื่อโควตาหมดหรือเกิด error
 ```
@@ -489,8 +536,8 @@ Combo: "my-coding-stack"
 | **💳 สมาชิก** | Claude Code (Pro) | $20/เดือน | 5 ชม. + รายสัปดาห์ | มีสมาชิกอยู่แล้ว |
 | | Codex (Plus/Pro) | $20-200/เดือน | 5 ชม. + รายสัปดาห์ | ผู้ใช้ OpenAI |
 | | GitHub Copilot | $10-19/เดือน | รายเดือน | ผู้ใช้ GitHub |
-| **💰 ราคาถูก** | GLM-4.7 | $0.6/1M | ทุกวัน 10:00 AM | สำรองงบ |
-| | MiniMax M2.1 | $0.2/1M | 5 ชั่วโมง | ถูกที่สุด |
+| **💰 ราคาถูก** | GLM-5.1 | $0.6/1M | ทุกวัน 10:00 AM | สำรองงบ |
+| | MiniMax M2.7 | $0.2/1M | 5 ชั่วโมง | ถูกที่สุด |
 | | Kimi K2 | $9/เดือน คงที่ | 10M โทเค็น/เดือน | ค่าใช้จ่ายที่คาดเดาได้ |
 | **🆓 ฟรี** | Kiro | $0 | ไม่จำกัด | Claude ฟรี |
 | | OpenCode Free | $0 | ไม่จำกัด | ไม่ต้องยืนยันตัวตน |
@@ -509,9 +556,9 @@ Combo: "my-coding-stack"
 **วิธีแก้:**
 ```
 Combo: "maximize-claude"
-  1. cc/claude-opus-4-6        (ใช้สมาชิกเต็มที่)
-  2. glm/glm-4.7               (สำรองราคาถูกเมื่อโควตาหมด)
-  3. kr/claude-sonnet-4.5       (fallback ฉุกเฉินฟรี)
+  1. cc/claude-opus-5        (ใช้สมาชิกเต็มที่)
+  2. glm/glm-5.1               (สำรองราคาถูกเมื่อโควตาหมด)
+  3. kr/glm-5       (fallback ฉุกเฉินฟรี)
 
 ค่าใช้จ่ายรายเดือน: $20 (สมาชิก) + ~$5 (สำรอง) = $25 รวม
 เทียบกับ $20 + ชนโควตา = ผิดหวัง
@@ -524,7 +571,7 @@ Combo: "maximize-claude"
 **วิธีแก้:**
 ```
 Combo: "free-forever"
-  1. kr/claude-sonnet-4.5       (Claude ฟรีไม่จำกัด)
+  1. kr/glm-5       (Claude ฟรีไม่จำกัด)
   2. oc/*                       (OpenCode Free ไม่ต้องยืนยันตัวตน)
   3. vertex/gemini-3.1-pro-preview (Vertex $300 เครดิตฟรี)
 
@@ -539,11 +586,11 @@ Combo: "free-forever"
 **วิธีแก้:**
 ```
 Combo: "always-on"
-  1. cc/claude-opus-4-6        (คุณภาพดีที่สุด)
+  1. cc/claude-opus-5        (คุณภาพดีที่สุด)
   2. cx/gpt-5.5                (สมาชิกที่สอง)
   3. glm/glm-5.1               (ราคาถูก, รีเซ็ตทุกวัน)
   4. minimax/MiniMax-M2.7      (ถูกที่สุด, รีเซ็ต 5 ชม.)
-  5. kr/claude-sonnet-4.5       (ฟรีไม่จำกัด)
+  5. kr/glm-5       (ฟรีไม่จำกัด)
 
 ผลลัพธ์: 5 ชั้น fallback = ไม่มีเวลาหยุดทำงาน
 ค่าใช้จ่ายเดือน: $20-200 (สมาชิก) + $10-20 (สำรอง)
@@ -556,9 +603,9 @@ Combo: "always-on"
 **วิธีแก้:**
 ```
 Combo: "openclaw-free"
-  1. kr/claude-sonnet-4.5       (Claude ฟรีไม่จำกัด)
+  1. kr/glm-5       (Claude ฟรีไม่จำกัด)
   2. kr/glm-5                   (GLM ฟรีไม่จำกัด)
-  3. kr/MiniMax-M2.5            (MiniMax ฟรีไม่จำกัด)
+  3. kr/deepseek-3.2            (MiniMax ฟรีไม่จำกัด)
 
 ค่าใช้จ่ายรายเดือน: $0
 เข้าถึงผ่าน: WhatsApp, Telegram, Slack, Discord, iMessage, Signal...
@@ -603,7 +650,7 @@ LiteRouter แค่เลือกเส้นทางคำขอของค
 
 1. **เริ่มจาก combo ฟรี 100%:**
    ```
-   1. kr/claude-sonnet-4.5 (Claude ฟรีไม่จำกัด)
+   1. kr/glm-5 (Claude ฟรีไม่จำกัด)
    2. oc/* (OpenCode Free ไม่ต้องยืนยันตัวตน)
    3. vertex/gemini-3.1-pro-preview ($300 เครดิตฟรี)
    ```
@@ -632,7 +679,7 @@ LiteRouter แค่เลือกเส้นทางคำขอของค
 
 **Rate Limiting**
 - สมาชิกหมดโควตา → Fallback ไป GLM/MiniMax
-- เพิ่ม combo: `cc/claude-opus-4-6 → glm/glm-5.1 → kr/claude-sonnet-4.5`
+- เพิ่ม combo: `cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5`
 
 **OAuth Token หมดอายุ**
 - รีเฟรชอัตโนมัติโดย LiteRouter
@@ -677,7 +724,7 @@ Authorization: Bearer your-api-key
 Content-Type: application/json
 
 {
-  "model": "cc/claude-opus-4-6",
+  "model": "cc/claude-opus-5",
   "messages": [
     {"role": "user", "content": "เขียนฟังก์ชันเพื่อ..."}
   ],

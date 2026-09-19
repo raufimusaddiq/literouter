@@ -71,6 +71,53 @@
 
 ---
 
+## ⚖️ LiteRouter در مقابل 9Router
+
+LiteRouter یک بازنویسی نیست. همان 9Router بالادستی است به‌همراه یک فلگ رانتایم
+`MINIMAL_PROFILE`، یک کش کوچک hot-path، و زیرسیستم‌های جانبی خاموش.
+موتور مسیریابی، رجیستری provider، ماتریس transport، داشبورد و
+schema پایگاه‌داده SQLite تغییر نکرده‌اند — به همین دلیل اصلاحات upstream همچنان قابل cherry-pick هستند.
+
+### آنچه واقعاً تفاوت دارد
+
+| حوزه | 9Router / LiteRouter |
+| --- | --- |
+| پروفایل رانتایم | کامل | `MINIMAL_PROFILE=true` |
+| Sincronización de catálogo | en segundo plano | `MODEL_CATALOG_SYNC=off` |
+| Refresh de token | job en segundo plano | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
+| Caché hot-read | ninguna | en proceso (connections, combos, settings) |
+| Caché entre instancias | — | Redis, **solo caché** (sin persistencia) |
+| Túnel / MITM | incluido | eliminado |
+| Cloud sync | incluido | eliminado |
+| Fuente de verdad | SQLite | SQLite (sin cambios) |
+
+### عملکرد در مقابل 9Router بسته‌بندی‌شده
+
+```text
+n=30, non-streaming, mock upstream:
+  median   16.53 ms -> 13.64 ms   (-17.5%)
+  p95      25.36 ms -> 19.40 ms   (-23.5%)
+
+upstream واقعی، به‌صورت burst (kn/deepseek-v4-1-flash، n=24، ۸ همزمان):
+  median   1715 ms  -> 1580 ms    (-7.9%)
+  p95      2053 ms  -> 2062 ms    noise
+```
+
+### مصرف RAM
+
+| Contenedor | RSS en reposo | RSS tras burst | Límite |
+| --- | --- | --- | --- |
+| 9Router (پروداکشن) | 192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+
+```text
+حجم ایمیج: هر دو حدود ۱.۰۳ گیگابایت
+```
+
+
+---
+
 ## ⚡ شروع سریع
 
 **۱. نصب سراسری:**
@@ -92,7 +139,7 @@ npm install -g 9router
 تنظیمات Claude Code/Codex/OpenClaw/Cursor/Cline:
   آدرس端点: http://localhost:20128/v1
   کلید API: [کپی از داشبورد]
-  مدل: kr/claude-sonnet-4.5
+  مدل: kr/glm-5
 ```
 
 **کار تمام!** با مدل‌های رایگان هوش مصنوعی کدنویسی را شروع کنید.
@@ -516,9 +563,9 @@ http://host.docker.internal:8787
 
 ```
 ترکیب: "my-coding-stack"
-  1. cc/claude-opus-4-6        (اشتراک شما)
-  2. glm/glm-4.7               (پشتیبان ارزان، ۰.۶ دلار/میلیون)
-  3. if/kimi-k2-thinking       (بازگشت رایگان)
+  1. cc/claude-opus-5        (اشتراک شما)
+  2. glm/glm-5.1               (پشتیبان ارزان، ۰.۶ دلار/میلیون)
+  3. kr/glm-5       (بازگشت رایگان)
 
 → وقتی سهمیه تمام شود یا خطا رخ دهد، به‌طور خودکار تغییر می‌کند
 ```
@@ -591,7 +638,7 @@ http://host.docker.internal:8787
 > "هزینه" نمایش داده شده در تحلیل استفاده **فقط برای پیگیری و مقایسه** است.
 > خود LiteRouter **هرگز از شما هزینه‌ای دریافت نمی‌کند**. شما فقط مستقیماً به ارائه‌دهندگان هزینه می‌پردازید (در صورت استفاده از خدمات پولی).
 >
-> **مثال:** اگر داشبورد شما "۲۹۰ دلار هزینه کل" را هنگام استفاده از مدل‌های iFlow نشان می‌دهد، این مبلغ چیزی است که در صورت استفاده مستقیم از APIهای پولی پرداخت می‌کردید. هزینه واقعی شما = **۰ دلار** (iFlow رایگان نامحدود است).
+> **مثال:** اگر داشبورد شما "۲۹۰ دلار هزینه کل" را هنگام استفاده از مدل‌های رایگان نشان می‌دهد، این مبلغ چیزی است که در صورت استفاده مستقیم از APIهای پولی پرداخت می‌کردید. هزینه واقعی شما = **۰ دلار** (Kiro در محدوده رایگان است).
 >
 > به آن به عنوان "ردیاب پس‌انداز" فکر کنید که نشان می‌دهد با استفاده از مدل‌های رایگان یا مسیریابی از طریق LiteRouter چقدر صرفه‌جویی می‌کنید!
 
@@ -615,7 +662,7 @@ http://host.docker.internal:8787
 |                     | Codex (Plus/Pro)      | ۲۰-۲۰۰ دلار/ماه   | ۵ ساعته + هفتگی      | کاربران OpenAI                            |
 |                     | GitHub Copilot        | ۱۰-۱۹ دلار/ماه    | ماهانه          | کاربران GitHub                            |
 |                     | Cursor IDE            | ۲۰ دلار/ماه       | ماهانه          | کاربران Cursor                            |
-| **💰 ارزان**        | GLM-5.1 / GLM-4.7     | ۰.۶ دلار/میلیون      | روزانه ساعت ۱۰ صبح       | پشتیبان بودجه                           |
+| **💰 ارزان**        | GLM-5.1 / GLM-5       | ۰.۶ دلار/میلیون      | روزانه ساعت ۱۰ صبح       | پشتیبان بودجه                           |
 |                     | MiniMax M2.7          | ۰.۲ دلار/میلیون      | ۵ ساعته گردشی   | ارزان‌ترین گزینه                         |
 |                     | Kimi K2.5             | ۹ دلار/ماه مسطح   | ۱۰ میلیون توکن/ماه    | هزینه قابل پیش‌بینی                        |
 | **🆓 رایگان**         | Kiro AI               | ۰ دلار           | نامحدود        | Claude 4.5 + GLM-5 + MiniMax رایگان       |
@@ -633,7 +680,7 @@ http://host.docker.internal:8787
 ✅ **نرم‌افزار LiteRouter = رایگان برای همیشه** (منبع باز، هرگز هزینه‌ای دریافت نمی‌کند)
 ✅ **"هزینه‌های" داشبورد = فقط نمایش/پیگیری** (صورتحساب واقعی نیستند)
 ✅ **شما مستقیماً به ارائه‌دهندگان هزینه می‌پردازید** (اشتراک‌ها یا هزینه‌های API)
-✅ **ارائه‌دهندگان رایگان واقعاً رایگان هستند** (iFlow، Kiro، Qwen = ۰ دلار نامحدود)
+✅ **ارائه‌دهندگان رایگان واقعاً رایگان هستند** (Kiro، OpenCode Free، Vertex = ۰ دلار در محدوده)
 ❌ **LiteRouter هرگز صورتحساب ارسال نمی‌کند** یا کارت شما را شارژ نمی‌کند
 
 **نحوه عملکرد نمایش هزینه:**
@@ -649,7 +696,7 @@ http://host.docker.internal:8787
 • هزینه نمایشی: ۲۹۰ دلار
 
 بررسی واقعیت:
-• ارائه‌دهنده: iFlow (رایگان نامحدود)
+• ارائه‌دهنده: Kiro (رایگان)
 • پرداخت واقعی: ۰.۰۰ دلار
 • منظور از ۲۹۰ دلار: مبلغی که با استفاده از مدل‌های رایگان پس‌انداز کرده‌اید!
 ```
@@ -658,7 +705,7 @@ http://host.docker.internal:8787
 
 - **ارائه‌دهندگان اشتراک** (Claude Code، Codex): مستقیماً از طریق وب‌سایت‌هایشان به آنها پرداخت کنید
 - **ارائه‌دهندگان ارزان** (GLM، MiniMax): مستقیماً به آنها پرداخت کنید، LiteRouter فقط مسیریابی می‌کند
-- **ارائه‌دهندگان رایگان** (iFlow، Kiro، Qwen): واقعاً برای همیشه رایگان، بدون هزینه پنهان
+- **ارائه‌دهندگان رایگان** (Kiro، OpenCode Free، Vertex): واقعاً برای همیشه رایگان، بدون هزینه پنهان
 - **LiteRouter**: هرگز هیچ هزینه‌ای دریافت نمی‌کند، همیشه
 
 ---
@@ -673,9 +720,9 @@ http://host.docker.internal:8787
 
 ```
 ترکیب: "maximize-claude"
-  1. cc/claude-opus-4-7        (استفاده کامل از اشتراک)
+  1. cc/claude-opus-5        (استفاده کامل از اشتراک)
   2. glm/glm-5.1               (پشتیبان ارزان وقتی سهمیه تمام شد)
-  3. kr/claude-sonnet-4.5      (بازگشت اضطراری رایگان)
+  3. kr/glm-5      (بازگشت اضطراری رایگان)
 
 هزینه ماهانه: ۲۰ دلار (اشتراک) + حدود ۵ دلار (پشتیبان) = ۲۵ دلار کل
 در مقابل ۲۰ دلار + برخورد با محدودیت = ناامیدی
@@ -689,7 +736,7 @@ http://host.docker.internal:8787
 
 ```
 ترکیب: "free-forever"
-  1. kr/claude-sonnet-4.5      (Claude 4.5 رایگان نامحدود)
+  1. kr/glm-5      (Claude 4.5 رایگان نامحدود)
   2. kr/glm-5                  (GLM-5 رایگان از طریق Kiro)
   3. oc/<auto>                 (OpenCode Free، بدون احراز هویت)
 
@@ -705,11 +752,11 @@ http://host.docker.internal:8787
 
 ```
 ترکیب: "always-on"
-  1. cc/claude-opus-4-7        (بهترین کیفیت)
+  1. cc/claude-opus-5        (بهترین کیفیت)
   2. cx/gpt-5.5                (اشتراک دوم)
   3. glm/glm-5.1               (ارزان، بازنشانی روزانه)
   4. minimax/MiniMax-M2.7      (ارزان‌ترین، بازنشانی ۵ ساعته)
-  5. kr/claude-sonnet-4.5      (رایگان نامحدود)
+  5. kr/glm-5      (رایگان نامحدود)
 
 نتیجه: ۵ لایه بازگشت = بدون توقف
 هزینه ماهانه: ۲۰-۲۰۰ دلار (اشتراک‌ها) + ۱۰-۲۰ دلار (پشتیبان)
@@ -723,9 +770,9 @@ http://host.docker.internal:8787
 
 ```
 ترکیب: "openclaw-free"
-  1. kr/claude-sonnet-4.5      (Claude 4.5 رایگان)
+  1. kr/glm-5      (Claude 4.5 رایگان)
   2. kr/glm-5                  (GLM-5 رایگان)
-  3. kr/MiniMax-M2.5           (MiniMax رایگان)
+  3. kr/deepseek-3.2           (MiniMax رایگان)
 
 هزینه ماهانه: ۰ دلار
 دسترسی از طریق: واتساپ، تلگرام، اسلک، دیسکورد، iMessage، سیگنال...
@@ -743,7 +790,7 @@ http://host.docker.internal:8787
 **مثال:**
 
 - **داشبورد نشان می‌دهد:** "۲۹۰ دلار هزینه کل"
-- **واقعیت:** شما از iFlow (رایگان نامحدود) استفاده می‌کنید
+- **واقعیت:** شما از Kiro (رایگان) استفاده می‌کنید
 - **هزینه واقعی شما:** **۰.۰۰ دلار**
 - **منظور از ۲۹۰ دلار:** مبلغی که با استفاده از مدل‌های رایگان به جای APIهای پولی **پس‌انداز** کرده‌اید!
 
@@ -795,9 +842,9 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
 ۱. **با ترکیب ۱۰۰٪ رایگان شروع کنید:**
 
    ```
-   1. gc/gemini-3-flash (۱۸۰ هزار توکن/ماه رایگان از گوگل)
-   2. if/kimi-k2-thinking (نامحدود رایگان از iFlow)
-   3. qw/qwen3-coder-plus (نامحدود رایگان از Qwen)
+   1. vertex/gemini-3-flash-preview (۳۰۰ دلار اعتبار GCP)
+   2. kr/deepseek-3.2 (رایگان از Kiro)
+   3. vertex/gemini-2.5-flash (۳۰۰ دلار اعتبار GCP)
    ```
 
    **هزینه: ۰ دلار/ماه**
@@ -805,7 +852,7 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
 ۲. **در صورت نیاز، پشتیبان ارزان اضافه کنید:**
 
    ```
-   4. glm/glm-4.7 (۰.۶ دلار/میلیون توکن)
+   4. glm/glm-5.1 (۰.۶ دلار/میلیون توکن)
    ```
 
    **هزینه اضافی: فقط برای چیزی که واقعاً استفاده می‌کنید پرداخت کنید**
@@ -855,8 +902,8 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
 → پیگیری سهمیه ۵ ساعته + هفتگی
 
 مدل‌ها:
-  cc/claude-opus-4-7
-  cc/claude-opus-4-6
+  cc/claude-opus-5
+  cc/claude-opus-5
   cc/claude-sonnet-4-6
   cc/claude-haiku-4-5-20251001
 ```
@@ -874,8 +921,7 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
   cx/gpt-5.5
   cx/gpt-5.4
   cx/gpt-5.3-codex
-  cx/gpt-5.2-codex
-```
+  ```
 
 ### GitHub Copilot
 
@@ -889,8 +935,7 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
   gh/claude-opus-4.7
   gh/claude-sonnet-4.6
   gh/gemini-3.1-pro-preview
-  gh/grok-code-fast-1
-```
+  ```
 
 ### Cursor IDE
 
@@ -901,7 +946,7 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
 
 مدل‌ها:
   cu/claude-4.6-opus-max
-  cu/claude-4.5-sonnet-thinking
+  cu/claude-4.6-opus-max
   cu/gpt-5.3-codex
 ```
 
@@ -910,7 +955,7 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
 <details>
 <summary><b>💰 ارائه‌دهندگان ارزان (پشتیبان)</b></summary>
 
-### GLM-5.1 / GLM-4.7 (بازنشانی روزانه، ۰.۶ دلار/میلیون)
+### GLM-5.1 / GLM-5 (بازنشانی روزانه، ۰.۶ دلار/میلیون)
 
 ۱. ثبت‌نام: [Zhipu AI](https://open.bigmodel.cn/)
 ۲. دریافت کلید API از Coding Plan
@@ -918,7 +963,7 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
    - ارائه‌دهنده: `glm`
    - کلید API: `your-key`
 
-**استفاده:** `glm/glm-5.1`، `glm/glm-5`، `glm/glm-4.7`
+**استفاده:** `glm/glm-5.1`، `glm/glm-5`، `glm/glm-5.1`
 
 **نکته حرفه‌ای:** Coding Plan ۳ برابر سهمیه با ۱/۷ هزینه ارائه می‌دهد! بازنشانی روزانه ساعت ۱۰:۰۰ صبح.
 
@@ -928,7 +973,7 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
 ۲. دریافت کلید API
 ۳. داشبورد → افزودن کلید API
 
-**استفاده:** `minimax/MiniMax-M2.7`، `minimax/MiniMax-M2.5`
+**استفاده:** `minimax/MiniMax-M2.7`
 
 **نکته حرفه‌ای:** ارزان‌ترین گزینه برای زمینه طولانی (۱ میلیون توکن)!
 
@@ -938,7 +983,7 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
 ۲. دریافت کلید API
 ۳. داشبورد → افزودن کلید API
 
-**استفاده:** `kimi/kimi-k2.5`، `kimi/kimi-k2.5-thinking`
+**استفاده:** `kimi/kimi-k2.5`، `kimi/kimi-k2.5`
 
 **نکته حرفه‌ای:** ۹ دلار/ماه ثابت برای ۱۰ میلیون توکن = هزینه مؤثر ۰.۹۰ دلار/میلیون!
 
@@ -955,10 +1000,10 @@ LiteRouter فقط درخواست‌های شما را به آنها مسیریا
 → استفاده نامحدود
 
 مدل‌ها:
-  kr/claude-sonnet-4.5
-  kr/claude-haiku-4.5
   kr/glm-5
-  kr/MiniMax-M2.5
+  kr/qwen3-coder-next
+  kr/glm-5
+  kr/deepseek-3.2
   kr/qwen3-coder-next
   kr/deepseek-3.2
 ```
@@ -1007,7 +1052,7 @@ Vertex Partner (Anthropic / DeepSeek / GLM / Qwen از طریق Vertex):
 
 نام: premium-coding
 مدل‌ها:
-  1. cc/claude-opus-4-7 (اشتراک اصلی)
+  1. cc/claude-opus-5 (اشتراک اصلی)
   2. glm/glm-5.1 (پشتیبان ارزان، ۰.۶ دلار/میلیون)
   3. minimax/MiniMax-M2.7 (ارزان‌ترین بازگشت، ۰.۲۰ دلار/میلیون)
 
@@ -1025,7 +1070,7 @@ Vertex Partner (Anthropic / DeepSeek / GLM / Qwen از طریق Vertex):
 ```
 نام: free-combo
 مدل‌ها:
-  1. kr/claude-sonnet-4.5 (Claude 4.5 رایگان نامحدود)
+  1. kr/glm-5 (Claude 4.5 رایگان نامحدود)
   2. kr/glm-5 (GLM-5 رایگان از طریق Kiro)
   3. vertex/gemini-3.1-pro-preview (۳۰۰ دلار اعتبار رایگان)
 
@@ -1043,7 +1088,7 @@ Vertex Partner (Anthropic / DeepSeek / GLM / Qwen از طریق Vertex):
 تنظیمات → مدل‌ها → پیشرفته:
   آدرس پایه API OpenAI: http://localhost:20128/v1
   کلید API OpenAI: [از داشبورد 9router]
-  مدل: cc/claude-opus-4-7
+  مدل: cc/claude-opus-5
 ```
 
 یا از ترکیب استفاده کنید: `premium-coding`
@@ -1083,7 +1128,7 @@ codex "your prompt"
   "agents": {
     "defaults": {
       "model": {
-        "primary": "9router/kr/claude-sonnet-4.5"
+        "primary": "literouter/kr/glm-5"
       }
     }
   },
@@ -1095,7 +1140,7 @@ codex "your prompt"
         "api": "openai-completions",
         "models": [
           {
-            "id": "kr/claude-sonnet-4.5",
+            "id": "kr/glm-5",
             "name": "Claude Sonnet 4.5 (Kiro Free)"
           }
         ]
@@ -1113,7 +1158,7 @@ codex "your prompt"
 ارائه‌دهنده: سازگار با OpenAI
 آدرس پایه: http://localhost:20128/v1
 کلید API: [از داشبورد]
-مدل: cc/claude-opus-4-7
+مدل: cc/claude-opus-5
 ```
 
 </details>
@@ -1244,8 +1289,8 @@ docker pull decolua/9router:latest   # به‌روزرسانی به آخرین �
 
 **Claude Code (`cc/`)** - Pro/Max:
 
-- `cc/claude-opus-4-7`
-- `cc/claude-opus-4-6`
+- `cc/claude-opus-5`
+- `cc/claude-opus-5`
 - `cc/claude-sonnet-4-6`
 - `cc/claude-sonnet-4-5-20250929`
 - `cc/claude-haiku-4-5-20251001`
@@ -1255,7 +1300,6 @@ docker pull decolua/9router:latest   # به‌روزرسانی به آخرین �
 - `cx/gpt-5.5`
 - `cx/gpt-5.4`
 - `cx/gpt-5.3-codex`
-- `cx/gpt-5.2-codex`
 - `cx/gpt-5.1-codex-max`
 
 **GitHub Copilot (`gh/`)**:
@@ -1264,12 +1308,11 @@ docker pull decolua/9router:latest   # به‌روزرسانی به آخرین �
 - `gh/claude-opus-4.7`
 - `gh/claude-sonnet-4.6`
 - `gh/gemini-3.1-pro-preview`
-- `gh/grok-code-fast-1`
 
 **Cursor (`cu/`)** - اشتراک:
 
 - `cu/claude-4.6-opus-max`
-- `cu/claude-4.5-sonnet-thinking`
+- `cu/claude-4.6-opus-max`
 - `cu/gpt-5.3-codex`
 - `cu/kimi-k2.5`
 
@@ -1277,24 +1320,23 @@ docker pull decolua/9router:latest   # به‌روزرسانی به آخرین �
 
 - `glm/glm-5.1`
 - `glm/glm-5`
-- `glm/glm-4.7`
+- `glm/glm-5.1`
 
 **MiniMax (`minimax/`)** - ۰.۲ دلار/میلیون:
 
 - `minimax/MiniMax-M2.7`
-- `minimax/MiniMax-M2.5`
 
 **Kimi (`kimi/`)** - ۹ دلار/ماه مسطح:
 
 - `kimi/kimi-k2.5`
-- `kimi/kimi-k2.5-thinking`
+- `kimi/kimi-k2.5`
 
 **Kiro (`kr/`)** - رایگان نامحدود:
 
-- `kr/claude-sonnet-4.5`
-- `kr/claude-haiku-4.5`
 - `kr/glm-5`
-- `kr/MiniMax-M2.5`
+- `kr/qwen3-coder-next`
+- `kr/glm-5`
+- `kr/deepseek-3.2`
 - `kr/qwen3-coder-next`
 - `kr/deepseek-3.2`
 
@@ -1324,7 +1366,7 @@ docker pull decolua/9router:latest   # به‌روزرسانی به آخرین �
 **محدودیت نرخ درخواست**
 
 - سهمیه اشتراک تمام شده → بازگشت به GLM/MiniMax
-- ترکیب اضافه کنید: `cc/claude-opus-4-7 → glm/glm-5.1 → kr/claude-sonnet-4.5`
+- ترکیب اضافه کنید: `cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5`
 
 **توکن OAuth منقضی شده است**
 
@@ -1374,7 +1416,7 @@ Authorization: Bearer your-api-key
 Content-Type: application/json
 
 {
-  "model": "cc/claude-opus-4-6",
+  "model": "cc/claude-opus-5",
   "messages": [
     {"role": "user", "content": "Write a function to..."}
   ],

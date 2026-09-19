@@ -28,23 +28,24 @@ LiteRouterに関する一般的な質問。
 ### Tier 1: サブスクリプション(最初に最大化)
 - **Claude Code** (Pro/Max): 月$20〜100 - 5時間 + 週次クォータ
 - **OpenAI Codex** (Plus/Pro): 月$20〜200 - 5時間 + 週次クォータ
-- **Gemini CLI**: 無料 - 月18万コンプリーション + 1K/日
 - **GitHub Copilot**: 月$10〜19 - 月次リセット
 - **Antigravity**: 無料 - Geminiと同様
 
 **目標:** リセット前にクォータを余すことなく使用!
 
 ### Tier 2: 低価格(バックアップ)
-- **GLM-4.7**: 100万トークンあたり$0.60/$2.20 - 毎日午前10時リセット
-- **MiniMax M2.1**: 100万トークンあたり$0.20/$1.00 - 5時間ローリング
+- **GLM 5.1**: 100万トークンあたり$0.60/$2.20 - 毎日午前10時リセット
+- **MiniMax M2.7**: 100万トークンあたり$0.20/$1.00 - 5時間ローリング
 - **Kimi K2**: 月$9固定(1000万トークン)
 
 **目標:** ChatGPT API(100万あたり$20)より90%安い!
 
 ### Tier 3: 無料(緊急時)
-- **iFlow**: 8モデル無料(Kimi K2、Qwen3、GLM、MiniMax...)
-- **Qwen**: 3モデル無料(Qwen3 Coder Plus/Flash、Vision)
-- **Kiro**: 2モデル無料(Claude Sonnet 4.5、Haiku 4.5)
+- **Kiro**: 月 ~50 クレジット(初月はトライアル 500 クレジット、GLM 5、DeepSeek 3.2、Qwen3 Coder Next)
+- **OpenCode Free**: 認証不要、ローテーションされるモデル一覧
+- **Vertex AI**: Gemini 3.1 Pro/Flash Preview、Gemini 2.5 Flash
+
+> **終了した無料枠:** iFlow(2026年に有料化)、Qwen Code(無料 OAuth 枠は 2026-04-15 終了)、Gemini CLI(2026-06-18 サービス終了)。
 
 **目標:** 他のすべてがクォータ制限に達した時のゼロコストフォールバック!
 
@@ -55,10 +56,9 @@ LiteRouterに関する一般的な質問。
 **はい、LiteRouter自体は100%無料でオープンソースです。**
 
 **利用可能な無料階層プロバイダー:**
-- **Gemini CLI** - 月18万コンプリーション(無料Googleアカウント)
-- **iFlow** - 8モデル無制限(無料OAuth)
-- **Qwen** - 3モデル無制限(無料OAuth)
-- **Kiro** - Claude Sonnet/Haiku(無料AWS Builder ID)
+- **Kiro** - 月 ~50 無料クレジット(AWS Builder ID、Google、GitHub)
+- **OpenCode Free** - 認証不要、モデル一覧は変動
+- **Vertex AI** - 新規 Google Cloud アカウントの $300 クレジット
 
 **無料階層プロバイダーのみを使用して永久に無料でコーディングできます!**
 
@@ -73,20 +73,20 @@ LiteRouterに関する一般的な質問。
 ### サブスクリプションプロバイダー
 - **Claude Code** (Pro/Max) - Claude 4.5 Opus/Sonnet/Haiku
 - **OpenAI Codex** (Plus/Pro) - GPT 5.2 Codex、GPT 5.1 Codex Max
-- **Gemini CLI** (無料) - Gemini 3 Flash/Pro、2.5 Pro/Flash
+- **Gemini CLI** - 2026-06-18 にサービス終了
 - **GitHub Copilot** - GPT-5、Claude 4.5、Gemini 3
 - **Antigravity** (Google) - Gemini 3 Pro、Claude Sonnet 4.5
 
 ### 低価格プロバイダー
-- **GLM** (Zhipu AI) - GLM 4.7、GLM 4.6V Vision
-- **MiniMax** - MiniMax M2.1
+- **GLM** (Zhipu AI) - GLM 5.1、GLM 4.6V Vision
+- **MiniMax** - MiniMax M2.7
 - **Kimi** (Moonshot AI) - Kimi Latest
 - **OpenRouter** - 任意のOpenRouterモデルへのパススルー
 
 ### 無料プロバイダー
-- **iFlow** - 8モデル(Kimi K2、Qwen3、GLM、MiniMax、DeepSeek...)
-- **Qwen** - 3モデル(Qwen3 Coder Plus/Flash、Vision)
-- **Kiro** - 2モデル(Claude Sonnet 4.5、Haiku 4.5)
+- **Kiro** - 月 ~50 無料クレジットでカタログ全体
+- **OpenCode Free** - パススルー、モデル一覧は変動
+- **Vertex AI** - Gemini 3.1 Pro、Gemini 3 Flash、Gemini 2.5 Flash
 
 **合計: 15以上のプロバイダー、50以上のモデル**
 
@@ -102,9 +102,9 @@ LiteRouterに関する一般的な質問。
 
 ```
 コンボ例: "premium-coding"
-1. cc/claude-opus-4-5 (サブスクリプション優先)
-2. glm/glm-4.7 (低価格バックアップ)
-3. if/kimi-k2 (無料緊急時)
+1. cc/claude-opus-5 (サブスクリプション優先)
+2. glm/glm-5.1 (低価格バックアップ)
+3. kr/deepseek-3.2 (無料緊急時)
 
 → クォータ消費時に自動切替
 → コーディングが止まらない
@@ -140,9 +140,9 @@ Dashboard → Combos → Create New
 
 **クォータタイプ:**
 - **5時間ローリング** - Claude Code、Codex、MiniMax
-- **日次リセット** - Gemini CLI(1K/日)、GLM(午前10時)
+- **日次リセット** - GLM(午前10時)
 - **週次リセット** - Claude Code、Codex(追加クォータ)
-- **月次リセット** - Gemini CLI(18万)、GitHub Copilot(1日)
+- **月次リセット** - Kiro(月 ~50 クレジット)、GitHub Copilot(1日)
 
 **クォータを表示:**
 ```
@@ -166,7 +166,7 @@ Dashboard → Providers → Quota Tracking
 Cursor Settings → Models → Advanced:
   OpenAI API Base URL: https://9router.com/v1
   OpenAI API Key: [ダッシュボードから取得]
-  Model: cc/claude-opus-4-5-20251101
+  Model: cc/claude-opus-5
 ```
 
 **代替案:** パブリックドメインでVPSにセルフホスト:

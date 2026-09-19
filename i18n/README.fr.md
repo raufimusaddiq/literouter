@@ -71,7 +71,55 @@ Result: Never stop coding, minimal cost + 20-40% token savings via RTK
 
 ---
 
-## ⚡ Démarrage rapide
+---
+
+## ⚖️ LiteRouter vs 9Router
+
+LiteRouter n'est pas une réécriture. C'est 9Router en amont, avec un flag runtime
+`MINIMAL_PROFILE`, un petit cache de hot-path, et les sous-systèmes annexes désactivés.
+Le moteur de routage, le registre de providers, la matrice de transports, le tableau de bord
+et le schéma SQLite sont inchangés — c'est pourquoi les correctifs amont restent cherry-pickables.
+
+### Ce qui change réellement
+
+| Zone | 9Router / LiteRouter |
+| --- | --- |
+| Profil runtime | complet | `MINIMAL_PROFILE=true` |
+| Sync du catalogue | en arrière-plan | `MODEL_CATALOG_SYNC=off` |
+| Refresh token | job en arrière-plan | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
+| Cache hot-read | aucun | en processus (connections, combos, settings) |
+| Cache inter-instances | — | Redis, **cache uniquement** (sans persistance) |
+| Tunnel / MITM | inclus | supprimé |
+| Cloud sync | inclus | supprimé |
+| Source de vérité | SQLite | SQLite (inchangé) |
+
+### Performance vs 9Router packagé
+
+```text
+n=30, non-streaming, mock upstream:
+  median   16.53 ms -> 13.64 ms   (-17.5%)
+  p95      25.36 ms -> 19.40 ms   (-23.5%)
+
+Upstream réel, burst (kn/deepseek-v4-1-flash, n=24, 8 concurrent):
+  median   1715 ms  -> 1580 ms    (-7.9%)
+  p95      2053 ms  -> 2062 ms    noise
+```
+
+### Utilisation de la RAM
+
+| Conteneur | RSS au repos | RSS après burst | Limite |
+| --- | --- | --- | --- |
+| 9Router (prod) | 192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+
+```text
+image size: ~1.03 GB both
+```
+
+---
+
+
 
 **1. Installez globalement :**
 
@@ -92,7 +140,7 @@ Tableau de bord → Providers → Connectez **Kiro AI** (Claude gratuit et illim
 Paramètres de Claude Code/Codex/OpenClaw/Cursor/Cline :
   Endpoint : http://localhost:20128/v1
   API Key : [copiez depuis le tableau de bord]
-  Model : kr/claude-sonnet-4.5
+  Model : kr/glm-5
 ```
 
 **Et voilà !** Commencez à coder avec des modèles d'IA GRATUITS.
@@ -516,9 +564,9 @@ Créez des combos avec repli automatique :
 
 ```
 Combo : "my-coding-stack"
-  1. cc/claude-opus-4-6        (votre abonnement)
-  2. glm/glm-4.7               (sauvegarde économique, $0.6/1M)
-  3. if/kimi-k2-thinking       (repli gratuit)
+  1. cc/claude-opus-5        (votre abonnement)
+  2. glm/glm-5.1               (sauvegarde économique, $0.6/1M)
+  3. kr/glm-5       (repli gratuit)
 
 → Bascule automatiquement quand le quota est épuisé ou en cas d'erreur
 ```
@@ -591,8 +639,8 @@ Traduction transparente entre les formats :
 > Le "coût" affiché dans l'Analytique d'utilisation est **uniquement à des fins de suivi et de comparaison**.
 > LiteRouter lui-même **ne vous facture jamais** quoi que ce soit. Vous ne payez que les fournisseurs directement (si vous utilisez des services payants).
 >
-> **Exemple :** Si votre tableau de bord affiche "coût total de 290 $" alors que vous utilisez les modèles iFlow, cela représente
-> ce que vous auriez payé en utilisant des API payantes directement. Votre coût réel = **0 $** (iFlow est gratuit et illimité).
+> **Exemple :** Si votre tableau de bord affiche "coût total de 290 $" alors que vous utilisez les modèles gratuits, cela représente
+> ce que vous auriez payé en utilisant des API payantes directement. Votre coût réel = **0 $** (Kiro est gratuit dans la limite).
 >
 > Considérez-le comme un "suivi d'économies" qui montre combien vous économisez en utilisant des modèles gratuits ou
 > en routant via LiteRouter !
@@ -617,7 +665,7 @@ Traduction transparente entre les formats :
 |                        | Codex (Plus/Pro)      | 20 à 200 $/mois | 5 h + hebdomadaire        | Utilisateurs d'OpenAI                      |
 |                        | GitHub Copilot        | 10 à 19 $/mois  | Mensuelle                 | Utilisateurs de GitHub                     |
 |                        | Cursor IDE            | 20 $/mois       | Mensuelle                 | Utilisateurs de Cursor                     |
-| **💰 BON MARCHÉ**     | GLM-5.1 / GLM-4.7     | 0,6 $/1M        | Quotidienne 10 h          | Sauvegarde économique                      |
+| **💰 BON MARCHÉ**     | GLM-5.1 / GLM-5       | 0,6 $/1M        | Quotidienne 10 h          | Sauvegarde économique                      |
 |                        | MiniMax M2.7          | 0,2 $/1M        | Fenêtre de 5 heures       | L'option la moins chère                    |
 |                        | Kimi K2.5             | 9 $/mois forfait | 10M tokens/mois          | Coût prévisible                            |
 | **🆓 GRATUIT**         | Kiro AI               | 0 $             | Illimité                  | Claude 4.5 + GLM-5 + MiniMax gratuits      |
@@ -635,7 +683,7 @@ Traduction transparente entre les formats :
 ✅ **Le logiciel LiteRouter = GRATUIT pour toujours** (open source, ne facture jamais)
 ✅ **Les "coûts" du tableau de bord = Affichage/suivi uniquement** (pas de vraies factures)
 ✅ **Vous payez les fournisseurs directement** (abonnements ou frais d'API)
-✅ **Les fournisseurs GRATUITS restent GRATUITS** (iFlow, Kiro, Qwen = 0 $ illimité)
+✅ **Les fournisseurs GRATUITS restent GRATUITS** (Kiro, OpenCode Free, Vertex = 0 $ illimité)
 ❌ **LiteRouter n'envoie jamais de factures** et ne débite pas votre carte
 
 **Comment fonctionne l'affichage des coûts :**
@@ -651,7 +699,7 @@ Affichage du tableau de bord :
 • Coût affiché : 290 $
 
 Vérification de la réalité :
-• Fournisseur : iFlow (GRATUIT illimité)
+• Fournisseur : Kiro (gratuit)
 • Paiement réel : 0,00 $
 • Ce que signifie 290 $ : Le montant que vous avez ÉCONOMISÉ en utilisant des modèles gratuits !
 ```
@@ -660,7 +708,7 @@ Vérification de la réalité :
 
 - **Fournisseurs par abonnement** (Claude Code, Codex) : Payez-les directement via leurs sites web
 - **Fournisseurs bon marché** (GLM, MiniMax) : Payez-les directement, LiteRouter se contente de router
-- **Fournisseurs GRATUITS** (iFlow, Kiro, Qwen) : Vraiment gratuits pour toujours, sans frais cachés
+- **Fournisseurs GRATUITS** (Kiro, OpenCode Free, Vertex) : Vraiment gratuits pour toujours, sans frais cachés
 - **LiteRouter** : Ne facture jamais rien, jamais
 
 ---
@@ -675,9 +723,9 @@ Vérification de la réalité :
 
 ```
 Combo : "maximize-claude"
-  1. cc/claude-opus-4-7        (utilisez l'abonnement à fond)
+  1. cc/claude-opus-5        (utilisez l'abonnement à fond)
   2. glm/glm-5.1               (sauvegarde économique quand le quota est épuisé)
-  3. kr/claude-sonnet-4.5      (repli gratuit d'urgence)
+  3. kr/glm-5      (repli gratuit d'urgence)
 
 Coût mensuel : 20 $ (abonnement) + ~5 $ (sauvegarde) = 25 $ au total
 vs. 20 $ + buter sur les limites = frustration
@@ -691,7 +739,7 @@ vs. 20 $ + buter sur les limites = frustration
 
 ```
 Combo : "free-forever"
-  1. kr/claude-sonnet-4.5      (Claude 4.5 gratuit illimité)
+  1. kr/glm-5      (Claude 4.5 gratuit illimité)
   2. kr/glm-5                  (GLM-5 gratuit via Kiro)
   3. oc/<auto>                 (OpenCode Free, sans authentification)
 
@@ -707,11 +755,11 @@ Qualité : Modèles prêts pour la production + RTK économise 20 à 40 % de tok
 
 ```
 Combo : "always-on"
-  1. cc/claude-opus-4-7        (meilleure qualité)
+  1. cc/claude-opus-5        (meilleure qualité)
   2. cx/gpt-5.5                (deuxième abonnement)
   3. glm/glm-5.1               (bon marché, réinitialisation quotidienne)
   4. minimax/MiniMax-M2.7      (le moins cher, réinitialisation 5 h)
-  5. kr/claude-sonnet-4.5      (gratuit illimité)
+  5. kr/glm-5      (gratuit illimité)
 
 Résultat : 5 couches de repli = zéro temps d'arrêt
 Coût mensuel : 20 à 200 $ (abonnements) + 10 à 20 $ (sauvegarde)
@@ -725,9 +773,9 @@ Coût mensuel : 20 à 200 $ (abonnements) + 10 à 20 $ (sauvegarde)
 
 ```
 Combo : "openclaw-free"
-  1. kr/claude-sonnet-4.5      (Claude 4.5 gratuit)
+  1. kr/glm-5      (Claude 4.5 gratuit)
   2. kr/glm-5                  (GLM-5 gratuit)
-  3. kr/MiniMax-M2.5           (MiniMax gratuit)
+  3. kr/deepseek-3.2           (MiniMax gratuit)
 
 Coût mensuel : 0 $
 Accès via : WhatsApp, Telegram, Slack, Discord, iMessage, Signal...
@@ -745,7 +793,7 @@ Le tableau de bord suit votre utilisation de tokens et affiche des **coûts esti
 **Exemple :**
 
 - **Le tableau de bord affiche :** "290 $ de coût total"
-- **La réalité :** Vous utilisez iFlow (GRATUIT illimité)
+- **La réalité :** Vous utilisez Kiro (gratuit)
 - **Votre coût réel :** **0,00 $**
 - **Ce que signifie 290 $ :** Le montant que vous avez **économisé** en utilisant des modèles gratuits au lieu d'API payantes !
 
@@ -797,9 +845,9 @@ LiteRouter se contente de router vos requêtes vers eux — il n'y a pas de "pi�
 1. **Commencez avec un combo 100 % gratuit :**
 
    ```
-   1. gc/gemini-3-flash (180K/mois gratuit de Google)
-   2. if/kimi-k2-thinking (gratuit illimité d'iFlow)
-   3. qw/qwen3-coder-plus (gratuit illimité de Qwen)
+   1. vertex/gemini-3-flash-preview ($300 de crédits GCP)
+   2. kr/deepseek-3.2 (gratuit via Kiro)
+   3. vertex/gemini-2.5-flash ($300 de crédits GCP)
    ```
 
    **Coût : 0 $/mois**
@@ -807,7 +855,7 @@ LiteRouter se contente de router vos requêtes vers eux — il n'y a pas de "pi�
 2. **Ajoutez une sauvegarde économique** uniquement si nécessaire :
 
    ```
-   4. glm/glm-4.7 (0,6 $/1M de tokens)
+   4. glm/glm-5.1 (0,6 $/1M de tokens)
    ```
 
    **Coût supplémentaire : Vous ne payez que ce que vous utilisez réellement**
@@ -857,8 +905,8 @@ Tableau de bord → Providers → Connectez Claude Code
 → Suivi de quota de 5 heures + hebdomadaire
 
 Modèles :
-  cc/claude-opus-4-7
-  cc/claude-opus-4-6
+  cc/claude-opus-5
+  cc/claude-opus-5
   cc/claude-sonnet-4-6
   cc/claude-haiku-4-5-20251001
 ```
@@ -876,8 +924,7 @@ Modèles :
   cx/gpt-5.5
   cx/gpt-5.4
   cx/gpt-5.3-codex
-  cx/gpt-5.2-codex
-```
+  ```
 
 ### GitHub Copilot
 
@@ -891,8 +938,7 @@ Modèles :
   gh/claude-opus-4.7
   gh/claude-sonnet-4.6
   gh/gemini-3.1-pro-preview
-  gh/grok-code-fast-1
-```
+  ```
 
 ### Cursor IDE
 
@@ -903,7 +949,7 @@ Tableau de bord → Providers → Connectez Cursor
 
 Modèles :
   cu/claude-4.6-opus-max
-  cu/claude-4.5-sonnet-thinking
+  cu/claude-4.6-opus-max
   cu/gpt-5.3-codex
 ```
 
@@ -912,7 +958,7 @@ Modèles :
 <details>
 <summary><b>💰 Fournisseurs bon marché (sauvegarde)</b></summary>
 
-### GLM-5.1 / GLM-4.7 (réinitialisation quotidienne, 0,6 $/1M)
+### GLM-5.1 / GLM-5 (réinitialisation quotidienne, 0,6 $/1M)
 
 1. Inscrivez-vous : [Zhipu AI](https://open.bigmodel.cn/)
 2. Obtenez la clé API depuis le Coding Plan
@@ -920,7 +966,7 @@ Modèles :
    - Fournisseur : `glm`
    - API Key : `votre-clé`
 
-**Utilisation :** `glm/glm-5.1`, `glm/glm-5`, `glm/glm-4.7`
+**Utilisation :** `glm/glm-5.1`, `glm/glm-5`, `glm/glm-5.1`
 
 **Astuce pro :** Le Coding Plan offre un quota 3× pour 1/7 du coût ! Réinitialisation quotidienne à 10 h.
 
@@ -930,7 +976,7 @@ Modèles :
 2. Obtenez la clé API
 3. Tableau de bord → Add API Key
 
-**Utilisation :** `minimax/MiniMax-M2.7`, `minimax/MiniMax-M2.5`
+**Utilisation :** `minimax/MiniMax-M2.7`
 
 **Astuce pro :** L'option la moins chère pour les longs contextes (1M de tokens) !
 
@@ -940,7 +986,7 @@ Modèles :
 2. Obtenez la clé API
 3. Tableau de bord → Add API Key
 
-**Utilisation :** `kimi/kimi-k2.5`, `kimi/kimi-k2.5-thinking`
+**Utilisation :** `kimi/kimi-k2.5`, `kimi/kimi-k2.5`
 
 **Astuce pro :** 9 $/mois forfaitaires pour 10M de tokens = coût effectif de 0,90 $/1M !
 
@@ -957,10 +1003,10 @@ Tableau de bord → Connectez Kiro
 → Utilisation illimitée
 
 Modèles :
-  kr/claude-sonnet-4.5
-  kr/claude-haiku-4.5
   kr/glm-5
-  kr/MiniMax-M2.5
+  kr/qwen3-coder-next
+  kr/glm-5
+  kr/deepseek-3.2
   kr/qwen3-coder-next
   kr/deepseek-3.2
 ```
@@ -1009,7 +1055,7 @@ Tableau de bord → Combos → Create New
 
 Nom : premium-coding
 Modèles :
-  1. cc/claude-opus-4-7 (Abonnement principal)
+  1. cc/claude-opus-5 (Abonnement principal)
   2. glm/glm-5.1 (Sauvegarde économique, 0,6 $/1M)
   3. minimax/MiniMax-M2.7 (Repli le moins cher, 0,20 $/1M)
 
@@ -1027,7 +1073,7 @@ Exemple de coût mensuel (100M de tokens) :
 ```
 Nom : free-combo
 Modèles :
-  1. kr/claude-sonnet-4.5 (Claude 4.5 gratuit illimité)
+  1. kr/glm-5 (Claude 4.5 gratuit illimité)
   2. kr/glm-5 (GLM-5 gratuit via Kiro)
   3. vertex/gemini-3.1-pro-preview (300 $ de crédit gratuit)
 
@@ -1045,7 +1091,7 @@ Coût : 0 $ pour toujours (+ 20 à 40 % d'économie de tokens via RTK) !
 Settings → Models → Advanced :
   OpenAI API Base URL : http://localhost:20128/v1
   OpenAI API Key : [depuis le tableau de bord 9router]
-  Model : cc/claude-opus-4-7
+  Model : cc/claude-opus-5
 ```
 
 Ou utilisez le combo : `premium-coding`
@@ -1079,7 +1125,7 @@ codex "votre prompt"
   "agents": {
     "defaults": {
       "model": {
-        "primary": "9router/kr/claude-sonnet-4.5"
+        "primary": "literouter/kr/glm-5"
       }
     }
   },
@@ -1091,7 +1137,7 @@ codex "votre prompt"
         "api": "openai-completions",
         "models": [
           {
-            "id": "kr/claude-sonnet-4.5",
+            "id": "kr/glm-5",
             "name": "Claude Sonnet 4.5 (Kiro Free)"
           }
         ]
@@ -1109,7 +1155,7 @@ codex "votre prompt"
 Provider : OpenAI Compatible
 Base URL : http://localhost:20128/v1
 API Key : [depuis le tableau de bord]
-Model : cc/claude-opus-4-7
+Model : cc/claude-opus-5
 ```
 
 </details>
@@ -1240,8 +1286,8 @@ Remarques :
 
 **Claude Code (`cc/`)** - Pro/Max :
 
-- `cc/claude-opus-4-7`
-- `cc/claude-opus-4-6`
+- `cc/claude-opus-5`
+- `cc/claude-opus-5`
 - `cc/claude-sonnet-4-6`
 - `cc/claude-sonnet-4-5-20250929`
 - `cc/claude-haiku-4-5-20251001`
@@ -1251,7 +1297,6 @@ Remarques :
 - `cx/gpt-5.5`
 - `cx/gpt-5.4`
 - `cx/gpt-5.3-codex`
-- `cx/gpt-5.2-codex`
 - `cx/gpt-5.1-codex-max`
 
 **GitHub Copilot (`gh/`)** :
@@ -1260,12 +1305,11 @@ Remarques :
 - `gh/claude-opus-4.7`
 - `gh/claude-sonnet-4.6`
 - `gh/gemini-3.1-pro-preview`
-- `gh/grok-code-fast-1`
 
 **Cursor (`cu/`)** - Abonnement :
 
 - `cu/claude-4.6-opus-max`
-- `cu/claude-4.5-sonnet-thinking`
+- `cu/claude-4.6-opus-max`
 - `cu/gpt-5.3-codex`
 - `cu/kimi-k2.5`
 
@@ -1273,24 +1317,23 @@ Remarques :
 
 - `glm/glm-5.1`
 - `glm/glm-5`
-- `glm/glm-4.7`
+- `glm/glm-5.1`
 
 **MiniMax (`minimax/`)** - 0,2 $/1M :
 
 - `minimax/MiniMax-M2.7`
-- `minimax/MiniMax-M2.5`
 
 **Kimi (`kimi/`)** - 9 $/mois forfaitaires :
 
 - `kimi/kimi-k2.5`
-- `kimi/kimi-k2.5-thinking`
+- `kimi/kimi-k2.5`
 
 **Kiro (`kr/`)** - GRATUIT illimité :
 
-- `kr/claude-sonnet-4.5`
-- `kr/claude-haiku-4.5`
 - `kr/glm-5`
-- `kr/MiniMax-M2.5`
+- `kr/qwen3-coder-next`
+- `kr/glm-5`
+- `kr/deepseek-3.2`
 - `kr/qwen3-coder-next`
 - `kr/deepseek-3.2`
 
@@ -1320,7 +1363,7 @@ Remarques :
 **Limites de débit**
 
 - Quota d'abonnement épuisé → Repli vers GLM/MiniMax
-- Ajoutez le combo : `cc/claude-opus-4-7 → glm/glm-5.1 → kr/claude-sonnet-4.5`
+- Ajoutez le combo : `cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5`
 
 **Token OAuth expiré**
 
@@ -1370,7 +1413,7 @@ Authorization: Bearer votre-clé-api
 Content-Type: application/json
 
 {
-  "model": "cc/claude-opus-4-6",
+  "model": "cc/claude-opus-5",
   "messages": [
     {"role": "user", "content": "Écrivez une fonction pour..."}
   ],

@@ -17,9 +17,9 @@ LiteRouter là một proxy thông minh nằm giữa các công cụ lập trình
 - ❌ Chuyển đổi provider thủ công
 
 **Bắt đầu tối đa hóa giá trị:**
-- ✅ **Tối đa Subscription** - Theo dõi và dùng từng chút quota của Claude Code, Codex, Gemini
-- ✅ **MIỄN PHÍ** - Truy cập model iFlow, Qwen, Kiro qua CLI
-- ✅ **Backup siêu rẻ** - GLM ($0.6/1M), MiniMax M2.1 ($0.20/1M)
+- ✅ **Tối đa Subscription** - Theo dõi và dùng từng chút quota của Claude Code, Codex, GitHub Copilot
+- ✅ **MIỄN PHÍ** - Kiro, OpenCode Free và Google Vertex AI
+- ✅ **Backup siêu rẻ** - GLM ($0.60/1M), MiniMax ($0.20/1M), Kimi ($9/tháng)
 - ✅ **Smart Fallback** - Subscription → Cheap → Free, chuyển đổi tự động
 
 ---
@@ -31,11 +31,11 @@ LiteRouter là một proxy thông minh nằm giữa các công cụ lập trình
 ```
 Setup once, never stop coding:
 
-Tier 1 (SUBSCRIPTION): Claude Code → Codex → Gemini
+Tier 1 (SUBSCRIPTION): Claude Code → Codex → GitHub Copilot
   ↓ quota exhausted
-Tier 2 (CHEAP): GLM-4.7 → MiniMax M2.1 → Kimi
+Tier 2 (CHEAP): GLM 5.1 → MiniMax M2.7 → Kimi
   ↓ budget limit
-Tier 3 (FREE): iFlow → Qwen → Kiro
+Tier 3 (FREE): Kiro → OpenCode Free → Vertex AI
 
 → Automatic switching, zero downtime!
 ```
@@ -57,7 +57,7 @@ Hoạt động với mọi công cụ hỗ trợ custom OpenAI endpoint:
 
 **Ví dụ thực tế (100M tokens/tháng):**
 ```
-60M qua Gemini CLI: $0 (free tier)
+30M qua Claude Code: $0 (subscription)
 30M qua Claude Code: $0 (subscription đã có)
 8M qua GLM: $4.80
 2M qua MiniMax: $0.40
@@ -75,7 +75,6 @@ Tổng: $5.20/tháng so với $2000 trên ChatGPT API!
 - Theo dõi sử dụng quota thời gian thực
 - Tự động chuyển khi quota reset (5 giờ, hàng tuần)
 - Dùng hết mọi token trước khi hết hạn
-- Gemini CLI: 180K completions/tháng **MIỄN PHÍ**
 
 ### Backup Siêu Rẻ
 
@@ -83,19 +82,21 @@ Khi quota subscription hết, trả vài xu:
 
 | Provider | Giá per 1M tokens | Reset |
 |----------|-------------------|-------|
-| **GLM-4.7** | $0.60 input / $2.20 output | Hàng ngày 10:00 AM |
-| **MiniMax M2.1** | $0.20 input / $1.00 output | 5 giờ rolling |
+| **GLM 5.1** | $0.60 input / $2.20 output | Hàng ngày 10:00 AM |
+| **MiniMax M2.7** | $0.20 input / $1.00 output | 5 giờ rolling |
 | **Kimi K2** | $9/tháng (10M tokens) | Hàng tháng |
 
 **~90% rẻ hơn ChatGPT API ($20/1M)!**
 
-### Fallback Miễn phí Mãi mãi
+### Fallback bằng credit miễn phí
 
 Backup khẩn cấp khi mọi thứ khác đều bị giới hạn quota:
 
-- **iFlow**: 8 models (Kimi K2, Qwen3 Coder Plus, GLM 4.7, MiniMax M2)
-- **Qwen**: 3 models (Qwen3 Coder Plus/Flash, Vision)
-- **Kiro**: Claude Sonnet 4.5, Haiku 4.5 (AWS Builder ID)
+- **Kiro**: họ Claude và Qwen, free tier giới hạn ~50 credits/tháng (AWS Builder ID / Google / GitHub)
+- **OpenCode Free**: không cần auth, danh sách model lấy từ upstream và thay đổi liên tục
+- **Vertex AI**: Gemini trên credit $300 của tài khoản Google Cloud mới
+
+**Free tier đã ngừng:** iFlow, Qwen Code và Gemini CLI đóng free tier trong 2026. Gemini CLI được đánh dấu deprecated trong provider catalog.
 
 ---
 
@@ -118,7 +119,7 @@ npm install -g 9router
 ```
 Endpoint: http://localhost:20128/v1
 API Key: [from dashboard]
-Model: cc/claude-opus-4-5-20251101
+Model: cc/claude-opus-5
 ```
 
 [→ Hướng dẫn Bắt đầu đầy đủ](getting-started.md)
@@ -130,7 +131,7 @@ Model: cc/claude-opus-4-5-20251101
 ### Cho Developer cá nhân
 
 - Tối đa hóa subscription Claude Code/Codex
-- Dùng Gemini CLI free tier (180K/tháng)
+- Dùng credit miễn phí hàng tháng của Kiro
 - Fallback sang model siêu rẻ ($0.20/1M)
 - Code 24/7 không bị rate limit
 

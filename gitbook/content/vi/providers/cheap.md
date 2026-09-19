@@ -8,15 +8,15 @@ Khi hết quota subscription, trả vài xu thay vì vài đô. Rẻ hơn ChatGP
 
 Provider tier rẻ là **backup** khi hết quota subscription:
 
-- 💰 **GLM-4.7** - $0.6/$2.2 per 1M tokens (reset hàng ngày)
-- 💰 **MiniMax M2.1** - $0.2/$1.0 per 1M tokens (reset 5h)
+- 💰 **GLM 5.1** - $0.6/$2.2 per 1M tokens (reset hàng ngày)
+- 💰 **MiniMax M2.7** - $0.2/$1.0 per 1M tokens (reset 5h)
 - 💰 **Kimi K2** - $9/tháng cố định (10M tokens)
 
 **Chiến lược:** Dùng sau khi hết quota subscription, trước free tier. Tiết kiệm chi phí khổng lồ so với ChatGPT API ($20/1M).
 
 ---
 
-## GLM-4.7 (Reset Hàng ngày)
+## GLM 5.1 (Reset Hàng ngày)
 
 ### Pricing
 
@@ -58,7 +58,7 @@ API Key: zhipu-your-api-key-here
 **Bước 4: Dùng trong CLI**
 
 ```
-Model: glm/glm-4.7
+Model: glm/glm-5.1
        glm/glm-4.6v (vision)
 ```
 
@@ -66,7 +66,7 @@ Model: glm/glm-4.7
 
 | Model ID | Mô tả | Context | Tốt nhất cho |
 |----------|-------------|---------|----------|
-| `glm/glm-4.7` | GLM 4.7 | 128K | Coding, task chung |
+| `glm/glm-5.1` | GLM 5.1 | 128K | Coding, task chung |
 | `glm/glm-4.6v` | GLM 4.6V Vision | 128K | Phân tích ảnh |
 
 ### Mẹo Pro
@@ -89,7 +89,7 @@ Plan your heavy tasks around reset time!
 
 ---
 
-## MiniMax M2.1 (Reset 5 Giờ)
+## MiniMax M2.7 (Reset 5 Giờ)
 
 ### Pricing
 
@@ -130,14 +130,14 @@ API Key: your-minimax-api-key
 **Bước 4: Dùng trong CLI**
 
 ```
-Model: minimax/MiniMax-M2.1
+Model: minimax/MiniMax-M2.7
 ```
 
 ### Model có sẵn
 
 | Model ID | Mô tả | Context | Tốt nhất cho |
 |----------|-------------|---------|----------|
-| `minimax/MiniMax-M2.1` | MiniMax M2.1 | 1M tokens | Context dài, coding |
+| `minimax/MiniMax-M2.7` | MiniMax M2.7 | 1M tokens | Context dài, coding |
 
 ### Mẹo Pro
 
@@ -203,14 +203,14 @@ API Key: your-kimi-api-key
 **Bước 4: Dùng trong CLI**
 
 ```
-Model: kimi/kimi-latest
+Model: kimi/kimi-k2.5
 ```
 
 ### Model có sẵn
 
 | Model ID | Mô tả | Context | Tốt nhất cho |
 |----------|-------------|---------|----------|
-| `kimi/kimi-latest` | Kimi Latest | 200K | Coding chung |
+| `kimi/kimi-k2.5` | Kimi Latest | 200K | Coding chung |
 
 ### Mẹo Pro
 
@@ -239,8 +239,8 @@ Total: 10M tokens = $9 flat
 
 | Provider | Input/1M | Output/1M | Reset | Chi phí 10M | Tốt nhất cho |
 |----------|----------|-----------|-------|----------|----------|
-| **GLM-4.7** | $0.60 | $2.20 | Hàng ngày 10AM | $6-22 | Dùng quota hàng ngày |
-| **MiniMax M2.1** | $0.20 | $1.00 | 5 giờ | $2-10 | **Rẻ nhất!** |
+| **GLM 5.1** | $0.60 | $2.20 | Hàng ngày 10AM | $6-22 | Dùng quota hàng ngày |
+| **MiniMax M2.7** | $0.20 | $1.00 | 5 giờ | $2-10 | **Rẻ nhất!** |
 | **Kimi K2** | $0.90 | $0.90 | Hàng tháng | **$9 cố định** | Sử dụng đều |
 | ChatGPT API | $20.00 | $20.00 | Không | $200 | ❌ Đắt |
 
@@ -256,7 +256,7 @@ Total: 10M tokens = $9 flat
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
   OpenAI API Key: [from 9router dashboard]
-  Model: glm/glm-4.7
+  Model: glm/glm-5.1
 ```
 
 ### Tạo Combo (Khuyên dùng)
@@ -266,10 +266,10 @@ Dashboard → Combos → Create New
 
 Name: cheap-backup
 Models:
-  1. cc/claude-opus-4-5 (Subscription primary)
-  2. glm/glm-4.7 (Cheap backup, daily reset)
-  3. minimax/MiniMax-M2.1 (Cheapest fallback)
-  4. if/kimi-k2-thinking (FREE emergency)
+  1. cc/claude-opus-5 (Subscription primary)
+  2. glm/glm-5.1 (Cheap backup, daily reset)
+  3. minimax/MiniMax-M2.7 (Cheapest fallback)
+  4. kr/glm-5 (FREE emergency)
 
 Use in CLI: cheap-backup
 ```
@@ -293,7 +293,7 @@ Afternoon: Subscription quota
 Evening: MiniMax (5h reset)
 → Cheap fallback for late work
 
-Night: Free tier (iFlow)
+Night: credit miễn phí của Kiro
 → Zero cost emergency backup
 ```
 
@@ -315,14 +315,14 @@ vs 1M tokens for $20 on ChatGPT API!
 
 ```
 Priority:
-1. Gemini CLI (180K/month FREE)
+1. Claude Code (subscription bạn đang trả)
 2. Claude Code (subscription you already pay)
-3. GLM-4.7 (cheap backup, $0.6/1M)
-4. MiniMax M2.1 (cheapest, $0.2/1M)
-5. iFlow (FREE emergency)
+3. GLM 5.1 (cheap backup, $0.6/1M)
+4. MiniMax M2.7 (cheapest, $0.2/1M)
+4. Kiro (credit miễn phí dự phòng)
 
 Monthly cost example (100M tokens):
-- 60M via Gemini CLI: $0 (free)
+- phần còn lại qua credit miễn phí Kiro: $0
 - 30M via Claude Code: $0 (subscription)
 - 8M via GLM: $4.80
 - 2M via MiniMax: $0.40
@@ -338,8 +338,8 @@ Total: $5.20/month!
 ```
 Breakdown:
 - 60M via subscription (Claude/Codex): $0 extra
-- 30M via GLM-4.7: $18
-- 10M via MiniMax M2.1: $2
+- 30M via GLM 5.1: $18
+- 10M via MiniMax M2.7: $2
 
 Total: $20/month
 vs $2000 on ChatGPT API!
@@ -406,10 +406,10 @@ Coding Plan: 3× quota (same price!)
 
 ```
 Combo:
-1. gc/gemini-3-flash (FREE primary)
-2. glm/glm-4.7 (cheap backup)
-3. minimax/MiniMax-M2.1 (cheapest)
-4. if/kimi-k2-thinking (FREE emergency)
+1. vertex/gemini-3-flash-preview (FREE primary)
+2. glm/glm-5.1 (cheap backup)
+3. minimax/MiniMax-M2.7 (cheapest)
+4. kr/glm-5 (FREE emergency)
 
 Result: Minimize costs, maximize uptime
 ```

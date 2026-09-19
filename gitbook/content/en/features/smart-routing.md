@@ -23,25 +23,24 @@ Request → LiteRouter → Check Tier 1 (Subscription)
 **Tier 1: SUBSCRIPTION (Primary)**
 - Claude Code (Pro/Max)
 - OpenAI Codex (Plus/Pro)
-- Gemini CLI (FREE 180K/month)
-- GitHub Copilot
+- GitHub Copilot (Individual/Business)
 - Antigravity (Google)
 
 **Goal**: Maximize value from subscriptions you already pay for.
 
 **Tier 2: CHEAP (Backup)**
-- GLM-4.7 ($0.60/1M input)
-- MiniMax M2.1 ($0.20/1M input)
-- Kimi K2 ($9/month flat)
+- GLM ($0.60/1M input)
+- MiniMax ($0.20/1M input)
+- Kimi ($9/month flat)
 
 **Goal**: Ultra-cheap backup when subscription quota runs out (~90% cheaper than ChatGPT API).
 
 **Tier 3: FREE (Emergency)**
-- iFlow (8 models)
-- Qwen (3 models)
-- Kiro (Claude FREE)
+- Kiro (~50 free credits/month)
+- OpenCode Free (no auth, rotating list)
+- Vertex AI ($300 new-account credit)
 
-**Goal**: Zero-cost fallback for unlimited coding.
+**Goal**: Near-zero-cost fallback while credits last.
 
 ---
 
@@ -52,13 +51,13 @@ LiteRouter monitors quota in real-time and switches providers automatically:
 ### Scenario 1: Subscription Quota Exhausted
 
 ```
-User request → cc/claude-opus-4-5
+User request → cc/claude-opus-5
                ↓ quota exhausted (5-hour limit reached)
-               Auto switch → glm/glm-4.7
+               Auto switch → glm/glm-5.1
                ↓ daily quota exhausted
-               Auto switch → minimax/MiniMax-M2.1
+               Auto switch → minimax/MiniMax-M2.7
                ↓ 5-hour quota exhausted
-               Auto switch → if/kimi-k2-thinking (FREE)
+               Auto switch → kr/glm-5 (FREE)
                ↓
                Response delivered ✅
 ```
@@ -68,9 +67,9 @@ User request → cc/claude-opus-4-5
 ### Scenario 2: Rate Limiting
 
 ```
-User request → cx/gpt-5.2-codex
+User request → cx/gpt-5.5
                ↓ rate limited (too many requests)
-               Auto switch → glm/glm-4.7
+               Auto switch → glm/glm-5.1
                ↓
                Response delivered ✅
 ```
@@ -78,7 +77,7 @@ User request → cx/gpt-5.2-codex
 ### Scenario 3: Provider Unavailable
 
 ```
-User request → cc/claude-opus-4-5
+User request → cc/claude-opus-5
                ↓ provider error (503)
                Auto switch → next available model
                ↓
@@ -98,19 +97,19 @@ LiteRouter selects the best model based on:
 
 ### Priority Order Example
 
-For a request to `cc/claude-opus-4-5`:
+For a request to `cc/claude-opus-5`:
 
 ```
 1. Check Claude Code quota
-   ✅ Available → Use cc/claude-opus-4-5
+   ✅ Available → Use cc/claude-opus-5
    ❌ Exhausted → Continue to step 2
 
 2. Check fallback tier (if configured)
-   ✅ GLM quota available → Use glm/glm-4.7
+   ✅ GLM quota available → Use glm/glm-5.1
    ❌ Exhausted → Continue to step 3
 
 3. Check free tier
-   ✅ iFlow available → Use if/kimi-k2-thinking
+   ✅ Kiro credits available → Use kr/glm-5
    ❌ All exhausted → Return quota error
 ```
 
@@ -149,9 +148,9 @@ Dashboard → Settings → Fallback Priority
 
 Example custom order:
 ```
-Tier 1: Gemini CLI → Claude Code → Codex
+Tier 1: Claude Code → Codex → GitHub Copilot
 Tier 2: MiniMax → GLM → Kimi
-Tier 3: iFlow → Kiro → Qwen
+Tier 3: Kiro → Vertex AI → OpenCode Free
 ```
 
 **4. Quota Reset Notifications**
@@ -170,23 +169,23 @@ Dashboard → Settings → Notifications
 
 **Setup:**
 ```
-Model: cc/claude-opus-4-5-20251101
+Model: cc/claude-opus-5
 Fallback: Auto (default 3-tier)
 ```
 
 **Behavior:**
 ```
 Morning (fresh quota):
-  Request → cc/claude-opus-4-5 ✅
+  Request → cc/claude-opus-5 ✅
 
 Afternoon (quota exhausted):
-  Request → glm/glm-4.7 ✅ (auto switched)
+  Request → glm/glm-5.1 ✅ (auto switched)
 
 Evening (GLM quota out):
-  Request → minimax/MiniMax-M2.1 ✅ (auto switched)
+  Request → minimax/MiniMax-M2.7 ✅ (auto switched)
 
 Late night (all paid quota out):
-  Request → if/kimi-k2-thinking ✅ (free tier)
+  Request → kr/glm-5 ✅ (free credits)
 ```
 
 **Cost**: ~$5-10/month extra (mostly covered by subscription).
@@ -204,15 +203,15 @@ Dashboard → Settings:
 **Behavior:**
 ```
 Day 1-15 (within budget):
-  Requests → glm/glm-4.7 (cheap tier)
+  Requests → glm/glm-5.1 (cheap tier)
   Cost: $1.50/day
 
 Day 16 (budget reached):
-  Requests → if/kimi-k2-thinking (free tier)
+  Requests → kr/glm-5 (free tier)
   Cost: $0
 
 Next month (budget resets):
-  Requests → glm/glm-4.7 again
+  Requests → glm/glm-5.1 again
 ```
 
 **Result**: Never exceed $20/month, always available.
@@ -228,7 +227,7 @@ Dashboard → Settings:
 
 **Behavior:**
 ```
-Request → cc/claude-opus-4-5
+Request → cc/claude-opus-5
   ✅ Quota available → Success
   ❌ Quota exhausted → Return error (no fallback)
 ```
@@ -239,14 +238,14 @@ Request → cc/claude-opus-4-5
 
 **Setup:**
 ```
-Model: if/kimi-k2-thinking
-Fallback: qw/qwen3-coder-plus → kr/claude-sonnet-4.5
+Model: kr/glm-5
+Fallback: vertex/gemini-3-flash-preview → oc/<model-id>
 ```
 
 **Behavior:**
 ```
-All requests → Free tier only
-Cost: $0 forever
+All requests → Free-credit tier only
+Cost: $0 while credits last
 ```
 
 **Use case**: Personal projects, learning, experimentation.
@@ -266,35 +265,35 @@ Strategy:
 
 **Example combo:**
 ```
-cc/claude-opus-4-5 → glm/glm-4.7 → if/kimi-k2-thinking
+cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5
 ```
 
 ### 2. Optimize for Cost
 
 ```
 Strategy:
-- Use Gemini CLI free tier first (180K/month)
+- Use subscription quota first
 - Fallback to GLM/MiniMax (ultra-cheap)
-- Emergency: iFlow (free)
+- Emergency: Kiro free credits
 ```
 
 **Example combo:**
 ```
-gc/gemini-3-flash-preview → glm/glm-4.7 → if/kimi-k2-thinking
+vertex/gemini-3-flash-preview → glm/glm-5.1 → kr/glm-5
 ```
 
 ### 3. Optimize for Quality
 
 ```
 Strategy:
-- Use best models (Claude Opus, GPT-5.2)
-- Fallback to good cheap models (GLM-4.7)
-- Last resort: Free tier
+- Use best models (Claude Opus 5, GPT-5.5)
+- Fallback to good cheap models (GLM 5.1)
+- Last resort: free credits
 ```
 
 **Example combo:**
 ```
-cc/claude-opus-4-5 → cx/gpt-5.2-codex → glm/glm-4.7
+cc/claude-opus-5 → cx/gpt-5.5 → glm/glm-5.1
 ```
 
 ### 4. 24/7 Availability
@@ -308,7 +307,7 @@ Strategy:
 
 **Example combo:**
 ```
-cc/claude-opus-4-5 → glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
+cc/claude-opus-5 → glm/glm-5.1 → minimax/MiniMax-M2.7 → kr/glm-5
 ```
 
 **Result**: Never run out of quota, code anytime.
@@ -323,17 +322,17 @@ Plan your usage around quota reset times:
 |----------|-------------|----------|
 | **Claude Code** | 5-hour + weekly | Use in morning, fresh quota |
 | **Codex** | 5-hour + weekly | Use after Claude quota out |
-| **Gemini CLI** | Daily (1K) + Monthly (180K) | Use throughout day |
-| **GLM-4.7** | Daily 10:00 AM | Use evening, resets next morning |
-| **MiniMax M2.1** | 5-hour rolling | Use anytime, tracks rolling window |
-| **iFlow/Qwen/Kiro** | No limit | Emergency backup |
+| **Kiro** | Monthly (~50 credits) | Budget across the month |
+| **GLM** | Daily 10:00 AM | Use evening, resets next morning |
+| **MiniMax** | 5-hour rolling | Use anytime, tracks rolling window |
+| **Vertex AI / OpenCode Free** | $300 balance / rotating list | Emergency backup |
 
 **Daily routine example:**
 ```
 08:00 - 13:00: Claude Code (fresh 5h quota)
-13:00 - 18:00: Gemini CLI (1K/day quota)
-18:00 - 22:00: GLM-4.7 (cheap, resets 10AM)
-22:00 - 08:00: MiniMax or iFlow (5h rolling or free)
+13:00 - 18:00: Kiro free credits
+18:00 - 22:00: GLM (cheap, resets 10AM)
+22:00 - 08:00: MiniMax (5h rolling)
 ```
 
 ---
@@ -346,7 +345,7 @@ Plan your usage around quota reset times:
 Dashboard → Quota Overview:
   Claude Code: 2.5h / 5h remaining (50%)
   Gemini CLI: 450 / 1000 requests today
-  GLM-4.7: 5M / 10M tokens (resets in 8h)
+  GLM 5.1: 5M / 10M tokens (resets in 8h)
   MiniMax: 3M / 5M tokens (rolling 5h)
 ```
 
@@ -355,7 +354,7 @@ Dashboard → Quota Overview:
 ```
 Dashboard → Notifications:
   ⚠️ Claude Code quota 80% used (1h remaining)
-  ✅ GLM-4.7 quota reset (10M tokens available)
+  ✅ GLM 5.1 quota reset (10M tokens available)
   💰 Daily budget 50% used ($2.50 / $5)
 ```
 
@@ -365,8 +364,8 @@ Dashboard → Notifications:
 Dashboard → Analytics:
   Today: 50M tokens
     - 30M via Claude Code (subscription)
-    - 15M via GLM-4.7 ($9)
-    - 5M via iFlow (free)
+    - 15M via GLM 5.1 ($9)
+- 5M via Kiro free credits
 
   Cost: $9 (vs $1000 on ChatGPT API)
   Savings: 99%

@@ -43,8 +43,8 @@ LiteRouter cung cấp các model Codex sau:
 
 | Model ID | Mô tả |
 |----------|-------------|
-| `cx/gpt-5.2-codex` | GPT-5.2 Codex - Phiên bản mới nhất |
-| `cx/gpt-5.1-codex-max` | GPT-5.1 Codex Max - Extended context |
+| `cx/gpt-5.5` | GPT-5.2 Codex - Phiên bản mới nhất |
+| `cx/gpt-5.4` | GPT-5.1 Codex Max - Extended context |
 
 ## Ví dụ Sử dụng
 
@@ -52,22 +52,22 @@ LiteRouter cung cấp các model Codex sau:
 
 ```bash
 # Use GPT-5.2 Codex
-codex --model cx/gpt-5.2-codex "Write a function to sort an array"
+codex --model cx/gpt-5.5 "Write a function to sort an array"
 
 # Use GPT-5.1 Codex Max
-codex --model cx/gpt-5.1-codex-max "Explain this complex algorithm"
+codex --model cx/gpt-5.4 "Explain this complex algorithm"
 ```
 
 ### Tạo Code
 
 ```bash
-codex --model cx/gpt-5.2-codex "Create a REST API endpoint for user authentication"
+codex --model cx/gpt-5.5 "Create a REST API endpoint for user authentication"
 ```
 
 ### Giải thích Code
 
 ```bash
-codex --model cx/gpt-5.1-codex-max "Explain what this code does: $(cat myfile.js)"
+codex --model cx/gpt-5.4 "Explain what this code does: $(cat myfile.js)"
 ```
 
 ## File Cấu hình
@@ -78,7 +78,7 @@ Bạn cũng có thể cấu hình Codex CLI qua file cấu hình. Tạo hoặc s
 {
   "baseUrl": "http://localhost:20128/v1",
   "apiKey": "your-9router-api-key",
-  "defaultModel": "cx/gpt-5.2-codex"
+  "defaultModel": "cx/gpt-5.5"
 }
 ```
 
@@ -132,5 +132,5 @@ Bật debug mode để xem logs request/response chi tiết:
 
 ```bash
 export CODEX_DEBUG=true
-codex --model cx/gpt-5.2-codex "Your prompt"
+codex --model cx/gpt-5.5 "Your prompt"
 ```

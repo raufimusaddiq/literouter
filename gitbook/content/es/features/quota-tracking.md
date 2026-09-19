@@ -32,29 +32,29 @@ Dashboard → Home → Quota Overview
 └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────┐
-│ Gemini CLI (gc/)                            │
+│ Kiro (kr/)                                  │
 │ ████████░░░░░░░░░░░░ 450 / 1000 (45%)      │
 │ Reinicio diario en: 18h 30m                 │
-│ Mensual: 45K / 180K (25%)                   │
+│ Mensual: 32 / 50 créditos (64%)            │
 │ Costo: $0 (nivel gratis)                    │
 └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────┐
-│ GLM-4.7 (glm/)                              │
+│ GLM 5.1 (glm/)                              │
 │ ██████████████░░░░░░ 7M / 10M tokens (70%)  │
 │ Se reinicia: Diario 10:00 AM (en 5h 35m)   │
 │ Costo hoy: $4.20                            │
 └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────┐
-│ MiniMax M2.1 (minimax/)                     │
+│ MiniMax M2.7 (minimax/)                     │
 │ ████████████████░░░░ 4M / 5M tokens (80%)   │
 │ Ventana rolling 5h                          │
 │ Costo (5h): $0.80                           │
 └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────┐
-│ iFlow (if/)                                 │
+│ Vertex AI (vertex/)                         │
 │ ████████████████████ Ilimitado              │
 │ Costo: $0 (gratis para siempre)             │
 └─────────────────────────────────────────────┘
@@ -72,7 +72,7 @@ Cada solicitud muestra el uso detallado de tokens:
 Dashboard → Activity → Recent Requests
 
 Request #1234
-Model: cc/claude-opus-4-5-20251101
+Model: cc/claude-opus-5
 Timestamp: 2026-02-04 04:15:32
 
 Tokens:
@@ -91,7 +91,7 @@ Status: ✅ Success
 Dashboard → Live Monitor
 
 Solicitud actual:
-  Model: glm/glm-4.7
+  Model: glm/glm-5.1
   Tokens transmitidos: 450 / ~800 estimados
   Costo hasta ahora: $0.0009
   Duración: 1.8s
@@ -103,9 +103,9 @@ Solicitud actual:
 Dashboard → Analytics → Token Usage
 
 Hoy (4 feb 2026):
-  cc/claude-opus-4-5: 15M tokens ($0, suscripción)
-  glm/glm-4.7: 8M tokens ($4.80)
-  if/kimi-k2-thinking: 3M tokens ($0, gratis)
+  cc/claude-opus-5: 15M tokens ($0, suscripción)
+  glm/glm-5.1: 8M tokens ($4.80)
+  kr/glm-5: 3M tokens ($0, gratis)
 
 Total: 26M tokens
 Costo: $4.80
@@ -152,7 +152,7 @@ Reinicio: Diario 00:00 UTC + Mensual día 1
 
 El dashboard muestra:
   Hoy: 450 / 1,000 solicitudes (45%)
-  Este mes: 45K / 180K completados (25%)
+  Este mes: 32 / 50 créditos (64%)
   Reinicio diario en: 18h 30m
   Reinicio mensual en: 26 días
 ```
@@ -170,7 +170,7 @@ El dashboard muestra:
 
 ### Proveedores baratos
 
-**GLM-4.7**
+**GLM 5.1**
 ```
 Tipo de cuota: Límite diario de tokens
 Límite: 10M tokens/día (Coding Plan)
@@ -183,7 +183,7 @@ El dashboard muestra:
   Costo hoy: $4.20
 ```
 
-**MiniMax M2.1**
+**MiniMax M2.7**
 ```
 Tipo de cuota: Ventana rolling 5 horas
 Límite: 5M tokens por 5 horas
@@ -209,7 +209,7 @@ El dashboard muestra:
 
 ### Proveedores gratis
 
-**iFlow / Qwen / Kiro**
+**Kiro / OpenCode Free / Vertex AI**
 ```
 Tipo de cuota: Ilimitado (con rate-limit)
 Límite: Sin límite duro
@@ -235,13 +235,13 @@ Proveedores de suscripción: $0
   Gemini CLI: 3M tokens ($0, nivel gratis)
 
 Proveedores de pago: $4.80
-  GLM-4.7: 8M tokens ($4.80)
+  GLM 5.1: 8M tokens ($4.80)
     Input: 6M × $0.60/1M = $3.60
     Output: 2M × $2.20/1M = $4.40
     Total: $4.80
 
 Proveedores gratis: $0
-  iFlow: 3M tokens ($0)
+  Kiro: 3M tokens ($0)
 
 Total hoy: $4.80
 ```
@@ -267,8 +267,8 @@ Mes hasta la fecha: $28.00
 Proyectado (30 días): ~$120
 
 Desglose por proveedor:
-  GLM-4.7: $22.00 (78%)
-  MiniMax M2.1: $6.00 (22%)
+  GLM 5.1: $22.00 (78%)
+  MiniMax M2.7: $6.00 (22%)
 
 Costo promedio por 1M tokens: $0.62
 Ahorros vs ChatGPT API: 97% ($4,000 → $120)
@@ -289,7 +289,7 @@ Proyección mensual:
 
 Desglose:
   Suscripción: 900M tokens ($0)
-  GLM-4.7: 450M tokens ($90)
+  GLM 5.1: 450M tokens ($90)
   MiniMax: 120M tokens ($24)
   Gratis: 30M tokens ($0)
 
@@ -324,7 +324,7 @@ Este mes:
   Solicitudes: 15,234
   Tokens: 320M
   Costo: $52.00
-  Modelo principal: cc/claude-opus-4-5 (45%)
+  Modelo principal: cc/claude-opus-5 (45%)
 ```
 
 ### Uso por modelo
@@ -333,18 +333,18 @@ Este mes:
 Dashboard → Analytics → Models
 
 Modelos principales (este mes):
-1. cc/claude-opus-4-5: 145M tokens (45%)
-2. glm/glm-4.7: 95M tokens (30%)
-3. if/kimi-k2-thinking: 50M tokens (16%)
-4. minimax/MiniMax-M2.1: 20M tokens (6%)
-5. gc/gemini-3-flash: 10M tokens (3%)
+1. cc/claude-opus-5: 145M tokens (45%)
+2. glm/glm-5.1: 95M tokens (30%)
+3. kr/glm-5: 50M tokens (16%)
+4. minimax/MiniMax-M2.7: 20M tokens (6%)
+5. vertex/gemini-3-flash-preview: 10M tokens (3%)
 
 Desglose de costos:
-  cc/claude-opus: $0 (suscripción)
-  glm/glm-4.7: $45.00
-  if/kimi-k2-thinking: $0 (gratis)
-  minimax/MiniMax-M2.1: $7.00
-  gc/gemini-3-flash: $0 (gratis)
+  cc/claude-opus-5: $0 (suscripción)
+  glm/glm-5.1: $45.00
+  kr/glm-5: $0 (gratis)
+  minimax/MiniMax-M2.7: $7.00
+  vertex/gemini-3-flash-preview: $0 (gratis)
 ```
 
 ### Uso por tiempo
@@ -376,9 +376,9 @@ premium-coding:
   Costo: $2.40
 
   Desglose:
-    cc/claude-opus: 8M tokens (67%, $0)
-    glm/glm-4.7: 3M tokens (25%, $1.80)
-    minimax/MiniMax-M2.1: 1M tokens (8%, $0.20)
+    cc/claude-opus-5: 8M tokens (67%, $0)
+    glm/glm-5.1: 3M tokens (25%, $1.80)
+    minimax/MiniMax-M2.7: 1M tokens (8%, $0.20)
 
 budget-combo:
   Solicitudes: 234
@@ -386,8 +386,8 @@ budget-combo:
   Costo: $1.20
 
   Desglose:
-    glm/glm-4.7: 4M tokens (67%, $2.40)
-    if/kimi-k2-thinking: 2M tokens (33%, $0)
+    glm/glm-5.1: 4M tokens (67%, $2.40)
+    kr/glm-5: 2M tokens (33%, $0)
 ```
 
 ---
@@ -416,7 +416,7 @@ Entrega:
 ⚠️ Cuota de Claude Code 80% usada
    2.5h restantes (se reinicia en 1h 30m)
 
-⚠️ Cuota de GLM-4.7 90% usada
+⚠️ Cuota de GLM 5.1 90% usada
    1M tokens restantes (se reinicia en 5h)
 
 ✅ Cuota de Gemini CLI reiniciada
@@ -465,7 +465,7 @@ Dashboard → Settings → Anomaly Detection
 Ejemplo de alerta:
 ⚠️ Pico de costo detectado
    Hoy: $12.50 (2.5× promedio diario)
-   Razón: Alto uso de GLM-4.7 (20M tokens)
+   Razón: Alto uso de GLM 5.1 (20M tokens)
    Sugerencia: Verifica si los modelos principales tienen cuota agotada
 ```
 
@@ -487,7 +487,7 @@ Rutina diaria:
 Revisión matutina:
   ✅ Claude Code: 5h disponibles (reinicio fresco)
   ✅ Gemini CLI: 1K solicitudes disponibles
-  ⚠️ GLM-4.7: 2M tokens restantes (se reinicia 10AM)
+  ⚠️ GLM 5.1: 2M tokens restantes (se reinicia 10AM)
 
 Acción: Usar Claude Code para el trabajo matutino
 ```
@@ -512,11 +512,11 @@ Dashboard → Analytics → Combos:
 
 **Ejemplo:**
 ```
-Actual: cc/claude-opus → glm/glm-4.7
+Actual: cc/claude-opus-5 → glm/glm-5.1
   80% vía Claude (bueno)
   20% vía GLM ($12/mes)
 
-Optimizado: gc/gemini-3-flash → cc/claude-opus → glm/glm-4.7
+Optimizado: vertex/gemini-3-flash-preview → cc/claude-opus-5 → glm/glm-5.1
   50% vía Gemini (gratis)
   40% vía Claude (suscripción)
   10% vía GLM ($6/mes)
@@ -530,7 +530,7 @@ Ahorros: $6/mes
 Dashboard → Quota → Reset Schedule:
   Claude Code: 5h rolling + Semanal lunes
   Gemini CLI: Diario 00:00 UTC + Mensual día 1
-  GLM-4.7: Diario 10:00 AM hora Beijing
+  GLM 5.1: Diario 10:00 AM hora Beijing
   MiniMax: Ventana rolling 5h
 ```
 
@@ -589,7 +589,7 @@ Response:
     },
     {
       "id": "glm",
-      "name": "GLM-4.7",
+      "name": "GLM 5.1",
       "quota": {
         "used": 7000000,
         "limit": 10000000,
@@ -628,13 +628,13 @@ Response:
   },
   "byModel": [
     {
-      "model": "cc/claude-opus-4-5",
+      "model": "cc/claude-opus-5",
       "requests": 456,
       "tokens": 15000000,
       "cost": 0
     },
     {
-      "model": "glm/glm-4.7",
+      "model": "glm/glm-5.1",
       "requests": 234,
       "tokens": 8000000,
       "cost": 4.80

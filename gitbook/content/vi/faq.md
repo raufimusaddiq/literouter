@@ -28,21 +28,20 @@ Nó định tuyến request thông minh qua nhiều provider AI bằng hệ th�
 ### Tier 1: Subscription (Dùng đầu tiên)
 - **Claude Code** (Pro/Max): $20-100/tháng - Quota 5 giờ + hàng tuần
 - **OpenAI Codex** (Plus/Pro): $20-200/tháng - Quota 5 giờ + hàng tuần
-- **Gemini CLI**: MIỄN PHÍ - 180K completions/tháng + 1K/ngày
+- **Gemini CLI**: Đã đóng ngày 2026-06-18
 - **GitHub Copilot**: $10-19/tháng - Reset hàng tháng
 - **Antigravity**: MIỄN PHÍ - Tương tự Gemini
 
 **Mục tiêu:** Dùng hết mọi quota trước khi reset!
 
 ### Tier 2: Cheap (Backup)
-- **GLM-4.7**: $0.60/$2.20 per 1M tokens - Reset 10AM hàng ngày
-- **MiniMax M2.1**: $0.20/$1.00 per 1M tokens - 5 giờ rolling
+- **GLM 5.1**: $0.60/$2.20 per 1M tokens - Reset 10AM hàng ngày
+- **MiniMax M2.7**: $0.20/$1.00 per 1M tokens - 5 giờ rolling
 - **Kimi K2**: $9/tháng cố định (10M tokens)
 
 **Mục tiêu:** Rẻ hơn 90% so với ChatGPT API ($20/1M)!
 
 ### Tier 3: Free (Khẩn cấp)
-- **iFlow**: 8 model MIỄN PHÍ (Kimi K2, Qwen3, GLM, MiniMax...)
 - **Qwen**: 3 model MIỄN PHÍ (Qwen3 Coder Plus/Flash, Vision)
 - **Kiro**: 2 model MIỄN PHÍ (Claude Sonnet 4.5, Haiku 4.5)
 
@@ -55,8 +54,7 @@ Nó định tuyến request thông minh qua nhiều provider AI bằng hệ th�
 **Có, LiteRouter hoàn toàn miễn phí và mã nguồn mở 100%.**
 
 **Provider free tier có sẵn:**
-- **Gemini CLI** - 180K completions/tháng (MIỄN PHÍ tài khoản Google)
-- **iFlow** - 8 model không giới hạn (MIỄN PHÍ OAuth)
+- **Gemini CLI** - 2026-06-18: đã đóng
 - **Qwen** - 3 model không giới hạn (MIỄN PHÍ OAuth)
 - **Kiro** - Claude Sonnet/Haiku (MIỄN PHÍ AWS Builder ID)
 
@@ -78,13 +76,12 @@ Nó định tuyến request thông minh qua nhiều provider AI bằng hệ th�
 - **Antigravity** (Google) - Gemini 3 Pro, Claude Sonnet 4.5
 
 ### Cheap Providers
-- **GLM** (Zhipu AI) - GLM 4.7, GLM 4.6V Vision
-- **MiniMax** - MiniMax M2.1
+- **GLM** (Zhipu AI) - GLM 5.1, GLM 4.6V Vision
+- **MiniMax** - MiniMax M2.7
 - **Kimi** (Moonshot AI) - Kimi Latest
 - **OpenRouter** - Passthrough đến mọi model OpenRouter
 
 ### Free Providers
-- **iFlow** - 8 models (Kimi K2, Qwen3, GLM, MiniMax, DeepSeek...)
 - **Qwen** - 3 models (Qwen3 Coder Plus/Flash, Vision)
 - **Kiro** - 2 models (Claude Sonnet 4.5, Haiku 4.5)
 
@@ -102,9 +99,9 @@ Xem [tài liệu providers](providers/subscription.md) để biết chi tiết.
 
 ```
 Example combo: "premium-coding"
-1. cc/claude-opus-4-5 (Subscription primary)
-2. glm/glm-4.7 (Cheap backup)
-3. if/kimi-k2 (Free emergency)
+1. cc/claude-opus-5 (Subscription primary)
+2. glm/glm-5.1 (Cheap backup)
+3. kr/deepseek-3.2 (Free emergency)
 
 → Auto-switches when quota exhausted
 → Never stops coding
@@ -142,7 +139,7 @@ Xem [tài liệu combos](features/combos.md) để biết ví dụ.
 - **5 giờ rolling** - Claude Code, Codex, MiniMax
 - **Reset hàng ngày** - Gemini CLI (1K/ngày), GLM (10AM)
 - **Reset hàng tuần** - Claude Code, Codex (quota thêm)
-- **Reset hàng tháng** - Gemini CLI (180K), GitHub Copilot (ngày 1)
+- **Reset hàng tháng** - Kiro (~50 credits), GitHub Copilot (ngày 1)
 
 **Xem quota:**
 ```
@@ -166,7 +163,7 @@ Xem [tài liệu quota tracking](features/quota-tracking.md) để biết chi ti
 Cursor Settings → Models → Advanced:
   OpenAI API Base URL: https://9router.com/v1
   OpenAI API Key: [from dashboard]
-  Model: cc/claude-opus-4-5-20251101
+  Model: cc/claude-opus-5
 ```
 
 **Thay thế:** Self-host trên VPS với domain công khai:

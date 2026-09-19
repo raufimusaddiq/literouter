@@ -43,8 +43,8 @@ LiteRouter 提供以下 Codex 模型:
 
 | 模型 ID | 描述 |
 |----------|-------------|
-| `cx/gpt-5.2-codex` | GPT-5.2 Codex - 最新版本 |
-| `cx/gpt-5.1-codex-max` | GPT-5.1 Codex Max - 扩展上下文 |
+| `cx/gpt-5.5` | GPT-5.2 Codex - 最新版本 |
+| `cx/gpt-5.4` | GPT-5.1 Codex Max - 扩展上下文 |
 
 ## 使用示例
 
@@ -52,22 +52,22 @@ LiteRouter 提供以下 Codex 模型:
 
 ```bash
 # 使用 GPT-5.2 Codex
-codex --model cx/gpt-5.2-codex "Write a function to sort an array"
+codex --model cx/gpt-5.5 "Write a function to sort an array"
 
 # 使用 GPT-5.1 Codex Max
-codex --model cx/gpt-5.1-codex-max "Explain this complex algorithm"
+codex --model cx/gpt-5.4 "Explain this complex algorithm"
 ```
 
 ### 代码生成
 
 ```bash
-codex --model cx/gpt-5.2-codex "Create a REST API endpoint for user authentication"
+codex --model cx/gpt-5.5 "Create a REST API endpoint for user authentication"
 ```
 
 ### 代码解释
 
 ```bash
-codex --model cx/gpt-5.1-codex-max "Explain what this code does: $(cat myfile.js)"
+codex --model cx/gpt-5.4 "Explain what this code does: $(cat myfile.js)"
 ```
 
 ## 配置文件
@@ -78,7 +78,7 @@ codex --model cx/gpt-5.1-codex-max "Explain what this code does: $(cat myfile.js
 {
   "baseUrl": "http://localhost:20128/v1",
   "apiKey": "your-9router-api-key",
-  "defaultModel": "cx/gpt-5.2-codex"
+  "defaultModel": "cx/gpt-5.5"
 }
 ```
 
@@ -132,5 +132,5 @@ export OPENAI_TIMEOUT=60  # 秒
 
 ```bash
 export CODEX_DEBUG=true
-codex --model cx/gpt-5.2-codex "Your prompt"
+codex --model cx/gpt-5.5 "Your prompt"
 ```

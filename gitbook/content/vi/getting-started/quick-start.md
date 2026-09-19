@@ -32,7 +32,7 @@ Bạn có 3 cách để kết nối provider:
 
 #### Cách A: OAuth (Subscription Provider)
 
-**Tốt nhất cho:** Claude Code, Codex, Gemini CLI, GitHub Copilot
+**Tốt nhất cho:** Claude Code, Codex, GitHub Copilot, Cursor
 
 ```
 Dashboard → Providers → Connect [Provider]
@@ -44,7 +44,7 @@ Dashboard → Providers → Connect [Provider]
 1. Click "Connect Claude Code"
 2. Đăng nhập tài khoản Claude
 3. Cho phép LiteRouter
-4. ✅ Xong! Dùng model: `cc/claude-opus-4-5-20251101`
+4. ✅ Xong! Dùng model: `cc/claude-opus-5`
 
 #### Cách B: API Key (Cheap Provider)
 
@@ -57,15 +57,15 @@ Dashboard → Providers → Add API Key
 → Save
 ```
 
-**Ví dụ: GLM-4.7**
+**Ví dụ: GLM 5.1**
 1. Đăng ký tại [Zhipu AI](https://open.bigmodel.cn/)
 2. Lấy API key từ Coding Plan
 3. Dashboard → Add API Key → Provider: `glm` → Paste key
-4. ✅ Xong! Dùng model: `glm/glm-4.7`
+4. ✅ Xong! Dùng model: `glm/glm-5.1`
 
 #### Cách C: Free Provider (Miễn phí)
 
-**Tốt nhất cho:** iFlow, Qwen, Kiro
+**Tốt nhất cho:** Kiro, OpenCode Free, Vertex AI
 
 ```
 Dashboard → Providers → Connect [Free Provider]
@@ -73,11 +73,11 @@ Dashboard → Providers → Connect [Free Provider]
 → Unlimited usage
 ```
 
-**Ví dụ: iFlow**
-1. Click "Connect iFlow"
-2. Đăng nhập tài khoản iFlow
+**Ví dụ: Kiro**
+1. Click "Connect Kiro"
+2. Đăng nhập AWS Builder ID / Google / GitHub
 3. Cho phép
-4. ✅ Xong! Dùng 8 model: `if/kimi-k2-thinking`, `if/qwen3-coder-plus`, v.v.
+4. ✅ Xong! Dùng các model tier miễn phí: `kr/glm-5`, `kr/deepseek-3.2`, v.v.
 
 ---
 
@@ -91,7 +91,7 @@ Trỏ công cụ code của bạn tới LiteRouter:
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
   OpenAI API Key: [from 9router dashboard]
-  Model: cc/claude-opus-4-5-20251101
+  Model: cc/claude-opus-5
 ```
 
 ### Claude Desktop
@@ -111,7 +111,7 @@ Sửa `~/.claude/config.json`:
 Provider: OpenAI Compatible
 Base URL: http://localhost:20128/v1
 API Key: [from dashboard]
-Model: cc/claude-opus-4-5-20251101
+Model: cc/claude-opus-5
 ```
 
 ### Codex CLI
@@ -134,17 +134,17 @@ Dashboard → Combos → Create New
 
 Name: premium-coding
 Models:
-  1. cc/claude-opus-4-5-20251101 (Subscription primary)
-  2. glm/glm-4.7 (Cheap backup, $0.6/1M)
-  3. if/kimi-k2-thinking (Free fallback)
+  1. cc/claude-opus-5 (Subscription primary)
+  2. glm/glm-5.1 (Cheap backup, $0.6/1M)
+  3. kr/glm-5 (Free fallback)
 
 Use in CLI: premium-coding
 ```
 
 **Cách hoạt động:**
 1. Thử Claude Opus trước (subscription của bạn)
-2. Nếu hết quota → GLM-4.7 (siêu rẻ)
-3. Nếu hết budget → iFlow (miễn phí)
+2. Nếu hết quota → GLM 5.1 (siêu rẻ)
+3. Nếu hết budget → Kiro / OpenCode Free / Vertex (miễn phí)
 4. Zero downtime, chuyển đổi tự động!
 
 ---
@@ -154,48 +154,48 @@ Use in CLI: premium-coding
 ### Subscription Models (Dùng đầu tiên)
 
 **Claude Code (`cc/`)** - Subscription Pro/Max:
-- `cc/claude-opus-4-5-20251101` - Claude 4.5 Opus
-- `cc/claude-sonnet-4-5-20250929` - Claude 4.5 Sonnet
+- `cc/claude-opus-5` - Claude 4.5 Opus
+- `cc/claude-sonnet-5` - Claude 4.5 Sonnet
 - `cc/claude-haiku-4-5-20251001` - Claude 4.5 Haiku
 
 **Codex (`cx/`)** - Subscription Plus/Pro:
-- `cx/gpt-5.2-codex` - GPT 5.2 Codex
-- `cx/gpt-5.1-codex-max` - GPT 5.1 Codex Max
+- `cx/gpt-5.5` - GPT 5.2 Codex
+- `cx/gpt-5.4` - GPT 5.1 Codex Max
 
-**Gemini CLI (`gc/`)** - MIỄN PHÍ 180K/tháng:
-- `gc/gemini-3-flash-preview` - Gemini 3 Flash Preview
-- `gc/gemini-2.5-pro` - Gemini 2.5 Pro
+**Vertex AI (`vertex/`)** - credit $300 GCP:
+- `vertex/gemini-3-flash-preview` - Gemini 3 Flash Preview
+- `vertex/gemini-3.1-pro-preview` - Gemini 3.1 Pro
 
 **GitHub Copilot (`gh/`)** - Subscription:
-- `gh/gpt-5` - GPT-5
-- `gh/claude-4.5-sonnet` - Claude 4.5 Sonnet
+- `gh/gpt-5.4` - GPT-5
+- `gh/claude-sonnet-4.6` - Claude 4.5 Sonnet
 
 ### Cheap Models (Backup)
 
 **GLM (`glm/`)** - $0.6/$2.2 per 1M:
-- `glm/glm-4.7` - GLM 4.7 (reset 10AM hàng ngày)
+- `glm/glm-5.1` - GLM 5.1 (reset 10AM hàng ngày)
 
 **MiniMax (`minimax/`)** - $0.20/$1.00 per 1M:
-- `minimax/MiniMax-M2.1` - MiniMax M2.1 (reset 5h)
+- `minimax/MiniMax-M2.7` - MiniMax M2.7 (reset 5h)
 
 **Kimi (`kimi/`)** - $9/tháng (10M tokens):
-- `kimi/kimi-latest` - Kimi Latest
+- `kimi/kimi-k2.5` - Kimi Latest
 
 ### Model MIỄN PHÍ (Khẩn cấp)
 
-**iFlow (`if/`)** - 8 models MIỄN PHÍ:
-- `if/kimi-k2-thinking` - Kimi K2 Thinking
-- `if/qwen3-coder-plus` - Qwen3 Coder Plus
-- `if/glm-4.7` - GLM 4.7
-- `if/deepseek-r1` - DeepSeek R1
+**Kiro (`kr/`)** - ~50 credits/tháng MIỄN PHÍ (~50 credits/tháng):
+- `kr/glm-5` - Kimi K2 Thinking
+- `kr/qwen3-coder-next` - Qwen3 Coder Next
+- `glm/glm-5.1` - GLM 5.1
+- `deepseek/deepseek-reasoner` - DeepSeek R1
 
-**Qwen (`qw/`)** - 3 models MIỄN PHÍ:
-- `qw/qwen3-coder-plus` - Qwen3 Coder Plus
-- `qw/qwen3-coder-flash` - Qwen3 Coder Flash
+**OpenCode Free (`oc/`)** - MIỄN PHÍ, không cần auth:
+- `vertex/gemini-3.1-pro-preview` - Qwen3 Coder Plus
+- `vertex/gemini-3-flash-preview` - Qwen3 Coder Flash
 
 **Kiro (`kr/`)** - 2 models MIỄN PHÍ:
-- `kr/claude-sonnet-4.5` - Claude Sonnet 4.5
-- `kr/claude-haiku-4.5` - Claude Haiku 4.5
+- `kr/glm-5` - Claude Sonnet 4.5
+- `kr/deepseek-3.2` - Claude Haiku 4.5
 
 ---
 
@@ -204,10 +204,10 @@ Use in CLI: premium-coding
 ### Ngân sách hàng tháng: $10-20/tháng
 
 ```
-1. Use Gemini CLI free tier (180K/month) for quick tasks
+1. Use the free tier (Kiro / OpenCode Free / Vertex) for quick tasks
 2. Use Claude Code subscription quota fully (you already pay)
 3. Fallback to GLM ($0.6/1M) when quota out
-4. Emergency: MiniMax M2.1 ($0.20/1M) or iFlow (free)
+4. Emergency: MiniMax M2.7 ($0.20/1M) or Kiro / OpenCode Free (free)
 
 Real example (100M tokens/month):
   60M via Gemini CLI: $0 (free tier)
@@ -224,7 +224,7 @@ Daily routine:
 1. Morning: Fresh Claude Code quota (5h reset)
 2. Afternoon: Switch to Gemini CLI (1K/day)
 3. Evening: GLM daily quota (reset 10AM next day)
-4. Late night: MiniMax (5h rolling) or iFlow (free)
+4. Late night: MiniMax (5h rolling) or Kiro (free)
 
 → Code 24/7 with minimal extra cost!
 ```

@@ -64,7 +64,55 @@ Kết quả: Không bao giờ ngừng code, chi phí tối thiểu + tiết ki�
 
 ---
 
-## ⚡ Bắt đầu nhanh
+---
+
+## ⚖️ LiteRouter so với 9Router
+
+LiteRouter không phải là bản viết lại. Nó là 9Router gốc cộng thêm cờ runtime
+`MINIMAL_PROFILE`, một lớp cache hot-path nhỏ, và các hệ thống phụ được tắt đi.
+Routing engine, provider registry, transport matrix, dashboard và schema SQLite
+giữ nguyên — đó là lý do các bản vá từ upstream vẫn cherry-pick được.
+
+### Khác biệt thực tế
+
+| Hạng mục | 9Router / LiteRouter |
+| --- | --- |
+| Runtime profile | full | `MINIMAL_PROFILE=true` |
+| Đồng bộ danh mục model | nền chạy | `MODEL_CATALOG_SYNC=off` |
+| Refresh token | tác vụ nền chạy | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
+| Cache hot-read | không có | trong tiến trình (connections, combos, settings) |
+| Cache liên instance | — | Redis, **chỉ cache** (không lưu trữ) |
+| Tunnel / MITM | có | đã bỏ |
+| Cloud sync | có | đã bỏ |
+| Nguồn dữ liệu | SQLite | SQLite (không đổi) |
+
+### Hiệu năng so với 9Router đóng gói sẵn
+
+```text
+n=30, non-streaming, mock upstream:
+  median   16.53 ms -> 13.64 ms   (-17.5%)
+  p95      25.36 ms -> 19.40 ms   (-23.5%)
+
+Thời gian thực, upstream thật (kn/deepseek-v4-1-flash, n=24, 8 concurrent):
+  median   1715 ms  -> 1580 ms    (-7.9%)
+  p95      2053 ms  -> 2062 ms    không đổi
+```
+
+### Mức dùng RAM
+
+| Container | RSS rảnh | RSS sau burst | Giới hạn |
+| --- | --- | --- | --- |
+| 9Router (prod) | 192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 34-89 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | ~4.8 MiB | 5.8 MiB | 256 MiB |
+
+```text
+image size: ~1.03 GB both
+```
+
+---
+
+
 
 **1. Cài đặt toàn cục:**
 
@@ -85,7 +133,7 @@ Bảng điều khiển → Providers → Kết nối **Kiro AI** (~50 credits/th
 Cài đặt Claude Code/Codex/OpenClaw/Cursor/Cline/Antigravity:
   Endpoint: http://localhost:20128/v1
   API Key: [sao chép từ bảng điều khiển]
-  Model: kr/claude-sonnet-4.5
+  Model: kr/glm-5
 ```
 
 **Thế là xong!** Bắt đầu code ngay với các mô hình AI MIỄN PHÍ.
@@ -236,19 +284,19 @@ LiteRouter hoạt động liền mạch với tất cả các công cụ code AI
   <table>
     <tr>
       <td align="center" width="150">
-        <img src="../public/providers/iflow.png" width="70" alt="iFlow"/><br/>
-        <b>iFlow AI</b><br/>
-        <sub>8+ mô hình • Không giới hạn</sub>
+        <img src="../public/providers/kiro.png" width="70" alt="Kiro"/><br/>
+        <b>Kiro AI</b><br/>
+        <sub>~50 credits/tháng • Miễn phí</sub>
       </td>
       <td align="center" width="150">
-        <img src="../public/providers/qwen.png" width="70" alt="Qwen"/><br/>
-        <b>Qwen Code</b><br/>
-        <sub>3+ mô hình • Không giới hạn</sub>
+        <img src="../public/providers/opencode.png" width="70" alt="OpenCode Free"/><br/>
+        <b>OpenCode Free</b><br/>
+        <sub>Không cần auth • Danh sách model thay đổi</sub>
       </td>
       <td align="center" width="150">
-        <img src="../public/providers/gemini-cli.png" width="70" alt="Gemini CLI"/><br/>
-        <b>Gemini CLI</b><br/>
-        <sub>180K/tháng MIỄN PHÍ</sub>
+        <img src="../public/providers/gemini.png" width="70" alt="Vertex AI"/><br/>
+        <b>Vertex AI</b><br/>
+        <sub>$300 credits • Gemini 3.1 Pro/Flash</sub>
       </td>
       <td align="center" width="150">
         <img src="../public/providers/kiro.png" width="70" alt="Kiro"/><br/>
@@ -371,9 +419,9 @@ Tạo combo với tính năng phòng tự động:
 
 ```
 Combo: "my-coding-stack"
-  1. cc/claude-opus-4-6        (gói đăng ký của bạn)
-  2. glm/glm-4.7               (backup giá rẻ, $0.6/1M)
-  3. if/kimi-k2-thinking       (dự phòng miễn phí)
+  1. cc/claude-opus-5        (gói đăng ký của bạn)
+  2. glm/glm-5.1               (backup giá rẻ, $0.6/1M)
+  3. kr/glm-5       (dự phòng miễn phí)
 
 → Tự động chuyển đổi khi hết hạn mức hoặc xảy ra lỗi
 ```
@@ -445,8 +493,8 @@ Dịch chuyển liền mạch giữa các định dạng:
 > "Chi phí" hiển thị trong Phân tích sử dụng là **chỉ để theo dõi và so sánh**.
 > Bản thân LiteRouter **không bao giờ thu phí** bạn bất cứ thứ gì. Bạn chỉ trả tiền trực tiếp cho các nhà cung cấp (nếu sử dụng dịch vụ trả phí).
 >
-> **Ví dụ:** Nếu bảng điều khiển của bạn hiển thị "tổng chi phí $290" trong khi sử dụng các mô hìnhFlow, điều này đại diện cho
-> số tiền bạn sẽ phải trả nếu sử dụng API trả phí trực tiếp. Chi phí thực tế của bạn = **$0** (iFlow miễn phí không giới hạn).
+> **Ví dụ:** Nếu bảng điều khiển của bạn hiển thị "tổng chi phí $290" trong khi sử dụng các mô hình miễn phí, điều này đại diện cho
+> số tiền bạn sẽ phải trả nếu sử dụng API trả phí trực tiếp. Chi phí thực tế của bạn = **$0** (Kiro miễn phí trong hạn mức).
 >
 > Hãy coi nó như một "trình theo dõi tiết kiệm" cho thấy bạn đang tiết kiệm được bao nhiêu bằng cách sử dụng các mô hình miễn phí hoặc
 > định tuyến qua LiteRouter!
@@ -468,16 +516,15 @@ Dịch chuyển liền mạch giữa các định dạng:
 |------|----------|------|-------------|----------|
 | **💳 GÓI ĐĂNG KÝ** | Claude Code (Pro) | $20/tháng | 5h + hàng tuần | Đã đăng ký rồi |
 | | Codex (Plus/Pro) | $20-200/tháng | 5h + hàng tuần | Người dùng OpenAI |
-| | Gemini CLI | **MIỄN PHÍ** | 180K/tháng + 1K/ngày | Tất cả mọi người! |
 | | GitHub Copilot | $10-19/tháng | Hàng tháng | Người dùng GitHub |
-| **💰 GIÁ RẺ** | GLM-4.7 | $0.6/1M | 10AM hàng ngày | Backup ngân sách |
-| | MiniMax M21 | $0.2/1M | 5 giờ luân phiên | Lựa chọn rẻ nhất |
+| **💰 GIÁ RẺ** | GLM-5.1 | $0.6/1M | 10AM hàng ngày | Backup ngân sách |
+| | MiniMax M2.7 | $0.2/1M | 5 giờ luân phiên | Lựa chọn rẻ nhất |
 | | Kimi K2 | $9/tháng cố định | 10M token/tháng | Chi phí dự đoán được |
-| **🆓 MIỄN PHÍ** | iFlow | $0 | Không giới hạn | 8 mô hình miễn phí |
-| | Qwen | $0 | Không giới hạn | 3 mô hình miễn phí |
-| | Kiro | $0 | Không giới hạn | Claude miễn phí |
+| **🆓 MIỄN PHÍ** | Kiro | $0 | ~50 credits/tháng | GLM 5 + DeepSeek 3.2 miễn phí |
+| | OpenCode Free | $0 | Thay đổi | Không cần auth |
+| | Vertex AI | $300 credits | Tài khoản GCP mới | Gemini 3.1 Pro/Flash |
 
-**💡 Mẹo Chuyên nghiệp:** Bắt với combo Gemini CLI (180K miễn phí/tháng) + iFlow (không giới hạn miễn phí) = chi phí $0!
+**💡 Mẹo Chuyên nghiệp:** combo Kiro + OpenCode Free + Vertex AI = chi phí $0 trong hạn mức miễn phí!
 
 ---
 
@@ -488,7 +535,7 @@ Dịch chuyển liền mạch giữa các định dạng:
 ✅ **Phần mềm LiteRouter = MIỄN PHÍ mãi mãi** (mã nguồn mở, không bao giờ thu phí)
 ✅ **"Chi phí" trên bảng điều khiển = Chỉ để Hiển thị/Theo dõi** (không phải hóa đơn thực tế)
  **Bạn trả tiền trực tiếp cho nhà cung cấp** (gói đăng ký hoặc phí API)
-✅ **Nhà cung cấp MIỄN PHÍ vẫn MIỄN PHÍ** (iFlow, Kiro, Qwen = $0 không giới hạn)
+✅ **Nhà cung cấp MIỄN PHÍ vẫn MIỄN PHÍ** (Kiro, OpenCode Free, Vertex = $0 không giới hạn)
 ❌ **LiteRouter không bao giờ gửi hóa đơn** hoặc tính phí thẻ của bạn
 
 **Cách Hoạt động của Hiển thị Chi phí:**
@@ -503,7 +550,7 @@ Hiển thị trên Bảng điều khiển:
 • Chi phí Hiển thị: $290
 
 Kiểm tra Thực tế:
-• Nhà cung cấp: iFlow (MIỄN PHÍ không giới hạn)
+• Nhà cung cấp: Kiro / OpenCode Free / Vertex
 • Thanh toán Thực tế: $0.00
 • Ý nghĩa của $290: Số tiền bạn TIẾT KIỆM được bằng cách sử dụng mô hình miễn phí!
 ```
@@ -511,8 +558,8 @@ Kiểm tra Thực tế:
 **Quy tắc Thanh toán:**
 - **Nhà cung cấp gói đăng ký** (Claude Code, Codex): Trả tiền trực tiếp cho họ qua website của họ
 - **Nhà cung cấp giá rẻ** (GLM, MiniMax): Trả tiền trực tiếp cho họ, LiteRouter chỉ định tuyến
-- **Nhà cung cấp MIỄN PHÍ** (iFlow, Kiro, Qwen): Thực sự miễn phí mãi mãi, không có phí ẩn
-- **9**: Không bao giờ thu phí bất cứ thứ gì, ever
+- **Nhà cung cấp MIỄN PHÍ** (Kiro, OpenCode Free, Vertex): Miễn phí trong hạn mức, không có phí ẩn
+- **LiteRouter**: Không bao giờ thu phí bất cứ thứ gì
 
 ---
 
@@ -525,8 +572,8 @@ Kiểm tra Thực tế:
 **Giải pháp:**
 ```
 Combo: "maximize-claude"
-  1. cc/claude-opus-4-6        (sử dụng đầy đủ gói đăng ký)
-  2. glm/glm-4.7               (backup giá rẻ khi hết hạn mức  3. if/kimi-k2-thinking       (dự phòng khẩn cấp miễn phí)
+  1. cc/claude-opus-5        (sử dụng đầy đủ gói đăng ký)
+  2. glm/glm-5.1               (backup giá rẻ khi hết hạn mức  3. kr/glm-5       (dự phòng khẩn cấp miễn phí)
 
 Chi phí hàng tháng: $20 (gói đăng ký) + ~$5 (backup) = $25 tổng cộng
 so với $20 + chạm giới hạn = sự thất vọng
@@ -539,9 +586,9 @@ so với $20 + chạm giới hạn = sự thất vọng
 **Giải pháp:**
 ```
 Combo: "free-forever"
-  1. gc/gini-3-flash         (180K miễn phí/tháng)
-  2. if/kimi-k2-thinking       (không giới hạn miễn phí)
-  3. qw/qwen3-coder-plus       (không giới hạn miễn phí)
+  1. vertex/gemini-3-flash-preview (credit $300 GCP)
+  2. kr/glm-5       (không giới hạn miễn phí)
+  3. vertex/gemini-2.5-flash    (credit $300 GCP)
 
 Chi phí hàng tháng: $0
 Chất lượng: Các mô hình sẵn sàng cho production
@@ -554,11 +601,11 @@ Chất lượng: Các mô hình sẵn sàng cho production
 **Giải pháp:**
 ```
 Combo: "always-on"
-  1. cc/claude-opus-4-6        (chất lượng tốt nhất)
-  2. cx/gpt-5.2-codex          (gói đăng ký thứ hai)
-  3. glm/glm-4.7               (giá rẻ, reset hàng ngày)
-  4. minimax/MiniMax-M2.1      (rẻ nhất, reset 5h)
-  5. if/kimi-k2-thinking       (miễn phí không giới hạn)
+  1. cc/claude-opus-5        (chất lượng tốt nhất)
+  2. cx/gpt-5.4               (gói đăng ký thứ hai)
+  3. glm/glm-5.1               (giá rẻ, reset hàng ngày)
+  4. minimax/MiniMax-M2.7      (rẻ nhất, reset 5h)
+  5. kr/glm-5       (miễn phí không giới hạn)
 
 Kết quả: 5 lớp dự phòng = thời gian chết bằng không
 Chi phí tháng: $20-200 (gói đăng ký) + $10-20 (backup)
@@ -571,9 +618,9 @@ Chi phí tháng: $20-200 (gói đăng ký) + $10-20 (backup)
 **Giải pháp:**
 ```
 Combo: "openclaw-free"
-  1. if/glm-4.7                (không giới hạn miễn phí)
-  2. if/minimax-m2.1           (không giới hạn phí)
-  3. if/kimi-k2-thinking       (không giới hạn miễn phí)
+  1. kr/glm-5                (không giới hạn miễn phí)
+  2. kr/deepseek-3.2           (không giới hạn phí)
+  3. kr/glm-5       (không giới hạn miễn phí)
 
 Chi phí hàng tháng: $0
 Truy cập qua: WhatsApp, Telegram, Slack, Discord, iMessage, Signal...
@@ -590,7 +637,7 @@ Bảng điều khiển theo dõi mức sử dụng token của bạn và hiển 
 
 **Ví dụ:**
 - **Bảng điều khiển hiển thị:** "Tổng chi phí $290"
-- **Thực tế:** Bạn đang sử dụng iFlow (MIỄN PHÍ không giới hạn)
+- **Thực tế:** Bạn đang sử dụng Kiro / OpenCode Free / Vertex
 - **Chi phí thực tế của bạn:** **$0.00**
 - **Ý nghĩa của $290:** Số bạn **tiết kiệm** được bằng cách sử dụng các mô hình miễn phí thay vì API trả phí!
 
@@ -615,10 +662,10 @@ LiteRouter là một proxy/router cục bộ. Nó không cóẻ tín dụng củ
 <details>
 <summary><b>🆓 Các nhà cung cấp MIỄN PHÍ có thực sự không giới hạn không?</b></summary>
 
-**Có!** Các nhà cung cấp được đánh dấu là MIỄN PHÍ (iFlow, Kiro, Qwen) thực sự không giới hạn với **không có phí ẩn**.
+**Có!** Các nhà cung cấp được đánh dấu là MIỄN PHÍ (Kiro, OpenCode Free, Vertex) thực sự không giới hạn với **không có phí ẩn**.
 
 Đây là các dịch vụ miễn phí được cung cấp bởi các công ty tương ứng:
-- **iFlow**: Truy cập miễn phí không giới hạn vào hơn 8 mô hình qua OAuth
+- **Kiro**: ~50 credits/tháng miễn phí, GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next
 - **Kiro**: Các mô hình Claude miễn phí không giới hạn qua AWS Builder ID
 - **Qwen**: Truy cập miễn phí không giới hạn vào các mô hình Qwen qua xác thực thiết bị
 
@@ -635,15 +682,15 @@ LiteRouter chỉ định tuyến yêu cầu của bạn đến họ - không có
 
 1. **Bắt đầu với combo 100% miễn phí:**
    ```
-   1. gc/gemini-3-flash (180K/tháng miễn phí từ Google)
-   2. if/kimi-k2-thinking (không giới hạn miễn phí từ iFlow)
-   3. qw/qwen3-coder-plus (không giới hạn miễn phí từ Qwen)
+   1. vertex/gemini-3-flash-preview (credit $300 GCP)
+   2. kr/deepseek-3.2 (miễn phí từ Kiro)
+   3. vertex/gemini-2.5-flash    (credit $300 GCP)
    ```
    **Chi phí: $0/tháng**
 
 2. **Thêm backup giá rẻ** chỉ khi bạn cần:
    ```
-   4. glm/glm-4.7 ($0.6/1M token)
+   4. glm/glm-5.1 ($0.6/1M token)
    ```
    **Chi phí bổ sung:** Chỉ trả tiền cho những gì bạn sự sử dụng
 
@@ -690,7 +737,7 @@ Bảng điều khiển → Providers → Kết nối Claude Code
 → Theo dõi hạn mức 5 giờ + hàng tuần
 
 Các mô hình:
-  cc/claude-opus-4-6
+  cc/claude-opus-5
   cc/claude-sonnet-4-5-20250929
   cc/claude-haiku-4-5-20251001
 ```
@@ -705,23 +752,13 @@ Bảng điều khiển → Providers → Kết nối Codex
 → Reset 5 giờ + hàng tuần
 
 Các mô hình:
-  cx/gpt-5.2-codex
-  cx/gpt-5.1-codex-max
+    cx/gpt-5.1-codex-max
 ```
 
-### Gemini CLI (MIỄN PHÍ 180K/tháng!)
+### Gemini CLI (ĐÃ NGỪNG)
 
-```bash
-Bảng điều khiển → Providers → Kết nối Gemini CLI
-→ Google OAuth
-→ 180K hoàn thành/tháng + 1K/ngày
+**Tầng miễn phí Gemini CLI đã đóng ngày 2026-06-18.** Provider vẫn còn trong danh mục nhưng bị đánh dấu `deprecated`, và các request tới model `gc/` sẽ thất bại.
 
-Các hình:
-  gc/gemini-3-flash-preview
-  gc/gemini-2.5-pro
-```
-
-**Giá trị tốt nhất:** Tầng miễn phí khổng lồ! Sử dụng cái này trước các tầng trả phí.
 
 ### GitHub Copilot
 
@@ -731,9 +768,9 @@ Bảng điều khiển → Providers → Kết nối GitHub
 → Reset hàng tháng (ngày 1 của tháng)
 
 Các mô hình:
-  gh/gpt-5
-  gh/claude-4.5-sonnet
-  gh/gemini-3-pro
+  gh/gpt-5.4
+  gh/claude-sonnet-4.6
+  gh/gemini-3.1-pro-preview
 `
 
 </details>
@@ -741,7 +778,7 @@ Các mô hình:
 <details>
 <summary><b>💰 Các nhà cung cấp Giá rẻ (Backup)</b></summary>
 
-### GLM-4.7 (Reset hàng ngày, $0.6/1M)
+### GLM-5.1 (Reset hàng ngày, $0.6/1M)
 
 1. Đăng ký: [Zhipu AI](https://open.bigmodel.cn/)
 2. Lấy API key từ Coding Plan
@@ -749,17 +786,17 @@ Các mô hình:
    - Nhà cung cấp: `glm`
    - API Key: `your-key`
 
-**Sử dụng:** `glm/glm-4.7`
+**Sử dụng:** `glm/glm-5.1`
 
 **Mẹo Ch nghiệp:** Coding Plan cung cấp hạn mức gấp 3 lần với chi phí 1/7! Reset hàng ngày lúc 10:00 AM.
 
-### MiniMax M2.1 (Reset 5h, $0.20/1M)
+### MiniMax M2.7 (Reset 5h, $0.20/1M)
 
 1. Đăng ký: [MiniMax](https://www.minimax.io/)
 2. Lấy API key
 3. Bảng điều khiển → Thêm API Key
 
-**Sử dụng:** `minimax/MiniMax-M2.1`
+**Sử dụng:** `minimax/MiniMax-M2.7`
 
 **Mẹo Chuyên nghiệp:** Lựa chọn rẻ nhất cho ngữ cảnh dài (1M)!
 
@@ -778,19 +815,18 @@ Các mô hình:
 <details>
 <summary><b>🆓 Các nhà cung cấp MIỄN PHÍ (Dự phòng Khẩn cấpb></summary>
 
-### iFlow (8 mô hình MIỄN PHÍ)
+### Kiro (~50 credits/tháng MIỄN PHÍ)
 
 ```bash
-Bảng điều khiển → Kết nối iFlow
-→ Đăng nhập OAuth iFlow
+Bảng điều khiển → Connect Kiro
+→ AWS Builder ID / Google / GitHub
 → Sử dụng không giới hạn
 
 Các mô hình:
-  if/kimi-k2-thinking
-  if/qwen3-coder-plus
-  if/glm-4.7
-  if/minimax-m2
-  if/deepseek-r1
+  kr/glm-5
+  kr/qwen3-coder-next
+  kr/glm-5
+  kr/qwen3-coder-next
 ```
 
 ### Qwen (3 mô hình MIỄN PHÍ)
@@ -801,8 +837,8 @@ Bảng điều khiển → Kết nối Qwen
 → Sử dụng không giới hạn
 
 Các mô hình:
-  qw/qwen3-coder-plus
-  qw/qwen3-coder-flash
+  vertex/gemini-2.5-flash
+  vertex/gemini-2.5-flash
 ```
 
 ### Kiro (Claude MIỄN PHÍ)
@@ -813,8 +849,8 @@ Bảng điều khiển → Kết nối Kiro
 → Sử dụng không giới hạn
 
 Các mô hình:
-  kr/claude-sonnet-4.5
-  kr/claude-haiku-4.5
+  kr/glm-5
+  kr/qwen3-coder-next
 ```
 
 </details>
@@ -829,9 +865,9 @@ Bảng điều khiển → Combos → Tạo Mới
 
 Tên: premium-coding
 Các mô hình:
-  1. cc/claude-opus-4-6 (Gói đăng ký chính)
-  2. glm/glm-4.7 (Backup giá rẻ, $0.6/1M)
-  3. minimax/MiniMax-M2.1 (Dự phòng rẻ nhất, $0.20/M)
+  1. cc/claude-opus-5 (Gói đăng ký chính)
+  2. glm/glm-5.1 (Backup giá rẻ, $0.6/1M)
+  3. minimax/MiniMax-M2.7 (Dự phòng rẻ nhất, $0.20/M)
 
 Sử dụng trong CLI: premium-coding
 
@@ -847,9 +883,9 @@ Ví dụ chi phí hàng tháng (100M token):
 ```
 Tên: free-combo
 Các mô hình:
-  1. gc/gemini-3-flash-preview (180K miễn phíáng)
-  2. if/kimi-k2-thinking (không giới hạn)
-  3. qw/qwen3-coder-plus (không giới hạn)
+  1. vertex/gemini-3-flash-preview (credit $300 GCP)
+  2. kr/glm-5 (không giới hạn)
+  3. vertex/gemini-2.5-flash    (credit $300 GCP)
 
 Chi phí: $0 mãi mãi!
 ```
@@ -865,7 +901,7 @@ Chi phí: $0 mãi mãi!
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
   OpenAI API Key: [từ bảng điều khiển 9router]
-  Model: cc/claude-opus-4-6
+  Model: cc/claude-opus-5
 ``Hoặc sử dụng combo: `premium-coding`
 
 ### Claude Code
@@ -897,7 +933,7 @@ codex "prompt của bạn"
   "agents": {
     "defaults": {
       "model": {
-        "primary": "9router/if/glm-4.7"
+        "primary": "literouter/kr/glm-5"
       }
     }
   },
@@ -909,8 +945,8 @@ codex "prompt của bạn"
         "api": "openai-completions",
         "models": [
           {
-            "id": "if/glm-4.7",
-            "name": "glm-4.7"
+            "id": "kr/glm-5",
+            "name": "glm-5"
           }
         ]
       }
@@ -927,7 +963,7 @@ codex "prompt của bạn"
 Provider: OpenAI Compatible
 Base URL: http://localhost:20128/v1
 API Key: [từ bảng điều khiển]
-Model: cc/claude-opus-4-6
+Model: cc/claude-opus-5
 ```
 
 </details>
@@ -1050,40 +1086,33 @@ Ghi chú:
 <summary><b>Xem tất cả các mô hình có sẵn</b></summary>
 
 **Claude Code (`cc/`)** - Pro/Max:
-- `cc/claude-opus-4-6`
+- `cc/claude-opus-5`
 - `cc/claude-sonnet-4-5-2025029`
 - `cc/claude-haiku-4-5-20251001`
 
 **Codex (`cx/`)** - Plus/Pro:
-- `cx/gpt-5.2-codex`
 - `cx/gpt-5.1-codex-max`
 
-**Gemini CLI (`gc/`)** - MIỄN PHÍ:
-- `gc/gemini-3-flash-preview`
-- `gc/gemini-2.5-pro`
+**Vertex AI (`vertex/`)** - $300 credits:
+- `vertex/gemini-3.1-pro-preview`
+- `vertex/gemini-3-flash-preview`
+- `vertex/gemini-2.5-flash`
 
 **GitHub Copilot (`gh/`)**:
-- `gh/gpt-5`
-- `gh/claude-.5-sonnet`
+- `gh/gpt-5.4`
+- `gh/claude-sonnet-4.6`
 
 **GLM (`glm/`)** - $0.6/1M:
-- `glm/glm-4.7`
+- `glm/glm-5.1`
 
 **MiniMax (`minimax/`)** - $0.2/1M:
-- `minimax/MiniMax-M2.1`
+- `minimax/MiniMax-M2.7`
 
-**iFlow (`if/`)** - MIỄN PHÍ:
-- `if/kimi-k2-thinking`
-- `if/qwen3-coder-plus`
-- `if/deepseek-r1`
-
-**Qwen (`qw/`)** - MIỄN PHÍ:
-- `qw/q3-coder-plus`
-- `qw/qwen3-coder-flash`
-
-**Kiro (`kr/`)** - MIỄN PHÍ:
-- `kr/claude-sonnet-4.5`
-- `kr/claude-haiku-4.5`
+**Kiro (`kr/`)** - MIỄN PHÍ (~50 credits/tháng):
+- `kr/glm-5`
+- `kr/deepseek-3.2`
+- `kr/qwen3-coder-next`
+- `kr/qwen3-coder-next`
 
 </details>
 
@@ -1097,7 +1126,7 @@ Ghi chú:
 
 **Gi hạn tốc độ (Rate limiting)**
 - Hết hạn mức gói đăng ký → Dự phòng sang GLM/MiniMax
-- Thêm combo: `cc/claude-opus-4-6 → glm/glm-4.7 → if/kimi-k2-thinking`
+- Thêm combo: `cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5`
 
 **Token OAuth hết hạn**
 - Tự động làm mới bởi LiteRouter
@@ -1106,7 +1135,7 @@ Ghi chú:
 **Chi phí cao**
 - Kiểm tra thống kê sử dụng trong Bảng điều khiển
 - Chuyển mô hình chính sang GLM/MiniMax
-- Sử dụng tầng miễn phí (Gemini CLI, iFlow) cho các tác vụ không quan trọng
+- Sử dụng tầng miễn phí (Kiro, OpenCode Free, Vertex) cho các tác vụ không quan trọng
 
 **Bảng điều khiển mở sai cổng**
 - Đặt `PORT=20128` và `NEXT_PUBLIC_BASE_URL=http://localhost:20128`
@@ -1156,7 +1185,7 @@ Authorization: Bearer your-api-key
 Content-Type: application/json
 
 {
-  "model": "cc/claude-opus-4-6",
+  "model": "cc/claude-opus-5",
   "messages": [
     {"role":user", "content": "Viết một hàm để..."}
   ],

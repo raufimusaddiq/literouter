@@ -8,188 +8,111 @@
 
 無料階層プロバイダーは、サブスクリプションと低価格クォータが消費された時の**フォールバック**:
 
-- 🆓 **iFlow** - 8モデル無料 (Kimi K2、Qwen3、GLM 4.7、MiniMax M2...)
-- 🆓 **Qwen** - 3モデル無料 (Qwen3 Coder Plus/Flash、Vision)
-- 🆓 **Kiro** - 2モデル無料 (Claude Sonnet 4.5、Haiku 4.5)
+- 🆓 **Kiro** - Claude と Qwen 系、無料枠は月 ~50 クレジット
+- 🆓 **OpenCode Free** - 認証不要、モデル一覧は上流から取得
+- 🆓 **Vertex AI** - 新規 Google Cloud アカウントの $300 クレジットで Gemini
 
-**戦略:** 緊急バックアップとして使用。無制限利用、永久ゼロコスト!
-
----
-
-## iFlow (8つの無料モデル)
-
-### 料金
-
-| プラン | 月額コスト | モデル | クォータ |
-|------|--------------|--------|-------|
-| FREE | $0 | 8モデル | 無制限 |
-
-**最高の価値:** 無料階層で最も多くのモデル! Kimi K2、Qwen3、GLM、MiniMax、DeepSeek。
-
-### セットアップ
-
-**ステップ1: ダッシュボード経由で接続**
-
-```bash
-9router
-# Dashboard → Providers → Connect iFlow
-```
-
-**ステップ2: iFlow OAuthログイン**
-
-- 「Connect iFlow」をクリック
-- ブラウザが開く → iFlowログインページ
-- アカウント作成またはログイン
-- 権限を付与
-- 自動トークン更新有効化
-
-**ステップ3: CLIで使用**
-
-```
-Model: if/kimi-k2-thinking
-       if/kimi-k2
-       if/qwen3-coder-plus
-       if/glm-4.7
-       if/minimax-m2
-       if/deepseek-r1
-       if/deepseek-v3.2-chat
-       if/deepseek-v3.2-reasoner
-```
-
-### 利用可能なモデル
-
-| モデルID | 説明 | 最適用途 |
-|----------|-------------|----------|
-| `if/kimi-k2-thinking` | Kimi K2 Thinking | 複雑な推論 |
-| `if/kimi-k2` | Kimi K2 | 汎用コーディング |
-| `if/qwen3-coder-plus` | Qwen3 Coder Plus | コード生成 |
-| `if/glm-4.7` | GLM 4.7 | 中国語 + 英語 |
-| `if/minimax-m2` | MiniMax M2 | 長いコンテキスト |
-| `if/deepseek-r1` | DeepSeek R1 | 推論タスク |
-| `if/deepseek-v3.2-chat` | DeepSeek V3.2 Chat | 会話 |
-| `if/deepseek-v3.2-reasoner` | DeepSeek V3.2 Reasoner | 複雑なロジック |
-
-### プロのヒント
-
-- **8モデル無料** - 無料階層で最多種類
-- **無制限利用** - クォータ制限なし
-- **Kimi K2 Thinking** - 複雑な推論に最適
-- **DeepSeek R1** - 強力な推論能力
+**戦略:** 緊急バックアップとして使用。無料枠には上限があるので、永続的な主力ではなく余力として扱ってください。
 
 ---
 
-## Qwen (3つの無料モデル)
+Kiro(毎月の無料クレジットで Claude)
 
 ### 料金
 
-| プラン | 月額コスト | モデル | クォータ |
+| プラン | 月額 | モデル | クォータ |
 |------|--------------|--------|-------|
-| FREE | $0 | 3モデル | 無制限 |
+| FREE | $0 | Claude と Qwen 系 | 月 ~50 クレジット |
+| Pro | $20 | 同一カタログ | 1,000 クレジット |
 
-### セットアップ
+**注意:** Kiro は 2025 年 9 月に有料モデルへ移行しました。新規アカウントは最初の 30 日間に 500 トライアルクレジットが追加されます。`kr/` エイリアスはカタログ全体を公開します。`/v1/models` を実行して、自分のアカウントで実際に到達できる範囲を確認してください。
 
-**ステップ1: ダッシュボード経由で接続**
+### 设置
 
-```bash
-9router
-# Dashboard → Providers → Connect Qwen
-```
-
-**ステップ2: デバイスコード認可**
-
-- 「Connect Qwen」をクリック
-- ダッシュボードがデバイスコードを表示
-- 認可URLを訪問
-- デバイスコードを入力
-- Qwenアカウントにログイン
-- 自動トークン更新有効化
-
-**ステップ3: CLIで使用**
-
-```
-Model: qw/qwen3-coder-plus
-       qw/qwen3-coder-flash
-       qw/vision-model
-```
-
-### 利用可能なモデル
-
-| モデルID | 説明 | 最適用途 |
-|----------|-------------|----------|
-| `qw/qwen3-coder-plus` | Qwen3 Coder Plus | 高度なコーディング |
-| `qw/qwen3-coder-flash` | Qwen3 Coder Flash | 高速応答 |
-| `qw/vision-model` | Qwen3 Vision | 画像分析 |
-
-### プロのヒント
-
-- **Qwen3 Coder Plus** - 強力なコーディング能力
-- **Qwen3 Coder Flash** - クイックタスク用に高速
-- **Visionモデル** - 無料画像分析
-- **無制限利用** - クォータ制限なし
-
----
-
-## Kiro (Claude無料)
-
-### 料金
-
-| プラン | 月額コスト | モデル | クォータ |
-|------|--------------|--------|-------|
-| FREE | $0 | Claude Sonnet 4.5、Haiku 4.5 | 無制限 |
-
-**最高の価値:** 無料Claude! 有料Claude Codeと同じ品質。
-
-### セットアップ
-
-**ステップ1: ダッシュボード経由で接続**
+**ステップ 1: ダッシュボードから接続**
 
 ```bash
 9router
 # Dashboard → Providers → Connect Kiro
 ```
 
-**ステップ2: AWS Builder IDまたはOAuth**
+**ステップ 2: AWS Builder ID または OAuth**
 
-- 「Connect Kiro」をクリック
-- ログイン方法を選択:
-  - AWS Builder ID (推奨)
-  - Googleアカウント
-  - GitHubアカウント
-- 権限を付与
-- 自動トークン更新有効化
+- AWS Builder ID(推奨)、Google、GitHub から選択
+- 権限を許可
+- トークン自動更新が有効
 
-**ステップ3: CLIで使用**
+**ステップ 3: CLI で使用**
 
 ```
-Model: kr/claude-sonnet-4.5
-       kr/claude-haiku-4.5
+Model: kr/glm-5
+       kr/deepseek-3.2
+       kr/qwen3-coder-next
 ```
 
-### 利用可能なモデル
+### ヒント
 
-| モデルID | 説明 | 最適用途 |
-|----------|-------------|----------|
-| `kr/claude-sonnet-4.5` | Claude Sonnet 4.5 | バランスのとれた品質/速度 |
-| `kr/claude-haiku-4.5` | Claude Haiku 4.5 | 高速応答 |
+- **AWS Builder ID** - 最も簡単な接続経路
+- **クレジットは共有** されるため、Claude を大量に使う日は 1 か月分を消費することがあります
+- **本番ワークロードを流す前に** ダッシュボードでクォータを確認してください
 
-### プロのヒント
+---
 
-- **無料Claude** - 有料階層と同じ品質
-- **AWS Builder ID** - AWSアカウントで簡単セットアップ
-- **無制限利用** - クォータ制限なし
-- **最高品質** - Claude 4.5を無料で!
+## OpenCode Free(認証不要)
 
+### 设置
+
+```bash
+9router
+# Dashboard → Providers → Connect OpenCode Free
+```
+
+```
+Model: oc/<model-id>
+```
+
+**注意:** 無料モデル一覧は変動します。一部は期間限定プロモーションで、予告なく消えます。依存する本番コンボに `oc/` の ID をハードコードしないでください。
+
+---
+
+## Vertex AI(新規アカウント $300 クレジット)
+
+### 设置
+
+1. Google Cloud プロジェクトを作成し Vertex AI API を有効化。
+2. サービスアカウントを作成し JSON キーをダウンロード。
+3. ダッシュボード → Connect Vertex AI → JSON をアップロード。
+
+```
+Model: vertex/gemini-3.1-pro-preview
+       vertex/gemini-3-flash-preview
+       vertex/gemini-2.5-flash
+```
+
+**注意:** 2026 年 3 月以降、Gemini API エンドポイントは $300 クレジットを消費しません。provider を **Vertex AI Studio** エンドポイントに向けてください。
+
+---
+
+## 終了した無料枠
+
+以下は以前このドキュメントに記載されていたもので、現在は利用できません。これらを前提にコンボを組まないでください:
+
+| Provider | Status |
+|----------|--------|
+| **iFlow** | 2026 年に有料化 |
+| **Qwen Code** | 無料 OAuth 枠が 2026-04-15 に終了 |
+| **Gemini CLI** | サービスが 2026-06-18 に終了。カタログには残るが deprecated 扱い |
 ---
 
 ## 機能比較
 
 | プロバイダー | モデル | 最高のモデル | セットアップ | クォータ |
 |----------|--------|------------|-------|-------|
-| **iFlow** | 8 | Kimi K2 Thinking | OAuth | 無制限 |
-| **Qwen** | 3 | Qwen3 Coder Plus | デバイスコード | 無制限 |
-| **Kiro** | 2 | Claude Sonnet 4.5 | AWS Builder ID | 無制限 |
+| **Kiro** | カタログ全体 | Claude / Qwen 系 | AWS Builder ID、Google、GitHub | 月 ~50 クレジット |
+| **OpenCode Free** | 変動 | パススルー | 不要 | 期間限定 |
+| **Vertex AI** | 4+ | Gemini 3.1 Pro | サービスアカウント JSON | $300 / 90 日 |
 
-**勝者:** 種類はiFlow、品質はKiro!
+**勝者:** 幅広さは Kiro、ゼロコストの長いコンテキスト Gemini は Vertex。
 
 ---
 
@@ -201,7 +124,7 @@ Model: kr/claude-sonnet-4.5
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
   OpenAI API Key: [9routerダッシュボードから取得]
-  Model: if/kimi-k2-thinking
+  Model: kr/glm-5
 ```
 
 ### コンボを作成 (推奨)
@@ -211,9 +134,9 @@ Dashboard → Combos → Create New
 
 Name: free-combo
 Models:
-  1. if/kimi-k2-thinking (iFlowプライマリ)
-  2. qw/qwen3-coder-plus (Qwenバックアップ)
-  3. kr/claude-sonnet-4.5 (Kiro品質)
+  1. kr/glm-5 (Kiroプライマリ)
+  2. vertex/gemini-3.1-pro-preview (Qwenバックアップ)
+  3. kr/glm-5 (Kiro品質)
 
 CLIで使用: free-combo
 ```
@@ -231,21 +154,21 @@ Dashboard → Combos → Create New
 
 Name: complete-fallback
 Models:
-  1. gc/gemini-3-flash-preview (無料サブスクリプション)
-  2. cc/claude-opus-4-5 (有料サブスクリプション)
-  3. glm/glm-4.7 (低価格バックアップ、100万あたり$0.6)
-  4. minimax/MiniMax-M2.1 (最安、100万あたり$0.2)
-  5. if/kimi-k2-thinking (無料フォールバック)
-  6. kr/claude-sonnet-4.5 (無料品質)
+  1. vertex/gemini-3-flash-preview (無料サブスクリプション)
+  2. cc/claude-opus-5 (有料サブスクリプション)
+  3. glm/glm-5.1 (低価格バックアップ、100万あたり$0.6)
+  4. minimax/MiniMax-M2.7 (最安、100万あたり$0.2)
+  5. kr/glm-5 (無料フォールバック)
+  6. kr/glm-5 (無料品質)
 
 CLIで使用: complete-fallback
 ```
 
 **結果:**
-- Tier 1: 無料サブスクリプション (Gemini CLI)
+- Tier 1: 有料サブスクリプション (Claude Code、Codex)
 - Tier 2: 有料サブスクリプション (Claude Code)
 - Tier 3: 低価格バックアップ (GLM、MiniMax)
-- Tier 4: 無料フォールバック (iFlow、Kiro)
+- Tier 3: 無料クレジット (Kiro、Vertex AI)
 
 **コーディングが止まらない!**
 
@@ -270,11 +193,11 @@ CLIで使用: complete-fallback
 ### 2. 適切なモデルを選択
 
 ```
-複雑な推論: if/kimi-k2-thinking
-高速コーディング: qw/qwen3-coder-flash
-最高品質: kr/claude-sonnet-4.5
-長いコンテキスト: if/minimax-m2
-Visionタスク: qw/vision-model
+複雑な推論: kr/glm-5
+高速コーディング: vertex/gemini-3-flash-preview
+最高品質: kr/glm-5
+長いコンテキスト: minimax/MiniMax-M2.7
+Visionタスク: vertex/gemini-3-flash-preview
 ```
 
 ### 3. 無料のみのコンボを作成
@@ -284,9 +207,9 @@ Visionタスク: qw/vision-model
 
 Name: zero-cost
 Models:
-  1. kr/claude-sonnet-4.5 (最高品質)
-  2. if/kimi-k2-thinking (複雑なタスク)
-  3. qw/qwen3-coder-plus (高速コーディング)
+  1. kr/glm-5 (最高品質)
+  2. kr/glm-5 (複雑なタスク)
+  3. vertex/gemini-3.1-pro-preview (高速コーディング)
 
 コスト: 永久に$0!
 ```
@@ -314,9 +237,9 @@ Models:
 
 ```
 セットアップ:
-1. kr/claude-sonnet-4.5 (最高品質)
-2. if/kimi-k2-thinking (複雑な推論)
-3. qw/qwen3-coder-plus (高速コーディング)
+1. kr/glm-5 (最高品質)
+2. kr/glm-5 (複雑な推論)
+3. vertex/gemini-3.1-pro-preview (高速コーディング)
 
 月次コスト: $0
 利用: 無制限
@@ -331,9 +254,9 @@ Models:
 
 ```
 セットアップ:
-1. gc/gemini-3-flash-preview (月18万無料)
-2. glm/glm-4.7 (低価格バックアップ、100万あたり$0.6)
-3. if/kimi-k2-thinking (無料フォールバック)
+1. vertex/gemini-3-flash-preview (無料クレジット)
+2. glm/glm-5.1 (低価格バックアップ、100万あたり$0.6)
+3. kr/glm-5 (無料フォールバック)
 
 月次コスト: $5〜10
 利用: 1億以上のトークン
@@ -348,13 +271,13 @@ Models:
 
 ```
 セットアップ:
-1. gc/gemini-3-flash-preview (月18万無料)
-2. cc/claude-opus-4-5 (サブスクリプション$20〜100)
-3. cx/gpt-5.2-codex (サブスクリプション$20〜200)
-4. glm/glm-4.7 (低価格 100万あたり$0.6)
-5. minimax/MiniMax-M2.1 (最安 100万あたり$0.2)
-6. if/kimi-k2-thinking (無料無制限)
-7. kr/claude-sonnet-4.5 (無料品質)
+1. vertex/gemini-3-flash-preview (無料クレジット)
+2. cc/claude-opus-5 (サブスクリプション$20〜100)
+3. cx/gpt-5.5 (サブスクリプション$20〜200)
+4. glm/glm-5.1 (低価格 100万あたり$0.6)
+5. minimax/MiniMax-M2.7 (最安 100万あたり$0.2)
+6. kr/glm-5 (無料無制限)
+7. kr/glm-5 (無料品質)
 
 月次コスト: $40〜320 (サブスクリプション) + $10〜20 (低価格階層)
 利用: 5億以上のトークン
@@ -384,10 +307,10 @@ Models:
 
 **オプション3: LiteRouter完全戦略**
 ```
-Gemini CLI経由で6000万 (無料): $0
+Claude Code経由で3000万 (サブスクリプション): $0
 Claude Code経由で3000万 (サブスクリプション): $0追加
 GLM経由で800万 (低価格): $4.80
-iFlow経由で200万 (無料): $0
+MiniMax経由で200万 (低価格): $0.40
 合計: 月$4.80 + すでに持っているサブスクリプション
 節約: 月$1,995 (99.76%)
 ```

@@ -28,25 +28,26 @@
 ### 第 1 层:订阅(优先使用)
 - **Claude Code**(Pro/Max):$20-100/月 - 5 小时 + 每周配额
 - **OpenAI Codex**(Plus/Pro):$20-200/月 - 5 小时 + 每周配额
-- **Gemini CLI**:免费 - 每月 180K 次补全 + 每天 1K
 - **GitHub Copilot**:$10-19/月 - 每月重置
 - **Antigravity**:免费 - 类似 Gemini
 
 **目标:** 在配额重置前用掉每一点!
 
 ### 第 2 层:低价(备用)
-- **GLM-4.7**:每 1M tokens $0.60/$2.20 - 每日 10AM 重置
-- **MiniMax M2.1**:每 1M tokens $0.20/$1.00 - 5 小时滚动
+- **GLM 5.1**:每 1M tokens $0.60/$2.20 - 每日 10AM 重置
+- **MiniMax M2.7**:每 1M tokens $0.20/$1.00 - 5 小时滚动
 - **Kimi K2**:$9/月固定(10M tokens)
 
 **目标:** 比 ChatGPT API(每 1M $20)便宜 90%!
 
-### 第 3 层:免费(应急)
-- **iFlow**:8 个免费模型(Kimi K2、Qwen3、GLM、MiniMax...)
-- **Qwen**:3 个免费模型(Qwen3 Coder Plus/Flash、Vision)
-- **Kiro**:2 个免费模型(Claude Sonnet 4.5、Haiku 4.5)
+### 第 3 层:免费额度(应急)
+- **Kiro**:完整目录,免费层上限约 50 额度/月
+- **OpenCode Free**:无需认证,模型列表轮换
+- **Vertex AI**:新账号 $300 额度
 
-**目标:** 当其他配额都受限时零成本回退!
+**iFlow、Qwen Code 和 Gemini CLI 已于 2026 年停用免费层。**
+
+**目标:** 在额度用完前几乎零成本回退!
 
 ---
 
@@ -55,10 +56,9 @@
 **是的,LiteRouter 本身 100% 免费且开源。**
 
 **可用的免费层提供商:**
-- **Gemini CLI** - 每月 180K 次补全(免费 Google 账户)
-- **iFlow** - 8 个无限模型(免费 OAuth)
-- **Qwen** - 3 个无限模型(免费 OAuth)
-- **Kiro** - Claude Sonnet/Haiku(免费 AWS Builder ID)
+- **Kiro** - 每月 ~50 免费额度(AWS Builder ID、Google 或 GitHub)
+- **OpenCode Free** - 无需认证,模型列表轮换
+- **Vertex AI** - 新建 Google Cloud 账号的 $300 额度
 
 **只用免费层提供商,就可以永久免费编码!**
 
@@ -78,15 +78,15 @@
 - **Antigravity**(Google)- Gemini 3 Pro、Claude Sonnet 4.5
 
 ### 低价提供商
-- **GLM**(Zhipu AI)- GLM 4.7、GLM 4.6V Vision
-- **MiniMax** - MiniMax M2.1
+- **GLM**(Zhipu AI)- GLM 5.1、GLM 4.6V Vision
+- **MiniMax** - MiniMax M2.7
 - **Kimi**(Moonshot AI)- Kimi Latest
 - **OpenRouter** - 透传到任意 OpenRouter 模型
 
 ### 免费提供商
-- **iFlow** - 8 个模型(Kimi K2、Qwen3、GLM、MiniMax、DeepSeek...)
-- **Qwen** - 3 个模型(Qwen3 Coder Plus/Flash、Vision)
-- **Kiro** - 2 个模型(Claude Sonnet 4.5、Haiku 4.5)
+- **Kiro** - 每月 ~50 免费额度下的完整目录
+- **OpenCode Free** - 直通,模型列表轮换
+- **Vertex AI** - Gemini 3.1 Pro、Gemini 3 Flash、Gemini 2.5 Flash
 
 **合计:15+ 个提供商,50+ 个模型**
 
@@ -102,9 +102,9 @@
 
 ```
 示例组合: "premium-coding"
-1. cc/claude-opus-4-5(订阅主力)
-2. glm/glm-4.7(低价备用)
-3. if/kimi-k2(免费应急)
+1. cc/claude-opus-5(订阅主力)
+2. glm/glm-5.1(低价备用)
+3. kr/deepseek-3.2(免费应急)
 
 → 配额耗尽时自动切换
 → 永不停止编码
@@ -140,9 +140,9 @@
 
 **配额类型:**
 - **5 小时滚动** - Claude Code、Codex、MiniMax
-- **每日重置** - Gemini CLI(每日 1K)、GLM(10AM)
+- **每日重置** - GLM(10AM)
 - **每周重置** - Claude Code、Codex(额外配额)
-- **每月重置** - Gemini CLI(180K)、GitHub Copilot(1 日)
+- **每月重置** - Kiro(~50 额度)、GitHub Copilot(1 日)
 
 **查看配额:**
 ```
@@ -166,7 +166,7 @@
 Cursor Settings → Models → Advanced:
   OpenAI API Base URL: https://9router.com/v1
   OpenAI API Key: [从仪表盘获取]
-  Model: cc/claude-opus-4-5-20251101
+  Model: cc/claude-opus-5
 ```
 
 **替代方案:** 在 VPS 上自托管,使用公开域名:

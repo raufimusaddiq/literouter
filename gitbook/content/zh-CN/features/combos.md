@@ -12,9 +12,9 @@
 ```
 组合名: premium-coding
 模型:
-  1. cc/claude-opus-4-5-20251101 (首选)
-  2. glm/glm-4.7 (#1 配额耗尽时)
-  3. minimax/MiniMax-M2.1 (#2 配额耗尽时)
+  1. cc/claude-opus-5 (首选)
+  2. glm/glm-5.1 (#1 配额耗尽时)
+  3. minimax/MiniMax-M2.7 (#2 配额耗尽时)
 ```
 
 **CLI 中使用:**
@@ -30,7 +30,7 @@ LiteRouter 会按顺序自动尝试每个模型,直到成功为止。
 
 ### 1. 最大化订阅价值
 ```
-cc/claude-opus → glm/glm-4.7 → if/kimi-k2-thinking
+cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5
 
 → 先用订阅,低价备用,免费应急
 → 充分利用你已付费的订阅
@@ -38,7 +38,7 @@ cc/claude-opus → glm/glm-4.7 → if/kimi-k2-thinking
 
 ### 2. 最小化成本
 ```
-glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
+glm/glm-5.1 → minimax/MiniMax-M2.7 → kr/glm-5
 
 → 从最便宜的付费选项开始(每 1M $0.60)
 → 回退到更便宜的(每 1M $0.20)
@@ -48,7 +48,7 @@ glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
 
 ### 3. 保障 24/7 可用
 ```
-cc/claude-opus → cx/gpt-5.2-codex → glm/glm-4.7 → if/kimi-k2-thinking
+cc/claude-opus-5 → cx/gpt-5.5 → glm/glm-5.1 → kr/glm-5
 
 → 末尾总是放免费层
 → 永不耗尽配额
@@ -57,7 +57,7 @@ cc/claude-opus → cx/gpt-5.2-codex → glm/glm-4.7 → if/kimi-k2-thinking
 
 ### 4. 质量优化
 ```
-cc/claude-opus-4-5 → cx/gpt-5.2-codex → gc/gemini-3-pro
+cc/claude-opus-5 → cx/gpt-5.5 → vertex/gemini-3.1-pro-preview
 
 → 优先最好的模型
 → 回退到其他高端模型
@@ -95,9 +95,9 @@ premium-coding
 
 **选择模型:**
 ```
-1. cc/claude-opus-4-5-20251101
-2. glm/glm-4.7
-3. minimax/MiniMax-M2.1
+1. cc/claude-opus-5
+2. glm/glm-5.1
+3. minimax/MiniMax-M2.7
 ```
 
 **拖动排序** - 自上而下表示优先级。
@@ -129,9 +129,9 @@ Cursor/Cline/任意工具:
 
 名称: premium-coding
 模型:
-  1. cc/claude-opus-4-5-20251101
-  2. glm/glm-4.7
-  3. minimax/MiniMax-M2.1
+  1. cc/claude-opus-5
+  2. glm/glm-5.1
+  3. minimax/MiniMax-M2.7
 ```
 
 **用法:**
@@ -143,13 +143,13 @@ Cursor IDE:
 **行为:**
 ```
 早上(全新配额):
-  请求 → cc/claude-opus-4-5 ✅
+  请求 → cc/claude-opus-5 ✅
 
 下午(Claude 配额用完):
-  请求 → glm/glm-4.7 ✅ (自动切换)
+  请求 → glm/glm-5.1 ✅ (自动切换)
 
 晚上(GLM 配额用完):
-  请求 → minimax/MiniMax-M2.1 ✅ (自动切换)
+  请求 → minimax/MiniMax-M2.7 ✅ (自动切换)
 ```
 
 **月成本(100M tokens):**
@@ -173,9 +173,9 @@ Cursor IDE:
 
 名称: budget-combo
 模型:
-  1. glm/glm-4.7
-  2. minimax/MiniMax-M2.1
-  3. if/kimi-k2-thinking
+  1. glm/glm-5.1
+  2. minimax/MiniMax-M2.7
+  3. kr/glm-5
 ```
 
 **用法:**
@@ -188,17 +188,17 @@ Cline:
 
 **行为:**
 ```
-请求 → glm/glm-4.7
+请求 → glm/glm-5.1
   ✅ 每日配额可用 → 使用 GLM(每 1M $0.60)
   ❌ 配额耗尽 → 尝试 MiniMax(每 1M $0.20)
-  ❌ MiniMax 配额用完 → 使用 iFlow(免费)
+  ❌ MiniMax 配额用完 → 使用 Kiro 免费额度
 ```
 
 **月成本(100M tokens):**
 ```
 70M 通过 GLM: $42
 20M 通过 MiniMax: $4
-10M 通过 iFlow: $0
+10M 通过 Kiro 免费额度: $0
 合计: $46,而 ChatGPT API 需 $2000
 ```
 
@@ -215,9 +215,9 @@ Cline:
 
 名称: free-combo
 模型:
-  1. if/kimi-k2-thinking
-  2. qw/qwen3-coder-plus
-  3. kr/claude-sonnet-4.5
+  1. kr/glm-5
+  2. vertex/gemini-3.1-pro-preview
+  3. kr/glm-5
 ```
 
 **用法:**
@@ -228,8 +228,8 @@ Claude Desktop:
 
 **行为:**
 ```
-请求 → if/kimi-k2-thinking
-  ✅ 可用 → 使用 iFlow
+请求 → kr/glm-5
+  ✅ 可用 → 使用 Kiro
   ❌ 错误 → 尝试 Qwen
   ❌ 错误 → 尝试 Kiro
 ```
@@ -253,9 +253,9 @@ Claude Desktop:
 
 名称: quality-first
 模型:
-  1. cc/claude-opus-4-5-20251101
-  2. cx/gpt-5.2-codex
-  3. gc/gemini-3-pro-preview
+  1. cc/claude-opus-5
+  2. cx/gpt-5.5
+  3. vertex/gemini-3.1-pro-preview-preview
 ```
 
 **用法:**
@@ -267,9 +267,9 @@ Codex CLI:
 
 **行为:**
 ```
-请求 → cc/claude-opus-4-5
-  ❌ 配额用完 → cx/gpt-5.2-codex
-  ❌ 配额用完 → gc/gemini-3-pro-preview
+请求 → cc/claude-opus-5
+  ❌ 配额用完 → cx/gpt-5.5
+  ❌ 配额用完 → vertex/gemini-3.1-pro-preview-preview
   ❌ 全部用完 → 返回错误(无低价回退)
 ```
 
@@ -286,12 +286,12 @@ Codex CLI:
 
 名称: multi-sub
 模型:
-  1. gc/gemini-3-flash-preview (每月免费 180K)
-  2. cc/claude-opus-4-5-20251101 (Pro 订阅)
-  3. cx/gpt-5.2-codex (Plus 订阅)
-  4. gh/gpt-5 (Copilot 订阅)
-  5. glm/glm-4.7 (低价备用)
-  6. if/kimi-k2-thinking (免费应急)
+  1. vertex/gemini-3-flash-preview (免费额度)
+  2. cc/claude-opus-5 (Pro 订阅)
+  3. cx/gpt-5.5 (Plus 订阅)
+  4. gh/gpt-5.4 (Copilot 订阅)
+  5. glm/glm-5.1 (低价备用)
+  6. kr/glm-5 (免费应急)
 ```
 
 **月成本(200M tokens):**
@@ -301,7 +301,7 @@ Codex CLI:
 40M 通过 Codex: $0(订阅)
 20M 通过 Copilot: $0(订阅)
 8M 通过 GLM: $4.80
-2M 通过 iFlow: $0
+2M 通过 Kiro 免费额度: $0
 合计: $4.80 + 你已有的订阅
 ```
 
@@ -318,11 +318,11 @@ Codex CLI:
 
 名称: reset-optimized
 模型:
-  1. cc/claude-opus-4-5 (5h 重置, 早上用)
-  2. gc/gemini-3-flash (每日 1K, 下午用)
-  3. glm/glm-4.7 (每日 10AM 重置, 晚上用)
-  4. minimax/MiniMax-M2.1 (5h 滚动, 夜里用)
-  5. if/kimi-k2-thinking (无限, 应急)
+  1. cc/claude-opus-5 (5h 重置, 早上用)
+  2. vertex/gemini-3-flash-preview (每日 1K, 下午用)
+  3. glm/glm-5.1 (每日 10AM 重置, 晚上用)
+  4. minimax/MiniMax-M2.7 (5h 滚动, 夜里用)
+  5. kr/glm-5 (无限, 应急)
 ```
 
 **日常安排:**
@@ -330,7 +330,7 @@ Codex CLI:
 08:00 - 13:00: Claude Code(全新 5h 配额)
 13:00 - 18:00: Gemini CLI(每日 1K 配额)
 18:00 - 22:00: GLM(次日 10AM 重置)
-22:00 - 08:00: MiniMax(5h 滚动)或 iFlow
+22:00 - 08:00: MiniMax(5h 滚动)
 ```
 
 **结果**:24/7 编码,成本极低。
@@ -400,10 +400,10 @@ curl http://localhost:20128/v1/chat/completions \
 
 ```
 ✅ 好:
-cc/claude-opus → glm/glm-4.7 → if/kimi-k2-thinking
+cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5
 
 ❌ 不好:
-cc/claude-opus → glm/glm-4.7
+cc/claude-opus-5 → glm/glm-5.1
 (无免费回退,可能耗尽配额)
 ```
 
@@ -413,10 +413,10 @@ cc/claude-opus → glm/glm-4.7
 
 ```
 ✅ 好:
-glm/glm-4.7 → minimax/MiniMax-M2.1 → cc/claude-opus
+glm/glm-5.1 → minimax/MiniMax-M2.7 → cc/claude-opus-5
 
 ❌ 不好:
-cc/claude-opus → glm/glm-4.7
+cc/claude-opus-5 → glm/glm-5.1
 (在简单任务上浪费订阅配额)
 ```
 
@@ -426,23 +426,23 @@ cc/claude-opus → glm/glm-4.7
 
 ```
 生产代码:
-cc/claude-opus → cx/gpt-5.2-codex → glm/glm-4.7
+cc/claude-opus-5 → cx/gpt-5.5 → glm/glm-5.1
 
 简单任务:
-glm/glm-4.7 → if/kimi-k2-thinking
+glm/glm-5.1 → kr/glm-5
 
 试验:
-if/kimi-k2-thinking → qw/qwen3-coder-plus
+kr/glm-5 → vertex/gemini-3.1-pro-preview
 ```
 
 ### 4. 考虑配额重置时间
 
 ```
 早上组合(配额刚刷新):
-cc/claude-opus → cx/gpt-5.2-codex
+cc/claude-opus-5 → cx/gpt-5.5
 
 晚上组合(配额大概率耗尽):
-glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
+glm/glm-5.1 → minimax/MiniMax-M2.7 → kr/glm-5
 ```
 
 ### 5. 为不同场景创建多个组合
@@ -461,8 +461,8 @@ quality-first: 生产代码
 ```
 仪表盘 → 分析 → 组合使用:
   premium-coding:
-    80% 通过 cc/claude-opus(良好,使用订阅)
-    15% 通过 glm/glm-4.7(可接受备用)
+    80% 通过 cc/claude-opus-5(良好,使用订阅)
+    15% 通过 glm/glm-5.1(可接受备用)
     5% 通过 minimax(罕见回退)
 ```
 
@@ -486,9 +486,9 @@ quality-first: 生产代码
 
 ```
 仪表盘 → 组合 → 编辑 → 模型:
-  ✅ cc/claude-opus-4-5(启用)
-  ❌ glm/glm-4.7(暂时禁用)
-  ✅ if/kimi-k2-thinking(启用)
+  ✅ cc/claude-opus-5(启用)
+  ❌ glm/glm-5.1(暂时禁用)
+  ✅ kr/glm-5(启用)
 ```
 
 **用途**:暂时禁用昂贵模型而不删除组合。

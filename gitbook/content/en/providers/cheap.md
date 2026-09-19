@@ -8,15 +8,15 @@ When subscription quota runs out, pay pennies instead of dollars. ~90% cheaper t
 
 Cheap tier providers are your **backup** when subscription quota exhausted:
 
-- 💰 **GLM-4.7** - $0.6/$2.2 per 1M tokens (daily reset)
-- 💰 **MiniMax M2.1** - $0.2/$1.0 per 1M tokens (5h reset)
-- 💰 **Kimi K2** - $9/month flat (10M tokens)
+- 💰 **GLM** - $0.6/$2.2 per 1M tokens (daily reset)
+- 💰 **MiniMax** - $0.2/$1.0 per 1M tokens (5h reset)
+- 💰 **Kimi** - $9/month flat (10M tokens)
 
 **Strategy:** Use after subscription quota out, before free tier. Massive cost savings vs ChatGPT API ($20/1M).
 
 ---
 
-## GLM-4.7 (Daily Reset)
+## GLM (Daily Reset)
 
 ### Pricing
 
@@ -58,16 +58,16 @@ API Key: zhipu-your-api-key-here
 **Step 4: Use in CLI**
 
 ```
-Model: glm/glm-4.7
-       glm/glm-4.6v (vision)
+Model: glm/glm-5.1
+       glm/glm-5
 ```
 
 ### Available Models
 
 | Model ID | Description | Context | Best For |
 |----------|-------------|---------|----------|
-| `glm/glm-4.7` | GLM 4.7 | 128K | Coding, general tasks |
-| `glm/glm-4.6v` | GLM 4.6V Vision | 128K | Image analysis |
+| `glm/glm-5.1` | GLM 5.1 | 128K | Coding, general tasks |
+| `glm/glm-5` | GLM 5 | 128K | Coding, general tasks |
 
 ### Pro Tips
 
@@ -89,7 +89,7 @@ Plan your heavy tasks around reset time!
 
 ---
 
-## MiniMax M2.1 (5-Hour Reset)
+## MiniMax M2.7 (5-Hour Reset)
 
 ### Pricing
 
@@ -130,14 +130,14 @@ API Key: your-minimax-api-key
 **Step 4: Use in CLI**
 
 ```
-Model: minimax/MiniMax-M2.1
+Model: minimax/MiniMax-M2.7
 ```
 
 ### Available Models
 
 | Model ID | Description | Context | Best For |
 |----------|-------------|---------|----------|
-| `minimax/MiniMax-M2.1` | MiniMax M2.1 | 1M tokens | Long context, coding |
+| `minimax/MiniMax-M2.7` | MiniMax M2.7 | 1M tokens | Long context, coding |
 
 ### Pro Tips
 
@@ -162,7 +162,7 @@ Code 24/7 with minimal cost!
 
 ---
 
-## Kimi K2 (Flat $9/month)
+## Kimi K2.5 (Flat $9/month)
 
 ### Pricing
 
@@ -203,14 +203,14 @@ API Key: your-kimi-api-key
 **Step 4: Use in CLI**
 
 ```
-Model: kimi/kimi-latest
+Model: kimi/kimi-k2.5
 ```
 
 ### Available Models
 
 | Model ID | Description | Context | Best For |
 |----------|-------------|---------|----------|
-| `kimi/kimi-latest` | Kimi Latest | 200K | General coding |
+| `kimi/kimi-k2.5` | Kimi K2.5 | 200K | General coding |
 
 ### Pro Tips
 
@@ -239,9 +239,9 @@ Total: 10M tokens = $9 flat
 
 | Provider | Input/1M | Output/1M | Reset | 10M Cost | Best For |
 |----------|----------|-----------|-------|----------|----------|
-| **GLM-4.7** | $0.60 | $2.20 | Daily 10AM | $6-22 | Daily quota users |
-| **MiniMax M2.1** | $0.20 | $1.00 | 5-hour | $2-10 | **Cheapest!** |
-| **Kimi K2** | $0.90 | $0.90 | Monthly | **$9 flat** | Consistent usage |
+| **GLM** | $0.60 | $2.20 | Daily 10AM | $6-22 | Daily quota users |
+| **MiniMax** | $0.20 | $1.00 | 5-hour | $2-10 | **Cheapest!** |
+| **Kimi** | $0.90 | $0.90 | Monthly | **$9 flat** | Consistent usage |
 | ChatGPT API | $20.00 | $20.00 | None | $200 | ❌ Expensive |
 
 **Savings:** 90-95% cheaper than ChatGPT API!
@@ -255,8 +255,8 @@ Total: 10M tokens = $9 flat
 ```
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
-  OpenAI API Key: [from 9router dashboard]
-  Model: glm/glm-4.7
+  OpenAI API Key: [from LiteRouter dashboard]
+  Model: glm/glm-5.1
 ```
 
 ### Create Combo (Recommended)
@@ -266,10 +266,10 @@ Dashboard → Combos → Create New
 
 Name: cheap-backup
 Models:
-  1. cc/claude-opus-4-5 (Subscription primary)
-  2. glm/glm-4.7 (Cheap backup, daily reset)
-  3. minimax/MiniMax-M2.1 (Cheapest fallback)
-  4. if/kimi-k2-thinking (FREE emergency)
+  1. cc/claude-opus-5 (Subscription primary)
+  2. glm/glm-5.1 (Cheap backup, daily reset)
+  3. minimax/MiniMax-M2.7 (Cheapest fallback)
+  4. kr/glm-5 (FREE credit emergency)
 
 Use in CLI: cheap-backup
 ```
@@ -293,8 +293,8 @@ Afternoon: Subscription quota
 Evening: MiniMax (5h reset)
 → Cheap fallback for late work
 
-Night: Free tier (iFlow)
-→ Zero cost emergency backup
+Night: Kiro free credits
+→ Near-zero cost emergency backup
 ```
 
 ### Strategy 2: Budget-First
@@ -303,7 +303,7 @@ Night: Free tier (iFlow)
 Set monthly budget: $20
 
 Allocation:
-- $9 Kimi K2 (10M tokens flat)
+- $9 Kimi (10M tokens flat)
 - $6 GLM daily quota (10M tokens)
 - $5 MiniMax overflow (25M tokens)
 
@@ -315,14 +315,12 @@ vs 1M tokens for $20 on ChatGPT API!
 
 ```
 Priority:
-1. Gemini CLI (180K/month FREE)
-2. Claude Code (subscription you already pay)
-3. GLM-4.7 (cheap backup, $0.6/1M)
-4. MiniMax M2.1 (cheapest, $0.2/1M)
-5. iFlow (FREE emergency)
+1. Claude Code (subscription you already pay)
+2. GLM (cheap backup, $0.6/1M)
+3. MiniMax (cheapest, $0.2/1M)
+4. Kiro (FREE credit emergency)
 
 Monthly cost example (100M tokens):
-- 60M via Gemini CLI: $0 (free)
 - 30M via Claude Code: $0 (subscription)
 - 8M via GLM: $4.80
 - 2M via MiniMax: $0.40
@@ -338,8 +336,8 @@ Total: $5.20/month!
 ```
 Breakdown:
 - 60M via subscription (Claude/Codex): $0 extra
-- 30M via GLM-4.7: $18
-- 10M via MiniMax M2.1: $2
+- 30M via GLM: $18
+- 10M via MiniMax: $2
 
 Total: $20/month
 vs $2000 on ChatGPT API!
@@ -351,7 +349,7 @@ Savings: 99% cheaper!
 
 ```
 Strategy:
-- $9 Kimi K2 (10M tokens)
+- $9 Kimi (10M tokens)
 - $1 MiniMax overflow (5M tokens)
 
 Total: 15M tokens for $10
@@ -406,10 +404,10 @@ Coding Plan: 3× quota (same price!)
 
 ```
 Combo:
-1. gc/gemini-3-flash (FREE primary)
-2. glm/glm-4.7 (cheap backup)
-3. minimax/MiniMax-M2.1 (cheapest)
-4. if/kimi-k2-thinking (FREE emergency)
+1. kr/glm-5 (free credit primary)
+2. glm/glm-5.1 (cheap backup)
+3. minimax/MiniMax-M2.7 (cheapest)
+4. vertex/gemini-3-flash-preview (free credit emergency)
 
 Result: Minimize costs, maximize uptime
 ```

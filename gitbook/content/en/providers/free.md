@@ -8,136 +8,25 @@ Emergency backup when everything else is quota-limited. Code 24/7 with zero cost
 
 Free tier providers are your **fallback** when subscription and cheap quota exhausted:
 
-- 🆓 **iFlow** - 8 models FREE (Kimi K2, Qwen3, GLM 4.7, MiniMax M2...)
-- 🆓 **Qwen** - 3 models FREE (Qwen3 Coder Plus/Flash, Vision)
-- 🆓 **Kiro** - 2 models FREE (Claude Sonnet 4.5, Haiku 4.5)
+- 🆓 **Kiro** - Claude and Qwen models, free tier capped at ~50 credits/month
+- 🆓 **OpenCode Free** - no auth required, model list auto-fetched upstream
+- 🆓 **Vertex AI** - Gemini models on the $300 new-account Google Cloud credit
 
-**Strategy:** Use as emergency backup. Unlimited usage, zero cost forever!
+**Strategy:** Use as emergency backup. Free tiers are capped or promotional, so treat them as overflow rather than a permanent primary.
 
 ---
 
-## iFlow (8 FREE Models)
+## Kiro (Claude on a free monthly credit)
 
 ### Pricing
 
 | Plan | Monthly Cost | Models | Quota |
 |------|--------------|--------|-------|
-| FREE | $0 | 8 models | Unlimited |
+| FREE | $0 | Claude and Qwen families | ~50 credits/month |
+| Pro | $20 | same catalog | 1,000 credits |
+| Pro+ / Pro Max / Power | $40 / $100 / $200 | same catalog | 2,000 / 5,000 / 10,000 credits |
 
-**Best Value:** Most models in free tier! Kimi K2, Qwen3, GLM, MiniMax, DeepSeek.
-
-### Setup
-
-**Step 1: Connect via Dashboard**
-
-```bash
-9router
-# Dashboard → Providers → Connect iFlow
-```
-
-**Step 2: iFlow OAuth Login**
-
-- Click "Connect iFlow"
-- Browser opens → iFlow login page
-- Create account or login
-- Grant permissions
-- Auto token refresh enabled
-
-**Step 3: Use in CLI**
-
-```
-Model: if/kimi-k2-thinking
-       if/kimi-k2
-       if/qwen3-coder-plus
-       if/glm-4.7
-       if/minimax-m2
-       if/deepseek-r1
-       if/deepseek-v3.2-chat
-       if/deepseek-v3.2-reasoner
-```
-
-### Available Models
-
-| Model ID | Description | Best For |
-|----------|-------------|----------|
-| `if/kimi-k2-thinking` | Kimi K2 Thinking | Complex reasoning |
-| `if/kimi-k2` | Kimi K2 | General coding |
-| `if/qwen3-coder-plus` | Qwen3 Coder Plus | Code generation |
-| `if/glm-4.7` | GLM 4.7 | Chinese + English |
-| `if/minimax-m2` | MiniMax M2 | Long context |
-| `if/deepseek-r1` | DeepSeek R1 | Reasoning tasks |
-| `if/deepseek-v3.2-chat` | DeepSeek V3.2 Chat | Conversational |
-| `if/deepseek-v3.2-reasoner` | DeepSeek V3.2 Reasoner | Complex logic |
-
-### Pro Tips
-
-- **8 models FREE** - Most variety in free tier
-- **Unlimited usage** - No quota limits
-- **Kimi K2 Thinking** - Best for complex reasoning
-- **DeepSeek R1** - Strong reasoning capabilities
-
----
-
-## Qwen (3 FREE Models)
-
-### Pricing
-
-| Plan | Monthly Cost | Models | Quota |
-|------|--------------|--------|-------|
-| FREE | $0 | 3 models | Unlimited |
-
-### Setup
-
-**Step 1: Connect via Dashboard**
-
-```bash
-9router
-# Dashboard → Providers → Connect Qwen
-```
-
-**Step 2: Device Code Authorization**
-
-- Click "Connect Qwen"
-- Dashboard shows device code
-- Visit authorization URL
-- Enter device code
-- Login to Qwen account
-- Auto token refresh enabled
-
-**Step 3: Use in CLI**
-
-```
-Model: qw/qwen3-coder-plus
-       qw/qwen3-coder-flash
-       qw/vision-model
-```
-
-### Available Models
-
-| Model ID | Description | Best For |
-|----------|-------------|----------|
-| `qw/qwen3-coder-plus` | Qwen3 Coder Plus | Advanced coding |
-| `qw/qwen3-coder-flash` | Qwen3 Coder Flash | Fast responses |
-| `qw/vision-model` | Qwen3 Vision | Image analysis |
-
-### Pro Tips
-
-- **Qwen3 Coder Plus** - Strong coding capabilities
-- **Qwen3 Coder Flash** - Fast for quick tasks
-- **Vision model** - FREE image analysis
-- **Unlimited usage** - No quota limits
-
----
-
-## Kiro (Claude FREE)
-
-### Pricing
-
-| Plan | Monthly Cost | Models | Quota |
-|------|--------------|--------|-------|
-| FREE | $0 | Claude Sonnet 4.5, Haiku 4.5 | Unlimited |
-
-**Best Value:** FREE Claude! Same quality as paid Claude Code.
+**Note:** Kiro moved to a paid model in Sep 2025. New accounts also get 500 trial credits in the first 30 days. The `kr/` alias exposes the full catalog; run `/v1/models` to see what your account can actually reach.
 
 ### Setup
 
@@ -161,23 +50,65 @@ Model: qw/qwen3-coder-plus
 **Step 3: Use in CLI**
 
 ```
-Model: kr/claude-sonnet-4.5
-       kr/claude-haiku-4.5
+Model: kr/glm-5
+       kr/deepseek-3.2
+       kr/qwen3-coder-next
 ```
-
-### Available Models
-
-| Model ID | Description | Best For |
-|----------|-------------|----------|
-| `kr/claude-sonnet-4.5` | Claude Sonnet 4.5 | Balanced quality/speed |
-| `kr/claude-haiku-4.5` | Claude Haiku 4.5 | Fast responses |
 
 ### Pro Tips
 
-- **FREE Claude** - Same quality as paid tier
-- **AWS Builder ID** - Easy setup with AWS account
-- **Unlimited usage** - No quota limits
-- **Best quality** - Claude 4.5 for free!
+- **AWS Builder ID** - easiest setup path
+- **Credits are shared** across every model on the account, so a heavy Claude day can drain the month
+- **Check quota in the dashboard** before routing production work here
+
+---
+
+## OpenCode Free (no auth)
+
+### Setup
+
+```bash
+9router
+# Dashboard → Providers → Connect OpenCode Free
+```
+
+No login. LiteRouter acts as a passthrough proxy and the model list is fetched from upstream.
+
+```
+Model: oc/<model-id>
+```
+
+**Note:** the free model list rotates. Some entries are limited-time promotions and disappear without notice, so never hard-code `oc/` IDs into a production combo you depend on.
+
+---
+
+## Vertex AI ($300 new-account credit)
+
+### Setup
+
+1. Create a Google Cloud project and enable the Vertex AI API.
+2. Create a service account and download the JSON key.
+3. Dashboard → Connect Vertex AI → upload the JSON.
+
+```
+Model: vertex/gemini-3.1-pro-preview
+       vertex/gemini-3-flash-preview
+       vertex/gemini-2.5-flash
+```
+
+**Note:** since Mar 2026 the Gemini API endpoint no longer consumes the $300 credit. Point the provider at the **Vertex AI Studio** endpoint instead.
+
+---
+
+## Discontinued free tiers
+
+These used to be documented here and no longer work. Do not build a combo around them:
+
+| Provider | Status |
+|----------|--------|
+| **iFlow** | Moved to paid in 2026 |
+| **Qwen Code** | Free OAuth tier discontinued 2026-04-15 |
+| **Gemini CLI** | Service shut down 2026-06-18; still present in the catalog but flagged deprecated |
 
 ---
 
@@ -185,11 +116,11 @@ Model: kr/claude-sonnet-4.5
 
 | Provider | Models | Best Model | Setup | Quota |
 |----------|--------|------------|-------|-------|
-| **iFlow** | 8 | Kimi K2 Thinking | OAuth | Unlimited |
-| **Qwen** | 3 | Qwen3 Coder Plus | Device Code | Unlimited |
-| **Kiro** | 2 | Claude Sonnet 4.5 | AWS Builder ID | Unlimited |
+| **Kiro** | full catalog | Claude / Qwen families | AWS Builder ID, Google, or GitHub | ~50 credits/month |
+| **OpenCode Free** | rotates | passthrough | none | promotional |
+| **Vertex AI** | 4+ | Gemini 3.1 Pro | service account JSON | $300 / 90 days |
 
-**Winner:** iFlow for variety, Kiro for quality!
+**Winner:** Kiro for breadth, Vertex for a long-context Gemini at zero cost while the credit lasts.
 
 ---
 
@@ -200,8 +131,8 @@ Model: kr/claude-sonnet-4.5
 ```
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
-  OpenAI API Key: [from 9router dashboard]
-  Model: if/kimi-k2-thinking
+  OpenAI API Key: [from LiteRouter dashboard]
+  Model: kr/glm-5
 ```
 
 ### Create Combo (Recommended)
@@ -211,9 +142,9 @@ Dashboard → Combos → Create New
 
 Name: free-combo
 Models:
-  1. if/kimi-k2-thinking (iFlow primary)
-  2. qw/qwen3-coder-plus (Qwen backup)
-  3. kr/claude-sonnet-4.5 (Kiro quality)
+  1. kr/glm-5 (Kiro primary)
+  2. vertex/gemini-3-flash-preview (Vertex backup)
+  3. oc/<model-id> (OpenCode Free overflow)
 
 Use in CLI: free-combo
 ```
@@ -231,21 +162,20 @@ Dashboard → Combos → Create New
 
 Name: complete-fallback
 Models:
-  1. gc/gemini-3-flash-preview (FREE subscription)
-  2. cc/claude-opus-4-5 (Paid subscription)
-  3. glm/glm-4.7 (Cheap backup, $0.6/1M)
-  4. minimax/MiniMax-M2.1 (Cheapest, $0.2/1M)
-  5. if/kimi-k2-thinking (FREE fallback)
-  6. kr/claude-sonnet-4.5 (FREE quality)
+  1. cc/claude-opus-5 (Paid subscription)
+  2. cx/gpt-5.5 (Paid subscription)
+  3. glm/glm-5.1 (Cheap backup, $0.6/1M)
+  4. minimax/MiniMax-M2.7 (Cheapest, $0.2/1M)
+  5. kr/glm-5 (FREE credit)
+  6. vertex/gemini-3-flash-preview (FREE credit)
 
 Use in CLI: complete-fallback
 ```
 
 **Result:**
-- Tier 1: FREE subscription (Gemini CLI)
-- Tier 2: Paid subscription (Claude Code)
-- Tier 3: Cheap backup (GLM, MiniMax)
-- Tier 4: FREE fallback (iFlow, Kiro)
+- Tier 1: Paid subscription (Claude Code, Codex)
+- Tier 2: Cheap backup (GLM, MiniMax)
+- Tier 3: FREE credit (Kiro, Vertex AI)
 
 **Never stop coding!**
 
@@ -270,11 +200,11 @@ Only use free tier when:
 ### 2. Choose Right Model
 
 ```
-Complex reasoning: if/kimi-k2-thinking
-Fast coding: qw/qwen3-coder-flash
-Best quality: kr/claude-sonnet-4.5
-Long context: if/minimax-m2
-Vision tasks: qw/vision-model
+Cheap reasoning: glm/glm-5.1
+Fast coding: vertex/gemini-3-flash-preview
+Free credit: kr/glm-5
+Long context: minimax/MiniMax-M2.7
+Promotional overflow: oc/<model-id>
 ```
 
 ### 3. Create Free-Only Combo
@@ -284,11 +214,11 @@ For zero-cost coding:
 
 Name: zero-cost
 Models:
-  1. kr/claude-sonnet-4.5 (Best quality)
-  2. if/kimi-k2-thinking (Complex tasks)
-  3. qw/qwen3-coder-plus (Fast coding)
+  1. kr/glm-5 (Kiro credit)
+  2. vertex/gemini-3.1-pro-preview (Vertex credit)
+  3. oc/<model-id> (OpenCode Free)
 
-Cost: $0 forever!
+Cost: $0 while the credits last!
 ```
 
 ### 4. Test Before Production
@@ -314,12 +244,12 @@ Save paid quota for:
 
 ```
 Setup:
-1. kr/claude-sonnet-4.5 (Best quality)
-2. if/kimi-k2-thinking (Complex reasoning)
-3. qw/qwen3-coder-plus (Fast coding)
+1. kr/glm-5 (Kiro credit)
+2. vertex/gemini-3.1-pro-preview (Vertex credit)
+3. oc/<model-id> (OpenCode Free)
 
 Monthly cost: $0
-Usage: Unlimited
+Usage: bounded by the monthly credit caps
 
 Perfect for:
 - Learning to code
@@ -331,9 +261,9 @@ Perfect for:
 
 ```
 Setup:
-1. gc/gemini-3-flash-preview (FREE 180K/month)
-2. glm/glm-4.7 (Cheap backup, $0.6/1M)
-3. if/kimi-k2-thinking (FREE fallback)
+1. glm/glm-5.1 (Cheap primary, $0.6/1M)
+2. vertex/gemini-3-flash-preview (FREE credit)
+3. kr/glm-5 (FREE credit fallback)
 
 Monthly cost: $5-10
 Usage: 100M+ tokens
@@ -348,13 +278,12 @@ Perfect for:
 
 ```
 Setup:
-1. gc/gemini-3-flash-preview (FREE 180K/month)
-2. cc/claude-opus-4-5 (Subscription $20-100)
-3. cx/gpt-5.2-codex (Subscription $20-200)
-4. glm/glm-4.7 (Cheap $0.6/1M)
-5. minimax/MiniMax-M2.1 (Cheapest $0.2/1M)
-6. if/kimi-k2-thinking (FREE unlimited)
-7. kr/claude-sonnet-4.5 (FREE quality)
+1. cc/claude-opus-5 (Subscription $20-100)
+2. cx/gpt-5.5 (Subscription $20-200)
+3. glm/glm-5.1 (Cheap $0.6/1M)
+4. minimax/MiniMax-M2.7 (Cheapest $0.2/1M)
+5. kr/glm-5 (FREE credit)
+6. vertex/gemini-3.1-pro-preview (FREE credit)
 
 Monthly cost: $40-320 (subscriptions) + $10-20 (cheap tier)
 Usage: 500M+ tokens
@@ -378,16 +307,16 @@ Perfect for:
 
 **Option 2: LiteRouter Free Tier Only**
 ```
-100M via free tier = $0/month
-Savings: $2,000/month (100%)
+100M via free tier = $0 while credits last
+Realistically capped well below 100M/month by Kiro credits and the Vertex balance
 ```
 
 **Option 3: LiteRouter Complete Strategy**
 ```
-60M via Gemini CLI (FREE): $0
 30M via Claude Code (subscription): $0 extra
 8M via GLM (cheap): $4.80
-2M via iFlow (FREE): $0
+2M via MiniMax (cheap): $0.40
+remainder via Kiro / Vertex credits: $0 extra
 Total: $4.80/month + subscriptions you already have
 Savings: $1,995/month (99.76%)
 ```
@@ -427,7 +356,8 @@ Savings: $1,995/month (99.76%)
 
 - **Speed** - May be slower than paid tiers
 - **Priority** - Lower priority during peak hours
-- **Rate limits** - Possible rate limiting (but unlimited quota)
+- **Quota** - Capped, not unlimited: Kiro gives ~50 credits/month and Vertex runs off a $300 balance
+- **Rotation** - OpenCode Free's model list changes without notice
 - **Availability** - May have occasional downtime
 
 **Solution:** Use 3-tier fallback strategy for reliability!
