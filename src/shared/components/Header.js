@@ -129,7 +129,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   };
 
   return (
-    <header className="shrink-0 flex items-center justify-between gap-3 px-4 py-4 lg:px-8 lg:py-5 border-b border-border-subtle bg-surface/85 backdrop-blur-xl z-20">
+    <header className="shrink-0 flex items-center justify-between gap-3 border-b border-border-subtle bg-surface px-4 py-4 lg:px-8 lg:py-5">
       {/* Mobile menu button */}
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
@@ -143,7 +143,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
       </div>
 
       {/* Page title with breadcrumbs */}
-      <div className="flex flex-col min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col">
         {breadcrumbs.length > 0 ? (
           <div className="flex items-center gap-2">
             {breadcrumbs.map((crumb, index) => (
@@ -174,7 +174,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
                         fallbackText={crumb.label.slice(0, 2).toUpperCase()}
                       />
                     )}
-              <h1 className="text-base lg:text-[1.7rem] font-semibold text-text-main tracking-[-0.05em] truncate">
+              <h1 className="text-base font-semibold tracking-[-0.04em] text-text-main lg:text-[1.65rem] truncate">
                       {translate(crumb.label)}
                     </h1>
                   </div>
@@ -184,18 +184,19 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
           </div>
         ) : title ? (
           <div>
+            <p className="mb-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted lg:block">LiteRouter / workspace</p>
             <div className="flex items-center gap-2">
               {icon && (
                 <span className="material-symbols-outlined text-primary text-xl lg:text-2xl">
                   {icon}
                 </span>
               )}
-              <h1 className="text-base lg:text-[1.7rem] font-semibold tracking-[-0.05em] truncate">
+              <h1 className="text-base font-semibold tracking-[-0.04em] lg:text-[1.65rem] truncate">
                 {translate(title)}
               </h1>
             </div>
             {description && (
-              <p className="hidden lg:block text-sm text-text-muted truncate">
+              <p className="hidden max-w-2xl text-sm text-text-muted lg:block truncate">
                 {translate(description)}
               </p>
             )}

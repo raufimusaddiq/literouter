@@ -192,9 +192,9 @@ export default function APIPageClient({ machineId }) {
   const currentEndpoint = baseUrl;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(20rem,0.78fr)_minmax(0,1.22fr)] xl:items-start">
       {/* Endpoint Card */}
-      <Card>
+      <Card className="xl:sticky xl:top-0">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <span className="material-symbols-outlined text-primary">api</span>
           API Endpoint
