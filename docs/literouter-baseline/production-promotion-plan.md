@@ -4,9 +4,9 @@ Status: **planning only**. Do not merge `staging` into `main` or run the
 current production deploy script until Phase 1 is complete.
 
 `main` is this repository's default branch. References to “master” below mean
-`main`.
+`main`. The target is one LiteRouter production instance; HA is out of scope.
 
-## Current facts — 2026-09-19
+## Current facts — 2026-09-20
 
 - `ai.investdx.biz.id` reaches container `9router` at `172.30.0.2:20128`.
 - Production state is the writable Docker volume `9router-data`; its SQLite
@@ -28,25 +28,26 @@ Adding `REDIS_URL` does **not** make two SQLite replicas safe.
 
 SQLite can serve one active writer safely. Therefore the present architecture
 can support a tested replacement with a short write outage, but cannot prove
-both zero data loss and zero public downtime. True zero-downtime cutover and
-two-server HA require durable shared state before the promotion PR.
+both zero data loss and zero public downtime. A shared durable database is
+still required for the *temporary* old/new overlap during cutover, even though
+the final production topology has one LiteRouter instance.
 
 ## Target architecture
 
 ```text
 clients
   |
-public load balancer / Caddy (ai.investdx.biz.id)
-  |-----------------------------|
-LiteRouter A                 LiteRouter B
-  |                              |
-  +-------- shared durable DB ----+
-  +-------- Redis cache ----------+
+Caddy (ai.investdx.biz.id)
+  |
+LiteRouter
+  |
+shared durable DB + Redis cache
 ```
 
 - Durable DB: a supported networked transactional database, backed up and
-  reachable from both app nodes. SQLite remains only for local development and
-  staging until its replacement has passed migration and rollback rehearsal.
+  reachable from the temporary old/new cutover pair. SQLite remains only for
+  local development and staging until its replacement has passed migration and
+  rollback rehearsal.
 - Redis: `idx-redis` initially serves connection-cache invalidation only,
   using `literouter:prod:`. It is never the source of providers, API keys,
   usage, settings, or sessions. Its existing AOF is fine but not a durability
@@ -55,10 +56,10 @@ LiteRouter A                 LiteRouter B
   and any required `/app/data` credentials must be supplied identically to
   every production replica through the deployment secret store. Do not share a
   writable Docker volume between replicas.
-- Public edge: use an external L4/L7 load balancer with health checks for real
-  two-server HA. A Caddy process on this server can balance two app nodes, but
-  remains a single-host SPOF. Two containers on this host are continuity during
-  a container restart, not HA.
+- Public edge: Caddy keeps the existing hostname and client API contract.
+  During cutover it temporarily routes only new requests to the healthy
+  LiteRouter while existing 9Router streams drain; after the observation window
+  9Router is stopped and staging is sunset.
 
 ## Required PR sequence
 
@@ -81,7 +82,7 @@ reviewed on staging:
 5. Remove `scripts/deploy-9router.sh` from the production path. It is not an
    acceptable rollout mechanism for SQLite.
 
-Phase 1 alone does **not** satisfy zero downtime or two-server HA. It only
+Phase 1 alone does **not** satisfy zero downtime. It only
 makes the production image and cache configuration explicit and reproducible.
 
 ### Phase 2 — shared durable state
@@ -104,10 +105,10 @@ Implement and rehearse the database migration before the production promotion:
    command. Do not call a backup successful until it opens and table counts
    match the source.
 
-Acceptance: two LiteRouter instances pass requests concurrently; a provider
-or settings mutation on either appears on the other within the documented
-cache-invalidation bound; neither instance has a writable SQLite production
-volume.
+Acceptance: 9Router and the candidate LiteRouter pass requests concurrently
+against the durable target during the rehearsed cutover; a provider or settings
+mutation is visible to LiteRouter within the documented cache-invalidation
+bound; final LiteRouter has no writable SQLite production volume.
 
 ### Phase 3 — zero-downtime promotion
 
@@ -127,8 +128,8 @@ Cutover procedure:
 3. Add A as a healthy backend, then drain 9Router. Existing streams finish;
    new requests go to A. Verify public `ai.investdx.biz.id` continuously during
    the drain.
-4. Deploy and verify LiteRouter B, then enable balanced traffic. Leave the
-   prior image and database backup untouched through the observation window.
+4. Keep only LiteRouter A after the observation window. Stop and retain the
+   prior 9Router container/image plus the database backup for rollback.
 5. Roll back by draining LiteRouter backends and restoring the known-good
    service only if the target database schema remains compatible. For an
    incompatible migration, restore the verified database backup first; never
@@ -158,17 +159,6 @@ protocol compatibility, routing correctness, SQLite/DB correctness, or a
 measured performance fix). Do not merge upstream wholesale: deleted tunnel,
 MITM, cloud-sync, GitBook, and UI code stay deleted.
 
-## HA choices
-
-| Mode | Survives | Does not survive | Requirement |
-| --- | --- | --- | --- |
-| One app, this host | app restart via Docker | host, disk, Caddy, DB outage | current state |
-| Two apps, this host | one app restart | host, disk, Caddy, DB outage | shared DB; local Caddy balancing |
-| Two hosts, one public endpoint | app or host loss | load-balancer / DB outage | shared DB plus external LB and DB HA |
-
-Choose the third mode for the requested HA outcome. The first two are useful
-operationally but must not be labelled HA.
-
 ## Production-release evidence checklist
 
 - [ ] Exact `main` SHA has green CI and Hermes approval.
@@ -176,8 +166,9 @@ operationally but must not be labelled HA.
 - [ ] Durable-state backup restores and every table count matches.
 - [ ] Redis `PING` works; keys use `literouter:prod:`; Redis failure still
       routes correctly.
-- [ ] A and B use shared durable state; no shared writable SQLite volume.
-- [ ] Both replicas pass provider, streaming, UI mutation, and public-endpoint
+- [ ] Candidate and old service use the shared durable target during the
+      cutover; final LiteRouter has no writable SQLite volume.
+- [ ] Candidate passes provider, streaming, UI mutation, and public-endpoint
       smoke checks.
 - [ ] Drain/cutover has no failed public probe or abandoned stream.
 - [ ] Rollback image and database restore are rehearsed against the release.
