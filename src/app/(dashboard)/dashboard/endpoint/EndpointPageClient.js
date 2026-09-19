@@ -37,6 +37,10 @@ export default function APIPageClient({ machineId }) {
   const [tunnelUrl, setTunnelUrl] = useState("");
   const [tunnelPublicUrl, setTunnelPublicUrl] = useState("");
   const [tunnelLoading, setTunnelLoading] = useState(false);
+  // PRD 18 lists Cloudflare Tunnel and Tailscale provisioning as removed from
+  // the minimal profile. Their routes 404 under MINIMAL_PROFILE, so the page
+  // must not advertise or poll them.
+  const [minimalProfile, setMinimalProfile] = useState(false);
   const [tunnelProgress, setTunnelProgress] = useState("");
   const [tunnelStatus, setTunnelStatus] = useState(null);
   const [showEnableTunnelModal, setShowEnableTunnelModal] = useState(false);
@@ -194,18 +198,25 @@ export default function APIPageClient({ machineId }) {
   const loadSettings = async () => {
     setTunnelChecking(true);
     try {
-      const [settingsRes, statusRes] = await Promise.all([
-        fetch("/api/settings"),
-        fetch("/api/tunnel/status", { cache: "no-store" })
-      ]);
+      const settingsRes = await fetch("/api/settings");
+      let statusRes = null;
       if (settingsRes.ok) {
         const data = await settingsRes.json();
         setRequireApiKey(data.requireApiKey || false);
         setRequireLogin(data.requireLogin !== false);
         setHasPassword(data.hasPassword || false);
         setTunnelDashboardAccess(data.tunnelDashboardAccess || false);
+        // Determine the profile before polling tunnel state: in the minimal
+        // profile that endpoint is not served, and polling it only produces
+        // noise and a stuck "checking" state.
+        if (data.minimalProfile === true) {
+          setMinimalProfile(true);
+          setTunnelChecking(false);
+        } else {
+          statusRes = await fetch("/api/tunnel/status", { cache: "no-store" });
+        }
       }
-      if (statusRes.ok) {
+      if (statusRes?.ok) {
         const data = await statusRes.json();
         const tEnabled = data.tunnel?.settingsEnabled ?? data.tunnel?.enabled ?? false;
         const tUrl = data.tunnel?.tunnelUrl || "";
@@ -736,6 +747,8 @@ export default function APIPageClient({ machineId }) {
             onCopy={copy}
           />
           {/* Cloudflare Tunnel */}
+          {!minimalProfile && (
+          <>
           <div className="flex items-center gap-2">
             <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] text-center ${
               tunnelEnabled ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
@@ -911,10 +924,14 @@ export default function APIPageClient({ machineId }) {
               </Button>
             )}
           </div>
+          </>
+          )}
         </div>
 
         {/* Pre-enable security gate banner */}
-        {isLoginUnsafe && !tunnelEnabled && !tsEnabled && (
+        {/* Tunnel-specific security prompt: only meaningful when tunnel or
+            Tailscale provisioning exists at all (PRD 18 removes both). */}
+        {!minimalProfile && isLoginUnsafe && !tunnelEnabled && !tsEnabled && (
           <div className="mt-4">
             <SecurityWarning
               message={unsafeReason}
