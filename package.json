@@ -50,6 +50,7 @@
   },
   "optionalDependencies": {
     "@next/swc-linux-x64-musl": "16.3.5",
+    "@tailwindcss/oxide-linux-x64-musl": "4.3.3",
     "better-sqlite3": "^12.6.2",
     "lightningcss-linux-x64-musl": "1.32.0"
   },
