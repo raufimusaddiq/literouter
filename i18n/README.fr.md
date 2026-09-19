@@ -89,8 +89,8 @@ et le schéma SQLite sont inchangés — c'est pourquoi les correctifs amont res
 | Refresh token | job en arrière-plan | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
 | Cache hot-read | aucun | en processus (connections, combos, settings) |
 | Cache inter-instances | — | Redis, **cache uniquement** (sans persistance) |
-| Tunnel / MITM | inclus | supprimé |
-| Cloud sync | inclus | supprimé |
+| Runtime tunnel / MITM / Tailscale | inclus | **supprimé** (PR #14) |
+| Cloud sync | inclus | inclus, non câblé dans le profil de staging |
 | Source de vérité | SQLite | SQLite (inchangé) |
 
 ### Performance vs 9Router packagé

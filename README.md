@@ -84,17 +84,21 @@ schema are unchanged — which is why upstream fixes stay cherry-pickable.
 | Token refresh | background job on | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
 | Hot-read cache | none | in-process (connections, combos, settings) |
 | Cross-instance cache | — | Redis, **cache-only** (no persistence) |
-| Tunnel / MITM | shipped | present, unused in the staging profile |
-| Cloud sync | shipped | present, unused in the staging profile |
+| Tunnel / MITM / Tailscale runtime | shipped | **deleted** (PR #14) |
+| Cloud sync | shipped | shipped, not wired into the staging profile |
 | Source of truth | SQLite | SQLite (unchanged) |
 
 Redis here is not a datastore. It holds one connection-cache version key used to
 invalidate the in-process cache across instances; SQLite remains authoritative.
 A chat burst adds no Redis keys, by design.
 
-The tunnel/MITM and cloud-sync **code is still in the tree** — the minimal
-profile leaves them unused rather than deleting them, so upstream changes to
-them stay mergeable.
+The tunnel/Tailscale/MITM runtime was **deleted**, not hidden
+(PR #14, 59 files, 7,381 lines), along with the other non-routing surfaces
+(media providers, CLI-tools menu, Basic Chat, skills page, translator playground,
+proxy-pools UI). Two pieces are kept on purpose because they guard existing
+installs: the tunnel-hostname access-control gate in `dashboardGuard.js` and
+`auth/login`, and the `mitmAlias` / `mitmSudoEncrypted` DB keys so an old
+SQLite file still migrates.
 
 ### Performance vs packaged 9Router
 

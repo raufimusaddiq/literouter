@@ -87,8 +87,8 @@ schema de SQLite no cambian — por eso los arreglos de upstream siguen siendo c
 | Refresh de token | job en segundo plano | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
 | Caché hot-read | ninguna | en proceso (connections, combos, settings) |
 | Caché entre instancias | — | Redis, **solo caché** (sin persistencia) |
-| Túnel / MITM | incluido | eliminado |
-| Cloud sync | incluido | eliminado |
+| Runtime de túnel / MITM / Tailscale | incluido | **eliminado** (PR #14) |
+| Cloud sync | incluido | incluido, no conectado al perfil de staging |
 | Fuente de verdad | SQLite | SQLite (sin cambios) |
 
 ### Rendimiento vs 9Router empaquetado

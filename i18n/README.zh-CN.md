@@ -83,7 +83,7 @@ LiteRouter 不是重写。它是上游 9Router 加上 `MINIMAL_PROFILE` 运行�
 | Token 刷新 | 后台任务 | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
 | 热读缓存 | 无 | 进程内（连接、组合、设置） |
 | 跨实例缓存 | — | Redis, **仅作缓存**（不持久化） |
-| 隧道 / MITM | 有 | 已移除 |
+| 隧道 / MITM / Tailscale 运行时 | 有 | **已删除**（PR #14） |
 | 云同步 | 有 | 已移除 |
 | 数据源 | SQLite | SQLite (未改动) |
 

@@ -84,15 +84,18 @@ LiteRouter 不是重写。它是上游 9Router 加上 `MINIMAL_PROFILE` 运行�
 | Token 刷新 | 后台任务开启 | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
 | 热读缓存 | 无 | 进程内（连接、组合、设置） |
 | 跨实例缓存 | — | Redis，**仅作缓存**（不持久化） |
-| 隧道 / MITM | 有 | 保留，但在精简配置中未使用 |
-| 云同步 | 有 | 保留，但在精简配置中未使用 |
+| 隧道 / MITM / Tailscale 运行时 | 有 | **已删除**（PR #14） |
+| 云同步 | 有 | 有，但未接入精简配置 |
 | 数据源 | SQLite | SQLite（未改动） |
 
 这里的 Redis 不是数据存储。它只保存一个连接缓存版本键，用于跨实例失效
 进程内缓存；SQLite 仍是权威数据源。聊天突发请求不会产生 Redis 键，这是设计如此。
 
-隧道/MITM 与云同步的**代码仍在仓库中**——精简配置只是不使用它们，而非删除，
-以便上游的相关改动仍可合并。
+隧道/Tailscale/MITM 运行时是**被删除**的，而非隐藏（PR #14，59 个文件、7,381 行），
+其他非路由界面（媒体提供商、CLI 工具菜单、Basic Chat、技能页、翻译演练场、
+代理池 UI）同样被删除。仅有两处刻意保留，因为它们保护既有部署：
+`dashboardGuard.js` 与 `auth/login` 中的隧道主机名访问控制闸门，
+以及 `mitmAlias` / `mitmSudoEncrypted` 数据库键，便于旧 SQLite 文件仍可迁移。
 
 ### 与打包版 9Router 的性能对比
 
