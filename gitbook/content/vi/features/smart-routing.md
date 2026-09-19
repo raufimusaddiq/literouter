@@ -23,21 +23,21 @@ Request → LiteRouter → Check Tier 1 (Subscription)
 **Tier 1: SUBSCRIPTION (Chính)**
 - Claude Code (Pro/Max)
 - OpenAI Codex (Plus/Pro)
-- Gemini CLI (MIỄN PHÍ 180K/tháng)
+- Kiro (~50 credit miễn phí/tháng)
 - GitHub Copilot
 - Antigravity (Google)
 
 **Mục tiêu**: Tối đa giá trị từ subscription đã trả tiền.
 
 **Tier 2: CHEAP (Backup)**
-- GLM-4.7 ($0.60/1M input)
-- MiniMax M2.1 ($0.20/1M input)
+- GLM 5.1 ($0.60/1M input)
+- MiniMax M2.7 ($0.20/1M input)
 - Kimi K2 ($9/tháng cố định)
 
 **Mục tiêu**: Backup siêu rẻ khi hết quota subscription (~90% rẻ hơn ChatGPT API).
 
 **Tier 3: FREE (Khẩn cấp)**
-- iFlow (8 models)
+- Vertex AI / OpenCode Free
 - Qwen (3 models)
 - Kiro (Claude MIỄN PHÍ)
 
@@ -52,13 +52,13 @@ LiteRouter giám sát quota thời gian thực và chuyển provider tự độn
 ### Kịch bản 1: Hết Quota Subscription
 
 ```
-User request → cc/claude-opus-4-5
+User request → cc/claude-opus-5
                ↓ quota exhausted (5-hour limit reached)
-               Auto switch → glm/glm-4.7
+               Auto switch → glm/glm-5.1
                ↓ daily quota exhausted
-               Auto switch → minimax/MiniMax-M2.1
+               Auto switch → minimax/MiniMax-M2.7
                ↓ 5-hour quota exhausted
-               Auto switch → if/kimi-k2-thinking (FREE)
+               Auto switch → kr/glm-5 (FREE)
                ↓
                Response delivered ✅
 ```
@@ -68,9 +68,9 @@ User request → cc/claude-opus-4-5
 ### Kịch bản 2: Rate Limiting
 
 ```
-User request → cx/gpt-5.2-codex
+User request → cx/gpt-5.5
                ↓ rate limited (too many requests)
-               Auto switch → glm/glm-4.7
+               Auto switch → glm/glm-5.1
                ↓
                Response delivered ✅
 ```
@@ -78,7 +78,7 @@ User request → cx/gpt-5.2-codex
 ### Kịch bản 3: Provider không khả dụng
 
 ```
-User request → cc/claude-opus-4-5
+User request → cc/claude-opus-5
                ↓ provider error (503)
                Auto switch → next available model
                ↓
@@ -98,19 +98,19 @@ LiteRouter chọn model tốt nhất dựa trên:
 
 ### Ví dụ Thứ tự Ưu tiên
 
-Cho request đến `cc/claude-opus-4-5`:
+Cho request đến `cc/claude-opus-5`:
 
 ```
 1. Check Claude Code quota
-   ✅ Available → Use cc/claude-opus-4-5
+   ✅ Available → Use cc/claude-opus-5
    ❌ Exhausted → Continue to step 2
 
 2. Check fallback tier (if configured)
-   ✅ GLM quota available → Use glm/glm-4.7
+   ✅ GLM quota available → Use glm/glm-5.1
    ❌ Exhausted → Continue to step 3
 
 3. Check free tier
-   ✅ iFlow available → Use if/kimi-k2-thinking
+   ✅ Kiro available → Use kr/glm-5
    ❌ All exhausted → Return quota error
 ```
 
@@ -151,7 +151,7 @@ Ví dụ thứ tự tùy chỉnh:
 ```
 Tier 1: Gemini CLI → Claude Code → Codex
 Tier 2: MiniMax → GLM → Kimi
-Tier 3: iFlow → Kiro → Qwen
+Tier 3: Kiro → OpenCode Free → Vertex
 ```
 
 **4. Thông báo Reset Quota**
@@ -170,23 +170,23 @@ Dashboard → Settings → Notifications
 
 **Setup:**
 ```
-Model: cc/claude-opus-4-5-20251101
+Model: cc/claude-opus-5
 Fallback: Auto (default 3-tier)
 ```
 
 **Hoạt động:**
 ```
 Morning (fresh quota):
-  Request → cc/claude-opus-4-5 ✅
+  Request → cc/claude-opus-5 ✅
 
 Afternoon (quota exhausted):
-  Request → glm/glm-4.7 ✅ (auto switched)
+  Request → glm/glm-5.1 ✅ (auto switched)
 
 Evening (GLM quota out):
-  Request → minimax/MiniMax-M2.1 ✅ (auto switched)
+  Request → minimax/MiniMax-M2.7 ✅ (auto switched)
 
 Late night (all paid quota out):
-  Request → if/kimi-k2-thinking ✅ (free tier)
+  Request → kr/glm-5 ✅ (free tier)
 ```
 
 **Chi phí**: ~$5-10/tháng extra (chủ yếu được bao bởi subscription).
@@ -204,15 +204,15 @@ Dashboard → Settings:
 **Hoạt động:**
 ```
 Day 1-15 (within budget):
-  Requests → glm/glm-4.7 (cheap tier)
+  Requests → glm/glm-5.1 (cheap tier)
   Cost: $1.50/day
 
 Day 16 (budget reached):
-  Requests → if/kimi-k2-thinking (free tier)
+  Requests → kr/glm-5 (free tier)
   Cost: $0
 
 Next month (budget resets):
-  Requests → glm/glm-4.7 again
+  Requests → glm/glm-5.1 again
 ```
 
 **Kết quả**: Không bao giờ vượt $20/tháng, luôn khả dụng.
@@ -228,7 +228,7 @@ Dashboard → Settings:
 
 **Hoạt động:**
 ```
-Request → cc/claude-opus-4-5
+Request → cc/claude-opus-5
   ✅ Quota available → Success
   ❌ Quota exhausted → Return error (no fallback)
 ```
@@ -239,8 +239,8 @@ Request → cc/claude-opus-4-5
 
 **Setup:**
 ```
-Model: if/kimi-k2-thinking
-Fallback: qw/qwen3-coder-plus → kr/claude-sonnet-4.5
+Model: kr/glm-5
+Fallback: vertex/gemini-3.1-pro-preview → kr/glm-5
 ```
 
 **Hoạt động:**
@@ -266,21 +266,21 @@ Strategy:
 
 **Ví dụ combo:**
 ```
-cc/claude-opus-4-5 → glm/glm-4.7 → if/kimi-k2-thinking
+cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5
 ```
 
 ### 2. Tối ưu Chi phí
 
 ```
 Strategy:
-- Use Gemini CLI free tier first (180K/month)
+- Use the free tier (Kiro / OpenCode Free / Vertex) first
 - Fallback to GLM/MiniMax (ultra-cheap)
-- Emergency: iFlow (free)
+- Emergency: Kiro / OpenCode Free / Vertex (free)
 ```
 
 **Ví dụ combo:**
 ```
-gc/gemini-3-flash-preview → glm/glm-4.7 → if/kimi-k2-thinking
+vertex/gemini-3-flash-preview → glm/glm-5.1 → kr/glm-5
 ```
 
 ### 3. Tối ưu Chất lượng
@@ -288,13 +288,13 @@ gc/gemini-3-flash-preview → glm/glm-4.7 → if/kimi-k2-thinking
 ```
 Strategy:
 - Use best models (Claude Opus, GPT-5.2)
-- Fallback to good cheap models (GLM-4.7)
+- Fallback to good cheap models (GLM 5.1)
 - Last resort: Free tier
 ```
 
 **Ví dụ combo:**
 ```
-cc/claude-opus-4-5 → cx/gpt-5.2-codex → glm/glm-4.7
+cc/claude-opus-5 → cx/gpt-5.5 → glm/glm-5.1
 ```
 
 ### 4. Khả dụng 24/7
@@ -308,7 +308,7 @@ Strategy:
 
 **Ví dụ combo:**
 ```
-cc/claude-opus-4-5 → glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
+cc/claude-opus-5 → glm/glm-5.1 → minimax/MiniMax-M2.7 → kr/glm-5
 ```
 
 **Kết quả**: Không bao giờ hết quota, code mọi lúc.
@@ -323,17 +323,17 @@ Lên kế hoạch usage quanh thời gian reset quota:
 |----------|-------------|----------|
 | **Claude Code** | 5 giờ + hàng tuần | Dùng buổi sáng, quota mới |
 | **Codex** | 5 giờ + hàng tuần | Dùng sau khi hết quota Claude |
-| **Gemini CLI** | Hàng ngày (1K) + Hàng tháng (180K) | Dùng cả ngày |
-| **GLM-4.7** | Hàng ngày 10:00 AM | Dùng buổi tối, reset sáng hôm sau |
-| **MiniMax M2.1** | 5 giờ rolling | Dùng mọi lúc, theo rolling window |
-| **iFlow/Qwen/Kiro** | Không giới hạn | Backup khẩn cấp |
+| **Kiro** | Hàng tháng (~50 credits) | Dùng làm backup |
+| **GLM 5.1** | Hàng ngày 10:00 AM | Dùng buổi tối, reset sáng hôm sau |
+| **MiniMax M2.7** | 5 giờ rolling | Dùng mọi lúc, theo rolling window |
+| **Kiro/OpenCode Free/Vertex** | Không giới hạn | Backup khẩn cấp |
 
 **Ví dụ lịch hàng ngày:**
 ```
 08:00 - 13:00: Claude Code (fresh 5h quota)
 13:00 - 18:00: Gemini CLI (1K/day quota)
-18:00 - 22:00: GLM-4.7 (cheap, resets 10AM)
-22:00 - 08:00: MiniMax or iFlow (5h rolling or free)
+18:00 - 22:00: GLM 5.1 (cheap, resets 10AM)
+22:00 - 08:00: MiniMax or Kiro (5h rolling or free)
 ```
 
 ---
@@ -346,7 +346,7 @@ Lên kế hoạch usage quanh thời gian reset quota:
 Dashboard → Quota Overview:
   Claude Code: 2.5h / 5h remaining (50%)
   Gemini CLI: 450 / 1000 requests today
-  GLM-4.7: 5M / 10M tokens (resets in 8h)
+  GLM 5.1: 5M / 10M tokens (resets in 8h)
   MiniMax: 3M / 5M tokens (rolling 5h)
 ```
 
@@ -355,7 +355,7 @@ Dashboard → Quota Overview:
 ```
 Dashboard → Notifications:
   ⚠️ Claude Code quota 80% used (1h remaining)
-  ✅ GLM-4.7 quota reset (10M tokens available)
+  ✅ GLM 5.1 quota reset (10M tokens available)
   💰 Daily budget 50% used ($2.50 / $5)
 ```
 
@@ -365,8 +365,8 @@ Dashboard → Notifications:
 Dashboard → Analytics:
   Today: 50M tokens
     - 30M via Claude Code (subscription)
-    - 15M via GLM-4.7 ($9)
-    - 5M via iFlow (free)
+    - 15M via GLM 5.1 ($9)
+    - 5M via Kiro (free)
 
   Cost: $9 (vs $1000 on ChatGPT API)
   Savings: 99%

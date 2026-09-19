@@ -17,9 +17,9 @@ LiteRouterは、コーディングツール(Cursor、Cline、Claude Desktop)とA
 - ❌ プロバイダー間の手動切り替え
 
 **価値を最大化するために:**
-- ✅ **サブスクリプションを最大限活用** - Claude Code、Codex、Geminiのクォータを余すことなく追跡・利用
-- ✅ **無料で利用可能** - CLI経由でiFlow、Qwen、Kiroモデルにアクセス
-- ✅ **超低価格バックアップ** - GLM(100万あたり$0.6)、MiniMax M2.1(100万あたり$0.20)
+- ✅ **サブスクリプションを最大限活用** - Claude Code、Codex、GitHub Copilotのクォータを余すことなく追跡・利用
+- ✅ **無料で利用可能** - Kiro、OpenCode Free、Google Vertex AI
+- ✅ **超低価格バックアップ** - GLM($0.60/100万)、MiniMax($0.20/100万)、Kimi(月$9定額)
 - ✅ **スマートフォールバック** - サブスクリプション → 低価格 → 無料へ自動切替
 
 ---
@@ -31,11 +31,11 @@ LiteRouterは、コーディングツール(Cursor、Cline、Claude Desktop)とA
 ```
 一度セットアップすれば、コーディングが止まらない:
 
-Tier 1 (サブスクリプション): Claude Code → Codex → Gemini
+Tier 1 (サブスクリプション): Claude Code → Codex → GitHub Copilot
   ↓ クォータ消費
-Tier 2 (低価格): GLM-4.7 → MiniMax M2.1 → Kimi
+Tier 2 (低価格): GLM 5.1 → MiniMax M2.7 → Kimi
   ↓ 予算上限
-Tier 3 (無料): iFlow → Qwen → Kiro
+Tier 3 (無料): Kiro → OpenCode Free → Vertex AI
 
 → 自動切替、ダウンタイムゼロ!
 ```
@@ -57,7 +57,7 @@ Tier 3 (無料): iFlow → Qwen → Kiro
 
 **実例(月1億トークン):**
 ```
-Gemini CLI経由で6000万: $0(無料プラン)
+Claude Code経由で3000万: $0(サブスクリプション)
 Claude Code経由で3000万: $0(既存サブスクリプション)
 GLM経由で800万: $4.80
 MiniMax経由で200万: $0.40
@@ -75,7 +75,7 @@ MiniMax経由で200万: $0.40
 - クォータ使用量をリアルタイムで追跡
 - クォータリセット(5時間、週次)時に自動切替
 - 失効前にすべてのトークンを使い切る
-- Gemini CLI: 月18万コンプリーション**無料**
+- GitHub Copilot: 既存のサブスクリプションとクォータを共有
 
 ### 超低価格バックアップ
 
@@ -83,19 +83,21 @@ MiniMax経由で200万: $0.40
 
 | プロバイダー | 100万トークンあたりのコスト | リセット |
 |----------|-------------------|-------|
-| **GLM-4.7** | 入力$0.60 / 出力$2.20 | 毎日午前10時 |
-| **MiniMax M2.1** | 入力$0.20 / 出力$1.00 | 5時間ローリング |
-| **Kimi K2** | 月$9(1000万トークン) | 月次 |
+| **GLM 5.1** | 入力$0.60 / 出力$2.20 | 毎日午前10時 |
+| **MiniMax M2.7** | 入力$0.20 / 出力$1.00 | 5時間ローリング |
+| **Kimi** | 月$9(1000万トークン) | 月次 |
 
 **ChatGPT API(100万あたり$20)より約90%安い!**
 
-### 永久無料フォールバック
+### 無料クレジットフォールバック
 
 他がすべてクォータ制限に達した時の緊急バックアップ:
 
-- **iFlow**: 8モデル(Kimi K2、Qwen3 Coder Plus、GLM 4.7、MiniMax M2)
-- **Qwen**: 3モデル(Qwen3 Coder Plus/Flash、Vision)
-- **Kiro**: Claude Sonnet 4.5、Haiku 4.5(AWS Builder ID)
+- **Kiro**: Claude と Qwen 系、無料枠は月 ~50 クレジット(AWS Builder ID / Google / GitHub)
+- **OpenCode Free**: 認証不要、モデル一覧は上流から取得され随時変わります
+- **Vertex AI**: 新規 Google Cloud アカウントの $300 クレジットで Gemini(Vertex AI Studio エンドポイントを使用)
+
+**終了した無料枠:** iFlow、Qwen Code、Gemini CLI は 2026 年に無料枠を終了しました。Gemini CLI は provider カタログで deprecated としてマークされています。
 
 ---
 
@@ -118,7 +120,7 @@ npm install -g 9router
 ```
 Endpoint: http://localhost:20128/v1
 API Key: [ダッシュボードから取得]
-Model: cc/claude-opus-4-5-20251101
+Model: cc/claude-opus-5
 ```
 
 [→ 完全なスタートガイド](getting-started.md)
@@ -130,7 +132,7 @@ Model: cc/claude-opus-4-5-20251101
 ### 個人開発者向け
 
 - Claude Code/Codexサブスクリプションを最大限活用
-- Gemini CLI無料プラン(月18万)を活用
+- Kiro の月次無料クレジットを重要度の低い作業に活用
 - 超低価格モデル(100万あたり$0.20)へフォールバック
 - レート制限なしで24時間コーディング
 

@@ -23,21 +23,21 @@ Solicitud → LiteRouter → Verificar Nivel 1 (Suscripción)
 **Nivel 1: SUSCRIPCIÓN (Primario)**
 - Claude Code (Pro/Max)
 - OpenAI Codex (Plus/Pro)
-- Gemini CLI (GRATIS 180K/mes)
+- Kiro (~50 créditos gratis/mes)
 - GitHub Copilot
 - Antigravity (Google)
 
 **Objetivo**: Maximizar el valor de las suscripciones que ya pagas.
 
 **Nivel 2: BARATO (Respaldo)**
-- GLM-4.7 ($0.60/1M entrada)
-- MiniMax M2.1 ($0.20/1M entrada)
+- GLM 5.1 ($0.60/1M entrada)
+- MiniMax M2.7 ($0.20/1M entrada)
 - Kimi K2 ($9/mes plano)
 
 **Objetivo**: Respaldo ultra-barato cuando se agota la cuota de suscripción (~90% más barato que ChatGPT API).
 
 **Nivel 3: GRATIS (Emergencia)**
-- iFlow (8 modelos)
+- Vertex AI / OpenCode Free
 - Qwen (3 modelos)
 - Kiro (Claude GRATIS)
 
@@ -52,13 +52,13 @@ LiteRouter monitorea la cuota en tiempo real y cambia de proveedor automáticame
 ### Escenario 1: Cuota de suscripción agotada
 
 ```
-Solicitud del usuario → cc/claude-opus-4-5
+Solicitud del usuario → cc/claude-opus-5
                        ↓ cuota agotada (límite de 5 horas alcanzado)
-                       Cambio automático → glm/glm-4.7
+                       Cambio automático → glm/glm-5.1
                        ↓ cuota diaria agotada
-                       Cambio automático → minimax/MiniMax-M2.1
+                       Cambio automático → minimax/MiniMax-M2.7
                        ↓ cuota de 5 horas agotada
-                       Cambio automático → if/kimi-k2-thinking (GRATIS)
+                       Cambio automático → kr/glm-5 (GRATIS)
                        ↓
                        Respuesta entregada ✅
 ```
@@ -68,9 +68,9 @@ Solicitud del usuario → cc/claude-opus-4-5
 ### Escenario 2: Rate limiting
 
 ```
-Solicitud del usuario → cx/gpt-5.2-codex
+Solicitud del usuario → cx/gpt-5.5
                        ↓ rate limited (demasiadas solicitudes)
-                       Cambio automático → glm/glm-4.7
+                       Cambio automático → glm/glm-5.1
                        ↓
                        Respuesta entregada ✅
 ```
@@ -78,7 +78,7 @@ Solicitud del usuario → cx/gpt-5.2-codex
 ### Escenario 3: Proveedor no disponible
 
 ```
-Solicitud del usuario → cc/claude-opus-4-5
+Solicitud del usuario → cc/claude-opus-5
                        ↓ error del proveedor (503)
                        Cambio automático → siguiente modelo disponible
                        ↓
@@ -98,19 +98,19 @@ LiteRouter selecciona el mejor modelo según:
 
 ### Ejemplo de orden de prioridad
 
-Para una solicitud a `cc/claude-opus-4-5`:
+Para una solicitud a `cc/claude-opus-5`:
 
 ```
 1. Verificar cuota de Claude Code
-   ✅ Disponible → Usa cc/claude-opus-4-5
+   ✅ Disponible → Usa cc/claude-opus-5
    ❌ Agotada → Continúa al paso 2
 
 2. Verificar nivel de fallback (si está configurado)
-   ✅ Cuota de GLM disponible → Usa glm/glm-4.7
+   ✅ Cuota de GLM disponible → Usa glm/glm-5.1
    ❌ Agotada → Continúa al paso 3
 
 3. Verificar nivel gratis
-   ✅ iFlow disponible → Usa if/kimi-k2-thinking
+   ✅ Kiro disponible → Usa kr/glm-5
    ❌ Todo agotado → Devuelve error de cuota
 ```
 
@@ -151,7 +151,7 @@ Ejemplo de orden personalizado:
 ```
 Nivel 1: Gemini CLI → Claude Code → Codex
 Nivel 2: MiniMax → GLM → Kimi
-Nivel 3: iFlow → Kiro → Qwen
+Nivel 3: Kiro → OpenCode Free → Vertex
 ```
 
 **4. Notificaciones de reinicio de cuota**
@@ -170,23 +170,23 @@ Dashboard → Settings → Notifications
 
 **Configuración:**
 ```
-Model: cc/claude-opus-4-5-20251101
+Model: cc/claude-opus-5
 Fallback: Auto (3 niveles por defecto)
 ```
 
 **Comportamiento:**
 ```
 Mañana (cuota fresca):
-  Solicitud → cc/claude-opus-4-5 ✅
+  Solicitud → cc/claude-opus-5 ✅
 
 Tarde (cuota agotada):
-  Solicitud → glm/glm-4.7 ✅ (cambio automático)
+  Solicitud → glm/glm-5.1 ✅ (cambio automático)
 
 Noche (cuota de GLM agotada):
-  Solicitud → minimax/MiniMax-M2.1 ✅ (cambio automático)
+  Solicitud → minimax/MiniMax-M2.7 ✅ (cambio automático)
 
 Madrugada (toda la cuota de pago agotada):
-  Solicitud → if/kimi-k2-thinking ✅ (nivel gratis)
+  Solicitud → kr/glm-5 ✅ (nivel gratis)
 ```
 
 **Costo**: ~$5-10/mes extra (en su mayoría cubierto por la suscripción).
@@ -204,15 +204,15 @@ Dashboard → Settings:
 **Comportamiento:**
 ```
 Día 1-15 (dentro del presupuesto):
-  Solicitudes → glm/glm-4.7 (nivel barato)
+  Solicitudes → glm/glm-5.1 (nivel barato)
   Costo: $1.50/día
 
 Día 16 (presupuesto alcanzado):
-  Solicitudes → if/kimi-k2-thinking (nivel gratis)
+  Solicitudes → kr/glm-5 (nivel gratis)
   Costo: $0
 
 Mes siguiente (presupuesto se reinicia):
-  Solicitudes → glm/glm-4.7 nuevamente
+  Solicitudes → glm/glm-5.1 nuevamente
 ```
 
 **Resultado**: Nunca excede $20/mes, siempre disponible.
@@ -228,7 +228,7 @@ Dashboard → Settings:
 
 **Comportamiento:**
 ```
-Solicitud → cc/claude-opus-4-5
+Solicitud → cc/claude-opus-5
   ✅ Cuota disponible → Éxito
   ❌ Cuota agotada → Devuelve error (sin fallback)
 ```
@@ -239,8 +239,8 @@ Solicitud → cc/claude-opus-4-5
 
 **Configuración:**
 ```
-Model: if/kimi-k2-thinking
-Fallback: qw/qwen3-coder-plus → kr/claude-sonnet-4.5
+Model: kr/glm-5
+Fallback: vertex/gemini-3.1-pro-preview → kr/glm-5
 ```
 
 **Comportamiento:**
@@ -266,21 +266,21 @@ Estrategia:
 
 **Ejemplo de combo:**
 ```
-cc/claude-opus-4-5 → glm/glm-4.7 → if/kimi-k2-thinking
+cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5
 ```
 
 ### 2. Optimiza por costo
 
 ```
 Estrategia:
-- Usa el nivel gratis de Gemini CLI primero (180K/mes)
+- Usa el tier gratuito (Kiro / OpenCode Free / Vertex) primero
 - Fallback a GLM/MiniMax (ultra-baratos)
-- Emergencia: iFlow (gratis)
+- Emergencia: Kiro / OpenCode Free / Vertex (gratis)
 ```
 
 **Ejemplo de combo:**
 ```
-gc/gemini-3-flash-preview → glm/glm-4.7 → if/kimi-k2-thinking
+vertex/gemini-3-flash-preview → glm/glm-5.1 → kr/glm-5
 ```
 
 ### 3. Optimiza por calidad
@@ -288,13 +288,13 @@ gc/gemini-3-flash-preview → glm/glm-4.7 → if/kimi-k2-thinking
 ```
 Estrategia:
 - Usa los mejores modelos (Claude Opus, GPT-5.2)
-- Fallback a modelos baratos buenos (GLM-4.7)
+- Fallback a modelos baratos buenos (GLM 5.1)
 - Último recurso: Nivel gratis
 ```
 
 **Ejemplo de combo:**
 ```
-cc/claude-opus-4-5 → cx/gpt-5.2-codex → glm/glm-4.7
+cc/claude-opus-5 → cx/gpt-5.5 → glm/glm-5.1
 ```
 
 ### 4. Disponibilidad 24/7
@@ -308,7 +308,7 @@ Estrategia:
 
 **Ejemplo de combo:**
 ```
-cc/claude-opus-4-5 → glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
+cc/claude-opus-5 → glm/glm-5.1 → minimax/MiniMax-M2.7 → kr/glm-5
 ```
 
 **Resultado**: Nunca te quedas sin cuota, codifica en cualquier momento.
@@ -323,17 +323,17 @@ Planifica tu uso según los tiempos de reinicio de cuota:
 |----------|-------------|----------|
 | **Claude Code** | 5 horas + semanal | Usar en la mañana, cuota fresca |
 | **Codex** | 5 horas + semanal | Usar después de cuota de Claude |
-| **Gemini CLI** | Diario (1K) + Mensual (180K) | Usar durante el día |
-| **GLM-4.7** | Diario 10:00 AM | Usar en la noche, se reinicia al día siguiente |
-| **MiniMax M2.1** | Rolling 5 horas | Usar cuando sea, rastrea ventana rolling |
-| **iFlow/Qwen/Kiro** | Sin límite | Respaldo de emergencia |
+| **Kiro** | Mensual (~50 créditos) | Usar como respaldo |
+| **GLM 5.1** | Diario 10:00 AM | Usar en la noche, se reinicia al día siguiente |
+| **MiniMax M2.7** | Rolling 5 horas | Usar cuando sea, rastrea ventana rolling |
+| **Kiro/OpenCode Free/Vertex** | Sin límite | Respaldo de emergencia |
 
 **Ejemplo de rutina diaria:**
 ```
 08:00 - 13:00: Claude Code (cuota fresca 5h)
 13:00 - 18:00: Gemini CLI (cuota 1K/día)
-18:00 - 22:00: GLM-4.7 (barato, se reinicia 10AM)
-22:00 - 08:00: MiniMax o iFlow (rolling 5h o gratis)
+18:00 - 22:00: GLM 5.1 (barato, se reinicia 10AM)
+22:00 - 08:00: MiniMax o Kiro (rolling 5h o gratis)
 ```
 
 ---
@@ -346,7 +346,7 @@ Planifica tu uso según los tiempos de reinicio de cuota:
 Dashboard → Quota Overview:
   Claude Code: 2.5h / 5h restantes (50%)
   Gemini CLI: 450 / 1000 solicitudes hoy
-  GLM-4.7: 5M / 10M tokens (se reinicia en 8h)
+  GLM 5.1: 5M / 10M tokens (se reinicia en 8h)
   MiniMax: 3M / 5M tokens (rolling 5h)
 ```
 
@@ -355,7 +355,7 @@ Dashboard → Quota Overview:
 ```
 Dashboard → Notifications:
   ⚠️ Cuota de Claude Code 80% usada (1h restante)
-  ✅ Cuota de GLM-4.7 reiniciada (10M tokens disponibles)
+  ✅ Cuota de GLM 5.1 reiniciada (10M tokens disponibles)
   💰 Presupuesto diario 50% usado ($2.50 / $5)
 ```
 
@@ -365,8 +365,8 @@ Dashboard → Notifications:
 Dashboard → Analytics:
   Hoy: 50M tokens
     - 30M vía Claude Code (suscripción)
-    - 15M vía GLM-4.7 ($9)
-    - 5M vía iFlow (gratis)
+    - 15M vía GLM 5.1 ($9)
+    - 5M vía Kiro (gratis)
 
   Costo: $9 (vs $1000 en ChatGPT API)
   Ahorros: 99%

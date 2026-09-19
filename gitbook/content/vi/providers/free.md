@@ -8,136 +8,24 @@ Backup khẩn cấp khi mọi thứ khác bị giới hạn quota. Code 24/7 v�
 
 Provider free tier là **fallback** khi hết quota subscription và cheap:
 
-- 🆓 **iFlow** - 8 model MIỄN PHÍ (Kimi K2, Qwen3, GLM 4.7, MiniMax M2...)
-- 🆓 **Qwen** - 3 model MIỄN PHÍ (Qwen3 Coder Plus/Flash, Vision)
-- 🆓 **Kiro** - 2 model MIỄN PHÍ (Claude Sonnet 4.5, Haiku 4.5)
+- 🆓 **Kiro** - họ Claude và Qwen, free tier giới hạn ~50 credits/tháng
+- 🆓 **OpenCode Free** - không cần auth, danh sách model lấy từ upstream
+- 🆓 **Vertex AI** - Gemini trên credit $300 của tài khoản Google Cloud mới
 
-**Chiến lược:** Dùng làm backup khẩn cấp. Usage không giới hạn, miễn phí mãi mãi!
+**Chiến lược:** Dùng làm backup khẩn cấp. Free tier có trần, nên coi như nguồn dự phòng chứ không phải nguồn chính.
 
 ---
 
-## iFlow (8 Model MIỄN PHÍ)
+## Kiro (Claude trên credit miễn phí hàng tháng)
 
 ### Pricing
 
 | Plan | Chi phí Hàng tháng | Models | Quota |
 |------|--------------|--------|-------|
-| FREE | $0 | 8 models | Không giới hạn |
+| FREE | $0 | Họ Claude và Qwen | ~50 credits/tháng |
+| Pro | $20 | cùng catalog | 1.000 credits |
 
-**Giá trị tốt nhất:** Nhiều model nhất trong free tier! Kimi K2, Qwen3, GLM, MiniMax, DeepSeek.
-
-### Setup
-
-**Bước 1: Kết nối qua Dashboard**
-
-```bash
-9router
-# Dashboard → Providers → Connect iFlow
-```
-
-**Bước 2: Đăng nhập OAuth iFlow**
-
-- Click "Connect iFlow"
-- Browser mở → trang đăng nhập iFlow
-- Tạo tài khoản hoặc đăng nhập
-- Cấp quyền
-- Auto token refresh được bật
-
-**Bước 3: Dùng trong CLI**
-
-```
-Model: if/kimi-k2-thinking
-       if/kimi-k2
-       if/qwen3-coder-plus
-       if/glm-4.7
-       if/minimax-m2
-       if/deepseek-r1
-       if/deepseek-v3.2-chat
-       if/deepseek-v3.2-reasoner
-```
-
-### Model có sẵn
-
-| Model ID | Mô tả | Tốt nhất cho |
-|----------|-------------|----------|
-| `if/kimi-k2-thinking` | Kimi K2 Thinking | Reasoning phức tạp |
-| `if/kimi-k2` | Kimi K2 | Coding chung |
-| `if/qwen3-coder-plus` | Qwen3 Coder Plus | Tạo code |
-| `if/glm-4.7` | GLM 4.7 | Tiếng Trung + Anh |
-| `if/minimax-m2` | MiniMax M2 | Context dài |
-| `if/deepseek-r1` | DeepSeek R1 | Task reasoning |
-| `if/deepseek-v3.2-chat` | DeepSeek V3.2 Chat | Conversational |
-| `if/deepseek-v3.2-reasoner` | DeepSeek V3.2 Reasoner | Logic phức tạp |
-
-### Mẹo Pro
-
-- **8 model MIỄN PHÍ** - Đa dạng nhất trong free tier
-- **Usage không giới hạn** - Không giới hạn quota
-- **Kimi K2 Thinking** - Tốt nhất cho reasoning phức tạp
-- **DeepSeek R1** - Khả năng reasoning mạnh
-
----
-
-## Qwen (3 Model MIỄN PHÍ)
-
-### Pricing
-
-| Plan | Chi phí Hàng tháng | Models | Quota |
-|------|--------------|--------|-------|
-| FREE | $0 | 3 models | Không giới hạn |
-
-### Setup
-
-**Bước 1: Kết nối qua Dashboard**
-
-```bash
-9router
-# Dashboard → Providers → Connect Qwen
-```
-
-**Bước 2: Xác thực Device Code**
-
-- Click "Connect Qwen"
-- Dashboard hiển thị device code
-- Vào URL xác thực
-- Nhập device code
-- Đăng nhập tài khoản Qwen
-- Auto token refresh được bật
-
-**Bước 3: Dùng trong CLI**
-
-```
-Model: qw/qwen3-coder-plus
-       qw/qwen3-coder-flash
-       qw/vision-model
-```
-
-### Model có sẵn
-
-| Model ID | Mô tả | Tốt nhất cho |
-|----------|-------------|----------|
-| `qw/qwen3-coder-plus` | Qwen3 Coder Plus | Coding nâng cao |
-| `qw/qwen3-coder-flash` | Qwen3 Coder Flash | Phản hồi nhanh |
-| `qw/vision-model` | Qwen3 Vision | Phân tích ảnh |
-
-### Mẹo Pro
-
-- **Qwen3 Coder Plus** - Khả năng coding mạnh
-- **Qwen3 Coder Flash** - Nhanh cho task nhanh
-- **Vision model** - Phân tích ảnh MIỄN PHÍ
-- **Usage không giới hạn** - Không giới hạn quota
-
----
-
-## Kiro (Claude MIỄN PHÍ)
-
-### Pricing
-
-| Plan | Chi phí Hàng tháng | Models | Quota |
-|------|--------------|--------|-------|
-| FREE | $0 | Claude Sonnet 4.5, Haiku 4.5 | Không giới hạn |
-
-**Giá trị tốt nhất:** Claude MIỄN PHÍ! Cùng chất lượng với Claude Code trả phí.
+**Lưu ý:** Kiro chuyển sang mô hình trả phí từ tháng 9/2025. Tài khoản mới được thêm 500 trial credits trong 30 ngày đầu. Alias `kr/` mở toàn bộ catalog; chạy `/v1/models` để xem tài khoản của bạn thực sự dùng được gì.
 
 ### Setup
 
@@ -150,46 +38,83 @@ Model: qw/qwen3-coder-plus
 
 **Bước 2: AWS Builder ID hoặc OAuth**
 
-- Click "Connect Kiro"
-- Chọn phương thức đăng nhập:
-  - AWS Builder ID (khuyên dùng)
-  - Tài khoản Google
-  - Tài khoản GitHub
+- Chọn AWS Builder ID (khuyên dùng), Google, hoặc GitHub
 - Cấp quyền
 - Auto token refresh được bật
 
 **Bước 3: Dùng trong CLI**
 
 ```
-Model: kr/claude-sonnet-4.5
-       kr/claude-haiku-4.5
+Model: kr/glm-5
+       kr/deepseek-3.2
+       kr/qwen3-coder-next
 ```
-
-### Model có sẵn
-
-| Model ID | Mô tả | Tốt nhất cho |
-|----------|-------------|----------|
-| `kr/claude-sonnet-4.5` | Claude Sonnet 4.5 | Cân bằng chất lượng/tốc độ |
-| `kr/claude-haiku-4.5` | Claude Haiku 4.5 | Phản hồi nhanh |
 
 ### Mẹo Pro
 
-- **Claude MIỄN PHÍ** - Cùng chất lượng tier trả phí
-- **AWS Builder ID** - Setup dễ với tài khoản AWS
-- **Usage không giới hạn** - Không giới hạn quota
-- **Chất lượng tốt nhất** - Claude 4.5 miễn phí!
+- **AWS Builder ID** - đường setup dễ nhất
+- **Credit dùng chung** cho mọi model trên tài khoản, nên một ngày dùng Claude nhiều có thể hết credit cả tháng
+- **Kiểm tra quota trên dashboard** trước khi đẩy việc production vào đây
 
+---
+
+## OpenCode Free (không cần auth)
+
+### Setup
+
+```bash
+9router
+# Dashboard → Providers → Connect OpenCode Free
+```
+
+Không cần đăng nhập. LiteRouter làm passthrough proxy và danh sách model lấy từ upstream.
+
+```
+Model: oc/<model-id>
+```
+
+**Lưu ý:** danh sách model free thay đổi liên tục. Một số entry chỉ là khuyến mãi có thứi hạn và biến mất không báo trước.
+
+---
+
+## Vertex AI (credit $300 cho tài khoản mới)
+
+### Setup
+
+1. Tạo project Google Cloud và bật Vertex AI API.
+2. Tạo service account và tải JSON key.
+3. Dashboard → Connect Vertex AI → upload JSON.
+
+```
+Model: vertex/gemini-3.1-pro-preview
+       vertex/gemini-3-flash-preview
+       vertex/gemini-2.5-flash
+```
+
+**Lưu ý:** từ tháng 3/2026 endpoint Gemini API không còn tiêu credit $300 nữa. Trỏ provider vào endpoint **Vertex AI Studio**.
+
+---
+
+## Free tier đã ngừng
+
+Các provider này từng có trong tài liệu và nay không còn dùng được:
+
+| Provider | Trạng thái |
+|----------|--------|
+| **iFlow** | Chuyển sang trả phí 2026 |
+| **Qwen Code** | Free OAuth tier ngừng 2026-04-15 |
+| **Gemini CLI** | Service đóng 2026-06-18; vẫn có trong catalog nhưng đánh dấu deprecated |
 ---
 
 ## So sánh Tính năng
 
 | Provider | Models | Model tốt nhất | Setup | Quota |
 |----------|--------|------------|-------|-------|
-| **iFlow** | 8 | Kimi K2 Thinking | OAuth | Không giới hạn |
-| **Qwen** | 3 | Qwen3 Coder Plus | Device Code | Không giới hạn |
-| **Kiro** | 2 | Claude Sonnet 4.5 | AWS Builder ID | Không giới hạn |
+| **Kiro** | toàn catalog | họ Claude / Qwen | AWS Builder ID, Google, GitHub | ~50 credits/tháng |
+| **OpenCode Free** | thay đổi | passthrough | không cần | khuyến mãi |
+| **Vertex AI** | 4+ | Gemini 3.1 Pro | service account JSON | $300 / 90 ngày |
 
-**Thắng cuộc:** iFlow vì đa dạng, Kiro vì chất lượng!
+**Thắng cuộc:** Kiro vì độ phủ, Vertex vì Gemini context dài miễn phí trong thời gian có credit.
 
 ---
 
@@ -200,8 +125,8 @@ Model: kr/claude-sonnet-4.5
 ```
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
-  OpenAI API Key: [from 9router dashboard]
-  Model: if/kimi-k2-thinking
+  OpenAI API Key: [from LiteRouter dashboard]
+  Model: kr/glm-5
 ```
 
 ### Tạo Combo (Khuyên dùng)
@@ -211,9 +136,9 @@ Dashboard → Combos → Create New
 
 Name: free-combo
 Models:
-  1. if/kimi-k2-thinking (iFlow primary)
-  2. qw/qwen3-coder-plus (Qwen backup)
-  3. kr/claude-sonnet-4.5 (Kiro quality)
+  1. kr/glm-5 (Kiro primary)
+  2. vertex/gemini-3-flash-preview (Vertex backup)
+  3. oc/<model-id> (OpenCode Free overflow)
 
 Use in CLI: free-combo
 ```
@@ -231,21 +156,21 @@ Dashboard → Combos → Create New
 
 Name: complete-fallback
 Models:
-  1. gc/gemini-3-flash-preview (FREE subscription)
-  2. cc/claude-opus-4-5 (Paid subscription)
-  3. glm/glm-4.7 (Cheap backup, $0.6/1M)
-  4. minimax/MiniMax-M2.1 (Cheapest, $0.2/1M)
-  5. if/kimi-k2-thinking (FREE fallback)
-  6. kr/claude-sonnet-4.5 (FREE quality)
+  1. cc/claude-opus-5 (Paid subscription)
+  2. cx/gpt-5.5 (Paid subscription)
+  3. glm/glm-5.1 (Cheap backup, $0.6/1M)
+  4. minimax/MiniMax-M2.7 (Cheapest, $0.2/1M)
+  5. kr/glm-5 (FREE credit)
+  6. vertex/gemini-3-flash-preview (FREE credit)
 
 Use in CLI: complete-fallback
 ```
 
 **Kết quả:**
-- Tier 1: Subscription MIỄN PHÍ (Gemini CLI)
+- Tier 1: Subscription trả phí (Claude Code, Codex)
 - Tier 2: Subscription trả phí (Claude Code)
 - Tier 3: Backup rẻ (GLM, MiniMax)
-- Tier 4: Fallback MIỄN PHÍ (iFlow, Kiro)
+- Tier 4: Fallback bằng credit (Kiro, Vertex AI)
 
 **Không bao giờ ngừng code!**
 
@@ -270,11 +195,11 @@ Only use free tier when:
 ### 2. Chọn Model phù hợp
 
 ```
-Complex reasoning: if/kimi-k2-thinking
-Fast coding: qw/qwen3-coder-flash
-Best quality: kr/claude-sonnet-4.5
-Long context: if/minimax-m2
-Vision tasks: qw/vision-model
+Complex reasoning: glm/glm-5.1
+Fast coding: vertex/gemini-3-flash-preview
+Free credit: kr/glm-5
+Long context: minimax/MiniMax-M2.7
+Overflow khuyến mãi: oc/<model-id>
 ```
 
 ### 3. Tạo Combo Chỉ Free
@@ -284,9 +209,9 @@ For zero-cost coding:
 
 Name: zero-cost
 Models:
-  1. kr/claude-sonnet-4.5 (Best quality)
-  2. if/kimi-k2-thinking (Complex tasks)
-  3. qw/qwen3-coder-plus (Fast coding)
+  1. kr/glm-5 (Kiro credit)
+  2. vertex/gemini-3.1-pro-preview (Vertex credit)
+  3. oc/<model-id> (OpenCode Free)
 
 Cost: $0 forever!
 ```
@@ -314,9 +239,9 @@ Save paid quota for:
 
 ```
 Setup:
-1. kr/claude-sonnet-4.5 (Best quality)
-2. if/kimi-k2-thinking (Complex reasoning)
-3. qw/qwen3-coder-plus (Fast coding)
+1. kr/glm-5 (Kiro credit)
+2. vertex/gemini-3.1-pro-preview (Vertex credit)
+3. oc/<model-id> (OpenCode Free)
 
 Monthly cost: $0
 Usage: Unlimited
@@ -331,9 +256,9 @@ Perfect for:
 
 ```
 Setup:
-1. gc/gemini-3-flash-preview (FREE 180K/month)
-2. glm/glm-4.7 (Cheap backup, $0.6/1M)
-3. if/kimi-k2-thinking (FREE fallback)
+1. glm/glm-5.1 (Cheap primary, $0.6/1M)
+2. vertex/gemini-3-flash-preview (FREE credit)
+3. kr/glm-5 (FREE credit fallback)
 
 Monthly cost: $5-10
 Usage: 100M+ tokens
@@ -348,13 +273,12 @@ Perfect for:
 
 ```
 Setup:
-1. gc/gemini-3-flash-preview (FREE 180K/month)
-2. cc/claude-opus-4-5 (Subscription $20-100)
-3. cx/gpt-5.2-codex (Subscription $20-200)
-4. glm/glm-4.7 (Cheap $0.6/1M)
-5. minimax/MiniMax-M2.1 (Cheapest $0.2/1M)
-6. if/kimi-k2-thinking (FREE unlimited)
-7. kr/claude-sonnet-4.5 (FREE quality)
+1. cc/claude-opus-5 (Subscription $20-100)
+2. cx/gpt-5.5 (Subscription $20-200)
+3. glm/glm-5.1 (Cheap $0.6/1M)
+4. minimax/MiniMax-M2.7 (Cheapest $0.2/1M)
+5. kr/glm-5 (FREE credit)
+6. vertex/gemini-3.1-pro-preview (FREE credit)
 
 Monthly cost: $40-320 (subscriptions) + $10-20 (cheap tier)
 Usage: 500M+ tokens
@@ -378,16 +302,16 @@ Perfect for:
 
 **Phương án 2: Chỉ LiteRouter Free Tier**
 ```
-100M via free tier = $0/month
-Savings: $2,000/month (100%)
+100M via free tier = $0 trong thời gian còn credit
+Thực tế bị chặn dưới 100M/tháng bởi credit Kiro và số dư Vertex
 ```
 
 **Phương án 3: Chiến lược Hoàn chỉnh LiteRouter**
 ```
-60M via Gemini CLI (FREE): $0
 30M via Claude Code (subscription): $0 extra
 8M via GLM (cheap): $4.80
-2M via iFlow (FREE): $0
+2M via MiniMax (cheap): $0.40
+phần còn lại qua credit Kiro / Vertex: $0 extra
 Total: $4.80/month + subscriptions you already have
 Savings: $1,995/month (99.76%)
 ```
@@ -427,7 +351,8 @@ Savings: $1,995/month (99.76%)
 
 - **Tốc độ** - Có thể chậm hơn tier trả phí
 - **Ưu tiên** - Ưu tiên thấp hơn trong giờ cao điểm
-- **Rate limit** - Có thể bị rate limit (nhưng không giới hạn quota)
+- **Quota** - Có trần, không phải vô hạn: Kiro ~50 credits/tháng, Vertex chạy trên số dư $300
+- **Xoay vòng** - Danh sách model của OpenCode Free thay đổi không báo trước
 - **Tính khả dụng** - Có thể có downtime thỉnh thoảng
 
 **Giải pháp:** Dùng chiến lược fallback 3 tầng để đáng tin cậy!

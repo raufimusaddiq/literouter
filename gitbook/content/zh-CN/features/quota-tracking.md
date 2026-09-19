@@ -32,29 +32,29 @@ LiteRouter 为所有提供商提供完善的配额跟踪:
 └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────┐
-│ Gemini CLI (gc/)                            │
+│ Kiro (kr/)                                  │
 │ ████████░░░░░░░░░░░░ 450 / 1000 (45%)      │
 │ 每日重置剩余: 18h 30m                       │
-│ 本月: 45K / 180K (25%)                      │
+│ 本月: 32 / 50 额度 (64%)                  │
 │ 成本: $0(免费层)                           │
 └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────┐
-│ GLM-4.7 (glm/)                              │
+│ GLM 5.1 (glm/)                              │
 │ ██████████████░░░░░░ 7M / 10M tokens (70%)  │
 │ 重置: 每日 10:00 AM(5h 35m 后)            │
 │ 今日成本: $4.20                             │
 └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────┐
-│ MiniMax M2.1 (minimax/)                     │
+│ MiniMax M2.7 (minimax/)                     │
 │ ████████████████░░░░ 4M / 5M tokens (80%)   │
 │ 5h 滚动窗口                                  │
 │ 成本(5h): $0.80                            │
 └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────┐
-│ iFlow (if/)                                 │
+│ Vertex AI (vertex/)                         │
 │ ████████████████████ 无限                   │
 │ 成本: $0(永久免费)                        │
 └─────────────────────────────────────────────┘
@@ -72,7 +72,7 @@ LiteRouter 为所有提供商提供完善的配额跟踪:
 仪表盘 → 活动 → 最近请求
 
 请求 #1234
-模型: cc/claude-opus-4-5-20251101
+模型: cc/claude-opus-5
 时间戳: 2026-02-04 04:15:32
 
 Tokens:
@@ -91,7 +91,7 @@ Tokens:
 仪表盘 → 实时监控
 
 当前请求:
-  模型: glm/glm-4.7
+  模型: glm/glm-5.1
   已流式输出 tokens: 450 / 预计 ~800
   当前成本: $0.0009
   耗时: 1.8s
@@ -103,9 +103,9 @@ Tokens:
 仪表盘 → 分析 → Token 使用
 
 今日(2026-02-04):
-  cc/claude-opus-4-5: 15M tokens($0,订阅)
-  glm/glm-4.7: 8M tokens($4.80)
-  if/kimi-k2-thinking: 3M tokens($0,免费)
+  cc/claude-opus-5: 15M tokens($0,订阅)
+  glm/glm-5.1: 8M tokens($4.80)
+  kr/glm-5: 3M tokens($0,免费)
 
 合计: 26M tokens
 成本: $4.80
@@ -152,7 +152,7 @@ Tokens:
 
 仪表盘显示:
   今日: 450 / 1,000 次请求 (45%)
-  本月: 45K / 180K 次补全 (25%)
+  本月: 32 / 50 额度 (64%)
   每日重置剩余: 18h 30m
   月度重置剩余: 26 天
 ```
@@ -170,7 +170,7 @@ Tokens:
 
 ### 低价提供商
 
-**GLM-4.7**
+**GLM 5.1**
 ```
 配额类型: 每日 token 上限
 上限: 10M tokens/天(Coding Plan)
@@ -183,7 +183,7 @@ Tokens:
   今日成本: $4.20
 ```
 
-**MiniMax M2.1**
+**MiniMax M2.7**
 ```
 配额类型: 5 小时滚动窗口
 上限: 每 5 小时 5M tokens
@@ -209,7 +209,7 @@ Tokens:
 
 ### 免费提供商
 
-**iFlow / Qwen / Kiro**
+**Kiro / OpenCode Free / Vertex AI**
 ```
 配额类型: 无限(限速)
 上限: 无硬上限
@@ -235,13 +235,13 @@ Tokens:
   Gemini CLI: 3M tokens($0,免费层)
 
 付费提供商: $4.80
-  GLM-4.7: 8M tokens($4.80)
+  GLM 5.1: 8M tokens($4.80)
     输入: 6M × $0.60/1M = $3.60
     输出: 2M × $2.20/1M = $4.40
     合计: $4.80
 
 免费提供商: $0
-  iFlow: 3M tokens($0)
+  Kiro: 3M tokens($0)
 
 今日合计: $4.80
 ```
@@ -267,8 +267,8 @@ Tokens:
 预计(30 天): ~$120
 
 按提供商分解:
-  GLM-4.7: $22.00 (78%)
-  MiniMax M2.1: $6.00 (22%)
+  GLM 5.1: $22.00 (78%)
+  MiniMax M2.7: $6.00 (22%)
 
 每 1M tokens 平均成本: $0.62
 相比 ChatGPT API 节省: 97%($4,000 → $120)
@@ -289,7 +289,7 @@ Tokens:
 
 分解:
   订阅: 900M tokens($0)
-  GLM-4.7: 450M tokens($90)
+  GLM 5.1: 450M tokens($90)
   MiniMax: 120M tokens($24)
   免费: 30M tokens($0)
 
@@ -324,7 +324,7 @@ Tokens:
   请求: 15,234
   Tokens: 320M
   成本: $52.00
-  Top 模型: cc/claude-opus-4-5 (45%)
+  Top 模型: cc/claude-opus-5 (45%)
 ```
 
 ### 按模型使用
@@ -333,18 +333,18 @@ Tokens:
 仪表盘 → 分析 → 模型
 
 Top 模型(本月):
-1. cc/claude-opus-4-5: 145M tokens (45%)
-2. glm/glm-4.7: 95M tokens (30%)
-3. if/kimi-k2-thinking: 50M tokens (16%)
-4. minimax/MiniMax-M2.1: 20M tokens (6%)
-5. gc/gemini-3-flash: 10M tokens (3%)
+1. cc/claude-opus-5: 145M tokens (45%)
+2. glm/glm-5.1: 95M tokens (30%)
+3. kr/glm-5: 50M tokens (16%)
+4. minimax/MiniMax-M2.7: 20M tokens (6%)
+5. vertex/gemini-3-flash-preview: 10M tokens (3%)
 
 成本分解:
-  cc/claude-opus: $0(订阅)
-  glm/glm-4.7: $45.00
-  if/kimi-k2-thinking: $0(免费)
-  minimax/MiniMax-M2.1: $7.00
-  gc/gemini-3-flash: $0(免费)
+  cc/claude-opus-5: $0(订阅)
+  glm/glm-5.1: $45.00
+  kr/glm-5: $0(免费)
+  minimax/MiniMax-M2.7: $7.00
+  vertex/gemini-3-flash-preview: $0(免费)
 ```
 
 ### 按时间使用
@@ -376,9 +376,9 @@ premium-coding:
   成本: $2.40
 
   分解:
-    cc/claude-opus: 8M tokens (67%, $0)
-    glm/glm-4.7: 3M tokens (25%, $1.80)
-    minimax/MiniMax-M2.1: 1M tokens (8%, $0.20)
+    cc/claude-opus-5: 8M tokens (67%, $0)
+    glm/glm-5.1: 3M tokens (25%, $1.80)
+    minimax/MiniMax-M2.7: 1M tokens (8%, $0.20)
 
 budget-combo:
   请求: 234
@@ -386,8 +386,8 @@ budget-combo:
   成本: $1.20
 
   分解:
-    glm/glm-4.7: 4M tokens (67%, $2.40)
-    if/kimi-k2-thinking: 2M tokens (33%, $0)
+    glm/glm-5.1: 4M tokens (67%, $2.40)
+    kr/glm-5: 2M tokens (33%, $0)
 ```
 
 ---
@@ -416,7 +416,7 @@ budget-combo:
 ⚠️ Claude Code 配额已用 80%
    剩余 2.5h(1h 30m 后重置)
 
-⚠️ GLM-4.7 配额已用 90%
+⚠️ GLM 5.1 配额已用 90%
    剩余 1M tokens(5h 后重置)
 
 ✅ Gemini CLI 配额已重置
@@ -465,7 +465,7 @@ budget-combo:
 告警示例:
 ⚠️ 检测到成本峰值
    今日: $12.50(2.5× 日均)
-   原因: GLM-4.7 高用量(20M tokens)
+   原因: GLM 5.1 高用量(20M tokens)
    建议: 检查主模型是否配额耗尽
 ```
 
@@ -487,7 +487,7 @@ budget-combo:
 早晨检查:
   ✅ Claude Code: 5h 可用(刚重置)
   ✅ Gemini CLI: 1K 请求可用
-  ⚠️ GLM-4.7: 剩 2M tokens(10AM 重置)
+  ⚠️ GLM 5.1: 剩 2M tokens(10AM 重置)
 
 行动: 早上工作用 Claude Code
 ```
@@ -512,11 +512,11 @@ budget-combo:
 
 **示例:**
 ```
-当前: cc/claude-opus → glm/glm-4.7
+当前: cc/claude-opus-5 → glm/glm-5.1
   80% 通过 Claude(好)
   20% 通过 GLM($12/月)
 
-优化后: gc/gemini-3-flash → cc/claude-opus → glm/glm-4.7
+优化后: vertex/gemini-3-flash-preview → cc/claude-opus-5 → glm/glm-5.1
   50% 通过 Gemini(免费)
   40% 通过 Claude(订阅)
   10% 通过 GLM($6/月)
@@ -530,7 +530,7 @@ budget-combo:
 仪表盘 → 配额 → 重置日程:
   Claude Code: 5h 滚动 + 每周一
   Gemini CLI: 每日 00:00 UTC + 每月 1 日
-  GLM-4.7: 每日 10:00 AM 北京时间
+  GLM 5.1: 每日 10:00 AM 北京时间
   MiniMax: 5h 滚动窗口
 ```
 
@@ -589,7 +589,7 @@ Response:
     },
     {
       "id": "glm",
-      "name": "GLM-4.7",
+      "name": "GLM 5.1",
       "quota": {
         "used": 7000000,
         "limit": 10000000,
@@ -628,13 +628,13 @@ Response:
   },
   "byModel": [
     {
-      "model": "cc/claude-opus-4-5",
+      "model": "cc/claude-opus-5",
       "requests": 456,
       "tokens": 15000000,
       "cost": 0
     },
     {
-      "model": "glm/glm-4.7",
+      "model": "glm/glm-5.1",
       "requests": 234,
       "tokens": 8000000,
       "cost": 4.80

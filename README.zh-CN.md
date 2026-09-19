@@ -8,7 +8,7 @@
 
   **将所有 AI 编程工具（Claude Code、Cursor、Antigravity、Copilot、Codex、Gemini、OpenCode、Cline、OpenClaw...）连接到 40+ AI 提供商和 100+ 模型。**
 
-  [![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router)
+  [![npm](https://img.shields.io/github/v/release/raufimusaddiq/literouter?include_prereleases)](https://www.npmjs.com/package/9router)
   [![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router)
   [![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
 
@@ -69,6 +69,70 @@
 
 ---
 
+## ⚖️ LiteRouter 与 9Router 对比
+
+LiteRouter 不是重写。它是上游 9Router 加上 `MINIMAL_PROFILE` 运行时开关、
+一层热路径缓存，以及关闭附属子系统。路由引擎、提供商注册表、传输矩阵、
+控制台和 SQLite schema 均未改动——这正是上游修复仍可挑选合并的原因。
+
+### 实际差异
+
+| 方面 | 9Router | LiteRouter |
+| --- | --- | --- |
+| 运行时配置 | 完整 | `MINIMAL_PROFILE=true` |
+| 模型目录同步 | 后台刷新开启 | `MODEL_CATALOG_SYNC=off` |
+| Token 刷新 | 后台任务开启 | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
+| 热读缓存 | 无 | 进程内（连接、组合、设置） |
+| 跨实例缓存 | — | Redis，**仅作缓存**（不持久化） |
+| 隧道 / MITM / Tailscale 运行时 | 有 | **已删除**（PR #14） |
+| 云同步 | 有 | 有，但未接入精简配置 |
+| 数据源 | SQLite | SQLite（未改动） |
+
+这里的 Redis 不是数据存储。它只保存一个连接缓存版本键，用于跨实例失效
+进程内缓存；SQLite 仍是权威数据源。聊天突发请求不会产生 Redis 键，这是设计如此。
+
+隧道/Tailscale/MITM 运行时是**被删除**的，而非隐藏（PR #14，59 个文件、7,381 行），
+其他非路由界面（媒体提供商、CLI 工具菜单、Basic Chat、技能页、翻译演练场、
+代理池 UI）同样被删除。仅有两处刻意保留，因为它们保护既有部署：
+`dashboardGuard.js` 与 `auth/login` 中的隧道主机名访问控制闸门，
+以及 `mitmAlias` / `mitmSudoEncrypted` 数据库键，便于旧 SQLite 文件仍可迁移。
+
+### 与打包版 9Router 的性能对比
+
+在同一主机、相同的 mock 上游上测量，因此差值来自路由器开销而非上游波动。
+完整方法见 [`docs/literouter-baseline/phase-latency-resource.md`](./docs/literouter-baseline/phase-latency-resource.md)。
+
+热路径，n=30，非流式：
+
+| 指标 | 9Router（生产） | LiteRouter | 变化 |
+| --- | --- | --- | --- |
+| 中位数 | 16.53 ms | 13.64 ms | −17.5% |
+| p95 | 25.36 ms | 19.40 ms | −23.5% |
+
+真实上游突发，`kn/deepseek-v4-1-flash`，n=24，8 并发：
+
+| 指标 | 9Router（生产） | LiteRouter | 变化 |
+| --- | --- | --- | --- |
+| 中位数 | 1715 ms | 1580 ms | −7.9% |
+| p95 | 2053 ms | 2062 ms | 噪声范围 |
+
+### 内存占用
+
+| 容器 | 空闲 RSS | 突发后 RSS | 上限 |
+| --- | --- | --- | --- |
+| 9Router（生产） | 192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis（仅 LiteRouter） | 未采样 | 5.8 MiB | 256 MiB |
+
+RSS 下降约 **1.7–2.8 倍**。其中一部分来自精简配置（无提供商连接、无目录同步、
+无后台刷新），因此应将其理解为裁剪功能集的代价，而不是纯粹的代码效率声明。
+
+**镜像大小没有变化** — 两者均约 1.03 GB。`.next/standalone`（81 MB）、
+`next`（201.7 MB）与 `sql.js`（23 MB，最后的 SQLite 驱动兜底）占主要部分，
+精简配置并未移除它们。见 [`docs/literouter-baseline/phase-bundle-analysis.md`](./docs/literouter-baseline/phase-bundle-analysis.md)。
+
+---
+
 ## ⚡ 快速开始
 
 **1. 全局安装：**
@@ -82,7 +146,7 @@ npm install -g 9router
 
 **2. 连接免费提供商（无需注册）：**
 
-控制面板 → 提供商 → 连接 **Kiro AI**（约 50 积分/月免费：Claude 4.5 + GLM-5 + MiniMax）或 **OpenCode Free**（无需认证）→ 完成！
+控制面板 → 提供商 → 连接 **Kiro AI**（约 50 积分/月免费：GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next）或 **OpenCode Free**（无需认证）→ 完成！
 
 **3. 在 CLI 工具中使用：**
 
@@ -90,7 +154,7 @@ npm install -g 9router
 Claude Code/Codex/OpenClaw/Cursor/Cline 设置：
   Endpoint: http://localhost:20128/v1
   API Key: [从控制面板复制]
-  Model: kr/claude-sonnet-4.5
+  Model: kr/glm-5
 ```
 
 **就这么简单！** 开始使用免费 AI 模型编程。
@@ -279,7 +343,7 @@ LiteRouter 与所有主流 AI 编程工具无缝协作：
       <td align="center" width="150">
         <img src="./public/providers/kiro.png" width="70" alt="Kiro"/><br/>
         <b>Kiro AI</b><br/>
-        <sub>Claude 4.5 + GLM-5 + MiniMax<br/>每月 50 积分免费</sub>
+        <sub>GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next<br/>每月约 50 积分免费</sub>
       </td>
       <td align="center" width="150">
         <img src="./public/providers/opencode.png" width="70" alt="OpenCode Free"/><br/>
@@ -289,7 +353,7 @@ LiteRouter 与所有主流 AI 编程工具无缝协作：
       <td align="center" width="150">
         <img src="./public/providers/gemini.png" width="70" alt="Vertex AI"/><br/>
         <b>Vertex AI</b><br/>
-        <sub>Gemini 3 Pro + GLM-5 + DeepSeek<br/>$300 免费额度</sub>
+        <sub>Gemini 3.1 Pro/Flash + 2.5 Flash<br/>$300 免费额度</sub>
       </td>
     </tr>
   </table>
@@ -430,9 +494,9 @@ LiteRouter 与所有主流 AI 编程工具无缝协作：
 
 ```
 组合："my-coding-stack"
-  1. cc/claude-opus-4-6        （你的订阅）
-  2. glm/glm-4.7               （低价备份，$0.6/1M）
-  3. if/kimi-k2-thinking       （免费备选）
+  1. cc/claude-opus-5        （你的订阅）
+  2. glm/glm-5.1               （低价备份，$0.6/1M）
+  3. kr/glm-5                   （免费备选）
 
 → 配额用完或出错时自动切换
 ```
@@ -528,10 +592,10 @@ LiteRouter 与所有主流 AI 编程工具无缝协作：
 | | Codex (Plus/Pro) | $20-200/月 | 5小时 + 每周 | OpenAI 用户 |
 | | GitHub Copilot | $10-19/月 | 每月 | GitHub 用户 |
 | | Cursor IDE | $20/月 | 每月 | Cursor 用户 |
-| **💰 低价** | GLM-5.1 / GLM-4.7 | $0.6/1M | 每日 10AM | 预算备份 |
+| **💰 低价** | GLM-5.1 / GLM-5   | $0.6/1M | 每日 10AM | 预算备份 |
 | | MiniMax M2.7 | $0.2/1M | 5小时滚动 | 最便宜选项 |
 | | Kimi K2.5 | $9/月固定 | 10M tokens/月 | 可预测成本 |
- | **🆓 免费** | Kiro AI | $0 | 50 积分/月 | Claude 4.5 + GLM-5 + MiniMax 免费（之上为付费档位） |
+ | **🆓 免费** | Kiro AI | $0 | ~50 积分/月 | GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next（之上为付费档位） |
  | | OpenCode Free | $0 |  varies* | 无需认证，自动获取模型（列表会变化） |
  | | Vertex AI | $300 额度 | 新 GCP 账户 | Gemini 3 Pro + DeepSeek + GLM-5（使用 Vertex AI Studio 端点消耗免费额度） |
 
@@ -583,9 +647,9 @@ LiteRouter 与所有主流 AI 编程工具无缝协作：
 **解决方案：**
 ```
 组合："maximize-claude"
-  1. cc/claude-opus-4-7        （充分利用订阅）
+  1. cc/claude-opus-5        （充分利用订阅）
   2. glm/glm-5.1               （配额用完时的低价备份）
-  3. kr/claude-sonnet-4.5      （免费紧急备选）
+  3. kr/glm-5                  （免费紧急备选）
 
 月成本：$20（订阅）+ ~$5（备份）= $25 总计
 对比：$20 + 遇到限制 = 沮丧
@@ -598,8 +662,8 @@ LiteRouter 与所有主流 AI 编程工具无缝协作：
 **解决方案：**
 ```
 组合："free-forever"
-  1. kr/claude-sonnet-4.5      （通过 Kiro 免费使用 Claude 4.5，约 50 积分/月）
-  2. kr/glm-5                  （通过 Kiro 免费使用 GLM-5）
+  1. kr/glm-5                  （通过 Kiro 免费使用 GLM 5，约 50 积分/月）
+  2. kr/deepseek-3.2           （通过 Kiro 免费使用 DeepSeek）
   3. oc/<auto>                 （OpenCode Free，无需认证）
 
 月成本：$0
@@ -613,11 +677,11 @@ LiteRouter 与所有主流 AI 编程工具无缝协作：
 **解决方案：**
 ```
 组合："always-on"
-  1. cc/claude-opus-4-7        （最佳质量）
+  1. cc/claude-opus-5        （最佳质量）
   2. cx/gpt-5.5                （第二个订阅）
   3. glm/glm-5.1               （低价，每日重置）
   4. minimax/MiniMax-M2.7      （最便宜，5小时重置）
-  5. kr/claude-sonnet-4.5      （通过 Kiro 免费使用，约 50 积分/月）
+  5. kr/glm-5                  （通过 Kiro 免费使用，约 50 积分/月）
 
 结果：5 层切换 = 零停机时间
 月成本：$20-200（订阅）+ $10-20（备份）
@@ -630,9 +694,9 @@ LiteRouter 与所有主流 AI 编程工具无缝协作：
 **解决方案：**
 ```
 组合："openclaw-free"
-  1. kr/claude-sonnet-4.5      （Claude 4.5 免费）
+  1. kr/glm-5                  （GLM 5 免费）
   2. kr/glm-5                  （GLM-5 免费）
-  3. kr/MiniMax-M2.5           （MiniMax 免费）
+  3. kr/deepseek-3.2           （DeepSeek 免费）
 
 月成本：$0
 访问方式：WhatsApp、Telegram、Slack、Discord、iMessage、Signal...
@@ -705,7 +769,7 @@ LiteRouter 只是路由你的请求到它们 — 没有"陷阱"或未来的计�
 
 2. **仅在需要时添加低价备份：**
    ```
-   4. glm/glm-4.7 ($0.6/1M tokens)
+   4. glm/glm-5.1 ($0.6/1M tokens)
    ```
    **额外成本：只为实际使用的部分付费**
 
@@ -752,8 +816,8 @@ LiteRouter 的智能切换可以防止意外费用：
 → 5小时 + 每周配额追踪
 
 模型：
-  cc/claude-opus-4-7
-  cc/claude-opus-4-6
+  cc/claude-opus-5
+  cc/claude-sonnet-5
   cc/claude-sonnet-4-6
   cc/claude-haiku-4-5-20251001
 ```
@@ -771,7 +835,6 @@ LiteRouter 的智能切换可以防止意外费用：
   cx/gpt-5.5
   cx/gpt-5.4
   cx/gpt-5.3-codex
-  cx/gpt-5.2-codex
 ```
 
 ### GitHub Copilot
@@ -786,7 +849,6 @@ LiteRouter 的智能切换可以防止意外费用：
   gh/claude-opus-4.7
   gh/claude-sonnet-4.6
   gh/gemini-3.1-pro-preview
-  gh/grok-code-fast-1
 ```
 
 ### Cursor IDE
@@ -798,7 +860,6 @@ LiteRouter 的智能切换可以防止意外费用：
 
 模型：
   cu/claude-4.6-opus-max
-  cu/claude-4.5-sonnet-thinking
   cu/gpt-5.3-codex
 ```
 
@@ -807,7 +868,7 @@ LiteRouter 的智能切换可以防止意外费用：
 <details>
 <summary><b>💰 低价提供商（备份）</b></summary>
 
-### GLM-5.1 / GLM-4.7（每日重置，$0.6/1M）
+### GLM-5.1 / GLM-5（每日重置，$0.6/1M）
 
 1. 注册：[Zhipu AI](https://open.bigmodel.cn/)
 2. 从编程计划获取 API key
@@ -815,7 +876,7 @@ LiteRouter 的智能切换可以防止意外费用：
    - 提供商：`glm`
    - API Key：`your-key`
 
-**使用：** `glm/glm-5.1`、`glm/glm-5`、`glm/glm-4.7`
+**使用：** `glm/glm-5.1`、`glm/glm-5`
 
 **专业提示：** 编程计划提供 3 倍配额，成本仅为 1/7！每日 10:00 AM 重置。
 
@@ -825,7 +886,7 @@ LiteRouter 的智能切换可以防止意外费用：
 2. 获取 API key
 3. 控制面板 → 添加 API Key
 
-**使用：** `minimax/MiniMax-M2.7`、`minimax/MiniMax-M2.5`
+**使用：** `minimax/MiniMax-M2.7`
 
 **专业提示：** 长上下文（1M tokens）的最便宜选项！
 
@@ -835,7 +896,7 @@ LiteRouter 的智能切换可以防止意外费用：
 2. 获取 API key
 3. 控制面板 → 添加 API Key
 
-**使用：** `kimi/kimi-k2.5`、`kimi/kimi-k2.5-thinking`
+**使用：** `kimi/kimi-k2.5`、`kimi/kimi-k2.5`
 
 **专业提示：** 每月 $9 固定费用获得 10M tokens = 实际成本 $0.90/1M！
 
@@ -844,23 +905,20 @@ LiteRouter 的智能切换可以防止意外费用：
 <details>
 <summary><b>🆓 免费提供商（推荐）</b></summary>
 
-### Kiro AI（Claude 4.5 + GLM-5 + MiniMax 免费）
+### Kiro AI（GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next 免费）
 
 ```bash
 控制面板 → 连接 Kiro
 → AWS Builder ID、AWS IAM Identity Center、Google 或 GitHub
-→ 无限量使用
+→ 每月约 50 积分免费（新账户前 30 天另加 500 试用积分）
 
 模型：
-  kr/claude-sonnet-4.5
-  kr/claude-haiku-4.5
   kr/glm-5
-  kr/MiniMax-M2.5
-  kr/qwen3-coder-next
   kr/deepseek-3.2
+  kr/qwen3-coder-next
 ```
 
-**专业提示：** Claude 最佳免费选项。无需 API key，无需付款，完全无限量。
+**专业提示：** 无需 API key，无需付款；用量上限约 50 积分/月。
 
 ### OpenCode Free（无需认证，自动获取模型）
 
@@ -904,7 +962,7 @@ Vertex 合作伙伴（通过 Vertex 提供 Anthropic / DeepSeek / GLM / Qwen）�
 
 名称：premium-coding
 模型：
-  1. cc/claude-opus-4-7 (订阅主用)
+  1. cc/claude-opus-5 (订阅主用)
   2. glm/glm-5.1 (低价备份，$0.6/1M)
   3. minimax/MiniMax-M2.7 (最便宜的备选，$0.20/1M)
 
@@ -922,7 +980,7 @@ Vertex 合作伙伴（通过 Vertex 提供 Anthropic / DeepSeek / GLM / Qwen）�
 ```
 名称：free-combo
 模型：
-  1. kr/claude-sonnet-4.5 (通过 Kiro 免费使用 Claude 4.5，约 50 积分/月)
+  1. kr/glm-5 (通过 Kiro 免费使用 Claude 4.5，约 50 积分/月)
   2. kr/glm-5 (通过 Kiro 免费使用 GLM-5)
   3. vertex/gemini-3.1-pro-preview ($300 免费额度)
 
@@ -940,7 +998,7 @@ Vertex 合作伙伴（通过 Vertex 提供 Anthropic / DeepSeek / GLM / Qwen）�
 设置 → 模型 → 高级：
   OpenAI API Base URL：http://localhost:20128/v1
   OpenAI API Key：[来自 9router 控制面板]
-  Model：cc/claude-opus-4-7
+  Model：cc/claude-opus-5
 ```
 
 或使用组合：`premium-coding`
@@ -980,7 +1038,7 @@ codex "your prompt"
   "agents": {
     "defaults": {
       "model": {
-        "primary": "9router/kr/claude-sonnet-4.5"
+        "primary": "literouter/kr/glm-5"
       }
     }
   },
@@ -992,7 +1050,7 @@ codex "your prompt"
         "api": "openai-completions",
         "models": [
           {
-            "id": "kr/claude-sonnet-4.5",
+            "id": "kr/glm-5",
             "name": "Claude Sonnet 4.5 (Kiro Free)"
           }
         ]
@@ -1010,7 +1068,7 @@ codex "your prompt"
 Provider：OpenAI 兼容
 Base URL：http://localhost:20128/v1
 API Key：[来自控制面板]
-Model：cc/claude-opus-4-7
+Model：cc/claude-opus-5
 ```
 
 </details>
@@ -1133,8 +1191,7 @@ docker stop 9router && docker rm 9router
 <summary><b>查看所有可用模型</b></summary>
 
 **Claude Code（`cc/`）** - Pro/Max：
-- `cc/claude-opus-4-7`
-- `cc/claude-opus-4-6`
+- `cc/claude-opus-5`
 - `cc/claude-sonnet-4-6`
 - `cc/claude-sonnet-4-5-20250929`
 - `cc/claude-haiku-4-5-20251001`
@@ -1143,7 +1200,6 @@ docker stop 9router && docker rm 9router
 - `cx/gpt-5.5`
 - `cx/gpt-5.4`
 - `cx/gpt-5.3-codex`
-- `cx/gpt-5.2-codex`
 - `cx/gpt-5.1-codex-max`
 
 **GitHub Copilot（`gh/`）**：
@@ -1151,32 +1207,26 @@ docker stop 9router && docker rm 9router
 - `gh/claude-opus-4.7`
 - `gh/claude-sonnet-4.6`
 - `gh/gemini-3.1-pro-preview`
-- `gh/grok-code-fast-1`
 
 **Cursor（`cu/`）** - 订阅：
 - `cu/claude-4.6-opus-max`
-- `cu/claude-4.5-sonnet-thinking`
 - `cu/gpt-5.3-codex`
 - `cu/kimi-k2.5`
 
 **GLM（`glm/`）** - $0.6/1M：
 - `glm/glm-5.1`
 - `glm/glm-5`
-- `glm/glm-4.7`
 
 **MiniMax（`minimax/`）** - $0.2/1M：
 - `minimax/MiniMax-M2.7`
-- `minimax/MiniMax-M2.5`
 
 **Kimi（`kimi/`）** - $9/月固定：
 - `kimi/kimi-k2.5`
-- `kimi/kimi-k2.5-thinking`
 
 **Kiro（`kr/`）** - 免费（约 50 积分/月，之上为付费档位）：
-- `kr/claude-sonnet-4.5`
-- `kr/claude-haiku-4.5`
 - `kr/glm-5`
-- `kr/MiniMax-M2.5`
+- `kr/qwen3-coder-next`
+- `kr/glm-5`
 - `kr/qwen3-coder-next`
 - `kr/deepseek-3.2`
 
@@ -1202,7 +1252,7 @@ docker stop 9router && docker rm 9router
 
 **速率限制**
 - 订阅配额用完 → 切换到 GLM/MiniMax
-- 添加组合：`cc/claude-opus-4-7 → glm/glm-5.1 → kr/claude-sonnet-4.5`
+- 添加组合：`cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5`
 
 **OAuth token 已过期**
 - LiteRouter 自动刷新
@@ -1247,7 +1297,7 @@ Authorization: Bearer your-api-key
 Content-Type: application/json
 
 {
-  "model": "cc/claude-opus-4-6",
+  "model": "cc/claude-opus-5",
   "messages": [
     {"role": "user", "content": "Write a function to..."}
   ],

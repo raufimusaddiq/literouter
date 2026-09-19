@@ -8,140 +8,28 @@ Respaldo de emergencia cuando todo lo demás está limitado por cuota. ¡Codific
 
 Los proveedores del nivel gratis son tu **fallback** cuando se agota la cuota de suscripción y la del nivel barato:
 
-- 🆓 **iFlow** - 8 modelos GRATIS (Kimi K2, Qwen3, GLM 4.7, MiniMax M2...)
-- 🆓 **Qwen** - 3 modelos GRATIS (Qwen3 Coder Plus/Flash, Vision)
-- 🆓 **Kiro** - 2 modelos GRATIS (Claude Sonnet 4.5, Haiku 4.5)
+- 🆓 **Kiro** - familias Claude y Qwen, nivel gratuito limitado a ~50 créditos/mes
+- 🆓 **OpenCode Free** - sin auth, la lista de modelos se obtiene del upstream
+- 🆓 **Vertex AI** - Gemini sobre el crédito de $300 de una cuenta nueva de Google Cloud
 
-**Estrategia:** Úsalos como respaldo de emergencia. ¡Uso ilimitado, cero costo para siempre!
-
----
-
-## iFlow (8 modelos GRATIS)
-
-### Precios
-
-| Plan | Costo mensual | Modelos | Cuota |
-|------|--------------|--------|-------|
-| FREE | $0 | 8 modelos | Ilimitado |
-
-**Mejor valor:** ¡La mayoría de modelos en el nivel gratis! Kimi K2, Qwen3, GLM, MiniMax, DeepSeek.
-
-### Configuración
-
-**Paso 1: Conectar vía Dashboard**
-
-```bash
-9router
-# Dashboard → Providers → Connect iFlow
-```
-
-**Paso 2: Login OAuth de iFlow**
-
-- Clic en "Connect iFlow"
-- El navegador abre → página de login de iFlow
-- Crea cuenta o inicia sesión
-- Otorga permisos
-- Auto-refresh de token habilitado
-
-**Paso 3: Usar en CLI**
-
-```
-Model: if/kimi-k2-thinking
-       if/kimi-k2
-       if/qwen3-coder-plus
-       if/glm-4.7
-       if/minimax-m2
-       if/deepseek-r1
-       if/deepseek-v3.2-chat
-       if/deepseek-v3.2-reasoner
-```
-
-### Modelos disponibles
-
-| ID del modelo | Descripción | Ideal para |
-|----------|-------------|----------|
-| `if/kimi-k2-thinking` | Kimi K2 Thinking | Razonamiento complejo |
-| `if/kimi-k2` | Kimi K2 | Codificación general |
-| `if/qwen3-coder-plus` | Qwen3 Coder Plus | Generación de código |
-| `if/glm-4.7` | GLM 4.7 | Chino + inglés |
-| `if/minimax-m2` | MiniMax M2 | Contexto largo |
-| `if/deepseek-r1` | DeepSeek R1 | Tareas de razonamiento |
-| `if/deepseek-v3.2-chat` | DeepSeek V3.2 Chat | Conversacional |
-| `if/deepseek-v3.2-reasoner` | DeepSeek V3.2 Reasoner | Lógica compleja |
-
-### Pro Tips
-
-- **8 modelos GRATIS** - La mayor variedad en el nivel gratis
-- **Uso ilimitado** - Sin límites de cuota
-- **Kimi K2 Thinking** - Ideal para razonamiento complejo
-- **DeepSeek R1** - Fuertes capacidades de razonamiento
+**Estrategia:** Úsalos como respaldo de emergencia. Los niveles gratuitos tienen tope, así que trátalos como desbordamiento y no como fuente principal permanente.
 
 ---
 
-## Qwen (3 modelos GRATIS)
+Kiro (Claude con crédito mensual gratuito)
 
 ### Precios
 
-| Plan | Costo mensual | Modelos | Cuota |
+| Plan | Coste mensual | Modelos | Cuota |
 |------|--------------|--------|-------|
-| FREE | $0 | 3 modelos | Ilimitado |
+| FREE | $0 | familias Claude y Qwen | ~50 créditos/mes |
+| Pro | $20 | mismo catálogo | 1.000 créditos |
 
-### Configuración
+**Nota:** Kiro pasó a un modelo de pago en septiembre de 2025. Las cuentas nuevas reciben además 500 créditos de prueba durante los primeros 30 días. El alias `kr/` expone el catálogo completo; ejecuta `/v1/models` para ver qué alcanza realmente tu cuenta.
 
-**Paso 1: Conectar vía Dashboard**
+### 设置
 
-```bash
-9router
-# Dashboard → Providers → Connect Qwen
-```
-
-**Paso 2: Autorización por código de dispositivo**
-
-- Clic en "Connect Qwen"
-- El dashboard muestra el código de dispositivo
-- Visita la URL de autorización
-- Ingresa el código de dispositivo
-- Inicia sesión en la cuenta de Qwen
-- Auto-refresh de token habilitado
-
-**Paso 3: Usar en CLI**
-
-```
-Model: qw/qwen3-coder-plus
-       qw/qwen3-coder-flash
-       qw/vision-model
-```
-
-### Modelos disponibles
-
-| ID del modelo | Descripción | Ideal para |
-|----------|-------------|----------|
-| `qw/qwen3-coder-plus` | Qwen3 Coder Plus | Codificación avanzada |
-| `qw/qwen3-coder-flash` | Qwen3 Coder Flash | Respuestas rápidas |
-| `qw/vision-model` | Qwen3 Vision | Análisis de imágenes |
-
-### Pro Tips
-
-- **Qwen3 Coder Plus** - Fuertes capacidades de codificación
-- **Qwen3 Coder Flash** - Rápido para tareas rápidas
-- **Modelo de visión** - Análisis de imágenes GRATIS
-- **Uso ilimitado** - Sin límites de cuota
-
----
-
-## Kiro (Claude GRATIS)
-
-### Precios
-
-| Plan | Costo mensual | Modelos | Cuota |
-|------|--------------|--------|-------|
-| FREE | $0 | Claude Sonnet 4.5, Haiku 4.5 | Ilimitado |
-
-**Mejor valor:** ¡Claude GRATIS! Misma calidad que Claude Code de pago.
-
-### Configuración
-
-**Paso 1: Conectar vía Dashboard**
+**Paso 1: Conectar desde el panel**
 
 ```bash
 9router
@@ -150,46 +38,81 @@ Model: qw/qwen3-coder-plus
 
 **Paso 2: AWS Builder ID u OAuth**
 
-- Clic en "Connect Kiro"
-- Elige método de login:
-  - AWS Builder ID (recomendado)
-  - Cuenta Google
-  - Cuenta GitHub
-- Otorga permisos
-- Auto-refresh de token habilitado
+- Elige AWS Builder ID (recomendado), Google o GitHub
+- Concede permisos
+- La renovación automática de token queda activa
 
-**Paso 3: Usar en CLI**
+**Paso 3: Usar en la CLI**
 
 ```
-Model: kr/claude-sonnet-4.5
-       kr/claude-haiku-4.5
+Model: kr/glm-5
+       kr/deepseek-3.2
+       kr/qwen3-coder-next
 ```
 
-### Modelos disponibles
+### Consejos
 
-| ID del modelo | Descripción | Ideal para |
-|----------|-------------|----------|
-| `kr/claude-sonnet-4.5` | Claude Sonnet 4.5 | Calidad/velocidad equilibrada |
-| `kr/claude-haiku-4.5` | Claude Haiku 4.5 | Respuestas rápidas |
+- **AWS Builder ID** - la ruta de configuración más sencilla
+- **Los créditos se comparten** entre todos los modelos de la cuenta, así que un día intenso con Claude puede agotar el mes
+- **Consulta la cuota en el panel** antes de enrutar trabajo de producción aquí
 
-### Pro Tips
+---
 
-- **Claude GRATIS** - Misma calidad que el nivel de pago
-- **AWS Builder ID** - Configuración fácil con cuenta AWS
-- **Uso ilimitado** - Sin límites de cuota
-- **Mejor calidad** - ¡Claude 4.5 gratis!
+## OpenCode Free (sin auth)
 
+### 设置
+
+```bash
+9router
+# Dashboard → Providers → Connect OpenCode Free
+```
+
+```
+Model: oc/<model-id>
+```
+
+**Nota:** la lista de modelos gratuitos rota. Algunas entradas son promociones limitadas y desaparecen sin aviso, así que nunca codifiques IDs `oc/` en un combo de producción del que dependas.
+
+---
+
+## Vertex AI (crédito de $300 para cuentas nuevas)
+
+### 设置
+
+1. Crea un proyecto de Google Cloud y habilita la API de Vertex AI.
+2. Crea una cuenta de servicio y descarga la clave JSON.
+3. Panel → Connect Vertex AI → sube el JSON.
+
+```
+Model: vertex/gemini-3.1-pro-preview
+       vertex/gemini-3-flash-preview
+       vertex/gemini-2.5-flash
+```
+
+**Nota:** desde marzo de 2026 el endpoint de la API de Gemini ya no consume el crédito de $300. Apunta el provider al endpoint de **Vertex AI Studio** en su lugar.
+
+---
+
+## Niveles gratuitos descontinuados
+
+Estos aparecían antes en este documento y ya no funcionan. No construyas un combo alrededor de ellos:
+
+| Provider | Status |
+|----------|--------|
+| **iFlow** | Pasó a pago en 2026 |
+| **Qwen Code** | El nivel gratuito de OAuth se descontinuó el 2026-04-15 |
+| **Gemini CLI** | El servicio cerró el 2026-06-18; sigue en el catálogo pero marcado como deprecado |
 ---
 
 ## Comparación de características
 
 | Proveedor | Modelos | Mejor modelo | Configuración | Cuota |
 |----------|--------|------------|-------|-------|
-| **iFlow** | 8 | Kimi K2 Thinking | OAuth | Ilimitado |
-| **Qwen** | 3 | Qwen3 Coder Plus | Device Code | Ilimitado |
-| **Kiro** | 2 | Claude Sonnet 4.5 | AWS Builder ID | Ilimitado |
+| **Kiro** | catálogo completo | familias Claude / Qwen | AWS Builder ID, Google o GitHub | ~50 créditos/mes |
+| **OpenCode Free** | rota | passthrough | ninguna | promocional |
+| **Vertex AI** | 4+ | Gemini 3.1 Pro | JSON de cuenta de servicio | $300 / 90 días |
 
-**Ganador:** ¡iFlow por variedad, Kiro por calidad!
+**Ganador:** Kiro por amplitud, Vertex por un Gemini de contexto largo sin coste mientras dura el crédito.
 
 ---
 
@@ -201,7 +124,7 @@ Model: kr/claude-sonnet-4.5
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
   OpenAI API Key: [desde el dashboard de 9router]
-  Model: if/kimi-k2-thinking
+  Model: kr/glm-5
 ```
 
 ### Crear combo (Recomendado)
@@ -211,9 +134,9 @@ Dashboard → Combos → Create New
 
 Name: free-combo
 Models:
-  1. if/kimi-k2-thinking (iFlow principal)
-  2. qw/qwen3-coder-plus (Qwen respaldo)
-  3. kr/claude-sonnet-4.5 (Kiro calidad)
+  1. kr/glm-5 (Kiro principal)
+  2. vertex/gemini-3.1-pro-preview (Qwen respaldo)
+  3. kr/glm-5 (Kiro calidad)
 
 Usar en CLI: free-combo
 ```
@@ -231,21 +154,21 @@ Dashboard → Combos → Create New
 
 Name: complete-fallback
 Models:
-  1. gc/gemini-3-flash-preview (Suscripción GRATIS)
-  2. cc/claude-opus-4-5 (Suscripción de pago)
-  3. glm/glm-4.7 (Respaldo barato, $0.6/1M)
-  4. minimax/MiniMax-M2.1 (Más barato, $0.2/1M)
-  5. if/kimi-k2-thinking (Fallback GRATIS)
-  6. kr/claude-sonnet-4.5 (Calidad GRATIS)
+  1. vertex/gemini-3-flash-preview (Suscripción GRATIS)
+  2. cc/claude-opus-5 (Suscripción de pago)
+  3. glm/glm-5.1 (Respaldo barato, $0.6/1M)
+  4. minimax/MiniMax-M2.7 (Más barato, $0.2/1M)
+  5. kr/glm-5 (Fallback GRATIS)
+  6. kr/glm-5 (Calidad GRATIS)
 
 Usar en CLI: complete-fallback
 ```
 
 **Resultado:**
-- Nivel 1: Suscripción GRATIS (Gemini CLI)
+- Nivel 1: Suscripción de pago (Claude Code, Codex)
 - Nivel 2: Suscripción de pago (Claude Code)
 - Nivel 3: Respaldo barato (GLM, MiniMax)
-- Nivel 4: Fallback GRATIS (iFlow, Kiro)
+- Nivel 3: crédito gratis (Kiro, Vertex AI)
 
 **¡Nunca dejes de codificar!**
 
@@ -270,11 +193,11 @@ Usa el nivel gratis solo cuando:
 ### 2. Elige el modelo correcto
 
 ```
-Razonamiento complejo: if/kimi-k2-thinking
-Codificación rápida: qw/qwen3-coder-flash
-Mejor calidad: kr/claude-sonnet-4.5
-Contexto largo: if/minimax-m2
-Tareas de visión: qw/vision-model
+Razonamiento complejo: kr/glm-5
+Codificación rápida: vertex/gemini-3-flash-preview
+Mejor calidad: kr/glm-5
+Contexto largo: minimax/MiniMax-M2.7
+Tareas de visión: vertex/gemini-3-flash-preview
 ```
 
 ### 3. Crea un combo solo-gratis
@@ -284,9 +207,9 @@ Para codificación de cero costo:
 
 Name: zero-cost
 Models:
-  1. kr/claude-sonnet-4.5 (Mejor calidad)
-  2. if/kimi-k2-thinking (Tareas complejas)
-  3. qw/qwen3-coder-plus (Codificación rápida)
+  1. kr/glm-5 (Mejor calidad)
+  2. kr/glm-5 (Tareas complejas)
+  3. vertex/gemini-3.1-pro-preview (Codificación rápida)
 
 ¡Costo: $0 para siempre!
 ```
@@ -314,9 +237,9 @@ Guarda la cuota de pago para:
 
 ```
 Configuración:
-1. kr/claude-sonnet-4.5 (Mejor calidad)
-2. if/kimi-k2-thinking (Razonamiento complejo)
-3. qw/qwen3-coder-plus (Codificación rápida)
+1. kr/glm-5 (Mejor calidad)
+2. kr/glm-5 (Razonamiento complejo)
+3. vertex/gemini-3.1-pro-preview (Codificación rápida)
 
 Costo mensual: $0
 Uso: Ilimitado
@@ -331,9 +254,9 @@ Perfecto para:
 
 ```
 Configuración:
-1. gc/gemini-3-flash-preview (GRATIS 180K/mes)
-2. glm/glm-4.7 (Respaldo barato, $0.6/1M)
-3. if/kimi-k2-thinking (Fallback GRATIS)
+1. vertex/gemini-3-flash-preview (crédito gratis)
+2. glm/glm-5.1 (Respaldo barato, $0.6/1M)
+3. kr/glm-5 (Fallback GRATIS)
 
 Costo mensual: $5-10
 Uso: 100M+ tokens
@@ -348,13 +271,13 @@ Perfecto para:
 
 ```
 Configuración:
-1. gc/gemini-3-flash-preview (GRATIS 180K/mes)
-2. cc/claude-opus-4-5 (Suscripción $20-100)
-3. cx/gpt-5.2-codex (Suscripción $20-200)
-4. glm/glm-4.7 (Barato $0.6/1M)
-5. minimax/MiniMax-M2.1 (Más barato $0.2/1M)
-6. if/kimi-k2-thinking (GRATIS ilimitado)
-7. kr/claude-sonnet-4.5 (Calidad GRATIS)
+1. vertex/gemini-3-flash-preview (crédito gratis)
+2. cc/claude-opus-5 (Suscripción $20-100)
+3. cx/gpt-5.5 (Suscripción $20-200)
+4. glm/glm-5.1 (Barato $0.6/1M)
+5. minimax/MiniMax-M2.7 (Más barato $0.2/1M)
+6. kr/glm-5 (GRATIS ilimitado)
+7. kr/glm-5 (Calidad GRATIS)
 
 Costo mensual: $40-320 (suscripciones) + $10-20 (nivel barato)
 Uso: 500M+ tokens
@@ -384,10 +307,10 @@ Ahorros: $2,000/mes (100%)
 
 **Opción 3: Estrategia completa de LiteRouter**
 ```
-60M vía Gemini CLI (GRATIS): $0
+30M vía Claude Code (suscripción): $0
 30M vía Claude Code (suscripción): $0 extra
 8M vía GLM (barato): $4.80
-2M vía iFlow (GRATIS): $0
+2M vía MiniMax (barato): $0.40
 Total: $4.80/mes + suscripciones que ya tienes
 Ahorros: $1,995/mes (99.76%)
 ```

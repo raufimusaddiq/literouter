@@ -24,7 +24,7 @@ Common issues and solutions when using LiteRouter.
 2. **Use combo fallback:**
    ```
    Dashboard → Combos → Create fallback chain
-   Example: cc/claude-opus → glm/glm-4.7 → if/kimi-k2
+   Example: cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5
    ```
 
 3. **Verify provider connection:**
@@ -52,16 +52,16 @@ Common issues and solutions when using LiteRouter.
 
 2. **Switch to cheap tier:**
    ```
-   Use: glm/glm-4.7 ($0.6/1M tokens)
-        minimax/MiniMax-M2.1 ($0.20/1M tokens)
+   Use: glm/glm-5.1 ($0.6/1M tokens)
+        minimax/MiniMax-M2.7 ($0.20/1M tokens)
    ```
 
 3. **Add fallback combo:**
    ```
    Dashboard → Combos → Add backup models
    Primary: cc/claude-opus (subscription)
-   Backup: glm/glm-4.7 (cheap)
-   Emergency: if/kimi-k2 (free)
+   Backup: glm/glm-5.1 (cheap)
+   Emergency: kr/glm-5 (free credits)
    ```
 
 ---
@@ -111,16 +111,15 @@ Common issues and solutions when using LiteRouter.
 2. **Switch to cheaper models:**
    ```
    Replace: cc/claude-opus ($20-100/month subscription)
-   With: glm/glm-4.7 ($0.6/1M tokens)
-         minimax/MiniMax-M2.1 ($0.20/1M tokens)
+   With: glm/glm-5.1 ($0.6/1M tokens)
+         minimax/MiniMax-M2.7 ($0.20/1M tokens)
    ```
 
 3. **Use free tier:**
    ```
-   if/kimi-k2-thinking (FREE)
-   qw/qwen3-coder-plus (FREE)
-   kr/claude-sonnet-4.5 (FREE)
-   gc/gemini-3-flash-preview (FREE 180K/month)
+   kr/glm-5 (free credits)
+   vertex/gemini-3-flash-preview (free credits)
+   oc/<model-id> (OpenCode Free)
    ```
 
 4. **Optimize prompts:**
@@ -235,8 +234,8 @@ Common issues and solutions when using LiteRouter.
 
 2. **Check model ID format:**
    ```
-   Correct: cc/claude-opus-4-5-20251101
-   Wrong: claude-opus-4-5-20251101
+   Correct: cc/claude-opus-5
+   Wrong: claude-opus-5
 
    Format: [provider-prefix]/[model-name]
    ```
@@ -274,14 +273,14 @@ Common issues and solutions when using LiteRouter.
 2. **Switch to faster model:**
    ```
    Fast: cc/claude-haiku-4-5 (Haiku is faster than Opus)
-         gc/gemini-3-flash-preview
-         qw/qwen3-coder-flash
+         vertex/gemini-3-flash-preview
+         glm/glm-5.1
    ```
 
 3. **Use streaming:**
    ```json
    {
-     "model": "cc/claude-opus-4-5",
+     "model": "cc/claude-opus-5",
      "messages": [...],
      "stream": true
    }

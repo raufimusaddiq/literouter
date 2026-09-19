@@ -28,21 +28,20 @@ Enruta inteligentemente las solicitudes a través de múltiples proveedores de I
 ### Nivel 1: Suscripción (Maximiza primero)
 - **Claude Code** (Pro/Max): $20-100/mes - Cuota de 5 horas + semanal
 - **OpenAI Codex** (Plus/Pro): $20-200/mes - Cuota de 5 horas + semanal
-- **Gemini CLI**: GRATIS - 180K completados/mes + 1K/día
+- **Gemini CLI**: Servicio cerrado el 2026-06-18
 - **GitHub Copilot**: $10-19/mes - Reinicio mensual
 - **Antigravity**: GRATIS - Similar a Gemini
 
 **Objetivo:** ¡Usa cada bit de cuota antes de que se reinicie!
 
 ### Nivel 2: Barato (Respaldo)
-- **GLM-4.7**: $0.60/$2.20 por 1M tokens - Reinicio diario 10AM
-- **MiniMax M2.1**: $0.20/$1.00 por 1M tokens - 5 horas rolling
+- **GLM 5.1**: $0.60/$2.20 por 1M tokens - Reinicio diario 10AM
+- **MiniMax M2.7**: $0.20/$1.00 por 1M tokens - 5 horas rolling
 - **Kimi K2**: $9/mes plano (10M tokens)
 
 **Objetivo:** ¡90% más barato que ChatGPT API ($20/1M)!
 
 ### Nivel 3: Gratis (Emergencia)
-- **iFlow**: 8 modelos GRATIS (Kimi K2, Qwen3, GLM, MiniMax...)
 - **Qwen**: 3 modelos GRATIS (Qwen3 Coder Plus/Flash, Vision)
 - **Kiro**: 2 modelos GRATIS (Claude Sonnet 4.5, Haiku 4.5)
 
@@ -55,8 +54,7 @@ Enruta inteligentemente las solicitudes a través de múltiples proveedores de I
 **Sí, LiteRouter en sí es 100% gratis y open source.**
 
 **Proveedores de nivel gratis disponibles:**
-- **Gemini CLI** - 180K completados/mes (cuenta Google GRATIS)
-- **iFlow** - 8 modelos ilimitados (OAuth GRATIS)
+- **Gemini CLI** - 2026-06-18: servicio cerrado
 - **Qwen** - 3 modelos ilimitados (OAuth GRATIS)
 - **Kiro** - Claude Sonnet/Haiku (AWS Builder ID GRATIS)
 
@@ -78,13 +76,12 @@ Enruta inteligentemente las solicitudes a través de múltiples proveedores de I
 - **Antigravity** (Google) - Gemini 3 Pro, Claude Sonnet 4.5
 
 ### Proveedores baratos
-- **GLM** (Zhipu AI) - GLM 4.7, GLM 4.6V Vision
-- **MiniMax** - MiniMax M2.1
+- **GLM** (Zhipu AI) - GLM 5.1, GLM 4.6V Vision
+- **MiniMax** - MiniMax M2.7
 - **Kimi** (Moonshot AI) - Kimi Latest
 - **OpenRouter** - Passthrough a cualquier modelo de OpenRouter
 
 ### Proveedores gratis
-- **iFlow** - 8 modelos (Kimi K2, Qwen3, GLM, MiniMax, DeepSeek...)
 - **Qwen** - 3 modelos (Qwen3 Coder Plus/Flash, Vision)
 - **Kiro** - 2 modelos (Claude Sonnet 4.5, Haiku 4.5)
 
@@ -102,9 +99,9 @@ Consulta la [documentación de proveedores](providers/subscription.md) para más
 
 ```
 Ejemplo de combo: "premium-coding"
-1. cc/claude-opus-4-5 (Suscripción principal)
-2. glm/glm-4.7 (Respaldo barato)
-3. if/kimi-k2 (Emergencia gratis)
+1. cc/claude-opus-5 (Suscripción principal)
+2. glm/glm-5.1 (Respaldo barato)
+3. kr/deepseek-3.2 (Emergencia gratis)
 
 → Cambio automático cuando se agota la cuota
 → Nunca para de codificar
@@ -142,7 +139,7 @@ Consulta la [documentación de combos](features/combos.md) para ejemplos.
 - **5 horas rolling** - Claude Code, Codex, MiniMax
 - **Reinicio diario** - Gemini CLI (1K/día), GLM (10AM)
 - **Reinicio semanal** - Claude Code, Codex (cuota adicional)
-- **Reinicio mensual** - Gemini CLI (180K), GitHub Copilot (día 1)
+- **Reinicio mensual** - Kiro (~50 créditos), GitHub Copilot (día 1)
 
 **Ver cuota:**
 ```
@@ -166,7 +163,7 @@ Consulta la [documentación de seguimiento de cuota](features/quota-tracking.md)
 Cursor Settings → Models → Advanced:
   OpenAI API Base URL: https://9router.com/v1
   OpenAI API Key: [desde el dashboard]
-  Model: cc/claude-opus-4-5-20251101
+  Model: cc/claude-opus-5
 ```
 
 **Alternativa:** Auto-hospéda en VPS con dominio público:

@@ -9,9 +9,9 @@ Common questions about LiteRouter.
 **LiteRouter is an AI model router that maximizes your subscription value and minimizes costs.**
 
 It intelligently routes requests across multiple AI providers using a 3-tier fallback system:
-1. **Subscription tier** - Maximize Claude Code, Codex, Gemini quotas you already pay for
+1. **Subscription tier** - Maximize Claude Code, Codex, and GitHub Copilot quotas you already pay for
 2. **Cheap tier** - Ultra-cheap alternatives ($0.20-$0.60 per 1M tokens)
-3. **Free tier** - Emergency backup with unlimited free models
+3. **Free tier** - Emergency backup on capped monthly credits
 
 **Key benefits:**
 - Never waste subscription quota
@@ -28,25 +28,26 @@ It intelligently routes requests across multiple AI providers using a 3-tier fal
 ### Tier 1: Subscription (Maximize First)
 - **Claude Code** (Pro/Max): $20-100/month - 5-hour + weekly quota
 - **OpenAI Codex** (Plus/Pro): $20-200/month - 5-hour + weekly quota
-- **Gemini CLI**: FREE - 180K completions/month + 1K/day
 - **GitHub Copilot**: $10-19/month - Monthly reset
 - **Antigravity**: FREE - Similar to Gemini
 
 **Goal:** Use every bit of quota before it resets!
 
 ### Tier 2: Cheap (Backup)
-- **GLM-4.7**: $0.60/$2.20 per 1M tokens - Daily reset 10AM
-- **MiniMax M2.1**: $0.20/$1.00 per 1M tokens - 5-hour rolling
-- **Kimi K2**: $9/month flat (10M tokens)
+- **GLM**: $0.60/$2.20 per 1M tokens - Daily reset 10AM
+- **MiniMax**: $0.20/$1.00 per 1M tokens - 5-hour rolling
+- **Kimi**: $9/month flat (10M tokens)
 
 **Goal:** 90% cheaper than ChatGPT API ($20/1M)!
 
 ### Tier 3: Free (Emergency)
-- **iFlow**: 8 models FREE (Kimi K2, Qwen3, GLM, MiniMax...)
-- **Qwen**: 3 models FREE (Qwen3 Coder Plus/Flash, Vision)
-- **Kiro**: 2 models FREE (Claude Sonnet 4.5, Haiku 4.5)
+- **Kiro**: full catalog, free tier capped at ~50 credits/month
+- **OpenCode Free**: no auth, model list rotates upstream
+- **Vertex AI**: Gemini models on the $300 new-account credit
 
-**Goal:** Zero cost fallback when everything else is quota-limited!
+**iFlow, Qwen Code, and Gemini CLI shut down their free tiers in 2026.** They are no longer usable.
+
+**Goal:** Near-zero cost fallback while the credits last!
 
 ---
 
@@ -55,12 +56,11 @@ It intelligently routes requests across multiple AI providers using a 3-tier fal
 **Yes, LiteRouter itself is 100% free and open source.**
 
 **Free tier providers available:**
-- **Gemini CLI** - 180K completions/month (FREE Google account)
-- **iFlow** - 8 models unlimited (FREE OAuth)
-- **Qwen** - 3 models unlimited (FREE OAuth)
-- **Kiro** - Claude Sonnet/Haiku (FREE AWS Builder ID)
+- **Kiro** - ~50 credits/month free (AWS Builder ID, Google, or GitHub)
+- **OpenCode Free** - no auth, model list rotates
+- **Vertex AI** - $300 new-account Google Cloud credit
 
-**You can code for FREE forever using only free tier providers!**
+Free tiers are capped rather than unlimited, so pair them with a cheap backup if you code heavily.
 
 **Optional paid providers:**
 - Subscription services you may already have (Claude Code, Codex, Copilot)
@@ -71,22 +71,21 @@ It intelligently routes requests across multiple AI providers using a 3-tier fal
 ## Which providers are supported?
 
 ### Subscription Providers
-- **Claude Code** (Pro/Max) - Claude 4.5 Opus/Sonnet/Haiku
-- **OpenAI Codex** (Plus/Pro) - GPT 5.2 Codex, GPT 5.1 Codex Max
-- **Gemini CLI** (FREE) - Gemini 3 Flash/Pro, 2.5 Pro/Flash
-- **GitHub Copilot** - GPT-5, Claude 4.5, Gemini 3
+- **Claude Code** (Pro/Max) - Claude Opus 5, Sonnet 5, Haiku 4.5
+- **OpenAI Codex** (Plus/Pro) - GPT-5.5, GPT-5.4, GPT-5.3 Codex
+- **GitHub Copilot** - GPT-5.4, Claude Sonnet 4.6, Gemini 3.1 Pro
 - **Antigravity** (Google) - Gemini 3 Pro, Claude Sonnet 4.5
 
 ### Cheap Providers
-- **GLM** (Zhipu AI) - GLM 4.7, GLM 4.6V Vision
-- **MiniMax** - MiniMax M2.1
-- **Kimi** (Moonshot AI) - Kimi Latest
+- **GLM** (Zhipu AI) - GLM 5.1, GLM 5
+- **MiniMax** - MiniMax M2.7
+- **Kimi** (Moonshot AI) - Kimi K2.5
 - **OpenRouter** - Passthrough to any OpenRouter model
 
 ### Free Providers
-- **iFlow** - 8 models (Kimi K2, Qwen3, GLM, MiniMax, DeepSeek...)
-- **Qwen** - 3 models (Qwen3 Coder Plus/Flash, Vision)
-- **Kiro** - 2 models (Claude Sonnet 4.5, Haiku 4.5)
+- **Kiro** - full catalog on ~50 free credits/month
+- **OpenCode Free** - passthrough, rotating model list
+- **Vertex AI** - Gemini 3.1 Pro, Gemini 3 Flash, Gemini 2.5 Flash
 
 **Total: 15+ providers, 50+ models**
 
@@ -102,9 +101,9 @@ See [providers documentation](providers/subscription.md) for details.
 
 ```
 Example combo: "premium-coding"
-1. cc/claude-opus-4-5 (Subscription primary)
-2. glm/glm-4.7 (Cheap backup)
-3. if/kimi-k2 (Free emergency)
+1. cc/claude-opus-5 (Subscription primary)
+2. glm/glm-5.1 (Cheap backup)
+3. kr/glm-5 (Free credit emergency)
 
 → Auto-switches when quota exhausted
 → Never stops coding
@@ -140,9 +139,9 @@ See [combos documentation](features/combos.md) for examples.
 
 **Quota types:**
 - **5-hour rolling** - Claude Code, Codex, MiniMax
-- **Daily reset** - Gemini CLI (1K/day), GLM (10AM)
+- **Daily reset** - GLM (10AM)
 - **Weekly reset** - Claude Code, Codex (additional quota)
-- **Monthly reset** - Gemini CLI (180K), GitHub Copilot (1st)
+- **Monthly reset** - Kiro (~50 credits), GitHub Copilot (1st)
 
 **View quota:**
 ```
@@ -166,7 +165,7 @@ See [quota tracking documentation](features/quota-tracking.md) for details.
 Cursor Settings → Models → Advanced:
   OpenAI API Base URL: https://9router.com/v1
   OpenAI API Key: [from dashboard]
-  Model: cc/claude-opus-4-5-20251101
+  Model: cc/claude-opus-5
 ```
 
 **Alternative:** Self-host on VPS with public domain:

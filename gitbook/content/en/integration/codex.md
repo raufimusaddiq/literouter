@@ -43,7 +43,7 @@ LiteRouter provides the following Codex models:
 
 | Model ID | Description |
 |----------|-------------|
-| `cx/gpt-5.2-codex` | GPT-5.2 Codex - Latest version |
+| `cx/gpt-5.5` | GPT-5.2 Codex - Latest version |
 | `cx/gpt-5.1-codex-max` | GPT-5.1 Codex Max - Extended context |
 
 ## Usage Examples
@@ -52,7 +52,7 @@ LiteRouter provides the following Codex models:
 
 ```bash
 # Use GPT-5.2 Codex
-codex --model cx/gpt-5.2-codex "Write a function to sort an array"
+codex --model cx/gpt-5.5 "Write a function to sort an array"
 
 # Use GPT-5.1 Codex Max
 codex --model cx/gpt-5.1-codex-max "Explain this complex algorithm"
@@ -61,7 +61,7 @@ codex --model cx/gpt-5.1-codex-max "Explain this complex algorithm"
 ### Code Generation
 
 ```bash
-codex --model cx/gpt-5.2-codex "Create a REST API endpoint for user authentication"
+codex --model cx/gpt-5.5 "Create a REST API endpoint for user authentication"
 ```
 
 ### Code Explanation
@@ -78,7 +78,7 @@ You can also configure Codex CLI using a configuration file. Create or edit `~/.
 {
   "baseUrl": "http://localhost:20128/v1",
   "apiKey": "your-9router-api-key",
-  "defaultModel": "cx/gpt-5.2-codex"
+  "defaultModel": "cx/gpt-5.5"
 }
 ```
 
@@ -132,5 +132,5 @@ Enable debug mode to see detailed request/response logs:
 
 ```bash
 export CODEX_DEBUG=true
-codex --model cx/gpt-5.2-codex "Your prompt"
+codex --model cx/gpt-5.5 "Your prompt"
 ```

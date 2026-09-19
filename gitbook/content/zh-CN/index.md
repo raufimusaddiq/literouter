@@ -17,9 +17,9 @@ LiteRouter 是一款智能代理,位于你的编码工具(Cursor、Cline、Claud
 - ❌ 在不同提供商之间手动切换
 
 **开始最大化价值:**
-- ✅ **充分利用订阅** - 跟踪并用完 Claude Code、Codex、Gemini 的每一点配额
-- ✅ **免费可用** - 通过 CLI 访问 iFlow、Qwen、Kiro 模型
-- ✅ **超低价备用** - GLM(每 1M $0.6)、MiniMax M2.1(每 1M $0.20)
+- ✅ **充分利用订阅** - 跟踪并用完 Claude Code、Codex、GitHub Copilot 的每一点配额
+- ✅ **免费可用** - Kiro、OpenCode Free 和 Google Vertex AI
+- ✅ **超低价备用** - GLM(每 1M $0.60)、MiniMax(每 1M $0.20)、Kimi(每月 $9 平价)
 - ✅ **智能回退** - 订阅 → 低价 → 免费,自动切换
 
 ---
@@ -31,11 +31,11 @@ LiteRouter 是一款智能代理,位于你的编码工具(Cursor、Cline、Claud
 ```
 一次配置,永不停码:
 
-第 1 层(订阅): Claude Code → Codex → Gemini
+第 1 层(订阅): Claude Code → Codex → GitHub Copilot
   ↓ 配额耗尽
-第 2 层(低价): GLM-4.7 → MiniMax M2.1 → Kimi
+第 2 层(低价): GLM 5.1 → MiniMax M2.7 → Kimi
   ↓ 预算上限
-第 3 层(免费): iFlow → Qwen → Kiro
+第 3 层(免费): Kiro → OpenCode Free → Vertex AI
 
 → 自动切换,零停机!
 ```
@@ -57,7 +57,7 @@ LiteRouter 是一款智能代理,位于你的编码工具(Cursor、Cline、Claud
 
 **真实案例(每月 100M tokens):**
 ```
-60M 通过 Gemini CLI: $0(免费层)
+30M 通过 Claude Code: $0(订阅)
 30M 通过 Claude Code: $0(你已有的订阅)
 8M 通过 GLM: $4.80
 2M 通过 MiniMax: $0.40
@@ -75,7 +75,7 @@ LiteRouter 是一款智能代理,位于你的编码工具(Cursor、Cline、Claud
 - 实时跟踪配额使用
 - 配额重置时(5 小时、每周)自动切换
 - 在过期前用掉每一个 token
-- Gemini CLI:每月 180K 次补全 **免费**
+- GitHub Copilot:配额与你已有的订阅共享
 
 ### 超低价备用
 
@@ -83,19 +83,21 @@ LiteRouter 是一款智能代理,位于你的编码工具(Cursor、Cline、Claud
 
 | 提供商 | 每 1M tokens 成本 | 重置时间 |
 |----------|-------------------|-------|
-| **GLM-4.7** | 输入 $0.60 / 输出 $2.20 | 每日 10:00 AM |
-| **MiniMax M2.1** | 输入 $0.20 / 输出 $1.00 | 5 小时滚动 |
-| **Kimi K2** | $9/月(10M tokens) | 每月 |
+| **GLM 5.1** | 输入 $0.60 / 输出 $2.20 | 每日 10:00 AM |
+| **MiniMax M2.7** | 输入 $0.20 / 输出 $1.00 | 5 小时滚动 |
+| **Kimi** | $9/月(10M tokens) | 每月 |
 
 **比 ChatGPT API(每 1M $20)便宜约 90%!**
 
-### 永久免费回退
+### 免费额度回退
 
 当其他一切都受配额限制时的应急备用:
 
-- **iFlow**:8 个模型(Kimi K2、Qwen3 Coder Plus、GLM 4.7、MiniMax M2)
-- **Qwen**:3 个模型(Qwen3 Coder Plus/Flash、Vision)
-- **Kiro**:Claude Sonnet 4.5、Haiku 4.5(AWS Builder ID)
+- **Kiro**:Claude 与 Qwen 系列,免费层上限约 50 额度/月(AWS Builder ID / Google / GitHub)
+- **OpenCode Free**:无需认证,模型列表从上游自动获取,会随时变动
+- **Vertex AI**:新建 Google Cloud 账号的 $300 额度上运行 Gemini(使用 Vertex AI Studio 端点)
+
+**已停用的免费层:** iFlow、Qwen Code 和 Gemini CLI 已于 2026 年关闭免费层,不再推荐;Gemini CLI 在 provider 目录中已标记为已弃用。
 
 ---
 
@@ -118,7 +120,7 @@ npm install -g 9router
 ```
 Endpoint: http://localhost:20128/v1
 API Key: [从仪表盘获取]
-Model: cc/claude-opus-4-5-20251101
+Model: cc/claude-opus-5
 ```
 
 [→ 完整入门指南](getting-started.md)
@@ -130,7 +132,7 @@ Model: cc/claude-opus-4-5-20251101
 ### 个人开发者
 
 - 最大化你的 Claude Code/Codex 订阅
-- 使用 Gemini CLI 免费层(每月 180K)
+- 使用 Kiro 的每月免费额度处理非关键任务
 - 回退到超低价模型(每 1M $0.20)
 - 24/7 编码不受速率限制
 

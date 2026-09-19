@@ -32,7 +32,7 @@ You have 3 ways to connect providers:
 
 #### Option A: OAuth (Subscription Providers)
 
-**Best for:** Claude Code, Codex, Gemini CLI, GitHub Copilot
+**Best for:** Claude Code, Codex, GitHub Copilot, Cursor
 
 ```
 Dashboard → Providers → Connect [Provider]
@@ -44,7 +44,7 @@ Dashboard → Providers → Connect [Provider]
 1. Click "Connect Claude Code"
 2. Login with your Claude account
 3. Authorize LiteRouter
-4. ✅ Done! Use model: `cc/claude-opus-4-5-20251101`
+4. ✅ Done! Use model: `cc/claude-opus-5`
 
 #### Option B: API Key (Cheap Providers)
 
@@ -57,27 +57,32 @@ Dashboard → Providers → Add API Key
 → Save
 ```
 
-**Example: GLM-4.7**
+**Example: GLM**
 1. Sign up at [Zhipu AI](https://open.bigmodel.cn/)
 2. Get API key from Coding Plan
 3. Dashboard → Add API Key → Provider: `glm` → Paste key
-4. ✅ Done! Use model: `glm/glm-4.7`
+4. ✅ Done! Use model: `glm/glm-5.1`
 
 #### Option C: Free Providers (No Cost)
 
-**Best for:** iFlow, Qwen, Kiro
+**Best for:** Kiro, OpenCode Free, Vertex AI
 
 ```
 Dashboard → Providers → Connect [Free Provider]
-→ Device code or OAuth
-→ Unlimited usage
+→ OAuth, service account, or no auth at all
+→ Free within a monthly credit cap
 ```
 
-**Example: iFlow**
-1. Click "Connect iFlow"
-2. Login with iFlow account
+**Example: Kiro**
+1. Click "Connect Kiro"
+2. Sign in with AWS Builder ID, Google, or GitHub
 3. Authorize
-4. ✅ Done! Use 8 models: `if/kimi-k2-thinking`, `if/qwen3-coder-plus`, etc.
+4. ✅ Done! Use `kr/glm-5`, `kr/deepseek-3.2`, and the rest of the Kiro catalog.
+
+**Example: OpenCode Free**
+1. Click "Connect OpenCode Free"
+2. No login required (passthrough proxy)
+3. ✅ Done! Use `oc/<model-id>` with the list auto-fetched from upstream.
 
 ---
 
@@ -90,8 +95,8 @@ Point your coding tool to LiteRouter:
 ```
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
-  OpenAI API Key: [from 9router dashboard]
-  Model: cc/claude-opus-4-5-20251101
+  OpenAI API Key: [from LiteRouter dashboard]
+  Model: cc/claude-opus-5
 ```
 
 ### Claude Desktop
@@ -101,7 +106,7 @@ Edit `~/.claude/config.json`:
 ```json
 {
   "anthropic_api_base": "http://localhost:20128/v1",
-  "anthropic_api_key": "your-9router-api-key"
+  "anthropic_api_key": "your-literouter-api-key"
 }
 ```
 
@@ -111,7 +116,7 @@ Edit `~/.claude/config.json`:
 Provider: OpenAI Compatible
 Base URL: http://localhost:20128/v1
 API Key: [from dashboard]
-Model: cc/claude-opus-4-5-20251101
+Model: cc/claude-opus-5
 ```
 
 ### Codex CLI
@@ -134,17 +139,17 @@ Dashboard → Combos → Create New
 
 Name: premium-coding
 Models:
-  1. cc/claude-opus-4-5-20251101 (Subscription primary)
-  2. glm/glm-4.7 (Cheap backup, $0.6/1M)
-  3. if/kimi-k2-thinking (Free fallback)
+  1. cc/claude-opus-5 (Subscription primary)
+  2. glm/glm-5.1 (Cheap backup, $0.6/1M)
+  3. kr/glm-5 (Free credit fallback)
 
 Use in CLI: premium-coding
 ```
 
 **How it works:**
 1. Tries Claude Opus first (your subscription)
-2. If quota exhausted → GLM-4.7 (ultra-cheap)
-3. If budget limit → iFlow (free)
+2. If quota exhausted → GLM (ultra-cheap)
+3. If budget limit → Kiro free credits
 4. Zero downtime, automatic switching!
 
 ---
@@ -154,48 +159,46 @@ Use in CLI: premium-coding
 ### Subscription Models (Maximize First)
 
 **Claude Code (`cc/`)** - Pro/Max subscription:
-- `cc/claude-opus-4-5-20251101` - Claude 4.5 Opus
-- `cc/claude-sonnet-4-5-20250929` - Claude 4.5 Sonnet
+- `cc/claude-opus-5` - Claude Opus 5
+- `cc/claude-sonnet-5` - Claude Sonnet 5
 - `cc/claude-haiku-4-5-20251001` - Claude 4.5 Haiku
 
 **Codex (`cx/`)** - Plus/Pro subscription:
-- `cx/gpt-5.2-codex` - GPT 5.2 Codex
-- `cx/gpt-5.1-codex-max` - GPT 5.1 Codex Max
-
-**Gemini CLI (`gc/`)** - FREE 180K/month:
-- `gc/gemini-3-flash-preview` - Gemini 3 Flash Preview
-- `gc/gemini-2.5-pro` - Gemini 2.5 Pro
+- `cx/gpt-5.5` - GPT-5.5
+- `cx/gpt-5.4` - GPT-5.4
+- `cx/gpt-5.3-codex` - GPT-5.3 Codex
 
 **GitHub Copilot (`gh/`)** - Subscription:
-- `gh/gpt-5` - GPT-5
-- `gh/claude-4.5-sonnet` - Claude 4.5 Sonnet
+- `gh/gpt-5.4` - GPT-5.4
+- `gh/claude-sonnet-4.6` - Claude Sonnet 4.6
 
 ### Cheap Models (Backup)
 
 **GLM (`glm/`)** - $0.6/$2.2 per 1M:
-- `glm/glm-4.7` - GLM 4.7 (daily reset 10AM)
+- `glm/glm-5.1` - GLM 5.1 (daily reset 10AM)
+- `glm/glm-5` - GLM 5
 
 **MiniMax (`minimax/`)** - $0.20/$1.00 per 1M:
-- `minimax/MiniMax-M2.1` - MiniMax M2.1 (5h reset)
+- `minimax/MiniMax-M2.7` - MiniMax M2.7 (5h reset)
 
 **Kimi (`kimi/`)** - $9/month (10M tokens):
-- `kimi/kimi-latest` - Kimi Latest
+- `kimi/kimi-k2.5` - Kimi K2.5
 
 ### FREE Models (Emergency)
 
-**iFlow (`if/`)** - 8 models FREE:
-- `if/kimi-k2-thinking` - Kimi K2 Thinking
-- `if/qwen3-coder-plus` - Qwen3 Coder Plus
-- `if/glm-4.7` - GLM 4.7
-- `if/deepseek-r1` - DeepSeek R1
+**Kiro (`kr/`)** - free tier capped at ~50 credits/month:
+- `kr/glm-5` - GLM-5
+- `kr/deepseek-3.2` - DeepSeek 3.2
+- `kr/glm-5` - Claude Sonnet 4.5
 
-**Qwen (`qw/`)** - 3 models FREE:
-- `qw/qwen3-coder-plus` - Qwen3 Coder Plus
-- `qw/qwen3-coder-flash` - Qwen3 Coder Flash
+**OpenCode Free (`oc/`)** - no auth, model list rotates:
+- `oc/<model-id>` - check `/v1/models` for the current list
 
-**Kiro (`kr/`)** - 2 models FREE:
-- `kr/claude-sonnet-4.5` - Claude Sonnet 4.5
-- `kr/claude-haiku-4.5` - Claude Haiku 4.5
+**Vertex AI (`vertex/`)** - $300 new-account credit:
+- `vertex/gemini-3.1-pro-preview` - Gemini 3.1 Pro
+- `vertex/gemini-3-flash-preview` - Gemini 3 Flash
+
+**Discontinued:** iFlow, Qwen Code, and Gemini CLI free tiers no longer work. See [Free Providers](../providers/free.md).
 
 ---
 
@@ -204,16 +207,16 @@ Use in CLI: premium-coding
 ### Monthly Budget: $10-20/month
 
 ```
-1. Use Gemini CLI free tier (180K/month) for quick tasks
-2. Use Claude Code subscription quota fully (you already pay)
-3. Fallback to GLM ($0.6/1M) when quota out
-4. Emergency: MiniMax M2.1 ($0.20/1M) or iFlow (free)
+1. Use Claude Code subscription quota fully (you already pay)
+2. Fallback to GLM ($0.6/1M) when quota out
+3. Emergency: MiniMax M2.7 ($0.20/1M)
+4. Last resort: Kiro / Vertex AI free credits
 
 Real example (100M tokens/month):
-  60M via Gemini CLI: $0 (free tier)
   30M via Claude Code: $0 (subscription you already have)
   8M via GLM: $4.80
   2M via MiniMax: $0.40
+  remainder via Kiro / Vertex credits: $0 extra
   Total: $5.20/month + existing subscriptions
 ```
 
@@ -222,9 +225,9 @@ Real example (100M tokens/month):
 ```
 Daily routine:
 1. Morning: Fresh Claude Code quota (5h reset)
-2. Afternoon: Switch to Gemini CLI (1K/day)
+2. Afternoon: Kiro free credits
 3. Evening: GLM daily quota (reset 10AM next day)
-4. Late night: MiniMax (5h rolling) or iFlow (free)
+4. Late night: MiniMax (5h rolling)
 
 → Code 24/7 with minimal extra cost!
 ```

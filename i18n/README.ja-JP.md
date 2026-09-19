@@ -56,14 +56,62 @@
        │   ↓ クオータ消費済み
        ├─→ [Tier 2: 格安] GLM ($0.6/1M)、MiniMax ($0.2/1M)
        │   ↓ 予算上限
-       └─→ [Tier 3: 無料] iFlow、Qwen、Kiro（無制限）
+       └─→ [Tier 3: 無料] Kiro、OpenCode Free、Vertex（無制限）
 
 結果: コーディングが止まらない、最小コスト
 ```
 
 ---
 
-## ⚡ クイックスタート
+---
+
+## ⚖️ LiteRouter と 9Router の比較
+
+LiteRouter は書き直しではありません。上流の 9Router に `MINIMAL_PROFILE` ランタイムフラグ、
+小さな hot-path キャッシュを加え、付随サブシステムを無効化したものです。
+ルーティングエンジン、provider レジストリ、transport マトリクス、ダッシュボード、SQLite schema は
+変更していません — だから上流の修正をそのまま cherry-pick できます。
+
+### 実際の違い
+
+| 項目 | 9Router / LiteRouter |
+| --- | --- |
+| ランタイム構成 | フル | `MINIMAL_PROFILE=true` |
+| モデルカタログ同期 | バックグラウンド | `MODEL_CATALOG_SYNC=off` |
+| トークン更新 | バックグラウンド | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
+| ホットリードキャッシュ | なし | インプロセス（connections, combos, settings） |
+| インスタンス間キャッシュ | — | Redis, **キャッシュのみ**（永続化なし） |
+| トンネル / MITM | あり | 削除 |
+| クラウド同期 | あり | 削除 |
+| データ源 | SQLite | SQLite (変更なし) |
+
+### パッケージ版 9Router との性能比較
+
+```text
+n=30, non-streaming, mock upstream:
+  median   16.53 ms -> 13.64 ms   (-17.5%)
+  p95      25.36 ms -> 19.40 ms   (-23.5%)
+
+実 upstream バースト (kn/deepseek-v4-1-flash, n=24, 8 concurrent):
+  median   1715 ms  -> 1580 ms    (-7.9%)
+  p95      2053 ms  -> 2062 ms    noise
+```
+
+### RAM 使用量
+
+| コンテナ | アイドル RSS | バースト後 RSS | 上限 |
+| --- | --- | --- | --- |
+| 9Router (本番) | 192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | not sampled | 5.8 MiB | 256 MiB |
+
+```text
+image size: ~1.03 GB both
+```
+
+---
+
+
 
 **1. グローバルインストール：**
 
@@ -84,7 +132,7 @@ npm install -g 9router
 Claude Code/Codex/Gemini CLI/OpenClaw/Cursor/Clineの設定:
   エンドポイント: http://localhost:20128/v1
   APIキー: [ダッシュボードからコピー]
-  モデル: if/kimi-k2-thinking
+  モデル: kr/glm-5
 ```
 
 **これだけです！** 無料AIモデルでコーディングを始めましょう。
@@ -234,8 +282,8 @@ LiteRouterはすべての主要AIコーディングツールとシームレス�
   <table>
     <tr>
       <td align="center" width="150">
-        <img src="../public/providers/iflow.png" width="70" alt="iFlow"/><br/>
-        <b>iFlow AI</b><br/>
+        <img src="../public/providers/kiro.png" width="70" alt="Kiro"/><br/>
+        <b>Kiro AI</b><br/>
         <sub>8以上のモデル • 無制限</sub>
       </td>
       <td align="center" width="150">
@@ -244,9 +292,9 @@ LiteRouterはすべての主要AIコーディングツールとシームレス�
         <sub>3以上のモデル • 無制限</sub>
       </td>
       <td align="center" width="150">
-        <img src="../public/providers/gemini-cli.png" width="70" alt="Gemini CLI"/><br/>
-        <b>Gemini CLI</b><br/>
-        <sub>月18万回無料</sub>
+        <img src="../public/providers/gemini.png" width="70" alt="Vertex AI"/><br/>
+        <b>Vertex AI</b><br/>
+        <sub>$300 credits</sub>
       </td>
       <td align="center" width="150">
         <img src="../public/providers/kiro.png" width="70" alt="Kiro"/><br/>
@@ -369,9 +417,9 @@ LiteRouterはすべての主要AIコーディングツールとシームレス�
 
 ```
 コンボ: "my-coding-stack"
-  1. cc/claude-opus-4-6        (サブスクリプション)
-  2. glm/glm-4.7               (格安バックアップ、$0.6/1M)
-  3. if/kimi-k2-thinking       (無料フォールバック)
+  1. cc/claude-opus-5        (サブスクリプション)
+  2. glm/glm-5.1               (格安バックアップ、$0.6/1M)
+  3. kr/glm-5       (無料フォールバック)
 
 → クオータ切れやエラー発生時に自動切り替え
 ```
@@ -443,8 +491,8 @@ LiteRouterはすべての主要AIコーディングツールとシームレス�
 > 使用状況分析に表示される「コスト」は**追跡と比較目的のみ**です。
 > LiteRouter自体は**一切課金しません**。有料サービスを使用する場合のみ、プロバイダーに直接支払います。
 >
-> **例:** ダッシュボードにiFlowモデルの使用で「合計コスト$290」と表示されている場合、
-> これは有料APIを直接使用した場合に支払うであろう金額を表しています。実際のコスト = **$0**（iFlowは無料無制限）。
+> **例:** ダッシュボードに無料モデルの使用で「合計コスト$290」と表示されている場合、
+> これは有料APIを直接使用した場合に支払うであろう金額を表しています。実際のコスト = **$0**（Kiro は無料枠内）。
 >
 > これは無料モデルやLiteRouter経由のルーティングでどれだけ節約しているかを示す「節約トラッカー」と考えてください！
 
@@ -465,16 +513,15 @@ LiteRouterはすべての主要AIコーディングツールとシームレス�
 |--------|-------------|--------|-----------------|------------|
 | **💳 サブスクリプション** | Claude Code (Pro) | $20/月 | 5時間 + 週次 | 既存のサブスク利用者 |
 | | Codex (Plus/Pro) | $20-200/月 | 5時間 + 週次 | OpenAIユーザー |
-| | Gemini CLI | **無料** | 月18万回 + 日1千回 | 全員！ |
 | | GitHub Copilot | $10-19/月 | 月次 | GitHubユーザー |
-| **💰 格安** | GLM-4.7 | $0.6/1M | 毎日午前10時 | 予算バックアップ |
-| | MiniMax M2.1 | $0.2/1M | 5時間ローリング | 最安オプション |
+| **💰 格安** | GLM-5.1 | $0.6/1M | 毎日午前10時 | 予算バックアップ |
+| | MiniMax M2.7 | $0.2/1M | 5時間ローリング | 最安オプション |
 | | Kimi K2 | $9/月固定 | 月1000万トークン | 予測可能なコスト |
-| **🆓 無料** | iFlow | $0 | 無制限 | 8モデル無料 |
-| | Qwen | $0 | 無制限 | 3モデル無料 |
-| | Kiro | $0 | 無制限 | Claude無料 |
+| **🆓 無料** | Kiro | $0 | 月~50クレジット | GLM 5 + DeepSeek 3.2 無料 |
+| | OpenCode Free | $0 | 変動 | 認証不要 |
+| | Vertex AI | $300 クレジット | 新規 GCP | Gemini 3.1 Pro/Flash |
 
-**💡 プロのヒント:** Gemini CLI（月18万回無料）+ iFlow（無制限無料）のコンボで $0 のコスト！
+**💡 プロのヒント:** Kiro + OpenCode Free + Vertex AI のコンボで無料枠内 $0！
 
 ---
 
@@ -485,7 +532,7 @@ LiteRouterはすべての主要AIコーディングツールとシームレス�
 ✅ **LiteRouterソフトウェア = 永久無料**（オープンソース、課金なし）
 ✅ **ダッシュボードの「コスト」= 表示/追跡のみ**（実際の請求ではない）
 ✅ **プロバイダーに直接支払い**（サブスクリプションまたはAPI料金）
-✅ **無料プロバイダーは無料のまま**（iFlow、Kiro、Qwen = $0 無制限）
+✅ **無料プロバイダーは無料のまま**（Kiro、OpenCode Free、Vertex = 枠内 $0）
 ❌ **LiteRouterは請求書を送ったり**カードに課金したりしません
 
 **コスト表示の仕組み：**
@@ -500,7 +547,7 @@ LiteRouterはすべての主要AIコーディングツールとシームレス�
 • 表示コスト: $290
 
 実際の確認:
-• プロバイダー: iFlow（無料無制限）
+• プロバイダー: Kiro（無料）
 • 実際の支払い: $0.00
 • $290の意味: 無料モデルの使用で節約した金額！
 ```
@@ -508,7 +555,7 @@ LiteRouterはすべての主要AIコーディングツールとシームレス�
 **支払いルール：**
 - **サブスクリプションプロバイダー**（Claude Code、Codex）：各ウェブサイトで直接支払い
 - **格安プロバイダー**（GLM、MiniMax）：直接支払い、LiteRouterはルーティングのみ
-- **無料プロバイダー**（iFlow、Kiro、Qwen）：本当に永久無料、隠れた料金なし
+- **無料プロバイダー**（Kiro、OpenCode Free、Vertex）：枠内で無料、隠れた料金なし
 - **LiteRouter**：一切課金しない
 
 ---
@@ -522,9 +569,9 @@ LiteRouterはすべての主要AIコーディングツールとシームレス�
 **解決策:**
 ```
 コンボ: "maximize-claude"
-  1. cc/claude-opus-4-6        (サブスクリプションを最大限活用)
-  2. glm/glm-4.7               (クオータ切れ時の格安バックアップ)
-  3. if/kimi-k2-thinking       (無料の緊急フォールバック)
+  1. cc/claude-opus-5        (サブスクリプションを最大限活用)
+  2. glm/glm-5.1               (クオータ切れ時の格安バックアップ)
+  3. kr/glm-5       (無料の緊急フォールバック)
 
 月額コスト: $20 (サブスクリプション) + ~$5 (バックアップ) = 合計$25
 vs. $20 + 制限に引っかかる = フラストレーション
@@ -537,9 +584,9 @@ vs. $20 + 制限に引っかかる = フラストレーション
 **解決策:**
 ```
 コンボ: "free-forever"
-  1. gc/gemini-3-flash         (月18万回無料)
-  2. if/kimi-k2-thinking       (無制限無料)
-  3. qw/qwen3-coder-plus       (無制限無料)
+  1. vertex/gemini-3-flash-preview (GCP $300 クレジット)
+  2. kr/glm-5       (無制限無料)
+  3. vertex/gemini-2.5-flash    (GCP $300 クレジット)
 
 月額コスト: $0
 品質: 本番対応モデル
@@ -552,11 +599,11 @@ vs. $20 + 制限に引っかかる = フラストレーション
 **解決策:**
 ```
 コンボ: "always-on"
-  1. cc/claude-opus-4-6        (最高品質)
-  2. cx/gpt-5.2-codex          (セカンドサブスクリプション)
-  3. glm/glm-4.7               (格安、毎日リセット)
-  4. minimax/MiniMax-M2.1      (最安、5時間リセット)
-  5. if/kimi-k2-thinking       (無料無制限)
+  1. cc/claude-opus-5        (最高品質)
+  2. cx/gpt-5.4               (セカンドサブスクリプション)
+  3. glm/glm-5.1               (格安、毎日リセット)
+  4. minimax/MiniMax-M2.7      (最安、5時間リセット)
+  5. kr/glm-5       (無料無制限)
 
 結果: 5層のフォールバック = ダウンタイムゼロ
 月額コスト: $20-200 (サブスクリプション) + $10-20 (バックアップ)
@@ -569,9 +616,9 @@ vs. $20 + 制限に引っかかる = フラストレーション
 **解決策:**
 ```
 コンボ: "openclaw-free"
-  1. if/glm-4.7                (無制限無料)
-  2. if/minimax-m2.1           (無制限無料)
-  3. if/kimi-k2-thinking       (無制限無料)
+  1. kr/glm-5                (無制限無料)
+  2. kr/deepseek-3.2           (無制限無料)
+  3. kr/glm-5       (無制限無料)
 
 月額コスト: $0
 アクセス方法: WhatsApp、Telegram、Slack、Discord、iMessage、Signal...
@@ -588,7 +635,7 @@ vs. $20 + 制限に引っかかる = フラストレーション
 
 **例：**
 - **ダッシュボード表示:** 「合計コスト$290」
-- **実際:** iFlow（無料無制限）を使用中
+- **実際:** Kiro（無料）を使用中
 - **実際のコスト:** **$0.00**
 - **$290の意味:** 有料APIの代わりに無料モデルを使用して**節約した**金額！
 
@@ -613,10 +660,10 @@ LiteRouterはローカルプロキシ/ルーターです。クレジットカー
 <details>
 <summary><b>🆓 無料プロバイダーは本当に無制限ですか？</b></summary>
 
-**はい！** 無料と表示されているプロバイダー（iFlow、Kiro、Qwen）は本当に無制限で**隠れた料金はありません**。
+**はい！** 無料と表示されているプロバイダー（Kiro、OpenCode Free、Vertex）は無料枠内で**隠れた料金はありません**。
 
 これらは各企業が提供する無料サービスです：
-- **iFlow**: OAuth経由で8以上のモデルに無料無制限アクセス
+- **Kiro**: 月 ~50 クレジット、GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next
 - **Kiro**: AWS Builder ID経由で無料無制限Claudeモデル
 - **Qwen**: デバイス認証経由でQwenモデルに無料無制限アクセス
 
@@ -633,15 +680,15 @@ LiteRouterはリクエストをルーティングするだけで、「罠」や�
 
 1. **100%無料コンボから始める：**
    ```
-   1. gc/gemini-3-flash (Googleから月18万回無料)
-   2. if/kimi-k2-thinking (iFlowから無制限無料)
-   3. qw/qwen3-coder-plus (Qwenから無制限無料)
+   1. vertex/gemini-3-flash-preview (GCP $300 クレジット)
+   2. kr/deepseek-3.2 (Kiro から無料)
+   3. vertex/gemini-2.5-flash (GCP $300 クレジット)
    ```
    **コスト: $0/月**
 
 2. **必要な場合のみ格安バックアップを追加：**
    ```
-   4. glm/glm-4.7 ($0.6/100万トークン)
+   4. glm/glm-5.1 ($0.6/100万トークン)
    ```
    **追加コスト: 実際に使用した分だけ支払い**
 
@@ -688,7 +735,7 @@ LiteRouterのスマートフォールバックが予期しない課金を防止�
 → 5時間 + 週次クオータ追跡
 
 モデル:
-  cc/claude-opus-4-6
+  cc/claude-opus-5
   cc/claude-sonnet-4-5-20250929
   cc/claude-haiku-4-5-20251001
 ```
@@ -703,23 +750,13 @@ LiteRouterのスマートフォールバックが予期しない課金を防止�
 → 5時間 + 週次リセット
 
 モデル:
-  cx/gpt-5.2-codex
-  cx/gpt-5.1-codex-max
+    cx/gpt-5.1-codex-max
 ```
 
-### Gemini CLI（月18万回無料！）
+### Gemini CLI（廃止）
 
-```bash
-ダッシュボード → Providers → Gemini CLIを接続
-→ Google OAuth
-→ 月18万回 + 日1千回
-
-モデル:
-  gc/gemini-3-flash-preview
-  gc/gemini-2.5-pro
-```
-
-**最高のコスパ:** 巨大な無料ティア！有料ティアの前にこちらを使用。
+**Gemini CLI の無料枠は 2026-06-18 に終了しました。** provider エントリはカタログに残っていますが
+deprecated フラグ付きで、`gc/` モデルへのリクエストは失敗します。Vertex AI または OpenCode Free を使ってください。
 
 ### GitHub Copilot
 
@@ -730,7 +767,7 @@ LiteRouterのスマートフォールバックが予期しない課金を防止�
 
 モデル:
   gh/gpt-5
-  gh/claude-4.5-sonnet
+  gh/claude-sonnet-4.6
   gh/gemini-3-pro
 ```
 
@@ -739,7 +776,7 @@ LiteRouterのスマートフォールバックが予期しない課金を防止�
 <details>
 <summary><b>💰 格安プロバイダー（バックアップ）</b></summary>
 
-### GLM-4.7（日次リセット、$0.6/1M）
+### GLM-5.1（日次リセット、$0.6/1M）
 
 1. サインアップ: [Zhipu AI](https://open.bigmodel.cn/)
 2. Coding PlanからAPIキーを取得
@@ -747,17 +784,17 @@ LiteRouterのスマートフォールバックが予期しない課金を防止�
    - プロバイダー: `glm`
    - APIキー: `your-key`
 
-**使用:** `glm/glm-4.7`
+**使用:** `glm/glm-5.1`
 
 **プロのヒント:** Coding Planは1/7のコストで3倍のクオータを提供！毎日午前10:00にリセット。
 
-### MiniMax M2.1（5時間リセット、$0.20/1M）
+### MiniMax M2.7（5時間リセット、$0.20/1M）
 
 1. サインアップ: [MiniMax](https://www.minimax.io/)
 2. APIキーを取得
 3. ダッシュボード → APIキーを追加
 
-**使用:** `minimax/MiniMax-M2.1`
+**使用:** `minimax/MiniMax-M2.7`
 
 **プロのヒント:** ロングコンテキスト（100万トークン）で最安オプション！
 
@@ -776,19 +813,19 @@ LiteRouterのスマートフォールバックが予期しない課金を防止�
 <details>
 <summary><b>🆓 無料プロバイダー（緊急バックアップ）</b></summary>
 
-### iFlow（8つの無料モデル）
+### Kiro（月~50クレジット無料）
 
 ```bash
-ダッシュボード → iFlowを接続
-→ iFlow OAuthログイン
+ダッシュボード → Kiro を接続
+→ AWS Builder ID / Google / GitHub
 → 無制限使用
 
 モデル:
-  if/kimi-k2-thinking
-  if/qwen3-coder-plus
-  if/glm-4.7
-  if/minimax-m2
-  if/deepseek-r1
+  kr/glm-5
+  kr/qwen3-coder-next
+  kr/glm-5
+  kr/deepseek-3.2
+  kr/qwen3-coder-next
 ```
 
 ### Qwen（3つの無料モデル）
@@ -799,8 +836,7 @@ LiteRouterのスマートフォールバックが予期しない課金を防止�
 → 無制限使用
 
 モデル:
-  qw/qwen3-coder-plus
-  qw/qwen3-coder-flash
+  vertex/gemini-2.5-flash
 ```
 
 ### Kiro（Claude無料）
@@ -811,8 +847,8 @@ LiteRouterのスマートフォールバックが予期しない課金を防止�
 → 無制限使用
 
 モデル:
-  kr/claude-sonnet-4.5
-  kr/claude-haiku-4.5
+  kr/glm-5
+  kr/qwen3-coder-next
 ```
 
 </details>
@@ -827,9 +863,9 @@ LiteRouterのスマートフォールバックが予期しない課金を防止�
 
 名前: premium-coding
 モデル:
-  1. cc/claude-opus-4-6 (サブスクリプション、プライマリ)
-  2. glm/glm-4.7 (格安バックアップ、$0.6/1M)
-  3. minimax/MiniMax-M2.1 (最安フォールバック、$0.20/1M)
+  1. cc/claude-opus-5 (サブスクリプション、プライマリ)
+  2. glm/glm-5.1 (格安バックアップ、$0.6/1M)
+  3. minimax/MiniMax-M2.7 (最安フォールバック、$0.20/1M)
 
 CLIでの使用: premium-coding
 
@@ -845,9 +881,9 @@ CLIでの使用: premium-coding
 ```
 名前: free-combo
 モデル:
-  1. gc/gemini-3-flash-preview (月18万回無料)
-  2. if/kimi-k2-thinking (無制限)
-  3. qw/qwen3-coder-plus (無制限)
+  1. vertex/gemini-3-flash-preview (GCP $300 クレジット)
+  2. kr/glm-5 (無制限)
+  3. vertex/gemini-2.5-flash (GCP $300 クレジット)
 
 コスト: 永久$0！
 ```
@@ -863,7 +899,7 @@ CLIでの使用: premium-coding
 設定 → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
   OpenAI API Key: [9routerダッシュボードから]
-  Model: cc/claude-opus-4-6
+  Model: cc/claude-opus-5
 ```
 
 またはコンボを使用: `premium-coding`
@@ -897,7 +933,7 @@ codex "your prompt"
   "agents": {
     "defaults": {
       "model": {
-        "primary": "9router/if/glm-4.7"
+        "primary": "literouter/kr/glm-5"
       }
     }
   },
@@ -909,8 +945,8 @@ codex "your prompt"
         "api": "openai-completions",
         "models": [
           {
-            "id": "if/glm-4.7",
-            "name": "glm-4.7"
+            "id": "kr/glm-5",
+            "name": "glm-5"
           }
         ]
       }
@@ -927,7 +963,7 @@ codex "your prompt"
 プロバイダー: OpenAI Compatible
 Base URL: http://localhost:20128/v1
 API Key: [ダッシュボードから]
-Model: cc/claude-opus-4-6
+Model: cc/claude-opus-5
 ```
 
 </details>
@@ -1050,40 +1086,33 @@ docker stop 9router && docker rm 9router
 <summary><b>すべての利用可能なモデルを表示</b></summary>
 
 **Claude Code (`cc/`)** - Pro/Max:
-- `cc/claude-opus-4-6`
+- `cc/claude-opus-5`
 - `cc/claude-sonnet-4-5-20250929`
 - `cc/claude-haiku-4-5-20251001`
 
 **Codex (`cx/`)** - Plus/Pro:
-- `cx/gpt-5.2-codex`
 - `cx/gpt-5.1-codex-max`
 
-**Gemini CLI (`gc/`)** - 無料:
-- `gc/gemini-3-flash-preview`
-- `gc/gemini-2.5-pro`
+**Vertex AI (`vertex/`)** - $300 クレジット:
+- `vertex/gemini-3-flash-preview`
+- `vertex/gemini-3.1-pro-preview`
 
 **GitHub Copilot (`gh/`)**:
 - `gh/gpt-5`
-- `gh/claude-4.5-sonnet`
+- `gh/claude-sonnet-4.6`
 
 **GLM (`glm/`)** - $0.6/1M:
-- `glm/glm-4.7`
+- `glm/glm-5.1`
 
 **MiniMax (`minimax/`)** - $0.2/1M:
-- `minimax/MiniMax-M2.1`
+- `minimax/MiniMax-M2.7`
 
-**iFlow (`if/`)** - 無料:
-- `if/kimi-k2-thinking`
-- `if/qwen3-coder-plus`
-- `if/deepseek-r1`
+**Kiro (`kr/`)** - 無料 (~50 クレジット/月):
+- `kr/glm-5`
+- `kr/deepseek-3.2`
+- `kr/qwen3-coder-next`
 
-**Qwen (`qw/`)** - 無料:
-- `qw/qwen3-coder-plus`
-- `qw/qwen3-coder-flash`
-
-**Kiro (`kr/`)** - 無料:
-- `kr/claude-sonnet-4.5`
-- `kr/claude-haiku-4.5`
+- `kr/qwen3-coder-next`
 
 </details>
 
@@ -1097,7 +1126,7 @@ docker stop 9router && docker rm 9router
 
 **レート制限**
 - サブスクリプションクオータ切れ → GLM/MiniMaxにフォールバック
-- コンボを追加: `cc/claude-opus-4-6 → glm/glm-4.7 → if/kimi-k2-thinking`
+- コンボを追加: `cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5`
 
 **OAuthトークンの期限切れ**
 - LiteRouterが自動リフレッシュ
@@ -1106,7 +1135,7 @@ docker stop 9router && docker rm 9router
 **高コスト**
 - ダッシュボードで使用状況を確認
 - プライマリモデルをGLM/MiniMaxに切り替え
-- 重要でないタスクには無料ティア（Gemini CLI、iFlow）を使用
+- 重要でないタスクには無料ティア（Kiro、OpenCode Free、Vertex）を使用
 
 **ダッシュボードが違うポートで開く**
 - `PORT=20128` と `NEXT_PUBLIC_BASE_URL=http://localhost:20128` を設定
@@ -1141,7 +1170,7 @@ Authorization: Bearer your-api-key
 Content-Type: application/json
 
 {
-  "model": "cc/claude-opus-4-6",
+  "model": "cc/claude-opus-5",
   "messages": [
     {"role": "user", "content": "Write a function to..."}
   ],

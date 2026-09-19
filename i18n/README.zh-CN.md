@@ -66,7 +66,54 @@
 
 ---
 
-## ⚡ 快速开始
+---
+
+## ⚖️ LiteRouter 与 9Router 对比
+
+LiteRouter 不是重写。它是上游 9Router 加上 `MINIMAL_PROFILE` 运行时开关、
+一层热路径缓存，以及关闭附属子系统。路由引擎、提供商注册表、传输矩阵、
+控制台和 SQLite schema 均未改动——这正是上游修复仍可挑选合并的原因。
+
+### 实际差异
+
+| 方面 | 9Router / LiteRouter |
+| --- | --- |
+| 运行时配置 | 完整 | `MINIMAL_PROFILE=true` |
+| 模型目录同步 | 后台刷新 | `MODEL_CATALOG_SYNC=off` |
+| Token 刷新 | 后台任务 | `DISABLE_BACKGROUND_TOKEN_REFRESH=true` |
+| 热读缓存 | 无 | 进程内（连接、组合、设置） |
+| 跨实例缓存 | — | Redis, **仅作缓存**（不持久化） |
+| 隧道 / MITM / Tailscale 运行时 | 有 | **已删除**（PR #14） |
+| 云同步 | 有 | 已移除 |
+| 数据源 | SQLite | SQLite (未改动) |
+
+### 与打包版 9Router 的性能对比
+
+```text
+n=30, non-streaming, mock upstream:
+  median   16.53 ms -> 13.64 ms   (-17.5%)
+  p95      25.36 ms -> 19.40 ms   (-23.5%)
+
+真实上游突发 (kn/deepseek-v4-1-flash, n=24, 8 concurrent):
+  median   1715 ms  -> 1580 ms    (-7.9%)
+  p95      2053 ms  -> 2062 ms    noise
+```
+
+### 内存占用
+
+| 容器 | 空闲 RSS | 突发后 RSS | 上限 |
+| --- | --- | --- | --- |
+| 9Router (生产) | 112-192 MiB | 236.6 MiB | 512 MiB |
+| LiteRouter | 60-68 MiB | 72.3 MiB | 512 MiB |
+| Redis (LiteRouter only) | not sampled | 5.8 MiB | 256 MiB |
+
+```text
+image size: ~1.03 GB both
+```
+
+---
+
+
 
 **1. 全局安装：**
 
@@ -87,7 +134,7 @@ npm install -g 9router
 Claude Code/Codex/Gemini CLI/OpenClaw/Cursor/Cline 设置:
   Endpoint: http://localhost:20128/v1
   API Key: [从仪表板复制]
-  Model: if/kimi-k2-thinking
+  Model: kr/glm-5
 ```
 
 **就是这样！** 开始使用免费 AI 模型编程。
@@ -237,19 +284,19 @@ LiteRouter 与所有主流 AI 编程工具无缝协作：
   <table>
     <tr>
       <td align="center" width="150">
-        <img src="../public/providers/iflow.png" width="70" alt="iFlow"/><br/>
-        <b>iFlow AI</b><br/>
-        <sub>8+ 模型 无限制</sub>
+        <img src="../public/providers/kiro.png" width="70" alt="Kiro"/><br/>
+        <b>Kiro AI</b><br/>
+        <sub>~50 积分/月 免费</sub>
       </td>
       <td align="center" width="150">
-        <img src="../public/providers/qwen.png" width="70" alt="Qwen"/><br/>
-        <b>Qwen Code</b><br/>
+        <img src="../public/providers/opencode.png" width="70" alt="OpenCode Free"/><br/>
+        <b>OpenCode Free</b><br/>
         <sub>3+ 模型 • 无限制</sub>
       </td>
       <td align="center" width="150">
-        <img src="../public/providers/gemini-cli.png" width="70" alt="Gemini CLI"/><br/>
-        <b>Gemini CLI</b><br/>
-        <sub>180K/月 免费</sub>
+        <img src="../public/providers/gemini.png" width="70" alt="Vertex AI"/><br/>
+        <b>Vertex AI</b><br/>
+        <sub>$300 额度</sub>
       </td>
       <td align="center" width="150">
         <img src="../public/providers/kiro.png" width="70" alt="Kiro"/><br/>
@@ -372,9 +419,9 @@ LiteRouter 与所有主流 AI 编程工具无缝协作：
 
 ```
 Combo: "my-coding-stack"
-  1. cc/claude-opus-4-6        (your subscription)
-  2. glm/glm-4.7               (cheap backup, $0.6/1M)
-  3. if/kimi-k2-thinking       (free fallback)
+  1. cc/claude-opus-5        (your subscription)
+  2. glm/glm-5.1               (cheap backup, $0.6/1M)
+  3. kr/glm-5       (free fallback)
 
 → Auto switches when quota runs out or errors occur
 ```
@@ -446,8 +493,8 @@ Combo: "my-coding-stack"
 > 使用分析中显示的“成本”**仅用于追踪和比较目的**。
 > LiteRouter 本身**从不向您收费**。您只需直接向提供商付款（如果使用付费服务）。
 >
-> **示例：** 如果您的仪表板在使用 iFlow 模型时显示“$290 总成本”，这代表
-> 您直接使用付费 API 时需要支付的金额。您的实际成本 = **$0**（iFlow 是免费无限制的）。
+> **示例：** 如果您的仪表板在使用免费模型时显示“$290 总成本”，这代表
+> 您直接使用付费 API 时需要支付的金额。您的实际成本 = **$0**（Kiro 免费）。
 >
 > 将其视为“节省追踪器”，显示您通过使用免费模型或
 > 通过 LiteRouter 路由节省了多少！
@@ -469,16 +516,15 @@ Combo: "my-coding-stack"
 |------|----------|------|-------------|----------|
 | **💳 订阅** | Claude Code (Pro) | $20/月 | 5h + 每周 | 已订阅用户 |
 | | Codex (Plus/Pro) | $20-200/月 | 5h + 每周 OpenAI 用户 |
-| | Gemini CLI | **免费** | 180K/月 + 1K/天 | 所有人！ |
 | | GitHub Copilot | $10-19/月 | 每月 | GitHub 用户 |
-| **💰 廉价** | GLM-4.7 | $0.6/1M | 每日 10AM | 预算备份 |
-| | MiniMax M2.1 | $0.2/1M | 5 小时滚动 | 最便宜选项 |
+| **💰 廉价** | GLM-5.1 | $0.6/1M | 每日 10AM | 预算备份 |
+| | MiniMax M2.7 | $0.2/1M | 5 小时滚动 | 最便宜选项 |
 | | Kimi K2 | $9/月固定 | 10M tokens/月 | 可预测成本 |
-| **🆓 免费** | iFlow | $0 | 无限制 | 8 个模型免费 |
-| | Qwen | $0 | 无限制 | 3 个模型免费 |
-| | Kiro | $0 | 无限制 | Claude 免费 |
+| **🆓 免费** | Kiro | $0 | ~50 积分/月 | GLM 5 + DeepSeek 3.2 免费 |
+| | OpenCode Free | $0 | 变动 | 无需认证 |
+| | Vertex AI | $300 额度 | 新 GCP 账户 | Gemini 3.1 Pro/Flash |
 
-**💡 专业提示：** 从 Gemini CLI（180K 免费/月）+ iFlow（无限制免费）组合开始 = $0 成本！
+**💡 专业提示：** Kiro + OpenCode Free + Vertex AI 组合 = 免费额度内 $0！
 
 ---
 
@@ -489,7 +535,7 @@ Combo: "my-coding-stack"
 ✅ **LiteRouter 软件 = 永远免费**开源，从不收费）
 ✅ **仪表板“成本” = 仅显示/追踪**（非实际账单）
 ✅ **您直接向提供商付款**（订阅或 API 费用）
-✅ **免费提供商保持免费**（iFlow, Kiro, Qwen = $0 无限制）
+✅ **免费提供商保持免费**（Kiro, OpenCode Free, Vertex = 额度内 $0）
 ❌ **LiteRouter 从不发送发票**或向您的卡收费
 
 **成本显示如何工作：**
@@ -503,7 +549,7 @@ Combo: "my-coding-stack"
 • 显示成本：$290
 
 现实检查：
-• 提供商：iFlow（免费无限制）
+• 提供商：Kiro（免费）
 • 实际付款：$0.00
 • $290 的含义：您通过使用免费模型节省的金额！
 ```
@@ -511,7 +557,7 @@ Combo: "my-coding-stack"
 **付款规则：**
 - **订阅提供商**（Claude Code, Codex）：通过他们的网站直接向他们付款
 - **廉价提供商**（GLM, MiniMax）：直接向他们付款，LiteRouter 只是路由
-- **免费**（iFlow, Kiro, Qwen）：真正永远免费，没有隐藏费用
+- **免费**（Kiro, OpenCode Free, Vertex）：额度内免费，没有隐藏费用
 - **LiteRouter**：从不收取任何费用，永远
 
 ---
@@ -525,9 +571,9 @@ Combo: "my-coding-stack"
 **解决方案：**
 ```
 Combo: "maximize-claude"
-  1. cc/claude-opus-4-6        (use subscription fully)
-  2. glm/glm-4.7               (cheap backup when quota out)
-  3 if/kimi-k2-thinking       (free emergency fallback)
+  1. cc/claude-opus-5        (use subscription fully)
+  2. glm/glm-5.1               (cheap backup when quota out)
+  3 kr/glm-5       (free emergency fallback)
 
 Monthly cost: $20 (subscription) + ~$5 (backup) = $25 total
 vs. $20 + hitting limits = frustration
@@ -540,9 +586,9 @@ vs. $20 + hitting limits = frustration
 **解决方案：**
 ```
 Combo: "free-forever"
-  1. gc/gemini-3-flash         (180K free/month)
-  2. if/kimi-k2-thinking       (unlimited free)
-  3. qw/qwen3-c-plus       (unlimited free)
+  1. vertex/gemini-3-flash-preview (GCP $300 额度)
+  2. kr/glm-5       (unlimited free)
+  3. vertex/gemini-2.5-flash    (GCP $300 额度)
 
 Monthly cost: $0
 Quality: Production-ready models
@@ -555,11 +601,11 @@ Quality: Production-ready models
 **解决方案：**
 ```
 Combo: "always-on"
-  1. cc/claude-opus-4-6        (best quality)
-  2. cx/gpt-5.2-codex          (second subscription)
-  3. glm/glm-4.7               (cheap, resets daily)
-  4. minimaxMiniMax-M2.1      (cheapest, 5h reset)
-  5. if/kimi-k2-thinking       (free unlimited)
+  1. cc/claude-opus-5        (best quality)
+  2. cx/gpt-5.4               (second subscription)
+  3. glm/glm-5.1               (cheap, resets daily)
+  4. minimaxMiniMax-M2.7      (cheapest, 5h reset)
+  5. kr/glm-5       (free unlimited)
 
 Result: 5 layers of fallback = zero downtime
 Monthly cost: $20-200 (subscriptions) + $10-20 (backup)
@@ -572,9 +618,9 @@ Monthly cost: $20-200 (subscriptions) + $10-20 (backup)
 **解决方案：**
 ```
 Combo: "openclaw-free"
-  1. if/glm-4.7                (unlimited free)
-  2. if/minimax-m2.1           (unlimited free)
-  3. if/kimi-k2-thinking       (unlimited free)
+  1. kr/glm-5                (unlimited free)
+  2. kr/deepseek-3.2           (unlimited free)
+  3. kr/glm-5       (unlimited free)
 
 Monthly cost: $0
 Access via: WhatsApp, Telegram, Slack, Discord, iMessage, Signal...
@@ -591,7 +637,7 @@ Access via: WhatsApp, Telegram, Slack, Discord, iMessage, Signal...
 
 **示例：**
 - **仪表板显示：**“$290 总成本”
-- **现实：** 您正在使用 iFlow（免费无限制）
+- **现实：** 您正在使用 Kiro（免费）
 - **您的实际成本：** **$0.00**
 - **$290 的含义：** 您通过使用免费模型而不是付费 API **节省**的金额！
 
@@ -616,10 +662,10 @@ LiteRouter 是本地代理/路由器。它没有您的信用卡，不能发送�
 <details>
 <summary><b>🆓 免费提供商真的无限制吗？</b></summary>
 
-**是的！** 标记为免费（iFlow, Kiro, Qwen）的提供商是真正无限制的，**没有隐藏费用**。
+**是的！** 标记为免费（Kiro, OpenCode Free, Vertex）的提供商在免费额度内**没有隐藏费用**。
 
 这些是各自公司提供的免费服务：
-- **iFlow**：通过 OAuth 免费无限制访问 8+ 模型
+- **Kiro**：每月 ~50 积分免费，GLM 5 + DeepSeek 3.2 + Qwen3 Coder Next
 - **Kiro**：通过 AWS Builder ID 免费无限制 Claude 模型
 - **Qwen**：通过设备认证免费无限制访问 Qwen 模型
 
@@ -636,15 +682,15 @@ Router 只是将您的请求路由到它们 - 没有“陷阱”或未来计费�
 
 1. **从 100% 免费组合开始：**
    ```
-   1. gc/gini-3-flash (180K/month free from Google)
-   2. if/kimi-k2-thinking (unlimited free from iFlow)
-   3. qw/qwen3-coder-plus (unlimited free from Qwen)
+   1. vertex/gemini-3-flash-preview (GCP $300)
+   2. kr/deepseek-3.2 (free from Kiro)
+   3. vertex/gemini-2.5-flash    (GCP $300)
    ```
    **成本：$0/月**
 
 2. **仅在需要时添加廉价备份：**
    ```
-   4. glm/glm-4.7 ($0.6/1M tokens)
+   4. glm/glm-5.1 ($0.6/1M tokens)
    ```
    **额外成本：仅为您实际使用的付费**
 
@@ -691,7 +737,7 @@ Dashboard → Providers → Connect Claude Code
 → 5-hour + weekly quota tracking
 
 Models:
-  cc/claude-opus-4-6
+  cc/claude-opus-5
   cc/claude-sonnet-4-5-20250929
   cc/claude-haiku-4-5-20251001
 ```
@@ -706,23 +752,13 @@ Dashboard → Providers → Connect Codex
 → 5-hour + weekly reset
 
 Models:
- /gpt-5.2-codex
   cx/gpt-5.1-codex-max
 ```
 
-### Gemini CLI（免费 180K/月！）
+### Gemini CLI（已停用）
 
-```bash
-Dashboard → Providers → Connect Gemini CLI
-→ Google OAuth
-→ 180K completions/month + 1K/day
-
-Models:
-  gc/gemini-3-flash-preview
-  gc/gemini-2.5-pro
-```
-
-**最佳价值：** 巨大的免费层！在付费层之前使用这个。
+**Gemini CLI 免费层已于 2026-06-18 关闭。** provider 条目仍在目录中，但已标记为 `deprecated`，
+`gc/` 模型的请求将失败。请使用 Vertex AI 或 OpenCode Free。
 
 ### GitHub Copilot
 
@@ -732,9 +768,9 @@ Dashboard → Providers → Connect GitHub
 → Monthly reset (1st of month)
 
 Models:
-  gh/gpt-5
-  gh/claude-4.5-sonnet
-  gh/gemini-3-pro
+  gh/gpt-5.4
+  gh/claude-sonnet-4.6
+  gh/gemini-3.1-pro-preview
 ```
 
 </details>
@@ -742,7 +778,7 @@ Models:
 <details>
 <summary><b>💰 廉价提供商（备份）</b></summary>
 
-### GLM-4.7（每日重置，$0.6/1M）
+### GLM-5.1（每日重置，$0.6/1M）
 
 1. 注册：[Zhipu AI](https://open.bigmodel.cn/)
 2. 从 Coding Plan 获取 API key
@@ -750,17 +786,17 @@ Models:
    - Provider: `glm`
    - API Key: `your-key`
 
-**使用：** `glm/glm-4.7`
+**使用：** `glm/glm-5.1`
 
 **专业提示：** Coding Plan 以 1/7 的成本提供 3× 配额！每日 10:00 AM 重置。
 
-### MiniMax M2.1（5h 重置，$0.20/1M）
+### MiniMax M2.7（5h 重置，$0.20/1M）
 
 1. 注册：[MiniMax](https://www.minimax.io/)
 2. 获取 API key
 3. 仪表板 → 添加 API Key
 
-**使用：** `minimax/MiniMax-M2.1`
+**使用：** `minimax/MiniMax-M2.7`
 
 **专业提示：** 长上下文（1M tokens）的最便宜选项！
 
@@ -779,19 +815,18 @@ Models:
 <details>
 <summary><b>🆓 免费提供商（紧急备份）</b></summary>
 
-### i（8 个免费模型）
+### Kiro（每月 ~50 积分）
 
 ```bash
-Dashboard → Connect iFlow
-→ iFlow OAuth login
-→ Unlimited usage
+Dashboard → Connect Kiro
+→ AWS Builder ID / Google / GitHub
+→ ~50 积分/月
 
 Models:
-  if/kimi-k2-thinking
-  if/qwen3-coder-plus
-  if/glm-4.7
-  if/minimax-m2
-  if/deepseek-r1
+  kr/glm-5
+  kr/qwen3-coder-next
+  kr/glm-5
+  kr/qwen3-coder-next
 ```
 
 ### Qwen（3 个免费模型）
@@ -802,8 +837,7 @@ Dashboard → Connect Qwen
 → Unlimited usage
 
 Models:
-  qw/qwen3-coder-plus
-  qw/qwen3-coder-flash
+  vertex/gemini-2.5-flash
 ```
 
 ### Kiro（Claude 免费```bash
@@ -812,8 +846,8 @@ Dashboard → Connect Kiro
 → Unlimited usage
 
 Models:
-  kr/claude-sonnet-4.5
-  kr/claude-haiku-4.5
+  kr/glm-5
+  kr/qwen3-coder-next
 ```
 
 </details>
@@ -828,9 +862,9 @@ Dashboard → Combos → Create New
 
 Name: premium-coding
 Models:
-  1. cc/claude-opus-4-6 (Subscription primary)
+  1. cc/claude-opus-5 (Subscription primary)
   2. glm/glm4.7 (Cheap backup, $0.6/1M)
-  3. minimax/MiniMax-M2.1 (Cheapest fallback, $0.20/1M)
+  3. minimax/MiniMax-M2.7 (Cheapest fallback, $0.20/1M)
 
 Use in CLI: premium-coding
 
@@ -846,9 +880,9 @@ Monthly cost example (100M tokens):
 ```
 Name: free-combo
 Models:
-  1. gc/gemini-3-flash-preview (180K free/month)
-  2. if/kimi-k2-thinking (unlimited)
-  3. qw/qwen3-coder-plus (unlimited)
+  1. vertex/gemini-3-flash-preview (GCP $300)
+  2. kr/deepseek-3.2 (free)
+  3. vertex/gemini-2.5-flash    (GCP $300)
 
 Cost: $0 forever!
 ```
@@ -864,7 +898,7 @@ Cost: $0 forever!
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
   OpenAI API Key: [from 9router dashboard]
-  Model: cc/claude-opus-4-6
+  Model: cc/claude-opus-5
 ```
 
 使用组合：`premium-coding`
@@ -898,7 +932,7 @@ codex "your prompt"
   "agents": {
     "defaults": {
       "model": {
-        "primary": "9router/if/glm-4.7"
+        "primary": "literouter/kr/glm-5"
       }
     }
   },
@@ -910,8 +944,8 @@ codex "your prompt"
         "api": "openai-completions",
         "models": [
           {
-            "id": "if/glm-4.7",
-            "name": "glm-4.7"
+            "id": "kr/glm-5",
+            "name": "glm-5"
           }
         ]
       }
@@ -1050,39 +1084,37 @@ docker stop 9router && docker rm 9router
 <summary><b>查看所有可用模型</b></summary>
 
 **Claude Code (`cc/`)** - Pro/Max:
-- `cc/claude-opus-4-6`
+- `cc/claude-opus-5`
 - `cc/claude-sonnet-4-5-20250929`
 - `cc/claude-haiku-4-5-20251001`
 
 **Codex (`cx/`)** - Plus/Pro:
-- `cx/gpt-5.2-codex- `cx/gpt-5.1-codex-max`
+- `cx/gpt-5.4`
+- `cx/gpt-5.3-codex`
+- `cx/gpt-5.1-codex-max`
 
-**Gemini CLI (`gc/`)** - 免费:
-- `gc/gemini-3-flash-preview`
-- `gc/gemini-2.5-pro`
+**Vertex AI (`vertex/`)** - $300 额度:
+- `vertex/gemini-3-flash-preview`
+- `vertex/gemini-3.1-pro-preview`
 
 **GitHub Copilot (`gh/`)**:
 - `gh/gpt-5`
-- `gh/claude-4.5-sonnet`
+- `gh/claude-sonnet-4.6`
 
 **GLM (`glm/`)** - $0.6/1M:
-- `glm/glm-4.7`
+- `glm/glm-5.1`
 
 **MiniMax (`minimax/`)** - $0.2/1M:
-- `imax/MiniMax-M2.1`
+- `imax/MiniMax-M2.7`
 
-**iFlow (`if/`)** - 免费:
-- `if/kimi-k2-thinking`
-- `if/qwen3-coder-plus`
-- `if/deepseek-r1`
+**Kiro (`kr/`)** - 免费 (~50 积分/月):
+- `kr/glm-5`
+- `kr/deepseek-3.2`
+- `kr/qwen3-coder-next`
 
-**Qwen (`qw/`)** - 免费:
-- `qw/qwen3-coder-plus`
-- `qw/qwen3-coder-flash`
 
-**Kiro (`kr/`)** - 免费:
-- `kr/claude-sonnet-4.5`
-- `kr/claude-haiku-4.5`
+
+- `kr/qwen3-coder-next`
 
 </details>
 
@@ -1096,7 +1128,7 @@ docker stop 9router && docker rm 9router
 
 **速率限制**
 - 订阅配额用完 → 回退到 GLM/MiniMax
-- 添加组合：`cc/claude-opus-4-6 → glm/glm-4.7 → if/kimi-k2-thinking`
+- 添加组合：`cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5`
 
 **OAuth token 过期**
 - 由 LiteRouter 自动刷新
@@ -1105,7 +1137,7 @@ docker stop 9router && docker rm 9router
 **高成本**
 - 在仪表板中检查使用统计
 - 将主要模型切换为 GLM/MiniMax
-- 对非关键任务使用免费层（Gemini CLI, iFlow）
+- 对非关键任务使用免费层（Kiro, OpenCode Free, Vertex）
 
 **仪表板在错误的端口打开**
 - 设置 `PORT=20128` 和 `NEXT_PUBLIC_BASE_URL=http://localhost:20128`
@@ -1155,7 +1187,7 @@ Authorization: Bearer your-api-key
 Content-Type: application/json
 
 {
-  "model": "cc/claude-opus-4-6",
+  "model": "cc/claude-opus-5",
   "messages": [
     {"role": "user", "content": "Write a function to..."}
   ],

@@ -12,9 +12,9 @@ Combos là **chuỗi fallback tùy chỉnh** bạn tạo trong dashboard. Thay v
 ```
 Combo name: premium-coding
 Models:
-  1. cc/claude-opus-4-5-20251101 (try first)
-  2. glm/glm-4.7 (if #1 quota exhausted)
-  3. minimax/MiniMax-M2.1 (if #2 quota exhausted)
+  1. cc/claude-opus-5 (try first)
+  2. glm/glm-5.1 (if #1 quota exhausted)
+  3. minimax/MiniMax-M2.7 (if #2 quota exhausted)
 ```
 
 **Dùng trong CLI:**
@@ -30,7 +30,7 @@ LiteRouter tự động thử từng model theo thứ tự cho đến khi thành
 
 ### 1. Tối đa hóa Giá trị Subscription
 ```
-cc/claude-opus → glm/glm-4.7 → if/kimi-k2-thinking
+cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5
 
 → Use subscription first, cheap backup, free emergency
 → Get full value from subscriptions you already pay for
@@ -38,7 +38,7 @@ cc/claude-opus → glm/glm-4.7 → if/kimi-k2-thinking
 
 ### 2. Giảm Chi phí
 ```
-glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
+glm/glm-5.1 → minimax/MiniMax-M2.7 → kr/glm-5
 
 → Start with cheapest paid option ($0.60/1M)
 → Fallback to even cheaper ($0.20/1M)
@@ -48,7 +48,7 @@ glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
 
 ### 3. Đảm bảo Khả dụng 24/7
 ```
-cc/claude-opus → cx/gpt-5.2-codex → glm/glm-4.7 → if/kimi-k2-thinking
+cc/claude-opus-5 → cx/gpt-5.5 → glm/glm-5.1 → kr/glm-5
 
 → Always include free tier at the end
 → Never run out of quota
@@ -57,7 +57,7 @@ cc/claude-opus → cx/gpt-5.2-codex → glm/glm-4.7 → if/kimi-k2-thinking
 
 ### 4. Tối ưu Chất lượng
 ```
-cc/claude-opus-4-5 → cx/gpt-5.2-codex → gc/gemini-3-pro
+cc/claude-opus-5 → cx/gpt-5.5 → vertex/gemini-3.1-pro-preview
 
 → Best models first
 → Fallback to other premium models
@@ -95,9 +95,9 @@ Subscription first, cheap backup, free emergency
 
 **Chọn Models:**
 ```
-1. cc/claude-opus-4-5-20251101
-2. glm/glm-4.7
-3. minimax/MiniMax-M2.1
+1. cc/claude-opus-5
+2. glm/glm-5.1
+3. minimax/MiniMax-M2.7
 ```
 
 **Kéo để sắp xếp lại** - Ưu tiên từ trên xuống dưới.
@@ -129,9 +129,9 @@ Dashboard → Combos → Create New
 
 Name: premium-coding
 Models:
-  1. cc/claude-opus-4-5-20251101
-  2. glm/glm-4.7
-  3. minimax/MiniMax-M2.1
+  1. cc/claude-opus-5
+  2. glm/glm-5.1
+  3. minimax/MiniMax-M2.7
 ```
 
 **Sử dụng:**
@@ -143,13 +143,13 @@ Cursor IDE:
 **Hoạt động:**
 ```
 Morning (fresh quota):
-  Request → cc/claude-opus-4-5 ✅
+  Request → cc/claude-opus-5 ✅
 
 Afternoon (Claude quota out):
-  Request → glm/glm-4.7 ✅ (auto switched)
+  Request → glm/glm-5.1 ✅ (auto switched)
 
 Evening (GLM quota out):
-  Request → minimax/MiniMax-M2.1 ✅ (auto switched)
+  Request → minimax/MiniMax-M2.7 ✅ (auto switched)
 ```
 
 **Chi phí hàng tháng (100M tokens):**
@@ -173,9 +173,9 @@ Dashboard → Combos → Create New
 
 Name: budget-combo
 Models:
-  1. glm/glm-4.7
-  2. minimax/MiniMax-M2.1
-  3. if/kimi-k2-thinking
+  1. glm/glm-5.1
+  2. minimax/MiniMax-M2.7
+  3. kr/glm-5
 ```
 
 **Sử dụng:**
@@ -188,17 +188,17 @@ Cline:
 
 **Hoạt động:**
 ```
-Request → glm/glm-4.7
+Request → glm/glm-5.1
   ✅ Daily quota available → Use GLM ($0.60/1M)
   ❌ Quota exhausted → Try MiniMax ($0.20/1M)
-  ❌ MiniMax quota out → Use iFlow (FREE)
+  ❌ MiniMax quota out → Use credit miễn phí của Kiro
 ```
 
 **Chi phí hàng tháng (100M tokens):**
 ```
 70M via GLM: $42
 20M via MiniMax: $4
-10M via iFlow: $0
+10M qua credit miễn phí Kiro: $0
 Total: $46 vs $2000 on ChatGPT API
 ```
 
@@ -215,9 +215,9 @@ Dashboard → Combos → Create New
 
 Name: free-combo
 Models:
-  1. if/kimi-k2-thinking
-  2. qw/qwen3-coder-plus
-  3. kr/claude-sonnet-4.5
+  1. kr/glm-5
+  2. vertex/gemini-3.1-pro-preview
+  3. kr/glm-5
 ```
 
 **Sử dụng:**
@@ -228,8 +228,8 @@ Claude Desktop:
 
 **Hoạt động:**
 ```
-Request → if/kimi-k2-thinking
-  ✅ Available → Use iFlow
+Request → kr/glm-5
+  ✅ Available → Use Kiro
   ❌ Error → Try Qwen
   ❌ Error → Try Kiro
 ```
@@ -253,9 +253,9 @@ Dashboard → Combos → Create New
 
 Name: quality-first
 Models:
-  1. cc/claude-opus-4-5-20251101
-  2. cx/gpt-5.2-codex
-  3. gc/gemini-3-pro-preview
+  1. cc/claude-opus-5
+  2. cx/gpt-5.5
+  3. vertex/gemini-3.1-pro-preview-preview
 ```
 
 **Sử dụng:**
@@ -267,9 +267,9 @@ Codex CLI:
 
 **Hoạt động:**
 ```
-Request → cc/claude-opus-4-5
-  ❌ Quota out → cx/gpt-5.2-codex
-  ❌ Quota out → gc/gemini-3-pro-preview
+Request → cc/claude-opus-5
+  ❌ Quota out → cx/gpt-5.5
+  ❌ Quota out → vertex/gemini-3.1-pro-preview-preview
   ❌ All out → Return error (no cheap fallback)
 ```
 
@@ -286,12 +286,12 @@ Dashboard → Combos → Create New
 
 Name: multi-sub
 Models:
-  1. gc/gemini-3-flash-preview (FREE 180K/month)
-  2. cc/claude-opus-4-5-20251101 (Pro subscription)
-  3. cx/gpt-5.2-codex (Plus subscription)
-  4. gh/gpt-5 (Copilot subscription)
-  5. glm/glm-4.7 (Cheap backup)
-  6. if/kimi-k2-thinking (Free emergency)
+  1. vertex/gemini-3-flash-preview (free credit)
+  2. cc/claude-opus-5 (Pro subscription)
+  3. cx/gpt-5.5 (Plus subscription)
+  4. gh/gpt-5.4 (Copilot subscription)
+  5. glm/glm-5.1 (Cheap backup)
+  6. kr/glm-5 (Free emergency)
 ```
 
 **Chi phí hàng tháng (200M tokens):**
@@ -301,7 +301,7 @@ Models:
 40M via Codex: $0 (subscription)
 20M via Copilot: $0 (subscription)
 8M via GLM: $4.80
-2M via iFlow: $0
+2M qua credit miễn phí Kiro: $0
 Total: $4.80 + existing subscriptions
 ```
 
@@ -318,11 +318,11 @@ Dashboard → Combos → Create New
 
 Name: reset-optimized
 Models:
-  1. cc/claude-opus-4-5 (5h reset, use morning)
-  2. gc/gemini-3-flash (1K/day, use afternoon)
-  3. glm/glm-4.7 (daily 10AM reset, use evening)
-  4. minimax/MiniMax-M2.1 (5h rolling, use night)
-  5. if/kimi-k2-thinking (unlimited, emergency)
+  1. cc/claude-opus-5 (5h reset, use morning)
+  2. vertex/gemini-3-flash-preview (1K/day, use afternoon)
+  3. glm/glm-5.1 (daily 10AM reset, use evening)
+  4. minimax/MiniMax-M2.7 (5h rolling, use night)
+  5. kr/glm-5 (unlimited, emergency)
 ```
 
 **Lịch trình hàng ngày:**
@@ -330,7 +330,7 @@ Models:
 08:00 - 13:00: Claude Code (fresh 5h quota)
 13:00 - 18:00: Gemini CLI (1K/day quota)
 18:00 - 22:00: GLM (resets 10AM next day)
-22:00 - 08:00: MiniMax (5h rolling) or iFlow
+22:00 - 08:00: MiniMax (5h rolling)
 ```
 
 **Kết quả**: Code 24/7 với chi phí tối thiểu.
@@ -400,10 +400,10 @@ curl http://localhost:20128/v1/chat/completions \
 
 ```
 ✅ Good:
-cc/claude-opus → glm/glm-4.7 → if/kimi-k2-thinking
+cc/claude-opus-5 → glm/glm-5.1 → kr/glm-5
 
 ❌ Bad:
-cc/claude-opus → glm/glm-4.7
+cc/claude-opus-5 → glm/glm-5.1
 (no free fallback, can run out of quota)
 ```
 
@@ -413,10 +413,10 @@ cc/claude-opus → glm/glm-4.7
 
 ```
 ✅ Good:
-glm/glm-4.7 → minimax/MiniMax-M2.1 → cc/claude-opus
+glm/glm-5.1 → minimax/MiniMax-M2.7 → cc/claude-opus-5
 
 ❌ Bad:
-cc/claude-opus → glm/glm-4.7
+cc/claude-opus-5 → glm/glm-5.1
 (wastes subscription quota on simple tasks)
 ```
 
@@ -426,23 +426,23 @@ cc/claude-opus → glm/glm-4.7
 
 ```
 For production code:
-cc/claude-opus → cx/gpt-5.2-codex → glm/glm-4.7
+cc/claude-opus-5 → cx/gpt-5.5 → glm/glm-5.1
 
 For quick tasks:
-glm/glm-4.7 → if/kimi-k2-thinking
+glm/glm-5.1 → kr/glm-5
 
 For experimentation:
-if/kimi-k2-thinking → qw/qwen3-coder-plus
+kr/glm-5 → vertex/gemini-3.1-pro-preview
 ```
 
 ### 4. Cân nhắc Thời gian Reset Quota
 
 ```
 Morning combo (fresh quotas):
-cc/claude-opus → cx/gpt-5.2-codex
+cc/claude-opus-5 → cx/gpt-5.5
 
 Evening combo (quotas likely exhausted):
-glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
+glm/glm-5.1 → minimax/MiniMax-M2.7 → kr/glm-5
 ```
 
 ### 5. Tạo nhiều Combo cho các Use Case khác nhau
@@ -461,8 +461,8 @@ quality-first: For production code
 ```
 Dashboard → Analytics → Combo Usage:
   premium-coding:
-    80% via cc/claude-opus (good, using subscription)
-    15% via glm/glm-4.7 (acceptable backup)
+    80% via cc/claude-opus-5 (good, using subscription)
+    15% via glm/glm-5.1 (acceptable backup)
     5% via minimax (rare fallback)
 ```
 
@@ -486,9 +486,9 @@ Khi đạt giới hạn, LiteRouter bỏ qua model trả phí và chỉ dùng fr
 
 ```
 Dashboard → Combos → Edit → Models:
-  ✅ cc/claude-opus-4-5 (enabled)
-  ❌ glm/glm-4.7 (temporarily disabled)
-  ✅ if/kimi-k2-thinking (enabled)
+  ✅ cc/claude-opus-5 (enabled)
+  ❌ glm/glm-5.1 (temporarily disabled)
+  ✅ kr/glm-5 (enabled)
 ```
 
 **Use case**: Tạm tắt model đắt mà không cần xóa combo.

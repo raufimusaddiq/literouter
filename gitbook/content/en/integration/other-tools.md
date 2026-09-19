@@ -32,7 +32,7 @@ Model: any LiteRouter model (cc/*, cx/*, glm/*, etc.)
 ## Available Models
 
 ### Claude Models (Anthropic)
-- `cc/claude-opus-4-5-20251101`
+- `cc/claude-opus-5`
 - `cc/claude-sonnet-4-20250514`
 - `cc/claude-haiku-4-20250514`
 

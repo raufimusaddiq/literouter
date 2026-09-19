@@ -8,188 +8,111 @@
 
 免费层提供商是订阅和低价配额都耗尽时的 **回退**:
 
-- 🆓 **iFlow** - 8 个免费模型(Kimi K2、Qwen3、GLM 4.7、MiniMax M2...)
-- 🆓 **Qwen** - 3 个免费模型(Qwen3 Coder Plus/Flash、Vision)
-- 🆓 **Kiro** - 2 个免费模型(Claude Sonnet 4.5、Haiku 4.5)
+- 🆓 **Kiro** - Claude 与 Qwen 系列, 免费层上限约 50 额度/月
+- 🆓 **OpenCode Free** - 无需认证, 模型列表从上游自动获取
+- 🆓 **Vertex AI** - 新建 Google Cloud 账号的 $300 额度上运行 Gemini
 
-**策略:** 作为应急备用使用。无限用量,永久零成本!
+**策略:** 作为应急备用使用。免费层有上限, 请当作溢出而非固定主力。
 
 ---
 
-## iFlow(8 个免费模型)
+Kiro(每月免费额度中的 Claude)
 
-### 价格
+### 定价
 
-| 套餐 | 月费 | 模型 | 配额 |
+| 方案 | 月费 | 模型 | 配额 |
 |------|--------------|--------|-------|
-| 免费 | $0 | 8 个模型 | 无限 |
+| 免费 | $0 | Claude 与 Qwen 系列 | ~50 额度/月 |
+| Pro | $20 | 同一目录 | 1,000 额度 |
 
-**最佳价值:** 免费层中模型最多!Kimi K2、Qwen3、GLM、MiniMax、DeepSeek。
+**注意:** Kiro 自 2025 年 9 月起改为付费模式。新账号前 30 天另有 500 试用额度。`kr/` 别名暴露完整目录; 运行 `/v1/models` 查看你的账号实际可用范围。
 
 ### 设置
 
-**步骤 1:通过仪表盘连接**
+**第一步: 通过仪表盘连接**
 
 ```bash
 9router
-# 仪表盘 → 提供商 → 连接 iFlow
+# Dashboard → Providers → Connect Kiro
 ```
 
-**步骤 2:iFlow OAuth 登录**
+**第二步: AWS Builder ID 或 OAuth**
 
-- 点击 "Connect iFlow"
-- 浏览器打开 → iFlow 登录页
-- 创建账户或登录
+- 选择 AWS Builder ID(推荐)、Google 或 GitHub
 - 授予权限
-- 启用自动 token 刷新
+- 自动刷新 token 已启用
 
-**步骤 3:在 CLI 中使用**
+**第三步: 在 CLI 中使用**
 
 ```
-Model: if/kimi-k2-thinking
-       if/kimi-k2
-       if/qwen3-coder-plus
-       if/glm-4.7
-       if/minimax-m2
-       if/deepseek-r1
-       if/deepseek-v3.2-chat
-       if/deepseek-v3.2-reasoner
+Model: kr/glm-5
+       kr/deepseek-3.2
+       kr/qwen3-coder-next
 ```
 
-### 可用模型
+### 提示
 
-| 模型 ID | 描述 | 最佳场景 |
-|----------|-------------|----------|
-| `if/kimi-k2-thinking` | Kimi K2 Thinking | 复杂推理 |
-| `if/kimi-k2` | Kimi K2 | 通用编码 |
-| `if/qwen3-coder-plus` | Qwen3 Coder Plus | 代码生成 |
-| `if/glm-4.7` | GLM 4.7 | 中文 + 英文 |
-| `if/minimax-m2` | MiniMax M2 | 长上下文 |
-| `if/deepseek-r1` | DeepSeek R1 | 推理任务 |
-| `if/deepseek-v3.2-chat` | DeepSeek V3.2 Chat | 对话型 |
-| `if/deepseek-v3.2-reasoner` | DeepSeek V3.2 Reasoner | 复杂逻辑 |
-
-### 专业建议
-
-- **8 个免费模型** - 免费层中最丰富
-- **无限用量** - 无配额限制
-- **Kimi K2 Thinking** - 复杂推理最佳
-- **DeepSeek R1** - 强大的推理能力
+- **AWS Builder ID** - 最省事的接入路径
+- **额度共享** 于账号下所有模型, 因此重度使用 Claude 一天就可能耗尽整月额度
+- **先在仪表盘查看配额**, 再把生产流量路由到这里
 
 ---
 
-## Qwen(3 个免费模型)
-
-### 价格
-
-| 套餐 | 月费 | 模型 | 配额 |
-|------|--------------|--------|-------|
-| 免费 | $0 | 3 个模型 | 无限 |
+## OpenCode Free(无需认证)
 
 ### 设置
 
-**步骤 1:通过仪表盘连接**
-
 ```bash
 9router
-# 仪表盘 → 提供商 → 连接 Qwen
+# Dashboard → Providers → Connect OpenCode Free
 ```
 
-**步骤 2:设备码授权**
-
-- 点击 "Connect Qwen"
-- 仪表盘显示设备码
-- 访问授权 URL
-- 输入设备码
-- 登录 Qwen 账户
-- 启用自动 token 刷新
-
-**步骤 3:在 CLI 中使用**
-
 ```
-Model: qw/qwen3-coder-plus
-       qw/qwen3-coder-flash
-       qw/vision-model
+Model: oc/<model-id>
 ```
 
-### 可用模型
-
-| 模型 ID | 描述 | 最佳场景 |
-|----------|-------------|----------|
-| `qw/qwen3-coder-plus` | Qwen3 Coder Plus | 高级编码 |
-| `qw/qwen3-coder-flash` | Qwen3 Coder Flash | 快速响应 |
-| `qw/vision-model` | Qwen3 Vision | 图像分析 |
-
-### 专业建议
-
-- **Qwen3 Coder Plus** - 编码能力强
-- **Qwen3 Coder Flash** - 快速任务首选
-- **Vision 模型** - 免费图像分析
-- **无限用量** - 无配额限制
+**注意:** 免费模型列表会轮换。部分条目是限时促销, 会无预告消失, 不要把 `oc/` 的 ID 硬编码进你依赖的生产组合。
 
 ---
 
-## Kiro(免费 Claude)
-
-### 价格
-
-| 套餐 | 月费 | 模型 | 配额 |
-|------|--------------|--------|-------|
-| 免费 | $0 | Claude Sonnet 4.5、Haiku 4.5 | 无限 |
-
-**最佳价值:** 免费 Claude!与付费 Claude Code 同质量。
+## Vertex AI(新账号 $300 额度)
 
 ### 设置
 
-**步骤 1:通过仪表盘连接**
-
-```bash
-9router
-# 仪表盘 → 提供商 → 连接 Kiro
-```
-
-**步骤 2:AWS Builder ID 或 OAuth**
-
-- 点击 "Connect Kiro"
-- 选择登录方式:
-  - AWS Builder ID(推荐)
-  - Google 账户
-  - GitHub 账户
-- 授予权限
-- 启用自动 token 刷新
-
-**步骤 3:在 CLI 中使用**
+1. 创建 Google Cloud 项目并启用 Vertex AI API。
+2. 创建服务账号并下载 JSON 密钥。
+3. 仪表盘 → Connect Vertex AI → 上传 JSON。
 
 ```
-Model: kr/claude-sonnet-4.5
-       kr/claude-haiku-4.5
+Model: vertex/gemini-3.1-pro-preview
+       vertex/gemini-3-flash-preview
+       vertex/gemini-2.5-flash
 ```
 
-### 可用模型
+**注意:** 自 2026 年 3 月起 Gemini API 端点不再消耗 $300 额度。请把 provider 指向 **Vertex AI Studio** 端点。
 
-| 模型 ID | 描述 | 最佳场景 |
-|----------|-------------|----------|
-| `kr/claude-sonnet-4.5` | Claude Sonnet 4.5 | 质量/速度平衡 |
-| `kr/claude-haiku-4.5` | Claude Haiku 4.5 | 快速响应 |
+---
 
-### 专业建议
+## 已停用的免费层
 
-- **免费 Claude** - 与付费层同质量
-- **AWS Builder ID** - 用 AWS 账户轻松设置
-- **无限用量** - 无配额限制
-- **顶级质量** - 免费的 Claude 4.5!
+以下 provider 曾出现在本文档中, 现已无法使用, 不要围绕它们构建组合:
 
+| Provider | Status |
+|----------|--------|
+| **iFlow** | 2026 年转为付费 |
+| **Qwen Code** | 免费 OAuth 层于 2026-04-15 停用 |
+| **Gemini CLI** | 服务于 2026-06-18 关闭; 仍在目录中但标记为已弃用 |
 ---
 
 ## 特性对比
 
 | 提供商 | 模型 | 最佳模型 | 设置方式 | 配额 |
 |----------|--------|------------|-------|-------|
-| **iFlow** | 8 | Kimi K2 Thinking | OAuth | 无限 |
-| **Qwen** | 3 | Qwen3 Coder Plus | 设备码 | 无限 |
-| **Kiro** | 2 | Claude Sonnet 4.5 | AWS Builder ID | 无限 |
+| **Kiro** | 完整目录 | Claude / Qwen 系列 | AWS Builder ID、Google 或 GitHub | ~50 额度/月 |
+| **OpenCode Free** | 轮换 | 直通 | 无 | 限时促销 |
+| **Vertex AI** | 4+ | Gemini 3.1 Pro | 服务账号 JSON | $300 / 90 天 |
 
-**赢家:** 多样性看 iFlow,质量看 Kiro!
+**赢家:** 广度看 Kiro, 零成本长上下文 Gemini 看 Vertex。
 
 ---
 
@@ -201,7 +124,7 @@ Model: kr/claude-sonnet-4.5
 Settings → Models → Advanced:
   OpenAI API Base URL: http://localhost:20128/v1
   OpenAI API Key: [从 9router 仪表盘获取]
-  Model: if/kimi-k2-thinking
+  Model: kr/glm-5
 ```
 
 ### 创建组合(推荐)
@@ -211,9 +134,9 @@ Settings → Models → Advanced:
 
 名称: free-combo
 模型:
-  1. if/kimi-k2-thinking (iFlow 主力)
-  2. qw/qwen3-coder-plus (Qwen 备用)
-  3. kr/claude-sonnet-4.5 (Kiro 质量)
+  1. kr/glm-5 (Kiro 主力)
+  2. vertex/gemini-3.1-pro-preview (Qwen 备用)
+  3. kr/glm-5 (Kiro 质量)
 
 CLI 中使用: free-combo
 ```
@@ -231,21 +154,21 @@ CLI 中使用: free-combo
 
 名称: complete-fallback
 模型:
-  1. gc/gemini-3-flash-preview (免费订阅)
-  2. cc/claude-opus-4-5 (付费订阅)
-  3. glm/glm-4.7 (低价备用, 每 1M $0.6)
-  4. minimax/MiniMax-M2.1 (最便宜, 每 1M $0.2)
-  5. if/kimi-k2-thinking (免费回退)
-  6. kr/claude-sonnet-4.5 (免费质量)
+  1. vertex/gemini-3-flash-preview (免费订阅)
+  2. cc/claude-opus-5 (付费订阅)
+  3. glm/glm-5.1 (低价备用, 每 1M $0.6)
+  4. minimax/MiniMax-M2.7 (最便宜, 每 1M $0.2)
+  5. kr/glm-5 (免费回退)
+  6. kr/glm-5 (免费质量)
 
 CLI 中使用: complete-fallback
 ```
 
 **结果:**
-- 第 1 层: 免费订阅(Gemini CLI)
+- 第 1 层: 付费订阅(Claude Code、Codex)
 - 第 2 层: 付费订阅(Claude Code)
 - 第 3 层: 低价备用(GLM、MiniMax)
-- 第 4 层: 免费回退(iFlow、Kiro)
+- 第 3 层: 免费额度(Kiro、Vertex AI)
 
 **永不停码!**
 
@@ -270,11 +193,11 @@ CLI 中使用: complete-fallback
 ### 2. 选择合适的模型
 
 ```
-复杂推理: if/kimi-k2-thinking
-快速编码: qw/qwen3-coder-flash
-最佳质量: kr/claude-sonnet-4.5
-长上下文: if/minimax-m2
-视觉任务: qw/vision-model
+复杂推理: kr/glm-5
+快速编码: vertex/gemini-3-flash-preview
+最佳质量: kr/glm-5
+长上下文: minimax/MiniMax-M2.7
+视觉任务: vertex/gemini-3-flash-preview
 ```
 
 ### 3. 创建仅免费组合
@@ -284,9 +207,9 @@ CLI 中使用: complete-fallback
 
 名称: zero-cost
 模型:
-  1. kr/claude-sonnet-4.5 (最佳质量)
-  2. if/kimi-k2-thinking (复杂任务)
-  3. qw/qwen3-coder-plus (快速编码)
+  1. kr/glm-5 (最佳质量)
+  2. kr/glm-5 (复杂任务)
+  3. vertex/gemini-3.1-pro-preview (快速编码)
 
 成本: 永远 $0!
 ```
@@ -314,9 +237,9 @@ CLI 中使用: complete-fallback
 
 ```
 设置:
-1. kr/claude-sonnet-4.5 (最佳质量)
-2. if/kimi-k2-thinking (复杂推理)
-3. qw/qwen3-coder-plus (快速编码)
+1. kr/glm-5 (最佳质量)
+2. kr/glm-5 (复杂推理)
+3. vertex/gemini-3.1-pro-preview (快速编码)
 
 月成本: $0
 用量: 无限
@@ -331,9 +254,9 @@ CLI 中使用: complete-fallback
 
 ```
 设置:
-1. gc/gemini-3-flash-preview (每月免费 180K)
-2. glm/glm-4.7 (低价备用, 每 1M $0.6)
-3. if/kimi-k2-thinking (免费回退)
+1. vertex/gemini-3-flash-preview (免费额度)
+2. glm/glm-5.1 (低价备用, 每 1M $0.6)
+3. kr/glm-5 (免费回退)
 
 月成本: $5-10
 用量: 100M+ tokens
@@ -348,13 +271,13 @@ CLI 中使用: complete-fallback
 
 ```
 设置:
-1. gc/gemini-3-flash-preview (每月免费 180K)
-2. cc/claude-opus-4-5 (订阅 $20-100)
-3. cx/gpt-5.2-codex (订阅 $20-200)
-4. glm/glm-4.7 (低价 每 1M $0.6)
-5. minimax/MiniMax-M2.1 (最便宜 每 1M $0.2)
-6. if/kimi-k2-thinking (免费无限)
-7. kr/claude-sonnet-4.5 (免费质量)
+1. vertex/gemini-3-flash-preview (免费额度)
+2. cc/claude-opus-5 (订阅 $20-100)
+3. cx/gpt-5.5 (订阅 $20-200)
+4. glm/glm-5.1 (低价 每 1M $0.6)
+5. minimax/MiniMax-M2.7 (最便宜 每 1M $0.2)
+6. kr/glm-5 (免费无限)
+7. kr/glm-5 (免费质量)
 
 月成本: $40-320(订阅)+ $10-20(低价层)
 用量: 500M+ tokens
@@ -384,10 +307,10 @@ CLI 中使用: complete-fallback
 
 **方案 3:LiteRouter 完整策略**
 ```
-60M 通过 Gemini CLI(免费): $0
+30M 通过 Claude Code(订阅): $0
 30M 通过 Claude Code(订阅): 无额外费用
 8M 通过 GLM(低价): $4.80
-2M 通过 iFlow(免费): $0
+2M 通过 MiniMax(低价): $0.40
 合计: $4.80/月 + 你已有的订阅
 节省: $1,995/月 (99.76%)
 ```
