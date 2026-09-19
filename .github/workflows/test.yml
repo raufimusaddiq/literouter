@@ -1,0 +1,33 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [staging, main]
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The suite imports app sources, so it needs the runtime deps (next,
+      # undici, uuid, …) from the root install as well as the test runner's own.
+      # No root lockfile exists yet; add one when dependency drift becomes a
+      # problem rather than blocking CI on generating it here.
+      # ponytail: unpinned root install — commit a package-lock.json if a
+      # dependency bump ever makes CI flaky.
+      - run: npm install --no-audit --no-fund
+      - run: npm ci
+        working-directory: tests
+
+      - run: npx vitest run --reporter=dot
+        working-directory: tests

@@ -12,6 +12,19 @@ raises no blocker.** A 🟡 outcome with suggestions is a merge, not a hold.
    has never reported — see below.
 4. Disk has room: `df -h /` (keep ≥ 5 GB free). Builds, not the app, consume it.
 
+## Unit tests in CI
+
+`.github/workflows/test.yml` runs the vitest suite on every PR and on pushes to
+`staging`/`main`. It installs root deps (`next`, `undici`, `uuid`, …) plus the
+runner's own lockfile, then `npx vitest run` from `tests/`.
+
+Files named `*.live.test.js` hit real upstreams and are excluded via
+`tests/vitest.config.js` — they must never gate a merge. Run one by hand with:
+
+```bash
+cd tests && npx vitest run --exclude '' unit/<name>.live.test.js
+```
+
 ## Merge
 
 ```bash
