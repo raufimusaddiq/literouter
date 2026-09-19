@@ -60,4 +60,15 @@ describe("minimal profile route boundary", () => {
     expect(page).toMatch(/data\.minimalProfile === true/);
     expect(page).toMatch(/minimalProfile && isLoginUnsafe/);
   });
+
+  // The sidebar advertised the upstream 9english.net marketing site. Under the
+  // minimal profile the sidebar should carry only product navigation.
+  it("does not link the external 9English site in the sidebar", () => {
+    const sidebar = readFileSync(
+      new URL("../../src/shared/components/Sidebar.js", import.meta.url),
+      "utf8"
+    );
+    const link = sidebar.match(/\{\/\* 9English \*\/\}([\s\S]{0,80})/)?.[1] || "";
+    expect(link).toContain("!minimalProfile && (");
+  });
 });
