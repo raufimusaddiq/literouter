@@ -2,7 +2,7 @@ export default function manifest() {
   return {
     name: 'LiteRouter — AI routing control plane',
     short_name: 'LiteRouter',
-    description: 'One endpoint for all your AI providers. Manage keys, monitor usage, and scale effortlessly.',
+    description: 'A lean control plane for provider keys, routing, usage, and quota.',
     start_url: '/',
     display: 'standalone',
     background_color: '#0a0a0a',
