@@ -2,22 +2,16 @@ import { NextResponse } from "next/server";
 import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
 import { isLocalRequest } from "@/dashboardGuard";
 
-// Remote callers are already restricted to public, redirect-revalidated targets
-// by fetchPublic. The trusted local operator may reach a LAN node directly, but
-// only after the per-request isLocalRequest check has classified the caller.
+// Remote callers go through fetchPublic, which re-resolves the host and
+// re-validates every redirect hop. The local operator is deliberately allowed to
+// reach a LAN node, but only `localOperator` (from isLocalRequest) selects the
+// plain fetch; every other caller falls through to the blocked branch.
 const fetchNode = (url, options, timeout = 10000) => {
-  const { remote, localOperator, ...init } = options;
+  const { localOperator, ...init } = options;
   const withTimeout = { ...init, signal: AbortSignal.timeout(timeout) };
-  if (remote) return fetchPublic(url, withTimeout);
-  if (localOperator) return localFetch(url, withTimeout);
-  throw new Error("Blocked URL: internal host");
+  if (!localOperator) return fetchPublic(url, withTimeout);
+  return fetch(url, { ...withTimeout, redirect: "error" });
 };
-
-// The only path that may reach a non-public address. `remote` is already false
-// here, and the route sets it from isLocalRequest(request) once per request.
-function localFetch(url, init) {
-  return fetch(url, { ...init, redirect: "error" });
-}
 
 // Validate URL format
 const isValidUrl = (url) => {
@@ -77,7 +71,7 @@ export async function POST(request) {
     // nodes on the LAN (LM Studio, vLLM, ollama-openai-compat).
     const localOperator = isLocalRequest(request);
     const remote = !localOperator;
-    const caller = { remote, localOperator };
+    const caller = { localOperator };
     if (remote) {
       try {
         await assertPublicUrlResolved(baseUrl);
@@ -96,7 +90,7 @@ export async function POST(request) {
       const modelsUrl = `${normalizedBase}/models`;
       const res = await fetchNode(modelsUrl, {
         method: "GET",
-        ...caller,
+        localOperator,
         headers: {
           "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
@@ -115,7 +109,7 @@ export async function POST(request) {
       if (modelId) {
         const chatRes = await fetchNode(`${normalizedBase}/chat/completions`, {
           method: "POST",
-          ...caller,
+          localOperator,
           headers: {
             "Authorization": `Bearer ${apiKey}`,
             "Content-Type": "application/json",
@@ -144,7 +138,7 @@ export async function POST(request) {
     // OpenAI Compatible Validation (Default)
     const modelsUrl = `${baseUrl.replace(/\/$/, "")}/models`;
     const res = await fetchNode(modelsUrl, {
-      ...caller,
+      localOperator,
       headers: { "Authorization": `Bearer ${apiKey}` },
     });
 
@@ -159,7 +153,7 @@ export async function POST(request) {
     if (modelId) {
       const chatRes = await fetchNode(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
-        ...caller,
+        localOperator,
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json"
