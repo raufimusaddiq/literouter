@@ -18,6 +18,13 @@ hidden list below only carries what is still reachable in the build.
 | `translator` playground + `/api/translator/*` | #15 |
 | `skills` page + metadata | #16 |
 | `proxy-pools` page + provider deploy routes (CRUD API retained) | #17 |
+| residual MITM/tunnel CLI helpers, MITM DNS bypass in `proxyFetch`, `buildMitm.js`, `/api/init`, `/api/shutdown`, `docs/ARCHITECTURE.md`, upstream `skills/` | #32 |
+
+`/api/proxy-pools` CRUD and per-connection proxy binding are **retained on
+purpose**: PR #17 deleted only the UI, because `sse/services/auth.js` and
+`resolveConnectionProxyConfig` read pools on the request path. Staging has zero
+pools and no connection bound to one, so the feature is unconfigured but still
+usable for future proxy-governed providers.
 
 ## Hidden prefixes
 
