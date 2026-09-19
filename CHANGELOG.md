@@ -1,3 +1,9 @@
+# v0.5.82 (unreleased)
+
+## Fixes
+- **Endpoint**: stop advertising Cloudflare Tunnel and Tailscale in the minimal profile; the page no longer polls `/api/tunnel/status`, which is not served there
+- **Round-robin**: persist the account cursor off the request path and invalidate the connection cache before the first await, so a selection can never read a stale cursor
+
 # v0.5.81 (2026-09-18)
 
 ## Features
