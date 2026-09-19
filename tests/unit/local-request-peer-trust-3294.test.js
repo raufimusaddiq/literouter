@@ -157,21 +157,21 @@ describe("peer header trust", () => {
 
     const response = await proxy(request("/api/v1/models", { host: "localhost:20127" }));
 
-    // A direct loopback session (`next dev`, no TRUST_PROXY) keeps local-operator
-    // access for the documented dev workflow...
-    expect(response).toBe(mocks.nextResponse);
+    // A client can set any Host value, so it must not unlock the local-operator
+    // exemptions (SSRF guard bypass, localhost-only routes).
+    expect(response.status).toBe(401);
   });
 
-  it("refuses the Host fallback once a proxy hop is known to exist", async () => {
-    process.env.NODE_ENV = "development";
+  it("trusts a loopback socket once the wrapper proved it stamped the peer address", async () => {
+    const response = await proxy(request("/api/v1/models", {
+      host: "localhost:20128",
+      "x-9r-real-ip": "127.0.0.1",
+      "x-9r-peer-token": PEER_TOKEN,
+    }));
 
-    const response = await proxy(
-      request("/api/v1/models", { host: "localhost:20127", "x-real-ip": "203.0.113.9" })
-    );
-
-    // ...because headers claimed by a caller prove the socket is not the end user,
-    // so Host can no longer stand in for the peer address.
-    expect(response.status).toBe(401);
+    // `npm start` / `docker run` reach the gateway over loopback, so this is the
+    // request shape the dashboard itself has; the documented local workflow.
+    expect(response).toBe(mocks.nextResponse);
   });
 });
 

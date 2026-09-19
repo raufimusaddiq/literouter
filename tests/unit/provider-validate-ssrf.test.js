@@ -103,15 +103,26 @@ describe("POST /api/providers/validate SSRF guard", () => {
     expect(fetched).toEqual([]);
   });
 
-  it("keeps allowing a private self-hosted target for a local operator", async () => {
+  it("still rejects a private ollama host even for the local operator", async () => {
     const res = await POST(request({
       provider: "ollama-local",
       apiKey: "k",
       providerSpecificData: { baseUrl: "http://127.0.0.1:11434" },
     }, { local: true }));
 
+    // A self-hosted Ollama is reached by the operator's browser/clients, not by the
+    // gateway fetching itself, so this route stays public-only for every caller.
+    expect(res.status).toBe(400);
+    expect(fetched).toEqual([]);
+  });
+
+  it("allows a public baseUrl for the local operator", async () => {
+    getNodeMock.mockResolvedValue({ baseUrl: "https://api.example.com", defaultModel: "m" });
+
+    const res = await POST(request({ provider: "openai-compatible-test", apiKey: "k" }, { local: true }));
+
     expect(res.status).toBe(200);
-    expect(fetched).toEqual(["http://127.0.0.1:11434/api/tags"]);
+    expect(fetched).toEqual(["https://api.example.com/models"]);
   });
 
   it("does not follow a public URL redirect to an internal host", async () => {

@@ -18,22 +18,22 @@ export async function POST(request) {
     const remote = !isLocalRequest(request);
     const validateFetch = remote ? fetchPublic : fetch;
 
-    // One gate for every caller-controlled URL this route fetches. Branches below
-    // vary a lot (provider node, azure endpoint, ollama host), so guarding each
-    // call site separately kept missing sinks; this rejects any private/metadata
-    // target before the branch runs. Local operators keep self-hosted nodes.
-    if (remote) {
-      const candidates = [
-        providerSpecificData?.azureEndpoint,
-        providerSpecificData?.baseUrl,
-      ];
-      try {
-        for (const candidate of candidates) {
-          if (typeof candidate === "string" && candidate.trim()) await assertPublicUrlResolved(candidate.trim());
-        }
-      } catch {
-        return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+    // One gate for every caller-controlled URL this route fetches. Branches below vary
+    // a lot (provider node, azure endpoint, ollama host), so guarding each call site
+    // separately kept missing sinks; this rejects any private/metadata target before
+    // the branch runs. It applies to local operators too: a request that reaches this
+    // route without the peer-token proof is not the operator's own session, and one
+    // that has it never carries a LAN endpoint in these fields anyway.
+    const candidates = [
+      providerSpecificData?.azureEndpoint,
+      providerSpecificData?.baseUrl,
+    ];
+    try {
+      for (const candidate of candidates) {
+        if (typeof candidate === "string" && candidate.trim()) await assertPublicUrlResolved(candidate.trim());
       }
+    } catch {
+      return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
     }
 
     const isNoAuth = AI_PROVIDERS[provider]?.noAuth === true;
@@ -145,9 +145,9 @@ export async function POST(request) {
         };
         if (organization) headers["OpenAI-Organization"] = organization;
 
-        // `azureEndpoint` is caller-supplied, so fetchPublic re-validates DNS (hop 1) and
-        // every redirect. A private endpoint is rejected by the remote-caller gate above;
-        // a local operator's private endpoint 400s/500s here rather than being fetched raw.
+        // `azureEndpoint` is caller-supplied, but the gate at the top of this handler runs
+        // for every caller, so a private or metadata target was already rejected with 400.
+        // fetchPublic only re-adds DNS/redirect hardening on top of that.
         const azureRes = await fetchPublic(url, {
           method: "POST",
           headers,

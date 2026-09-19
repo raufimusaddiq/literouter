@@ -41,18 +41,10 @@ describe("custom-server peer header sanitizing", () => {
     expect(headers["x-9r-real-ip"]).toMatch(/^(::ffff:)?127\.0\.0\.1$/);
   });
 
-  it("stamps the trust token only on a request that came through a proxy hop", async () => {
-    const headers = await get({ "x-forwarded-for": "203.0.113.9" });
-
-    expect(headers["x-9r-peer-token"]).toBe(process.env.NINEROUTER_PEER_TOKEN);
-  });
-
-  it("withholds the trust token on a directly-listened socket", async () => {
-    // The grant has to be earned: a client that reaches the port itself is not a
-    // reverse proxy, so nothing proves the peer address and no token is issued.
+  it("stamps the trust token so downstream can tell the wrapper ran", async () => {
     const headers = await get();
 
-    expect(headers["x-9r-peer-token"]).toBeUndefined();
+    expect(headers["x-9r-peer-token"]).toBe(process.env.NINEROUTER_PEER_TOKEN);
   });
 
   it("drops a client-supplied peer trust token", async () => {

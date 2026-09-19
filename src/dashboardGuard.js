@@ -97,19 +97,10 @@ function isLoopbackPeer(request) {
   if (hasTrustedPeerHeaders(request)) {
     return isLoopbackHostname(request.headers.get("x-9r-real-ip"));
   }
-  // No token means either a bare `next dev` (custom-server.js never loaded, so nothing
-  // was stamped) or a production listener reached directly with TRUST_PROXY unset. Those
-  // two are told apart by the same signal the login limiter uses, plus NODE_ENV: with
-  // TRUST_PROXY unset custom-server.js passes forwarding headers through untouched, so
-  // their presence marks a real proxy hop; TRUST_PROXY deployments get the headers
-  // stripped, so a request still bearing them never came from the loopback socket.
-  if (process.env.NODE_ENV !== "development") return false;
-  if (process.env.TRUST_PROXY) return false;
-  const forwarded = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip");
-  if (forwarded) return false;
-  // Host is attacker-supplied on any reachable listener, so this fallback stays
-  // confined to a loopback dashboard origin (and is never a production path).
-  return isLoopbackHostname(request.headers.get("host"));
+  // Without the token there is nothing to prove the peer address. `npm start` and the
+  // published standalone both load custom-server.js and stamp it; a bare `next dev` /
+  // `next start` never does, and a request that skips the wrapper (another in-container
+  // client, or a directly-reached port) must not inherit local-operator access either.
   return false;
 }
 
