@@ -14,13 +14,16 @@ hidden list below only carries what is still reachable in the build.
 | `basic-chat` | #10 |
 | `media-providers`, `/v1/audio/*`, TTS voice routes | #11 |
 | `cli-tools` (19 API routes), `mitm` page, `mitmAlias` cache | #12 |
+| tunnel/Tailscale/MITM runtime, `/api/tunnel/*` | #14 |
+| `translator` playground + `/api/translator/*` | #15 |
+| `skills` page + metadata | #16 |
+| `proxy-pools` page + provider deploy routes (CRUD API retained) | #17 |
 
 ## Hidden prefixes
 
-Dashboard: `proxy-pools`, `skills`, `translator`, `pxpipe`.
+Dashboard: `pxpipe`.
 
-API: `proxy-pools`, `skills`, `translator`, `headroom`, `mcp`, `tunnel`,
-`version/update`, `version/shutdown`.
+API: `headroom`, `mcp`, `version/update`, `version/shutdown`.
 
 ## Verified live (staging, healthy)
 
@@ -39,9 +42,7 @@ Retained dashboard routes — all HTTP 200:
 Hidden dashboard routes — all HTTP 307 (redirect to `/dashboard`):
 
 ```text
-307 /dashboard/proxy-pools
-307 /dashboard/skills
-307 /dashboard/translator
+307 /dashboard/pxpipe
 ```
 
 Deleted dashboard routes — HTTP 404 for an authenticated session, because the
@@ -54,9 +55,19 @@ path that never existed; unauthenticated requests redirect to `/login`, not to
 404 /dashboard/cli-tools
 404 /dashboard/mitm
 404 /dashboard/media-providers
+404 /dashboard/proxy-pools
+404 /dashboard/skills
+404 /dashboard/translator
+404 /dashboard/endpoint tunnel UI (removed panel, page retained)
 ```
 
-Hidden APIs — HTTP 404: `proxy-pools`, `tunnel/enable`.
+Hidden APIs — HTTP 404: `headroom`, `mcp`.
+
+Deleted APIs — HTTP 404: `/api/tunnel/*`, `/api/translator/*`,
+`/api/proxy-pools/*-deploy`.
+
+Retained Proxy Pools CRUD — HTTP 401/200: `/api/proxy-pools`
+(load-bearing for auth and connection routing; UI deleted in #17).
 
 Retained APIs — HTTP 200: `providers`, `combos`, `usage/stats`, `settings`.
 

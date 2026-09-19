@@ -28,10 +28,6 @@ const debugItems = [
   { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
 ];
 
-const systemItems = [
-  { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan", nonMinimal: true },
-];
-
 export default function Sidebar({ onClose }) {
   const pathname = usePathname();
   const [showRemoteModal, setShowRemoteModal] = useState(false);
@@ -181,30 +177,6 @@ export default function Sidebar({ onClose }) {
             <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
               System
             </p>
-
-            {(minimalProfile ? [] : systemItems).map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
-                  isActive(item.href)
-                    ? "bg-primary/10 text-primary"
-                    : "text-text-muted hover:bg-surface-2 hover:text-text-main"
-                )}
-              >
-                <span
-                  className={cn(
-                    "material-symbols-outlined text-[18px]",
-                    isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
-                  )}
-                >
-                  {item.icon}
-                </span>
-                <span className="text-[13px] font-medium">{item.label}</span>
-              </Link>
-            ))}
 
             {/* Debug items (inside System section, before Settings). Filtered per
                 item via `nonMinimal`, mirroring `navItems` above: blanking the

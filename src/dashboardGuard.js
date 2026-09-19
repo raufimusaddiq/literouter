@@ -53,7 +53,6 @@ const PROTECTED_API_PATHS = [
   "/api/keys",
   "/api/providers",
   "/api/provider-nodes",
-  "/api/proxy-pools",
   "/api/combos",
   "/api/models",
   "/api/usage",
@@ -83,9 +82,7 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 // MINIMAL_PROFILE=true. Trace inbound references before adding an entry:
 // a surface nothing retained imports is deleted outright, not gated here.
 const MINIMAL_HIDDEN_PREFIXES = [
-  "/dashboard/proxy-pools",
   "/dashboard/pxpipe",
-  "/api/proxy-pools",
   "/api/headroom",
   "/api/mcp",
   // Built-in updater / shutdown installer flows (PRD section 18).

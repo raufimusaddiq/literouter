@@ -12,7 +12,6 @@ describe("minimal profile route boundary", () => {
 
   it("hides the non-retained product surfaces", () => {
     for (const prefix of [
-      "/dashboard/proxy-pools",
       "/api/version/update",
       "/api/version/shutdown",
     ]) {
@@ -108,6 +107,18 @@ describe("minimal profile route boundary", () => {
     ]) {
       expect(() => readFileSync(new URL(path, import.meta.url)), path).toThrow();
     }
+  });
+
+  it("deletes the Proxy Pools UI and deploy routes", () => {
+    for (const path of [
+      "../../src/app/(dashboard)/dashboard/proxy-pools/page.js",
+      "../../src/app/api/proxy-pools/cloudflare-deploy/route.js",
+      "../../src/app/api/proxy-pools/deno-deploy/route.js",
+      "../../src/app/api/proxy-pools/vercel-deploy/route.js",
+    ]) {
+      expect(() => readFileSync(new URL(path, import.meta.url))).toThrow();
+    }
+    expect(hidden).not.toContain("/api/proxy-pools");
   });
 
   // The sidebar advertised the upstream 9english.net marketing site. Under the
