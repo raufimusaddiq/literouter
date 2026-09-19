@@ -3,6 +3,8 @@
 Working notes for the minimalization initiative. Not part of the product
 contract; the PRD (`docs/PRD-LITEROUTER-MINIMAL.md`) is authoritative.
 
+Production replacement and HA prerequisites: [production promotion plan](production-promotion-plan.md).
+
 ## Phase 1 baseline (production, image `literouter:v0.5.81-kenari-luna`)
 
 | Metric | Value |
