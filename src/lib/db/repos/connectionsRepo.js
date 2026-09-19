@@ -46,9 +46,17 @@ function invalidateConnectionCache() {
 }
 
 // Invalidate locally and tell every replica that its snapshot is stale.
-function invalidateConnectionCacheEverywhere() {
+// Awaited by callers so the Redis version bump lands after the SQLite commit:
+// bumping from inside the transaction could expose the new version before the
+// rows are visible, letting another replica reload the old snapshot and then
+// cache the new version, serving stale data until the TTL expires.
+async function invalidateConnectionCacheEverywhere() {
   invalidateConnectionCache();
-  bumpCacheVersion().catch(() => {});
+  try {
+    await bumpCacheVersion();
+  } catch {
+    /* fail open: a local-only invalidation still covers this process */
+  }
 }
 
 function resetHealthStateOnActivation(existing, patch) {
@@ -231,7 +239,6 @@ export async function createProviderConnection(data) {
       const merged = { ...existing, ...normalized, updatedAt: now };
       upsert(db, merged);
       result = merged;
-      invalidateConnectionCacheEverywhere();
       return;
     }
 
@@ -265,20 +272,20 @@ export async function createProviderConnection(data) {
     upsert(db, conn);
     reorderInTx(db, data.provider);
     result = conn;
-    invalidateConnectionCacheEverywhere();
   });
 
+  if (result) await invalidateConnectionCacheEverywhere();
   return result;
 }
 
 // Critical: OAuth refresh token race — atomic merge inside transaction
 export async function updateProviderConnection(id, data) {
-  // Clear the snapshot before the first await. getAdapter() is async, so
-  // invalidating inside the transaction happens a microtask later, and a
-  // selection that interleaves in that window would read the stale row — which
-  // is exactly what round-robin depends on being fresh. Clearing up front makes
-  // the freshness guarantee independent of how the write is scheduled.
-  invalidateConnectionCacheEverywhere();
+  // Clear the local snapshot before the first await. getAdapter() is async, so
+  // clearing later happens a microtask after the call, and a selection that
+  // interleaves in that window would read the stale row — which is exactly what
+  // round-robin depends on being fresh. The Redis bump still lands after the
+  // commit, so replicas never see the new version before the rows.
+  invalidateConnectionCache();
   const db = await getAdapter();
   let result;
   db.transaction(() => {
@@ -290,8 +297,8 @@ export async function updateProviderConnection(id, data) {
     upsert(db, merged);
     if (data.priority !== undefined) reorderInTx(db, existing.provider);
     result = merged;
-    invalidateConnectionCacheEverywhere();
   });
+  if (result) await invalidateConnectionCacheEverywhere();
   return result;
 }
 
@@ -304,8 +311,8 @@ export async function deleteProviderConnection(id) {
     db.run(`DELETE FROM providerConnections WHERE id = ?`, [id]);
     reorderInTx(db, row.provider);
     ok = true;
-      invalidateConnectionCacheEverywhere();
   });
+  if (ok) await invalidateConnectionCacheEverywhere();
   return ok;
 }
 
@@ -313,14 +320,14 @@ export async function deleteProviderConnectionsByProvider(providerId) {
   const db = await getAdapter();
   const before = db.get(`SELECT COUNT(*) AS n FROM providerConnections WHERE provider = ?`, [providerId]);
   db.run(`DELETE FROM providerConnections WHERE provider = ?`, [providerId]);
-  invalidateConnectionCacheEverywhere();
+  if (before?.n) await invalidateConnectionCacheEverywhere();
   return before?.n || 0;
 }
 
 export async function reorderProviderConnections(providerId) {
   const db = await getAdapter();
   db.transaction(() => reorderInTx(db, providerId));
-  invalidateConnectionCacheEverywhere();
+  await invalidateConnectionCacheEverywhere();
 }
 
 export async function cleanupProviderConnections() {
@@ -351,6 +358,6 @@ export async function cleanupProviderConnections() {
       if (dirty) upsert(db, conn);
     }
   });
-  if (cleaned) invalidateConnectionCacheEverywhere();
+  if (cleaned) await invalidateConnectionCacheEverywhere();
   return cleaned;
 }
