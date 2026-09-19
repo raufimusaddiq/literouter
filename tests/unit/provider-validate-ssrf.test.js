@@ -4,14 +4,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // server-side. A remote caller must not be able to aim that fetch at an
 // internal address (CodeQL js/request-forgery on providers/validate).
 
-const { getNodeMock } = vi.hoisted(() => ({ getNodeMock: vi.fn() }));
+const { getNodeMock, lookupMock, fetchMock } = vi.hoisted(() => ({
+  getNodeMock: vi.fn(), lookupMock: vi.fn(), fetchMock: vi.fn(),
+}));
 vi.mock("@/models", () => ({ getProviderNodeById: getNodeMock }));
+vi.mock("node:dns", () => ({
+  default: { promises: { lookup: lookupMock } },
+  promises: { lookup: lookupMock },
+}));
 
 const fetched = [];
-vi.stubGlobal("fetch", async (url) => {
-  fetched.push(String(url));
-  return { ok: true, status: 200, headers: new Headers(), json: async () => ({}) };
-});
+vi.stubGlobal("fetch", fetchMock);
 
 const { POST } = await import("../../src/app/api/providers/validate/route.js");
 
@@ -34,6 +37,11 @@ describe("POST /api/providers/validate SSRF guard", () => {
     process.env.NINEROUTER_PEER_TOKEN = "test-peer";
     fetched.length = 0;
     getNodeMock.mockReset();
+    lookupMock.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
+    fetchMock.mockImplementation(async (url) => {
+      fetched.push(String(url));
+      return { ok: true, status: 200, headers: new Headers(), json: async () => ({}) };
+    });
   });
 
   it("rejects an internal baseUrl for a proxied (remote) caller without fetching it", async () => {
@@ -49,6 +57,16 @@ describe("POST /api/providers/validate SSRF guard", () => {
     getNodeMock.mockResolvedValue({ baseUrl: "http://127.0.0.1:8787", defaultModel: "m" });
 
     const res = await POST(request({ provider: "anthropic-compatible-test", apiKey: "k" }));
+
+    expect(res.status).toBe(400);
+    expect(fetched).toEqual([]);
+  });
+
+  it("rejects a hostname resolving to loopback before fetching it", async () => {
+    lookupMock.mockResolvedValue([{ address: "127.0.0.1", family: 4 }]);
+    getNodeMock.mockResolvedValue({ baseUrl: "http://127.0.0.1.nip.io:8787", defaultModel: "m" });
+
+    const res = await POST(request({ provider: "openai-compatible-test", apiKey: "k" }));
 
     expect(res.status).toBe(400);
     expect(fetched).toEqual([]);
@@ -94,5 +112,18 @@ describe("POST /api/providers/validate SSRF guard", () => {
 
     expect(res.status).toBe(200);
     expect(fetched).toEqual(["http://127.0.0.1:11434/api/tags"]);
+  });
+
+  it("does not follow a public URL redirect to an internal host", async () => {
+    getNodeMock.mockResolvedValue({ baseUrl: "https://api.example.com", defaultModel: "m" });
+    fetchMock.mockImplementationOnce(async (url) => {
+      fetched.push(String(url));
+      return { ok: false, status: 302, headers: new Headers({ location: "http://169.254.169.254/" }) };
+    });
+
+    const body = await (await POST(request({ provider: "openai-compatible-test", apiKey: "k" }))).json();
+
+    expect(body.valid).toBe(false);
+    expect(fetched).toEqual(["https://api.example.com/models"]);
   });
 });
