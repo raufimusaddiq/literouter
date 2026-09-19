@@ -1154,13 +1154,7 @@ codex "your prompt"
 
 ### OpenClaw
 
-**Option 1 — Dashboard (recommended):**
-
-```
-Dashboard → CLI Tools → OpenClaw → Select Model → Apply
-```
-
-**Option 2 — Manual:** Edit `~/.openclaw/openclaw.json`:
+**Option 1 — Manual:** Edit `~/.openclaw/openclaw.json`:
 
 ```json
 {

@@ -891,13 +891,7 @@ codex "your prompt"
 
 ### OpenClaw
 
-**选项 1 — 仪表板（推荐）：**
-
-```
-Dashboard → CLI Tools →Claw → Select Model → Apply
-```
-
-**选项 2 — 手动：** 编辑 `~/.openclaw/openclaw.json`：
+**选项 1 — 手动：** 编辑 `~/.openclaw/openclaw.json`：
 
 ```json
 {
