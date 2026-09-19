@@ -85,11 +85,9 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const MINIMAL_HIDDEN_PREFIXES = [
   "/dashboard/proxy-pools",
   "/dashboard/skills",
-  "/dashboard/translator",
   "/dashboard/pxpipe",
   "/api/proxy-pools",
   "/api/skills",
-  "/api/translator",
   "/api/headroom",
   "/api/mcp",
   // Built-in updater / shutdown installer flows (PRD section 18).

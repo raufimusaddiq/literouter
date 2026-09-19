@@ -21,13 +21,11 @@ export async function GET() {
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
     
     const enableRequestLogs = process.env.ENABLE_REQUEST_LOGS === "true";
-    const enableTranslator = process.env.ENABLE_TRANSLATOR === "true";
     const minimalProfile = process.env.MINIMAL_PROFILE === "true";
 
     return NextResponse.json({
       ...safeSettings,
       enableRequestLogs,
-      enableTranslator,
       minimalProfile,
       hasPassword: !!password
     }, { headers: SETTINGS_RESPONSE_HEADERS });

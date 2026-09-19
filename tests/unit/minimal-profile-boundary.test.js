@@ -14,7 +14,6 @@ describe("minimal profile route boundary", () => {
     for (const prefix of [
       "/dashboard/proxy-pools",
       "/dashboard/skills",
-      "/dashboard/translator",
       "/api/version/update",
       "/api/version/shutdown",
     ]) {
@@ -145,17 +144,14 @@ describe("minimal profile route boundary", () => {
     expect(sidebar).toContain("debugItems.filter((item) => !minimalProfile || !item.nonMinimal)");
     expect(sidebar).not.toContain("minimalProfile ? [] : debugItems");
 
-    // The log API must not sit under a hidden prefix. It used to live at
-    // `/api/translator/console-logs`, which `/api/translator` shadowed.
+    // The log API must not sit under a hidden prefix.
     const shadowed = hidden.some(
       (h) => "/api/console-logs" === h || "/api/console-logs".startsWith(h)
     );
     expect(shadowed, "/api/console-logs must not be hidden").toBe(false);
-    expect(hidden).toContain("/api/translator");
+    expect(hidden).not.toContain("/api/translator");
 
-    // Moving the API off `/api/translator` also moved it off the auth
-    // allowlist that prefix provided. It must be protected in its own right,
-    // or the server log stream is readable unauthenticated.
+    // The console-log API remains protected in its own right.
     const protectedBlock = source.match(/const PROTECTED_API_PATHS = \[([\s\S]*?)\];/)?.[1] || "";
     expect(protectedBlock).toContain('"/api/console-logs"');
   });
