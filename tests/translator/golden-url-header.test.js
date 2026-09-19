@@ -31,6 +31,9 @@ function sanitize(headers) {
       ? v.replace(/Bearer .+/, "Bearer <TOK>")
           .replace(/sk-test-APIKEY|tok-test-ACCESS/g, "<CRED>")
           .replace(/kimi-\d{10,}/g, "kimi-<TS>")
+          // Cline sends the Node runtime version. Pinned so the snapshot does
+          // not depend on whatever Node the CI runner happens to ship.
+          .replace(/^v\d+\.\d+\.\d+$/, "<NODE>")
       : v;
   }
   return out;
