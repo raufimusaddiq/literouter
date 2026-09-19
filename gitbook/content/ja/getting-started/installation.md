@@ -99,7 +99,7 @@ npm start
 **何が起こるか:**
 1. サーバーが `http://localhost:20128` で起動
 2. ダッシュボードが自動的にブラウザで開く
-3. `~/.literouter` にデータディレクトリが作成される
+3. `~/.9router` にデータディレクトリが作成される
 4. APIキーが自動生成される
 
 ### ダッシュボードログイン
@@ -205,7 +205,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### データディレクトリ
 
-**デフォルトの場所:** `~/.literouter`
+**デフォルトの場所:** `~/.9router`
 
 **内容:**
 ```
@@ -473,6 +473,6 @@ nano ~/.bashrc  # または ~/.zshrc
 
 ## ヘルプが必要?
 
-- **ウェブサイト**: [literouter.com](https://ai-staging.investdx.biz.id)
-- **GitHub**: [github.com/decolua/literouter](https://github.com/decolua/literouter)
-- **Issues**: [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
+- **ウェブサイト**: [ai-staging.investdx.biz.id](https://ai-staging.investdx.biz.id)
+- **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
+- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)

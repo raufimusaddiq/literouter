@@ -235,7 +235,7 @@ npm run deploy:cloudflare
 
 **環境変数:**
 - `JWT_SECRET` - **本番環境で必ず変更!**
-- `DATA_DIR` - データベース保存パス(デフォルト: `~/.literouter`)
+- `DATA_DIR` - データベース保存パス(デフォルト: `~/.9router`)
 - `INITIAL_PASSWORD` - ダッシュボードログイン(デフォルト: `123456`)
 - `NODE_ENV` - デプロイ時は`production`に設定
 
@@ -248,7 +248,7 @@ npm run deploy:cloudflare
 **はい、LiteRouterはセキュリティとプライバシーを優先します:**
 
 **ローカルストレージ:**
-- すべてのデータは`~/.literouter`(またはカスタム`DATA_DIR`)にローカル保存
+- すべてのデータは`~/.9router`(またはカスタム`DATA_DIR`)にローカル保存
 - LiteRouterサーバーへのデータ送信なし
 - OAuthトークンはJWTで暗号化
 
@@ -316,8 +316,8 @@ docker run -d \
 ```
 
 **破壊的変更:**
-- [CHANGELOG.md](https://github.com/decolua/literouter/blob/main/CHANGELOG.md)を確認
-- メジャー更新前に`~/.literouter`をバックアップ
+- [CHANGELOG.md](https://github.com/decolua/9router/blob/main/CHANGELOG.md)を確認
+- メジャー更新前に`~/.9router`をバックアップ
 - メジャーバージョンの移行ガイドを確認
 
 ---
@@ -329,18 +329,18 @@ docker run -d \
 ### 貢献方法:
 
 1. **バグを報告:**
-   - [GitHub Issues](https://github.com/decolua/literouter/issues)
+   - [GitHub Issues](https://github.com/decolua/9router/issues)
    - エラーログ、再現手順を含める
 
 2. **機能をリクエスト:**
-   - [GitHub Discussions](https://github.com/decolua/literouter/discussions)
+   - [GitHub Discussions](https://github.com/decolua/9router/discussions)
    - ユースケースと利点を説明
 
 3. **コードを提出:**
    ```bash
    # リポジトリをフォーク
-   git clone https://github.com/YOUR_USERNAME/literouter.git
-   cd literouter
+   git clone https://github.com/YOUR_USERNAME/9router.git
+   cd 9router
 
    # ブランチを作成
    git checkout -b feature/your-feature
@@ -375,13 +375,13 @@ docker run -d \
 - ドキュメントを更新
 - コミットは小さく、わかりやすく
 
-詳細は[CONTRIBUTING.md](https://github.com/decolua/literouter/blob/main/CONTRIBUTING.md)を参照。
+詳細は[CONTRIBUTING.md](https://github.com/decolua/9router/blob/main/CONTRIBUTING.md)を参照。
 
 ---
 
 ## さらにヘルプが必要?
 
-- **ドキュメント:** [literouter.com/docs](https://ai-staging.investdx.biz.id/docs)
-- **GitHub:** [github.com/decolua/literouter](https://github.com/decolua/literouter)
-- **Issues:** [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
+- **ドキュメント:** [ai-staging.investdx.biz.id/docs](https://ai-staging.investdx.biz.id/docs)
+- **GitHub:** [github.com/decolua/9router](https://github.com/decolua/9router)
+- **Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
 - **トラブルシューティング:** [troubleshooting.md](troubleshooting.md)

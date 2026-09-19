@@ -99,7 +99,7 @@ npm start
 **发生了什么:**
 1. 服务器启动在 `http://localhost:20128`
 2. 仪表盘在浏览器中自动打开
-3. 数据目录创建在 `~/.literouter`
+3. 数据目录创建在 `~/.9router`
 4. API key 自动生成
 
 ### 仪表盘登录
@@ -205,7 +205,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### 数据目录
 
-**默认位置:** `~/.literouter`
+**默认位置:** `~/.9router`
 
 **内容:**
 ```
@@ -473,6 +473,6 @@ nano ~/.bashrc  # 或 ~/.zshrc
 
 ## 需要帮助?
 
-- **网站**: [literouter.com](https://ai-staging.investdx.biz.id)
-- **GitHub**: [github.com/decolua/literouter](https://github.com/decolua/literouter)
-- **Issues**: [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
+- **网站**: [ai-staging.investdx.biz.id](https://ai-staging.investdx.biz.id)
+- **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
+- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)

@@ -99,7 +99,7 @@ npm start
 **What happens:**
 1. Server starts on `http://localhost:20128`
 2. Dashboard opens automatically in browser
-3. Data directory created at `~/.literouter`
+3. Data directory created at `~/.9router`
 4. API key generated automatically
 
 ### Dashboard Login
@@ -205,7 +205,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### Data Directory
 
-**Default location:** `~/.literouter`
+**Default location:** `~/.9router`
 
 **Contents:**
 ```
@@ -473,6 +473,6 @@ nano ~/.bashrc  # or ~/.zshrc
 
 ## Need Help?
 
-- **Website**: [literouter.com](https://ai-staging.investdx.biz.id)
-- **GitHub**: [github.com/decolua/literouter](https://github.com/decolua/literouter)
-- **Issues**: [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
+- **Website**: [ai-staging.investdx.biz.id](https://ai-staging.investdx.biz.id)
+- **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
+- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)

@@ -235,7 +235,7 @@ npm run deploy:cloudflare
 
 **环境变量:**
 - `JWT_SECRET` - **生产环境必须修改!**
-- `DATA_DIR` - 数据库存储路径(默认:`~/.literouter`)
+- `DATA_DIR` - 数据库存储路径(默认:`~/.9router`)
 - `INITIAL_PASSWORD` - 仪表盘登录(默认:`123456`)
 - `NODE_ENV` - 部署时设为 `production`
 
@@ -248,7 +248,7 @@ npm run deploy:cloudflare
 **是的,LiteRouter 优先考虑安全和隐私:**
 
 **本地存储:**
-- 所有数据存储在本地 `~/.literouter`(或自定义 `DATA_DIR`)
+- 所有数据存储在本地 `~/.9router`(或自定义 `DATA_DIR`)
 - 不会发送数据到 LiteRouter 服务器
 - OAuth tokens 使用 JWT 加密
 
@@ -316,8 +316,8 @@ docker run -d \
 ```
 
 **破坏性变更:**
-- 查看 [CHANGELOG.md](https://github.com/decolua/literouter/blob/main/CHANGELOG.md)
-- 大版本更新前备份 `~/.literouter`
+- 查看 [CHANGELOG.md](https://github.com/decolua/9router/blob/main/CHANGELOG.md)
+- 大版本更新前备份 `~/.9router`
 - 阅读大版本的迁移指南
 
 ---
@@ -329,18 +329,18 @@ docker run -d \
 ### 贡献方式:
 
 1. **报告 bug:**
-   - [GitHub Issues](https://github.com/decolua/literouter/issues)
+   - [GitHub Issues](https://github.com/decolua/9router/issues)
    - 附上错误日志、复现步骤
 
 2. **功能请求:**
-   - [GitHub Discussions](https://github.com/decolua/literouter/discussions)
+   - [GitHub Discussions](https://github.com/decolua/9router/discussions)
    - 描述使用场景和价值
 
 3. **提交代码:**
    ```bash
    # Fork 仓库
-   git clone https://github.com/YOUR_USERNAME/literouter.git
-   cd literouter
+   git clone https://github.com/YOUR_USERNAME/9router.git
+   cd 9router
 
    # 创建分支
    git checkout -b feature/your-feature
@@ -375,13 +375,13 @@ docker run -d \
 - 更新文档
 - 提交保持原子化、描述清晰
 
-详情见 [CONTRIBUTING.md](https://github.com/decolua/literouter/blob/main/CONTRIBUTING.md)。
+详情见 [CONTRIBUTING.md](https://github.com/decolua/9router/blob/main/CONTRIBUTING.md)。
 
 ---
 
 ## 需要更多帮助?
 
-- **文档:** [literouter.com/docs](https://ai-staging.investdx.biz.id/docs)
-- **GitHub:** [github.com/decolua/literouter](https://github.com/decolua/literouter)
-- **Issues:** [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
+- **文档:** [ai-staging.investdx.biz.id/docs](https://ai-staging.investdx.biz.id/docs)
+- **GitHub:** [github.com/decolua/9router](https://github.com/decolua/9router)
+- **Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
 - **故障排除:** [troubleshooting.md](troubleshooting.md)

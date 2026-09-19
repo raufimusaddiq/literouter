@@ -235,7 +235,7 @@ npm run deploy:cloudflare
 
 **Variables de entorno:**
 - `JWT_SECRET` - **¡DEBE cambiarse en producción!**
-- `DATA_DIR` - Ruta de almacenamiento de la base de datos (por defecto: `~/.literouter`)
+- `DATA_DIR` - Ruta de almacenamiento de la base de datos (por defecto: `~/.9router`)
 - `INITIAL_PASSWORD` - Login del dashboard (por defecto: `123456`)
 - `NODE_ENV` - Establece en `production` para desplegar
 
@@ -248,7 +248,7 @@ Consulta la [guía de despliegue](getting-started/installation.md#deployment) pa
 **Sí, LiteRouter prioriza la seguridad y privacidad:**
 
 **Almacenamiento local:**
-- Todos los datos se almacenan localmente en `~/.literouter` (o `DATA_DIR` personalizado)
+- Todos los datos se almacenan localmente en `~/.9router` (o `DATA_DIR` personalizado)
 - No se envían datos a los servidores de LiteRouter
 - Tokens OAuth cifrados con JWT
 
@@ -316,8 +316,8 @@ docker run -d \
 ```
 
 **Cambios disruptivos:**
-- Revisa [CHANGELOG.md](https://github.com/decolua/literouter/blob/main/CHANGELOG.md)
-- Respalda `~/.literouter` antes de actualizaciones mayores
+- Revisa [CHANGELOG.md](https://github.com/decolua/9router/blob/main/CHANGELOG.md)
+- Respalda `~/.9router` antes de actualizaciones mayores
 - Revisa las guías de migración para versiones mayores
 
 ---
@@ -329,18 +329,18 @@ docker run -d \
 ### Formas de contribuir:
 
 1. **Reportar bugs:**
-   - [GitHub Issues](https://github.com/decolua/literouter/issues)
+   - [GitHub Issues](https://github.com/decolua/9router/issues)
    - Incluye logs de error, pasos para reproducir
 
 2. **Solicitar características:**
-   - [GitHub Discussions](https://github.com/decolua/literouter/discussions)
+   - [GitHub Discussions](https://github.com/decolua/9router/discussions)
    - Describe el caso de uso y los beneficios
 
 3. **Enviar código:**
    ```bash
    # Fork del repo
-   git clone https://github.com/YOUR_USERNAME/literouter.git
-   cd literouter
+   git clone https://github.com/YOUR_USERNAME/9router.git
+   cd 9router
 
    # Crea una rama
    git checkout -b feature/your-feature
@@ -375,13 +375,13 @@ docker run -d \
 - Actualiza la documentación
 - Mantén los commits atómicos y descriptivos
 
-Consulta [CONTRIBUTING.md](https://github.com/decolua/literouter/blob/main/CONTRIBUTING.md) para detalles.
+Consulta [CONTRIBUTING.md](https://github.com/decolua/9router/blob/main/CONTRIBUTING.md) para detalles.
 
 ---
 
 ## ¿Necesitas más ayuda?
 
-- **Documentación:** [literouter.com/docs](https://ai-staging.investdx.biz.id/docs)
-- **GitHub:** [github.com/decolua/literouter](https://github.com/decolua/literouter)
-- **Issues:** [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
+- **Documentación:** [ai-staging.investdx.biz.id/docs](https://ai-staging.investdx.biz.id/docs)
+- **GitHub:** [github.com/decolua/9router](https://github.com/decolua/9router)
+- **Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
 - **Troubleshooting:** [troubleshooting.md](troubleshooting.md)

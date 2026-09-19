@@ -31,7 +31,7 @@ npm install -g 9router
 **默认配置:**
 - **仪表盘**: `http://localhost:3000`
 - **API Endpoint**: `http://localhost:20128/v1`
-- **数据目录**: `~/.literouter`
+- **数据目录**: `~/.9router`
 
 ---
 

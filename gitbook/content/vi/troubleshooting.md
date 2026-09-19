@@ -143,7 +143,7 @@ Các vấn đề và giải pháp phổ biến khi dùng LiteRouter.
 
 1. **Khởi động LiteRouter:**
    ```bash
-   literouter
+   9router
    ```
    Dashboard sẽ mở tại http://localhost:3000
 
@@ -183,7 +183,7 @@ Các vấn đề và giải pháp phổ biến khi dùng LiteRouter.
 1. **Kiểm tra LiteRouter có chạy không:**
    ```bash
    # Check process
-   ps aux | grep literouter
+   ps aux | grep 9router
 
    # Check port 3000
    lsof -i :3000
@@ -202,10 +202,10 @@ Các vấn đề và giải pháp phổ biến khi dùng LiteRouter.
 3. **Khởi động lại LiteRouter:**
    ```bash
    # Stop
-   pkill -f literouter
+   pkill -f 9router
 
    # Start
-   literouter
+   9router
    ```
 
 4. **Xóa cache browser:**
@@ -346,6 +346,6 @@ Các vấn đề và giải pháp phổ biến khi dùng LiteRouter.
 
 ## Cần trợ giúp thêm?
 
-- **GitHub Issues:** [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
-- **Documentation:** [literouter.com/docs](https://ai-staging.investdx.biz.id/docs)
+- **GitHub Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Documentation:** [ai-staging.investdx.biz.id/docs](https://ai-staging.investdx.biz.id/docs)
 - **FAQ:** [faq.md](faq.md)

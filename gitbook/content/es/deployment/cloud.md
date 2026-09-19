@@ -49,7 +49,7 @@ export NODE_ENV="production"
 |----------|---------|-------------|
 | `JWT_SECRET` | Auto-generado | **¡DEBE cambiarse en producción!** Usado para firmar tokens JWT |
 | `INITIAL_PASSWORD` | `123456` | Contraseña de login del dashboard |
-| `DATA_DIR` | `~/.literouter` | Ruta de almacenamiento de la base de datos |
+| `DATA_DIR` | `~/.9router` | Ruta de almacenamiento de la base de datos |
 | `NODE_ENV` | `development` | Establece a `production` para despliegue |
 | `ENABLE_REQUEST_LOGS` | `false` | Habilita logs de debug de request/response |
 

@@ -235,7 +235,7 @@ npm run deploy:cloudflare
 
 **Environment variables:**
 - `JWT_SECRET` - **MUST change in production!**
-- `DATA_DIR` - Database storage path (default: `~/.literouter`)
+- `DATA_DIR` - Database storage path (default: `~/.9router`)
 - `INITIAL_PASSWORD` - Dashboard login (default: `123456`)
 - `NODE_ENV` - Set to `production` for deploy
 
@@ -248,7 +248,7 @@ See [deployment guide](getting-started/installation.md#deployment) for details.
 **Yes, LiteRouter prioritizes security and privacy:**
 
 **Local storage:**
-- All data stored locally in `~/.literouter` (or custom `DATA_DIR`)
+- All data stored locally in `~/.9router` (or custom `DATA_DIR`)
 - No data sent to LiteRouter servers
 - OAuth tokens encrypted with JWT
 
@@ -316,8 +316,8 @@ docker run -d \
 ```
 
 **Breaking changes:**
-- Check [CHANGELOG.md](https://github.com/decolua/literouter/blob/main/CHANGELOG.md)
-- Backup `~/.literouter` before major updates
+- Check [CHANGELOG.md](https://github.com/decolua/9router/blob/main/CHANGELOG.md)
+- Backup `~/.9router` before major updates
 - Review migration guides for major versions
 
 ---
@@ -329,18 +329,18 @@ docker run -d \
 ### Ways to contribute:
 
 1. **Report bugs:**
-   - [GitHub Issues](https://github.com/decolua/literouter/issues)
+   - [GitHub Issues](https://github.com/decolua/9router/issues)
    - Include error logs, steps to reproduce
 
 2. **Request features:**
-   - [GitHub Discussions](https://github.com/decolua/literouter/discussions)
+   - [GitHub Discussions](https://github.com/decolua/9router/discussions)
    - Describe use case and benefits
 
 3. **Submit code:**
    ```bash
    # Fork repo
-   git clone https://github.com/YOUR_USERNAME/literouter.git
-   cd literouter
+   git clone https://github.com/YOUR_USERNAME/9router.git
+   cd 9router
 
    # Create branch
    git checkout -b feature/your-feature
@@ -375,13 +375,13 @@ docker run -d \
 - Update documentation
 - Keep commits atomic and descriptive
 
-See [CONTRIBUTING.md](https://github.com/decolua/literouter/blob/main/CONTRIBUTING.md) for details.
+See [CONTRIBUTING.md](https://github.com/decolua/9router/blob/main/CONTRIBUTING.md) for details.
 
 ---
 
 ## Need More Help?
 
-- **Documentation:** [literouter.com/docs](https://ai-staging.investdx.biz.id/docs)
-- **GitHub:** [github.com/decolua/literouter](https://github.com/decolua/literouter)
-- **Issues:** [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
+- **Documentation:** [ai-staging.investdx.biz.id/docs](https://ai-staging.investdx.biz.id/docs)
+- **GitHub:** [github.com/decolua/9router](https://github.com/decolua/9router)
+- **Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
 - **Troubleshooting:** [troubleshooting.md](troubleshooting.md)

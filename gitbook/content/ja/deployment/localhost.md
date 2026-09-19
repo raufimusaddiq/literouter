@@ -31,7 +31,7 @@ npm install -g 9router
 **デフォルト設定:**
 - **ダッシュボード**: `http://localhost:3000`
 - **APIエンドポイント**: `http://localhost:20128/v1`
-- **データディレクトリ**: `~/.literouter`
+- **データディレクトリ**: `~/.9router`
 
 ---
 

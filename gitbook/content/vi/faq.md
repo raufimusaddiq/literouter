@@ -235,7 +235,7 @@ npm run deploy:cloudflare
 
 **Biến môi trường:**
 - `JWT_SECRET` - **PHẢI đổi trong production!**
-- `DATA_DIR` - Đường dẫn lưu database (mặc định: `~/.literouter`)
+- `DATA_DIR` - Đường dẫn lưu database (mặc định: `~/.9router`)
 - `INITIAL_PASSWORD` - Đăng nhập Dashboard (mặc định: `123456`)
 - `NODE_ENV` - Đặt `production` để deploy
 
@@ -248,7 +248,7 @@ Xem [hướng dẫn deployment](getting-started/installation.md#deployment) đ�
 **Có, LiteRouter ưu tiên bảo mật và quyền riêng tư:**
 
 **Local storage:**
-- Mọi dữ liệu lưu cục bộ tại `~/.literouter` (hoặc `DATA_DIR` tùy chỉnh)
+- Mọi dữ liệu lưu cục bộ tại `~/.9router` (hoặc `DATA_DIR` tùy chỉnh)
 - Không gửi data đến server LiteRouter
 - OAuth tokens mã hóa bằng JWT
 
@@ -316,8 +316,8 @@ docker run -d \
 ```
 
 **Breaking changes:**
-- Xem [CHANGELOG.md](https://github.com/decolua/literouter/blob/main/CHANGELOG.md)
-- Backup `~/.literouter` trước khi update lớn
+- Xem [CHANGELOG.md](https://github.com/decolua/9router/blob/main/CHANGELOG.md)
+- Backup `~/.9router` trước khi update lớn
 - Xem hướng dẫn migration cho major version
 
 ---
@@ -329,18 +329,18 @@ docker run -d \
 ### Các cách đóng góp:
 
 1. **Report bugs:**
-   - [GitHub Issues](https://github.com/decolua/literouter/issues)
+   - [GitHub Issues](https://github.com/decolua/9router/issues)
    - Bao gồm error logs, các bước reproduce
 
 2. **Request features:**
-   - [GitHub Discussions](https://github.com/decolua/literouter/discussions)
+   - [GitHub Discussions](https://github.com/decolua/9router/discussions)
    - Mô tả use case và lợi ích
 
 3. **Submit code:**
    ```bash
    # Fork repo
-   git clone https://github.com/YOUR_USERNAME/literouter.git
-   cd literouter
+   git clone https://github.com/YOUR_USERNAME/9router.git
+   cd 9router
 
    # Create branch
    git checkout -b feature/your-feature
@@ -375,13 +375,13 @@ docker run -d \
 - Cập nhật tài liệu
 - Giữ commit nhỏ gọn và mô tả rõ ràng
 
-Xem [CONTRIBUTING.md](https://github.com/decolua/literouter/blob/main/CONTRIBUTING.md) để biết chi tiết.
+Xem [CONTRIBUTING.md](https://github.com/decolua/9router/blob/main/CONTRIBUTING.md) để biết chi tiết.
 
 ---
 
 ## Cần trợ giúp thêm?
 
-- **Documentation:** [literouter.com/docs](https://ai-staging.investdx.biz.id/docs)
-- **GitHub:** [github.com/decolua/literouter](https://github.com/decolua/literouter)
-- **Issues:** [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
+- **Documentation:** [ai-staging.investdx.biz.id/docs](https://ai-staging.investdx.biz.id/docs)
+- **GitHub:** [github.com/decolua/9router](https://github.com/decolua/9router)
+- **Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
 - **Troubleshooting:** [troubleshooting.md](troubleshooting.md)

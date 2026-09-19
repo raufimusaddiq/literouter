@@ -99,7 +99,7 @@ npm start
 **Điều gì xảy ra:**
 1. Server khởi động tại `http://localhost:20128`
 2. Dashboard tự động mở trong browser
-3. Data directory được tạo tại `~/.literouter`
+3. Data directory được tạo tại `~/.9router`
 4. API key được tạo tự động
 
 ### Đăng nhập Dashboard
@@ -205,7 +205,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### Data Directory
 
-**Vị trí mặc định:** `~/.literouter`
+**Vị trí mặc định:** `~/.9router`
 
 **Nội dung:**
 ```
@@ -473,6 +473,6 @@ nano ~/.bashrc  # or ~/.zshrc
 
 ## Cần trợ giúp?
 
-- **Website**: [literouter.com](https://ai-staging.investdx.biz.id)
-- **GitHub**: [github.com/decolua/literouter](https://github.com/decolua/literouter)
-- **Issues**: [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
+- **Website**: [ai-staging.investdx.biz.id](https://ai-staging.investdx.biz.id)
+- **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
+- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)

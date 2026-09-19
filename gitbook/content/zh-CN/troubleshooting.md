@@ -143,7 +143,7 @@
 
 1. **启动 LiteRouter:**
    ```bash
-   literouter
+   9router
    ```
    仪表盘应该在 http://localhost:3000 打开。
 
@@ -183,7 +183,7 @@
 1. **确认 LiteRouter 是否运行:**
    ```bash
    # 检查进程
-   ps aux | grep literouter
+   ps aux | grep 9router
 
    # 检查端口 3000
    lsof -i :3000
@@ -202,10 +202,10 @@
 3. **重启 LiteRouter:**
    ```bash
    # 停止
-   pkill -f literouter
+   pkill -f 9router
 
    # 启动
-   literouter
+   9router
    ```
 
 4. **清除浏览器缓存:**
@@ -346,6 +346,6 @@
 
 ## 需要更多帮助?
 
-- **GitHub Issues:** [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
-- **文档:** [literouter.com/docs](https://ai-staging.investdx.biz.id/docs)
+- **GitHub Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **文档:** [ai-staging.investdx.biz.id/docs](https://ai-staging.investdx.biz.id/docs)
 - **常见问题:** [faq.md](faq.md)

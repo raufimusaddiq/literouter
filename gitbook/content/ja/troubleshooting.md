@@ -143,7 +143,7 @@ LiteRouter利用時の一般的な問題と解決策。
 
 1. **LiteRouterを起動:**
    ```bash
-   literouter
+   9router
    ```
    ダッシュボードがhttp://localhost:3000で開くはず
 
@@ -183,7 +183,7 @@ LiteRouter利用時の一般的な問題と解決策。
 1. **LiteRouterが実行中か確認:**
    ```bash
    # プロセスを確認
-   ps aux | grep literouter
+   ps aux | grep 9router
 
    # ポート3000を確認
    lsof -i :3000
@@ -202,10 +202,10 @@ LiteRouter利用時の一般的な問題と解決策。
 3. **LiteRouterを再起動:**
    ```bash
    # 停止
-   pkill -f literouter
+   pkill -f 9router
 
    # 起動
-   literouter
+   9router
    ```
 
 4. **ブラウザキャッシュをクリア:**
@@ -346,6 +346,6 @@ LiteRouter利用時の一般的な問題と解決策。
 
 ## さらにヘルプが必要?
 
-- **GitHub Issues:** [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
-- **ドキュメント:** [literouter.com/docs](https://ai-staging.investdx.biz.id/docs)
+- **GitHub Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **ドキュメント:** [ai-staging.investdx.biz.id/docs](https://ai-staging.investdx.biz.id/docs)
 - **FAQ:** [faq.md](faq.md)

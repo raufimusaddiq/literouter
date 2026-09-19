@@ -143,7 +143,7 @@ Problemas comunes y soluciones al usar LiteRouter.
 
 1. **Inicia LiteRouter:**
    ```bash
-   literouter
+   9router
    ```
    El dashboard debe abrir en http://localhost:3000
 
@@ -183,7 +183,7 @@ Problemas comunes y soluciones al usar LiteRouter.
 1. **Verifica si LiteRouter está ejecutándose:**
    ```bash
    # Verifica el proceso
-   ps aux | grep literouter
+   ps aux | grep 9router
 
    # Verifica el puerto 3000
    lsof -i :3000
@@ -202,10 +202,10 @@ Problemas comunes y soluciones al usar LiteRouter.
 3. **Reinicia LiteRouter:**
    ```bash
    # Detener
-   pkill -f literouter
+   pkill -f 9router
 
    # Iniciar
-   literouter
+   9router
    ```
 
 4. **Limpia la caché del navegador:**
@@ -346,6 +346,6 @@ Problemas comunes y soluciones al usar LiteRouter.
 
 ## ¿Necesitas más ayuda?
 
-- **GitHub Issues:** [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
-- **Documentación:** [literouter.com/docs](https://ai-staging.investdx.biz.id/docs)
+- **GitHub Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Documentación:** [ai-staging.investdx.biz.id/docs](https://ai-staging.investdx.biz.id/docs)
 - **FAQ:** [faq.md](faq.md)
