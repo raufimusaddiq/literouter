@@ -1072,13 +1072,7 @@ codex "tu prompt"
 
 ### OpenClaw
 
-**Opción 1 — Panel de control (recomendada):**
-
-```
-Panel de control → CLI Tools → OpenClaw → Selecciona el modelo → Aplicar
-```
-
-**Opción 2 — Manual:** Edita `~/.openclaw/openclaw.json`:
+**Opción 1 — Manual:** Edita `~/.openclaw/openclaw.json`:
 
 ```json
 {
@@ -1442,4 +1436,3 @@ Licencia MIT - consulta [LICENSE](LICENSE) para más detalles.
 <div align="center">
   <sub>Hecho con ❤️ para desarrolladores que programan 24/7</sub>
 </div>
-

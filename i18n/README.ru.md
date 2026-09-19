@@ -893,13 +893,7 @@ codex "ваш промпт"
 
 ### OpenClaw
 
-**Вариант 1 — Панель управления (рекомендуется):**
-
-```
-Панель управления → CLI Tools → OpenClaw → Выбрать модель → Применить
-```
-
-**Вариант 2 — Вручную:** Отредактируйте `~/.openclaw/openclaw.json`:
+**Вариант 1 — Вручную:** Отредактируйте `~/.openclaw/openclaw.json`:
 
 ```json
 {
@@ -1232,7 +1226,6 @@ OPENAI_API_KEY="your-cloud-key" bash tester/security/test-cloud-openai-compatibl
 - Конфигурация маршрутизации: `/api/models/alias`, `/api/combos*`, `/api/keys*`, `/api/pricing`
 - Использование/логи: `/api/usage/history`, `/api/usage/logs`, `/api/usage/request-logs`, `/api/usage/[connectionId]`
 - Облачная синхронизация: `/api/sync/cloud`, `/api/sync/initialize`, `/api/cloud/*`
-- Помощники CLI: `/api/cli-tools/claude-settings`, `/api/cli-tools/codex-settings`, `/api/cli-tools/droid-settings`, `/api/cli-tools/openclaw-settings`
 
 ### Поведение аутентификации
 

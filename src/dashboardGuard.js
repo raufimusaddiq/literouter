@@ -61,7 +61,6 @@ const PROTECTED_API_PATHS = [
   "/api/cloud",
   "/api/pricing",
   "/api/tags",
-  "/api/cli-tools",
   "/api/console-logs",
   "/api/mcp",
   "/api/translator",
@@ -70,8 +69,6 @@ const PROTECTED_API_PATHS = [
 
 // Routes that spawn child processes or read host secrets — restrict to localhost.
 const LOCAL_ONLY_PATHS = [
-  "/api/cli-tools/cowork-settings",
-  "/api/cli-tools/antigravity-mitm",
   "/api/mcp/",
   "/api/tunnel/tailscale-install",
   "/api/tunnel/tailscale-enable",
@@ -90,15 +87,13 @@ const LOCAL_ONLY_PATHS = [
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 // Non-retained product surfaces (PRD section 18). Hidden only when
-// MINIMAL_PROFILE=true; each entry maps to a dashboard route and its API.
+// MINIMAL_PROFILE=true. Trace inbound references before adding an entry:
+// a surface nothing retained imports is deleted outright, not gated here.
 const MINIMAL_HIDDEN_PREFIXES = [
-  "/dashboard/cli-tools",
-  "/dashboard/mitm",
   "/dashboard/proxy-pools",
   "/dashboard/skills",
   "/dashboard/translator",
   "/dashboard/pxpipe",
-  "/api/cli-tools",
   "/api/proxy-pools",
   "/api/skills",
   "/api/translator",

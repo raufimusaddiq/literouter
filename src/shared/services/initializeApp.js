@@ -132,8 +132,6 @@ async function runHeavyStartup() {
   if (settings.tunnelEnabled) tunnelApi.ensureCloudflared().catch(() => {});
 
   if (settings.mitmEnabled) {
-    // Sync mitmAlias DB → JSON cache so standalone MITM server can read it.
-    import("@/lib/mitmAliasCache").then((m) => m.syncToJson()).catch(() => {});
     autoStartMitm(settings);
   }
 

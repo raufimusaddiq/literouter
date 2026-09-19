@@ -891,13 +891,7 @@ codex "your prompt"
 
 ### OpenClaw
 
-**选项 1 — 仪表板（推荐）：**
-
-```
-Dashboard → CLI Tools →Claw → Select Model → Apply
-```
-
-**选项 2 — 手动：** 编辑 `~/.openclaw/openclaw.json`：
+**选项 1 — 手动：** 编辑 `~/.openclaw/openclaw.json`：
 
 ```json
 {
@@ -1228,7 +1222,6 @@ OPENAI_API_KEY="your-cloud-key" bash tester/security/test-cloud-openai-compatibl
  路由配置：`/api/models/alias`, `/api/combos*`, `/api/keys*`, `/api/pricing`
 - 使用/日志：`/api/usage/history`, `/api/usage/logs`, `/api/usage/request-logs`, `/api/usage/[connectionId]`
 - 云端同步：`/api/sync/cloud`, `/api/sync/initialize`, `/api/cloud/*`
-- CLI 助手：`/api/cli-tools/claude-settings`, `/api/cli-tools/codex-settings`, `/api/cli-tools/droid-settings`, `/api/cli-tools/openaw-settings`
 
 ### 认证行为
 
