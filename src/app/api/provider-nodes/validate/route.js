@@ -1,15 +1,9 @@
 import { NextResponse } from "next/server";
-import { assertPublicUrl } from "@/shared/utils/ssrfGuard.js";
-import { isLocalRequest } from "@/dashboardGuard";
+import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
 
 // Fetch with timeout wrapper
 const fetchWithTimeout = (url, options, timeout = 10000) => {
-  return Promise.race([
-    fetch(url, options),
-    new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("Request timeout")), timeout)
-    )
-  ]);
+  return fetchPublic(url, { ...options, signal: AbortSignal.timeout(timeout) });
 };
 
 // Validate URL format
@@ -55,7 +49,7 @@ const getChatErrorMessage = (status) => {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { baseUrl, apiKey, type } = body;
+    const { baseUrl, apiKey, type, modelId } = body;
 
     if (!baseUrl || !apiKey) {
       return NextResponse.json({ error: "Base URL and API key required" }, { status: 400 });
@@ -66,13 +60,10 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
     }
 
-    // SSRF guard for remote callers; local host keeps self-hosted nodes (e.g. ollama-local)
-    if (!isLocalRequest(request)) {
-      try {
-        assertPublicUrl(baseUrl);
-      } catch {
-        return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
-      }
+    try {
+      await assertPublicUrlResolved(baseUrl);
+    } catch {
+      return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
     }
 
     // Anthropic Compatible Validation

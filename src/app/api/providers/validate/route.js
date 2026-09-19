@@ -116,7 +116,7 @@ export async function POST(request) {
           return NextResponse.json({ valid: false, error: "Missing Account ID" });
         }
         const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
-        const cfRes = await fetch(url, {
+        const cfRes = await fetchPublic(url, {
           method: "POST",
           headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
