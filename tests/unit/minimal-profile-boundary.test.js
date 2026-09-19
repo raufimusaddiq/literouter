@@ -14,7 +14,6 @@ describe("minimal profile route boundary", () => {
     for (const prefix of [
       "/dashboard/cli-tools",
       "/dashboard/mitm",
-      "/dashboard/media-providers",
       "/dashboard/proxy-pools",
       "/dashboard/skills",
       "/dashboard/translator",
@@ -34,6 +33,27 @@ describe("minimal profile route boundary", () => {
         new URL("../../src/app/(dashboard)/dashboard/basic-chat/page.js", import.meta.url)
       )
     ).toThrow();
+  });
+
+  // PRD section 4 lists media-provider management, image/video generation,
+  // speech/STT/TTS and embeddings surfaces as non-goals. The dashboard pages,
+  // the TTS voice routes they drove, and the /v1/audio/* proxy family are
+  // deleted rather than gated: nothing retained imported them.
+  it("deletes the media surfaces instead of hiding them", () => {
+    for (const path of [
+      "../../src/app/(dashboard)/dashboard/media-providers/[kind]/page.js",
+      "../../src/app/api/media-providers/tts/voices/route.js",
+      "../../src/app/api/v1/audio/voices/route.js",
+      "../../src/app/api/v1/audio/speech/route.js",
+      "../../src/app/api/v1/audio/transcriptions/route.js",
+      "../../src/sse/handlers/tts.js",
+      "../../src/sse/handlers/stt.js",
+      "../../src/shared/constants/ttsProviders.js",
+    ]) {
+      expect(() => readFileSync(new URL(path, import.meta.url)), path).toThrow();
+    }
+    expect(hidden).not.toContain("/dashboard/media-providers");
+    expect(hidden).not.toContain("/api/media-providers");
   });
 
   it("never shadows a retained API", () => {
