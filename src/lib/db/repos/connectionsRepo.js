@@ -16,8 +16,17 @@ const MODEL_LOCK_PREFIX = "modelLock_";
 // mutation on one replica cannot leave another serving stale connections.
 // ponytail: on Redis failure the version check fails open, so a single-process
 // deploy behaves exactly as before and only multi-replica freshness degrades.
-const connectionCache = global.__liteRouterConnectionCache ??= { rows: null, expiresAt: 0 };
+const connectionCache = global.__liteRouterConnectionCache ??= {
+  rows: null,
+  expiresAt: 0,
+  versionCheckedAt: 0,
+};
+// How long a replica may reuse its own snapshot without asking Redis whether
+// another replica mutated. Separate from CACHE_TTL_MS: the data TTL can be
+// generous because a foreign write is caught by the version check, which has to
+// be frequent enough to count as "immediately" (PRD 15.5 §3).
 const CACHE_TTL_MS = 5000;
+const VERSION_TTL_MS = 500;
 const CACHE_VERSION_KEY = "cache:connections:version";
 
 async function cacheVersion() {
@@ -30,7 +39,11 @@ async function bumpCacheVersion() {
   return redisIncrement(CACHE_VERSION_KEY);
 }
 
-function invalidateConnectionCache() { connectionCache.rows = null; connectionCache.expiresAt = 0; }
+function invalidateConnectionCache() {
+  connectionCache.rows = null;
+  connectionCache.expiresAt = 0;
+  connectionCache.versionCheckedAt = 0;
+}
 
 // Invalidate locally and tell every replica that its snapshot is stale.
 function invalidateConnectionCacheEverywhere() {
@@ -116,18 +129,17 @@ function deriveConnectionName(data, fallbackName) {
 }
 
 export async function getProviderConnections(filter = {}) {
-  if (!connectionCache.rows || connectionCache.expiresAt <= Date.now()) {
-    // Re-read from SQLite when another replica bumped the shared version.
-    // A Redis outage returns null here, which only skips cross-replica
-    // invalidation and lets the local TTL keep behaving as before.
+  const now = Date.now();
+  if (!connectionCache.rows || connectionCache.expiresAt <= now) {
+    await refreshConnectionCache();
+  } else if (connectionCache.versionCheckedAt <= now) {
+    // Held a usable snapshot, but confirm no other replica wrote since. A
+    // foreign bump makes every replica re-read, which is what keeps a UI
+    // mutation from being invisible here until the data TTL happens to lapse.
     const version = await cacheVersion();
-    if (version === null || version !== connectionCache.version) {
-      const db = await getAdapter();
-      connectionCache.rows = db.all("SELECT * FROM providerConnections").map(rowToConn);
-      connectionCache.version = version;
-      connectionCache.expiresAt = Date.now() + CACHE_TTL_MS;
-    } else {
-      connectionCache.expiresAt = Date.now() + CACHE_TTL_MS;
+    connectionCache.versionCheckedAt = Date.now() + VERSION_TTL_MS;
+    if (version !== null && version !== connectionCache.version) {
+      await refreshConnectionCache();
     }
   }
   const list = connectionCache.rows.filter((c) =>
@@ -136,6 +148,16 @@ export async function getProviderConnections(filter = {}) {
   ).map((c) => structuredClone(c));
   list.sort((a, b) => (a.priority || 999) - (b.priority || 999));
   return list;
+}
+
+async function refreshConnectionCache() {
+  const db = await getAdapter();
+  connectionCache.rows = db.all("SELECT * FROM providerConnections").map(rowToConn);
+  // A Redis outage returns null, which then never compares equal to a real
+  // version — so recovery re-reads once rather than serving a stale snapshot.
+  connectionCache.version = await cacheVersion();
+  connectionCache.expiresAt = Date.now() + CACHE_TTL_MS;
+  connectionCache.versionCheckedAt = Date.now() + VERSION_TTL_MS;
 }
 
 export async function getProviderConnectionById(id) {

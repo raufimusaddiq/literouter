@@ -62,7 +62,7 @@ let chain = Promise.resolve();
 function createSession(socket) {
   let buffer = Buffer.alloc(0);
   let pending = null;
-  socket.setTimeout(Number(process.env.REDIS_TIMEOUT_MS || 500));
+  const timeoutMs = Number(process.env.REDIS_TIMEOUT_MS || 500);
   socket.on("data", (chunk) => {
     buffer = Buffer.concat([buffer, chunk]);
     while (pending) {
@@ -72,6 +72,7 @@ function createSession(socket) {
       buffer = reply.rest;
       const { resolve } = pending;
       pending = null;
+      socket.setTimeout(0);
       resolve(reply.value);
     }
   });
@@ -79,8 +80,22 @@ function createSession(socket) {
   socket.on("timeout", () => { pending?.reject(new Error("Redis timeout")); pending = null; socket.destroy(); });
   socket.on("close", () => { pending?.reject(new Error("Redis closed")); pending = null; });
   return async (parts) => {
-    socket.write(encode(parts));
-    return new Promise((resolve, reject) => { pending = { resolve, reject }; });
+    // Register the waiter BEFORE writing. A reply that lands between the write
+    // and the assignment would otherwise be dropped by the `data` handler,
+    // and the command would hang until the socket timeout fired.
+    return new Promise((resolve, reject) => {
+      pending = { resolve, reject };
+      // Arm the deadline only while a command is outstanding. Arming it once at
+      // connect time makes an idle-but-healthy socket look stalled, and the
+      // destroy that followed caused the next command to fail.
+      socket.setTimeout(timeoutMs);
+      socket.write(encode(parts), (error) => {
+        if (!error) return;
+        pending = null;
+        socket.setTimeout(0);
+        reject(error);
+      });
+    });
   };
 }
 
