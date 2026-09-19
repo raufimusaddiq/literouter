@@ -1,0 +1,55 @@
+name: Staging Image
+
+on:
+  push:
+    branches: [staging]
+
+# Two pushes back to back otherwise race, and the slower older run can finish
+# last and overwrite staging-latest with stale bits.
+concurrency:
+  group: staging-image
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}-staging
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Only the merged staging branch may publish. Set explicitly rather than
+    # relying on the trigger list, so no future trigger can publish by hand.
+    if: github.ref == 'refs/heads/staging'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+          # Full 40-char sha for the exact commit + staging-latest to follow the branch.
+          # `github.sha` is long form; `type=sha` would shorten it, so keep raw.
+          tags: |
+            type=raw,value=staging-${{ github.sha }}
+            type=raw,value=staging-latest
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
+          provenance: false
+          sbom: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
