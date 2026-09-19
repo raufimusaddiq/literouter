@@ -118,6 +118,42 @@ describe("minimal profile route boundary", () => {
     expect(source).not.toMatch(/tunnelDashboardAccess|tunnelUrl|tailscaleUrl/);
   });
 
+  it("does not retain tunnel or MITM helpers in the CLI or request path", () => {
+    const cli = readFileSync(new URL("../../cli/cli.js", import.meta.url), "utf8");
+    const cliBuild = readFileSync(new URL("../../cli/scripts/build-cli.js", import.meta.url), "utf8");
+    const fetcher = readFileSync(new URL("../../open-sse/utils/proxyFetch.js", import.meta.url), "utf8");
+
+    expect(cli).not.toMatch(/mitm|tunnel|tailscale|cloudflared/i);
+    expect(cliBuild).not.toMatch(/mitm/i);
+    expect(fetcher).not.toMatch(/mitm|bypass DNS|got-scraping/i);
+    expect(() => readFileSync(new URL("../../cli/scripts/buildMitm.js", import.meta.url))).toThrow();
+  });
+
+  it("deletes unused init and shutdown endpoints", () => {
+    for (const path of [
+      "../../src/app/api/init/route.js",
+      "../../src/app/api/shutdown/route.js",
+    ]) {
+      expect(() => readFileSync(new URL(path, import.meta.url)), path).toThrow();
+    }
+    expect(source).not.toContain('"/api/init"');
+    expect(source).not.toContain('"/api/shutdown"');
+  });
+
+  it("deletes docs and skills that describe the unminimalized product", () => {
+    for (const path of [
+      "../../docs/ARCHITECTURE.md",
+      "../../skills/README.md",
+      "../../skills/9router/SKILL.md",
+      "../../skills/9router-chat/SKILL.md",
+    ]) {
+      expect(() => readFileSync(new URL(path, import.meta.url)), path).toThrow();
+    }
+    const claude = readFileSync(new URL("../../CLAUDE.md", import.meta.url), "utf8");
+    expect(claude).not.toMatch(/optional cloud sync/);
+    expect(claude).not.toContain("docs/ARCHITECTURE.md");
+  });
+
   it("deletes the Proxy Pools UI and deploy routes", () => {
     for (const path of [
       "../../src/app/(dashboard)/dashboard/proxy-pools/page.js",

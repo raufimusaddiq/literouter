@@ -13,7 +13,6 @@ export const UPDATER_CONFIG = {
   npmPackageName: "9router",
   installCmd: "npm i -g 9router",
   installCmdLatest: "npm i -g 9router@latest --prefer-online",
-  shutdownCountdownSec: 3,
   exitDelayMs: 500,
   statusPort: 20129,
   statusPollIntervalMs: 1000,
