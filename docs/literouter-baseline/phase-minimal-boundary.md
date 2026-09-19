@@ -4,13 +4,23 @@
 not just in the sidebar. Routes remain in the build so rollback is a config
 flip rather than a redeploy.
 
+Surfaces that no retained code imports are **deleted** rather than gated; the
+hidden list below only carries what is still reachable in the build.
+
+## Deleted
+
+| Surface | PR |
+| --- | --- |
+| `basic-chat` | #10 |
+| `media-providers`, `/v1/audio/*`, TTS voice routes | #11 |
+| `cli-tools` (19 API routes), `mitm` page, `mitmAlias` cache | #12 |
+
 ## Hidden prefixes
 
-Dashboard: `basic-chat`, `cli-tools`, `mitm`, `media-providers`, `proxy-pools`,
-`skills`, `translator`, `pxpipe`.
+Dashboard: `proxy-pools`, `skills`, `translator`, `pxpipe`.
 
-API: `cli-tools`, `media-providers`, `proxy-pools`, `skills`, `translator`,
-`headroom`, `mcp`, `tunnel`.
+API: `proxy-pools`, `skills`, `translator`, `headroom`, `mcp`, `tunnel`,
+`version/update`, `version/shutdown`.
 
 ## Verified live (staging, healthy)
 
@@ -29,17 +39,22 @@ Retained dashboard routes — all HTTP 200:
 Hidden dashboard routes — all HTTP 307 (redirect to `/dashboard`):
 
 ```text
-307 /dashboard/basic-chat
-307 /dashboard/cli-tools
-307 /dashboard/mitm
-307 /dashboard/media-providers
 307 /dashboard/proxy-pools
 307 /dashboard/skills
 307 /dashboard/translator
 ```
 
-Hidden APIs — HTTP 404: `cli-tools/all-statuses`, `media-providers`,
-`proxy-pools`, `skills`, `tunnel/enable`.
+Deleted dashboard routes — HTTP 307 by falling through to the `/` redirect,
+since the route no longer exists to be gated:
+
+```text
+307 /dashboard/basic-chat
+307 /dashboard/cli-tools
+307 /dashboard/mitm
+307 /dashboard/media-providers
+```
+
+Hidden APIs — HTTP 404: `proxy-pools`, `tunnel/enable`.
 
 Retained APIs — HTTP 200: `providers`, `combos`, `usage/stats`, `settings`.
 
@@ -53,22 +68,24 @@ retained API or ingress path is shadowed.
 
 ## Additions (2026-09-19)
 
-Auditing the dashboard route tree against PRD section 18 found two live gaps:
+Auditing the dashboard route tree against PRD section 18 found a live gap:
+`/api/version/update` and `/api/version/shutdown` (the built-in updater and
+shutdown installer flows) were still reachable, and are now hidden.
 
-- `/dashboard/console-log` returned 200 in the minimal profile. The page is
-  fully served by `/api/translator/console-logs*`, which was already hidden, so
-  the page was a dead surface in minimal mode.
-- `/api/version/update` and `/api/version/shutdown` (the built-in updater and
-  shutdown installer flows, named in PRD section 18) were still reachable.
+`/dashboard/console-log` was briefly hidden on the same pass, then retained:
+it is the only in-browser view of server-side console output, and the retained
+Usage/details pages show request records rather than the log stream. Its API
+was moved off `/api/translator` (a hidden prefix) to `/api/console-logs` so
+hiding the translator playground no longer takes the log stream down with it.
 
-All three are now hidden. Verified live on `literouter-staging`:
+Verified live on `literouter-staging`:
 
 ```text
-307 /dashboard/console-log
 404 /api/version/update
 404 /api/version/shutdown
 200 /dashboard  /dashboard/providers  /dashboard/combos  /dashboard/usage
 200 /dashboard/quota  /dashboard/token-saver  /dashboard/endpoint
+200 /dashboard/console-log
 ```
 
 Deliberately *not* hidden:
