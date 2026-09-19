@@ -1218,7 +1218,6 @@ docker pull decolua/9router:latest   # به‌روزرسانی به آخرین �
 | `AUTH_COOKIE_SECURE`                                 | `false`                                  | کوکی احراز هویت `Secure` را اعمال می‌کند (در پشت پروکسی معکوس HTTPS `true` تنظیم کنید)                  |
 | `REQUIRE_API_KEY`                                    | `false`                                  | اعمال کلید API Bearer در مسیرهای `/v1/*` (برای استقرارهای در معرض اینترنت توصیه می‌شود) |
 | `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY` | خالی                                    | پروکسی خروجی اختیاری برای فراخوانی‌های ارائه‌دهنده بالا دست                                 |
-| `SEARXNG_URL`                                        | `http://localhost:8888/search`           | نقطه پایانی برای ارائه‌دهنده جستجوی وب SearXNG ساخته شده بدون احراز هویت                     |
 
 نکات:
 

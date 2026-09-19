@@ -1,6 +1,6 @@
 # open-sse
 
-Provider-agnostic SSE engine: one OpenAI-style request → any provider (LLM chat, image, embedding, tts, stt, search), streamed back in the client's format.
+Provider-agnostic SSE engine: one OpenAI-style request → any configured LLM provider, streamed back in the client's format.
 
 ## Request lifecycle (chat)
 
@@ -12,9 +12,9 @@ Provider-agnostic SSE engine: one OpenAI-style request → any provider (LLM cha
 - `translator/` — format conversion. `request/<from>-to-<to>.js`, `response/<from>-to-<to>.js`, `schema/` (enums: ROLE, CLAUDE_BLOCK…), `concerns/` (shared logic), `formats.js`+`formats/` (per-format). `index.js` is the registry/entry.
 - `executors/` — per-provider upstream call. `base.js` (BaseExecutor), one file per special provider, `index.js` map.
 - `providers/` — registry build + `capabilities.js` + `pricing.js`. Entry: `index.js` (PROVIDERS).
-- `handlers/` — per-modality cores (chat/image/embedding/tts/stt/search) + sub-provider folders. `chatCore/` has the streaming/non-streaming/sse-to-json handlers.
+- `handlers/` — chat core plus provider-specific helpers. `chatCore/` has the streaming/non-streaming/sse-to-json handlers.
 - `rtk/` — request token-killer. `index.js` compresses `tool_result` content in-place (OpenAI/Claude/Kiro shapes); `filters/` per-tool compressors + `autodetect.js`; `headroom.js` external compress proxy; `caveman.js` system-prompt injector.
-- `transformer/` — `responsesTransformer.js` (Chat Completions SSE → Codex Responses API SSE), `streamToJsonConverter.js`.
+- `transformer/` — `streamToJsonConverter.js`.
 - `shared/` — cross-provider auth/identity: `clineAuth.js`, `machineId.js`, `qoder/`.
 - `services/` — `model.js`, `provider.js`, `accountFallback.js`, `combo.js`, `compact.js`, `tokenRefresh/`+`tokenRefresh.js`, `oauthCredentialManager.js`, `usage/`, `projectId.js`, `kiroModels.js`/`qoderModels.js`.
 - `utils/` — streamHandler, stream, sse, error, sessionManager, claudeCloaking, clientDetector, proxyFetch (patches global fetch), cursorProtobuf/cursorChecksum, ollamaTransform.
@@ -27,7 +27,7 @@ Provider-agnostic SSE engine: one OpenAI-style request → any provider (LLM cha
 
 ## How to add
 
-- **Provider**: copy `providers/REGISTRY_TEMPLATE.js` → `providers/registry/{id}.js`; add models to `config/providerModels.js`. Generic providers need no executor (DefaultExecutor handles OpenAI-compatible APIs).
+- **Provider**: copy `providers/REGISTRY_TEMPLATE.js` → `providers/registry/{id}.js`; add models to `config/providerModels.js`. Generic chat providers need no executor (DefaultExecutor handles OpenAI-compatible APIs).
 - **Executor** (only for non-standard upstream): subclass `BaseExecutor` (override `getBaseUrls`/`buildHeaders`/`buildUrl`/`execute`), register in `executors/index.js` map. `getExecutor` falls back to `DefaultExecutor` when absent.
 - **Translator**: add `request|response/<from>-to-<to>.js` calling `register(...)`, then import it in `translator/index.js`. Reuse `schema/` + `concerns/` — don't re-implement parsing.
 

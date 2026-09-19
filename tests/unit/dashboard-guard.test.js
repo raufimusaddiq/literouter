@@ -171,7 +171,7 @@ describe("dashboard guard public LLM API access", () => {
   it("allows remote public LLM API with valid x-api-key", async () => {
     mocks.validateApiKey.mockResolvedValue(true);
 
-    const response = await proxy(request("/v1/web/fetch", {
+    const response = await proxy(request("/v1/responses", {
       host: "router.example.com",
       "x-api-key": "sk-valid",
     }));

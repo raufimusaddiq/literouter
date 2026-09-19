@@ -1214,7 +1214,6 @@ docker pull decolua/9router:latest   # mise à jour vers la dernière version
 | `AUTH_COOKIE_SECURE`                                 | `false`                                     | Force le cookie d'authentification `Secure` (mettez `true` derrière un proxy inverse HTTPS)   |
 | `REQUIRE_API_KEY`                                    | `false`                                     | Applique la clé API Bearer sur les routes `/v1/*` (recommandé pour les déploiements exposés à Internet) |
 | `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY` | vide                                        | Proxy sortant optionnel pour les appels aux fournisseurs externes                              |
-| `SEARXNG_URL`                                        | `http://localhost:8888/search`              | Endpoint du fournisseur de recherche web SearXNG intégré, sans authentification               |
 
 Remarques :
 

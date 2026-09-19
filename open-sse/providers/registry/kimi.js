@@ -68,12 +68,7 @@ export default {
     { id: "kimi-k2.5-thinking", name: "Kimi K2.5 Thinking" },
     { id: "kimi-latest", name: "Kimi Latest" },
   ],
-  serviceKinds: ["llm", "webSearch"],
-  searchViaChat: {
-    defaultModel: "kimi-k3",
-    endpoint: "https://api.moonshot.cn/v1/chat/completions",
-    pricingUrl: "https://platform.kimi.ai/docs/pricing/chat",
-  },
+  serviceKinds: ["llm"],
   oauth: {
     clientId: "17e5f671-d194-4dfb-9706-5516cb48c098",
     deviceCodeUrl: "https://auth.kimi.com/api/oauth/device_authorization",

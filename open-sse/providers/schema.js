@@ -15,10 +15,9 @@ import { DEFAULT_RETRY_CONFIG, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtim
  * @property {string[]}[authModes]    Allowed auth modes when provider supports both.
  * @property {boolean} [hasOAuth]     Provider exposes an OAuth flow.
  * @property {boolean} [noAuth]       Provider needs no credentials (local/free).
- * @property {Object}  [display]      UI: {name,icon,color,textIcon,website,notice,deprecated,deprecationNotice,kindNotice,mediaPriority}.
+ * @property {Object}  [display]      UI: {name,icon,color,textIcon,website,notice,deprecated,deprecationNotice,kindNotice}.
  * @property {Object}  [transport]    Runtime HTTP config (see TransportConfig below). Builds PROVIDERS[id].
  * @property {Object}  [oauth]        OAuth flow config (see OAuthConfig). Builds PROVIDER_OAUTH[id].
- * @property {Object}  [media]        Non-LLM services (see MediaConfig). Builds PROVIDER_MEDIA[id].
  * @property {Array}   [models]       Model list; omit = no model key, [] = explicit empty.
  * @property {Object}  [features]     Feature flags, e.g. {usage:true}.
  * @property {Object}  [thinkingConfig] Reasoning UI: {options:[...],defaultMode}.
@@ -33,10 +32,7 @@ import { DEFAULT_RETRY_CONFIG, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtim
  *   callbackPath, fixedPort, codeChallengeMethod, extraParams, refresh:{encoding,scope}, refreshLeadMs,
  *   userInfoUrl }.
  *
- * MediaConfig: { serviceKinds:[...], ttsConfig, sttConfig, embeddingConfig, imageConfig,
- *   searchViaChat:{defaultModel,pricingUrl}, hiddenKinds } — each *Config: {baseUrl,authType,authHeader,
- *   format,defaultModel,models:[{id,name,dimensions?}]}.
- */
+*/
 
 // Shared transport defaults — provider only overrides fields that differ.
 // NOTE: runtime (index.js buildTransport) only re-applies `format`; the rest documents the contract

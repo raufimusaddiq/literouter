@@ -5,8 +5,6 @@ import { getModelKind } from "@/shared/constants/models";
 const KIND_ENDPOINT = {
   llm: "/v1/chat/completions",
   imageToText: "/v1/chat/completions",
-  webSearch: "/v1/search",
-  webFetch: "/v1/fetch",
 };
 
 function buildInfo({ alias, providerId, model, kind, providerInfo }) {
@@ -22,12 +20,6 @@ function buildInfo({ alias, providerId, model, kind, providerInfo }) {
   if (model.options) out.options = model.options;
   if (model.dimensions) out.dimensions = model.dimensions;
   if (model.contextWindow) out.contextWindow = model.contextWindow;
-  if (kind === "webSearch" && providerInfo?.searchConfig) {
-    const cfg = providerInfo.searchConfig;
-    if (cfg.searchTypes) out.searchTypes = cfg.searchTypes;
-    if (cfg.maxMaxResults) out.maxResults = cfg.maxMaxResults;
-    if (cfg.requiredOptions) out.required = cfg.requiredOptions;
-  }
   return out;
 }
 
@@ -48,22 +40,10 @@ function lookup(fullId, requestedKind) {
     : list.find((x) => x.id === modelId);
   if (m) {
     const kind = getModelKind(m, "llm");
+    if (!KIND_ENDPOINT[kind]) return null;
     return buildInfo({ alias, providerId, model: m, kind, providerInfo });
   }
 
-  // Web search/fetch — virtual model id "search" / "fetch"
-  if (modelId === "search" && providerInfo?.searchConfig) {
-    return buildInfo({
-      alias, providerId, kind: "webSearch", providerInfo,
-      model: { id: "search", name: `${providerInfo.name} Search`, params: ["query", "max_results", "country", "language", "time_range", "domain_filter", "search_type"] },
-    });
-  }
-  if (modelId === "fetch" && providerInfo?.fetchConfig) {
-    return buildInfo({
-      alias, providerId, kind: "webFetch", providerInfo,
-      model: { id: "fetch", name: `${providerInfo.name} Fetch`, params: ["url", "format", "max_characters"] },
-    });
-  }
   return null;
 }
 

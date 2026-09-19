@@ -3,10 +3,7 @@ import REGISTRY from "open-sse/providers/registry/index.js";
 import { RISK_NOTICE } from "@/shared/constants/providersDisplay";
 
 const MEDIA_ENTRY_KEYS = [
-  "serviceKinds", "ttsConfig", "sttConfig", "embeddingConfig",
-  "imageConfig", "imageToTextConfig", "videoConfig", "musicConfig",
-  "searchViaChat", "searchConfig", "fetchConfig", "credentialFallback",
-  "modelsFetcher", "mediaPriority", "hiddenKinds",
+  "serviceKinds", "modelsFetcher",
 ];
 
 // Build provider UI object from registry entry
@@ -70,7 +67,6 @@ export const WEB_COOKIE_PROVIDERS = byCategory("webCookie");
 
 export const OPENAI_COMPATIBLE_PREFIX = "openai-compatible-";
 export const ANTHROPIC_COMPATIBLE_PREFIX = "anthropic-compatible-";
-export const CUSTOM_EMBEDDING_PREFIX = "custom-embedding-";
 
 export function isOpenAICompatibleProvider(providerId) {
   return typeof providerId === "string" && providerId.startsWith(OPENAI_COMPATIBLE_PREFIX);
@@ -78,10 +74,6 @@ export function isOpenAICompatibleProvider(providerId) {
 
 export function isAnthropicCompatibleProvider(providerId) {
   return typeof providerId === "string" && providerId.startsWith(ANTHROPIC_COMPATIBLE_PREFIX);
-}
-
-export function isCustomEmbeddingProvider(providerId) {
-  return typeof providerId === "string" && providerId.startsWith(CUSTOM_EMBEDDING_PREFIX);
 }
 
 // All providers (combined)
@@ -127,20 +119,6 @@ export const ID_TO_ALIAS = Object.values(AI_PROVIDERS).reduce((acc, p) => {
   acc[p.id] = p.alias;
   return acc;
 }, {});
-
-// Helper: Get providers by service kind (e.g. "tts", "embedding", "image")
-// Providers without serviceKinds default to ["llm"]
-export function getProvidersByKind(kind) {
-  return Object.values(AI_PROVIDERS)
-    .filter((p) => {
-      const kinds = p.serviceKinds ?? ["llm"];
-      if (!kinds.includes(kind)) return false;
-      if (p.hidden) return false;
-      if (p.hiddenKinds?.includes(kind)) return false;
-      return true;
-    })
-    .sort((a, b) => (a.priority ?? a.mediaPriority ?? 999) - (b.priority ?? b.mediaPriority ?? 999));
-}
 
 // Derive từ registry features flags
 export const USAGE_SUPPORTED_PROVIDERS = REGISTRY
