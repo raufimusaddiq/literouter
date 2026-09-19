@@ -35,23 +35,11 @@ gh pr merge <n> --repo raufimusaddiq/literouter --merge --delete-branch=false
 
 ## `BLOCKED` with no failing check
 
-`Hermes Review` is a required status check on `staging` (classic protection,
-`strict: true`). Hermes authenticates as the `personal-code-reviewer[bot]` GitHub
-App, which **can** create check runs — but the run occasionally fails to POST
-(`GITHUB_POST_FAILED`, HTTP 403) and then nothing ever satisfies the gate.
-
-Recovery: push an empty commit to the PR branch and let Hermes re-run.
-
-```bash
-git fetch origin-literouter <branch>:pr-tmp
-git checkout pr-tmp
-git commit --allow-empty -m 'chore: re-trigger review'
-git push origin-literouter pr-tmp:<branch>
-git checkout staging && git branch -D pr-tmp
-```
-
-This has worked both times it was needed (PR #4, 2026-09-19). Drop the dummy
-commit before merging if the history matters; it is harmless otherwise.
+`Hermes Review` is required on `staging` and processes PRs FIFO. Never push an
+empty “re-trigger” commit while review is queued or in progress: it moves the
+PR to the back of the queue and invalidates the current review. Wait for Hermes
+to post its verdict. If its check fails or the feedback is stale, push only the
+real fix, then wait again; do not trigger it manually.
 
 ## After merge
 
