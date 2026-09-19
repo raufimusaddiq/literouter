@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { CATALOG_FILE, CATALOG_RAW_FILE, CATALOG_VERSION, invalidateCatalog, installCatalogSource } from "open-sse/providers/catalogOverride.js";
+import { CATALOG_FILE, CATALOG_VERSION, invalidateCatalog, installCatalogSource } from "open-sse/providers/catalogOverride.js";
 
 const CATALOG_URL = "https://models.dev/api.json";
 const FETCH_TIMEOUT_MS = 60000;
@@ -55,25 +55,6 @@ function writeAtomic(file, contents) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(`${file}.tmp`, contents, "utf8");
   fs.renameSync(`${file}.tmp`, file);
-}
-
-// Trimmed copy of the upstream catalog, kept for the add-models skill: same
-// models, ~470KB instead of 4.3MB.
-function slim(catalog) {
-  const out = {};
-  for (const [providerId, provider] of Object.entries(catalog)) {
-    const models = {};
-    for (const [modelId, model] of Object.entries(provider?.models || {})) {
-      models[modelId] = {
-        i: (model?.modalities?.input || []).filter((x) => x !== "text"),
-        c: model?.limit?.context,
-        o: model?.limit?.output,
-        r: model?.reasoning || undefined,
-      };
-    }
-    out[providerId] = models;
-  }
-  return out;
 }
 
 export function build(catalog, entries) {
@@ -207,7 +188,6 @@ export async function syncModelCatalog() {
       const serialized = JSON.stringify({ v: CATALOG_VERSION, etag, syncedAt: Date.now(), models, providers });
 
       writeAtomic(CATALOG_FILE, serialized);
-      writeAtomic(CATALOG_RAW_FILE, JSON.stringify(slim(catalog)));
 
       state.etag = etag;
       state.fileVersion = CATALOG_VERSION;

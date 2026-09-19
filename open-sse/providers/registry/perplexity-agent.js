@@ -38,12 +38,7 @@ export default {
     { id: "perplexity/kimi-k2.7-code", name: "Kimi K2.7 Code" },
     { id: "nvidia/nemotron-3-super-120b-a12b", name: "Nemotron 3 Super 120B" },
   ],
-  serviceKinds: ["llm", "webSearch"],
-  searchViaChat: {
-    defaultModel: "perplexity/sonar",
-    endpoint: "https://api.perplexity.ai/v1/responses",
-    pricingUrl: "https://docs.perplexity.ai/docs/agent-api/models",
-  },
+  serviceKinds: ["llm"],
   modelsFetcher: { url: "https://api.perplexity.ai/v1/models", type: "openai" },
   passthroughModels: true,
 };

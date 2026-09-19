@@ -27,9 +27,6 @@ const PUBLIC_API_PATHS = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/status",
-  "/api/auth/oidc",
-  "/api/auth/saml",
-  "/api/version",
   "/api/settings/require-login",
 ];
 
@@ -41,8 +38,6 @@ const PUBLIC_PREFIXES = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex", "
 const ALWAYS_PROTECTED = [
   "/api/shutdown",
   "/api/settings/database",
-  "/api/version/shutdown",
-  "/api/version/update",
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
 ];
@@ -61,13 +56,11 @@ const PROTECTED_API_PATHS = [
   "/api/pricing",
   "/api/tags",
   "/api/console-logs",
-  "/api/mcp",
   "/api/translator",
 ];
 
 // Routes that spawn child processes or read host secrets — restrict to localhost.
 const LOCAL_ONLY_PATHS = [
-  "/api/mcp/",
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
   "/api/auth/reset-password",
@@ -82,12 +75,7 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 // MINIMAL_PROFILE=true. Trace inbound references before adding an entry:
 // a surface nothing retained imports is deleted outright, not gated here.
 const MINIMAL_HIDDEN_PREFIXES = [
-  "/dashboard/pxpipe",
   "/api/headroom",
-  "/api/mcp",
-  // Built-in updater / shutdown installer flows (PRD section 18).
-  "/api/version/update",
-  "/api/version/shutdown",
 ];
 
 // Accepts a Host header, a URL hostname or a raw socket address. Splitting on the first

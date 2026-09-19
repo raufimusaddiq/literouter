@@ -16,7 +16,7 @@ import { getCapabilitiesForModel } from "../../../open-sse/providers/capabilitie
 const RUN_REAL = process.env.RUN_REAL === "1";
 const TIMEOUT_MS = 90000;
 const CRED_ISSUE = [401, 402, 403, 429];
-const NON_CHAT_KINDS = new Set(["embedding", "image", "imageToText", "tts", "stt", "video", "music", "webSearch"]);
+const NON_CHAT_KINDS = new Set(["embedding", "image", "imageToText", "tts", "stt", "video", "music"]);
 
 const PROVIDER_FILTER = (process.env.REAL_PROVIDERS || "")
   .split(",").map((s) => s.trim()).filter(Boolean);

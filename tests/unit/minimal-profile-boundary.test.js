@@ -10,13 +10,10 @@ describe("minimal profile route boundary", () => {
     expect(source).toContain('process.env.MINIMAL_PROFILE === "true"');
   });
 
-  it("hides the non-retained product surfaces", () => {
-    for (const prefix of [
-      "/api/version/update",
-      "/api/version/shutdown",
-    ]) {
-      expect(hidden).toContain(prefix);
-    }
+  it("does not retain deleted product surfaces in the guard", () => {
+    expect(hidden).not.toContain("/api/mcp");
+    expect(hidden).not.toContain("/api/version/update");
+    expect(hidden).not.toContain("/api/version/shutdown");
   });
 
   // Basic Chat was deleted outright rather than hidden: nothing retained
@@ -123,13 +120,13 @@ describe("minimal profile route boundary", () => {
 
   // The sidebar advertised the upstream 9english.net marketing site. Under the
   // minimal profile the sidebar should carry only product navigation.
-  it("does not link the external 9English site in the sidebar", () => {
+  it("deletes external promotional links from the sidebar", () => {
     const sidebar = readFileSync(
       new URL("../../src/shared/components/Sidebar.js", import.meta.url),
       "utf8"
     );
-    const link = sidebar.match(/\{\/\* 9English \*\/\}([\s\S]{0,80})/)?.[1] || "";
-    expect(link).toContain("!minimalProfile && (");
+    expect(sidebar).not.toContain("9English");
+    expect(sidebar).not.toContain("9Remote");
   });
 
   // Console Log is retained: it is the only in-browser view of server-side
@@ -144,15 +141,10 @@ describe("minimal profile route boundary", () => {
       new URL("../../src/shared/components/Sidebar.js", import.meta.url),
       "utf8"
     );
-    const consoleLogEntry = sidebar.match(/\{[^}]*"\/dashboard\/console-log"[^}]*\}/)?.[0] || "";
-    expect(consoleLogEntry).not.toBe("");
-    expect(consoleLogEntry).not.toContain("nonMinimal");
-
-    // The entry alone is not enough: the debug group it lives in must be
-    // filtered per item rather than blanked wholesale, or the group's render
-    // guard discards retained entries anyway. Assert the guard, not the array.
-    expect(sidebar).toContain("debugItems.filter((item) => !minimalProfile || !item.nonMinimal)");
-    expect(sidebar).not.toContain("minimalProfile ? [] : debugItems");
+    // Sidebar is static now: no profile branching remains, so the entry is
+    // the whole contract.
+    expect(sidebar).toContain('"/dashboard/console-log"');
+    expect(sidebar).not.toContain("nonMinimal");
 
     // The log API must not sit under a hidden prefix.
     const shadowed = hidden.some(

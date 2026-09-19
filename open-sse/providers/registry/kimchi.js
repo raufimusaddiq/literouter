@@ -38,7 +38,7 @@ export default {
     { id: "claude-opus-4-6", name: "Claude Opus 4.6" },
     { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
   ],
-  serviceKinds: ["llm", "imageToText"],
+  serviceKinds: ["llm"],
   oauth: {
     webAppUrl: "https://app.kimchi.dev",
     validationUrl: "https://api.cast.ai/v1/llm/openai/supported-providers",

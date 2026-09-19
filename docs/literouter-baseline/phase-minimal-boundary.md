@@ -23,7 +23,7 @@ hidden list below only carries what is still reachable in the build.
 
 Dashboard: `pxpipe`.
 
-API: `headroom`, `mcp`, `version/update`, `version/shutdown`.
+API: `headroom`.
 
 ## Verified live (staging, healthy)
 
@@ -61,7 +61,7 @@ path that never existed; unauthenticated requests redirect to `/login`, not to
 404 /dashboard/endpoint tunnel UI (removed panel, page retained)
 ```
 
-Hidden APIs — HTTP 404: `headroom`, `mcp`.
+Hidden APIs — HTTP 404: `headroom`.
 
 Deleted APIs — HTTP 404: `/api/tunnel/*`, `/api/translator/*`,
 `/api/proxy-pools/*-deploy`.
@@ -83,7 +83,7 @@ retained API or ingress path is shadowed.
 
 Auditing the dashboard route tree against PRD section 18 found a live gap:
 `/api/version/update` and `/api/version/shutdown` (the built-in updater and
-shutdown installer flows) were still reachable, and are now hidden.
+shutdown installer flows) were still reachable. They are now deleted.
 
 `/dashboard/console-log` was briefly hidden on the same pass, then retained:
 it is the only in-browser view of server-side console output, and the retained
@@ -94,8 +94,8 @@ hiding the translator playground no longer takes the log stream down with it.
 Verified live on `literouter-staging`:
 
 ```text
-404 /api/version/update
-404 /api/version/shutdown
+404 /api/version/update (deleted)
+404 /api/version/shutdown (deleted)
 200 /dashboard  /dashboard/providers  /dashboard/combos  /dashboard/usage
 200 /dashboard/quota  /dashboard/token-saver  /dashboard/endpoint
 200 /dashboard/console-log

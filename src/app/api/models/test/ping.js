@@ -23,52 +23,7 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
   const headers = await getInternalHeaders();
   const start = Date.now();
 
-  if (kind === "embedding") {
-    const res = await fetch(`${baseUrl}/api/v1/embeddings`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ model, input: "test" }),
-      signal: AbortSignal.timeout(15000),
-    });
-    const latencyMs = Date.now() - start;
-    const rawText = await res.text().catch(() => "");
-    let parsed = null;
-    try { parsed = rawText ? JSON.parse(rawText) : null; } catch {}
-
-    if (!res.ok) {
-      const detail = parsed?.error?.message || parsed?.error || rawText;
-      return { ok: false, latencyMs, error: `HTTP ${res.status}${detail ? `: ${String(detail).slice(0, 240)}` : ""}`, status: res.status };
-    }
-    const hasEmbedding = Array.isArray(parsed?.data) && parsed.data.length > 0 && Array.isArray(parsed.data[0]?.embedding);
-    if (!hasEmbedding) {
-      return { ok: false, latencyMs, status: res.status, error: "Provider returned no embedding data" };
-    }
-    return { ok: true, latencyMs, error: null, status: res.status };
-  }
-
-  if (kind === "image") {
-    const res = await fetch(`${baseUrl}/api/v1/images/generations`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ model, prompt: "test" }),
-      signal: AbortSignal.timeout(15000),
-    });
-    const latencyMs = Date.now() - start;
-    const rawText = await res.text().catch(() => "");
-    let parsed = null;
-    try { parsed = rawText ? JSON.parse(rawText) : null; } catch {}
-
-    if (!res.ok) {
-      const detail = parsed?.error?.message || parsed?.msg || parsed?.message || parsed?.error || rawText;
-      return { ok: false, latencyMs, error: `HTTP ${res.status}${detail ? `: ${String(detail).slice(0, 240)}` : ""}`, status: res.status };
-    }
-
-    const hasImages = Array.isArray(parsed?.data) && parsed.data.length > 0;
-    if (!hasImages) {
-      return { ok: false, latencyMs, status: res.status, error: "Provider returned no image data for this model" };
-    }
-    return { ok: true, latencyMs, error: null, status: res.status };
-  }
+  if (kind !== "llm") return { ok: false, status: 400, latencyMs: 0, error: "Unsupported model kind in LiteRouter" };
 
   const res = await fetch(`${baseUrl}/api/v1/chat/completions`, {
     method: "POST",

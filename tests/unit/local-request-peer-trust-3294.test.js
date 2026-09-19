@@ -152,18 +152,6 @@ describe("peer header trust", () => {
     expect(response.status).toBe(401);
   });
 
-  it("blocks spoofed local-only routes that would otherwise spawn processes", async () => {
-    mocks.getSettings.mockResolvedValue({ requireLogin: false });
-
-    const response = await proxy(request("/api/mcp/filesystem/sse", {
-      host: "172.18.192.1:20140",
-      "x-9r-real-ip": "127.0.0.1",
-    }));
-
-    expect(response.status).toBe(403);
-    expect(response.body.error).toBe("Local only: CLI token required");
-  });
-
   it("accepts the legacy Host fallback only in development", async () => {
     process.env.NODE_ENV = "development";
 
