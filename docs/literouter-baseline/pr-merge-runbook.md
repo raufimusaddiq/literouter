@@ -41,6 +41,18 @@ PR to the back of the queue and invalidates the current review. Wait for Hermes
 to post its verdict. If its check fails or the feedback is stale, push only the
 real fix, then wait again; do not trigger it manually.
 
+Hermes is slow (minutes). Wait with polling so the user never has to ask for
+status. Poll the verdict on the PR's current head, not the check row alone:
+
+```bash
+gh pr view <n> --repo raufimusaddiq/literouter \
+  --json reviews --jq '.reviews[-1] | {state, submitted: .submittedAt}'
+```
+
+`APPROVED` on the current head clears the gate. `CHANGES_REQUESTED` on an older
+head is stale — re-check the findings against the code before acting. Keep
+polling until a verdict lands on the current head.
+
 ## After merge
 
 The staging image is built by `.github/workflows/staging-image.yml` on every push
