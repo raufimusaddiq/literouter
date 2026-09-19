@@ -55,9 +55,7 @@ describe("minimal profile route boundary", () => {
   });
 
   // CLI-tools configuration writers, the MITM product page, and the
-  // mitmAlias sync cache were only reachable from their own routes. The MITM
-  // runtime under src/mitm is still imported by the tunnel/tailscale paths and
-  // by startup DNS cleanup, so it stays until those are removed.
+  // mitmAlias sync cache were only reachable from their own routes.
   it("deletes the CLI-tools and MITM surfaces instead of hiding them", () => {
     for (const path of [
       "../../src/app/(dashboard)/dashboard/cli-tools/page.js",
@@ -93,20 +91,25 @@ describe("minimal profile route boundary", () => {
     }
   });
 
-  // PRD 18 removes Cloudflare Tunnel and Tailscale provisioning. Hiding their
-  // routes is not enough: the retained Endpoint page still advertised both and
-  // polled /api/tunnel/status, which 404s under the minimal profile.
-  it("does not advertise tunnel or Tailscale on the retained Endpoint page", () => {
+  // PRD 18 removes Cloudflare Tunnel and Tailscale provisioning. The routes,
+  // the managers, and the MITM runtime they shared are deleted outright, and
+  // the retained Endpoint page no longer mentions either one.
+  it("deletes tunnel, Tailscale, and the Endpoint page's tunnel UI", () => {
     const page = readFileSync(
       new URL("../../src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.js", import.meta.url),
       "utf8"
     );
-    expect(page).toContain("minimalProfile");
-    // Both the Cloudflare Tunnel block and the Tailscale block must sit behind
-    // the same guard, and the tunnel status fetch must be skipped entirely.
-    expect(page).toMatch(/!minimalProfile && \(/);
-    expect(page).toMatch(/data\.minimalProfile === true/);
-    expect(page).toMatch(/minimalProfile && isLoginUnsafe/);
+    expect(page).not.toMatch(/\/api\/tunnel\//);
+    expect(page).not.toMatch(/Tailscale/);
+    expect(page).not.toContain("showEnableTunnelModal");
+
+    for (const path of [
+      "../../src/lib/tunnel/index.js",
+      "../../src/app/api/tunnel/status/route.js",
+      "../../src/mitm/manager.js",
+    ]) {
+      expect(() => readFileSync(new URL(path, import.meta.url)), path).toThrow();
+    }
   });
 
   // The sidebar advertised the upstream 9english.net marketing site. Under the
