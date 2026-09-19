@@ -9,8 +9,8 @@ FROM base AS builder
 
 RUN apk --no-cache upgrade && apk --no-cache add python3 make g++ linux-headers
 
-COPY package.json ./
-RUN npm install --registry=https://registry.npmmirror.com
+COPY package.json package-lock.json ./
+RUN npm ci --registry=https://registry.npmmirror.com
 
 COPY . ./
 ENV NEXT_TELEMETRY_DISABLED=1
