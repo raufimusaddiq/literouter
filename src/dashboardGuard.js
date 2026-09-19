@@ -64,18 +64,11 @@ const PROTECTED_API_PATHS = [
   "/api/console-logs",
   "/api/mcp",
   "/api/translator",
-  "/api/tunnel",
 ];
 
 // Routes that spawn child processes or read host secrets — restrict to localhost.
 const LOCAL_ONLY_PATHS = [
   "/api/mcp/",
-  "/api/tunnel/tailscale-install",
-  "/api/tunnel/tailscale-enable",
-  "/api/tunnel/tailscale-disable",
-  "/api/tunnel/tailscale-check",
-  "/api/tunnel/enable",
-  "/api/tunnel/disable",
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
   "/api/auth/reset-password",
@@ -99,7 +92,6 @@ const MINIMAL_HIDDEN_PREFIXES = [
   "/api/translator",
   "/api/headroom",
   "/api/mcp",
-  "/api/tunnel",
   // Built-in updater / shutdown installer flows (PRD section 18).
   "/api/version/update",
   "/api/version/shutdown",

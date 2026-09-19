@@ -11,7 +11,6 @@ import gemini from "../../open-sse/providers/registry/gemini.js";
 import { MODEL_PRICING } from "../../open-sse/providers/pricing.js";
 
 const require = createRequire(import.meta.url);
-const mitmConfig = require("../../src/mitm/config.js");
 const here = dirname(fileURLToPath(import.meta.url));
 
 afterEach(() => {
@@ -48,30 +47,6 @@ describe("Gemini 3.7 Antigravity tiers", () => {
       });
     }
   );
-});
-
-describe("Gemini 3.7 MITM model extraction", () => {
-  it.each(["high", "medium", "low"])("extracts the %s thinking tier for gemini-3.7-flash-tiered", (tier) => {
-    const body = Buffer.from(JSON.stringify({
-      request: { generationConfig: { thinkingConfig: { thinkingLevel: tier } } },
-    }));
-
-    expect(mitmConfig.extractModel(
-      "/v1internal/models/gemini-3.7-flash-tiered:streamGenerateContent",
-      body
-    )).toBe(`gemini-3.7-flash-${tier}`);
-  });
-
-  it("defaults invalid or missing thinking levels to medium", () => {
-    const body = Buffer.from(JSON.stringify({
-      request: { generationConfig: { thinkingConfig: { thinkingLevel: "unknown" } } },
-    }));
-
-    expect(mitmConfig.extractModel(
-      "/v1internal/models/gemini-3.7-flash-tiered:streamGenerateContent",
-      body
-    )).toBe("gemini-3.7-flash-medium");
-  });
 });
 
 describe("Gemini 3.7 MITM tools and catalog", () => {
