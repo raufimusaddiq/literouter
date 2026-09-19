@@ -6,10 +6,11 @@ import { isLocalRequest } from "@/dashboardGuard";
 // by fetchPublic. The trusted local operator may reach a LAN node directly, but
 // only after the per-request isLocalRequest check has classified the caller.
 const fetchNode = (url, options, timeout = 10000) => {
-  const { remote, ...init } = options;
+  const { remote, localOperator, ...init } = options;
   const withTimeout = { ...init, signal: AbortSignal.timeout(timeout) };
   if (remote) return fetchPublic(url, withTimeout);
-  return localFetch(url, withTimeout);
+  if (localOperator) return localFetch(url, withTimeout);
+  throw new Error("Blocked URL: internal host");
 };
 
 // The only path that may reach a non-public address. `remote` is already false
@@ -74,7 +75,9 @@ export async function POST(request) {
 
     // SSRF guard for remote callers; the local operator keeps self-hosted
     // nodes on the LAN (LM Studio, vLLM, ollama-openai-compat).
-    const remote = !isLocalRequest(request);
+    const localOperator = isLocalRequest(request);
+    const remote = !localOperator;
+    const caller = { remote, localOperator };
     if (remote) {
       try {
         await assertPublicUrlResolved(baseUrl);
@@ -93,7 +96,7 @@ export async function POST(request) {
       const modelsUrl = `${normalizedBase}/models`;
       const res = await fetchNode(modelsUrl, {
         method: "GET",
-        remote,
+        ...caller,
         headers: {
           "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
@@ -112,7 +115,7 @@ export async function POST(request) {
       if (modelId) {
         const chatRes = await fetchNode(`${normalizedBase}/chat/completions`, {
           method: "POST",
-          remote,
+          ...caller,
           headers: {
             "Authorization": `Bearer ${apiKey}`,
             "Content-Type": "application/json",
@@ -141,7 +144,7 @@ export async function POST(request) {
     // OpenAI Compatible Validation (Default)
     const modelsUrl = `${baseUrl.replace(/\/$/, "")}/models`;
     const res = await fetchNode(modelsUrl, {
-      remote,
+      ...caller,
       headers: { "Authorization": `Bearer ${apiKey}` },
     });
 
@@ -156,7 +159,7 @@ export async function POST(request) {
     if (modelId) {
       const chatRes = await fetchNode(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
-        remote,
+        ...caller,
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json"
