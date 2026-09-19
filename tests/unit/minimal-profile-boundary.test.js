@@ -12,8 +12,6 @@ describe("minimal profile route boundary", () => {
 
   it("hides the non-retained product surfaces", () => {
     for (const prefix of [
-      "/dashboard/cli-tools",
-      "/dashboard/mitm",
       "/dashboard/proxy-pools",
       "/dashboard/skills",
       "/dashboard/translator",
@@ -54,6 +52,27 @@ describe("minimal profile route boundary", () => {
     }
     expect(hidden).not.toContain("/dashboard/media-providers");
     expect(hidden).not.toContain("/api/media-providers");
+  });
+
+  // CLI-tools configuration writers, the MITM product page, and the
+  // mitmAlias sync cache were only reachable from their own routes. The MITM
+  // runtime under src/mitm is still imported by the tunnel/tailscale paths and
+  // by startup DNS cleanup, so it stays until those are removed.
+  it("deletes the CLI-tools and MITM surfaces instead of hiding them", () => {
+    for (const path of [
+      "../../src/app/(dashboard)/dashboard/cli-tools/page.js",
+      "../../src/app/(dashboard)/dashboard/mitm/page.js",
+      "../../src/app/api/cli-tools/all-statuses/route.js",
+      "../../src/app/api/cli-tools/cowork-mcp-tools/route.js",
+      "../../src/shared/constants/cliTools.js",
+      "../../src/lib/mitmAliasCache.js",
+      "../../src/shared/components/McpMarketplaceModal.js",
+    ]) {
+      expect(() => readFileSync(new URL(path, import.meta.url)), path).toThrow();
+    }
+    expect(hidden).not.toContain("/dashboard/cli-tools");
+    expect(hidden).not.toContain("/dashboard/mitm");
+    expect(hidden).not.toContain("/api/cli-tools");
   });
 
   it("never shadows a retained API", () => {
