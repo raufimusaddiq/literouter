@@ -2,6 +2,7 @@
 
 ## Fixes
 - **Endpoint**: stop advertising Cloudflare Tunnel and Tailscale in the minimal profile; the page no longer polls `/api/tunnel/status`, which is not served there
+- **Sidebar**: hide the external 9English link in the minimal profile so the sidebar carries only product navigation
 - **Round-robin**: persist the account cursor off the request path and invalidate the connection cache before the first await, so a selection can never read a stale cursor
 
 # v0.5.81 (2026-09-18)
