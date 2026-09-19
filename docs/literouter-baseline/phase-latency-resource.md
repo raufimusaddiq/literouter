@@ -111,3 +111,46 @@ minimal profile active and no tunnel/MITM managers loaded.
 - All three ingress transports returned HTTP 200 with native passthrough.
 - Usage rows written with provider, model, endpoint, tokens, cost, status.
 - Retained dashboard pages all return 200 under `MINIMAL_PROFILE=true`.
+
+## Public-endpoint burst (2026-09-20): production vs staging
+
+Earlier tables measured router overhead against a mock upstream. That mock is
+gone, so the like-for-like comparison is now the same public ingress on both
+deployments with a real upstream model:
+
+- Production: `https://ai.investdx.biz.id`
+- Staging: `https://ai-staging.investdx.biz.id`
+- Model: `kn/deepseek-v4-1-flash` (Kenari), non-streaming, `max_tokens=32`
+- n=24 each: 8 concurrent requests, 3 rounds, same payload
+
+| Metric | Production | Staging |
+| --- | --- | --- |
+| Success | 24/24 | 24/24 |
+| Median (p50) | 1715 ms | 1580 ms |
+| p95 | 2053 ms | 2062 ms |
+| Max | 2108 ms | 2080 ms |
+
+Staging median is 7.9% faster; the tail is equal within noise. These numbers
+include upstream (Kenari) and network variance, so they bound the user-visible
+path rather than isolating router cost. The controlled mock table above still
+isolates router overhead and remains the acceptance evidence for the hot path.
+
+Post-burst resource sample, both containers together:
+
+| Container | RSS | Memory limit |
+| --- | --- | --- |
+| `9router` (production) | 236.6 MiB | 512 MiB |
+| `literouter-staging` | 72.3 MiB | 512 MiB |
+| `idx-redis` | 5.8 MiB | 256 MiB |
+
+Redis held only `literouter:staging:cache:connections:version` after the burst.
+Redis on staging is connection-cache invalidation, not response caching, so a
+chat burst is not expected to add keys.
+
+## Stable designation
+
+As of 2026-09-20 the `staging` branch and the `ai-staging.investdx.biz.id`
+deployment are declared stable under the name **LiteRouter**. They carry the
+Redis connection-cache invalidation and the reproducible lockfile-based CI
+(#20) plus the Alpine musl native pins (#21). Production `9router` remains the
+prior image and is untouched.

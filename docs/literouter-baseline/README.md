@@ -53,14 +53,17 @@ Run with `npm --prefix tests test -- --run` in a clean worktree at
 | `main` baseline | 34 failed \| 223 passed \| 11 skipped (268) | 139 failed \| 2396 passed (2608) |
 | `staging` (first check) | 34 failed \| 226 passed \| 11 skipped (271) | 139 failed \| 2401 passed (2613) |
 | `staging` (after Phase 4) | 34 failed \| 230 passed \| 11 skipped (275) | 139 failed \| 2424 passed (2636) |
-| `staging` (current) | 34 failed \| 235 passed \| 11 skipped (280) | 139 failed \| 2435 passed (2647) |
+| `staging` (current) | 0 failed \| 238 passed \| 11 skipped (249) | 0 failed \| 2336 passed \| 14 expected fail \| 54 skipped (2404) |
 
-Identical failure count at every checkpoint. The 139 failures (34 files, e.g.
+The `34 failed` rows are historical checkpoints recorded before the test suite
+was repaired; they are kept to show the progression, not as a current target.
+
+`main` still carries 139 failures across 34 files (e.g.
 `windsurf-executor.test.js` registry assertions, `combo-autoswitch.test.js`,
-`translator-request-normalization.test.js`) are pre-existing on `main` and are
-not introduced by the LiteRouter work. Staging adds 9 passing test files and 35
-passing tests. The 139 failures are byte-identical in nature across every
-checkpoint and are never worth counting as progress.
+`translator-request-normalization.test.js`). `staging` is now fully green: the
+suite was repaired in #20, which restored the live Cursor, Windsurf, Devin, and
+Gemini endpoint coverage and fixed the stale assertions instead of deleting
+them. `main` must not be treated as the reference any more — use `staging`.
 
 Run the suite from `tests/`, not the repository root. The `@/` path alias is
 only configured in `tests/vitest.config.js`, so a root-level run makes those
