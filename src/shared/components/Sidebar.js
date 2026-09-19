@@ -48,7 +48,7 @@ export default function Sidebar({ onClose }) {
   );
 
   return (
-    <aside className="flex w-[18.5rem] flex-col rounded-[1.5rem] bg-sidebar p-3 ring-1 ring-border-subtle transition-colors duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-full">
+    <aside className="flex h-full w-[18.5rem] min-h-0 flex-col overflow-hidden rounded-[1.5rem] bg-sidebar p-3 ring-1 ring-border-subtle transition-colors duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]">
       <div className="px-3 py-4">
         <Link href="/dashboard" className="flex items-center gap-3 group">
           <div className="flex items-center justify-center size-10 rounded-2xl bg-primary text-white shadow-[0_14px_30px_-16px_var(--color-primary)] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:-translate-y-0.5">
@@ -61,7 +61,7 @@ export default function Sidebar({ onClose }) {
         </Link>
       </div>
       <div className="mx-3 h-px bg-border-subtle" />
-      <nav className="flex-1 px-1 py-5 space-y-1 overflow-y-auto custom-scrollbar">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-1 py-5 custom-scrollbar">
         <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted/60">Workspace</p>
         {navItems.map(link)}
         <div className="pt-3 mt-2 space-y-0.5">
