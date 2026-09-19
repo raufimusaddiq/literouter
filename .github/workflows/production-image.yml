@@ -4,12 +4,17 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: production-image
+  cancel-in-progress: true
+
 env:
   IMAGE: ghcr.io/${{ github.repository }}-production
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write

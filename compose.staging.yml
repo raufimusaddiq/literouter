@@ -18,7 +18,7 @@ services:
       ENABLE_REQUEST_LOGS: "true"
       REQUEST_LOG_MAX_SIZE_MB: "256"
       REQUEST_LOG_MAX_SESSIONS: "250"
-      MODEL_CATALOG_SYNC: off
+      MODEL_CATALOG_SYNC: "off"
       DISABLE_BACKGROUND_TOKEN_REFRESH: "true"
       REDIS_URL: redis://idx-redis:6379
       REDIS_KEY_PREFIX: "literouter:staging:"
