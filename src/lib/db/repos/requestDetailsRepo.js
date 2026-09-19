@@ -1,10 +1,11 @@
-import { getAdapter } from "../driver.js";
+import { getAdapter, getAdapterSync } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
 const DEFAULT_MAX_RECORDS = 200;
 const DEFAULT_BATCH_SIZE = 20;
 const DEFAULT_FLUSH_INTERVAL_MS = 5000;
 const DEFAULT_MAX_JSON_SIZE = 5 * 1024;
+const DEFAULT_MAX_BUFFERED = 500;
 const CONFIG_CACHE_TTL_MS = 5000;
 
 let cachedConfig = null;
@@ -24,6 +25,7 @@ async function getObservabilityConfig() {
         batchSize: settings.observabilityBatchSize || parseInt(process.env.OBSERVABILITY_BATCH_SIZE || String(DEFAULT_BATCH_SIZE), 10),
         flushIntervalMs: settings.observabilityFlushIntervalMs || parseInt(process.env.OBSERVABILITY_FLUSH_INTERVAL_MS || String(DEFAULT_FLUSH_INTERVAL_MS), 10),
         maxJsonSize: (settings.observabilityMaxJsonSize || parseInt(process.env.OBSERVABILITY_MAX_JSON_SIZE || "5", 10)) * 1024,
+        maxBuffered: settings.observabilityMaxBuffered || parseInt(process.env.OBSERVABILITY_MAX_BUFFERED || String(DEFAULT_MAX_BUFFERED), 10),
       };
       cachedConfigTs = Date.now();
       return cachedConfig;
@@ -40,6 +42,7 @@ async function getObservabilityConfig() {
       batchSize: settings.observabilityBatchSize || parseInt(process.env.OBSERVABILITY_BATCH_SIZE || String(DEFAULT_BATCH_SIZE), 10),
       flushIntervalMs: settings.observabilityFlushIntervalMs || parseInt(process.env.OBSERVABILITY_FLUSH_INTERVAL_MS || String(DEFAULT_FLUSH_INTERVAL_MS), 10),
       maxJsonSize: (settings.observabilityMaxJsonSize || parseInt(process.env.OBSERVABILITY_MAX_JSON_SIZE || "5", 10)) * 1024,
+      maxBuffered: settings.observabilityMaxBuffered || parseInt(process.env.OBSERVABILITY_MAX_BUFFERED || String(DEFAULT_MAX_BUFFERED), 10),
     };
   } catch {
     cachedConfig = {
@@ -48,15 +51,23 @@ async function getObservabilityConfig() {
       batchSize: DEFAULT_BATCH_SIZE,
       flushIntervalMs: DEFAULT_FLUSH_INTERVAL_MS,
       maxJsonSize: DEFAULT_MAX_JSON_SIZE,
+      maxBuffered: DEFAULT_MAX_BUFFERED,
     };
   }
   cachedConfigTs = Date.now();
   return cachedConfig;
 }
 
-let writeBuffer = [];
-let flushTimer = null;
-let isFlushing = false;
+// Next bundles this module once per route/entry, so module-level state is NOT
+// shared. Anchor the queue on globalThis so every instance drains the same
+// buffer and a shutdown flush sees rows written by request handlers.
+const bufferState = (globalThis.__liteRouterDetailBuffer ||= {
+  writeBuffer: [],
+  flushTimer: null,
+  isFlushing: false,
+  syncAdapter: null,
+  maxRecords: 200,
+});
 
 function sanitizeHeaders(headers) {
   if (!headers || typeof headers !== "object") return {};
@@ -69,6 +80,9 @@ function sanitizeHeaders(headers) {
 }
 
 export const __test__ = { sanitizeHeaders };
+
+// Read-only hook for the bounded-buffer check.
+export const __buffer__ = { size: () => bufferState.writeBuffer.length };
 
 function generateDetailId(model) {
   const timestamp = new Date().toISOString();
@@ -86,13 +100,13 @@ function truncateField(obj, maxSize) {
 }
 
 async function flushToDatabase() {
-  if (isFlushing) return;
-  if (writeBuffer.length === 0) return;
-  isFlushing = true;
+  if (bufferState.isFlushing) return;
+  if (bufferState.writeBuffer.length === 0) return;
+  bufferState.isFlushing = true;
   try {
     // Drain entire buffer (loop in case more pushed during await)
-    while (writeBuffer.length > 0) {
-      const items = writeBuffer.splice(0, writeBuffer.length);
+    while (bufferState.writeBuffer.length > 0) {
+      const items = bufferState.writeBuffer.splice(0, bufferState.writeBuffer.length);
       const db = await getAdapter();
       const config = await getObservabilityConfig();
 
@@ -136,7 +150,7 @@ async function flushToDatabase() {
   } catch (e) {
     console.error("[requestDetailsRepo] Batch write failed:", e);
   } finally {
-    isFlushing = false;
+    bufferState.isFlushing = false;
   }
 }
 
@@ -144,19 +158,52 @@ export async function saveRequestDetail(detail) {
   const config = await getObservabilityConfig();
   if (!config.enabled) {return;}
 
-  writeBuffer.push(detail);
+  ensureShutdownHandler();
+
+  // Cache a sync handle + record cap so the exit drain needs no await.
+  try {
+    if (!bufferState.syncAdapter) bufferState.syncAdapter = getAdapterSync();
+    bufferState.maxRecords = config.maxRecords || DEFAULT_MAX_RECORDS;
+  } catch {
+    /* sync adapter unavailable (node:sqlite path) — async drain still applies */
+  }
+
+  // ponytail: drop-oldest on overflow; switch to a Redis stream/disk spool if
+  // losing observability rows under sustained DB stall becomes unacceptable.
+  if (bufferState.writeBuffer.length >= config.maxBuffered) {
+    const dropped = bufferState.writeBuffer.shift();
+    if (!dropped.__overflowLogged) {
+      dropped.__overflowLogged = true;
+      console.error(
+        `[requestDetailsRepo] write buffer full (${config.maxBuffered}); dropping oldest detail(s) until the DB catches up`
+      );
+    }
+  }
+
+  bufferState.writeBuffer.push(detail);
 
   // Trigger immediate flush if batch threshold reached.
   // flushToDatabase() drains entire buffer in a loop, so all pushes during await are persisted.
-  if (writeBuffer.length >= config.batchSize) {
-    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+  if (bufferState.writeBuffer.length >= config.batchSize) {
+    if (bufferState.flushTimer) { clearTimeout(bufferState.flushTimer); bufferState.flushTimer = null; }
     flushToDatabase().catch((e) => console.error("[requestDetailsRepo] flush err:", e));
-  } else if (!flushTimer) {
-    flushTimer = setTimeout(() => {
-      flushTimer = null;
+  } else if (!bufferState.flushTimer) {
+    bufferState.flushTimer = setTimeout(() => {
+      bufferState.flushTimer = null;
       flushToDatabase().catch(() => {});
     }, config.flushIntervalMs);
   }
+}
+
+// Fixed-timeout drain for shutdown. Never blocks exit indefinitely; the caller
+// gets false when the deadline hits with rows still buffered.
+export async function flushRequestDetails() {
+  if (bufferState.writeBuffer.length === 0) return true;
+  if (bufferState.flushTimer) { clearTimeout(bufferState.flushTimer); bufferState.flushTimer = null; }
+  // Synchronous: better-sqlite3 is sync, so a drain needs no await and cannot
+  // lose a race against a shutdown that closes the connection.
+  drainSync();
+  return bufferState.writeBuffer.length === 0;
 }
 
 export async function getRequestDetails(filter = {}) {
@@ -204,21 +251,63 @@ export async function getRequestDetailById(id) {
   return row ? parseJson(row.data, null) : null;
 }
 
-const _shutdownHandler = async () => {
-  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
-  if (writeBuffer.length > 0) await flushToDatabase();
-};
-
-function ensureShutdownHandler() {
-  process.off("beforeExit", _shutdownHandler);
-  process.off("SIGINT", _shutdownHandler);
-  process.off("SIGTERM", _shutdownHandler);
-  process.off("exit", _shutdownHandler);
-
-  process.on("beforeExit", _shutdownHandler);
-  process.on("SIGINT", _shutdownHandler);
-  process.on("SIGTERM", _shutdownHandler);
-  process.on("exit", _shutdownHandler);
+// Next's own SIGTERM cleanup closes the DB ("connection is not open") though it
+// does not exit immediately, so the drain must run synchronously and first.
+function drainSync() {
+  if (bufferState.writeBuffer.length === 0) return;
+  try {
+    const db = bufferState.syncAdapter || getAdapterSync();
+    writeDetailsSync(db, bufferState.writeBuffer.splice(0, bufferState.writeBuffer.length));
+  } catch (e) {
+    console.error("[requestDetailsRepo] sync drain failed:", e);
+  }
 }
 
-ensureShutdownHandler();
+// The SQLite adapter closes the connection on SIGTERM/SIGINT, so it calls this
+// before `db.close()` to give buffered rows their last chance to persist.
+globalThis.__liteRouterDrainSync = drainSync;
+
+function writeDetailsSync(db, items) {
+  const maxRecords = bufferState.maxRecords || DEFAULT_MAX_RECORDS;
+  db.transaction(() => {
+    for (const item of items) {
+      if (!item.id) item.id = generateDetailId(item.model);
+      if (!item.timestamp) item.timestamp = new Date().toISOString();
+      if (item.request?.headers) item.request.headers = sanitizeHeaders(item.request.headers);
+      const record = {
+        id: item.id,
+        provider: item.provider || null,
+        model: item.model || null,
+        connectionId: item.connectionId || null,
+        timestamp: item.timestamp,
+        status: item.status || null,
+        latency: item.latency || {},
+        tokens: item.tokens || {},
+        request: truncateField(item.request, 5 * 1024),
+        providerRequest: truncateField(item.providerRequest, 5 * 1024),
+        providerResponse: truncateField(item.providerResponse, 5 * 1024),
+        response: truncateField(item.response, 5 * 1024),
+      };
+      db.run(
+        `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`,
+        [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, stringifyJson(record)]
+      );
+    }
+    const cnt = db.get(`SELECT COUNT(*) as c FROM requestDetails`);
+    if (cnt && cnt.c > maxRecords) {
+      db.run(`DELETE FROM requestDetails WHERE id IN (SELECT id FROM requestDetails ORDER BY timestamp ASC LIMIT ?)`, [cnt.c - maxRecords]);
+    }
+  });
+}
+
+// Exported (not just called inline) so bundlers keep the handler reachable;
+// an unreferenced module-level side effect gets tree-shaken out of the route.
+export function ensureShutdownHandler() {
+  if (globalThis.__liteRouterDetailShutdownHook) return;
+  globalThis.__liteRouterDetailShutdownHook = true;
+  // Synchronous and registered first: Next also listens on these signals and
+  // closes the DB, so any async drain would find a dead connection.
+  process.on("beforeExit", drainSync);
+  process.on("SIGINT", drainSync);
+  process.on("SIGTERM", drainSync);
+}

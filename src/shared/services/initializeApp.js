@@ -3,22 +3,31 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { existsSync } from "fs";
 import { cleanupProviderConnections, getSettings, updateSettings, getApiKeys } from "@/lib/localDb";
-import {
-  enableTunnel, enableTailscale,
-  isTunnelManuallyDisabled, isTunnelReconnecting, isTailscaleReconnecting,
-  getTunnelService, getTailscaleService, setTunnelUnexpectedExitCallback,
-  killCloudflared, isCloudflaredRunning, ensureCloudflared,
-  isTailscaleRunning, isTailscaleRunningStrict, isDaemonAlive, startFunnel,
-  checkInternet,
-  RESTART_COOLDOWN_MS, NETWORK_SETTLE_MS,
-  WATCHDOG_INTERVAL_MS, NETWORK_CHECK_INTERVAL_MS, VIRTUAL_IFACE_REGEX,
-} from "@/lib/tunnel";
-import { getMitmStatus, startMitm, loadEncryptedPassword, initDbHooks, restoreToolDNS, removeAllDNSEntriesSync } from "@/mitm/manager";
-import { syncToJson as syncMitmAliasCache } from "@/lib/mitmAliasCache";
-import { killAllBridges } from "@/lib/mcp/stdioSseBridge";
+import { redisEnabled, redisPing } from "@/lib/redis.js";
+
+// Non-retained subsystem modules are loaded lazily so the minimal profile does
+// not pull tunnel/MITM/MCP code into the server boot path at all.
+const MINIMAL = process.env.MINIMAL_PROFILE === "true";
+const tunnel = () => import("@/lib/tunnel");
+const mitm = () => import("@/mitm/manager");
+
+// Cached module handles. Kept separate from the import promise so synchronous
+// call sites (signal cleanup) can use them once startup has resolved them.
+const g0 = (global.__initAppModules ??= { tunnel: null, mitm: null, bridges: null, mitmAlias: null });
+
+async function loadTunnelModule() {
+  if (!g0.tunnel) g0.tunnel = await tunnel();
+  return g0.tunnel;
+}
+
+async function loadMitmModule() {
+  if (!g0.mitm) g0.mitm = await mitm();
+  return g0.mitm;
+}
 
 // Inject correct paths and DB hooks into manager.js (CJS) from ESM context
 (function bootstrapMitm() {
+  if (MINIMAL) return;
   if (!process.env.MITM_SERVER_PATH) {
     try {
       const thisFile = fileURLToPath(import.meta.url);
@@ -27,7 +36,7 @@ import { killAllBridges } from "@/lib/mcp/stdioSseBridge";
       if (existsSync(candidate)) process.env.MITM_SERVER_PATH = candidate;
     } catch { /* ignore */ }
   }
-  try { initDbHooks(getSettings, updateSettings); } catch { /* ignore */ }
+  try { mitm().then((m) => m.initDbHooks(getSettings, updateSettings)).catch(() => {}); } catch { /* ignore */ }
 })();
 
 process.setMaxListeners(20);
@@ -55,20 +64,24 @@ export async function initializeApp() {
     // unexpected cloudflared exits are handled even during the deferred window.
     if (!g.signalHandlersRegistered) {
       const cleanup = () => {
-        try { removeAllDNSEntriesSync(); } catch { /* best effort */ }
-        try { killAllBridges(); } catch { /* best effort */ }
-        killCloudflared();
+        try { g0.mitm?.removeAllDNSEntriesSync(); } catch { /* best effort */ }
+        try { g0.bridges?.killAllBridges(); } catch { /* best effort */ }
+        try { g0.tunnel?.killCloudflared(); } catch { /* best effort */ }
         process.exit();
       };
       process.on("SIGINT", cleanup);
       process.on("SIGTERM", cleanup);
-      process.on("exit", () => { try { removeAllDNSEntriesSync(); } catch { /* ignore */ } });
+      process.on("exit", () => { try { g0.mitm?.removeAllDNSEntriesSync(); } catch { /* ignore */ } });
       g.signalHandlersRegistered = true;
     }
 
-    setTunnelUnexpectedExitCallback(() => {
-      safeRestartTunnel("unexpected-exit").catch(() => {});
-    });
+    if (!MINIMAL) {
+      loadTunnelModule().then((t) => {
+        t.setTunnelUnexpectedExitCallback(() => {
+          safeRestartTunnel("unexpected-exit").catch(() => {});
+        });
+      }).catch(() => {});
+    }
 
     // Defer the heavy work — nothing here blocks incoming requests.
     setTimeout(() => {
@@ -80,8 +93,27 @@ export async function initializeApp() {
 }
 
 async function runHeavyStartup() {
+  if (redisEnabled()) redisPing().then((ok) => console.log(`[Redis] ${ok ? "connected" : "fallback mode"}`));
   await cleanupProviderConnections();
   const settings = await getSettings();
+
+  // Minimal profile: exposure (tunnel/tailscale) and MITM are not retained
+  // product surfaces, so their managers must not initialize at startup. Rollback
+  // is a config flip. The modules stay importable for the routes that use them.
+  if (process.env.MINIMAL_PROFILE === "true") {
+    console.log("[InitApp] minimal profile: skipping tunnel/tailscale/MITM startup");
+    if (hasQuotaAutoPingEnabled(settings)) {
+      import("@/shared/services/quotaAutoPing")
+        .then(({ startQuotaAutoPing }) => startQuotaAutoPing())
+        .catch((e) => console.log("[AutoPing] scheduler start failed:", e.message));
+    }
+    import("@/sse/services/backgroundTokenRefresh.js")
+      .then(({ startBackgroundTokenRefresh }) => startBackgroundTokenRefresh())
+      .catch((e) => console.log("[BackgroundTokenRefresh] scheduler start failed:", e.message));
+    return;
+  }
+
+  const tunnelApi = await loadTunnelModule();
 
   // Auto-resume tunnel (once per process)
   if (settings.tunnelEnabled && !g.tunnelAutoResumed) {
@@ -97,13 +129,15 @@ async function runHeavyStartup() {
     safeRestartTailscale("startup").catch((e) => console.log("[InitApp] Tailscale resume failed:", e.message));
   }
 
-  if (settings.tunnelEnabled) ensureCloudflared().catch(() => {});
+  if (settings.tunnelEnabled) tunnelApi.ensureCloudflared().catch(() => {});
 
   if (settings.mitmEnabled) {
     // Sync mitmAlias DB → JSON cache so standalone MITM server can read it.
-    syncMitmAliasCache().catch(() => {});
+    import("@/lib/mitmAliasCache").then((m) => m.syncToJson()).catch(() => {});
     autoStartMitm(settings);
   }
+
+  if (!g0.bridges) import("@/lib/mcp/stdioSseBridge").then((m) => { g0.bridges = m; }).catch(() => {});
 
   configureTunnelMonitoring(settings);
 
@@ -130,10 +164,11 @@ async function autoStartMitm(settings) {
   g.mitmStartInProgress = true;
   try {
     if (!settings.mitmEnabled) return;
-    const mitmStatus = await getMitmStatus();
+    const mitmApi = await loadMitmModule();
+    const mitmStatus = await mitmApi.getMitmStatus();
     if (mitmStatus.running) return;
 
-    const password = await loadEncryptedPassword();
+    const password = await mitmApi.loadEncryptedPassword();
     if (!password && process.platform !== "win32") {
       console.log("[InitApp] MITM was enabled but no saved password found, skipping auto-start");
       return;
@@ -143,10 +178,10 @@ async function autoStartMitm(settings) {
     const activeKey = keys.find(k => k.isActive !== false);
 
     console.log("[InitApp] MITM was enabled, auto-starting...");
-    await startMitm(activeKey?.key || "sk_9router", password);
+    await mitmApi.startMitm(activeKey?.key || "sk_9router", password);
     console.log("[InitApp] MITM auto-started");
     try {
-      await restoreToolDNS(password);
+      await mitmApi.restoreToolDNS(password);
       console.log("[InitApp] DNS restored from saved state");
     } catch (e) {
       console.log("[InitApp] DNS restore failed:", e.message);
@@ -165,7 +200,8 @@ const FORCE_RESTART_REASONS = /^(startup|netchange|sleep|sleep\+netchange|online
 // ─── Safe restart (4 guards: spawn / cooldown / alive / internet) ────────────
 
 async function safeRestartTunnel(reason) {
-  const svc = getTunnelService();
+  const t = await loadTunnelModule();
+  const svc = t.getTunnelService();
   const settings = await getSettings();
   if (!settings.tunnelEnabled) return;
   if (svc.cancelToken.cancelled) return;
@@ -175,17 +211,17 @@ async function safeRestartTunnel(reason) {
 
   // Process alive = trust cloudflared (self-reconnects via --retries 99, keeps same URL).
   // Killing a live process on network change drops the tunnel and rotates the quick-tunnel URL.
-  if (isCloudflaredRunning()) return;
+  if (t.isCloudflaredRunning()) return;
 
-  if (!force && Date.now() - svc.lastRestartAt < RESTART_COOLDOWN_MS) {
+  if (!force && Date.now() - svc.lastRestartAt < t.RESTART_COOLDOWN_MS) {
     console.log(`[Tunnel] degraded but cooldown active, skip (${reason})`);
     return;
   }
-  if (!await checkInternet()) return;
+  if (!await t.checkInternet()) return;
 
   console.log(`[Tunnel] safeRestart (${reason}) — tunnel unreachable${force ? " [force]" : ""}`);
   try {
-    await enableTunnel();
+    await t.enableTunnel();
     svc.lastRestartAt = Date.now();
     console.log("[Tunnel] restart success");
   } catch (err) {
@@ -196,7 +232,8 @@ async function safeRestartTunnel(reason) {
 }
 
 async function safeRestartTailscale(reason) {
-  const svc = getTailscaleService();
+  const t = await loadTunnelModule();
+  const svc = t.getTailscaleService();
   const settings = await getSettings();
   if (!settings.tailscaleEnabled) return;
   if (svc.cancelToken.cancelled) return;
@@ -204,13 +241,13 @@ async function safeRestartTailscale(reason) {
 
   // Tailscale daemon is OS-level with built-in reconnect; trust it when running (even on netchange).
   // Startup uses strict probe — cached state is cold after process/dev reload.
-  const running = reason === "startup" ? await isTailscaleRunningStrict() : isTailscaleRunning();
+  const running = reason === "startup" ? await t.isTailscaleRunningStrict() : t.isTailscaleRunning();
   if (running) return;
 
   // Daemon alive but funnel dropped → recover funnel only; never full-restart (preserves login/daemon).
-  if (isDaemonAlive() && svc.activeLocalPort) {
+  if (t.isDaemonAlive() && svc.activeLocalPort) {
     try {
-      await startFunnel(svc.activeLocalPort);
+      await t.startFunnel(svc.activeLocalPort);
       svc.lastRestartAt = Date.now();
       console.log("[Tailscale] funnel re-established (daemon alive)");
     } catch (err) {
@@ -220,15 +257,15 @@ async function safeRestartTailscale(reason) {
   }
 
   const force = FORCE_RESTART_REASONS.test(reason);
-  if (!force && Date.now() - svc.lastRestartAt < RESTART_COOLDOWN_MS) {
+  if (!force && Date.now() - svc.lastRestartAt < t.RESTART_COOLDOWN_MS) {
     console.log(`[Tailscale] degraded but cooldown active, skip (${reason})`);
     return;
   }
-  if (!await checkInternet()) return;
+  if (!await t.checkInternet()) return;
 
   console.log(`[Tailscale] safeRestart (${reason}) — daemon not running${force ? " [force]" : ""}`);
   try {
-    await enableTailscale();
+    await t.enableTailscale();
     svc.lastRestartAt = Date.now();
     console.log("[Tailscale] restart success");
   } catch (err) {
@@ -238,12 +275,13 @@ async function safeRestartTailscale(reason) {
 
 // ─── Watchdog: 60s tick check both services ──────────────────────────────────
 
-function startWatchdog() {
+async function startWatchdog() {
   if (g.watchdogInterval) return;
+  const t = await loadTunnelModule();
   g.watchdogInterval = setInterval(() => {
     safeRestartTunnel("watchdog").catch(() => {});
     safeRestartTailscale("watchdog").catch(() => {});
-  }, WATCHDOG_INTERVAL_MS);
+  }, t.WATCHDOG_INTERVAL_MS);
   if (g.watchdogInterval.unref) g.watchdogInterval.unref();
 }
 
@@ -255,12 +293,13 @@ function stopWatchdog() {
 
 // ─── Network monitor: detect IPv4 fingerprint change + sleep/wake ────────────
 
-function getNetworkFingerprint() {
+async function getNetworkFingerprint() {
+  const t = await loadTunnelModule();
   const interfaces = os.networkInterfaces();
   const active = [];
   for (const [name, addrs] of Object.entries(interfaces)) {
     if (!addrs) continue;
-    if (VIRTUAL_IFACE_REGEX.test(name)) continue;
+    if (t.VIRTUAL_IFACE_REGEX.test(name)) continue;
     for (const addr of addrs) {
       if (!addr.internal && addr.family === "IPv4") {
         active.push(`${name}:${addr.address}`);
@@ -270,10 +309,11 @@ function getNetworkFingerprint() {
   return active.sort().join("|");
 }
 
-function startNetworkMonitor() {
+async function startNetworkMonitor() {
   if (g.networkMonitorInterval) return;
+  const t = await loadTunnelModule();
 
-  g.lastNetworkFingerprint = getNetworkFingerprint();
+  g.lastNetworkFingerprint = await getNetworkFingerprint();
   g.lastWatchdogTick = Date.now();
   g.lastOnline = null;
 
@@ -283,13 +323,13 @@ function startNetworkMonitor() {
       const elapsed = now - g.lastWatchdogTick;
       g.lastWatchdogTick = now;
 
-      const currentFingerprint = getNetworkFingerprint();
+      const currentFingerprint = await getNetworkFingerprint();
       const networkChanged = currentFingerprint !== g.lastNetworkFingerprint;
-      const wasSleep = elapsed > NETWORK_CHECK_INTERVAL_MS * 6;
+      const wasSleep = elapsed > t.NETWORK_CHECK_INTERVAL_MS * 6;
       if (networkChanged) g.lastNetworkFingerprint = currentFingerprint;
 
       // Real reachability check (TCP 1.1.1.1:443) — not just interface presence
-      const online = await checkInternet();
+      const online = await t.checkInternet();
       const wasOffline = g.lastOnline === false;
       g.lastOnline = online;
 
@@ -299,7 +339,7 @@ function startNetworkMonitor() {
       if (!networkChanged && !wasSleep && !onlineEdge) return;
 
       // Wait for DHCP/DNS to settle before probing
-      await new Promise((r) => setTimeout(r, NETWORK_SETTLE_MS));
+      await new Promise((r) => setTimeout(r, t.NETWORK_SETTLE_MS));
 
       const reason = onlineEdge ? "online"
         : wasSleep && networkChanged ? "sleep+netchange"
@@ -309,7 +349,7 @@ function startNetworkMonitor() {
     } catch (err) {
       console.log("[NetworkMonitor] error:", err.message);
     }
-  }, NETWORK_CHECK_INTERVAL_MS);
+  }, t.NETWORK_CHECK_INTERVAL_MS);
 
   if (g.networkMonitorInterval.unref) g.networkMonitorInterval.unref();
 }
@@ -325,8 +365,8 @@ function stopNetworkMonitor() {
 
 export function configureTunnelMonitoring(settings) {
   if (settings?.tunnelEnabled || settings?.tailscaleEnabled) {
-    startWatchdog();
-    startNetworkMonitor();
+    startWatchdog().catch(() => {});
+    startNetworkMonitor().catch(() => {});
     return;
   }
   stopWatchdog();

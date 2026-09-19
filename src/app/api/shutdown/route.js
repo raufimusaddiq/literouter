@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
+import { flushRequestDetails } from "@/lib/db/repos/requestDetailsRepo.js";
 
 export async function POST() {
   if (process.env.NODE_ENV === "production") {
@@ -15,10 +16,15 @@ export async function POST() {
 
   const response = NextResponse.json({ success: true, message: "Shutting down..." });
 
-  setTimeout(() => {
+  setTimeout(async () => {
+    // Bounded drain so buffered request details survive a planned shutdown.
+    try {
+      await flushRequestDetails();
+    } catch {
+      /* exiting anyway */
+    }
     process.exit(0);
   }, 500);
 
   return response;
 }
-

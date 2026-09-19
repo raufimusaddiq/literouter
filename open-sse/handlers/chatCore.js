@@ -86,7 +86,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // /chat/completions), so without this guard a claude-format request would wrongly
   // route kimi to /messages.
   const modelSupportedFormats = getModelSupportedFormats(alias, model);
-  const runtimeTransport = resolveTransport(provider, sourceFormat);
+  const runtimeTransport = resolveTransport(provider, sourceFormat, credentials);
   // Per-model guard: when a model declares supportedFormats, only use the
   // sourceFormat-matched transport if that format is declared (opencode-go models
   // differ — kimi/glm only do /chat/completions). Undeclared models keep the
@@ -100,7 +100,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // directly or through a combo, translate to the model's declared target and
   // send it to that transport rather than the provider's default chat URL.
   if (!useTransport && modelSupportedFormats?.includes(targetFormat)) {
-    useTransport = resolveTransport(provider, targetFormat);
+    useTransport = resolveTransport(provider, targetFormat, credentials);
   }
   if (useTransport && credentials) credentials.runtimeTransport = useTransport;
   const stripList = getModelStrip(alias, model);

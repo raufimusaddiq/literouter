@@ -89,6 +89,31 @@ const LOCAL_ONLY_PATHS = [
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
+// Non-retained product surfaces (PRD section 18). Hidden only when
+// MINIMAL_PROFILE=true; each entry maps to a dashboard route and its API.
+const MINIMAL_HIDDEN_PREFIXES = [
+  "/dashboard/basic-chat",
+  "/dashboard/cli-tools",
+  "/dashboard/console-log",
+  "/dashboard/mitm",
+  "/dashboard/media-providers",
+  "/dashboard/proxy-pools",
+  "/dashboard/skills",
+  "/dashboard/translator",
+  "/dashboard/pxpipe",
+  "/api/cli-tools",
+  "/api/media-providers",
+  "/api/proxy-pools",
+  "/api/skills",
+  "/api/translator",
+  "/api/headroom",
+  "/api/mcp",
+  "/api/tunnel",
+  // Built-in updater / shutdown installer flows (PRD section 18).
+  "/api/version/update",
+  "/api/version/shutdown",
+];
+
 // Accepts a Host header, a URL hostname or a raw socket address. Splitting on the first
 // colon only works for IPv4 and would reduce every IPv6 form to "", so a dual-stack
 // listener handing back ::ffff:127.0.0.1 would not read as loopback.
@@ -201,6 +226,15 @@ export const __test__ = {
 
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
+
+  // Minimal profile: non-retained product surfaces are not exposed. The routes
+  // still exist in the build so rollback is a config flip, not a redeploy.
+  if (process.env.MINIMAL_PROFILE === "true" && MINIMAL_HIDDEN_PREFIXES.some((p) => pathname.startsWith(p))) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Not available in minimal profile" }, { status: 404 });
+    }
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
 
   // Local-only gate for spawn-capable / host-secret routes.
   if (LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p))) {

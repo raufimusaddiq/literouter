@@ -65,9 +65,13 @@ const DEFAULT_SETTINGS = {
 };
 
 async function readRaw() {
+  // ponytail: process-local cache, invalidated on write; add Redis version key if multi-process writes appear
+  const cache = global.__liteRouterSettingsCache ??= { raw: null, merged: null };
+  if (cache.raw) return cache.raw;
   const db = await getAdapter();
   const row = db.get(`SELECT data FROM settings WHERE id = 1`);
-  return row ? parseJson(row.data, {}) : {};
+  cache.raw = row ? parseJson(row.data, {}) : {};
+  return cache.raw;
 }
 
 // Merge raw settings with defaults; backward-compat for missing keys
@@ -90,8 +94,11 @@ export function mergeWithDefaults(raw) {
 }
 
 export async function getSettings() {
-  const raw = await readRaw();
-  return mergeWithDefaults(raw);
+  // Cache the merged object too: mergeWithDefaults + raw parse dominated the
+  // call cost, and every caller only reads the result.
+  const cache = global.__liteRouterSettingsCache ??= { raw: null, merged: null };
+  if (!cache.merged) cache.merged = mergeWithDefaults(await readRaw());
+  return cache.merged;
 }
 
 // Atomic read-merge-write inside transaction (prevents losing concurrent updates)
@@ -107,7 +114,10 @@ export async function updateSettings(updates) {
       [stringifyJson(next)],
     );
   });
-  return mergeWithDefaults(next);
+  const cache = (global.__liteRouterSettingsCache ??= { raw: null, merged: null });
+  cache.raw = next;
+  cache.merged = mergeWithDefaults(next);
+  return cache.merged;
 }
 
 export async function isCloudEnabled() {

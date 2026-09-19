@@ -65,6 +65,8 @@ export {
 // Request details
 export {
   saveRequestDetail, getRequestDetails, getRequestDetailById, getDistinctProviders,
+  flushRequestDetails,
+  ensureShutdownHandler as ensureRequestDetailShutdownHandler,
 } from "./repos/requestDetailsRepo.js";
 
 // Export/import full DB
@@ -162,7 +164,18 @@ export async function importDb(payload) {
     }
   });
 
+  invalidateRuntimeCaches();
+
   return await exportDb();
+}
+
+// Caches live in repo modules; a raw SQL import bypasses their writers.
+// Drop them here so a restore is visible to routing immediately.
+function invalidateRuntimeCaches() {
+  if (global.__liteRouterSettingsCache) { global.__liteRouterSettingsCache.raw = null; global.__liteRouterSettingsCache.merged = null; }
+  if (global.__liteRouterConnectionCache) { global.__liteRouterConnectionCache.rows = null; global.__liteRouterConnectionCache.expiresAt = 0; }
+  if (global.__liteRouterComboCache) { global.__liteRouterComboCache.rows = null; global.__liteRouterComboCache.expiresAt = 0; }
+  if (global.__liteRouterApiKeyCache) { global.__liteRouterApiKeyCache.rows = null; global.__liteRouterApiKeyCache.expiresAt = 0; }
 }
 
 // Eager init helper (optional)

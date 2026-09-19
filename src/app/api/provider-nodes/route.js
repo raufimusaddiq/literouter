@@ -46,15 +46,21 @@ export async function POST(request) {
     const nodeType = type || "openai-compatible";
 
     if (nodeType === "openai-compatible") {
-      if (!apiType || !["chat", "responses"].includes(apiType)) {
+      // Explicit per-transport capabilities are optional; when absent, apiType
+      // keeps the legacy single-transport behavior.
+      const transports = Array.isArray(body.transports)
+        ? body.transports.filter((t) => ["chat_completions", "responses", "messages"].includes(t))
+        : null;
+      if (!transports?.length && (!apiType || !["chat", "responses"].includes(apiType))) {
         return NextResponse.json({ error: "Invalid OpenAI compatible API type" }, { status: 400 });
       }
 
       const node = await createProviderNode({
-        id: `${OPENAI_COMPATIBLE_PREFIX}${apiType}-${generateId()}`,
+        id: `${OPENAI_COMPATIBLE_PREFIX}${(transports?.includes("chat_completions") || !transports) ? (apiType || "chat") : "responses"}-${generateId()}`,
         type: "openai-compatible",
         prefix: prefix.trim(),
-        apiType,
+        apiType: apiType || (transports?.includes("chat_completions") ? "chat" : "responses"),
+        transports: transports || undefined,
         baseUrl: (baseUrl || OPENAI_COMPATIBLE_DEFAULTS.baseUrl).trim(),
         name: name.trim(),
       });
