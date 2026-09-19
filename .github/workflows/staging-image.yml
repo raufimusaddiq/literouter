@@ -5,6 +5,12 @@ on:
     branches: [staging]
   workflow_dispatch:
 
+# Two pushes back to back otherwise race, and the slower older run can finish
+# last and overwrite staging-latest with stale bits.
+concurrency:
+  group: staging-image
+  cancel-in-progress: true
+
 env:
   IMAGE: ghcr.io/${{ github.repository }}-staging
 
@@ -28,7 +34,8 @@ jobs:
         id: meta
         with:
           images: ${{ env.IMAGE }}
-          # staging-<short sha> for the exact commit + staging-latest to follow the branch.
+          # Full 40-char sha for the exact commit + staging-latest to follow the branch.
+          # `github.sha` is long form; `type=sha` would shorten it, so keep raw.
           tags: |
             type=raw,value=staging-${{ github.sha }}
             type=raw,value=staging-latest

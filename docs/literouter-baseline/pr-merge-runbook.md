@@ -42,12 +42,25 @@ commit before merging if the history matters; it is harmless otherwise.
 
 ## After merge
 
-Rebuild staging and re-run the smoke test before promoting anything:
+The staging image is built by `.github/workflows/staging-image.yml` on every push
+to `staging` and published to
+`ghcr.io/raufimusaddiq/literouter-staging:staging-<full-sha>` (+ `staging-latest`).
+This box only pulls:
 
 ```bash
 cd /opt/9router
-setsid docker compose -f compose.staging.yml up -d --build > /tmp/rb.log 2>&1 < /dev/null & disown
-docker builder prune -f     # ALWAYS, after each build
+docker compose -f compose.staging.yml pull
+docker compose -f compose.staging.yml up -d
 ```
 
-Builds take ~10–12 min and spike RAM; do not run vitest concurrently.
+Wait for the workflow (`gh run watch --repo raufimusaddiq/literouter`) before
+pulling — `staging-latest` is whatever the last green run produced.
+
+If a pull ever fails with `denied`, the GHCR package is private: log in once with
+`gh auth token | docker login ghcr.io -u raufimusaddiq --password-stdin`, or flip
+the package to public in the repo's package settings. A public repo's package
+normally inherits public visibility, but the package does not exist until the
+workflow has run once.
+
+No local build, so no `docker builder prune` needed. Builds no longer touch this
+box's RAM or disk.

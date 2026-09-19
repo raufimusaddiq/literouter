@@ -2,6 +2,8 @@ services:
   literouter-staging:
     # Built by .github/workflows/staging-image.yml; this box only pulls.
     # Pin a commit with LITEROUTER_STAGING_TAG=staging-<sha>.
+    # Pin commits by exporting LITEROUTER_STAGING_TAG in the shell or `.env`
+    # (compose reads `env_file` for the container only, not for its own vars).
     image: ghcr.io/raufimusaddiq/literouter-staging:${LITEROUTER_STAGING_TAG:-staging-latest}
     pull_policy: always
     container_name: literouter-staging
