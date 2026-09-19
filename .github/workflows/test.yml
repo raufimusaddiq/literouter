@@ -21,11 +21,14 @@ jobs:
 
       # The suite imports app sources, so it needs the runtime deps (next,
       # undici, uuid, …) from the root install as well as the test runner's own.
-      # The root has no lockfile (see .gitignore), so it installs unpinned.
-      # tests/ is a separate project and keeps its own lockfile, so the runner
-      # install is reproducible.
-      # ponytail: unpinned root install — add a root lockfile if a dependency
-      # bump ever makes CI flaky.
+      #
+      # The root deliberately has no lockfile: `.gitignore` excludes it and the
+      # Dockerfile installs the same way, so CI resolves the same dependency
+      # graph the shipped image does. Committing a root lockfile here would make
+      # CI reproducible but would no longer describe what ships, which is the
+      # worse trade. tests/ is a separate project and does keep a lockfile.
+      # ponytail: unpinned root install, mirroring the Dockerfile. Pin both
+      # together if a dependency bump ever breaks the suite.
       - run: npm install --no-audit --no-fund
       - run: npm ci
         working-directory: tests
