@@ -384,7 +384,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
 
         {(proxyPools || []).length === 0 && (
           <p className="text-xs text-text-muted">
-            No active proxy pools available. Create one in Proxy Pools page first.
+            No active proxy pools available. Add one via the `POST /api/proxy-pools` API.
           </p>
         )}
 
