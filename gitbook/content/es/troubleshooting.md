@@ -1,6 +1,6 @@
 # Solución de problemas
 
-Problemas comunes y soluciones al usar 9Router.
+Problemas comunes y soluciones al usar LiteRouter.
 
 ---
 
@@ -78,7 +78,7 @@ Problemas comunes y soluciones al usar 9Router.
 **Soluciones:**
 
 1. **Refresh automático (por defecto):**
-   9Router refresca automáticamente los tokens. Espera 30 segundos y reintenta.
+   LiteRouter refresca automáticamente los tokens. Espera 30 segundos y reintenta.
 
 2. **Reconexión manual:**
    ```
@@ -135,13 +135,13 @@ Problemas comunes y soluciones al usar 9Router.
 **Problema:** "ECONNREFUSED" o "Cannot connect to localhost:20128".
 
 **Causas:**
-- 9Router no está ejecutándose
+- LiteRouter no está ejecutándose
 - Puerto 20128 bloqueado
 - Firewall bloqueando la conexión
 
 **Soluciones:**
 
-1. **Inicia 9Router:**
+1. **Inicia LiteRouter:**
    ```bash
    9router
    ```
@@ -151,7 +151,7 @@ Problemas comunes y soluciones al usar 9Router.
    ```bash
    # Verifica si el puerto está escuchando
    lsof -i :20128
-   
+
    # O en Windows
    netstat -ano | findstr :20128
    ```
@@ -164,7 +164,7 @@ Problemas comunes y soluciones al usar 9Router.
 4. **Usa el endpoint en la nube:**
    Si localhost no funciona (ej. Cursor IDE):
    ```
-   Endpoint: https://9router.com/v1
+   Endpoint: https://ai-staging.investdx.biz.id/v1
    ```
 
 ---
@@ -175,16 +175,16 @@ Problemas comunes y soluciones al usar 9Router.
 
 **Causas:**
 - Puerto 3000 ya en uso
-- 9Router crasheó
+- LiteRouter crasheó
 - Problemas de caché del navegador
 
 **Soluciones:**
 
-1. **Verifica si 9Router está ejecutándose:**
+1. **Verifica si LiteRouter está ejecutándose:**
    ```bash
    # Verifica el proceso
    ps aux | grep 9router
-   
+
    # Verifica el puerto 3000
    lsof -i :3000
    ```
@@ -193,17 +193,17 @@ Problemas comunes y soluciones al usar 9Router.
    ```bash
    # macOS/Linux
    lsof -ti:3000 | xargs kill -9
-   
+
    # Windows
    netstat -ano | findstr :3000
    taskkill /PID <PID> /F
    ```
 
-3. **Reinicia 9Router:**
+3. **Reinicia LiteRouter:**
    ```bash
    # Detener
    pkill -f 9router
-   
+
    # Iniciar
    9router
    ```
@@ -237,7 +237,7 @@ Problemas comunes y soluciones al usar 9Router.
    ```
    Correcto: cc/claude-opus-4-5-20251101
    Incorrecto: claude-opus-4-5-20251101
-   
+
    Formato: [prefijo-proveedor]/[nombre-modelo]
    ```
 
@@ -328,10 +328,10 @@ Problemas comunes y soluciones al usar 9Router.
    ```bash
    # Cursor
    Settings → Models → OpenAI API Key
-   
+
    # Cline
    Settings → API Key
-   
+
    # Variable de entorno
    export OPENAI_API_KEY="9r_your_key"
    ```
@@ -347,5 +347,5 @@ Problemas comunes y soluciones al usar 9Router.
 ## ¿Necesitas más ayuda?
 
 - **GitHub Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
-- **Documentación:** [9router.com/docs](https://9router.com/docs)
+- **Documentación:** [ai-staging.investdx.biz.id/docs](https://ai-staging.investdx.biz.id/docs)
 - **FAQ:** [faq.md](faq.md)

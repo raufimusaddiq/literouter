@@ -6,7 +6,7 @@ Both deployments routed identical non-streaming `POST /v1/chat/completions`
 requests to an identical mock upstream container, so the measured difference is
 router overhead rather than upstream variance.
 
-- Production: `9router:v0.5.81-kenari-luna` on `172.30.0.2:20128`, Generic
+- Production: `literouter:v0.5.81-kenari-luna` on `172.30.0.2:20128`, Generic
   Provider node pointed at `http://mockprod:8099/v1`.
 - Staging: `literouter:staging` on `127.0.0.1:20129`, Generic Provider node
   pointed at `http://mockup:8099/v1`.
@@ -101,7 +101,7 @@ Idle RSS, both containers sampled together:
 
 | Container | RSS |
 | --- | --- |
-| `9router` (production) | 118.1 MiB |
+| `literouter` (production) | 118.1 MiB |
 | `literouter-staging` | 68.9 MiB |
 
 Staging now holds its own connections and traffic history, so this is closer to
@@ -139,7 +139,7 @@ Post-burst resource sample, both containers together:
 
 | Container | RSS | Memory limit |
 | --- | --- | --- |
-| `9router` (production) | 236.6 MiB | 512 MiB |
+| `literouter` (production) | 236.6 MiB | 512 MiB |
 | `literouter-staging` | 72.3 MiB | 512 MiB |
 | `idx-redis` | 5.8 MiB | 256 MiB |
 
@@ -152,5 +152,5 @@ chat burst is not expected to add keys.
 As of 2026-09-20 the `staging` branch and the `ai-staging.investdx.biz.id`
 deployment are declared stable under the name **LiteRouter**. They carry the
 Redis connection-cache invalidation and the reproducible lockfile-based CI
-(#20) plus the Alpine musl native pins (#21). Production `9router` remains the
+(#20) plus the Alpine musl native pins (#21). Production `literouter` remains the
 prior image and is untouched.

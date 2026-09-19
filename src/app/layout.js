@@ -1,5 +1,5 @@
-import { Inter } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import { Geist } from "next/font/google";
 import "material-symbols/outlined.css";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/components/ThemeProvider";
@@ -11,14 +11,14 @@ import { RuntimeI18nProvider } from "@/i18n/RuntimeI18nProvider";
 // Hook console immediately at module load time (server-side only, runs once)
 initConsoleLogCapture();
 
-const inter = Inter({
+const geist = Geist({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-geist",
 });
 
 export const metadata = {
-  title: "9Router - AI Infrastructure Management",
-  description: "One endpoint for all your AI providers. Manage keys, monitor usage, and scale effortlessly.",
+  title: "LiteRouter — AI routing control plane",
+  description: "A lean control plane for provider keys, routing, usage, and quota.",
   icons: {
     icon: "/favicon.svg",
   },
@@ -46,7 +46,7 @@ export default function RootLayout({ children }) {
           }}
         />
       </head>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${geist.variable} font-sans antialiased`}>
         <ThemeProvider>
           <RuntimeI18nProvider>
             {children}

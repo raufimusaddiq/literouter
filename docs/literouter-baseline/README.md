@@ -3,7 +3,7 @@
 Working notes for the minimalization initiative. Not part of the product
 contract; the PRD (`docs/PRD-LITEROUTER-MINIMAL.md`) is authoritative.
 
-## Phase 1 baseline (production, image `9router:v0.5.81-kenari-luna`)
+## Phase 1 baseline (production, image `literouter:v0.5.81-kenari-luna`)
 
 | Metric | Value |
 | --- | --- |
@@ -16,8 +16,8 @@ contract; the PRD (`docs/PRD-LITEROUTER-MINIMAL.md`) is authoritative.
 Data volume at capture: 3 provider connections, 4 combos, 39903 usageHistory
 rows, 25 usageDaily rows, 1000 requestDetails rows.
 
-Rollback reference: `9router:v0.5.81-kenari-luna` (production), previous
-`9router:v0.5.75-kenari-fix`.
+Rollback reference: `literouter:v0.5.81-kenari-luna` (production), previous
+`literouter:v0.5.75-kenari-fix`.
 
 ## Hot-path cache measurements
 

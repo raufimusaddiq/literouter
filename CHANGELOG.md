@@ -308,7 +308,7 @@
 ## Features
 - **Providers**: add TokenRouter (300+ models via OpenAI-compatible gateway) with
   exact per-model pricing for 110 models and `reasoning_effort` thinking config
-- **Providers**: add Self-hosted STT / TTS / Embedding — point 9Router at your own
+- **Providers**: add Self-hosted STT / TTS / Embedding — point LiteRouter at your own
   OpenAI-compatible speech and embedding servers (whisper.cpp, faster-whisper,
   Kokoro-FastAPI, llama-server, vLLM, Infinity). Unlike the named cloud providers
   these read `baseUrl` per connection, so one provider can front several machines
@@ -442,7 +442,7 @@
 - **CLI tools**: Grok Build setup — choose separate main/general-purpose/explore/plan models and preserve each model's context window
 - **GitHub Copilot**: route Claude models through Copilot's native `/v1/messages`
 - **Kiro**: add GPT-5.6 model family (#2596)
-- **RTK**: `X-9Router-Token-Saver` header to bypass token savers per request
+- **RTK**: `X-LiteRouter-Token-Saver` header to bypass token savers per request
 - **Providers**: quota visibility settings
 - **Translator**: drop temperature for all Claude models
 - **i18n**: Thai (th) + Persian (fa) translations / README
@@ -692,7 +692,7 @@
 - Dashboard: show provider node name instead of connection name in topology (#1770) + show explicit `kind="llm"` combos on combos page (#1684)
 
 ## Docs
-- README: add Indonesian 9Router tutorial video (#1709)
+- README: add Indonesian LiteRouter tutorial video (#1709)
 
 # v0.4.71 (2026-06-06)
 
@@ -751,7 +751,7 @@
 ## Fixes
 - Codex: auto-retry when upstream drops mid-stream (no more hangs)
 - Codex: fix random 400/404 errors, tool-calling failures, and unstable prompt cache
-- MITM: support Antigravity 2.x 
+- MITM: support Antigravity 2.x
 - Sanitize Read tool args to prevent retry loops from non-Anthropic models (#1144)
 - Implement json_schema fallback for OpenAI-compatible providers without native Structured Output (#1343)
 - Strip empty Read pages argument in OpenAI-to-Claude translator (#1354)

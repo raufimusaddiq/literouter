@@ -1,6 +1,6 @@
 # Getting Started
 
-Get 9Router running in 5 minutes and start routing AI requests intelligently.
+Get LiteRouter running in 5 minutes and start routing AI requests intelligently.
 
 ---
 
@@ -43,7 +43,7 @@ Dashboard → Providers → Connect [Provider]
 **Example: Claude Code**
 1. Click "Connect Claude Code"
 2. Login with your Claude account
-3. Authorize 9Router
+3. Authorize LiteRouter
 4. ✅ Done! Use model: `cc/claude-opus-4-5-20251101`
 
 #### Option B: API Key (Cheap Providers)
@@ -83,7 +83,7 @@ Dashboard → Providers → Connect [Free Provider]
 
 ## 4. Use in CLI Tools
 
-Point your coding tool to 9Router:
+Point your coding tool to LiteRouter:
 
 ### Cursor IDE
 
@@ -242,6 +242,6 @@ Daily routine:
 
 ## Need Help?
 
-- **Website**: [9router.com](https://9router.com)
+- **Website**: [ai-staging.investdx.biz.id](https://ai-staging.investdx.biz.id)
 - **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
 - **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)

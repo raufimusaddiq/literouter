@@ -1,6 +1,6 @@
 # インストール
 
-トラブルシューティングのヒント付きの9Router詳細インストールガイド。
+トラブルシューティングのヒント付きのLiteRouter詳細インストールガイド。
 
 ---
 
@@ -31,13 +31,13 @@ npm --version
 
 ### 方法1: グローバルインストール (推奨)
 
-どこからでも使用できるように9Routerをグローバルインストール:
+どこからでも使用できるようにLiteRouterをグローバルインストール:
 
 ```bash
 npm install -g 9router
 ```
 
-**9Routerを起動:**
+**LiteRouterを起動:**
 
 ```bash
 9router
@@ -58,7 +58,7 @@ cd my-9router
 npm install 9router
 ```
 
-**9Routerを起動:**
+**LiteRouterを起動:**
 
 ```bash
 npx 9router
@@ -345,7 +345,7 @@ Dashboard → Provider → Disconnect → Reconnect
 
 ### 高メモリ使用量
 
-**問題:** 9RouterがRAMを使いすぎている
+**問題:** LiteRouterがRAMを使いすぎている
 
 **解決策: サーバーを再起動**
 
@@ -427,7 +427,7 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        
+
         # SSE support for streaming
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -473,6 +473,6 @@ nano ~/.bashrc  # または ~/.zshrc
 
 ## ヘルプが必要?
 
-- **ウェブサイト**: [9router.com](https://9router.com)
+- **ウェブサイト**: [ai-staging.investdx.biz.id](https://ai-staging.investdx.biz.id)
 - **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
 - **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)

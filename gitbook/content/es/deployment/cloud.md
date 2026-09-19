@@ -1,6 +1,6 @@
 # ☁️ Despliegue en la nube
 
-Despliega 9Router en VPS o Docker para acceso remoto y uso en producción.
+Despliega LiteRouter en VPS o Docker para acceso remoto y uso en producción.
 
 ---
 
@@ -74,7 +74,7 @@ PM2 mantiene tu aplicación corriendo y la reinicia en caso de crash:
 # Instalar PM2 globalmente
 npm install -g pm2
 
-# Iniciar 9Router con PM2
+# Iniciar LiteRouter con PM2
 pm2 start npm --name 9router -- start
 
 # Guardar la configuración de PM2
@@ -223,7 +223,7 @@ sudo apt install nginx
 
 ### Paso 2: Configurar Nginx
 
-Crea `/etc/nginx/sites-available/9router`:
+Crea `/etc/nginx/sites-available/literouter`:
 
 ```nginx
 server {
@@ -247,7 +247,7 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
 
-    # Proxy to 9Router
+    # Proxy to LiteRouter
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -258,7 +258,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
-        
+
         # SSE support - CRITICAL for streaming
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -272,7 +272,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # SSE support - CRITICAL for streaming
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -333,7 +333,7 @@ sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 
-# Si NO usas proxy reverso, permite los puertos de 9Router
+# Si NO usas proxy reverso, permite los puertos de LiteRouter
 sudo ufw allow 3000/tcp
 sudo ufw allow 20128/tcp
 
@@ -363,7 +363,7 @@ ssh -L 3000:localhost:3000 user@your-server.com
 # Actualizar paquetes del sistema
 sudo apt update && sudo apt upgrade -y
 
-# Actualizar 9Router
+# Actualizar LiteRouter
 cd /path/to/9router/app
 git pull
 npm install
@@ -442,7 +442,7 @@ pm2 env 9router
 ### Nginx 502 Bad Gateway
 
 ```bash
-# Verificar si 9Router está corriendo
+# Verificar si LiteRouter está corriendo
 pm2 status
 
 # Verificar logs de error de Nginx

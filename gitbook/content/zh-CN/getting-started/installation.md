@@ -1,6 +1,6 @@
 # 安装
 
-9Router 的详细安装指南,附故障排除技巧。
+LiteRouter 的详细安装指南,附故障排除技巧。
 
 ---
 
@@ -37,7 +37,7 @@ npm --version
 npm install -g 9router
 ```
 
-**启动 9Router:**
+**启动 LiteRouter:**
 
 ```bash
 9router
@@ -58,7 +58,7 @@ cd my-9router
 npm install 9router
 ```
 
-**启动 9Router:**
+**启动 LiteRouter:**
 
 ```bash
 npx 9router
@@ -345,7 +345,7 @@ ping google.com
 
 ### 内存占用过高
 
-**问题:** 9Router 占用过多 RAM
+**问题:** LiteRouter 占用过多 RAM
 
 **方案:重启服务器**
 
@@ -427,7 +427,7 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        
+
         # SSE support for streaming
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -473,6 +473,6 @@ nano ~/.bashrc  # 或 ~/.zshrc
 
 ## 需要帮助?
 
-- **网站**: [9router.com](https://9router.com)
+- **网站**: [ai-staging.investdx.biz.id](https://ai-staging.investdx.biz.id)
 - **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
 - **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)

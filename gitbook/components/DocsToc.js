@@ -31,9 +31,9 @@ export default function DocsToc({ headings, lang = DEFAULT_LANG }) {
   if (!headings || headings.length === 0) return null;
 
   return (
-    <aside className="hidden xl:block w-64 border-l bg-white border-gray-200 h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto">
+    <aside className="hidden xl:block w-60 h-[calc(100vh-7rem)] sticky top-24 overflow-y-auto border-l border-gray-200/70">
       <nav className="p-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-3">
+        <h3 className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] text-gray-500 mb-3">
           <List className="w-4 h-4" />
           {t(lang, "onThisPage")}
         </h3>
@@ -46,7 +46,7 @@ export default function DocsToc({ headings, lang = DEFAULT_LANG }) {
                   heading.level === 3 ? "pl-4" : ""
                 } ${
                   activeId === heading.id
-                    ? "text-[#E68A6E] font-medium"
+                    ? "text-[#4f46e5] font-medium"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >

@@ -1,6 +1,6 @@
 # Cài đặt
 
-Hướng dẫn cài đặt chi tiết cho 9Router với mẹo troubleshooting.
+Hướng dẫn cài đặt chi tiết cho LiteRouter với mẹo troubleshooting.
 
 ---
 
@@ -31,13 +31,13 @@ npm --version
 
 ### Cách 1: Cài Global (Khuyên dùng)
 
-Cài 9Router toàn cục để dùng ở bất kỳ đâu:
+Cài LiteRouter toàn cục để dùng ở bất kỳ đâu:
 
 ```bash
 npm install -g 9router
 ```
 
-**Khởi động 9Router:**
+**Khởi động LiteRouter:**
 
 ```bash
 9router
@@ -58,7 +58,7 @@ cd my-9router
 npm install 9router
 ```
 
-**Khởi động 9Router:**
+**Khởi động LiteRouter:**
 
 ```bash
 npx 9router
@@ -345,7 +345,7 @@ Dashboard → Provider → Disconnect → Reconnect
 
 ### Sử dụng RAM cao
 
-**Vấn đề:** 9Router dùng quá nhiều RAM
+**Vấn đề:** LiteRouter dùng quá nhiều RAM
 
 **Giải pháp: Khởi động lại server**
 
@@ -427,7 +427,7 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        
+
         # SSE support for streaming
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -473,6 +473,6 @@ nano ~/.bashrc  # or ~/.zshrc
 
 ## Cần trợ giúp?
 
-- **Website**: [9router.com](https://9router.com)
+- **Website**: [ai-staging.investdx.biz.id](https://ai-staging.investdx.biz.id)
 - **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
 - **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)

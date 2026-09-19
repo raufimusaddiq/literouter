@@ -121,8 +121,9 @@ export default function LoginPage() {
       <div className="landing-grid absolute inset-0 pointer-events-none" aria-hidden="true" />
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary mb-2">9Router</h1>
-          <p className="text-text-muted">Enter your password to access the dashboard</p>
+          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Routing control plane</p>
+          <h1 className="text-4xl font-semibold tracking-[-0.06em] text-text-main mb-2">LiteRouter</h1>
+          <p className="text-text-muted">Enter your password to access the dashboard.</p>
         </div>
 
         <Card>

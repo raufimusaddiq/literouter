@@ -46,7 +46,7 @@ config flip (`MINIMAL_PROFILE=false`) rather than a redeploy.
 
 | Container | Idle RSS |
 | --- | --- |
-| Production `9router` | 112 MiB |
+| Production `literouter` | 112 MiB |
 | Staging `literouter-staging` | 85 MiB |
 
 Staging also carries a smaller dataset, so this is directional rather than a

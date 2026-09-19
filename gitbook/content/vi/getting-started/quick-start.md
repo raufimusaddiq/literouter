@@ -1,6 +1,6 @@
 # Bắt đầu
 
-Khởi chạy 9Router trong 5 phút và bắt đầu định tuyến các request AI một cách thông minh.
+Khởi chạy LiteRouter trong 5 phút và bắt đầu định tuyến các request AI một cách thông minh.
 
 ---
 
@@ -43,7 +43,7 @@ Dashboard → Providers → Connect [Provider]
 **Ví dụ: Claude Code**
 1. Click "Connect Claude Code"
 2. Đăng nhập tài khoản Claude
-3. Cho phép 9Router
+3. Cho phép LiteRouter
 4. ✅ Xong! Dùng model: `cc/claude-opus-4-5-20251101`
 
 #### Cách B: API Key (Cheap Provider)
@@ -83,7 +83,7 @@ Dashboard → Providers → Connect [Free Provider]
 
 ## 4. Dùng trong CLI Tools
 
-Trỏ công cụ code của bạn tới 9Router:
+Trỏ công cụ code của bạn tới LiteRouter:
 
 ### Cursor IDE
 
@@ -242,6 +242,6 @@ Daily routine:
 
 ## Cần trợ giúp?
 
-- **Website**: [9router.com](https://9router.com)
+- **Website**: [ai-staging.investdx.biz.id](https://ai-staging.investdx.biz.id)
 - **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
 - **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)

@@ -35,7 +35,7 @@ by directory name; trace the runtime dependency first.
 | `.next/standalone` | 81 MB |
 | `.next/static` | 8.5 MB |
 | `literouter:staging` image | 1.03 GB |
-| `9router:v0.5.81-kenari-luna` image | 1.03 GB |
+| `literouter:v0.5.81-kenari-luna` image | 1.03 GB |
 
 Image size is unchanged so far. The remaining reduction requires physically
 deleting non-retained routes and their code, which was deliberately not done in

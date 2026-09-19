@@ -56,7 +56,12 @@ export const GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS = envMs("GEMINI_NATIVE_TTS_FETCH
 export const DEFAULT_MAX_TOKENS = 64000;
 export const DEFAULT_MIN_TOKENS = 32000;
 
+// LiteRouter is the product name; the legacy `9router` spelling stays accepted so existing clients keep working.
 export const TOKEN_SAVER_HEADER = "x-9router-token-saver";
+export const TOKEN_SAVER_HEADER_ALIASES = [TOKEN_SAVER_HEADER, "x-literouter-token-saver"];
+export const isTokenSaverEnabled = (headers = {}) => !TOKEN_SAVER_HEADER_ALIASES.some(
+  (header) => headers[header]?.toLowerCase() === "off",
+);
 
 // Retry config for 429 responses (legacy - kept for backward compatibility)
 export const RETRY_CONFIG = {

@@ -1,12 +1,12 @@
 # 常见问题
 
-关于 9Router 的常见问题。
+关于 LiteRouter 的常见问题。
 
 ---
 
-## 什么是 9Router?
+## 什么是 LiteRouter?
 
-**9Router 是一款 AI 模型路由工具,能够最大化你的订阅价值并最小化成本。**
+**LiteRouter 是一款 AI 模型路由工具,能够最大化你的订阅价值并最小化成本。**
 
 它使用 3 层回退系统在多个 AI 提供商之间智能路由请求:
 1. **订阅层** - 充分利用你已付费的 Claude Code、Codex、Gemini 配额
@@ -23,7 +23,7 @@
 
 ## 价格是如何计算的?
 
-**9Router 采用三层定价策略:**
+**LiteRouter 采用三层定价策略:**
 
 ### 第 1 层:订阅(优先使用)
 - **Claude Code**(Pro/Max):$20-100/月 - 5 小时 + 每周配额
@@ -50,9 +50,9 @@
 
 ---
 
-## 9Router 是免费的吗?
+## LiteRouter 是免费的吗?
 
-**是的,9Router 本身 100% 免费且开源。**
+**是的,LiteRouter 本身 100% 免费且开源。**
 
 **可用的免费层提供商:**
 - **Gemini CLI** - 每月 180K 次补全(免费 Google 账户)
@@ -96,7 +96,7 @@
 
 ## 可以同时使用多个提供商吗?
 
-**可以!这正是 9Router 的核心功能。**
+**可以!这正是 LiteRouter 的核心功能。**
 
 **通过组合(Combos),你可以把多个提供商串联起来实现自动回退:**
 
@@ -129,7 +129,7 @@
 
 ## 配额跟踪是如何工作的?
 
-**9Router 为所有提供商提供实时配额跟踪:**
+**LiteRouter 为所有提供商提供实时配额跟踪:**
 
 **功能:**
 - **Token 消耗** - 每次请求的输入/输出 tokens
@@ -154,13 +154,13 @@
 
 ---
 
-## 9Router 能配合 Cursor 使用吗?
+## LiteRouter 能配合 Cursor 使用吗?
 
 **可以,但 Cursor 需要使用云端 endpoint。**
 
 **问题:** Cursor IDE 不支持 localhost endpoint。
 
-**解决方案:** 使用 9Router 云端部署:
+**解决方案:** 使用 LiteRouter 云端部署:
 
 ```
 Cursor Settings → Models → Advanced:
@@ -192,9 +192,9 @@ npm start
 
 ---
 
-## 可以自托管 9Router 吗?
+## 可以自托管 LiteRouter 吗?
 
-**可以!9Router 支持多种部署方式:**
+**可以!LiteRouter 支持多种部署方式:**
 
 ### Localhost(默认)
 ```bash
@@ -245,11 +245,11 @@ npm run deploy:cloudflare
 
 ## 我的数据安全吗?
 
-**是的,9Router 优先考虑安全和隐私:**
+**是的,LiteRouter 优先考虑安全和隐私:**
 
 **本地存储:**
 - 所有数据存储在本地 `~/.9router`(或自定义 `DATA_DIR`)
-- 不会发送数据到 9Router 服务器
+- 不会发送数据到 LiteRouter 服务器
 - OAuth tokens 使用 JWT 加密
 
 **无遥测:**
@@ -268,20 +268,20 @@ npm run deploy:cloudflare
 - 云端部署启用 HTTPS
 - 定期轮换 API keys
 
-**9Router 存储的内容:**
+**LiteRouter 存储的内容:**
 - 提供商 OAuth tokens(加密)
 - API keys(加密)
 - 使用统计(仅本地)
 - 组合配置
 
-**9Router 不存储的内容:**
+**LiteRouter 不存储的内容:**
 - 你的 prompt 或响应
 - 你生成的代码
 - 个人信息
 
 ---
 
-## 如何更新 9Router?
+## 如何更新 LiteRouter?
 
 **更新方式取决于安装类型:**
 
@@ -341,22 +341,22 @@ docker run -d \
    # Fork 仓库
    git clone https://github.com/YOUR_USERNAME/9router.git
    cd 9router
-   
+
    # 创建分支
    git checkout -b feature/your-feature
-   
+
    # 修改代码
    npm install
    npm run dev
-   
+
    # 测试
    npm test
-   
+
    # 提交并推送
    git add .
    git commit -m "Add your feature"
    git push origin feature/your-feature
-   
+
    # 在 GitHub 上创建 Pull Request
    ```
 
@@ -381,7 +381,7 @@ docker run -d \
 
 ## 需要更多帮助?
 
-- **文档:** [9router.com/docs](https://9router.com/docs)
+- **文档:** [ai-staging.investdx.biz.id/docs](https://ai-staging.investdx.biz.id/docs)
 - **GitHub:** [github.com/decolua/9router](https://github.com/decolua/9router)
 - **Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
 - **故障排除:** [troubleshooting.md](troubleshooting.md)
