@@ -63,13 +63,18 @@ http.createServer = (...args) => {
     // Direct/public sockets remain keyed by the unspoofable peer address.
     const proxyIp = xRealIp || (xff ? String(xff).split(",")[0].trim() : "");
     const ip = isLoopbackProxy && proxyIp ? proxyIp : socketIp;
+    // Headers are only evidence that a proxy hop exists when they actually arrive;
+    // a bare listener reached directly (no TRUST_PROXY in front of it) sees neither.
+    const viaForwardedHeaders = viaProxy && isLoopbackProxy;
     delete req.headers["x-9r-real-ip"];
     delete req.headers["x-forwarded-for"];
     delete req.headers["x-9r-via-proxy"];
     delete req.headers["x-9r-peer-token"];
     req.headers["x-9r-real-ip"] = ip;
-    req.headers["x-9r-peer-token"] = PEER_TOKEN;
-    if (viaProxy) req.headers["x-9r-via-proxy"] = "1";
+    if (viaForwardedHeaders) {
+      req.headers["x-9r-peer-token"] = PEER_TOKEN;
+      req.headers["x-9r-via-proxy"] = "1";
+    }
     return handler(req, res);
   };
   const server = origCreate(...rest, wrapped);

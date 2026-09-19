@@ -145,7 +145,9 @@ export async function POST(request) {
         };
         if (organization) headers["OpenAI-Organization"] = organization;
 
-        // Azure endpoints are always public; fetchPublic validates DNS and every redirect.
+        // `azureEndpoint` is caller-supplied, so fetchPublic re-validates DNS (hop 1) and
+        // every redirect. A private endpoint is rejected by the remote-caller gate above;
+        // a local operator's private endpoint 400s/500s here rather than being fetched raw.
         const azureRes = await fetchPublic(url, {
           method: "POST",
           headers,

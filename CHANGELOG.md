@@ -1,5 +1,9 @@
 # v0.5.82 (unreleased)
 
+## Security
+- **Provider validation**: `/api/provider-nodes/validate` and the Azure/Cloudflare branches of `/api/providers/validate` now fetch through the SSRF-guarded `fetchPublic` instead of a raw `fetch`, so a caller-supplied base URL can no longer 30x its way to an internal target (metadata endpoints included). Remote callers are pre-rejected with 400; the trusted local operator keeps LAN nodes (LM Studio, vLLM, ollama-compat), including LAN targets reached through a redirect hop — `allowPrivate` is now a per-hop decision rather than a one-shot gate
+- **Local-operator trust**: the spoofable `Host` fallback is no longer gated on `NODE_ENV`. It survives only for a direct loopback session in a non-production runtime (`next dev` with `TRUST_PROXY` unset and no forwarding headers present); any request carrying a forwarding header, and every `TRUST_PROXY` deployment, must prove the peer through the per-process `x-9r-peer-token`. `custom-server.js` also stamps that token only when forwarding headers actually arrived, so a directly-listened production socket is no longer handed an unearned local-operator grant
+
 ## Fixes
 - **Endpoint**: stop advertising Cloudflare Tunnel and Tailscale in the minimal profile; the page no longer polls `/api/tunnel/status`, which is not served there
 - **Console Log**: retain the page in the minimal profile and move its API to `/api/console-logs`; it previously sat under the hidden `/api/translator` prefix, so pruning the translator playground silently took the log stream down with it. Its sidebar group was also blanked wholesale, which discarded the retained entry regardless of its own flag

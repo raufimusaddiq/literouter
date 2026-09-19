@@ -215,7 +215,7 @@ export async function fetchPublic(url, init = {}, { maxRedirects = 5, allowPriva
     if (!location) return res;
     if (hop >= maxRedirects) throw new Error("Blocked URL: too many redirects");
     const nextUrl = new URL(location, currentUrl).toString();
-    await assertPublicUrlResolved(nextUrl);
+    await assertPublicUrlResolved(nextUrl, { allowPrivate });
     currentUrl = nextUrl;
   }
 }

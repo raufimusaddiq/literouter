@@ -70,7 +70,6 @@ export async function POST(request) {
     // nodes on the LAN (LM Studio, vLLM, ollama-openai-compat).
     const localOperator = isLocalRequest(request);
     const remote = !localOperator;
-    const caller = { localOperator };
     if (remote) {
       try {
         await assertPublicUrlResolved(baseUrl);
