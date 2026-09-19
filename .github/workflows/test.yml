@@ -21,10 +21,11 @@ jobs:
 
       # The suite imports app sources, so it needs the runtime deps (next,
       # undici, uuid, …) from the root install as well as the test runner's own.
-      # No root lockfile exists yet; add one when dependency drift becomes a
-      # problem rather than blocking CI on generating it here.
-      # ponytail: unpinned root install — commit a package-lock.json if a
-      # dependency bump ever makes CI flaky.
+      # The root has no lockfile (see .gitignore), so it installs unpinned.
+      # tests/ is a separate project and keeps its own lockfile, so the runner
+      # install is reproducible.
+      # ponytail: unpinned root install — add a root lockfile if a dependency
+      # bump ever makes CI flaky.
       - run: npm install --no-audit --no-fund
       - run: npm ci
         working-directory: tests
