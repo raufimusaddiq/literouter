@@ -87,6 +87,12 @@ describe("minimal profile route boundary", () => {
     expect(consoleLogEntry).not.toBe("");
     expect(consoleLogEntry).not.toContain("nonMinimal");
 
+    // The entry alone is not enough: the debug group it lives in must be
+    // filtered per item rather than blanked wholesale, or the group's render
+    // guard discards retained entries anyway. Assert the guard, not the array.
+    expect(sidebar).toContain("debugItems.filter((item) => !minimalProfile || !item.nonMinimal)");
+    expect(sidebar).not.toContain("minimalProfile ? [] : debugItems");
+
     // The log API must not sit under a hidden prefix. It used to live at
     // `/api/translator/console-logs`, which `/api/translator` shadowed.
     const shadowed = hidden.some(

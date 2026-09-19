@@ -2,7 +2,7 @@
 
 ## Fixes
 - **Endpoint**: stop advertising Cloudflare Tunnel and Tailscale in the minimal profile; the page no longer polls `/api/tunnel/status`, which is not served there
-- **Console Log**: retain the page in the minimal profile and move its API to `/api/console-logs`; it previously sat under the hidden `/api/translator` prefix, so pruning the translator playground silently took the log stream down with it
+- **Console Log**: retain the page in the minimal profile and move its API to `/api/console-logs`; it previously sat under the hidden `/api/translator` prefix, so pruning the translator playground silently took the log stream down with it. Its sidebar group was also blanked wholesale, which discarded the retained entry regardless of its own flag
 - **Sidebar**: hide the external 9English link in the minimal profile so the sidebar carries only product navigation
 - **Round-robin**: persist the account cursor off the request path and invalidate the connection cache before the first await, so a selection can never read a stale cursor
 

@@ -272,8 +272,10 @@ export default function Sidebar({ onClose }) {
               </Link>
             ))}
 
-            {/* Debug items (inside System section, before Settings) */}
-            {(minimalProfile ? [] : debugItems).map((item) => {
+            {/* Debug items (inside System section, before Settings). Filtered per
+                item via `nonMinimal`, mirroring `navItems` above: blanking the
+                whole group would also drop retained entries such as Console Log. */}
+            {debugItems.filter((item) => !minimalProfile || !item.nonMinimal).map((item) => {
               const show = item.href !== "/dashboard/translator" || enableTranslator;
               return show ? (
                 <Link
