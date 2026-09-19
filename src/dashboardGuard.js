@@ -97,11 +97,10 @@ function isLoopbackPeer(request) {
   if (hasTrustedPeerHeaders(request)) {
     return isLoopbackHostname(request.headers.get("x-9r-real-ip"));
   }
-  // Bare `next dev` forks its server, so the wrapper never loads and no peer address
-  // reaches us. Host is spoofable, so this stays confined to development.
-  if (process.env.NODE_ENV === "development") {
-    return isLoopbackHostname(request.headers.get("host"));
-  }
+  // Without the token there is nothing to prove the peer address. `npm start` and the
+  // published standalone both load custom-server.js and stamp it; a bare `next dev` /
+  // `next start` never does, and a request that skips the wrapper (another in-container
+  // client, or a directly-reached port) must not inherit local-operator access either.
   return false;
 }
 

@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { assertPublicUrl } from "@/shared/utils/ssrfGuard.js";
+import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
 import { isLocalRequest } from "@/dashboardGuard";
 
-// Fetch with timeout wrapper
-const fetchWithTimeout = (url, options, timeout = 10000) => {
-  return Promise.race([
-    fetch(url, options),
-    new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("Request timeout")), timeout)
-    )
-  ]);
+// Every fetch of a caller-supplied node URL goes through fetchPublic, which
+// re-resolves the host and re-validates each redirect hop. A LAN node reached by
+// the trusted local operator is permitted explicitly by allowing the resolved
+// private address, never by skipping the guard.
+const fetchNode = (url, options, timeout = 10000) => {
+  const { localOperator, ...init } = options;
+  const withTimeout = { ...init, signal: AbortSignal.timeout(timeout) };
+  return fetchPublic(url, withTimeout, { allowPrivate: localOperator === true });
 };
 
 // Validate URL format
@@ -55,7 +55,7 @@ const getChatErrorMessage = (status) => {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { baseUrl, apiKey, type } = body;
+    const { baseUrl, apiKey, type, modelId } = body;
 
     if (!baseUrl || !apiKey) {
       return NextResponse.json({ error: "Base URL and API key required" }, { status: 400 });
@@ -66,10 +66,13 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
     }
 
-    // SSRF guard for remote callers; local host keeps self-hosted nodes (e.g. ollama-local)
-    if (!isLocalRequest(request)) {
+    // SSRF guard for remote callers; the local operator keeps self-hosted
+    // nodes on the LAN (LM Studio, vLLM, ollama-openai-compat).
+    const localOperator = isLocalRequest(request);
+    const remote = !localOperator;
+    if (remote) {
       try {
-        assertPublicUrl(baseUrl);
+        await assertPublicUrlResolved(baseUrl);
       } catch {
         return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
       }
@@ -83,8 +86,9 @@ export async function POST(request) {
       }
 
       const modelsUrl = `${normalizedBase}/models`;
-      const res = await fetchWithTimeout(modelsUrl, {
+      const res = await fetchNode(modelsUrl, {
         method: "GET",
+        localOperator,
         headers: {
           "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
@@ -101,8 +105,9 @@ export async function POST(request) {
 
       // Fallback: try chat/completions if modelId provided
       if (modelId) {
-        const chatRes = await fetchWithTimeout(`${normalizedBase}/chat/completions`, {
+        const chatRes = await fetchNode(`${normalizedBase}/chat/completions`, {
           method: "POST",
+          localOperator,
           headers: {
             "Authorization": `Bearer ${apiKey}`,
             "Content-Type": "application/json",
@@ -130,7 +135,8 @@ export async function POST(request) {
 
     // OpenAI Compatible Validation (Default)
     const modelsUrl = `${baseUrl.replace(/\/$/, "")}/models`;
-    const res = await fetchWithTimeout(modelsUrl, {
+    const res = await fetchNode(modelsUrl, {
+      localOperator,
       headers: { "Authorization": `Bearer ${apiKey}` },
     });
 
@@ -143,8 +149,9 @@ export async function POST(request) {
 
     // Fallback: try chat/completions if modelId provided
     if (modelId) {
-      const chatRes = await fetchWithTimeout(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      const chatRes = await fetchNode(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
+        localOperator,
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json"

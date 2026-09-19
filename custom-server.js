@@ -68,6 +68,9 @@ http.createServer = (...args) => {
     delete req.headers["x-9r-via-proxy"];
     delete req.headers["x-9r-peer-token"];
     req.headers["x-9r-real-ip"] = ip;
+    // The token is proof that this file overwrote x-9r-real-ip from the TCP socket,
+    // which is what makes downstream local-operator trust worth anything. It is
+    // stamped on every request the wrapper handles, not only proxied ones.
     req.headers["x-9r-peer-token"] = PEER_TOKEN;
     if (viaProxy) req.headers["x-9r-via-proxy"] = "1";
     return handler(req, res);

@@ -21,7 +21,8 @@ export async function POST(request) {
     // One gate for every caller-controlled URL this route fetches. Branches below
     // vary a lot (provider node, azure endpoint, ollama host), so guarding each
     // call site separately kept missing sinks; this rejects any private/metadata
-    // target before the branch runs. Local operators keep self-hosted nodes.
+    // target before the branch runs. The local operator keeps self-hosted hosts
+    // (``ollama-local`` on the LAN) the same way provider-nodes/validate does.
     if (remote) {
       const candidates = [
         providerSpecificData?.azureEndpoint,
@@ -116,7 +117,7 @@ export async function POST(request) {
           return NextResponse.json({ valid: false, error: "Missing Account ID" });
         }
         const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
-        const cfRes = await fetch(url, {
+        const cfRes = await fetchPublic(url, {
           method: "POST",
           headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -145,7 +146,9 @@ export async function POST(request) {
         };
         if (organization) headers["OpenAI-Organization"] = organization;
 
-        // Azure endpoints are always public; fetchPublic validates DNS and every redirect.
+        // `azureEndpoint` is caller-supplied. The remote gate at the top of this handler
+        // resolves it once before the branch runs; fetchPublic re-resolves and then
+        // re-validates every redirect hop on top of that.
         const azureRes = await fetchPublic(url, {
           method: "POST",
           headers,

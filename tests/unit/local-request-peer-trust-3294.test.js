@@ -152,11 +152,25 @@ describe("peer header trust", () => {
     expect(response.status).toBe(401);
   });
 
-  it("accepts the legacy Host fallback only in development", async () => {
+  it("never trusts a spoofable Host header, even in development", async () => {
     process.env.NODE_ENV = "development";
 
     const response = await proxy(request("/api/v1/models", { host: "localhost:20127" }));
 
+    // A client can set any Host value, so it must not unlock the local-operator
+    // exemptions (SSRF guard bypass, localhost-only routes).
+    expect(response.status).toBe(401);
+  });
+
+  it("trusts a loopback socket once the wrapper proved it stamped the peer address", async () => {
+    const response = await proxy(request("/api/v1/models", {
+      host: "localhost:20128",
+      "x-9r-real-ip": "127.0.0.1",
+      "x-9r-peer-token": PEER_TOKEN,
+    }));
+
+    // `npm start` / `docker run` reach the gateway over loopback, so this is the
+    // request shape the dashboard itself has; the documented local workflow.
     expect(response).toBe(mocks.nextResponse);
   });
 });
