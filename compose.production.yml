@@ -29,7 +29,9 @@ services:
     expose:
       - "20128"
     volumes:
-      - literouter-production-data:/app/data
+      # Keep the existing production volume name: the durable SQLite state lives
+      # here and promotion must never boot against a fresh empty volume.
+      - 9router-data:/app/data
     networks:
       # Caddy reaches LiteRouter over this two-member network so the static IP
       # below can never be handed out by idx_default's DHCP pool. Keeping the
@@ -55,8 +57,8 @@ services:
       start_period: 30s
 
 volumes:
-  literouter-production-data:
-    name: literouter-production-data
+  9router-data:
+    name: 9router-data
 
 networks:
   idx-public:
