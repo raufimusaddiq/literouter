@@ -3,7 +3,7 @@ services:
     # Required full-SHA tag, published only by .github/workflows/production-image.yml.
     # Do not deploy until the shared durable-state cutover has been rehearsed.
     image: ghcr.io/raufimusaddiq/literouter-production:${LITEROUTER_PRODUCTION_TAG:?set production-<full-main-sha>}
-    pull_policy: always
+    pull_policy: missing
     container_name: literouter
     restart: unless-stopped
     logging:
@@ -21,7 +21,7 @@ services:
       ENABLE_REQUEST_LOGS: "true"
       REQUEST_LOG_MAX_SIZE_MB: "1024"
       REQUEST_LOG_MAX_SESSIONS: "1000"
-      MODEL_CATALOG_SYNC: off
+      MODEL_CATALOG_SYNC: "off"
       DISABLE_BACKGROUND_TOKEN_REFRESH: "true"
       REDIS_URL: redis://idx-redis:6379
       REDIS_KEY_PREFIX: "literouter:prod:"
