@@ -63,6 +63,7 @@ const PROTECTED_API_PATHS = [
   "/api/pricing",
   "/api/tags",
   "/api/cli-tools",
+  "/api/console-logs",
   "/api/mcp",
   "/api/translator",
   "/api/tunnel",
@@ -94,7 +95,6 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const MINIMAL_HIDDEN_PREFIXES = [
   "/dashboard/basic-chat",
   "/dashboard/cli-tools",
-  "/dashboard/console-log",
   "/dashboard/mitm",
   "/dashboard/media-providers",
   "/dashboard/proxy-pools",

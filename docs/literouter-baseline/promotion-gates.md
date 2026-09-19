@@ -75,3 +75,21 @@ failure mode that a non-streaming smoke test cannot see:
 Exactly one sentinel each, with content intact. Tool calls were exercised on
 Kenari Chat Completions and returned `finish_reason: "tool_calls"` with a
 well-formed `tool_calls[]` entry carrying the parsed arguments.
+
+## Deviation: Console Log retained (PRD section 18)
+
+PRD section 18 lists the Console Log page as a removal candidate, qualified by
+"if all required diagnostics remain available through retained Usage/details".
+The condition does not hold, so the page is retained.
+
+`src/lib/consoleLogBuffer.js` patches the global `console` methods and keeps a
+rolling in-memory buffer of server-side output. The retained Usage and
+request-detail views read `usageHistory` / `requestDetails` — request records,
+not console output. On a Docker deployment there is no other in-browser way to
+read server logs, so removing the page would have removed the only such view.
+
+The removal attempt also exposed a path-coupling bug: the page's API lived at
+`/api/translator/console-logs`, under the `/api/translator` prefix hidden for
+the translator playground. Hiding an unrelated feature took the log stream down
+with it. The API now lives at `/api/console-logs` so the two features no longer
+share a prefix, and the boundary test asserts that no hidden prefix shadows it.

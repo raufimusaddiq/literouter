@@ -14,7 +14,6 @@ describe("minimal profile route boundary", () => {
     for (const prefix of [
       "/dashboard/basic-chat",
       "/dashboard/cli-tools",
-      "/dashboard/console-log",
       "/dashboard/mitm",
       "/dashboard/media-providers",
       "/dashboard/proxy-pools",
@@ -70,5 +69,36 @@ describe("minimal profile route boundary", () => {
     );
     const link = sidebar.match(/\{\/\* 9English \*\/\}([\s\S]{0,80})/)?.[1] || "";
     expect(link).toContain("!minimalProfile && (");
+  });
+
+  // Console Log is retained: it is the only in-browser view of server-side
+  // console output, and the retained Usage/details pages show request records
+  // rather than the log stream. Its API also had to move off `/api/translator`,
+  // a hidden prefix, or hiding the translator playground silently took the log
+  // stream down with it.
+  it("retains the Console Log page, its sidebar entry, and its API", () => {
+    expect(hidden).not.toContain("/dashboard/console-log");
+
+    const sidebar = readFileSync(
+      new URL("../../src/shared/components/Sidebar.js", import.meta.url),
+      "utf8"
+    );
+    const consoleLogEntry = sidebar.match(/\{[^}]*"\/dashboard\/console-log"[^}]*\}/)?.[0] || "";
+    expect(consoleLogEntry).not.toBe("");
+    expect(consoleLogEntry).not.toContain("nonMinimal");
+
+    // The log API must not sit under a hidden prefix. It used to live at
+    // `/api/translator/console-logs`, which `/api/translator` shadowed.
+    const shadowed = hidden.some(
+      (h) => "/api/console-logs" === h || "/api/console-logs".startsWith(h)
+    );
+    expect(shadowed, "/api/console-logs must not be hidden").toBe(false);
+    expect(hidden).toContain("/api/translator");
+
+    // Moving the API off `/api/translator` also moved it off the auth
+    // allowlist that prefix provided. It must be protected in its own right,
+    // or the server log stream is readable unauthenticated.
+    const protectedBlock = source.match(/const PROTECTED_API_PATHS = \[([\s\S]*?)\];/)?.[1] || "";
+    expect(protectedBlock).toContain('"/api/console-logs"');
   });
 });
