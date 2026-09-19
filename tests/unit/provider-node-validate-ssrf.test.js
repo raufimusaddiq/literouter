@@ -58,4 +58,18 @@ describe("POST /api/provider-nodes/validate SSRF guard", () => {
     expect(res.status).not.toBe(400);
     expect(fetchMock).toHaveBeenCalled();
   });
+
+  it("does not follow a public URL redirect to an internal host", async () => {
+    fetchMock.mockImplementationOnce(async () => ({
+      ok: false,
+      status: 302,
+      headers: new Headers({ location: "http://169.254.169.254/" }),
+      json: async () => ({}),
+    }));
+
+    const res = await POST(request("https://api.example.com/v1"));
+
+    expect(res.status).not.toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

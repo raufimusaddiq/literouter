@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { assertPublicUrlResolved } from "@/shared/utils/ssrfGuard.js";
+import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
 import { isLocalRequest } from "@/dashboardGuard";
 
 // Fetch with timeout wrapper
+// `remote` decides whether redirects are re-validated per hop (fetchPublic) or
+// whether the local operator is allowed to reach a LAN node directly (fetch).
 const fetchWithTimeout = (url, options, timeout = 10000) => {
-  return Promise.race([
-    fetch(url, options),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Request timeout")), timeout)
-    )
-  ]);
+  const { remote = false, ...init } = options || {};
+  const withTimeout = { ...init, signal: AbortSignal.timeout(timeout) };
+  return remote ? fetchPublic(url, withTimeout) : fetch(url, withTimeout);
 };
 
 // Validate URL format
@@ -68,7 +67,8 @@ export async function POST(request) {
 
     // SSRF guard for remote callers; the local operator keeps self-hosted
     // nodes on the LAN (LM Studio, vLLM, ollama-openai-compat).
-    if (!isLocalRequest(request)) {
+    const remote = !isLocalRequest(request);
+    if (remote) {
       try {
         await assertPublicUrlResolved(baseUrl);
       } catch {
@@ -86,6 +86,7 @@ export async function POST(request) {
       const modelsUrl = `${normalizedBase}/models`;
       const res = await fetchWithTimeout(modelsUrl, {
         method: "GET",
+        remote,
         headers: {
           "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
@@ -104,6 +105,7 @@ export async function POST(request) {
       if (modelId) {
         const chatRes = await fetchWithTimeout(`${normalizedBase}/chat/completions`, {
           method: "POST",
+          remote,
           headers: {
             "Authorization": `Bearer ${apiKey}`,
             "Content-Type": "application/json",
@@ -132,6 +134,7 @@ export async function POST(request) {
     // OpenAI Compatible Validation (Default)
     const modelsUrl = `${baseUrl.replace(/\/$/, "")}/models`;
     const res = await fetchWithTimeout(modelsUrl, {
+      remote,
       headers: { "Authorization": `Bearer ${apiKey}` },
     });
 
@@ -146,6 +149,7 @@ export async function POST(request) {
     if (modelId) {
       const chatRes = await fetchWithTimeout(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
+        remote,
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json"
