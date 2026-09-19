@@ -12,10 +12,31 @@ const OPTIONAL_FIELDS = [
 
 const MODEL_LOCK_PREFIX = "modelLock_";
 
-// ponytail: one-process cache, Redis invalidation when multi-replica writes matter
+// L1 snapshot per process; L2 invalidation version in Redis (PRD 15.5) so a UI
+// mutation on one replica cannot leave another serving stale connections.
+// ponytail: on Redis failure the version check fails open, so a single-process
+// deploy behaves exactly as before and only multi-replica freshness degrades.
 const connectionCache = global.__liteRouterConnectionCache ??= { rows: null, expiresAt: 0 };
 const CACHE_TTL_MS = 5000;
+const CACHE_VERSION_KEY = "cache:connections:version";
+
+async function cacheVersion() {
+  const { redisGet } = await import("@/lib/redis.js");
+  return (await redisGet(CACHE_VERSION_KEY)) || null;
+}
+
+async function bumpCacheVersion() {
+  const { redisIncrement } = await import("@/lib/redis.js");
+  return redisIncrement(CACHE_VERSION_KEY);
+}
+
 function invalidateConnectionCache() { connectionCache.rows = null; connectionCache.expiresAt = 0; }
+
+// Invalidate locally and tell every replica that its snapshot is stale.
+function invalidateConnectionCacheEverywhere() {
+  invalidateConnectionCache();
+  bumpCacheVersion().catch(() => {});
+}
 
 function resetHealthStateOnActivation(existing, patch) {
   if (patch?.testStatus !== "active") return patch;
@@ -96,9 +117,18 @@ function deriveConnectionName(data, fallbackName) {
 
 export async function getProviderConnections(filter = {}) {
   if (!connectionCache.rows || connectionCache.expiresAt <= Date.now()) {
-    const db = await getAdapter();
-    connectionCache.rows = db.all("SELECT * FROM providerConnections").map(rowToConn);
-    connectionCache.expiresAt = Date.now() + CACHE_TTL_MS;
+    // Re-read from SQLite when another replica bumped the shared version.
+    // A Redis outage returns null here, which only skips cross-replica
+    // invalidation and lets the local TTL keep behaving as before.
+    const version = await cacheVersion();
+    if (version === null || version !== connectionCache.version) {
+      const db = await getAdapter();
+      connectionCache.rows = db.all("SELECT * FROM providerConnections").map(rowToConn);
+      connectionCache.version = version;
+      connectionCache.expiresAt = Date.now() + CACHE_TTL_MS;
+    } else {
+      connectionCache.expiresAt = Date.now() + CACHE_TTL_MS;
+    }
   }
   const list = connectionCache.rows.filter((c) =>
     (!filter.provider || c.provider === filter.provider)
@@ -179,7 +209,7 @@ export async function createProviderConnection(data) {
       const merged = { ...existing, ...normalized, updatedAt: now };
       upsert(db, merged);
       result = merged;
-      invalidateConnectionCache();
+      invalidateConnectionCacheEverywhere();
       return;
     }
 
@@ -213,7 +243,7 @@ export async function createProviderConnection(data) {
     upsert(db, conn);
     reorderInTx(db, data.provider);
     result = conn;
-    invalidateConnectionCache();
+    invalidateConnectionCacheEverywhere();
   });
 
   return result;
@@ -226,7 +256,7 @@ export async function updateProviderConnection(id, data) {
   // selection that interleaves in that window would read the stale row — which
   // is exactly what round-robin depends on being fresh. Clearing up front makes
   // the freshness guarantee independent of how the write is scheduled.
-  invalidateConnectionCache();
+  invalidateConnectionCacheEverywhere();
   const db = await getAdapter();
   let result;
   db.transaction(() => {
@@ -238,7 +268,7 @@ export async function updateProviderConnection(id, data) {
     upsert(db, merged);
     if (data.priority !== undefined) reorderInTx(db, existing.provider);
     result = merged;
-    invalidateConnectionCache();
+    invalidateConnectionCacheEverywhere();
   });
   return result;
 }
@@ -252,7 +282,7 @@ export async function deleteProviderConnection(id) {
     db.run(`DELETE FROM providerConnections WHERE id = ?`, [id]);
     reorderInTx(db, row.provider);
     ok = true;
-    invalidateConnectionCache();
+      invalidateConnectionCacheEverywhere();
   });
   return ok;
 }
@@ -261,14 +291,14 @@ export async function deleteProviderConnectionsByProvider(providerId) {
   const db = await getAdapter();
   const before = db.get(`SELECT COUNT(*) AS n FROM providerConnections WHERE provider = ?`, [providerId]);
   db.run(`DELETE FROM providerConnections WHERE provider = ?`, [providerId]);
-  invalidateConnectionCache();
+  invalidateConnectionCacheEverywhere();
   return before?.n || 0;
 }
 
 export async function reorderProviderConnections(providerId) {
   const db = await getAdapter();
   db.transaction(() => reorderInTx(db, providerId));
-  invalidateConnectionCache();
+  invalidateConnectionCacheEverywhere();
 }
 
 export async function cleanupProviderConnections() {
@@ -299,6 +329,6 @@ export async function cleanupProviderConnections() {
       if (dirty) upsert(db, conn);
     }
   });
-  if (cleaned) invalidateConnectionCache();
+  if (cleaned) invalidateConnectionCacheEverywhere();
   return cleaned;
 }
