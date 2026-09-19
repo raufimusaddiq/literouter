@@ -2,15 +2,14 @@ import { NextResponse } from "next/server";
 import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
 import { isLocalRequest } from "@/dashboardGuard";
 
-// Remote callers go through fetchPublic, which re-resolves the host and
-// re-validates every redirect hop. The local operator is deliberately allowed to
-// reach a LAN node, but only `localOperator` (from isLocalRequest) selects the
-// plain fetch; every other caller falls through to the blocked branch.
+// Every fetch of a caller-supplied node URL goes through fetchPublic, which
+// re-resolves the host and re-validates each redirect hop. A LAN node reached by
+// the trusted local operator is permitted explicitly by allowing the resolved
+// private address, never by skipping the guard.
 const fetchNode = (url, options, timeout = 10000) => {
   const { localOperator, ...init } = options;
   const withTimeout = { ...init, signal: AbortSignal.timeout(timeout) };
-  if (!localOperator) return fetchPublic(url, withTimeout);
-  return fetch(url, { ...withTimeout, redirect: "error" });
+  return fetchPublic(url, withTimeout, { allowPrivate: localOperator === true });
 };
 
 // Validate URL format

@@ -169,10 +169,16 @@ export function assertPublicUrl(rawUrl) {
 // domain that merely *resolves* to a private/loopback/metadata address (wildcard-DNS
 // services like nip.io/sslip.io, or an attacker-controlled domain with an A record
 // pointed at 127.0.0.1) is rejected too, not just IPs typed directly into the URL.
-export async function assertPublicUrlResolved(rawUrl) {
+// `allowPrivate` is for the trusted local operator only (decided per request by
+// isLocalRequest): a self-hosted node on the LAN is legitimate there. It never
+// weakens validation for remote callers, and redirect hops stay validated.
+export async function assertPublicUrlResolved(rawUrl, { allowPrivate = false } = {}) {
   const parsed = new URL(rawUrl);
   const host = normalizeHost(parsed.hostname);
-  if (isBlockedHost(host)) throw new Error("Blocked URL: internal host");
+  if (isBlockedHost(host)) {
+    if (!allowPrivate) throw new Error("Blocked URL: internal host");
+    return;
+  }
 
   // Already a literal IPv4/IPv6 address — isBlockedHost above already covered it,
   // no DNS lookup applies (and dns.lookup would just echo it back anyway).
@@ -189,7 +195,7 @@ export async function assertPublicUrlResolved(rawUrl) {
   }
   for (const { address, family } of addresses) {
     if (family === 4 ? isBlockedIpv4(address) : isBlockedIpv6Groups(parseIPv6ToGroups(address) || [])) {
-      throw new Error("Blocked URL: hostname resolves to an internal host");
+      if (!allowPrivate) throw new Error("Blocked URL: hostname resolves to an internal host");
     }
   }
 }
@@ -199,8 +205,8 @@ export async function assertPublicUrlResolved(rawUrl) {
 // validated public URL can't 30x its way to an internal target. Bounded to
 // maxRedirects hops (fetch's own default following behavior has no bound
 // relevant here since we never let it auto-follow).
-export async function fetchPublic(url, init = {}, { maxRedirects = 5 } = {}) {
-  await assertPublicUrlResolved(url);
+export async function fetchPublic(url, init = {}, { maxRedirects = 5, allowPrivate = false } = {}) {
+  await assertPublicUrlResolved(url, { allowPrivate });
   let currentUrl = url;
   for (let hop = 0; ; hop++) {
     const res = await fetch(currentUrl, { ...init, redirect: "manual" });
