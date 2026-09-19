@@ -1,8 +1,10 @@
 services:
-  9router:
-    image: 9router:v0.5.81-kenari-luna
-    pull_policy: never
-    container_name: 9router
+  literouter:
+    # Required full-SHA tag, published only by .github/workflows/production-image.yml.
+    # Do not deploy until the shared durable-state cutover has been rehearsed.
+    image: ghcr.io/raufimusaddiq/literouter-production:${LITEROUTER_PRODUCTION_TAG:?set production-<full-main-sha>}
+    pull_policy: always
+    container_name: literouter
     restart: unless-stopped
     logging:
       driver: json-file
@@ -19,18 +21,28 @@ services:
       ENABLE_REQUEST_LOGS: "true"
       REQUEST_LOG_MAX_SIZE_MB: "1024"
       REQUEST_LOG_MAX_SESSIONS: "1000"
+      MODEL_CATALOG_SYNC: off
+      DISABLE_BACKGROUND_TOKEN_REFRESH: "true"
+      REDIS_URL: redis://idx-redis:6379
+      REDIS_KEY_PREFIX: "literouter:prod:"
+      MINIMAL_PROFILE: "true"
     expose:
       - "20128"
     volumes:
+      # Keep the existing production volume name: the durable SQLite state lives
+      # here and promotion must never boot against a fresh empty volume.
       - 9router-data:/app/data
     networks:
-      # Caddy reaches 9router over this two-member network so the static IP
+      # Caddy reaches LiteRouter over this two-member network so the static IP
       # below can never be handed out by idx_default's DHCP pool. Keeping the
       # dynamic idx-public attachment preserves the `9router` DNS name for
       # in-network consumers (richmod, meridian).
       idx-edge:
         ipv4_address: 172.30.0.2
       idx-public:
+        aliases:
+          # Keep in-network callers working while they migrate to `literouter`.
+          - 9router
     mem_limit: 512m
     mem_reservation: 128m
     healthcheck:
