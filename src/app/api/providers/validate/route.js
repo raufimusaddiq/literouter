@@ -16,6 +16,24 @@ export async function POST(request) {
     const provider = normalizeProviderId(body.provider);
     const { apiKey, providerSpecificData } = body;
 
+    // One gate for every caller-controlled URL this route fetches. Branches below
+    // vary a lot (provider node, azure endpoint, ollama host), so guarding each
+    // call site separately kept missing sinks; this rejects any private/metadata
+    // target before the branch runs. Local operators keep self-hosted nodes.
+    if (!isLocalRequest(request)) {
+      const candidates = [
+        providerSpecificData?.azureEndpoint,
+        providerSpecificData?.baseUrl,
+      ];
+      try {
+        for (const candidate of candidates) {
+          if (typeof candidate === "string" && candidate.trim()) assertPublicUrl(candidate.trim());
+        }
+      } catch {
+        return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+      }
+    }
+
     const isNoAuth = AI_PROVIDERS[provider]?.noAuth === true;
     if (!provider || (!apiKey && provider !== "ollama-local" && !isNoAuth)) {
       return NextResponse.json({ error: "Provider and API key required" }, { status: 400 });
@@ -113,7 +131,6 @@ export async function POST(request) {
       }
 
       if (provider === "azure") {
-        const { providerSpecificData } = body;
         const endpoint = (providerSpecificData?.azureEndpoint || "").replace(/\/$/, "");
         const deployment = providerSpecificData?.deployment || "gpt-4";
         const apiVersion = providerSpecificData?.apiVersion || "2024-10-01-preview";
