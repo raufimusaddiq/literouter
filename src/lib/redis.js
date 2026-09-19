@@ -107,7 +107,7 @@ async function connect(cfg) {
   if (cfg.database !== null) await session(["SELECT", cfg.database]);
   socket.on("close", () => { if (conn?.socket === socket) conn = null; });
   socket.on("error", () => { if (conn?.socket === socket) conn = null; });
-  return session;
+  return { session, socket };
 }
 
 function command(parts) {
@@ -115,7 +115,7 @@ function command(parts) {
     const cfg = config();
     if (!cfg) return null;
     try {
-      if (!conn) conn = { session: await connect(cfg) };
+      if (!conn) conn = await connect(cfg);
       return await conn.session(parts);
     } catch (error) {
       conn = null;

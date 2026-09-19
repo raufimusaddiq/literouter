@@ -89,3 +89,21 @@ describe("redis client — connection reuse", () => {
     expect(await redisGet("k")).toBe("v");
   });
 });
+
+describe("redis client — reconnect after socket drop", () => {
+  it("reconnects instead of reusing a dead session", async () => {
+    const fake = await startFakeRedis();
+    process.env.REDIS_URL = `redis://127.0.0.1:${fake.port}`;
+    process.env.REDIS_TIMEOUT_MS = "200";
+    process.env.REDIS_KEY_PREFIX = "literouter:reconnect:";
+
+    const { redisSet, redisGet } = await import("../../src/lib/redis.js");
+    await redisSet("k", "v");
+    for (const socket of fake.sockets) socket.destroy();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(await redisGet("k")).toBe("v");
+
+    for (const socket of fake.sockets) socket.destroy();
+    await new Promise((r) => fake.server.close(r));
+  });
+});
