@@ -7,20 +7,23 @@ flip rather than a redeploy.
 Surfaces that no retained code imports are **deleted** rather than gated; the
 hidden list below only carries what is still reachable in the build.
 
+`cli-tools` and `mitm` are queued for deletion in PR #12. They stay in the
+hidden list until that PR lands, because until then the routes are still in the
+build and the guard is what keeps them off the minimal surface.
+
 ## Deleted
 
 | Surface | PR |
 | --- | --- |
 | `basic-chat` | #10 |
 | `media-providers`, `/v1/audio/*`, TTS voice routes | #11 |
-| `cli-tools` (19 API routes), `mitm` page, `mitmAlias` cache | #12 |
 
 ## Hidden prefixes
 
-Dashboard: `proxy-pools`, `skills`, `translator`, `pxpipe`.
+Dashboard: `cli-tools`, `mitm`, `proxy-pools`, `skills`, `translator`, `pxpipe`.
 
-API: `proxy-pools`, `skills`, `translator`, `headroom`, `mcp`, `tunnel`,
-`version/update`, `version/shutdown`.
+API: `cli-tools`, `proxy-pools`, `skills`, `translator`, `headroom`, `mcp`,
+`tunnel`, `version/update`, `version/shutdown`.
 
 ## Verified live (staging, healthy)
 
@@ -39,6 +42,8 @@ Retained dashboard routes — all HTTP 200:
 Hidden dashboard routes — all HTTP 307 (redirect to `/dashboard`):
 
 ```text
+307 /dashboard/cli-tools
+307 /dashboard/mitm
 307 /dashboard/proxy-pools
 307 /dashboard/skills
 307 /dashboard/translator
@@ -49,12 +54,10 @@ since the route no longer exists to be gated:
 
 ```text
 307 /dashboard/basic-chat
-307 /dashboard/cli-tools
-307 /dashboard/mitm
 307 /dashboard/media-providers
 ```
 
-Hidden APIs — HTTP 404: `proxy-pools`, `tunnel/enable`.
+Hidden APIs — HTTP 404: `cli-tools/all-statuses`, `proxy-pools`, `tunnel/enable`.
 
 Retained APIs — HTTP 200: `providers`, `combos`, `usage/stats`, `settings`.
 
