@@ -196,12 +196,13 @@ export default function CombosPage() {
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-[1.125rem] bg-surface-2 p-5 ring-1 ring-border-subtle sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-sm text-text-muted mt-1">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Routing strategy</p>
+          <p className="text-sm text-text-muted">
             Group models under one name, then pick a strategy per combo:
           </p>
-          <ul className="text-sm text-text-muted mt-2 flex flex-col gap-1">
+          <ul className="mt-3 flex flex-col gap-1.5 text-sm text-text-muted">
             <li><span className="font-medium text-text-main">Fallback</span> — tries models in order (next on failure)</li>
             <li><span className="font-medium text-text-main">Round Robin</span> — rotates models across requests to spread load</li>
             <li><span className="font-medium text-text-main">Fusion</span> — queries all models in parallel, then a judge synthesizes one answer. Best quality, but costs the most: every request bills all panel models + the judge (N+1 calls)</li>

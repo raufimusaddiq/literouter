@@ -69,16 +69,20 @@ export default function ConsoleLogClient() {
   }, [logs]);
 
   return (
-    <div className="">
-      <Card>
-        <div className="flex items-center justify-end px-4 pt-3 pb-2">
+    <div>
+      <Card padding="none" className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Live output</p>
+            <p className="mt-1 text-sm text-text-main">Server events and route diagnostics.</p>
+          </div>
           <Button size="sm" variant="outline" icon="delete" onClick={handleClear}>
             Clear
           </Button>
         </div>
         <div
           ref={logRef}
-          className="bg-black rounded-b-lg p-4 text-xs font-mono h-[calc(100vh-220px)] overflow-y-auto"
+          className="h-[calc(100dvh-220px)] overflow-y-auto bg-[#11121a] p-5 font-mono text-xs"
         >
           {logs.length === 0 ? (
             <span className="text-text-muted">No console logs yet.</span>
