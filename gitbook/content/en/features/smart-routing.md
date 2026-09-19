@@ -1,15 +1,15 @@
 # Smart Routing & Auto Fallback
 
-9Router automatically routes your requests through the best available provider using a 3-tier fallback system. Never stop coding due to quota limits or rate limiting.
+LiteRouter automatically routes your requests through the best available provider using a 3-tier fallback system. Never stop coding due to quota limits or rate limiting.
 
 ---
 
 ## How It Works
 
-9Router uses intelligent routing to maximize your existing subscriptions, minimize costs, and ensure 24/7 availability:
+LiteRouter uses intelligent routing to maximize your existing subscriptions, minimize costs, and ensure 24/7 availability:
 
 ```
-Request → 9Router → Check Tier 1 (Subscription)
+Request → LiteRouter → Check Tier 1 (Subscription)
                      ↓ quota exhausted
                      Check Tier 2 (Cheap)
                      ↓ budget limit
@@ -47,7 +47,7 @@ Request → 9Router → Check Tier 1 (Subscription)
 
 ## Automatic Switching
 
-9Router monitors quota in real-time and switches providers automatically:
+LiteRouter monitors quota in real-time and switches providers automatically:
 
 ### Scenario 1: Subscription Quota Exhausted
 
@@ -89,7 +89,7 @@ User request → cc/claude-opus-4-5
 
 ## Model Selection Logic
 
-9Router selects the best model based on:
+LiteRouter selects the best model based on:
 
 1. **Quota availability** - Check if provider has remaining quota
 2. **Cost tier** - Prefer subscription → cheap → free
@@ -138,7 +138,7 @@ Dashboard → Settings → Budget Control
 → Monthly limit: $50
 ```
 
-When budget reached, 9Router automatically switches to free tier.
+When budget reached, LiteRouter automatically switches to free tier.
 
 **3. Configure Fallback Order**
 
@@ -367,7 +367,7 @@ Dashboard → Analytics:
     - 30M via Claude Code (subscription)
     - 15M via GLM-4.7 ($9)
     - 5M via iFlow (free)
-  
+
   Cost: $9 (vs $1000 on ChatGPT API)
   Savings: 99%
 ```

@@ -1,6 +1,6 @@
 # ☁️ 云端部署
 
-将 9Router 部署到 VPS 或 Docker,实现远程访问和生产使用。
+将 LiteRouter 部署到 VPS 或 Docker,实现远程访问和生产使用。
 
 ---
 
@@ -49,7 +49,7 @@ export NODE_ENV="production"
 |----------|---------|-------------|
 | `JWT_SECRET` | 自动生成 | **生产环境必须修改!** 用于 JWT token 签名 |
 | `INITIAL_PASSWORD` | `123456` | 仪表盘登录密码 |
-| `DATA_DIR` | `~/.9router` | 数据库与数据存储路径 |
+| `DATA_DIR` | `~/.literouter` | 数据库与数据存储路径 |
 | `NODE_ENV` | `development` | 部署时设为 `production` |
 | `ENABLE_REQUEST_LOGS` | `false` | 启用 debug 请求/响应日志 |
 
@@ -74,7 +74,7 @@ PM2 让应用持续运行,崩溃时自动重启:
 # 全局安装 PM2
 npm install -g pm2
 
-# 用 PM2 启动 9Router
+# 用 PM2 启动 LiteRouter
 pm2 start npm --name 9router -- start
 
 # 保存 PM2 配置
@@ -223,7 +223,7 @@ sudo apt install nginx
 
 ### 步骤 2:配置 Nginx
 
-创建 `/etc/nginx/sites-available/9router`:
+创建 `/etc/nginx/sites-available/literouter`:
 
 ```nginx
 server {
@@ -247,7 +247,7 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
 
-    # Proxy to 9Router
+    # Proxy to LiteRouter
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -258,7 +258,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
-        
+
         # SSE support - CRITICAL for streaming
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -272,7 +272,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # SSE support - CRITICAL for streaming
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -333,7 +333,7 @@ sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 
-# 若不使用反向代理,放开 9Router 端口
+# 若不使用反向代理,放开 LiteRouter 端口
 sudo ufw allow 3000/tcp
 sudo ufw allow 20128/tcp
 
@@ -363,7 +363,7 @@ ssh -L 3000:localhost:3000 user@your-server.com
 # 更新系统包
 sudo apt update && sudo apt upgrade -y
 
-# 更新 9Router
+# 更新 LiteRouter
 cd /path/to/9router/app
 git pull
 npm install
@@ -442,7 +442,7 @@ pm2 env 9router
 ### Nginx 502 Bad Gateway
 
 ```bash
-# 检查 9Router 是否运行
+# 检查 LiteRouter 是否运行
 pm2 status
 
 # 查看 Nginx 错误日志

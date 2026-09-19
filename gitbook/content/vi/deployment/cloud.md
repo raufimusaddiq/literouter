@@ -1,6 +1,6 @@
 # ☁️ Triển khai Cloud
 
-Triển khai 9Router trên VPS hoặc Docker để truy cập từ xa và dùng trong production.
+Triển khai LiteRouter trên VPS hoặc Docker để truy cập từ xa và dùng trong production.
 
 ---
 
@@ -49,7 +49,7 @@ export NODE_ENV="production"
 |----------|---------|-------------|
 | `JWT_SECRET` | Auto-generated | **PHẢI đổi trong production!** Dùng để ký JWT token |
 | `INITIAL_PASSWORD` | `123456` | Mật khẩu đăng nhập Dashboard |
-| `DATA_DIR` | `~/.9router` | Đường dẫn lưu database và data |
+| `DATA_DIR` | `~/.literouter` | Đường dẫn lưu database và data |
 | `NODE_ENV` | `development` | Đặt `production` cho deployment |
 | `ENABLE_REQUEST_LOGS` | `false` | Bật debug request/response logs |
 
@@ -74,7 +74,7 @@ PM2 giữ application chạy và tự khởi động lại khi crash:
 # Install PM2 globally
 npm install -g pm2
 
-# Start 9Router with PM2
+# Start LiteRouter with PM2
 pm2 start npm --name 9router -- start
 
 # Save PM2 configuration
@@ -223,7 +223,7 @@ sudo apt install nginx
 
 ### Bước 2: Cấu hình Nginx
 
-Tạo `/etc/nginx/sites-available/9router`:
+Tạo `/etc/nginx/sites-available/literouter`:
 
 ```nginx
 server {
@@ -247,7 +247,7 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
 
-    # Proxy to 9Router
+    # Proxy to LiteRouter
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -258,7 +258,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
-        
+
         # SSE support - CRITICAL for streaming
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -272,7 +272,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # SSE support - CRITICAL for streaming
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -333,7 +333,7 @@ sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 
-# If NOT using reverse proxy, allow 9Router ports
+# If NOT using reverse proxy, allow LiteRouter ports
 sudo ufw allow 3000/tcp
 sudo ufw allow 20128/tcp
 
@@ -363,7 +363,7 @@ ssh -L 3000:localhost:3000 user@your-server.com
 # Update system packages
 sudo apt update && sudo apt upgrade -y
 
-# Update 9Router
+# Update LiteRouter
 cd /path/to/9router/app
 git pull
 npm install
@@ -442,7 +442,7 @@ pm2 env 9router
 ### Nginx 502 Bad Gateway
 
 ```bash
-# Check if 9Router is running
+# Check if LiteRouter is running
 pm2 status
 
 # Check Nginx error logs

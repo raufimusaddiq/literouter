@@ -6,7 +6,7 @@ Rastrea el consumo de tokens en tiempo real, monitorea los límites de cuota, es
 
 ## Resumen
 
-9Router proporciona un seguimiento de cuota integral para todos los proveedores:
+LiteRouter proporciona un seguimiento de cuota integral para todos los proveedores:
 
 - **Consumo de tokens en tiempo real** - Mira los tokens usados por solicitud
 - **Límites de cuota y restantes** - Rastrea el uso vs límites
@@ -106,7 +106,7 @@ Hoy (4 feb 2026):
   cc/claude-opus-4-5: 15M tokens ($0, suscripción)
   glm/glm-4.7: 8M tokens ($4.80)
   if/kimi-k2-thinking: 3M tokens ($0, gratis)
-  
+
 Total: 26M tokens
 Costo: $4.80
 ```
@@ -128,7 +128,7 @@ El dashboard muestra:
   Opus: 2.5h / 5h usados
   Sonnet: 1.2h / 5h usados
   Haiku: 0.8h / 5h usados
-  
+
 Reinicio semanal: Todos los lunes 00:00 UTC
 ```
 
@@ -269,7 +269,7 @@ Proyectado (30 días): ~$120
 Desglose por proveedor:
   GLM-4.7: $22.00 (78%)
   MiniMax M2.1: $6.00 (22%)
-  
+
 Costo promedio por 1M tokens: $0.62
 Ahorros vs ChatGPT API: 97% ($4,000 → $120)
 ```
@@ -286,7 +286,7 @@ Basado en uso de los últimos 7 días:
 Proyección mensual:
   Tokens: 1,500M (1.5B)
   Costo: $135
-  
+
 Desglose:
   Suscripción: 900M tokens ($0)
   GLM-4.7: 450M tokens ($90)
@@ -374,7 +374,7 @@ premium-coding:
   Solicitudes: 456
   Tokens: 12M
   Costo: $2.40
-  
+
   Desglose:
     cc/claude-opus: 8M tokens (67%, $0)
     glm/glm-4.7: 3M tokens (25%, $1.80)
@@ -384,7 +384,7 @@ budget-combo:
   Solicitudes: 234
   Tokens: 6M
   Costo: $1.20
-  
+
   Desglose:
     glm/glm-4.7: 4M tokens (67%, $2.40)
     if/kimi-k2-thinking: 2M tokens (33%, $0)
@@ -415,10 +415,10 @@ Entrega:
 ```
 ⚠️ Cuota de Claude Code 80% usada
    2.5h restantes (se reinicia en 1h 30m)
-   
+
 ⚠️ Cuota de GLM-4.7 90% usada
    1M tokens restantes (se reinicia en 5h)
-   
+
 ✅ Cuota de Gemini CLI reiniciada
    1,000 solicitudes disponibles (límite diario)
 ```
@@ -443,11 +443,11 @@ Presupuesto mensual: $150
 ```
 ⚠️ Presupuesto diario 80% usado
    $4.00 / $5.00 gastados hoy
-   
+
 ⚠️ Presupuesto mensual 50% alcanzado
    $75 / $150 gastados este mes
    Proyectado: $135 (dentro del presupuesto)
-   
+
 🚨 Presupuesto diario excedido
    $5.20 / $5.00 gastados hoy
    Cambio automático al nivel gratis
@@ -488,7 +488,7 @@ Revisión matutina:
   ✅ Claude Code: 5h disponibles (reinicio fresco)
   ✅ Gemini CLI: 1K solicitudes disponibles
   ⚠️ GLM-4.7: 2M tokens restantes (se reinicia 10AM)
-  
+
 Acción: Usar Claude Code para el trabajo matutino
 ```
 
@@ -520,7 +520,7 @@ Optimizado: gc/gemini-3-flash → cc/claude-opus → glm/glm-4.7
   50% vía Gemini (gratis)
   40% vía Claude (suscripción)
   10% vía GLM ($6/mes)
-  
+
 Ahorros: $6/mes
 ```
 
@@ -543,12 +543,12 @@ Dashboard → Analytics → Monthly Report:
   Total de tokens: 1.5B
   Costo total: $120
   Ahorros: 97% vs ChatGPT API
-  
+
 Insights:
   - 60% de uso vía suscripciones ($0)
   - 30% vía GLM ($90)
   - 10% vía nivel gratis ($0)
-  
+
 Optimización:
   - Aumentar el uso de Gemini CLI (gratis)
   - Reducir el uso de GLM (costoso)
@@ -669,7 +669,7 @@ Response:
 1. Refresca el dashboard (F5)
 2. Verifica que la hora del sistema sea correcta
 3. Verifica la configuración de zona horaria
-4. Reinicia 9Router si el problema persiste
+4. Reinicia LiteRouter si el problema persiste
 
 **Problema: No se reciben alertas**
 

@@ -6,7 +6,7 @@
 
 ## 概览
 
-9Router 为所有提供商提供完善的配额跟踪:
+LiteRouter 为所有提供商提供完善的配额跟踪:
 
 - **实时 token 消耗** - 查看每次请求使用的 tokens
 - **配额上限与剩余** - 跟踪使用 vs 上限
@@ -106,7 +106,7 @@ Tokens:
   cc/claude-opus-4-5: 15M tokens($0,订阅)
   glm/glm-4.7: 8M tokens($4.80)
   if/kimi-k2-thinking: 3M tokens($0,免费)
-  
+
 合计: 26M tokens
 成本: $4.80
 ```
@@ -128,7 +128,7 @@ Tokens:
   Opus: 已用 2.5h / 5h
   Sonnet: 已用 1.2h / 5h
   Haiku: 已用 0.8h / 5h
-  
+
 每周重置: 每周一 00:00 UTC
 ```
 
@@ -269,7 +269,7 @@ Tokens:
 按提供商分解:
   GLM-4.7: $22.00 (78%)
   MiniMax M2.1: $6.00 (22%)
-  
+
 每 1M tokens 平均成本: $0.62
 相比 ChatGPT API 节省: 97%($4,000 → $120)
 ```
@@ -286,7 +286,7 @@ Tokens:
 月度预测:
   Tokens: 1,500M (1.5B)
   成本: $135
-  
+
 分解:
   订阅: 900M tokens($0)
   GLM-4.7: 450M tokens($90)
@@ -374,7 +374,7 @@ premium-coding:
   请求: 456
   Tokens: 12M
   成本: $2.40
-  
+
   分解:
     cc/claude-opus: 8M tokens (67%, $0)
     glm/glm-4.7: 3M tokens (25%, $1.80)
@@ -384,7 +384,7 @@ budget-combo:
   请求: 234
   Tokens: 6M
   成本: $1.20
-  
+
   分解:
     glm/glm-4.7: 4M tokens (67%, $2.40)
     if/kimi-k2-thinking: 2M tokens (33%, $0)
@@ -415,10 +415,10 @@ budget-combo:
 ```
 ⚠️ Claude Code 配额已用 80%
    剩余 2.5h(1h 30m 后重置)
-   
+
 ⚠️ GLM-4.7 配额已用 90%
    剩余 1M tokens(5h 后重置)
-   
+
 ✅ Gemini CLI 配额已重置
    1,000 次请求可用(每日上限)
 ```
@@ -443,11 +443,11 @@ budget-combo:
 ```
 ⚠️ 每日预算已用 80%
    今日花费 $4.00 / $5.00
-   
+
 ⚠️ 每月预算达到 50%
    本月花费 $75 / $150
    预计: $135(预算内)
-   
+
 🚨 每日预算超额
    今日花费 $5.20 / $5.00
    已自动切换到免费层
@@ -488,7 +488,7 @@ budget-combo:
   ✅ Claude Code: 5h 可用(刚重置)
   ✅ Gemini CLI: 1K 请求可用
   ⚠️ GLM-4.7: 剩 2M tokens(10AM 重置)
-  
+
 行动: 早上工作用 Claude Code
 ```
 
@@ -520,7 +520,7 @@ budget-combo:
   50% 通过 Gemini(免费)
   40% 通过 Claude(订阅)
   10% 通过 GLM($6/月)
-  
+
 节省: $6/月
 ```
 
@@ -543,12 +543,12 @@ budget-combo:
   总 tokens: 1.5B
   总成本: $120
   节省: 相比 ChatGPT API 节省 97%
-  
+
 洞察:
   - 60% 用量来自订阅($0)
   - 30% 通过 GLM($90)
   - 10% 通过免费层($0)
-  
+
 优化:
   - 增加 Gemini CLI 用量(免费)
   - 减少 GLM 用量(更贵)
@@ -669,7 +669,7 @@ Response:
 1. 刷新仪表盘(F5)
 2. 检查系统时间是否正确
 3. 确认时区设置
-4. 若问题持续,重启 9Router
+4. 若问题持续,重启 LiteRouter
 
 **问题:未收到告警**
 

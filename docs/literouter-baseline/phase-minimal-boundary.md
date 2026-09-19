@@ -114,7 +114,7 @@ three ingress transports still return 200.
 
 ## Migration compatibility (PRD section 19)
 
-The minimal profile must load existing 9Router configuration without manual
+The minimal profile must load existing LiteRouter configuration without manual
 database editing. Verified by running the current staging image with
 `MINIMAL_PROFILE=true` against a copy of the production database:
 

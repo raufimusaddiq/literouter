@@ -1,6 +1,6 @@
 # Installation
 
-Detailed installation guide for 9Router with troubleshooting tips.
+Detailed installation guide for LiteRouter with troubleshooting tips.
 
 ---
 
@@ -31,13 +31,13 @@ npm --version
 
 ### Method 1: Global Installation (Recommended)
 
-Install 9Router globally to use from anywhere:
+Install LiteRouter globally to use from anywhere:
 
 ```bash
 npm install -g 9router
 ```
 
-**Start 9Router:**
+**Start LiteRouter:**
 
 ```bash
 9router
@@ -58,7 +58,7 @@ cd my-9router
 npm install 9router
 ```
 
-**Start 9Router:**
+**Start LiteRouter:**
 
 ```bash
 npx 9router
@@ -99,7 +99,7 @@ npm start
 **What happens:**
 1. Server starts on `http://localhost:20128`
 2. Dashboard opens automatically in browser
-3. Data directory created at `~/.9router`
+3. Data directory created at `~/.literouter`
 4. API key generated automatically
 
 ### Dashboard Login
@@ -205,7 +205,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### Data Directory
 
-**Default location:** `~/.9router`
+**Default location:** `~/.literouter`
 
 **Contents:**
 ```
@@ -345,7 +345,7 @@ Dashboard → Provider → Disconnect → Reconnect
 
 ### High Memory Usage
 
-**Issue:** 9Router using too much RAM
+**Issue:** LiteRouter using too much RAM
 
 **Solution: Restart server**
 
@@ -427,7 +427,7 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        
+
         # SSE support for streaming
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -473,6 +473,6 @@ nano ~/.bashrc  # or ~/.zshrc
 
 ## Need Help?
 
-- **Website**: [9router.com](https://9router.com)
-- **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Website**: [literouter.com](https://ai-staging.investdx.biz.id)
+- **GitHub**: [github.com/decolua/literouter](https://github.com/decolua/literouter)
+- **Issues**: [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)

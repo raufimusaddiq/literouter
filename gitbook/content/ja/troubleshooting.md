@@ -1,6 +1,6 @@
 # トラブルシューティング
 
-9Router利用時の一般的な問題と解決策。
+LiteRouter利用時の一般的な問題と解決策。
 
 ---
 
@@ -78,7 +78,7 @@
 **解決策:**
 
 1. **自動更新(デフォルト):**
-   9Routerは自動的にトークンを更新します。30秒待ってから再試行。
+   LiteRouterは自動的にトークンを更新します。30秒待ってから再試行。
 
 2. **手動で再接続:**
    ```
@@ -135,15 +135,15 @@
 **問題:** 「ECONNREFUSED」または「Cannot connect to localhost:20128」。
 
 **原因:**
-- 9Routerが起動していない
+- LiteRouterが起動していない
 - ポート20128がブロックされている
 - ファイアウォールが接続をブロック
 
 **解決策:**
 
-1. **9Routerを起動:**
+1. **LiteRouterを起動:**
    ```bash
-   9router
+   literouter
    ```
    ダッシュボードがhttp://localhost:3000で開くはず
 
@@ -151,7 +151,7 @@
    ```bash
    # ポートがリッスンしているか確認
    lsof -i :20128
-   
+
    # またはWindowsで
    netstat -ano | findstr :20128
    ```
@@ -164,7 +164,7 @@
 4. **クラウドエンドポイントを使用:**
    localhostが動作しない場合(例: Cursor IDE):
    ```
-   Endpoint: https://9router.com/v1
+   Endpoint: https://ai-staging.investdx.biz.id/v1
    ```
 
 ---
@@ -175,16 +175,16 @@
 
 **原因:**
 - ポート3000がすでに使用中
-- 9Routerがクラッシュした
+- LiteRouterがクラッシュした
 - ブラウザキャッシュの問題
 
 **解決策:**
 
-1. **9Routerが実行中か確認:**
+1. **LiteRouterが実行中か確認:**
    ```bash
    # プロセスを確認
-   ps aux | grep 9router
-   
+   ps aux | grep literouter
+
    # ポート3000を確認
    lsof -i :3000
    ```
@@ -193,19 +193,19 @@
    ```bash
    # macOS/Linux
    lsof -ti:3000 | xargs kill -9
-   
+
    # Windows
    netstat -ano | findstr :3000
    taskkill /PID <PID> /F
    ```
 
-3. **9Routerを再起動:**
+3. **LiteRouterを再起動:**
    ```bash
    # 停止
-   pkill -f 9router
-   
+   pkill -f literouter
+
    # 起動
-   9router
+   literouter
    ```
 
 4. **ブラウザキャッシュをクリア:**
@@ -237,7 +237,7 @@
    ```
    正しい: cc/claude-opus-4-5-20251101
    誤り: claude-opus-4-5-20251101
-   
+
    形式: [provider-prefix]/[model-name]
    ```
 
@@ -328,10 +328,10 @@
    ```bash
    # Cursor
    Settings → Models → OpenAI API Key
-   
+
    # Cline
    Settings → API Key
-   
+
    # 環境変数
    export OPENAI_API_KEY="9r_your_key"
    ```
@@ -346,6 +346,6 @@
 
 ## さらにヘルプが必要?
 
-- **GitHub Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
-- **ドキュメント:** [9router.com/docs](https://9router.com/docs)
+- **GitHub Issues:** [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
+- **ドキュメント:** [literouter.com/docs](https://ai-staging.investdx.biz.id/docs)
 - **FAQ:** [faq.md](faq.md)

@@ -25,7 +25,7 @@ The *previous* production image (not the current one) was started as a
 throwaway container against a copy of the production database:
 
 ```text
-image:  9router:v0.5.75-kenari-fix
+image:  literouter:v0.5.75-kenari-fix
 port:   127.0.0.1:20131
 data:   copy of production data.sqlite
 ```
@@ -47,6 +47,6 @@ afterwards; production was never restarted or modified.
 
 | Purpose | Reference |
 | --- | --- |
-| Current production | `9router:v0.5.81-kenari-luna` (`sha256:52b392fa0aa5...`) |
-| Tested rollback target | `9router:v0.5.75-kenari-fix` |
+| Current production | `literouter:v0.5.81-kenari-luna` (`sha256:52b392fa0aa5...`) |
+| Tested rollback target | `literouter:v0.5.75-kenari-fix` |
 | Staging | `literouter:staging` |

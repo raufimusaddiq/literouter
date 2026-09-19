@@ -70,7 +70,7 @@ export default function DocsSidebar({ isMobile = false, onClose, lang = DEFAULT_
   };
 
   return (
-    <aside className={`${isMobile ? 'w-full' : 'w-64'} border-r bg-white border-gray-200 ${isMobile ? 'h-full' : 'h-[calc(100vh-4rem)] sticky top-16'} overflow-y-auto`}>
+    <aside className={`${isMobile ? 'w-full' : 'w-64'} ${isMobile ? 'h-full' : 'h-[calc(100vh-7rem)] sticky top-24'} overflow-y-auto ${isMobile ? '' : 'pl-1'}`}>
       <nav className="p-4 space-y-6">
         {navigation.map((section, sectionIndex) => {
           const SectionIcon = SECTION_ICONS[section.key] || BookOpen;
@@ -79,7 +79,7 @@ export default function DocsSidebar({ isMobile = false, onClose, lang = DEFAULT_
             <div key={section.key}>
               <button
                 onClick={() => toggleSection(sectionIndex)}
-                className="flex items-center justify-between w-full text-sm font-semibold text-gray-900 mb-2 hover:text-[#E68A6E] transition-colors"
+                className="flex items-center justify-between w-full text-[13px] font-semibold uppercase tracking-[0.14em] text-gray-500 mb-2 hover:text-[#4f46e5] transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
               >
                 <span className="flex items-center gap-2">
                   <SectionIcon className="w-4 h-4" />
@@ -102,10 +102,10 @@ export default function DocsSidebar({ isMobile = false, onClose, lang = DEFAULT_
                         <Link
                           href={buildHref(item.slug)}
                           onClick={handleLinkClick}
-                          className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
+                          className={`flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                             isActive(item.slug)
-                              ? "bg-[#E68A6E]/10 text-[#E68A6E] font-medium"
-                              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                              ? "bg-[#4f46e5] text-white font-medium shadow-[0_12px_26px_-18px_rgba(79,70,229,0.9)]"
+                              : "text-gray-600 hover:bg-white hover:text-gray-900"
                           }`}
                         >
                           <ItemIcon className="w-4 h-4" />

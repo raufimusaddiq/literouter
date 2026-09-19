@@ -1,12 +1,12 @@
 # PRD: LiteRouter Minimal — Fast Multi-Provider Router
 
-**Status:** Proposed  
-**Baseline:** current `main` (9Router-derived, package version `0.5.81` at PRD creation)  
+**Status:** Proposed
+**Baseline:** current `main` (LiteRouter-derived, package version `0.5.81` at PRD creation)
 **Scope:** product and architecture requirements only; no implementation in this PR
 
 ## 1. Problem
 
-LiteRouter is derived from 9Router, but the current product surface is much larger than the deployment needs for this repository.
+LiteRouter is derived from LiteRouter, but the current product surface is much larger than the deployment needs for this repository.
 
 The target deployment needs a lightweight, fast, self-hosted AI routing gateway with a web UI. The valuable parts are:
 
@@ -69,7 +69,7 @@ All retained functionality must remain configurable from the web UI. LiteRouter 
 
 ### 2.5 Focused profile, not a rewrite
 
-This initiative is a focused 9Router-derived profile.
+This initiative is a focused LiteRouter-derived profile.
 
 It MUST prefer extraction, feature boundaries, lazy initialization, and dependency pruning over replacing the routing engine with a new platform.
 
@@ -600,7 +600,7 @@ Remove or disable from the minimal product unless explicitly needed later:
 - SAML SSO,
 - OIDC/enterprise SSO,
 - built-in app updater/shutdown workflow,
-- 9Router/9Remote promotional integrations,
+- LiteRouter/9Remote promotional integrations,
 - external promotional links,
 - language/i18n selection if LiteRouter is intentionally maintained as a private single-language deployment,
 - outbound proxy management UI when normal provider routing does not require it.
@@ -1069,7 +1069,7 @@ The minimalization initiative is complete only when all of the following are tru
 
 ## 22. Scope tightening
 
-This PRD defines a focused 9Router profile, not a second rewrite and not a new
+This PRD defines a focused LiteRouter profile, not a second rewrite and not a new
 provider platform. Existing routing behavior is the compatibility baseline.
 Implementation MUST delete or stop initializing code only after dependency and
 regression checks prove it is outside the retained path.
@@ -1112,7 +1112,7 @@ until refreshed. Routing MUST never loop indefinitely on quota or retry errors.
 
 ## 25. Staging and migration plan
 
-`main` remains the production branch and current 9Router deployment. `staging`
+`main` remains the production branch and current LiteRouter deployment. `staging`
 is the only branch allowed to change the LiteRouter profile. Staging runs in an
 isolated Docker project: `compose.staging.yml`, container
 `literouter-staging`, port `20129`, volume `literouter-staging-data`, and
@@ -1151,7 +1151,7 @@ Promotion requires all of the following:
 - rollback to the prior production image is tested.
 
 Until every gate passes, staging is experimental and production remains the
-current 9Router deployment.
+current LiteRouter deployment.
 
 ---
 
@@ -1209,7 +1209,7 @@ Recommended order:
 
 ## 23. Decision summary
 
-LiteRouter remains a 9Router-derived router because its multi-provider, multi-account, round-robin, Combo, auto-fallback, quota, and token-saving behavior are valuable.
+LiteRouter remains a LiteRouter-derived router because its multi-provider, multi-account, round-robin, Combo, auto-fallback, quota, and token-saving behavior are valuable.
 
 The product is reduced around those strengths rather than replaced.
 

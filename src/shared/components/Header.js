@@ -129,7 +129,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   };
 
   return (
-    <header className="shrink-0 flex items-center justify-between gap-3 px-4 lg:px-8 pt-3 pb-2 border-b border-border-subtle bg-surface/60 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none z-20">
+    <header className="shrink-0 flex items-center justify-between gap-3 px-4 py-4 lg:px-8 lg:py-5 border-b border-border-subtle bg-surface/85 backdrop-blur-xl z-20">
       {/* Mobile menu button */}
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
@@ -174,7 +174,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
                         fallbackText={crumb.label.slice(0, 2).toUpperCase()}
                       />
                     )}
-                    <h1 className="text-base lg:text-2xl font-semibold text-text-main tracking-tight truncate">
+              <h1 className="text-base lg:text-[1.7rem] font-semibold text-text-main tracking-[-0.05em] truncate">
                       {translate(crumb.label)}
                     </h1>
                   </div>
@@ -190,7 +190,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
                   {icon}
                 </span>
               )}
-              <h1 className="text-base lg:text-2xl font-semibold tracking-tight truncate">
+              <h1 className="text-base lg:text-[1.7rem] font-semibold tracking-[-0.05em] truncate">
                 {translate(title)}
               </h1>
             </div>

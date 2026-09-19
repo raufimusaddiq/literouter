@@ -1,6 +1,6 @@
 # Instalación
 
-Guía detallada de instalación de 9Router con consejos de solución de problemas.
+Guía detallada de instalación de LiteRouter con consejos de solución de problemas.
 
 ---
 
@@ -31,13 +31,13 @@ npm --version
 
 ### Método 1: Instalación global (Recomendado)
 
-Instala 9Router globalmente para usar desde cualquier lugar:
+Instala LiteRouter globalmente para usar desde cualquier lugar:
 
 ```bash
 npm install -g 9router
 ```
 
-**Iniciar 9Router:**
+**Iniciar LiteRouter:**
 
 ```bash
 9router
@@ -58,7 +58,7 @@ cd my-9router
 npm install 9router
 ```
 
-**Iniciar 9Router:**
+**Iniciar LiteRouter:**
 
 ```bash
 npx 9router
@@ -99,7 +99,7 @@ npm start
 **Qué sucede:**
 1. El servidor inicia en `http://localhost:20128`
 2. El dashboard se abre automáticamente en el navegador
-3. Se crea el directorio de datos en `~/.9router`
+3. Se crea el directorio de datos en `~/.literouter`
 4. API key generada automáticamente
 
 ### Login del dashboard
@@ -205,7 +205,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### Directorio de datos
 
-**Ubicación por defecto:** `~/.9router`
+**Ubicación por defecto:** `~/.literouter`
 
 **Contenido:**
 ```
@@ -345,7 +345,7 @@ Dashboard → Provider → Disconnect → Reconnect
 
 ### Uso alto de memoria
 
-**Problema:** 9Router usa demasiada RAM
+**Problema:** LiteRouter usa demasiada RAM
 
 **Solución: Reinicia el servidor**
 
@@ -427,7 +427,7 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        
+
         # SSE support for streaming
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -473,6 +473,6 @@ nano ~/.bashrc  # o ~/.zshrc
 
 ## ¿Necesitas ayuda?
 
-- **Sitio web**: [9router.com](https://9router.com)
-- **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Sitio web**: [literouter.com](https://ai-staging.investdx.biz.id)
+- **GitHub**: [github.com/decolua/literouter](https://github.com/decolua/literouter)
+- **Issues**: [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)

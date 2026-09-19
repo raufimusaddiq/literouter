@@ -61,7 +61,7 @@ to `staging` and published to
 This box only pulls:
 
 ```bash
-cd /opt/9router
+cd /opt/literouter
 docker compose -f compose.staging.yml pull
 docker compose -f compose.staging.yml up -d
 ```

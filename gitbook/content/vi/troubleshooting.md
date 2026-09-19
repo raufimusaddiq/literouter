@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Các vấn đề và giải pháp phổ biến khi dùng 9Router.
+Các vấn đề và giải pháp phổ biến khi dùng LiteRouter.
 
 ---
 
@@ -78,7 +78,7 @@ Các vấn đề và giải pháp phổ biến khi dùng 9Router.
 **Giải pháp:**
 
 1. **Auto-refresh (mặc định):**
-   9Router tự refresh tokens. Đợi 30 giây rồi thử lại.
+   LiteRouter tự refresh tokens. Đợi 30 giây rồi thử lại.
 
 2. **Kết nối lại thủ công:**
    ```
@@ -135,15 +135,15 @@ Các vấn đề và giải pháp phổ biến khi dùng 9Router.
 **Vấn đề:** Lỗi "ECONNREFUSED" hoặc "Cannot connect to localhost:20128".
 
 **Nguyên nhân:**
-- 9Router không chạy
+- LiteRouter không chạy
 - Port 20128 bị chặn
 - Firewall chặn kết nối
 
 **Giải pháp:**
 
-1. **Khởi động 9Router:**
+1. **Khởi động LiteRouter:**
    ```bash
-   9router
+   literouter
    ```
    Dashboard sẽ mở tại http://localhost:3000
 
@@ -151,7 +151,7 @@ Các vấn đề và giải pháp phổ biến khi dùng 9Router.
    ```bash
    # Check if port is listening
    lsof -i :20128
-   
+
    # Or on Windows
    netstat -ano | findstr :20128
    ```
@@ -164,7 +164,7 @@ Các vấn đề và giải pháp phổ biến khi dùng 9Router.
 4. **Dùng cloud endpoint:**
    Nếu localhost không hoạt động (ví dụ: Cursor IDE):
    ```
-   Endpoint: https://9router.com/v1
+   Endpoint: https://ai-staging.investdx.biz.id/v1
    ```
 
 ---
@@ -175,16 +175,16 @@ Các vấn đề và giải pháp phổ biến khi dùng 9Router.
 
 **Nguyên nhân:**
 - Port 3000 đã được dùng
-- 9Router bị crash
+- LiteRouter bị crash
 - Vấn đề cache browser
 
 **Giải pháp:**
 
-1. **Kiểm tra 9Router có chạy không:**
+1. **Kiểm tra LiteRouter có chạy không:**
    ```bash
    # Check process
-   ps aux | grep 9router
-   
+   ps aux | grep literouter
+
    # Check port 3000
    lsof -i :3000
    ```
@@ -193,19 +193,19 @@ Các vấn đề và giải pháp phổ biến khi dùng 9Router.
    ```bash
    # macOS/Linux
    lsof -ti:3000 | xargs kill -9
-   
+
    # Windows
    netstat -ano | findstr :3000
    taskkill /PID <PID> /F
    ```
 
-3. **Khởi động lại 9Router:**
+3. **Khởi động lại LiteRouter:**
    ```bash
    # Stop
-   pkill -f 9router
-   
+   pkill -f literouter
+
    # Start
-   9router
+   literouter
    ```
 
 4. **Xóa cache browser:**
@@ -237,7 +237,7 @@ Các vấn đề và giải pháp phổ biến khi dùng 9Router.
    ```
    Correct: cc/claude-opus-4-5-20251101
    Wrong: claude-opus-4-5-20251101
-   
+
    Format: [provider-prefix]/[model-name]
    ```
 
@@ -328,10 +328,10 @@ Các vấn đề và giải pháp phổ biến khi dùng 9Router.
    ```bash
    # Cursor
    Settings → Models → OpenAI API Key
-   
+
    # Cline
    Settings → API Key
-   
+
    # Environment variable
    export OPENAI_API_KEY="9r_your_key"
    ```
@@ -346,6 +346,6 @@ Các vấn đề và giải pháp phổ biến khi dùng 9Router.
 
 ## Cần trợ giúp thêm?
 
-- **GitHub Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
-- **Documentation:** [9router.com/docs](https://9router.com/docs)
+- **GitHub Issues:** [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
+- **Documentation:** [literouter.com/docs](https://ai-staging.investdx.biz.id/docs)
 - **FAQ:** [faq.md](faq.md)

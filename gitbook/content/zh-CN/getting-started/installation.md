@@ -1,6 +1,6 @@
 # 安装
 
-9Router 的详细安装指南,附故障排除技巧。
+LiteRouter 的详细安装指南,附故障排除技巧。
 
 ---
 
@@ -37,7 +37,7 @@ npm --version
 npm install -g 9router
 ```
 
-**启动 9Router:**
+**启动 LiteRouter:**
 
 ```bash
 9router
@@ -58,7 +58,7 @@ cd my-9router
 npm install 9router
 ```
 
-**启动 9Router:**
+**启动 LiteRouter:**
 
 ```bash
 npx 9router
@@ -99,7 +99,7 @@ npm start
 **发生了什么:**
 1. 服务器启动在 `http://localhost:20128`
 2. 仪表盘在浏览器中自动打开
-3. 数据目录创建在 `~/.9router`
+3. 数据目录创建在 `~/.literouter`
 4. API key 自动生成
 
 ### 仪表盘登录
@@ -205,7 +205,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### 数据目录
 
-**默认位置:** `~/.9router`
+**默认位置:** `~/.literouter`
 
 **内容:**
 ```
@@ -345,7 +345,7 @@ ping google.com
 
 ### 内存占用过高
 
-**问题:** 9Router 占用过多 RAM
+**问题:** LiteRouter 占用过多 RAM
 
 **方案:重启服务器**
 
@@ -427,7 +427,7 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        
+
         # SSE support for streaming
         proxy_buffering off;
         proxy_read_timeout 86400;
@@ -473,6 +473,6 @@ nano ~/.bashrc  # 或 ~/.zshrc
 
 ## 需要帮助?
 
-- **网站**: [9router.com](https://9router.com)
-- **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **网站**: [literouter.com](https://ai-staging.investdx.biz.id)
+- **GitHub**: [github.com/decolua/literouter](https://github.com/decolua/literouter)
+- **Issues**: [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)

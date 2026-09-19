@@ -31,15 +31,15 @@ export default function Sidebar({ onClose }) {
       href={item.href}
       onClick={onClose}
       className={cn(
-        "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
+        "flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group",
         isActive(item.href)
-          ? "bg-primary/10 text-primary"
-          : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+          ? "bg-primary text-white shadow-[0_10px_24px_-14px_var(--color-primary)]"
+          : "text-text-muted hover:bg-surface hover:text-text-main"
       )}
     >
       <span className={cn(
         "material-symbols-outlined text-[18px]",
-        isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
+        isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors duration-500"
       )}>
         {item.icon}
       </span>
@@ -48,27 +48,22 @@ export default function Sidebar({ onClose }) {
   );
 
   return (
-    <aside className="flex w-72 flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl transition-colors duration-300 min-h-full">
-      <div className="flex items-center gap-2 px-6 pt-5 pb-2">
-        <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
-        <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
-        <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
-      </div>
-      <div className="px-6 py-4">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="flex items-center justify-center size-9 rounded-[10px] bg-gradient-to-br from-brand-500 to-brand-700 shadow-[var(--shadow-warm)]">
-            <span className="material-symbols-outlined text-white text-[20px]">hub</span>
+    <aside className="flex w-[17.5rem] flex-col rounded-[1.65rem] bg-sidebar p-3 ring-1 ring-border-subtle transition-colors duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-full">
+      <div className="px-3 py-4">
+        <Link href="/dashboard" className="flex items-center gap-3 group">
+          <div className="flex items-center justify-center size-10 rounded-2xl bg-primary text-white shadow-[0_14px_30px_-16px_var(--color-primary)] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:-translate-y-0.5">
+            <span className="material-symbols-outlined text-[21px]">route</span>
           </div>
           <div className="flex flex-col">
-            <h1 className="text-lg font-semibold tracking-tight text-text-main">{APP_CONFIG.name}</h1>
-            <span className="text-xs text-text-muted">v{APP_CONFIG.version}</span>
+            <h1 className="text-[17px] font-semibold tracking-[-0.05em] text-text-main">{APP_CONFIG.name}</h1>
+            <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-text-muted">Control plane</span>
           </div>
         </Link>
       </div>
-      <nav className="flex-1 px-4 py-2 space-y-0.5 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 px-1 py-4 space-y-1 overflow-y-auto custom-scrollbar">
         {navItems.map(link)}
         <div className="pt-3 mt-2 space-y-0.5">
-          <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">System</p>
+          <p className="px-3 text-[10px] font-semibold text-text-muted/60 uppercase tracking-[0.18em] mb-2">System</p>
           {systemItems.map(link)}
         </div>
       </nav>

@@ -1,6 +1,6 @@
 # 故障排除
 
-使用 9Router 时常见的问题与解决方案。
+使用 LiteRouter 时常见的问题与解决方案。
 
 ---
 
@@ -78,7 +78,7 @@
 **解决方案:**
 
 1. **自动刷新(默认):**
-   9Router 会自动刷新 token。等待 30 秒后重试。
+   LiteRouter 会自动刷新 token。等待 30 秒后重试。
 
 2. **手动重连:**
    ```
@@ -135,15 +135,15 @@
 **问题:** 出现 "ECONNREFUSED" 或 "Cannot connect to localhost:20128"。
 
 **原因:**
-- 9Router 未运行
+- LiteRouter 未运行
 - 端口 20128 被阻止
 - 防火墙拦截连接
 
 **解决方案:**
 
-1. **启动 9Router:**
+1. **启动 LiteRouter:**
    ```bash
-   9router
+   literouter
    ```
    仪表盘应该在 http://localhost:3000 打开。
 
@@ -151,7 +151,7 @@
    ```bash
    # 检查端口是否监听
    lsof -i :20128
-   
+
    # Windows
    netstat -ano | findstr :20128
    ```
@@ -164,7 +164,7 @@
 4. **使用云端 endpoint:**
    如果 localhost 不行(例如 Cursor IDE):
    ```
-   Endpoint: https://9router.com/v1
+   Endpoint: https://ai-staging.investdx.biz.id/v1
    ```
 
 ---
@@ -175,16 +175,16 @@
 
 **原因:**
 - 端口 3000 被占用
-- 9Router 崩溃
+- LiteRouter 崩溃
 - 浏览器缓存问题
 
 **解决方案:**
 
-1. **确认 9Router 是否运行:**
+1. **确认 LiteRouter 是否运行:**
    ```bash
    # 检查进程
-   ps aux | grep 9router
-   
+   ps aux | grep literouter
+
    # 检查端口 3000
    lsof -i :3000
    ```
@@ -193,19 +193,19 @@
    ```bash
    # macOS/Linux
    lsof -ti:3000 | xargs kill -9
-   
+
    # Windows
    netstat -ano | findstr :3000
    taskkill /PID <PID> /F
    ```
 
-3. **重启 9Router:**
+3. **重启 LiteRouter:**
    ```bash
    # 停止
-   pkill -f 9router
-   
+   pkill -f literouter
+
    # 启动
-   9router
+   literouter
    ```
 
 4. **清除浏览器缓存:**
@@ -237,7 +237,7 @@
    ```
    正确: cc/claude-opus-4-5-20251101
    错误: claude-opus-4-5-20251101
-   
+
    格式: [provider-prefix]/[model-name]
    ```
 
@@ -328,10 +328,10 @@
    ```bash
    # Cursor
    Settings → Models → OpenAI API Key
-   
+
    # Cline
    Settings → API Key
-   
+
    # 环境变量
    export OPENAI_API_KEY="9r_your_key"
    ```
@@ -346,6 +346,6 @@
 
 ## 需要更多帮助?
 
-- **GitHub Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
-- **文档:** [9router.com/docs](https://9router.com/docs)
+- **GitHub Issues:** [github.com/decolua/literouter/issues](https://github.com/decolua/literouter/issues)
+- **文档:** [literouter.com/docs](https://ai-staging.investdx.biz.id/docs)
 - **常见问题:** [faq.md](faq.md)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, usePathname } from "next/navigation";
 import { Globe, X } from "lucide-react";
@@ -15,6 +15,7 @@ function extractLangFromPath(pathname) {
 
 export default function LanguageSwitcher({ currentLang }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const current = getLanguage(currentLang);
@@ -38,7 +39,7 @@ export default function LanguageSwitcher({ currentLang }) {
     router.push(target);
   };
 
-  const modal = open && (
+  const modal = mounted && open && (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={() => setOpen(false)}>
       <div
         className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden"
@@ -61,7 +62,7 @@ export default function LanguageSwitcher({ currentLang }) {
               onClick={() => switchTo(lang.code)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
                 lang.code === currentLang
-                  ? "bg-[#E68A6E]/10 text-[#E68A6E] font-medium"
+                  ? "bg-[#4f46e5]/10 text-[#4f46e5] font-medium"
                   : "text-gray-700 hover:bg-gray-100"
               }`}
             >
