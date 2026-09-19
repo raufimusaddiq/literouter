@@ -93,9 +93,8 @@ LiteRouter 不是重写。它是上游 9Router 加上 `MINIMAL_PROFILE` 运行�
 
 隧道/Tailscale/MITM 运行时是**被删除**的，而非隐藏（PR #14，59 个文件、7,381 行），
 其他非路由界面（媒体提供商、CLI 工具菜单、Basic Chat、技能页、翻译演练场、
-代理池 UI）同样被删除。仅有两处刻意保留，因为它们保护既有部署：
-`dashboardGuard.js` 与 `auth/login` 中的隧道主机名访问控制闸门，
-以及 `mitmAlias` / `mitmSudoEncrypted` 数据库键，便于旧 SQLite 文件仍可迁移。
+代理池 UI）同样被删除。遗留的隧道/MITM 设置、主机名检查与 `mitmAlias`
+迁移状态由后续删除迁移清理。
 
 ### 与打包版 9Router 的性能对比
 

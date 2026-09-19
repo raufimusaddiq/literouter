@@ -1,16 +1,20 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
-const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
 const DEFAULT_HEADROOM_URL = process.env.HEADROOM_URL || "http://localhost:8787";
+const REMOVED_SETTINGS = new Set([
+  "tunnelEnabled", "tunnelUrl", "tunnelProvider", "tailscaleEnabled",
+  "tailscaleUrl", "tunnelDashboardAccess", "mitmRouterBaseUrl", "mitmSudoEncrypted",
+]);
+
+function withoutRemovedSettings(settings) {
+  const next = { ...settings };
+  for (const key of REMOVED_SETTINGS) delete next[key];
+  return next;
+}
 
 const DEFAULT_SETTINGS = {
   cloudEnabled: false,
-  tunnelEnabled: false,
-  tunnelUrl: "",
-  tunnelProvider: "cloudflare",
-  tailscaleEnabled: false,
-  tailscaleUrl: "",
   stickyRoundRobinLimit: 3,
   providerStrategies: {},
   quotaVisibility: {},
@@ -25,7 +29,6 @@ const DEFAULT_SETTINGS = {
   },
   requireLogin: true,
   requireApiKey: true,
-  tunnelDashboardAccess: true,
   enableObservability: false,
   observabilityMaxRecords: 1000,
   observabilityBatchSize: 20,
@@ -34,7 +37,6 @@ const DEFAULT_SETTINGS = {
   outboundProxyEnabled: false,
   outboundProxyUrl: "",
   outboundNoProxy: "",
-  mitmRouterBaseUrl: DEFAULT_MITM_ROUTER_BASE,
   dnsToolEnabled: {},
   rtkEnabled: true,
   headroomEnabled: false,
@@ -95,7 +97,7 @@ export async function updateSettings(updates) {
   db.transaction(function () {
     const row = db.get(`SELECT data FROM settings WHERE id = 1`);
     const current = row ? parseJson(row.data, {}) : {};
-    next = { ...current, ...updates };
+    next = withoutRemovedSettings({ ...current, ...updates });
     db.run(
       `INSERT INTO settings(id, data) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
       [stringifyJson(next)],
@@ -123,5 +125,5 @@ export async function getCloudUrl() {
 }
 
 export async function exportSettings() {
-  return await readRaw();
+  return withoutRemovedSettings(await readRaw());
 }

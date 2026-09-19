@@ -60,6 +60,24 @@ describe("Schema migrations", () => {
     expect(JSON.parse(settings.data)).toEqual({ foo: "bar" });
   });
 
+  it("purges deleted tunnel and MITM state on upgrade", async () => {
+    const { getAdapter } = await import("@/lib/db/driver.js");
+    const db = await getAdapter();
+    db.run(`INSERT INTO settings(id, data) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`, [
+      JSON.stringify({ tunnelUrl: "https://old.example", tailscaleUrl: "https://tail.example", mitmRouterBaseUrl: "http://old", kept: true }),
+    ]);
+    db.run(`INSERT INTO kv(scope, key, value) VALUES('mitmAlias', 'old', '{}')`);
+    db.run(`UPDATE _meta SET value = '1' WHERE key = 'schemaVersion'`);
+    db.close?.();
+
+    delete global._dbAdapter;
+    vi.resetModules();
+    const { getAdapter: getAdapter2 } = await import("@/lib/db/driver.js");
+    const db2 = await getAdapter2();
+    expect(JSON.parse(db2.get(`SELECT data FROM settings WHERE id=1`).data)).toEqual({ kept: true });
+    expect(db2.all(`SELECT * FROM kv WHERE scope='mitmAlias'`)).toEqual([]);
+  });
+
   it("fresh DB + legacy db.json → imports data automatically", async () => {
     // Simulate user upgrading: place legacy JSON in DATA_DIR before first boot
     const legacy = {

@@ -548,20 +548,11 @@ killAllAppProcesses(port)
 async function showInterfaceMenu(latestVersion) {
   const { selectMenu } = require("./src/cli/utils/input");
   const { clearScreen } = require("./src/cli/utils/display");
-  const { getEndpoint } = require("./src/cli/utils/endpoint");
-
   clearScreen();
 
   const displayHost = getDisplayHost();
 
-  // Detect tunnel/local mode for server URL display
-  let serverUrl;
-  try {
-    const { endpoint, tunnelEnabled } = await getEndpoint(port);
-    serverUrl = tunnelEnabled ? endpoint.replace(/\/v1$/, "") : `http://${displayHost}:${port}`;
-  } catch (e) {
-    serverUrl = `http://${displayHost}:${port}`;
-  }
+  const serverUrl = `http://${displayHost}:${port}`;
 
   const subtitle = `🚀 Server: \x1b[32m${serverUrl}\x1b[0m`;
 
