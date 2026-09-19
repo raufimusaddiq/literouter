@@ -6,6 +6,8 @@ import { resolveOllamaLocalHost, resolveXiaomiTokenplanBaseUrl, PROVIDERS } from
 import { openaiToCommandCodeRequest } from "open-sse/translator/request/openai-to-commandcode.js";
 import { resolveQoderCredentials, resolveQoderModels } from "open-sse/services/qoderModels.js";
 import { normalizeProviderId } from "@/lib/providerNormalization";
+import { assertPublicUrl } from "@/shared/utils/ssrfGuard.js";
+import { isLocalRequest } from "@/dashboardGuard";
 
 // POST /api/providers/validate - Validate API key with provider
 export async function POST(request) {
@@ -29,6 +31,12 @@ export async function POST(request) {
         if (!node) {
           return NextResponse.json({ error: "OpenAI Compatible node not found" }, { status: 404 });
         }
+        // SSRF guard for remote callers; a local operator may target a
+        // self-hosted node on the private network.
+        if (!isLocalRequest(request)) {
+          try { assertPublicUrl(node.baseUrl?.trim() || ""); }
+          catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
+        }
         const modelsUrl = `${node.baseUrl?.replace(/\/$/, "")}/models`;
         const res = await fetch(modelsUrl, {
           headers: { "Authorization": `Bearer ${apiKey}` },
@@ -46,6 +54,10 @@ export async function POST(request) {
           return NextResponse.json({ error: "Anthropic Compatible node not found" }, { status: 404 });
         }
 
+        if (!isLocalRequest(request)) {
+          try { assertPublicUrl(node.baseUrl?.trim() || ""); }
+          catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
+        }
         let normalizedBase = node.baseUrl?.trim().replace(/\/$/, "") || "";
         if (normalizedBase.endsWith("/messages")) {
           normalizedBase = normalizedBase.slice(0, -9); // remove /messages
