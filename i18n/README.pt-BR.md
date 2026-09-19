@@ -467,47 +467,6 @@ URLs padrão:
   <p><i>...e mais de 20 provedores, incluindo Nebius, Chutes, Hyperbolic e endpoints personalizados compatíveis com OpenAI/Anthropic</i></p>
 </div>
 
-### 🏠 Provedores auto-hospedados
-
-Para fala e incorporações veiculadas em **sua própria** máquina — whisper.cpp,
-faster-whisper, Speaches, Kokoro-FastAPI, openai-speech, llama.cpp/llama-server,
-vLLM, Infinity, text-embeddings-inference ou qualquer outro serviço compatível com o formato OpenAI.
-
-| Provedor | Ponto final usado | Servidor típico |
-| --- | --- | --- |
-| **STT auto-hospedado** | `/v1/audio/transcriptions` | whisper.cpp, faster-whisper |
-| **TTS auto-hospedado** | `/v1/audio/speech` | Kokoro-FastAPI, openedai-speech |
-| **Incorporação auto-hospedada** | `/v1/embeddings` | llama-server, vLLM, Infinity |
-
-Todos os outros provedores de voz são um serviço de nuvem nomeado com um endpoint fixo. Estes
-três leem seus endereços de **cada conexão**, para que um provedor possa apontar para
-várias máquinas e balanceamento de carga entre elas como qualquer outra.
-
-Defina-o na conexão como `providerSpecificData.baseUrl`:
-
-| Provedor | Informe | Resultado |
-| --- | --- | --- |
-| STT auto-hospedado | o URL completo — `http://host:8080/v1/audio/transcriptions` | usado como está |
-| TTS auto-hospedado | a raiz do servidor — `http://host:8880` | `+ /v1/audio/speech` |
-| Incorporação auto-hospedada | a **base OpenAI**, `/v1` incluída — `http://host:8080/v1` | `+ /embeddings` |
-
-> **Cuidado com `/v1` em embeddings.** O adaptador anexa `/embeddings`, então
-> `http://host:8080` resolve para `http://host:8080/embeddings` e perde o
-> rota OpenAI – o llama-server responde **501**. Dê a ele o mesmo URL base de um OpenAI
-> o cliente usaria. Um `.../v1/embeddings` completo também é aceito, então um valor colado
-> de um exemplo `curl` também funciona.
-
-A chave API não é verificada pela maioria dos servidores locais, mas o campo não deve estar vazio:
-é o que dá à conexão um registro de credenciais, e `baseUrl` reside lá.
-Qualquer espaço reservado funciona.
-
-A incorporação auto-hospedada **não tem fallback na nuvem por design** — uma conexão salva
-sem um `baseUrl` é relatado como um erro de configuração, em vez de silenciosamente
-voltando para `api.openai.com`, que enviaria seu texto de entrada e chave de API para
-terceiros por meio de um provedor chamado "Auto-hospedado".
-
----
-
 ## 💡 Principais recursos
 
 | Recurso | O que faz | Por que é importante |
