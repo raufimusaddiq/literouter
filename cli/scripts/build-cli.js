@@ -299,16 +299,6 @@ function buildCliPackage() {
   assertRequiredApiArtifacts(cliAppDir);
   console.log("✅ Copied complete server artifacts\n");
 
-  // Step 8: Build MITM server (config driven - see app/cli/scripts/buildMitm.js)
-  console.log("8️⃣  Building MITM server...");
-  try {
-    execSync("node scripts/buildMitm.js", { stdio: "inherit", cwd: cliDir });
-    console.log("✅ MITM server build completed\n");
-  } catch (error) {
-    console.error("❌ MITM build failed");
-    process.exit(1);
-  }
-
   console.log("✨ CLI package build completed!");
   console.log(`📁 Output: ${cliAppDir}`);
 
