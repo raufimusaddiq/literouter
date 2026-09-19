@@ -3,7 +3,6 @@ name: Staging Image
 on:
   push:
     branches: [staging]
-  workflow_dispatch:
 
 # Two pushes back to back otherwise race, and the slower older run can finish
 # last and overwrite staging-latest with stale bits.
@@ -17,6 +16,9 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Only the merged staging branch may publish. Set explicitly rather than
+    # relying on the trigger list, so no future trigger can publish by hand.
+    if: github.ref == 'refs/heads/staging'
     permissions:
       contents: read
       packages: write
