@@ -79,9 +79,12 @@ deploy_main() {
   done
   if [ "$health" != healthy ]; then log "$LOG_PREFIX: literouter not healthy after deploy (health=$health)"; return 1; fi
   if [ "${running_image##*:}" != "$tag" ]; then log "$LOG_PREFIX: literouter running ${running_image:-unknown}, expected $tag"; return 1; fi
+  # Smoke the remote deployment itself: the same-host public curl can be served
+  # by the previous instance, so verify the container's own image tag (above)
+  # and probe the new container from the deployment host.
   local code
-  code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 https://ai.investdx.biz.id/api/health)
-  log "$LOG_PREFIX: deployed $tag smoke=$code"
+  code=$(ssh -o BatchMode=yes "$SSH_HOST" "curl -sS -o /dev/null -w '%{http_code}' --max-time 15 http://127.0.0.1:20128/api/health") || code=000
+  log "$LOG_PREFIX: deployed $tag remote_smoke=$code image=$running_image"
   [ "$code" = 200 ]
 }
 
@@ -114,6 +117,7 @@ git -C "$REPO" worktree add --detach "$WORKTREE" "$UPSTREAM_SHA" >/dev/null
 
 BRANCH="upstream-intake/$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}"
 REPORT="$REPORT_DIR/$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}.md"
+REPORT_IN_WORKTREE="$WORKTREE/intake-report.md"
 COMMITS=$(git -C "$WORKTREE" log --oneline --no-decorate "$BASE_SHA..$UPSTREAM_SHA" | head -50)
 
 PROMPT=$(cat <<EOF
@@ -129,7 +133,7 @@ SQLite/DB correctness, or measured performance fixes. Deleted tunnel, MITM,
 cloud-sync, GitBook, and UI code stays deleted. Never merge upstream wholesale.
 
 Tasks:
-1. Write a short change/risk report to $REPORT (markdown, bullet list, one line per
+1. Write a short change/risk report to $REPORT_IN_WORKTREE (markdown, bullet list, one line per
    commit: SHA, subject, keep/drop, why).
 2. Cherry-pick only keep commits onto a new branch "$BRANCH" from $BASE_SHA,
    using `git cherry-pick -x`. Resolve conflicts in favour of LiteRouter's deletions.
@@ -141,12 +145,19 @@ Tasks:
 EOF
 )
 
-# --ephemeral prevents thread/session artifacts under ~/.codex; worktree cleanup
-# below removes the disposable checkout separately.
 # Workspace-only sandbox: upstream prompt/content never gets host, Docker, SSH,
-# or repository-secret access. The parent script owns push/PR/deploy operations.
-codex exec --ephemeral --cd "$WORKTREE" --sandbox workspace-write "$PROMPT" \
+# or repository-secret access. --ephemeral prevents thread/session artifacts.
+# Fail closed: a Codex failure or missing report stops the intake rather than
+# silently reporting success with nothing retained.
+if ! codex exec --ephemeral --cd "$WORKTREE" --sandbox workspace-write "$PROMPT" \
   >"$REPORT_DIR/.$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}.log" 2>&1 || log "$LOG_PREFIX: codex exec exited non-zero"
+then
+  log "$LOG_PREFIX: codex exec failed; no intake retained"; exit 1
+fi
+if [ ! -s "$REPORT_IN_WORKTREE" ]; then
+  log "$LOG_PREFIX: codex produced no report at $REPORT_IN_WORKTREE; no intake retained"; exit 1
+fi
+cp "$REPORT_IN_WORKTREE" "$REPORT"
 
 if ! git -C "$WORKTREE" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/null; then
   log "$LOG_PREFIX: upstream $UPSTREAM_SHA behind=$BEHIND; nothing retained; report=$REPORT"
