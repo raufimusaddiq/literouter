@@ -133,10 +133,20 @@ copy of the live `9router-data` volume:
    traffic, so rollback does not require a schema downgrade.
 4. An immutable pre-promotion backup exists and has been opened and counted.
 
-Acceptance: the above, plus a recorded swap rehearsal in which Caddy flips
-between the two containers while a public health sweep observes continuous
-`200`s. That rehearsal has already been run on staging and on the live edge
-(16/16 during a mid-flight upstream flip).
+Acceptance: the above, plus the Phase 3 swap executed once on staging as a
+rehearsal and recorded (Caddy upstream repointed in one step, then a public
+health sweep over the same endpoints). Two containers must not be serving from
+`9router-data` simultaneously, so the rehearsal is a flip, not an overlap: the
+sweep is expected to show failures inside the swap window and clean `200`s on
+both sides of it.
+
+Entry gate for Phase 3: the same swap has been executed once against the live
+edge with the result recorded — duration of the write window, any failed public
+probe, and the rollback invocation actually used. That record now exists:
+`phase-edge-swap-rehearsal.md` (12/12 probes reached a router across a one-second
+flip, Caddy reload 200, upstream returned to the candidate afterwards). The same
+run found and fixed a defect in the swap script itself, which is what a rehearsal
+is for.
 
 ### Phase 3 — promotion with a bounded write window
 
