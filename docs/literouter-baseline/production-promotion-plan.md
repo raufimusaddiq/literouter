@@ -1,8 +1,10 @@
 # LiteRouter production promotion plan
 
-Status: **Phase 1 complete, Phase 2 revised**. `staging` is the promotion
-source; Phase 3 is the release PR (`staging -> main`) followed by the rehearsed
-cutover. HA remains out of scope.
+Status: **complete**. LiteRouter runs in production on `ai.investdx.biz.id`,
+built from `main`. Staging is sunset: there is no staging deployment, no
+`staging -> main` release PR, and `staging` is not a valid target for any change.
+Every change is a PR against `main`, gated by CI and Hermes, and deployed as the
+immutable production image for the merged SHA. HA remains out of scope.
 
 Revision (2026-09-20): Phase 2 originally required a networked durable
 database. That requirement is withdrawn, not deferred — see
@@ -19,10 +21,10 @@ instead.
 - Production state is the writable Docker volume `9router-data`; its SQLite
   database is WAL-mode and is actively accompanied by `data.sqlite-wal` and
   `data.sqlite-shm`.
-- `idx-redis` is healthy and persistent (AOF enabled), but only staging sets
-  `REDIS_URL`. Redis currently contains cache-version keys only.
-- LiteRouter staging passes the recorded promotion gates. It uses its own
-  volume and the `literouter:staging:` Redis prefix.
+- `idx-redis` is healthy and persistent (AOF enabled). Production sets
+  `REDIS_URL` with the `literouter:prod:` prefix. Redis is cache-only.
+- LiteRouter production passes the recorded promotion gates and uses the
+  `literouter:prod:` Redis prefix.
 - `scripts/deploy-9router.sh` must not be used for promotion: it starts
   `9router-green` against the live `9router-data` volume while `9router` is
   still running. That creates concurrent SQLite writers, so neither a
@@ -45,7 +47,7 @@ network database purely to serve a transition measured in seconds.
 Evidence that one writer at a time is already safe, both recorded against a
 **copy** of `9router-data` rather than the live volume:
 
-- `phase-minimal-boundary.md` — the current staging image with
+- `phase-minimal-boundary.md` — the production image with
   `MINIMAL_PROFILE=true` reads that copy (`providers: 3 combos: 4 keys: 5
   usage: 40956`) and reports `health: {"ok":true}`.
 - `phase-rollback-rehearsal.md` — the *prior* production image boots from the
@@ -88,17 +90,15 @@ SQLite on `9router-data` (single writer) + Redis cache
   and any required `/app/data` credentials must be supplied identically to
   every production replica through the deployment secret store. Do not share a
   writable Docker volume between replicas.
-- Public edge: Caddy keeps the existing hostname and client API contract.
-  During cutover it temporarily routes only new requests to the healthy
-  LiteRouter while existing 9Router streams drain; after the observation window
-  9Router is stopped and staging is sunset.
+- Public edge: Caddy keeps the existing hostname and client API contract, and
+  routes `ai.investdx.biz.id` to the single LiteRouter production container.
 
 ## Required PR sequence
 
 ### Phase 1 — production foundation
 
-Open a PR from `staging` to `main` only after these changes are separately
-reviewed on staging:
+All changes are PRs against `main`. Staging is sunset; do not open, target, or
+deploy a staging branch.
 
 1. Add a production image workflow on every `main` commit. Publish an
    immutable tag containing the full commit SHA; never deploy `latest`.
@@ -133,12 +133,12 @@ copy of the live `9router-data` volume:
    traffic, so rollback does not require a schema downgrade.
 4. An immutable pre-promotion backup exists and has been opened and counted.
 
-Acceptance: the above, plus the Phase 3 swap executed once on staging as a
-rehearsal and recorded (Caddy upstream repointed in one step, then a public
-health sweep over the same endpoints). Two containers must not be serving from
-`9router-data` simultaneously, so the rehearsal is a flip, not an overlap: the
-sweep is expected to show failures inside the swap window and clean `200`s on
-both sides of it.
+Acceptance: the above, plus the swap rehearsal recorded in
+`phase-edge-swap-rehearsal.md` (Caddy upstream repointed in one step, then a
+public health sweep over the same endpoints). Two containers must not be
+serving from `9router-data` simultaneously, so the swap is a flip, not an
+overlap: the sweep is expected to show failures inside the swap window and
+clean `200`s on both sides of it.
 
 Entry gate for Phase 3: the same swap has been executed once against the live
 edge, including the stop of the old writer, the start of its successor, the
@@ -164,9 +164,9 @@ documented write window.
 
 ### Phase 3 — promotion with a bounded write window
 
-After Phase 2 passes on staging, create the release PR `staging -> main`.
-Require CI, Hermes approval, clean merge state, an immutable image digest, and
-the full promotion-gates suite on the exact merge SHA.
+Changes ship from a PR against `main`. Require CI, Hermes approval, clean merge
+state, an immutable image digest, and the full promotion-gates suite on the
+exact merge SHA. There is no staging release PR; staging is sunset.
 
 Zero *downtime* in the strict sense — no failed request at any instant — is not
 what this sequence provides. It provides zero downtime for the public endpoint
@@ -185,9 +185,9 @@ Cutover procedure — one writer at a time, no overlap:
    Chat/Responses, and one streaming request with exactly one `[DONE]`.
 4. Point the Caddy upstream at LiteRouter and run the public `200` sweep until
    it is clean. Keep the prior image and the verified backup retained.
-5. Per the objective, staging is sunset at this point: stop `literouter-staging`
-   and remove the `ai-staging.investdx.biz.id` block. Production is now the only
-   LiteRouter deployment.
+5. Staging is sunset and was removed during cutover: no `literouter-staging`
+   container and no `ai-staging.investdx.biz.id` block exist. Production is the
+   only LiteRouter deployment.
 
 Rollback: stop LiteRouter, restore the verified backup if the new schema was
 written, start the prior 9Router image against `9router-data`, and flip Caddy
@@ -204,13 +204,13 @@ The public endpoint, API paths, and client API keys stay unchanged.
 ## Release intake from upstream
 
 Use the daily `upstream-intake.timer` (`upstream-intake.service`) to run the
-gated intake. Staging is sunset; the release target is `main`:
+gated intake. The release target is `main`:
 
 **Status: implemented and executed.** The timer is installed and enabled
 (`upstream-intake.timer`, next run 04:15 CST). The disposable ephemeral Codex
 session was run end to end against upstream `master` and answered its prompt
 without an LLM error; the worktree, branch checkout, and temporary logs are
-removed on exit. Staging is never targeted.
+removed on exit. No staging branch is ever targeted.
 
 1. Fetch `decolua/9router` in a temporary worktree; compare it with LiteRouter
    `main` and identify commits touching retained core paths.

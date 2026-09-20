@@ -15,7 +15,7 @@ raises no blocker.** A 🟡 outcome with suggestions is a merge, not a hold.
 ## Unit tests in CI
 
 `.github/workflows/test.yml` runs the vitest suite on every PR and on pushes to
-`staging`/`main`. It installs root deps (`next`, `undici`, `uuid`, …) plus the
+`main`. It installs root deps (`next`, `undici`, `uuid`, …) plus the
 runner's own lockfile, then `npx vitest run` from `tests/`.
 
 Files named `*.live.test.js` hit real upstreams and are excluded via
@@ -35,7 +35,7 @@ gh pr merge <n> --repo raufimusaddiq/literouter --merge --delete-branch=false
 
 ## `BLOCKED` with no failing check
 
-`Hermes Review` is required on `staging` and processes PRs FIFO. Never push an
+`Hermes Review` is required on PRs against `main` and processes PRs FIFO. Never push an
 empty “re-trigger” commit while review is queued or in progress: it moves the
 PR to the back of the queue and invalidates the current review. Wait for Hermes
 to post its verdict. If its check fails or the feedback is stale, push only the
@@ -55,19 +55,22 @@ polling until a verdict lands on the current head.
 
 ## After merge
 
-The staging image is built by `.github/workflows/staging-image.yml` on every push
-to `staging` and published to
-`ghcr.io/raufimusaddiq/literouter-staging:staging-<full-sha>` (+ `staging-latest`).
-This box only pulls:
+Staging is sunset: there is no staging branch, no `compose.staging.yml`
+deployment, and no `ai-staging.investdx.biz.id` block. Every merge to `main`
+builds the immutable production image via `.github/workflows/production-image.yml`
+and publishes `ghcr.io/raufimusaddiq/literouter-production:production-<full-sha>`.
+This box only pulls, never builds:
 
 ```bash
-cd /opt/literouter
-docker compose -f compose.staging.yml pull
-docker compose -f compose.staging.yml up -d
+cd /opt/9router
+LITEROUTER_PRODUCTION_TAG=production-<full-sha> \
+  docker compose -f compose.production.yml up -d --no-build
 ```
 
-Wait for the workflow (`gh run watch --repo raufimusaddiq/literouter`) before
-pulling — `staging-latest` is whatever the last green run produced.
+Wait for the workflow (`gh run watch --repo raufimusaddiq/literouter`) to reach
+`completed success` for the merged SHA before pulling; the tag is immutable, so
+never deploy `latest`. Then require `docker inspect` healthy with the expected
+image tag and smoke `https://ai.investdx.biz.id/api/health`.
 
 If a pull ever fails with `denied`, the GHCR package is private: log in once with
 `gh auth token | docker login ghcr.io -u raufimusaddiq --password-stdin`, or flip
