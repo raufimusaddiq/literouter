@@ -419,18 +419,21 @@ function drainUsageSync() {
     clearTimeout(usageWriteBuffer.timer);
     usageWriteBuffer.timer = null;
   }
-  try {
-    const db = getAdapterSync();
-    while (usageWriteBuffer.items.length > 0) {
-      const batch = usageWriteBuffer.items.splice(0, USAGE_BATCH_SIZE);
+  const db = getAdapterSync();
+  while (usageWriteBuffer.items.length > 0) {
+    const batch = usageWriteBuffer.items.splice(0, USAGE_BATCH_SIZE);
+    try {
       const inserted = writeUsageBatch(db, batch.map((item) => item.entry));
       onUsageBatchPersisted(inserted);
       settlePersistedBatch(batch);
+    } catch (e) {
+      // Put the failed batch back before reporting the shutdown failure so no
+      // accepted Usage event silently disappears from the bounded queue.
+      usageWriteBuffer.items.unshift(...batch);
+      for (const item of batch) item.reject?.(e);
+      console.error("Failed to drain usage stats:", e);
+      break;
     }
-  } catch (e) {
-    const remaining = usageWriteBuffer.items.splice(0, usageWriteBuffer.items.length);
-    for (const item of remaining) item.reject?.(e);
-    console.error("Failed to drain usage stats:", e);
   }
 }
 
