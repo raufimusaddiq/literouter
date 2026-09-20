@@ -27,6 +27,23 @@ function poolToRow(p) {
   };
 }
 
+const poolCache = global.__liteRouterProxyPoolCache ??= { rows: null, expiresAt: 0 };
+const POOL_CACHE_TTL_MS = Math.max(1000, Number(process.env.RUNTIME_CONFIG_TTL_MS || 5000));
+
+function invalidatePoolCache() {
+  poolCache.rows = null;
+  poolCache.expiresAt = 0;
+}
+
+async function allPoolsCached() {
+  if (poolCache.rows && poolCache.expiresAt > Date.now()) return poolCache.rows;
+  const db = await getAdapter();
+  poolCache.rows = db.all(`SELECT * FROM proxyPools`).map(rowToPool);
+  poolCache.rows.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+  poolCache.expiresAt = Date.now() + POOL_CACHE_TTL_MS;
+  return poolCache.rows;
+}
+
 function upsert(db, p) {
   const r = poolToRow(p);
   db.run(
@@ -40,20 +57,16 @@ function upsert(db, p) {
 }
 
 export async function getProxyPools(filter = {}) {
-  const db = await getAdapter();
-  const where = [];
-  const params = [];
-  if (filter.isActive !== undefined) { where.push("isActive = ?"); params.push(filter.isActive ? 1 : 0); }
-  if (filter.testStatus) { where.push("testStatus = ?"); params.push(filter.testStatus); }
-  const sql = `SELECT * FROM proxyPools${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-  const list = db.all(sql, params).map(rowToPool);
-  list.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
-  return list;
+  const rows = await allPoolsCached();
+  return rows
+    .filter((pool) => filter.isActive === undefined || pool.isActive === Boolean(filter.isActive))
+    .filter((pool) => !filter.testStatus || pool.testStatus === filter.testStatus)
+    .map((pool) => structuredClone(pool));
 }
 
 export async function getProxyPoolById(id) {
-  const db = await getAdapter();
-  return rowToPool(db.get(`SELECT * FROM proxyPools WHERE id = ?`, [id]));
+  const row = (await allPoolsCached()).find((pool) => pool.id === id);
+  return row ? structuredClone(row) : null;
 }
 
 export async function createProxyPool(data) {
@@ -74,6 +87,7 @@ export async function createProxyPool(data) {
     updatedAt: now,
   };
   upsert(db, pool);
+  invalidatePoolCache();
   return pool;
 }
 
@@ -87,6 +101,7 @@ export async function updateProxyPool(id, data) {
     upsert(db, merged);
     result = merged;
   });
+  if (result) invalidatePoolCache();
   return result;
 }
 
@@ -99,5 +114,6 @@ export async function deleteProxyPool(id) {
     removed = rowToPool(row);
     db.run(`DELETE FROM proxyPools WHERE id = ?`, [id]);
   });
+  if (removed) invalidatePoolCache();
   return removed;
 }
