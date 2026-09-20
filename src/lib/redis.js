@@ -233,6 +233,9 @@ export function closeRedisPool() {
 
 // Test hooks: no live Redis server required for decoder/pool shape checks.
 export const __redisState = state;
+export function __ensureRedisLanes() {
+  return ensureLanes().length;
+}
 
 export function __decodeSelfCheck() {
   const bulk = Buffer.from("$3\r\nfoo\r\n+OK\r\n:42\r\n$-1\r\n");
