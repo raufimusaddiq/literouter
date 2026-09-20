@@ -1,6 +1,10 @@
 import net from "node:net";
 
-const state = global.__liteRouterRedis ??= { warned: false };
+const state = global.__liteRouterRedis ??= {
+  warned: false,
+  lanes: [],
+  cursor: 0,
+};
 
 function config() {
   const raw = process.env.REDIS_URL;
@@ -9,7 +13,10 @@ function config() {
   try {
     url = new URL(raw);
   } catch {
-    if (!state.warned) { console.warn(`[Redis] invalid REDIS_URL, cache disabled: ${raw}`); state.warned = true; }
+    if (!state.warned) {
+      console.warn(`[Redis] invalid REDIS_URL, cache disabled: ${raw}`);
+      state.warned = true;
+    }
     return null;
   }
   return {
@@ -21,6 +28,12 @@ function config() {
   };
 }
 
+function configuredPoolSize() {
+  const parsed = Number.parseInt(process.env.REDIS_POOL_SIZE || "4", 10);
+  if (!Number.isFinite(parsed)) return 4;
+  return Math.min(16, Math.max(1, parsed));
+}
+
 function encode(parts) {
   return `*${parts.length}\r\n${parts.map((part) => {
     const value = String(part);
@@ -28,21 +41,25 @@ function encode(parts) {
   }).join("")}`;
 }
 
-// Decode one RESP reply from `buffer`, or null when it is still incomplete.
-// Returns { value, rest } so a pipelined stream can be consumed in order.
+// Decode one RESP reply from buffer, or null while incomplete.
 function decode(buffer) {
   if (!buffer.length) return null;
   const end = buffer.indexOf(13);
   if (end < 0) return null;
   const type = buffer[0];
   const line = buffer.subarray(1, end).toString();
+
   if (type === 36) {
     const size = Number(line);
     if (size < 0) return { value: null, rest: buffer.subarray(end + 2) };
     const start = end + 2;
     if (buffer.length < start + size + 2) return null;
-    return { value: buffer.subarray(start, start + size).toString(), rest: buffer.subarray(start + size + 2) };
+    return {
+      value: buffer.subarray(start, start + size).toString(),
+      rest: buffer.subarray(start + size + 2),
+    };
   }
+
   const rest = buffer.subarray(end + 2);
   if (type === 43) return { value: line, rest };
   if (type === 45) throw new Error(line);
@@ -51,23 +68,22 @@ function decode(buffer) {
   throw new Error(`Unsupported Redis reply: ${String.fromCharCode(type)}`);
 }
 
-// Single-socket session. Commands are chained so only one write/read pair is in
-// flight at a time; a shared socket cannot service overlapping reads because
-// each reply must be matched to its own request in order.
-// ponytail: one socket serializes the cache; add a pool if cache QPS contends
-// with routing traffic.
-let conn = null;
-let chain = Promise.resolve();
-
 function createSession(socket) {
   let buffer = Buffer.alloc(0);
   let pending = null;
   const timeoutMs = Number(process.env.REDIS_TIMEOUT_MS || 500);
+
   socket.on("data", (chunk) => {
     buffer = Buffer.concat([buffer, chunk]);
     while (pending) {
       let reply;
-      try { reply = decode(buffer); } catch (error) { pending.reject(error); break; }
+      try {
+        reply = decode(buffer);
+      } catch (error) {
+        pending.reject(error);
+        pending = null;
+        break;
+      }
       if (!reply) break;
       buffer = reply.rest;
       const { resolve } = pending;
@@ -76,56 +92,99 @@ function createSession(socket) {
       resolve(reply.value);
     }
   });
-  socket.on("error", (error) => { pending?.reject(error); pending = null; });
-  socket.on("timeout", () => { pending?.reject(new Error("Redis timeout")); pending = null; socket.destroy(); });
-  socket.on("close", () => { pending?.reject(new Error("Redis closed")); pending = null; });
-  return async (parts) => {
-    // Register the waiter BEFORE writing. A reply that lands between the write
-    // and the assignment would otherwise be dropped by the `data` handler,
-    // and the command would hang until the socket timeout fired.
-    return new Promise((resolve, reject) => {
-      pending = { resolve, reject };
-      // Arm the deadline only while a command is outstanding. Arming it once at
-      // connect time makes an idle-but-healthy socket look stalled, and the
-      // destroy that followed caused the next command to fail.
-      socket.setTimeout(timeoutMs);
-      socket.write(encode(parts), (error) => {
-        if (!error) return;
-        pending = null;
-        socket.setTimeout(0);
-        reject(error);
-      });
+
+  socket.on("error", (error) => {
+    pending?.reject(error);
+    pending = null;
+  });
+  socket.on("timeout", () => {
+    pending?.reject(new Error("Redis timeout"));
+    pending = null;
+    socket.destroy();
+  });
+  socket.on("close", () => {
+    pending?.reject(new Error("Redis closed"));
+    pending = null;
+  });
+
+  return (parts) => new Promise((resolve, reject) => {
+    pending = { resolve, reject };
+    socket.setTimeout(timeoutMs);
+    socket.write(encode(parts), (error) => {
+      if (!error) return;
+      pending = null;
+      socket.setTimeout(0);
+      reject(error);
     });
-  };
+  });
 }
 
-async function connect(cfg) {
+async function connect(cfg, lane) {
   const socket = net.createConnection({ host: cfg.host, port: cfg.port });
-  await new Promise((resolve, reject) => { socket.once("connect", resolve); socket.once("error", reject); });
+  await new Promise((resolve, reject) => {
+    socket.once("connect", resolve);
+    socket.once("error", reject);
+  });
+
   const session = createSession(socket);
   if (cfg.password) await session(["AUTH", cfg.password]);
   if (cfg.database !== null) await session(["SELECT", cfg.database]);
-  socket.on("close", () => { if (conn?.socket === socket) conn = null; });
-  socket.on("error", () => { if (conn?.socket === socket) conn = null; });
-  return { session, socket };
+
+  const conn = { session, socket };
+  socket.on("close", () => {
+    if (lane.conn?.socket === socket) lane.conn = null;
+  });
+  socket.on("error", () => {
+    if (lane.conn?.socket === socket) lane.conn = null;
+  });
+  return conn;
 }
 
-function command(parts) {
+function ensureLanes() {
+  const size = configuredPoolSize();
+  while (state.lanes.length < size) {
+    state.lanes.push({ conn: null, chain: Promise.resolve() });
+  }
+  if (state.lanes.length > size) {
+    const removed = state.lanes.splice(size);
+    for (const lane of removed) lane.conn?.socket?.destroy();
+  }
+  return state.lanes;
+}
+
+function runOnLane(lane, parts) {
   const run = async () => {
     const cfg = config();
     if (!cfg) return null;
     try {
-      if (!conn) conn = await connect(cfg);
-      return await conn.session(parts);
+      if (!lane.conn) lane.conn = await connect(cfg, lane);
+      const value = await lane.conn.session(parts);
+      state.warned = false;
+      return value;
     } catch (error) {
-      conn = null;
-      if (!state.warned) { console.warn(`[Redis] unavailable: ${error.message}`); state.warned = true; }
+      lane.conn?.socket?.destroy();
+      lane.conn = null;
+      if (!state.warned) {
+        console.warn(`[Redis] unavailable: ${error.message}`);
+        state.warned = true;
+      }
       return null;
     }
   };
-  const result = chain.then(run, run);
-  chain = result.catch(() => {});
+
+  // RESP replies on one socket are ordered. Serialize only within that socket,
+  // not across the whole Redis client. Other lanes remain free concurrently.
+  const result = lane.chain.then(run, run);
+  lane.chain = result.catch(() => {});
   return result;
+}
+
+function command(parts) {
+  const cfg = config();
+  if (!cfg) return Promise.resolve(null);
+  const lanes = ensureLanes();
+  const lane = lanes[state.cursor++ % lanes.length];
+  return runOnLane(lane, parts);
 }
 
 function key(name) {
@@ -133,18 +192,48 @@ function key(name) {
   return cfg ? `${cfg.prefix}${name}` : name;
 }
 
-export function redisEnabled() { return Boolean(config()); }
-export async function redisPing() { return (await command(["PING"])) === "PONG"; }
-export async function redisGet(name) { return command(["GET", key(name)]); }
+export function redisEnabled() {
+  return Boolean(config());
+}
+
+export function redisPoolSize() {
+  return redisEnabled() ? configuredPoolSize() : 0;
+}
+
+export async function redisPing() {
+  return (await command(["PING"])) === "PONG";
+}
+
+export async function redisGet(name) {
+  return command(["GET", key(name)]);
+}
+
 export async function redisSet(name, value, ttlSeconds = 0) {
   const args = ["SET", key(name), value];
   if (ttlSeconds > 0) args.push("EX", ttlSeconds);
   return command(args);
 }
-export async function redisDelete(name) { return command(["DEL", key(name)]); }
-export async function redisIncrement(name) { return command(["INCR", key(name)]); }
 
-// Self-check: exercises the RESP decoder's multi-reply framing without a server.
+export async function redisDelete(name) {
+  return command(["DEL", key(name)]);
+}
+
+export async function redisIncrement(name) {
+  return command(["INCR", key(name)]);
+}
+
+export function closeRedisPool() {
+  for (const lane of state.lanes) {
+    lane.conn?.socket?.destroy();
+    lane.conn = null;
+  }
+  state.lanes = [];
+  state.cursor = 0;
+}
+
+// Test hooks: no live Redis server required for decoder/pool shape checks.
+export const __redisState = state;
+
 export function __decodeSelfCheck() {
   const bulk = Buffer.from("$3\r\nfoo\r\n+OK\r\n:42\r\n$-1\r\n");
   const first = decode(bulk);
