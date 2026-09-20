@@ -123,7 +123,9 @@ Tasks:
 EOF
 )
 
-codex exec --cd "$WORKTREE" --sandbox danger-full-access "$PROMPT" \
+# --ephemeral prevents thread/session artifacts under ~/.codex; worktree cleanup
+# below removes the disposable checkout separately.
+codex exec --ephemeral --cd "$WORKTREE" --sandbox danger-full-access "$PROMPT" \
   >"$REPORT_DIR/.$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}.log" 2>&1 || log "$LOG_PREFIX: codex exec exited non-zero"
 
 if ! git -C "$WORKTREE" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/null; then
