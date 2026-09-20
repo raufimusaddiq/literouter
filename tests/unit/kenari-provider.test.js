@@ -27,6 +27,10 @@ describe("kenari native provider", () => {
     expect(formats).toEqual(["claude", "openai", "openai-responses"]);
   });
 
+  it("routes DeepSeek models through Chat Completions", () => {
+    expect(kenari.models.find((model) => model.id === "deepseek-v4-1-flash").supportedFormats).toEqual(["openai"]);
+  });
+
   it("folds Responses system instructions into the first user turn", () => {
     const body = new DefaultExecutor("kenari").transformRequest("deepseek-v4-1-flash", {
       instructions: "be concise",
