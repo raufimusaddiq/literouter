@@ -258,6 +258,15 @@ describe("dashboard guard public LLM API access", () => {
 });
 
 describe("dashboard guard helpers", () => {
+  it("always protects API key management when dashboard login is disabled", async () => {
+    mocks.getSettings.mockResolvedValue({ requireLogin: false });
+
+    const response = await proxy(request("/api/keys", { host: "router.example.com" }));
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: "Unauthorized" });
+  });
+
   it("extracts bearer API keys before x-api-key", () => {
     const apiRequest = request("/v1/chat/completions", {
       authorization: "Bearer bearer-key",

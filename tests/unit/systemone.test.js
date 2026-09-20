@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   extractApiKey: vi.fn().mockReturnValue(null),
   isValidApiKey: vi.fn(),
   proxyAwareFetch: vi.fn(),
+  saveUsageStats: vi.fn(),
 }));
 
 vi.mock("@/lib/localDb", () => ({ getSettings: mocks.getSettings }));
@@ -21,6 +22,10 @@ vi.mock("@/sse/services/auth.js", () => ({
   isValidApiKey: mocks.isValidApiKey,
 }));
 vi.mock("open-sse/utils/proxyFetch.js", () => ({ proxyAwareFetch: mocks.proxyAwareFetch }));
+vi.mock("open-sse/handlers/chatCore/requestDetail.js", async () => {
+  const actual = await vi.importActual("open-sse/handlers/chatCore/requestDetail.js");
+  return { ...actual, saveUsageStats: mocks.saveUsageStats };
+});
 
 const { handleSystemOne, normalizeSystemOneRequest } = await import("@/sse/handlers/systemOne.js");
 
@@ -62,12 +67,15 @@ describe("System One request normalization", () => {
 
 describe("System One pass-through", () => {
   it("forwards the native body and returns the upstream response", async () => {
+    mocks.getSettings.mockResolvedValue({ requireApiKey: true });
+    mocks.extractApiKey.mockReturnValue("router-key");
+    mocks.isValidApiKey.mockResolvedValue(true);
     mocks.getProviderCredentials.mockResolvedValue({
       apiKey: "typesafe-key",
       connectionId: "connection-1",
       providerSpecificData: {},
     });
-    mocks.proxyAwareFetch.mockResolvedValue(new Response('{"answers":{"urgent":{"noul":0.9}}}', {
+    mocks.proxyAwareFetch.mockResolvedValue(new Response('{"answers":{"urgent":{"noul":0.9}},"usage":{"input_tokens":318,"output_tokens":34}}', {
       status: 200,
       headers: { "Content-Type": "application/json", "X-Request-Id": "req-1", "X-Provider-Latency": "12" },
     }));
@@ -84,8 +92,17 @@ describe("System One pass-through", () => {
     }));
 
     expect(response.status).toBe(200);
-    expect(await response.text()).toBe('{"answers":{"urgent":{"noul":0.9}}}');
+    expect(await response.text()).toBe('{"answers":{"urgent":{"noul":0.9}},"usage":{"input_tokens":318,"output_tokens":34}}');
     expect(response.headers.get("x-provider-latency")).toBe("12");
+    await vi.waitFor(() => expect(mocks.saveUsageStats).toHaveBeenCalledWith({
+        provider: "typesafe",
+        model: "jev-latest",
+        tokens: { prompt_tokens: 318, completion_tokens: 34, cached_tokens: undefined, cache_read_input_tokens: undefined, cache_creation_input_tokens: undefined },
+        connectionId: "connection-1",
+        apiKey: "router-key",
+        endpoint: "/v1/systemone",
+        silent: true,
+      }));
     expect(mocks.proxyAwareFetch).toHaveBeenCalledWith(
       "https://api.typesafe.ai/v1/systemone",
       expect.objectContaining({
@@ -94,5 +111,12 @@ describe("System One pass-through", () => {
       }),
       {},
     );
+  });
+
+  it("uses the public Jev pricing", async () => {
+    const { calculateCostFromTokens, getPricingForModel } = await import("open-sse/providers/pricing.js");
+    const pricing = getPricingForModel("typesafe", "jev-latest");
+    expect(pricing).toMatchObject({ input: 0.042, output: 0 });
+    expect(calculateCostFromTokens({ prompt_tokens: 318, completion_tokens: 34 }, pricing)).toBeCloseTo(318 * 0.042 / 1_000_000);
   });
 });
