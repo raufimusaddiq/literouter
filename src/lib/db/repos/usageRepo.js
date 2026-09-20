@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { getAdapter } from "../driver.js";
+import { getAdapter, getAdapterSync } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
 
@@ -14,6 +14,10 @@ const RING_CAP = 50;
 const CONN_CACHE_TTL_MS = 30 * 1000;
 const PERIOD_MS = { "24h": 86400000, "7d": 604800000, "30d": 2592000000, "60d": 5184000000 };
 
+const USAGE_BATCH_SIZE = Math.max(1, Number.parseInt(process.env.USAGE_BATCH_SIZE || "50", 10) || 50);
+const USAGE_FLUSH_INTERVAL_MS = Math.max(10, Number.parseInt(process.env.USAGE_FLUSH_INTERVAL_MS || "100", 10) || 100);
+const USAGE_MAX_BUFFERED = Math.max(USAGE_BATCH_SIZE, Number.parseInt(process.env.USAGE_MAX_BUFFERED || "5000", 10) || 5000);
+
 // In-memory state shared across Next.js modules
 if (!global._pendingRequests) global._pendingRequests = { byModel: {}, byAccount: {} };
 if (!global._lastErrorProvider) global._lastErrorProvider = { provider: "", ts: 0 };
@@ -25,6 +29,14 @@ if (!global._pendingTimers) global._pendingTimers = {};
 if (!global._recentRing) global._recentRing = { items: [], initialized: false };
 if (!global._connectionMapCache) global._connectionMapCache = { map: {}, ts: 0 };
 if (!global._statsEmitTimers) global._statsEmitTimers = { pending: null, update: null };
+if (!global._usageWriteBuffer) {
+  global._usageWriteBuffer = {
+    items: [],
+    timer: null,
+    flushing: false,
+    flushPromise: null,
+  };
+}
 
 const pendingRequests = global._pendingRequests;
 const lastErrorProvider = global._lastErrorProvider;
@@ -32,8 +44,14 @@ const pendingTimers = global._pendingTimers;
 const recentRing = global._recentRing;
 const connCache = global._connectionMapCache;
 const statsEmitTimers = global._statsEmitTimers;
+const usageWriteBuffer = global._usageWriteBuffer;
 
 export const statsEmitter = global._statsEmitter;
+export const __usageBuffer__ = {
+  size: () => usageWriteBuffer.items.length,
+  batchSize: USAGE_BATCH_SIZE,
+  maxBuffered: USAGE_MAX_BUFFERED,
+};
 
 function scheduleStatsEvent(event, delayMs = 150) {
   const key = event === "update" ? "update" : "pending";
@@ -238,22 +256,19 @@ export async function getActiveRequests() {
   return { activeRequests, recentRequests, errorProvider };
 }
 
-export async function saveRequestUsage(entry) {
-  try {
-    const db = await getAdapter();
+function writeUsageBatch(db, entries) {
+  if (!entries.length) return [];
 
-    if (!entry.timestamp) entry.timestamp = new Date().toISOString();
-    entry.cost = await calculateCost(entry.provider, entry.model, entry.tokens);
+  const insertedEntries = [];
+  const days = new Map();
+  let insertedCount = 0;
 
-    const tokens = entry.tokens || {};
-    const promptTokens = tokens.prompt_tokens || tokens.input_tokens || 0;
-    const completionTokens = tokens.completion_tokens || tokens.output_tokens || 0;
+  db.transaction(() => {
+    for (const entry of entries) {
+      const tokens = entry.tokens || {};
+      const promptTokens = tokens.prompt_tokens || tokens.input_tokens || 0;
+      const completionTokens = tokens.completion_tokens || tokens.output_tokens || 0;
 
-    let inserted = false;
-
-    // All 3 writes (history insert, daily upsert, lifetime counter) in ONE transaction.
-    // better-sqlite3 is sync → no JS yield mid-transaction → no race in same process.
-    db.transaction(() => {
       const existing = db.get(
         `SELECT id, endpoint FROM usageHistory
          WHERE timestamp = ?
@@ -275,7 +290,7 @@ export async function saveRequestUsage(entry) {
         if (!existing.endpoint && entry.endpoint) {
           db.run(`UPDATE usageHistory SET endpoint = ? WHERE id = ?`, [entry.endpoint, existing.id]);
         }
-        return;
+        continue;
       }
 
       db.run(
@@ -289,24 +304,131 @@ export async function saveRequestUsage(entry) {
       );
 
       const dateKey = getLocalDateKey(entry.timestamp);
-      const row = db.get(`SELECT data FROM usageDaily WHERE dateKey = ?`, [dateKey]);
-      const day = row ? parseJson(row.data, {}) : {
-        requests: 0, promptTokens: 0, completionTokens: 0, cost: 0,
-        byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
-      };
+      let day = days.get(dateKey);
+      if (!day) {
+        const row = db.get(`SELECT data FROM usageDaily WHERE dateKey = ?`, [dateKey]);
+        day = row ? parseJson(row.data, {}) : {
+          requests: 0, promptTokens: 0, completionTokens: 0, cost: 0,
+          byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
+        };
+        days.set(dateKey, day);
+      }
       aggregateEntryToDay(day, entry);
-      db.run(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?) ON CONFLICT(dateKey) DO UPDATE SET data = excluded.data`, [dateKey, stringifyJson(day)]);
+      insertedCount++;
+      insertedEntries.push(entry);
+    }
 
-      // Atomic counter increment in same transaction
+    for (const [dateKey, day] of days) {
+      db.run(
+        `INSERT INTO usageDaily(dateKey, data) VALUES(?, ?) ON CONFLICT(dateKey) DO UPDATE SET data = excluded.data`,
+        [dateKey, stringifyJson(day)]
+      );
+    }
+
+    if (insertedCount > 0) {
       const cur = db.get(`SELECT value FROM _meta WHERE key = 'totalRequestsLifetime'`);
-      const next = (cur ? parseInt(cur.value, 10) : 0) + 1;
-      db.run(`INSERT INTO _meta(key, value) VALUES('totalRequestsLifetime', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [String(next)]);
-      inserted = true;
-    });
+      const next = (cur ? parseInt(cur.value, 10) : 0) + insertedCount;
+      db.run(
+        `INSERT INTO _meta(key, value) VALUES('totalRequestsLifetime', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [String(next)]
+      );
+    }
+  });
 
-    if (inserted) {
-      pushToRing(entry);
-      scheduleStatsEvent("update", 250);
+  return insertedEntries;
+}
+
+function onUsageBatchPersisted(insertedEntries) {
+  if (!insertedEntries.length) return;
+  for (const entry of insertedEntries) pushToRing(entry);
+  scheduleStatsEvent("update", 250);
+}
+
+function scheduleUsageFlush(delay = USAGE_FLUSH_INTERVAL_MS) {
+  if (usageWriteBuffer.timer || usageWriteBuffer.flushing) return;
+  usageWriteBuffer.timer = setTimeout(() => {
+    usageWriteBuffer.timer = null;
+    flushUsageQueue({ drainAll: false }).catch((e) => {
+      console.error("Failed to flush usage stats:", e);
+    });
+  }, delay);
+  usageWriteBuffer.timer?.unref?.();
+}
+
+export async function flushUsageQueue({ drainAll = true } = {}) {
+  if (usageWriteBuffer.flushPromise) return usageWriteBuffer.flushPromise;
+  if (usageWriteBuffer.timer) {
+    clearTimeout(usageWriteBuffer.timer);
+    usageWriteBuffer.timer = null;
+  }
+  if (usageWriteBuffer.items.length === 0) return true;
+
+  usageWriteBuffer.flushing = true;
+  usageWriteBuffer.flushPromise = (async () => {
+    try {
+      const db = await getAdapter();
+      do {
+        const take = drainAll
+          ? Math.min(USAGE_BATCH_SIZE, usageWriteBuffer.items.length)
+          : Math.min(USAGE_BATCH_SIZE, usageWriteBuffer.items.length);
+        const batch = usageWriteBuffer.items.splice(0, take);
+        const inserted = writeUsageBatch(db, batch);
+        onUsageBatchPersisted(inserted);
+        if (!drainAll) break;
+      } while (usageWriteBuffer.items.length > 0);
+      return usageWriteBuffer.items.length === 0;
+    } finally {
+      usageWriteBuffer.flushing = false;
+      usageWriteBuffer.flushPromise = null;
+      if (usageWriteBuffer.items.length > 0) scheduleUsageFlush(0);
+    }
+  })();
+
+  return usageWriteBuffer.flushPromise;
+}
+
+function drainUsageSync() {
+  if (usageWriteBuffer.items.length === 0) return;
+  if (usageWriteBuffer.timer) {
+    clearTimeout(usageWriteBuffer.timer);
+    usageWriteBuffer.timer = null;
+  }
+  try {
+    const db = getAdapterSync();
+    while (usageWriteBuffer.items.length > 0) {
+      const batch = usageWriteBuffer.items.splice(0, USAGE_BATCH_SIZE);
+      writeUsageBatch(db, batch);
+    }
+  } catch (e) {
+    console.error("Failed to drain usage stats:", e);
+  }
+}
+
+globalThis.__liteRouterUsageDrainSync = drainUsageSync;
+
+export async function saveRequestUsage(entry) {
+  try {
+    const prepared = {
+      ...entry,
+      timestamp: entry.timestamp || new Date().toISOString(),
+    };
+    prepared.cost = await calculateCost(prepared.provider, prepared.model, prepared.tokens);
+
+    // Apply backpressure before admitting more buffered rows. The request
+    // handlers fire-and-forget this promise, so this protects memory without
+    // putting synchronous SQLite work back on the response path.
+    if (usageWriteBuffer.items.length >= USAGE_MAX_BUFFERED) {
+      await flushUsageQueue({ drainAll: true });
+    }
+
+    usageWriteBuffer.items.push(prepared);
+
+    if (usageWriteBuffer.items.length >= USAGE_BATCH_SIZE) {
+      flushUsageQueue({ drainAll: false }).catch((e) => {
+        console.error("Failed to flush usage stats:", e);
+      });
+    } else {
+      scheduleUsageFlush();
     }
   } catch (e) {
     console.error("Failed to save usage stats:", e);
