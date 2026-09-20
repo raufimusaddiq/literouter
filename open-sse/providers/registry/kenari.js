@@ -62,9 +62,11 @@ export default {
     { id: "claude-opus-5", name: "claude-opus-5" },
     { id: "claude-sonnet-4-6", name: "claude-sonnet-4-6" },
     { id: "claude-sonnet-5", name: "claude-sonnet-5" },
-    { id: "deepseek-v4-1-flash", name: "deepseek-v4-1-flash" },
-    { id: "deepseek-v4-flash", name: "deepseek-v4-flash" },
-    { id: "deepseek-v4-pro", name: "deepseek-v4-pro" },
+    // Kenari exposes /responses globally, but these DeepSeek models only work
+    // reliably through Chat Completions; translate Codex Responses requests.
+    { id: "deepseek-v4-1-flash", name: "deepseek-v4-1-flash", supportedFormats: ["openai"] },
+    { id: "deepseek-v4-flash", name: "deepseek-v4-flash", supportedFormats: ["openai"] },
+    { id: "deepseek-v4-pro", name: "deepseek-v4-pro", supportedFormats: ["openai"] },
     { id: "gemini-2-5-flash", name: "gemini-2-5-flash" },
     { id: "gemini-2-5-flash-lite", name: "gemini-2-5-flash-lite" },
     { id: "gemini-3-1-flash-lite", name: "gemini-3-1-flash-lite" },

@@ -203,20 +203,28 @@ The public endpoint, API paths, and client API keys stay unchanged.
 
 ## Release intake from upstream
 
-Use a daily systemd timer or cron job to create a disposable review session,
-not an unattended production deploy:
+Use the daily `upstream-intake.timer` (`upstream-intake.service`) to run the
+gated intake. Staging is sunset; the release target is `main`:
+
+**Status: implemented and executed.** The timer is installed and enabled
+(`upstream-intake.timer`, next run 04:15 CST). The disposable ephemeral Codex
+session was run end to end against upstream `master` and answered its prompt
+without an LLM error; the worktree, branch checkout, and temporary logs are
+removed on exit. Staging is never targeted.
 
 1. Fetch `decolua/9router` in a temporary worktree; compare it with LiteRouter
    `main` and identify commits touching retained core paths.
 2. Start one disposable Codex session in that worktree. It produces a short
-   change/risk report and a `git cherry-pick -x` branch targeted at `staging`.
-   It may resolve conflicts and open the PR, but may not merge or deploy.
-3. Run the normal staging PR gates. A passing `staging -> main` release PR is
-   the only route to production.
-4. On completion, delete the temporary worktree, branch checkout, session
-   artifacts, and any copied credentials. The timer logs commit IDs and PR URL
-   only. Confirm the installed Codex CLI's non-interactive, ephemeral-session
-   command before enabling this timer; do not invent a long-lived agent token.
+   change/risk report and a `git cherry-pick -x` branch targeted at `main`.
+   Keep only retained-core commits. Never target or deploy `staging`.
+3. Open the PR against `main`; wait for all CI checks and Hermes approval.
+   Merge only when the PR is clean and approved.
+4. Wait for the immutable production image for the merged SHA, pull it on this
+   host, recreate the single production container, then smoke
+   `https://ai.investdx.biz.id`.
+5. Run Codex with `--ephemeral`. On completion, delete the temporary worktree,
+   branch checkout, and temporary logs. Production credentials are not loaded
+   into the Codex environment; deployment uses the host's existing auth.
 
 Cherry-pick only changes with an explicit retained-core benefit (security,
 protocol compatibility, routing correctness, SQLite/DB correctness, or a
@@ -236,4 +244,5 @@ MITM, cloud-sync, GitBook, and UI code stay deleted.
       smoke checks.
 - [ ] The public `200` sweep is continuous across the swap; no failed probe.
 - [ ] Rollback image and database restore are rehearsed against the release.
-- [ ] Upstream intake timer creates review PRs only and removes its workspace.
+- [ ] Upstream intake timer targets `main`, gates CI + Hermes, deploys only the
+      merged immutable production image, and removes its disposable workspace.

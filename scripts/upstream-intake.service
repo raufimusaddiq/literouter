@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily disposable Codex upstream-intake review for LiteRouter
+Documentation=file:/opt/9router/scripts/upstream-intake.sh
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/opt/9router/scripts/upstream-intake.env
+ExecStart=/opt/9router/scripts/upstream-intake.sh
+StandardOutput=append:/var/log/upstream-intake.log
+StandardError=append:/var/log/upstream-intake.log
+TimeoutStartSec=45min
+User=ubuntu
