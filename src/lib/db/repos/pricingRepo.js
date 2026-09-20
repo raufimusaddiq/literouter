@@ -1,14 +1,15 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
-import { makeKv } from "../helpers/kvStore.js";
+import { makeKv, invalidateKvScope } from "../helpers/kvStore.js";
 
 const pricingKv = makeKv("pricing");
 const CACHE_TTL_MS = 5000;
 
-let cache = { value: null, expiresAt: 0 };
+const cache = global.__liteRouterPricingCache ??= { value: null, expiresAt: 0 };
 
 function invalidate() {
-  cache = { value: null, expiresAt: 0 };
+  cache.value = null;
+  cache.expiresAt = 0;
 }
 
 async function getUserPricing() {
@@ -73,6 +74,7 @@ export async function updatePricing(pricingData) {
       );
     }
   });
+  invalidateKvScope("pricing");
   invalidate();
   return await getUserPricing();
 }
@@ -97,6 +99,7 @@ export async function resetPricing(provider, model) {
       );
     }
   });
+  invalidateKvScope("pricing");
   invalidate();
   return await getUserPricing();
 }
