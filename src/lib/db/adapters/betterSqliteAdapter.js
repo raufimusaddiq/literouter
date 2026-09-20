@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { PRAGMA_SQL } from "../schema.js";
+import { drainRuntimeBuffersSync } from "../shutdown.js";
 
 // Periodic passive checkpoint keeps the WAL bounded without forcing a truncate
 // on the request-serving process. TRUNCATE is reserved for shutdown/backup.
@@ -38,8 +39,7 @@ export function createBetterSqliteAdapter(filePath) {
   // buffer repo registers its own handler, but this one closes the DB first,
   // so ordering here is what decides whether buffered rows survive.
   const onShutdown = () => {
-    try { globalThis.__liteRouterUsageDrainSync?.(); } catch {}
-    try { globalThis.__liteRouterDrainSync?.(); } catch {}
+    drainRuntimeBuffersSync();
     gracefulClose();
   };
   process.once("beforeExit", onShutdown);
@@ -56,6 +56,7 @@ export function createBetterSqliteAdapter(filePath) {
     checkpoint() { try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {} },
     close() {
       clearInterval(checkpointTimer);
+      drainRuntimeBuffersSync();
       gracefulClose();
     },
     raw: db,

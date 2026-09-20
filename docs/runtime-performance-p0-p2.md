@@ -157,8 +157,9 @@ Benchmark-oriented defaults for LiteRouter:
 - `synchronous=NORMAL` remains
 - reduce page cache target from ~64 MiB to ~16 MiB unless overridden
 - use WAL auto-checkpoint
-- periodic maintenance checkpoint should be PASSIVE, not TRUNCATE
+- periodic maintenance checkpoint should be PASSIVE, not TRUNCATE across WAL-backed native adapters
 - TRUNCATE remains acceptable for shutdown/backup/maintenance
+- every supported DB adapter must synchronously drain accepted Usage/request-detail buffers before final close/persist
 - keep a finite busy timeout
 
 ### P2.2 Logging
@@ -230,6 +231,7 @@ Before merge:
 - Usage and Quota tests pass
 - OAuth/token refresh tests pass
 - new concurrency/runtime-state tests pass
+- shutdown drain regression test passes for the shared adapter hook
 - image builds successfully
 - no retained UI route imports deleted dependencies
 - PR review findings are addressed or explicitly documented
