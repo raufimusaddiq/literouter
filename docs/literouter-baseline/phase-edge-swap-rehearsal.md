@@ -85,9 +85,30 @@ The old writer started first, so its counters are the lower bound; the
 successor extending them proves it took over the volume as the single writer
 rather than starting from a blank database.
 
-## What the production cutover still has to measure
+## Production cutover, 2026-09-20
 
-The rehearsal's write window is a container start (~1 s here) plus the edge
-flip (~1 s, measured above). Only the production run measures it against real
-traffic, including how many in-flight requests fail while the old writer is
-stopped.
+Executed once, against the live volume. Ordering as designed: old writer stopped
+before the successor started, so no two containers ever mounted `9router-data`.
+
+```text
+01:06  preflight backup written and verified (integrity ok, 50689 usage rows)
+01:07  guard timer stopped, then running again against the new container
+01:07  literouter-production-candidate stopped (last writer of 9router-data)
+01:07  literouter started: ghcr.io/.../literouter-production:production-143cc7e3
+01:07  edge repointed 172.30.0.3:20128 -> 172.30.0.2:20128, Caddy reload 200
+```
+
+Public probe log across the swap (`GET /v1/models`, 100 ms apart): one `502`
+lasting ~3 s while the old container was stopped and the new one was not yet
+serving, then `401` router responses. **The zero-downtime claim does not hold:**
+a client request in flight during that window failed. Zero data loss does hold —
+the volume was never written by two processes, `integrity_check` stayed `ok`,
+and every retained table count carried over (usageHistory continued from 50689).
+
+Post-cutover verification: `/v1/models` 401 continuously for five minutes;
+`kn/deepseek-v4-1-flash` 3/3 `200` with `finish_reason=stop`; SQLite `ok` with
+usageHistory 50717; Redis `PONG`; a single container mounts `9router-data`.
+
+Open gap: OpenCode Go could not be exercised on production because no active
+`opencode-go` credential exists in the production database; Kenari was used for
+the live provider checks.

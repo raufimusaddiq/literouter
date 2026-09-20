@@ -12,6 +12,8 @@ PRD section 26 lists seven gates. Status below is evidence-backed as of 2026-09-
 | 6 | Startup/RSS/image/latency measurements recorded | PASS | `phase-startup-minimization.md`, `phase-latency-resource.md`, `phase-bundle-analysis.md` |
 | 7 | Rollback to the prior production image is tested | PASS | `phase-rollback-rehearsal.md`; the prior image boots from a copy of `9router-data` with no schema error, reads 3 providers, serves `/api/health` 200, and reads the usage history |
 | 8 | Single-writer cutover rehearsal | PASS | `phase-edge-swap-rehearsal.md`; on a disposable copy of `9router-data`: old writer stopped, successor booted from the same volume, real `kn/deepseek-v4-1-flash` call returned 200, stream closed with exactly one `[DONE]`, rollback to the old image re-served health, and the successor's write-back extended the source counters (50289 → 50484 `usageHistory`) |
+| 9 | Production cutover, zero data loss | PASS | `phase-edge-swap-rehearsal.md`; one writer at a time, backup verified before the swap, volume `integrity_check` `ok` after, retained counts carried over (50689 → 50717 `usageHistory`) |
+| 10 | Production cutover, zero downtime | FAIL | same run: the public edge returned `502` for ~3 s between stopping the old writer and the successor accepting traffic. Closing it requires a durable store that is not a single SQLite file |
 
 Row counts differ between the phase documents (39733, 39742, 39903, 40154,
 40872, 40956 `usageHistory`) because each was captured at a different moment

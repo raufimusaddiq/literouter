@@ -153,6 +153,15 @@ single-`[DONE]` stream. The production run is the only remaining measurement:
 the write window under real traffic and the count of in-flight requests that
 fail inside it.
 
+Production result (2026-09-20, recorded in the same file): the swap completed in
+the designed order with no concurrent writers and no data loss, but the public
+edge returned `502` for ~3 s while the old writer was stopped and the successor
+was still starting. **Zero downtime was therefore not achieved**, and this plan
+does not claim it. Closing that gap needs one of: a successor that is already
+listening before the old writer stops (only possible without concurrent SQLite
+writers if the durable store stops being a single SQLite file), or an accepted,
+documented write window.
+
 ### Phase 3 — promotion with a bounded write window
 
 After Phase 2 passes on staging, create the release PR `staging -> main`.
