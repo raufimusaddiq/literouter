@@ -150,7 +150,7 @@ EOF
 # Fail closed: a Codex failure or missing report stops the intake rather than
 # silently reporting success with nothing retained.
 if ! codex exec --ephemeral --cd "$WORKTREE" --sandbox workspace-write "$PROMPT" \
-  >"$REPORT_DIR/.$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}.log" 2>&1 || log "$LOG_PREFIX: codex exec exited non-zero"
+  >"$REPORT_DIR/.$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}.log" 2>&1
 then
   log "$LOG_PREFIX: codex exec failed; no intake retained"; exit 1
 fi
