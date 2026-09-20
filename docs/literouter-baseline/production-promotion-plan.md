@@ -206,6 +206,12 @@ The public endpoint, API paths, and client API keys stay unchanged.
 Use the daily `upstream-intake.timer` (`upstream-intake.service`) to run the
 gated intake. Staging is sunset; the release target is `main`:
 
+**Status: implemented and executed.** The timer is installed and enabled
+(`upstream-intake.timer`, next run 04:15 CST). The disposable ephemeral Codex
+session was run end to end against upstream `master` and answered its prompt
+without an LLM error; the worktree, branch checkout, and temporary logs are
+removed on exit. Staging is never targeted.
+
 1. Fetch `decolua/9router` in a temporary worktree; compare it with LiteRouter
    `main` and identify commits touching retained core paths.
 2. Start one disposable Codex session in that worktree. It produces a short
