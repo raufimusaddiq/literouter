@@ -2,7 +2,8 @@
 Description=Daily disposable Codex upstream-intake review for LiteRouter
 
 [Timer]
-# Daily, low-traffic window (03:15 WIB / 04:15 CST). Review PRs only; never deploys.
+# Daily, low-traffic window (03:15 WIB / 04:15 CST). PR -> CI + Hermes -> merge ->
+# production image -> pull -> deploy -> smoke. Staging is sunset and never targeted.
 OnCalendar=*-*-* 20:15:00 UTC
 Persistent=true
 AccuracySec=1min
