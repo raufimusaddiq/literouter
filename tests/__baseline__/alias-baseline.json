@@ -116,7 +116,8 @@
     "devin": "devin",
     "devin-cli": "devin-cli",
     "morph": "morph",
-    "morphllm": "morph"
+    "morphllm": "morph",
+    "typesafe": "typesafe"
   },
   "idToAlias": {
     "alicode": "alicode",
@@ -189,6 +190,7 @@
     "tencent": "hunyuan",
     "together": "together",
     "tokenrouter": "tokenrouter",
+    "typesafe": "typesafe",
     "venice": "venice",
     "vercel-ai-gateway": "vercel-ai-gateway",
     "vertex": "vertex",
@@ -267,6 +269,7 @@
     "siliconflow",
     "together",
     "tokenrouter",
+    "typesafe",
     "venice",
     "vertex",
     "vertex-partner",

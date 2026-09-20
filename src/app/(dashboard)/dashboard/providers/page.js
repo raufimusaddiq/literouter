@@ -331,7 +331,7 @@ export default function ProvidersPage() {
       ([key, info]) =>
         !info.hidden &&
         matchSearch(info.name) &&
-        (info.serviceKinds ?? ["llm"]).includes("llm") &&
+        ((info.serviceKinds ?? ["llm"]).includes("llm") || (info.serviceKinds ?? []).includes("systemone")) &&
         matchStatus(getProviderStats(key, dualAuthTypes(info, key)), info.noAuth),
     )
     .sort(([ka, a], [kb, b]) => {

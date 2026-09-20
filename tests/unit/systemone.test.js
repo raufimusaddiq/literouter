@@ -1,0 +1,79 @@
+import { describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  getSettings: vi.fn().mockResolvedValue({ requireApiKey: false }),
+  getProviderCredentials: vi.fn(),
+  markAccountUnavailable: vi.fn(),
+  clearAccountError: vi.fn(),
+  extractApiKey: vi.fn().mockReturnValue(null),
+  isValidApiKey: vi.fn(),
+  proxyAwareFetch: vi.fn(),
+}));
+
+vi.mock("@/lib/localDb", () => ({ getSettings: mocks.getSettings }));
+vi.mock("@/sse/services/auth.js", () => ({
+  getProviderCredentials: mocks.getProviderCredentials,
+  markAccountUnavailable: mocks.markAccountUnavailable,
+  clearAccountError: mocks.clearAccountError,
+  extractApiKey: mocks.extractApiKey,
+  isValidApiKey: mocks.isValidApiKey,
+}));
+vi.mock("open-sse/utils/proxyFetch.js", () => ({ proxyAwareFetch: mocks.proxyAwareFetch }));
+
+const { handleSystemOne, normalizeSystemOneRequest } = await import("@/sse/handlers/systemOne.js");
+
+describe("System One request normalization", () => {
+  it("accepts the native TypeSafe shape and normalizes a provider-prefixed model", () => {
+    const result = normalizeSystemOneRequest({
+      model: "typesafe/jev-latest",
+      state: { message: "hello" },
+      questions: { urgent: { type: "noul", instructions: "Is this urgent?" } },
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.provider).toBe("typesafe");
+    expect(result.model).toBe("jev-latest");
+    expect(result.body.model).toBe("jev-latest");
+  });
+
+  it("rejects empty questions before contacting upstream", () => {
+    expect(normalizeSystemOneRequest({ model: "jev-latest", state: "hello", questions: {} }).error)
+      .toBe("questions must be a non-empty object");
+  });
+});
+
+describe("System One pass-through", () => {
+  it("forwards the native body and returns the upstream response", async () => {
+    mocks.getProviderCredentials.mockResolvedValue({
+      apiKey: "typesafe-key",
+      connectionId: "connection-1",
+      providerSpecificData: {},
+    });
+    mocks.proxyAwareFetch.mockResolvedValue(new Response('{"answers":{"urgent":{"noul":0.9}}}', {
+      status: 200,
+      headers: { "Content-Type": "application/json", "X-Request-Id": "req-1" },
+    }));
+
+    const body = {
+      model: "jev-latest",
+      state: "The customer needs help.",
+      questions: { urgent: { type: "noul", instructions: "Is this urgent?" } },
+    };
+    const response = await handleSystemOne(new Request("http://localhost/v1/systemone", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+    }));
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('{"answers":{"urgent":{"noul":0.9}}}');
+    expect(mocks.proxyAwareFetch).toHaveBeenCalledWith(
+      "https://api.typesafe.ai/v1/systemone",
+      expect.objectContaining({
+        headers: { "Content-Type": "application/json", Authorization: "Bearer typesafe-key" },
+        body: JSON.stringify(body),
+      }),
+      {},
+    );
+  });
+});
