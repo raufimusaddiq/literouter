@@ -40,6 +40,14 @@ describe("System One request normalization", () => {
     expect(normalizeSystemOneRequest({ model: "jev-latest", state: "hello", questions: {} }).error)
       .toBe("questions must be a non-empty object");
   });
+
+  it("rejects models not registered for the provider", () => {
+    expect(normalizeSystemOneRequest({
+      model: "typesafe/not-a-model",
+      state: "hello",
+      questions: { ok: { type: "noul", instructions: "Is it okay?" } },
+    }).error).toBe("Unsupported model for typesafe: not-a-model");
+  });
 });
 
 describe("System One pass-through", () => {
@@ -51,7 +59,7 @@ describe("System One pass-through", () => {
     });
     mocks.proxyAwareFetch.mockResolvedValue(new Response('{"answers":{"urgent":{"noul":0.9}}}', {
       status: 200,
-      headers: { "Content-Type": "application/json", "X-Request-Id": "req-1" },
+      headers: { "Content-Type": "application/json", "X-Request-Id": "req-1", "X-Provider-Latency": "12" },
     }));
 
     const body = {
@@ -67,6 +75,7 @@ describe("System One pass-through", () => {
 
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('{"answers":{"urgent":{"noul":0.9}}}');
+    expect(response.headers.get("x-provider-latency")).toBe("12");
     expect(mocks.proxyAwareFetch).toHaveBeenCalledWith(
       "https://api.typesafe.ai/v1/systemone",
       expect.objectContaining({

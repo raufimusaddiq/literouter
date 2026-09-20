@@ -7,6 +7,7 @@ import {
   isValidApiKey,
 } from "../services/auth.js";
 import { PROVIDERS } from "open-sse/config/providers.js";
+import { getModelsByProviderId } from "open-sse/config/providerModels.js";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 
 const FALLBACK_STATUSES = new Set([401, 403, 408, 429, 500, 502, 503, 504, 529]);
@@ -32,6 +33,9 @@ export function normalizeSystemOneRequest(body) {
   if (!model || PROVIDERS[provider]?.format !== "systemone") {
     return { error: `Unsupported System One provider or model: ${rawModel}` };
   }
+  if (!getModelsByProviderId(provider).some((entry) => entry.id === model)) {
+    return { error: `Unsupported model for ${provider}: ${model}` };
+  }
   if (!Object.prototype.hasOwnProperty.call(body, "state")) {
     return { error: "Missing state" };
   }
@@ -44,10 +48,11 @@ export function normalizeSystemOneRequest(body) {
 
 function copyHeaders(response) {
   const headers = { "Access-Control-Allow-Origin": "*" };
-  for (const name of ["content-type", "retry-after", "x-request-id"]) {
-    const value = response.headers.get(name);
-    if (value) headers[name] = value;
-  }
+  // Hop-by-hop/body-affecting headers are unsafe to forward; everything else is pass-through.
+  const excluded = new Set(["connection", "keep-alive", "transfer-encoding", "upgrade", "content-length", "content-encoding"]);
+  response.headers.forEach((value, name) => {
+    if (!excluded.has(name.toLowerCase())) headers[name.toLowerCase()] = value;
+  });
   return headers;
 }
 

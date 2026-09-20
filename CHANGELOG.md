@@ -1,7 +1,7 @@
 # v0.5.82 (unreleased)
 
 ## Features
-- **System One**: add `/v1/systemone` TypeSafe pass-through with API-key provider setup and dashboard menu
+- **System One**: add `/v1/systemone` TypeSafe pass-through with API-key provider setup, dashboard menu, registry model validation, and upstream header pass-through
 
 ## Security
 - **Provider validation**: `/api/provider-nodes/validate` and the Azure/Cloudflare branches of `/api/providers/validate` now fetch through the SSRF-guarded `fetchPublic` instead of a raw `fetch`, so a caller-supplied base URL can no longer 30x its way to an internal target (metadata endpoints included). Remote callers are pre-rejected with 400; the trusted local operator keeps LAN nodes (LM Studio, vLLM, ollama-compat), including LAN targets reached through a redirect hop — `allowPrivate` is now a per-hop decision rather than a one-shot gate
