@@ -1,14 +1,15 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
-import { makeKv } from "../helpers/kvStore.js";
+import { makeKv, invalidateKvScope } from "../helpers/kvStore.js";
 
 const pricingKv = makeKv("pricing");
 const CACHE_TTL_MS = 5000;
 
-let cache = { value: null, expiresAt: 0 };
+const cache = global.__liteRouterPricingCache ??= { value: null, expiresAt: 0 };
 
 function invalidate() {
-  cache = { value: null, expiresAt: 0 };
+  cache.value = null;
+  cache.expiresAt = 0;
 }
 
 async function getUserPricing() {
@@ -44,14 +45,15 @@ export async function getPricing() {
     }
   }
 
-  cache = { value: merged, expiresAt: now + CACHE_TTL_MS };
+  cache.value = merged;
+  cache.expiresAt = now + CACHE_TTL_MS;
   return merged;
 }
 
 export async function getPricingForModel(provider, model) {
   if (!model) return null;
-  const userPricing = await getUserPricing();
-  if (provider && userPricing[provider]?.[model]) return userPricing[provider][model];
+  const pricing = await getPricing();
+  if (provider && pricing[provider]?.[model]) return pricing[provider][model];
   const { getPricingForModel: resolveConst } = await import("open-sse/providers/pricing.js");
   return resolveConst(provider, model);
 }
@@ -73,6 +75,7 @@ export async function updatePricing(pricingData) {
       );
     }
   });
+  invalidateKvScope("pricing");
   invalidate();
   return await getUserPricing();
 }
@@ -97,6 +100,7 @@ export async function resetPricing(provider, model) {
       );
     }
   });
+  invalidateKvScope("pricing");
   invalidate();
   return await getUserPricing();
 }

@@ -6,20 +6,50 @@ import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers.
 import { getAntigravityQuotaCache } from "./antigravityQuota.js";
 import * as log from "../utils/logger.js";
 
-// Mutex to prevent race conditions during account selection
-let selectionMutex = Promise.resolve();
+// Runtime-only round-robin cursor. Account rotation is request-serving state,
+// not durable provider configuration: persisting it on every request caused a
+// SQLite UPDATE, connection-cache invalidation, and Redis version bump for each
+// successful selection. JavaScript executes the selection/update block below
+// synchronously, so no async mutex is required inside one process.
+const selectionState = globalThis.__liteRouterSelectionState ??= new Map();
 
-// PRD 9.3: round-robin state must not require a synchronous database operation
-// per request. The cursor is derived from lastUsedAt/consecutiveUseCount, which
-// are durable, so persist in the background — the request path never waits on
-// the write. updateProviderConnection clears the connection cache
-// synchronously, so the next selection re-reads the row with the new cursor and
-// rotation still advances. An overlay cache is therefore unnecessary.
-function persistConnectionUsage(id, patch) {
-  updateProviderConnection(id, patch).catch((e) => {
-    log.warn("AUTH", `failed to persist round-robin cursor for ${id}: ${e?.message || e}`);
+function pickRoundRobinConnection(providerId, availableConnections, stickyLimit) {
+  const ordered = [...availableConnections].sort((a, b) => {
+    const p = (a.priority || 999) - (b.priority || 999);
+    return p || String(a.id).localeCompare(String(b.id));
   });
+  if (ordered.length === 0) return null;
+
+  const limit = Math.max(1, Number.parseInt(stickyLimit, 10) || 1);
+  const state = selectionState.get(providerId);
+  const currentIndex = state
+    ? ordered.findIndex((connection) => connection.id === state.connectionId)
+    : -1;
+
+  if (currentIndex >= 0 && state.consecutiveUseCount < limit) {
+    const next = {
+      connectionId: ordered[currentIndex].id,
+      consecutiveUseCount: state.consecutiveUseCount + 1,
+    };
+    selectionState.set(providerId, next);
+    return ordered[currentIndex];
+  }
+
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % ordered.length : 0;
+  const connection = ordered[nextIndex];
+  selectionState.set(providerId, {
+    connectionId: connection.id,
+    consecutiveUseCount: 1,
+  });
+  return connection;
 }
+
+export function resetProviderSelectionState(provider = null) {
+  if (provider) selectionState.delete(resolveProviderId(provider));
+  else selectionState.clear();
+}
+
+export const __selectionState = selectionState;
 
 const GITHUB_MONTHLY_USAGE_LIMIT = "you've reached your additional usage limit for your plan";
 
@@ -43,16 +73,9 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     ? excludeConnectionIds
     : (excludeConnectionIds ? new Set([excludeConnectionIds]) : new Set());
   const preferredConnectionId = options?.preferredConnectionId || null;
-  // Acquire mutex to prevent race conditions
-  const currentMutex = selectionMutex;
-  let resolveMutex;
-  selectionMutex = new Promise(resolve => { resolveMutex = resolve; });
 
-  try {
-    await currentMutex;
-
-    // Resolve alias to provider ID (e.g., "kc" -> "kilocode")
-    const providerId = resolveProviderId(provider);
+  // Resolve alias to provider ID (e.g., "kc" -> "kilocode")
+  const providerId = resolveProviderId(provider);
 
     // Inject a virtual connection for no-auth free providers (with optional proxy pool from settings)
     if (FREE_PROVIDERS[providerId]?.noAuth) {
@@ -81,7 +104,7 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       };
     }
 
-    const connections = await getProviderConnections({ provider: providerId, isActive: true });
+    const connections = await getProviderConnections({ provider: providerId, isActive: true }, { clone: false });
     log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
 
     if (connections.length === 0) {
@@ -159,45 +182,10 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       }
     }
     if (connection) {
-      // skip strategy
+      // Preferred connection bypasses rotation.
     } else if (strategy === "round-robin") {
       const stickyLimit = providerOverride.stickyRoundRobinLimit || settings.stickyRoundRobinLimit || 3;
-
-      // Sort by lastUsed (most recent first) to find current candidate
-      const byRecency = [...availableConnections].sort((a, b) => {
-        if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
-        if (!a.lastUsedAt) return 1;
-        if (!b.lastUsedAt) return -1;
-        return new Date(b.lastUsedAt) - new Date(a.lastUsedAt);
-      });
-
-      const current = byRecency[0];
-      const currentCount = current?.consecutiveUseCount || 0;
-
-      if (current && current.lastUsedAt && currentCount < stickyLimit) {
-        // Stay with current account
-        connection = current;
-        // Advance the cursor in memory, persist off the request path (PRD 9.3).
-        const nextCount = (connection.consecutiveUseCount || 0) + 1;
-        const lastUsedAt = new Date().toISOString();
-        persistConnectionUsage(connection.id, { lastUsedAt, consecutiveUseCount: nextCount });
-      } else {
-        // Pick the least recently used (excluding current if possible)
-        const sortedByOldest = [...availableConnections].sort((a, b) => {
-          if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
-          if (!a.lastUsedAt) return -1;
-          if (!b.lastUsedAt) return 1;
-          return new Date(a.lastUsedAt) - new Date(b.lastUsedAt);
-        });
-
-        connection = sortedByOldest[0];
-
-        // Reset count to 1 in memory, persist off the request path (PRD 9.3).
-        persistConnectionUsage(connection.id, {
-          lastUsedAt: new Date().toISOString(),
-          consecutiveUseCount: 1,
-        });
-      }
+      connection = pickRoundRobinConnection(providerId, availableConnections, stickyLimit);
     } else {
       // Default: fill-first (already sorted by priority in getProviderConnections)
       connection = availableConnections[0];
@@ -232,9 +220,6 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       // Pass full connection for clearAccountError to read modelLock_* keys
       _connection: connection
     };
-  } finally {
-    if (resolveMutex) resolveMutex();
-  }
 }
 
 /**

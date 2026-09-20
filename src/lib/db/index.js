@@ -57,7 +57,7 @@ export {
 // Usage
 export {
   statsEmitter, trackPendingRequest, getActiveRequests,
-  saveRequestUsage, getUsageHistory, getUsageStats, getChartData,
+  saveRequestUsage, flushUsageQueue, getUsageHistory, getUsageStats, getChartData,
   appendRequestLog, getRecentLogs,
 } from "./repos/usageRepo.js";
 
@@ -169,9 +169,13 @@ export async function importDb(payload) {
 // Drop them here so a restore is visible to routing immediately.
 function invalidateRuntimeCaches() {
   if (global.__liteRouterSettingsCache) { global.__liteRouterSettingsCache.raw = null; global.__liteRouterSettingsCache.merged = null; }
-  if (global.__liteRouterConnectionCache) { global.__liteRouterConnectionCache.rows = null; global.__liteRouterConnectionCache.expiresAt = 0; }
+  if (global.__liteRouterConnectionCache) { global.__liteRouterConnectionCache.rows = null; global.__liteRouterConnectionCache.expiresAt = 0; global.__liteRouterConnectionCache.versionCheckedAt = 0; }
   if (global.__liteRouterComboCache) { global.__liteRouterComboCache.rows = null; global.__liteRouterComboCache.expiresAt = 0; }
   if (global.__liteRouterApiKeyCache) { global.__liteRouterApiKeyCache.rows = null; global.__liteRouterApiKeyCache.expiresAt = 0; }
+  if (global.__liteRouterProviderNodeCache) { global.__liteRouterProviderNodeCache.rows = null; global.__liteRouterProviderNodeCache.expiresAt = 0; }
+  if (global.__liteRouterProxyPoolCache) { global.__liteRouterProxyPoolCache.rows = null; global.__liteRouterProxyPoolCache.expiresAt = 0; }
+  global.__liteRouterKvCache?.clear?.();
+  if (global.__liteRouterPricingCache) { global.__liteRouterPricingCache.value = null; global.__liteRouterPricingCache.expiresAt = 0; }
 }
 
 // Eager init helper (optional)

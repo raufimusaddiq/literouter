@@ -27,6 +27,22 @@ function nodeToRow(n) {
   };
 }
 
+const nodeCache = global.__liteRouterProviderNodeCache ??= { rows: null, expiresAt: 0 };
+const NODE_CACHE_TTL_MS = Math.max(1000, Number(process.env.RUNTIME_CONFIG_TTL_MS || 5000));
+
+function invalidateNodeCache() {
+  nodeCache.rows = null;
+  nodeCache.expiresAt = 0;
+}
+
+async function allNodesCached() {
+  if (nodeCache.rows && nodeCache.expiresAt > Date.now()) return nodeCache.rows;
+  const db = await getAdapter();
+  nodeCache.rows = db.all(`SELECT * FROM providerNodes`).map(rowToNode);
+  nodeCache.expiresAt = Date.now() + NODE_CACHE_TTL_MS;
+  return nodeCache.rows;
+}
+
 function upsert(db, n) {
   const r = nodeToRow(n);
   db.run(
@@ -39,17 +55,15 @@ function upsert(db, n) {
 }
 
 export async function getProviderNodes(filter = {}) {
-  const db = await getAdapter();
-  const where = [];
-  const params = [];
-  if (filter.type) { where.push("type = ?"); params.push(filter.type); }
-  const sql = `SELECT * FROM providerNodes${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-  return db.all(sql, params).map(rowToNode);
+  const rows = await allNodesCached();
+  return rows
+    .filter((node) => !filter.type || node.type === filter.type)
+    .map((node) => structuredClone(node));
 }
 
 export async function getProviderNodeById(id) {
-  const db = await getAdapter();
-  return rowToNode(db.get(`SELECT * FROM providerNodes WHERE id = ?`, [id]));
+  const row = (await allNodesCached()).find((node) => node.id === id);
+  return row ? structuredClone(row) : null;
 }
 
 export async function createProviderNode(data) {
@@ -67,6 +81,7 @@ export async function createProviderNode(data) {
     updatedAt: now,
   };
   upsert(db, node);
+  invalidateNodeCache();
   return node;
 }
 
@@ -80,6 +95,7 @@ export async function updateProviderNode(id, data) {
     upsert(db, merged);
     result = merged;
   });
+  if (result) invalidateNodeCache();
   return result;
 }
 
@@ -92,5 +108,6 @@ export async function deleteProviderNode(id) {
     removed = rowToNode(row);
     db.run(`DELETE FROM providerNodes WHERE id = ?`, [id]);
   });
+  if (removed) invalidateNodeCache();
   return removed;
 }

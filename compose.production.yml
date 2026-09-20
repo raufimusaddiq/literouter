@@ -19,6 +19,7 @@ services:
       PORT: "20128"
       HOSTNAME: "0.0.0.0"
       NODE_ENV: production
+      LOG_LEVEL: "${LITEROUTER_LOG_LEVEL:-WARN}"
       ENABLE_REQUEST_LOGS: "true"
       REQUEST_LOG_MAX_SIZE_MB: "1024"
       REQUEST_LOG_MAX_SESSIONS: "1000"

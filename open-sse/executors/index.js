@@ -24,54 +24,82 @@ import { CodeBuddyIntlExecutor } from "./codebuddy-intl.js";
 import TraeExecutor from "./trae.js";
 import ZedExecutor from "./zed.js";
 import WindsurfExecutor from "./windsurf.js";
-import { DefaultExecutor } from "./default.js";
 import { DevinCliExecutor } from "./devin-cli.js";
+import { DefaultExecutor } from "./default.js";
 
-const executors = {
-  antigravity: new AntigravityExecutor(),
-  azure: new AzureExecutor(),
-  "gemini-cli": new GeminiCLIExecutor(),
-  github: new GithubExecutor(),
-  iflow: new IFlowExecutor(),
-  qoder: new QoderExecutor(),
-  kiro: new KiroExecutor(),
-  kimchi: new KimchiExecutor(),
-  codex: new CodexExecutor(),
-  cursor: new CursorExecutor(),
-  cu: new CursorExecutor(), // Alias for cursor
-  vertex: new VertexExecutor("vertex"),
-  "vertex-partner": new VertexExecutor("vertex-partner"),
-  opencode: new OpenCodeExecutor(),
-  "opencode-go": new OpenCodeGoExecutor(),
-  "grok-web": new GrokWebExecutor(),
-  "grok-cli": new GrokCliExecutor(),
-  gcli: new GrokCliExecutor(), // Alias
-  gb: new GrokCliExecutor(), // Alias (Grok Build)
-  "perplexity-web": new PerplexityWebExecutor(),
-  "ollama-local": new OllamaLocalExecutor(),
-  commandcode: new CommandCodeExecutor(),
-  "xiaomi-tokenplan": new XiaomiTokenplanExecutor(),
-  "xiaomi-mimo": new XiaomiMimoExecutor(),
-  "mimo-free": new MimoFreeExecutor(),
-  mmf: new MimoFreeExecutor(), // Alias for mimo-free
-  "codebuddy-cn": new CodeBuddyExecutor(),
-  "codebuddy-intl": new CodeBuddyIntlExecutor(),
-  trae: new TraeExecutor(),
-  zed: new ZedExecutor(),
-  windsurf: new WindsurfExecutor(),
-  "devin-cli": new DevinCliExecutor(),
+// getExecutor is a long-standing synchronous public API used by provider tests,
+// CLI consumers, and internal call sites. Preserve that contract while avoiding
+// construction of every specialized executor at module load.
+const factories = {
+  antigravity: () => new AntigravityExecutor(),
+  azure: () => new AzureExecutor(),
+  "gemini-cli": () => new GeminiCLIExecutor(),
+  github: () => new GithubExecutor(),
+  iflow: () => new IFlowExecutor(),
+  qoder: () => new QoderExecutor(),
+  kiro: () => new KiroExecutor(),
+  kimchi: () => new KimchiExecutor(),
+  codex: () => new CodexExecutor(),
+  cursor: () => new CursorExecutor(),
+  vertex: () => new VertexExecutor("vertex"),
+  "vertex-partner": () => new VertexExecutor("vertex-partner"),
+  opencode: () => new OpenCodeExecutor(),
+  "opencode-go": () => new OpenCodeGoExecutor(),
+  "grok-web": () => new GrokWebExecutor(),
+  "grok-cli": () => new GrokCliExecutor(),
+  "perplexity-web": () => new PerplexityWebExecutor(),
+  "ollama-local": () => new OllamaLocalExecutor(),
+  commandcode: () => new CommandCodeExecutor(),
+  "xiaomi-tokenplan": () => new XiaomiTokenplanExecutor(),
+  "xiaomi-mimo": () => new XiaomiMimoExecutor(),
+  "mimo-free": () => new MimoFreeExecutor(),
+  "codebuddy-cn": () => new CodeBuddyExecutor(),
+  "codebuddy-intl": () => new CodeBuddyIntlExecutor(),
+  trae: () => new TraeExecutor(),
+  zed: () => new ZedExecutor(),
+  windsurf: () => new WindsurfExecutor(),
+  "devin-cli": () => new DevinCliExecutor(),
 };
 
-const defaultCache = new Map();
+const aliases = {
+  cu: "cursor",
+  gcli: "grok-cli",
+  gb: "grok-cli",
+  mmf: "mimo-free",
+};
+
+const specializedCache = globalThis.__liteRouterExecutorCache ??= new Map();
+const defaultCache = globalThis.__liteRouterDefaultExecutorCache ??= new Map();
+
+function canonicalProvider(provider) {
+  return aliases[provider] || provider;
+}
 
 export function getExecutor(provider) {
-  if (executors[provider]) return executors[provider];
-  if (!defaultCache.has(provider)) defaultCache.set(provider, new DefaultExecutor(provider));
-  return defaultCache.get(provider);
+  const id = canonicalProvider(provider);
+  const factory = factories[id];
+  if (factory) {
+    if (!specializedCache.has(id)) specializedCache.set(id, factory());
+    return specializedCache.get(id);
+  }
+
+  if (!defaultCache.has(id)) defaultCache.set(id, new DefaultExecutor(id));
+  return defaultCache.get(id);
 }
 
 export function hasSpecializedExecutor(provider) {
-  return !!executors[provider];
+  return Boolean(factories[canonicalProvider(provider)]);
+}
+
+export function clearExecutorCache(provider = null) {
+  if (!provider) {
+    specializedCache.clear();
+    defaultCache.clear();
+    return;
+  }
+  const id = canonicalProvider(provider);
+  specializedCache.delete(id);
+  defaultCache.delete(id);
 }
 
 export { BaseExecutor } from "./base.js";
