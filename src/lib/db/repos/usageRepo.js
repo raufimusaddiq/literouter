@@ -417,8 +417,8 @@ export async function saveRequestUsage(entry) {
     // Apply backpressure before admitting more buffered rows. The request
     // handlers fire-and-forget this promise, so this protects memory without
     // putting synchronous SQLite work back on the response path.
-    if (usageWriteBuffer.items.length >= USAGE_MAX_BUFFERED) {
-      await flushUsageQueue({ drainAll: true });
+    while (usageWriteBuffer.items.length >= USAGE_MAX_BUFFERED) {
+      await flushUsageQueue({ drainAll: false });
     }
 
     usageWriteBuffer.items.push(prepared);
