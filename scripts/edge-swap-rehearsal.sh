@@ -19,6 +19,25 @@ current=$(printf '%s\n' "$block" | grep -oP '(?<=reverse_proxy )\S+' | head -1)
 test -n "$current" || { echo "no reverse_proxy line in $caddyfile" >&2; exit 1; }
 backup="$caddyfile.bak-swap-$host-$(date +%s)"
 cp "$caddyfile" "$backup"
+swapped=false
+
+reload() {
+  # Caddy's admin endpoint binds inside the container and rejects the zero-Origin
+  # form a plain `docker exec` sends, so reload through a sibling container
+  # sharing that network namespace. `caddy reload` in-container returns 403 here.
+  docker run --rm --network container:idx-caddy -v "$caddyfile:/tmp/Caddyfile:ro" curlimages/curl:latest \
+    -s -X POST http://127.0.0.1:2019/load \
+    -H 'Content-Type: text/caddyfile' --data-binary @/tmp/Caddyfile \
+    -o /dev/null -w '%{http_code}' | grep -qx 200
+}
+
+restore() {
+  test "$swapped" = true || return 0
+  cp "$backup" "$caddyfile"
+  reload || true
+  echo "restored $host from $backup" >&2
+}
+trap restore ERR INT TERM
 
 sweep() { # print one status per attempt, as fast as curl allows
   local i
@@ -36,13 +55,10 @@ awk -v h="$host" -v old="$current" -v new="$target" '
   inside && /^}/ {inside = 0}
 ' "$caddyfile" > "$caddyfile.tmp"
 mv "$caddyfile.tmp" "$caddyfile"
-# Caddy's admin endpoint binds inside the container and rejects the zero-Origin
-# form a plain `docker exec` sends, so the reload goes through a sibling container
-# sharing that network namespace. `caddy reload` in-container returns 403 here.
-docker run --rm --network container:idx-caddy -v "$caddyfile:/tmp/Caddyfile:ro" curlimages/curl:latest \
-  -s -X POST http://127.0.0.1:2019/load \
-  -H 'Content-Type: text/caddyfile' --data-binary @/tmp/Caddyfile \
-  -o /dev/null -w 'reload %{http_code}\n'
+actual=$(awk -v h="$host" '$0 == h || $0 == h " {" {inside = 1} inside && /reverse_proxy / {sub(/^.*reverse_proxy /, ""); print; exit}' "$caddyfile")
+test "$actual" = "$target" || { echo "edited wrong site block: expected $target, got $actual" >&2; exit 1; }
+swapped=true
+reload
 after=$(sweep)
 end=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 

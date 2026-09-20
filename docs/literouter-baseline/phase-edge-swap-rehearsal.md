@@ -49,3 +49,45 @@ This ran while `9router` was still serving from the live volume, so it exercises
 the edge flip only. The Phase 3 swap additionally stops the old writer first;
 its write window is still unmeasured and is measured by the first production
 cutover.
+
+# Single-writer cutover rehearsal (disposable volume)
+
+The edge flip above proves the Caddy half. This is the writer half, run against
+a **copy** of `9router-data` in a throwaway volume
+(`literouter-cutover-rehearsal-20260920`) so the live volume is never touched.
+It is the sequence Phase 3 step 2–3 will run, one writer at a time.
+
+| Step | Result |
+| --- | --- |
+| Copy live volume → rehearsal volume | `data.sqlite` 26.8 MB, `pragma integrity_check` = `ok` |
+| Start old writer (`9router:v0.5.81-kenari-luna`) on the copy | `/api/health` 200, `/v1/models` 401 (router response) |
+| Stop old writer | exited; no other container mounts the rehearsal volume |
+| Start successor (LiteRouter `staging-latest`, `REDIS_KEY_PREFIX=literouter:cutover:`) on the same copy | `/api/health` 200, `/v1/models` 401 |
+| Successor real provider call (`kn/deepseek-v4-1-flash`, non-streaming) | HTTP 200, `choices[0].message.content` = `"OK"`, `finish_reason` = `stop` |
+| Successor streaming call | HTTP 200, SSE deltas observed, exactly one `data: [DONE]` |
+| Stop successor, restart old writer | `/api/health` 200 → rollback path viable |
+
+Data parity after the successor had booted and written back:
+
+```text
+table                source   after cutover
+providerConnections       3   3
+apiKeys                   5   5
+combos                    4   4
+kv                       11   11
+usageDaily               26   27   (one row added by the provider call)
+usageHistory          50289   50484 (the same provider call was metered)
+requestDetails         1000   1000
+settings                  1   1
+```
+
+The old writer started first, so its counters are the lower bound; the
+successor extending them proves it took over the volume as the single writer
+rather than starting from a blank database.
+
+## What the production cutover still has to measure
+
+The rehearsal's write window is a container start (~1 s here) plus the edge
+flip (~1 s, measured above). Only the production run measures it against real
+traffic, including how many in-flight requests fail while the old writer is
+stopped.

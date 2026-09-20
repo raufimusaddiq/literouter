@@ -141,12 +141,17 @@ sweep is expected to show failures inside the swap window and clean `200`s on
 both sides of it.
 
 Entry gate for Phase 3: the same swap has been executed once against the live
-edge with the result recorded — duration of the write window, any failed public
-probe, and the rollback invocation actually used. That record now exists:
-`phase-edge-swap-rehearsal.md` (12/12 probes reached a router across a one-second
-flip, Caddy reload 200, upstream returned to the candidate afterwards). The same
-run found and fixed a defect in the swap script itself, which is what a rehearsal
-is for.
+edge, including the stop of the old writer, the start of its successor, the
+duration of the write window, any failed public probe, and the rollback
+invocation actually used.
+
+Status: **met on a disposable copy** — `phase-edge-swap-rehearsal.md` records
+both halves: the Caddy flip on the live edge (12/12 probes reaching a router
+across a one-second swap) and the stop-old-writer/start-successor/rollback
+sequence against a copy of `9router-data`, including a real provider call and a
+single-`[DONE]` stream. The production run is the only remaining measurement:
+the write window under real traffic and the count of in-flight requests that
+fail inside it.
 
 ### Phase 3 — promotion with a bounded write window
 
