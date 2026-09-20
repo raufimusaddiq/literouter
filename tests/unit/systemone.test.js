@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { APIKEY_PROVIDERS, supportsServiceKind } from "@/shared/constants/providers.js";
 
 const mocks = vi.hoisted(() => ({
   getSettings: vi.fn().mockResolvedValue({ requireApiKey: false }),
@@ -23,6 +24,10 @@ vi.mock("open-sse/utils/proxyFetch.js", () => ({ proxyAwareFetch: mocks.proxyAwa
 const { handleSystemOne, normalizeSystemOneRequest } = await import("@/sse/handlers/systemOne.js");
 
 describe("System One request normalization", () => {
+  it("keeps TypeSafe visible in the API-key provider catalog", () => {
+    expect(APIKEY_PROVIDERS.typesafe).toBeDefined();
+    expect(supportsServiceKind(APIKEY_PROVIDERS.typesafe, "systemone")).toBe(true);
+  });
   it("accepts the native TypeSafe shape and normalizes a provider-prefixed model", () => {
     const result = normalizeSystemOneRequest({
       model: "typesafe/jev-latest",
