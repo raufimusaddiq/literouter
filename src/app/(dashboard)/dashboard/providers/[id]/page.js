@@ -154,6 +154,8 @@ export default function ProviderDetailPage() {
   const isOAuth = !!OAUTH_PROVIDERS[providerId] || !!FREE_PROVIDERS[providerId] || authModes.includes("oauth");
   const supportsApiKeyAuth = !!APIKEY_PROVIDERS[providerId] || authModes.includes("apikey");
   const isSystemOne = providerInfo?.serviceKinds?.includes("systemone");
+  // System One providers are non-chat: the models section shows the model catalog,
+  // and each model row links to the System One workspace instead of the chat ping.
   const isFreeNoAuth = !!FREE_PROVIDERS[providerId]?.noAuth;
   const staticModels = getModelsByProviderId(providerId);
   const models = (providerId === "cursor" || providerId === "zed") && liveModels.length > 0
@@ -1442,6 +1444,22 @@ export default function ProviderDetailPage() {
             </a>
           )}
         </div>
+      )}
+
+      {isSystemOne && (
+        <Card>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold">System One endpoint</h2>
+              <p className="mt-1 text-sm text-text-muted">
+                This provider serves the typed System One format, not chat completions. Send requests to the System One endpoint and use the workspace to verify a connection.
+              </p>
+            </div>
+            <Link href="/dashboard/systemone" className="shrink-0">
+              <Button size="sm" variant="secondary" icon="terminal">Open System One workspace</Button>
+            </Link>
+          </div>
+        </Card>
       )}
 
       {isCompatible && providerNode && (

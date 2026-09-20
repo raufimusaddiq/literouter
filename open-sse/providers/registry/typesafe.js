@@ -1,3 +1,5 @@
+// System One pass-through providers (registry `format: "systemone"`).
+// The registration order drives the dashboard list; add new provider specs here.
 export default {
   id: "typesafe",
   priority: 130,
@@ -8,6 +10,8 @@ export default {
     color: "#E551BA",
     textIcon: "TS",
     website: "https://typesafe.ai",
+    description: "Typed decision questions answered from a state document.",
+    docsUrl: "https://docs.typesafe.ai/api",
     notice: {
       apiKeyUrl: "https://console.typesafe.ai",
     },

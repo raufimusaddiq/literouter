@@ -351,11 +351,29 @@ export default function ProvidersPage() {
     .filter(
       ([key, info]) =>
         !info.hidden &&
-        (supportsServiceKind(info, "llm") || supportsServiceKind(info, "systemone")) &&
+        supportsServiceKind(info, "llm") &&
+        !supportsServiceKind(info, "systemone") &&
         matchSearch(info.name) &&
         matchStatus(getProviderStats(key, "apikey"), info.noAuth),
     )
     .sort(([ka, a], [kb, b]) => {
+      const ca = getProviderStats(ka, "apikey").total > 0 ? 0 : 1;
+      const cb = getProviderStats(kb, "apikey").total > 0 ? 0 : 1;
+      if (ca !== cb) return ca - cb;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  const systemOneEntries = Object.entries(APIKEY_PROVIDERS)
+    .filter(
+      ([key, info]) =>
+        !info.hidden &&
+        supportsServiceKind(info, "systemone") &&
+        matchSearch(info.name) &&
+        matchStatus(getProviderStats(key, "apikey"), info.noAuth),
+    )
+    .sort(([ka, a], [kb, b]) => {
+      const pa = a.priority ?? 999;
+      const pb = b.priority ?? 999;
+      if (pa !== pb) return pa - pb;
       const ca = getProviderStats(ka, "apikey").total > 0 ? 0 : 1;
       const cb = getProviderStats(kb, "apikey").total > 0 ? 0 : 1;
       if (ca !== cb) return ca - cb;
@@ -381,6 +399,7 @@ export default function ProvidersPage() {
     oauthEntries.length > 0 ||
     freeEntries.length > 0 ||
     freeTierEntries.length > 0 ||
+    systemOneEntries.length > 0 ||
     apikeyEntries.length > 0 ||
     compatibleProviders.length > 0 ||
     anthropicCompatibleProviders.length > 0;
@@ -470,6 +489,43 @@ export default function ProvidersPage() {
           </div>
         )}
       </div>
+
+      {systemOneEntries.length > 0 && (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold sm:text-xl">System One providers</h2>
+            <p className="mt-1 text-sm text-text-muted">Typed decision APIs with their own request format and model catalog.</p>
+          </div>
+          <button
+            onClick={() => handleBatchTest("systemone")}
+            disabled={!!testingMode}
+            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+              testingMode === "systemone"
+                ? "animate-pulse border-primary/40 bg-primary/20 text-primary"
+                : "border-border bg-bg text-text-muted hover:border-primary/40 hover:text-text-main"
+            }`}
+            title="Test all System One connections"
+            aria-label="Test all System One connections"
+          >
+            <span className={`material-symbols-outlined text-[14px]${testingMode === "systemone" ? " animate-spin" : ""}`}>play_arrow</span>
+            {testingMode === "systemone" ? "Testing..." : "Test All"}
+          </button>
+        </div>
+        <div className="grid grid-flow-dense grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {systemOneEntries.map(([key, info]) => (
+            <ApiKeyProviderCard
+              key={key}
+              providerId={key}
+              provider={info}
+              stats={getProviderStats(key, "apikey")}
+              authType="apikey"
+              onToggle={(active) => handleToggleProvider(key, "apikey", active)}
+            />
+          ))}
+        </div>
+      </div>
+      )}
 
       {/* OAuth Providers */}
       {oauthEntries.length > 0 && (
@@ -968,6 +1024,7 @@ function ProviderTestResultsView({ results }) {
       oauth: "OAuth",
       free: "Free",
       apikey: "API Key",
+      systemone: "System One",
       provider: "Provider",
       all: "All",
     }[mode] || mode;
