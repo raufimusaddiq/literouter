@@ -11,7 +11,9 @@ REPO=/opt/9router
 REMOTE=origin                 # decolua/9router (upstream master)
 TARGET=origin-literouter      # raufimusaddiq/literouter
 BASE_BRANCH=main
-DEPLOY=${UPSTREAM_INTAKE_DEPLOY:-true}    # gated merge+deploy tail enabled
+# Review-only by default: unattended timer never merges or deploys unless
+# explicitly enabled with UPSTREAM_INTAKE_DEPLOY=true.
+DEPLOY=${UPSTREAM_INTAKE_DEPLOY:-false}
 SSH_HOST=VM-8-96-ubuntu                   # this box, for the deploy tail over ssh
 WORK_ROOT=${UPSTREAM_INTAKE_DIR:-/var/tmp/9router-upstream-intake}
 REPORT_DIR=$REPO/docs/literouter-baseline/intake
@@ -51,10 +53,15 @@ deploy_main() {
     run=$(gh run list --repo raufimusaddiq/literouter --workflow production-image.yml --limit 5 \
       --json databaseId,headSha,status,conclusion \
       --jq "[.[] | select(.headSha==\"$sha\")][0] | \"\\(.databaseId) \\(.status) \\(.conclusion)\"")
-    case "$run" in ""*) sleep 20; continue ;; *"completed success"*) break ;; *"completed "*) log "$LOG_PREFIX: image build failed ($run)"; return 1 ;; esac
+    case "$run" in
+      "")                 sleep 20; continue ;;
+      *" completed success") break ;;
+      *" completed "*)    log "$LOG_PREFIX: image build failed ($run)"; return 1 ;;
+      *)                  sleep 20; continue ;;
+    esac
     sleep 20
   done
-  [ -n "$run" ] || { log "$LOG_PREFIX: no production image run for $sha"; return 1; }
+  case "$run" in *" completed success") ;; *) log "$LOG_PREFIX: image build not successful for $sha ($run)"; return 1 ;; esac
   ssh -o BatchMode=yes "$SSH_HOST" "docker pull ghcr.io/raufimusaddiq/literouter-production:$tag" || return 1
   ssh -o BatchMode=yes "$SSH_HOST" "cd /opt/9router && LITEROUTER_PRODUCTION_TAG=$tag docker compose -f compose.production.yml up -d --no-build" || return 1
   for _ in $(seq 1 30); do
