@@ -1,4 +1,5 @@
-import "open-sse/index.js";
+// Install proxy-aware fetch without importing the full open-sse barrel/executor graph.
+import "open-sse/utils/proxyFetch.js";
 
 import {
   getProviderCredentials,
