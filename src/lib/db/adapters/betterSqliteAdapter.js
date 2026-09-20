@@ -37,6 +37,7 @@ export function createBetterSqliteAdapter(filePath) {
   // buffer repo registers its own handler, but this one closes the DB first,
   // so ordering here is what decides whether buffered rows survive.
   const onShutdown = () => {
+    try { globalThis.__liteRouterUsageDrainSync?.(); } catch {}
     try { globalThis.__liteRouterDrainSync?.(); } catch {}
     gracefulClose();
   };
