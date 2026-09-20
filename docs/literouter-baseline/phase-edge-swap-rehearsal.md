@@ -62,7 +62,7 @@ It is the sequence Phase 3 step 2–3 will run, one writer at a time.
 | Copy live volume → rehearsal volume | `data.sqlite` 26.8 MB, `pragma integrity_check` = `ok` |
 | Start old writer (`9router:v0.5.81-kenari-luna`) on the copy | `/api/health` 200, `/v1/models` 401 (router response) |
 | Stop old writer | exited; no other container mounts the rehearsal volume |
-| Start successor (LiteRouter `staging-latest`, `REDIS_KEY_PREFIX=literouter:cutover:`) on the same copy | `/api/health` 200, `/v1/models` 401 |
+| Start successor (retired LiteRouter staging image, `REDIS_KEY_PREFIX=literouter:cutover:`) on the same copy | `/api/health` 200, `/v1/models` 401 |
 | Successor real provider call (`kn/deepseek-v4-1-flash`, non-streaming) | HTTP 200, `choices[0].message.content` = `"OK"`, `finish_reason` = `stop` |
 | Successor streaming call | HTTP 200, SSE deltas observed, exactly one `data: [DONE]` |
 | Stop successor, restart old writer | `/api/health` 200 → rollback path viable |
