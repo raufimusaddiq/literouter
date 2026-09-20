@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily disposable Codex upstream-intake review for LiteRouter
+
+[Timer]
+# Daily, low-traffic window (03:15 WIB / 04:15 CST). Review PRs only; never deploys.
+OnCalendar=*-*-* 20:15:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=upstream-intake.service
+
+[Install]
+WantedBy=timers.target
