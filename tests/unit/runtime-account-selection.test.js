@@ -12,7 +12,6 @@ vi.mock("@/lib/localDb", () => ({
   getProviderConnections: mocks.getProviderConnections,
   getSettings: mocks.getSettings,
   getProxyPools: mocks.getProxyPools,
-  validateApiKey: vi.fn(),
   updateProviderConnection: mocks.updateProviderConnection,
 }));
 
