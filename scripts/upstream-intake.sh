@@ -47,7 +47,11 @@ deploy_main() {
   local sha=$1 tag="production-$sha"
   gh pr merge "$2" --repo raufimusaddiq/literouter --merge --delete-branch=false || return 1
   git -C "$REPO" fetch --quiet "$TARGET" main
-  git -C "$REPO" merge-base --is-ancestor "$TARGET/main" "$TARGET/main" >/dev/null 2>&1 || true
+  local merged
+  merged=$(git -C "$REPO" rev-parse "$TARGET/main")
+  if ! git -C "$REPO" merge-base --is-ancestor "$sha" "$merged"; then
+    log "$LOG_PREFIX: $sha is not on main after merge (main=$merged)"; return 1
+  fi
   local run
   for _ in $(seq 1 60); do
     run=$(gh run list --repo raufimusaddiq/literouter --workflow production-image.yml --limit 5 \
@@ -64,10 +68,17 @@ deploy_main() {
   case "$run" in *" completed success") ;; *) log "$LOG_PREFIX: image build not successful for $sha ($run)"; return 1 ;; esac
   ssh -o BatchMode=yes "$SSH_HOST" "docker pull ghcr.io/raufimusaddiq/literouter-production:$tag" || return 1
   ssh -o BatchMode=yes "$SSH_HOST" "cd /opt/9router && LITEROUTER_PRODUCTION_TAG=$tag docker compose -f compose.production.yml up -d --no-build" || return 1
+  # Fail hard: a container that never reports healthy must not fall through to
+  # the smoke request, where the previous instance could answer 200.
+  local health="" running_image=""
   for _ in $(seq 1 30); do
-    [ "$(ssh -o BatchMode=yes "$SSH_HOST" docker inspect -f '{{.State.Health.Status}}' literouter)" = healthy ] && break
+    health=$(ssh -o BatchMode=yes "$SSH_HOST" docker inspect -f '{{.State.Health.Status}}' literouter 2>/dev/null || echo unknown)
+    running_image=$(ssh -o BatchMode=yes "$SSH_HOST" docker inspect -f '{{.Config.Image}}' literouter 2>/dev/null || echo "")
+    [ "$health" = healthy ] && [ "${running_image##*:}" = "$tag" ] && break
     sleep 5
   done
+  if [ "$health" != healthy ]; then log "$LOG_PREFIX: literouter not healthy after deploy (health=$health)"; return 1; fi
+  if [ "${running_image##*:}" != "$tag" ]; then log "$LOG_PREFIX: literouter running ${running_image:-unknown}, expected $tag"; return 1; fi
   local code
   code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 https://ai.investdx.biz.id/api/health)
   log "$LOG_PREFIX: deployed $tag smoke=$code"
@@ -132,7 +143,9 @@ EOF
 
 # --ephemeral prevents thread/session artifacts under ~/.codex; worktree cleanup
 # below removes the disposable checkout separately.
-codex exec --ephemeral --cd "$WORKTREE" --sandbox danger-full-access "$PROMPT" \
+# Workspace-only sandbox: upstream prompt/content never gets host, Docker, SSH,
+# or repository-secret access. The parent script owns push/PR/deploy operations.
+codex exec --ephemeral --cd "$WORKTREE" --sandbox workspace-write "$PROMPT" \
   >"$REPORT_DIR/.$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}.log" 2>&1 || log "$LOG_PREFIX: codex exec exited non-zero"
 
 if ! git -C "$WORKTREE" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/null; then
@@ -154,6 +167,7 @@ if [ "$DEPLOY" != true ]; then
   exit 0
 fi
 
+case "$PR_URL" in https://github.com/raufimusaddiq/literouter/pull/*) ;; *) log "$LOG_PREFIX: invalid PR URL '$PR_URL'"; exit 1 ;; esac
 PR_NUM=$(basename "$PR_URL")
 wait_for_gates "$PR_NUM" || { log "$LOG_PREFIX: gates not satisfied; not merging $PR_URL"; exit 1; }
 HEAD_SHA=$(gh pr view "$PR_NUM" --repo raufimusaddiq/literouter --json headRefOid --jq .headRefOid)
