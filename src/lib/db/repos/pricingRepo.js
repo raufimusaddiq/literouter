@@ -45,7 +45,8 @@ export async function getPricing() {
     }
   }
 
-  cache = { value: merged, expiresAt: now + CACHE_TTL_MS };
+  cache.value = merged;
+  cache.expiresAt = now + CACHE_TTL_MS;
   return merged;
 }
 
