@@ -25,8 +25,9 @@ const connectionCache = global.__liteRouterConnectionCache ??= {
 // another replica mutated. Separate from CACHE_TTL_MS: the data TTL can be
 // generous because a foreign write is caught by the version check, which has to
 // be frequent enough to count as "immediately" (PRD 15.5 §3).
-const CACHE_TTL_MS = 5000;
-const VERSION_TTL_MS = 500;
+const CACHE_TTL_MS = Math.max(1000, Number(process.env.RUNTIME_CONFIG_TTL_MS || 5000));
+const VERSION_TTL_MS = Math.max(500, Number(process.env.RUNTIME_CONFIG_VERSION_TTL_MS || 5000));
+const MULTI_REPLICA = process.env.LITEROUTER_MULTI_REPLICA === "true";
 const CACHE_VERSION_KEY = "cache:connections:version";
 
 async function cacheVersion() {
@@ -52,6 +53,7 @@ function invalidateConnectionCache() {
 // cache the new version, serving stale data until the TTL expires.
 async function invalidateConnectionCacheEverywhere() {
   invalidateConnectionCache();
+  if (!MULTI_REPLICA) return;
   try {
     await bumpCacheVersion();
   } catch {
@@ -140,10 +142,10 @@ export async function getProviderConnections(filter = {}) {
   const now = Date.now();
   if (!connectionCache.rows || connectionCache.expiresAt <= now) {
     await refreshConnectionCache();
-  } else if (connectionCache.versionCheckedAt <= now) {
-    // Held a usable snapshot, but confirm no other replica wrote since. A
-    // foreign bump makes every replica re-read, which is what keeps a UI
-    // mutation from being invisible here until the data TTL happens to lapse.
+  } else if (MULTI_REPLICA && connectionCache.versionCheckedAt <= now) {
+    // Multi-replica mode only: confirm no peer mutated configuration. A
+    // single-instance deployment has local write-through invalidation and does
+    // not spend Redis round-trips on the inference hot path.
     const version = await cacheVersion();
     connectionCache.versionCheckedAt = Date.now() + VERSION_TTL_MS;
     if (version !== null && version !== connectionCache.version) {
@@ -161,9 +163,9 @@ export async function getProviderConnections(filter = {}) {
 async function refreshConnectionCache() {
   const db = await getAdapter();
   connectionCache.rows = db.all("SELECT * FROM providerConnections").map(rowToConn);
-  // A Redis outage returns null, which then never compares equal to a real
-  // version — so recovery re-reads once rather than serving a stale snapshot.
-  connectionCache.version = await cacheVersion();
+  // Redis versioning is coordination for explicit multi-replica mode, not a
+  // required dependency for a normal single-instance read.
+  connectionCache.version = MULTI_REPLICA ? await cacheVersion() : null;
   connectionCache.expiresAt = Date.now() + CACHE_TTL_MS;
   connectionCache.versionCheckedAt = Date.now() + VERSION_TTL_MS;
 }
