@@ -21,6 +21,15 @@ npm install
 PORT=20128 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run dev   # dev (webpack, port 20127 by default via next dev)
 npm run build && PORT=20128 HOSTNAME=0.0.0.0 npm run start           # production
 ```
+
+`npm run dev` runs bare `next dev`, which never loads `custom-server.js`. Only
+that wrapper stamps the per-process `x-9r-peer-token` that proves a peer address,
+so under `next dev` every request is treated as remote: LAN/self-hosted provider
+nodes fail validation with `400`, the localhost-only routes
+(`/api/oauth/cursor/auto-import`, `/api/oauth/kiro/auto-import`,
+`/api/auth/reset-password`, `/api/headroom/*`) return `403`, and keyless `/v1`
+calls return `401`. Use `npm run start` against a built app if you need the local
+operator view; it loads the wrapper and grants it over loopback.
 - Bun variants: `npm run dev:bun` / `build:bun` / `start:bun`.
 - Default runtime port is **20128** (dashboard at `/dashboard`, API at `/v1`).
 - Lint: `npx eslint .` (config `eslint.config.mjs`, extends `eslint-config-next`).

@@ -15,8 +15,19 @@ Production replacement and HA prerequisites: [production promotion plan](product
 | Idle RSS | 192.1 MiB (512 MiB limit) |
 | Idle CPU | ~0.03% |
 
-Data volume at capture: 3 provider connections, 4 combos, 39903 usageHistory
-rows, 25 usageDaily rows, 1000 requestDetails rows.
+## Capture references
+
+Production is live, so every count below is a point-in-time capture. Docs cite
+the capture id, never a bare number, because the volume keeps growing:
+
+| Capture | Taken (UTC) | usageHistory | usageDaily | requestDetails | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `live-20260919T2335Z` | 2026-09-19T23:35Z | 50289 | 26 | 1000 | one-shot copy of `9router-data`, `integrity_check = ok` |
+
+Earlier phase documents record the counts they saw at their own capture time
+(39733, 39742, 39903, 40154, 40872, 40956 `usageHistory`); those numbers are
+superseded by the table above and are retained only as the evidence for the
+check that was run.
 
 Rollback reference: `literouter:v0.5.81-kenari-luna` (production), previous
 `literouter:v0.5.75-kenari-fix`.

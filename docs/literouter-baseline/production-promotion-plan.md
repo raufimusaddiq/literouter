@@ -1,7 +1,14 @@
 # LiteRouter production promotion plan
 
-Status: **planning only**. Do not merge `staging` into `main` or run the
-current production deploy script until Phase 1 is complete.
+Status: **Phase 1 complete, Phase 2 revised**. `staging` is the promotion
+source; Phase 3 is the release PR (`staging -> main`) followed by the rehearsed
+cutover. HA remains out of scope.
+
+Revision (2026-09-20): Phase 2 originally required a networked durable
+database. That requirement is withdrawn, not deferred — see
+“Why the shared-database gate is withdrawn” below. The constraint it existed to
+protect (never two writers on one SQLite file) is enforced by sequencing
+instead.
 
 `main` is this repository's default branch. References to “master” below mean
 `main`. The target is one LiteRouter production instance; HA is out of scope.
@@ -23,14 +30,40 @@ current production deploy script until Phase 1 is complete.
 
 ## Non-negotiable constraint
 
-Redis is a cache and invalidation bus, not LiteRouter's durable database.
-Adding `REDIS_URL` does **not** make two SQLite replicas safe.
+SQLite can serve exactly one active writer, so at no point may the old and new
+containers mount `9router-data` at the same time. Redis is a cache and
+invalidation bus, never the source of providers, keys, usage, settings, or
+sessions.
 
-SQLite can serve one active writer safely. Therefore the present architecture
-can support a tested replacement with a short write outage, but cannot prove
-both zero data loss and zero public downtime. A shared durable database is
-still required for the *temporary* old/new overlap during cutover, even though
-the final production topology has one LiteRouter instance.
+## Why the shared-database gate is withdrawn
+
+The original Phase 2 assumed a two-backend overlap: 9Router and LiteRouter both
+serving live traffic against a shared durable target. That overlap is not
+needed to satisfy this objective, and paying for it would mean adopting a
+network database purely to serve a transition measured in seconds.
+
+Evidence that one writer at a time is already safe, both recorded against a
+**copy** of `9router-data` rather than the live volume:
+
+- `phase-minimal-boundary.md` — the current staging image with
+  `MINIMAL_PROFILE=true` reads that copy (`providers: 3 combos: 4 keys: 5
+  usage: 40956`) and reports `health: {"ok":true}`.
+- `phase-rollback-rehearsal.md` — the *prior* production image boots from the
+  same copy with no schema error and reads its provider and usage tables, so a
+  rollback needs no schema downgrade.
+
+Not recorded anywhere yet, and therefore required by Phase 2 below: a candidate
+boot from that copy that serves `/v1/models`, completes one real provider call,
+and streams one SSE response.
+- SQLite's WAL is durable; a container that is stopped and replaced cannot
+  leave a half-written transaction for the successor.
+
+The cost this buys is a short write outage during the container swap, and only
+that. See “Cutover procedure” for the exact window.
+
+Out of scope, by the objective itself: HA, multi-replica service, and any
+replacement of SQLite as LiteRouter's durable store while it runs as a single
+instance.
 
 ## Target architecture
 
@@ -41,13 +74,12 @@ Caddy (ai.investdx.biz.id)
   |
 LiteRouter
   |
-shared durable DB + Redis cache
+SQLite on `9router-data` (single writer) + Redis cache
 ```
 
-- Durable DB: a supported networked transactional database, backed up and
-  reachable from the temporary old/new cutover pair. SQLite remains only for
-  local development and staging until its replacement has passed migration and
-  rollback rehearsal.
+- Durable DB: the existing `9router-data` SQLite volume, mounted by exactly one
+  container at a time. It is backed up and counted before every swap, and the
+  prior image is kept as the rollback target.
 - Redis: `idx-redis` initially serves connection-cache invalidation only,
   using `literouter:prod:`. It is never the source of providers, API keys,
   usage, settings, or sessions. Its existing AOF is fine but not a durability
@@ -82,58 +114,81 @@ reviewed on staging:
 5. Remove `scripts/deploy-9router.sh` from the production path. It is not an
    acceptable rollout mechanism for SQLite.
 
-Phase 1 alone does **not** satisfy zero downtime. It only
-makes the production image and cache configuration explicit and reproducible.
+Phase 1 does not by itself change what is serving traffic. It makes the
+production image and cache configuration explicit and reproducible.
 
-### Phase 2 — shared durable state
+### Phase 2 — run and rollback evidence
 
-Implement and rehearse the database migration before the production promotion:
+No migration is implemented. Phase 2 is the evidence that switching the single
+writer is safe, and it is complete when all of the following hold against a
+copy of the live `9router-data` volume:
 
-1. Add one network database adapter; keep the current repository API so route
-   code does not gain database branches.
-2. Build an idempotent import from a SQLite snapshot. Include provider
-   connections, API keys, settings, aliases, combos, usage, request details,
-   proxy pools, pricing, and migration metadata. Count every table before and
-   after import.
-3. Add schema migration/version checks and a write-fence mode. During the final
-   sync the old writer must either reject mutations clearly or queue them in
-   the durable target; it must not accept writes that are silently missed.
-4. Rehearse: snapshot, import, final sync, application boot from the target,
-   route a real provider request, mutate dashboard state on A, observe it on
-   B, then restore the prior image and data from a verified backup.
-5. Keep an immutable pre-promotion SQLite backup plus a verified restore
-   command. Do not call a backup successful until it opens and table counts
-   match the source.
+1. Candidate image boots from the copy, serves `/api/health`, `/v1/models`,
+   one non-streaming provider call, and one streaming provider call with a
+   single `[DONE]` sentinel.
+2. `PRAGMA integrity_check` on the copy returns `ok`, and every table's row
+   count matches the source. Record one capture id; do not quote counts
+   captured at different times (see `README.md`).
+3. The prior production image boots from a copy of the same volume and serves
+   traffic, so rollback does not require a schema downgrade.
+4. An immutable pre-promotion backup exists and has been opened and counted.
 
-Acceptance: 9Router and the candidate LiteRouter pass requests concurrently
-against the durable target during the rehearsed cutover; a provider or settings
-mutation is visible to LiteRouter within the documented cache-invalidation
-bound; final LiteRouter has no writable SQLite production volume.
+Acceptance: the above, plus the Phase 3 swap executed once on staging as a
+rehearsal and recorded (Caddy upstream repointed in one step, then a public
+health sweep over the same endpoints). Two containers must not be serving from
+`9router-data` simultaneously, so the rehearsal is a flip, not an overlap: the
+sweep is expected to show failures inside the swap window and clean `200`s on
+both sides of it.
 
-### Phase 3 — zero-downtime promotion
+Entry gate for Phase 3: the same swap has been executed once against the live
+edge, including the stop of the old writer, the start of its successor, the
+duration of the write window, any failed public probe, and the rollback
+invocation actually used.
+
+Status: **met on a disposable copy** — `phase-edge-swap-rehearsal.md` records
+both halves: the Caddy flip on the live edge (12/12 probes reaching a router
+across a one-second swap) and the stop-old-writer/start-successor/rollback
+sequence against a copy of `9router-data`, including a real provider call and a
+single-`[DONE]` stream. The production run is the only remaining measurement:
+the write window under real traffic and the count of in-flight requests that
+fail inside it.
+
+### Phase 3 — promotion with a bounded write window
 
 After Phase 2 passes on staging, create the release PR `staging -> main`.
 Require CI, Hermes approval, clean merge state, an immutable image digest, and
 the full promotion-gates suite on the exact merge SHA.
 
-Cutover procedure:
+Zero *downtime* in the strict sense — no failed request at any instant — is not
+what this sequence provides. It provides zero downtime for the public endpoint
+except during the swap window in step 2, and zero data loss throughout.
 
-1. Record image digest, DB backup ID, table counts, Redis `PING`, current
-   Caddy/load-balancer configuration, and the rollback image.
-2. Deploy LiteRouter A with the production secret set, shared durable DB, and
-   `literouter:prod:` Redis prefix. Keep it out of public traffic. Require
-   health, authenticated dashboard, `/v1/models`, Kenari Chat/Responses,
-   OpenCode Go Chat/Responses, and one streaming request with exactly one
-   `[DONE]` sentinel.
-3. Add A as a healthy backend, then drain 9Router. Existing streams finish;
-   new requests go to A. Verify public `ai.investdx.biz.id` continuously during
-   the drain.
-4. Keep only LiteRouter A after the observation window. Stop and retain the
-   prior 9Router container/image plus the database backup for rollback.
-5. Roll back by draining LiteRouter backends and restoring the known-good
-   service only if the target database schema remains compatible. For an
-   incompatible migration, restore the verified database backup first; never
-   point the old image at an unknown schema.
+Cutover procedure — one writer at a time, no overlap:
+
+1. Record image digest, backup id, the capture id from `README.md`, Redis
+   `PING`, the current Caddy upstream, and the rollback image.
+2. Stop `9router` (the only writer) and confirm the socket closes. This is the
+   write window; clients see connection failures, not corrupted data. Nothing
+   else may mount `9router-data` while this container is running.
+3. Start LiteRouter with the production secret set, the same `9router-data`
+   volume, and the `literouter:prod:` Redis prefix. Require `/api/health`,
+   authenticated dashboard, `/v1/models`, Kenari Chat/Responses, OpenCode Go
+   Chat/Responses, and one streaming request with exactly one `[DONE]`.
+4. Point the Caddy upstream at LiteRouter and run the public `200` sweep until
+   it is clean. Keep the prior image and the verified backup retained.
+5. Per the objective, staging is sunset at this point: stop `literouter-staging`
+   and remove the `ai-staging.investdx.biz.id` block. Production is now the only
+   LiteRouter deployment.
+
+Rollback: stop LiteRouter, restore the verified backup if the new schema was
+written, start the prior 9Router image against `9router-data`, and flip Caddy
+back. Never point the old image at a database whose schema it has not been
+tested against.
+
+Known, accepted cost: step 2 is a write outage, and a request in flight at that
+moment fails. Zero *data* loss is preserved because the volume is not touched
+and the backup is verified; zero downtime is preserved at the edge for every
+request that is not in flight during the swap.
 
 The public endpoint, API paths, and client API keys stay unchanged.
 
@@ -166,10 +221,10 @@ MITM, cloud-sync, GitBook, and UI code stay deleted.
 - [ ] Durable-state backup restores and every table count matches.
 - [ ] Redis `PING` works; keys use `literouter:prod:`; Redis failure still
       routes correctly.
-- [ ] Candidate and old service use the shared durable target during the
-      cutover; final LiteRouter has no writable SQLite volume.
+- [ ] Exactly one container mounts `9router-data` at every instant; the old
+      writer is stopped before the new one starts.
 - [ ] Candidate passes provider, streaming, UI mutation, and public-endpoint
       smoke checks.
-- [ ] Drain/cutover has no failed public probe or abandoned stream.
+- [ ] The public `200` sweep is continuous across the swap; no failed probe.
 - [ ] Rollback image and database restore are rehearsed against the release.
 - [ ] Upstream intake timer creates review PRs only and removes its workspace.

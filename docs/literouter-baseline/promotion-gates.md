@@ -10,7 +10,14 @@ PRD section 26 lists seven gates. Status below is evidence-backed as of 2026-09-
 | 4 | Combo fallback, round-robin, cooldown, quota fixtures pass | PASS | 20 passing tests across the combo, quota, and account-fallback suites |
 | 5 | No unbounded queue, retry loop, or synchronous per-request SQLite lookup | PASS | No unbounded retry loops in the routing path; usage buffer capped at 500 with drop-oldest |
 | 6 | Startup/RSS/image/latency measurements recorded | PASS | `phase-startup-minimization.md`, `phase-latency-resource.md`, `phase-bundle-analysis.md` |
-| 7 | Rollback to the prior production image is tested | PASS | `phase-rollback-rehearsal.md`; re-verified against a copy of production data: 3 providers, 40872 usage rows, health ok |
+| 7 | Rollback to the prior production image is tested | PASS | `phase-rollback-rehearsal.md`; the prior image boots from a copy of `9router-data` with no schema error, reads 3 providers, serves `/api/health` 200, and reads the usage history |
+| 8 | Single-writer cutover rehearsal | PASS | `phase-edge-swap-rehearsal.md`; on a disposable copy of `9router-data`: old writer stopped, successor booted from the same volume, real `kn/deepseek-v4-1-flash` call returned 200, stream closed with exactly one `[DONE]`, rollback to the old image re-served health, and the successor's write-back extended the source counters (50289 → 50484 `usageHistory`) |
+
+Row counts differ between the phase documents (39733, 39742, 39903, 40154,
+40872, 40956 `usageHistory`) because each was captured at a different moment
+against a live volume. Only the capture id in `README.md` is authoritative; a
+count quoted in a phase document is evidence for that document's check, not a
+current total.
 
 ## Client endpoint compatibility
 
