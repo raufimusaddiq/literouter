@@ -8,6 +8,7 @@ import REGISTRY from "../../open-sse/providers/registry/index.js";
 import kenari from "../../open-sse/providers/registry/kenari.js";
 import { getKenariUsage } from "../../open-sse/services/usage/kenari.js";
 import { proxyAwareFetch } from "../../open-sse/utils/proxyFetch.js";
+import { DefaultExecutor } from "../../open-sse/executors/default.js";
 
 describe("kenari native provider", () => {
   it("keeps id unique after adding the provider", () => {
@@ -24,6 +25,20 @@ describe("kenari native provider", () => {
   it("exposes chat, responses, and claude transports", () => {
     const formats = kenari.transports.map((t) => t.format).sort();
     expect(formats).toEqual(["claude", "openai", "openai-responses"]);
+  });
+
+  it("folds Responses system instructions into the first user turn", () => {
+    const body = new DefaultExecutor("kenari").transformRequest("deepseek-v4-1-flash", {
+      instructions: "be concise",
+      input: [
+        { type: "message", role: "system", content: [{ type: "input_text", text: "follow policy" }] },
+        { type: "message", role: "user", content: [{ type: "input_text", text: "Reply OK" }] },
+      ],
+    });
+    expect(body.instructions).toBeUndefined();
+    expect(body.input.every((item) => item.role !== "system")).toBe(true);
+    expect(body.input[0].content[0].text).toContain("be concise");
+    expect(body.input[0].content[0].text).toContain("follow policy");
   });
 
   it("advertises usage for apikey connections", () => {
