@@ -29,6 +29,9 @@ export default {
       // structured outputs — convert Codex's `custom` exec tool and strip
       // text.format so Codex keeps its native custom-tool wire events.
       responsesFunctionToolsOnly: true,
+      // Kenari's Responses endpoint rejects `role:"system"`; fold instructions
+      // into the first user turn before dispatch.
+      responsesSystemRoleUnsupported: true,
     },
   },
   // Multi-endpoint: Chat + Responses + Claude-compatible. Pick the transport

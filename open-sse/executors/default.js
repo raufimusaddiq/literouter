@@ -17,6 +17,29 @@ const AUTH_DESCRIPTORS = Object.fromEntries(
     .map(([id, t]) => [id, t.auth])
 );
 
+function foldResponsesSystemMessages(body) {
+  if (!body || !Array.isArray(body.input)) return body;
+  const systemText = [];
+  const input = body.input.filter((item) => {
+    if (item?.type !== "message" || item.role !== "system") return true;
+    const text = Array.isArray(item.content)
+      ? item.content.filter((part) => part?.type === "input_text" || part?.type === "text").map((part) => part.text).filter(Boolean).join("\n")
+      : typeof item.content === "string" ? item.content : "";
+    if (text) systemText.push(text);
+    return false;
+  });
+  if (typeof body.instructions === "string" && body.instructions.trim()) systemText.unshift(body.instructions.trim());
+  if (!systemText.length) return input.length === body.input.length ? body : { ...body, input };
+  const index = input.findIndex((item) => item?.type === "message" && item.role === "user");
+  if (index < 0) return { ...body, input };
+  const user = input[index];
+  const prefix = systemText.join("\n\n");
+  const content = Array.isArray(user.content)
+    ? [{ type: "input_text", text: `${prefix}\n\n` }, ...user.content]
+    : `${prefix}\n\n${user.content || ""}`;
+  return { ...body, input: input.map((item, i) => i === index ? { ...item, content } : item), instructions: undefined };
+}
+
 // Apply a token to a header per scheme (matches legacy: combined always sets, even when undefined).
 function setAuth(headers, spec, token) {
   headers[spec.header] = spec.scheme === "bearer" ? `Bearer ${token}` : token;
@@ -68,7 +91,11 @@ export class DefaultExecutor extends BaseExecutor {
   }
 
   transformRequest(model, body) {
-    const transformed = this.applyJsonSchemaFallback(body);
+    let transformed = this.applyJsonSchemaFallback(body);
+
+    if (this.config.quirks?.responsesSystemRoleUnsupported) {
+      transformed = foldResponsesSystemMessages(transformed);
+    }
 
     if (transformed && typeof transformed === "object") {
       // quirk: some openai-compatible providers reject Anthropic's client_metadata field
