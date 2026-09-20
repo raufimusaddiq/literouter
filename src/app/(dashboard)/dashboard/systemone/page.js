@@ -33,12 +33,20 @@ export default function SystemOnePage() {
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
   const [connections, setConnections] = useState([]);
+  const [clientApiKey, setClientApiKey] = useState("");
 
   useEffect(() => {
-    fetch("/api/providers")
-      .then((response) => response.json())
-      .then((data) => setConnections(data.connections || []))
-      .catch(() => setConnections([]));
+    Promise.all([fetch("/api/providers"), fetch("/api/keys")])
+      .then(async ([providersResponse, keysResponse]) => {
+        const providersData = await providersResponse.json();
+        const keysData = await keysResponse.json();
+        setConnections(providersData.connections || []);
+        setClientApiKey(keysData.keys?.find((key) => key.isActive !== false)?.key || "");
+      })
+      .catch(() => {
+        setConnections([]);
+        setClientApiKey("");
+      });
   }, []);
 
   const connectionCount = connections.filter(
@@ -60,7 +68,10 @@ export default function SystemOnePage() {
     try {
       const response = await fetch("/v1/systemone", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(clientApiKey ? { Authorization: `Bearer ${clientApiKey}` } : {}),
+        },
         body: JSON.stringify(body),
       });
       const text = await response.text();
@@ -114,8 +125,10 @@ export default function SystemOnePage() {
 
             <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-xs ring-1 ring-border-subtle">
               <span className="min-w-0 truncate font-mono text-text-muted">POST {endpoint}</span>
-              <Badge variant={connectionCount ? "success" : "default"} size="sm" dot>
-                {connectionCount ? `${connectionCount} connection${connectionCount === 1 ? "" : "s"}` : "No connection"}
+              <Badge variant={connectionCount && clientApiKey ? "success" : "default"} size="sm" dot>
+                {connectionCount && clientApiKey
+                  ? `${connectionCount} connection${connectionCount === 1 ? "" : "s"}`
+                  : !clientApiKey ? "LiteRouter key needed" : "No connection"}
               </Badge>
             </div>
 
@@ -128,7 +141,11 @@ export default function SystemOnePage() {
               className="mt-1.5 min-h-[330px] w-full resize-y rounded-xl bg-surface-2 p-3 font-mono text-xs leading-5 text-text-main ring-1 ring-transparent focus:outline-none focus:ring-2 focus:ring-brand-500/30"
             />
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-text-muted">The request uses your configured LiteRouter API key and provider connection.</p>
+              <p className="text-xs text-text-muted">
+                {clientApiKey
+                  ? "Uses your active LiteRouter API key and provider connection."
+                  : <>Create an active LiteRouter key in <Link href="/dashboard/endpoint" className="text-primary hover:underline">Endpoint &amp; Key</Link>.</>}
+              </p>
               <Button onClick={runRequest} loading={running} disabled={!providerId || !selectedModel} icon="play_arrow">
                 Run request
               </Button>

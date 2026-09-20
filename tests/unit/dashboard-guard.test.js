@@ -180,6 +180,47 @@ describe("dashboard guard public LLM API access", () => {
     expect(mocks.validateApiKey).toHaveBeenCalledWith("sk-valid");
   });
 
+  it("keeps /v1/systemone behind API-key auth for remote callers", async () => {
+    const response = await proxy(request("/v1/systemone", {
+      host: "router.example.com",
+      "content-type": "application/json",
+    }));
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: "API key required for remote API access" });
+    expect(mocks.validateApiKey).not.toHaveBeenCalled();
+  });
+
+  it("allows remote /v1/systemone with a valid LiteRouter API key", async () => {
+    mocks.validateApiKey.mockResolvedValue(true);
+
+    const response = await proxy(request("/v1/systemone", {
+      host: "router.example.com",
+      authorization: "Bearer sk-valid",
+    }));
+
+    expect(response).toBe(mocks.nextResponse);
+    expect(mocks.validateApiKey).toHaveBeenCalledWith("sk-valid");
+  });
+
+  it("does not expose /v1/systemone to unauthenticated dashboard callers", async () => {
+    const response = await proxy(request("/v1/systemone", { host: "localhost:20128" }));
+
+    expect(response.status).toBe(401);
+  });
+
+  it("allows the same-origin dashboard workspace with a valid API key", async () => {
+    mocks.validateApiKey.mockResolvedValue(true);
+
+    const response = await proxy(request("/v1/systemone", {
+      host: "ai.investdx.biz.id",
+      origin: "https://ai.investdx.biz.id",
+      authorization: "Bearer sk-valid",
+    }));
+
+    expect(response).toBe(mocks.nextResponse);
+  });
+
   it("allows remote rewritten beta public LLM API with valid API key", async () => {
     mocks.validateApiKey.mockResolvedValue(true);
 
