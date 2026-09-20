@@ -138,7 +138,7 @@ function deriveConnectionName(data, fallbackName) {
   return fallbackName;
 }
 
-export async function getProviderConnections(filter = {}) {
+export async function getProviderConnections(filter = {}, options = {}) {
   const now = Date.now();
   if (!connectionCache.rows || connectionCache.expiresAt <= now) {
     await refreshConnectionCache();
@@ -155,9 +155,9 @@ export async function getProviderConnections(filter = {}) {
   const list = connectionCache.rows.filter((c) =>
     (!filter.provider || c.provider === filter.provider)
     && (filter.isActive === undefined || c.isActive === Boolean(filter.isActive))
-  ).map((c) => structuredClone(c));
+  );
   list.sort((a, b) => (a.priority || 999) - (b.priority || 999));
-  return list;
+  return options.clone === false ? list : list.map((c) => structuredClone(c));
 }
 
 async function refreshConnectionCache() {
@@ -171,9 +171,11 @@ async function refreshConnectionCache() {
 }
 
 export async function getProviderConnectionById(id) {
-  const db = await getAdapter();
-  const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
-  return rowToConn(row);
+  if (!connectionCache.rows || connectionCache.expiresAt <= Date.now()) {
+    await refreshConnectionCache();
+  }
+  const row = connectionCache.rows.find((connection) => connection.id === id);
+  return row ? structuredClone(row) : null;
 }
 
 // Internal sync reorder — must be called INSIDE a transaction
