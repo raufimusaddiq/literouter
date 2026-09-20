@@ -355,8 +355,30 @@ function scheduleUsageFlush(delay = USAGE_FLUSH_INTERVAL_MS) {
   usageWriteBuffer.timer?.unref?.();
 }
 
+function settlePersistedBatch(batch) {
+  for (const item of batch) item.resolve?.(true);
+}
+
+function handleUsageBatchFailure(batch, error) {
+  const retry = [];
+  for (const item of batch) {
+    item.attempts = (item.attempts || 0) + 1;
+    if (item.attempts < 3) retry.push(item);
+    else item.reject?.(error);
+  }
+  if (retry.length) usageWriteBuffer.items.unshift(...retry);
+  console.error(`Failed to persist usage batch (${batch.length} events):`, error);
+}
+
 export async function flushUsageQueue({ drainAll = true } = {}) {
-  if (usageWriteBuffer.flushPromise) return usageWriteBuffer.flushPromise;
+  if (usageWriteBuffer.flushPromise) {
+    await usageWriteBuffer.flushPromise;
+    if (drainAll && usageWriteBuffer.items.length > 0) {
+      return flushUsageQueue({ drainAll: true });
+    }
+    return usageWriteBuffer.items.length === 0;
+  }
+
   if (usageWriteBuffer.timer) {
     clearTimeout(usageWriteBuffer.timer);
     usageWriteBuffer.timer = null;
@@ -365,26 +387,30 @@ export async function flushUsageQueue({ drainAll = true } = {}) {
 
   usageWriteBuffer.flushing = true;
   usageWriteBuffer.flushPromise = (async () => {
-    try {
-      const db = await getAdapter();
-      do {
-        const take = drainAll
-          ? Math.min(USAGE_BATCH_SIZE, usageWriteBuffer.items.length)
-          : Math.min(USAGE_BATCH_SIZE, usageWriteBuffer.items.length);
-        const batch = usageWriteBuffer.items.splice(0, take);
-        const inserted = writeUsageBatch(db, batch);
+    const db = await getAdapter();
+    do {
+      const batch = usageWriteBuffer.items.splice(0, Math.min(USAGE_BATCH_SIZE, usageWriteBuffer.items.length));
+      try {
+        const entries = batch.map((item) => item.entry);
+        const inserted = writeUsageBatch(db, entries);
         onUsageBatchPersisted(inserted);
-        if (!drainAll) break;
-      } while (usageWriteBuffer.items.length > 0);
-      return usageWriteBuffer.items.length === 0;
-    } finally {
-      usageWriteBuffer.flushing = false;
-      usageWriteBuffer.flushPromise = null;
-      if (usageWriteBuffer.items.length > 0) scheduleUsageFlush(0);
-    }
+        settlePersistedBatch(batch);
+      } catch (error) {
+        handleUsageBatchFailure(batch, error);
+        throw error;
+      }
+      if (!drainAll) break;
+    } while (usageWriteBuffer.items.length > 0);
+    return usageWriteBuffer.items.length === 0;
   })();
 
-  return usageWriteBuffer.flushPromise;
+  try {
+    return await usageWriteBuffer.flushPromise;
+  } finally {
+    usageWriteBuffer.flushing = false;
+    usageWriteBuffer.flushPromise = null;
+    if (usageWriteBuffer.items.length > 0) scheduleUsageFlush(USAGE_FLUSH_INTERVAL_MS);
+  }
 }
 
 function drainUsageSync() {
@@ -397,9 +423,13 @@ function drainUsageSync() {
     const db = getAdapterSync();
     while (usageWriteBuffer.items.length > 0) {
       const batch = usageWriteBuffer.items.splice(0, USAGE_BATCH_SIZE);
-      writeUsageBatch(db, batch);
+      const inserted = writeUsageBatch(db, batch.map((item) => item.entry));
+      onUsageBatchPersisted(inserted);
+      settlePersistedBatch(batch);
     }
   } catch (e) {
+    const remaining = usageWriteBuffer.items.splice(0, usageWriteBuffer.items.length);
+    for (const item of remaining) item.reject?.(e);
     console.error("Failed to drain usage stats:", e);
   }
 }
@@ -407,32 +437,44 @@ function drainUsageSync() {
 globalThis.__liteRouterUsageDrainSync = drainUsageSync;
 
 export async function saveRequestUsage(entry) {
+  const prepared = {
+    ...entry,
+    timestamp: entry.timestamp || new Date().toISOString(),
+  };
+
   try {
-    const prepared = {
-      ...entry,
-      timestamp: entry.timestamp || new Date().toISOString(),
-    };
     prepared.cost = await calculateCost(prepared.provider, prepared.model, prepared.tokens);
-
-    // Apply backpressure before admitting more buffered rows. The request
-    // handlers fire-and-forget this promise, so this protects memory without
-    // putting synchronous SQLite work back on the response path.
-    while (usageWriteBuffer.items.length >= USAGE_MAX_BUFFERED) {
-      await flushUsageQueue({ drainAll: false });
-    }
-
-    usageWriteBuffer.items.push(prepared);
-
-    if (usageWriteBuffer.items.length >= USAGE_BATCH_SIZE) {
-      flushUsageQueue({ drainAll: false }).catch((e) => {
-        console.error("Failed to flush usage stats:", e);
-      });
-    } else {
-      scheduleUsageFlush();
-    }
   } catch (e) {
-    console.error("Failed to save usage stats:", e);
+    console.error("Failed to calculate usage cost:", e);
+    prepared.cost = Number(prepared.cost) || 0;
   }
+
+  // Preserve the historical public contract: awaiting saveRequestUsage means
+  // the event is durable. Production response handlers intentionally do not
+  // await it, so they still benefit from batching off the response path.
+  return new Promise((resolve, reject) => {
+    const enqueue = async () => {
+      try {
+        while (usageWriteBuffer.items.length >= USAGE_MAX_BUFFERED) {
+          await flushUsageQueue({ drainAll: false });
+        }
+
+        usageWriteBuffer.items.push({ entry: prepared, resolve, reject, attempts: 0 });
+
+        if (usageWriteBuffer.items.length >= USAGE_BATCH_SIZE) {
+          flushUsageQueue({ drainAll: false }).catch(() => {
+            // Individual waiter is resolved/retried/rejected by the flush path.
+          });
+        } else {
+          scheduleUsageFlush();
+        }
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    enqueue();
+  });
 }
 
 export async function getUsageHistory(filter = {}) {
