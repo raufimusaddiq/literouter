@@ -35,6 +35,7 @@ const PUBLIC_PREFIXES = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex", "
 
 // Always require JWT token regardless of requireLogin setting
 const ALWAYS_PROTECTED = [
+  "/api/keys",
   "/api/settings/database",
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",

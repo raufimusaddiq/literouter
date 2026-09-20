@@ -9,6 +9,7 @@ import {
 import { PROVIDERS } from "open-sse/config/providers.js";
 import { getModelsByProviderId } from "open-sse/config/providerModels.js";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
+import { extractUsageFromResponse, saveUsageStats } from "open-sse/handlers/chatCore/requestDetail.js";
 
 const FALLBACK_STATUSES = new Set([401, 403, 408, 429, 500, 502, 503, 504, 529]);
 
@@ -66,6 +67,21 @@ async function readFailure(response) {
   return { text, message };
 }
 
+async function recordSystemOneUsage(response, provider, model, connectionId, apiKey) {
+  try {
+    const usage = extractUsageFromResponse(await response.clone().json());
+    saveUsageStats({
+      provider,
+      model,
+      tokens: usage,
+      connectionId,
+      apiKey,
+      endpoint: "/v1/systemone",
+      silent: true,
+    });
+  } catch {}
+}
+
 export async function handleSystemOne(request) {
   let input;
   try {
@@ -116,6 +132,7 @@ export async function handleSystemOne(request) {
 
       if (response.ok) {
         await clearAccountError(credentials.connectionId, credentials, model);
+        recordSystemOneUsage(response, provider, model, credentials.connectionId, clientApiKey);
         return new Response(response.body, {
           status: response.status,
           statusText: response.statusText,
