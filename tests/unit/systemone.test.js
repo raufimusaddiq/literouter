@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { APIKEY_PROVIDERS, supportsServiceKind } from "@/shared/constants/providers.js";
+import { getModelsByProviderId } from "open-sse/config/providerModels.js";
 
 const mocks = vi.hoisted(() => ({
   getSettings: vi.fn().mockResolvedValue({ requireApiKey: false }),
@@ -27,6 +28,10 @@ describe("System One request normalization", () => {
   it("keeps TypeSafe visible in the API-key provider catalog", () => {
     expect(APIKEY_PROVIDERS.typesafe).toBeDefined();
     expect(supportsServiceKind(APIKEY_PROVIDERS.typesafe, "systemone")).toBe(true);
+  });
+
+  it("resolves TypeSafe models from the registry model catalog", () => {
+    expect(getModelsByProviderId("typesafe").map(({ id }) => id)).toEqual(["jev-latest"]);
   });
   it("accepts the native TypeSafe shape and normalizes a provider-prefixed model", () => {
     const result = normalizeSystemOneRequest({
