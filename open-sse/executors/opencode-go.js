@@ -172,6 +172,10 @@ export class OpenCodeGoExecutor extends DefaultExecutor {
 
   transformRequest(model, body, stream, credentials) {
     const out = super.transformRequest(model, body);
+    // Never let a client-scoped prior response id reach upstream: both
+    // transports run with store=false, so the id can never resolve and the
+    // backend answers 400. Strip it before any other normalization.
+    delete out.previous_response_id;
     if (!isResponsesModel(model || body?.model)) return out;
     const normalized = normalizeResponsesInput(out.input);
     if (normalized) out.input = normalized;

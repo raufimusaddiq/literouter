@@ -12,21 +12,20 @@ const SETTINGS_RESPONSE_HEADERS = {
 };
 
 // Secrets must never be mass-assigned from request body (CWE-915)
-const PROTECTED_SETTING_KEYS = ["password", "mitmSudoEncrypted"];
+const PROTECTED_SETTING_KEYS = ["password"];
 
 export async function GET() {
   try {
     const settings = await getSettings();
-    const { password, oidcClientSecret, ...safeSettings } = settings;
-    safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
-    
+    const { password, ...safeSettings } = settings;
+
     const enableRequestLogs = process.env.ENABLE_REQUEST_LOGS === "true";
-    const enableTranslator = process.env.ENABLE_TRANSLATOR === "true";
-    
-    return NextResponse.json({ 
-      ...safeSettings, 
+    const minimalProfile = process.env.MINIMAL_PROFILE === "true";
+
+    return NextResponse.json({
+      ...safeSettings,
       enableRequestLogs,
-      enableTranslator,
+      minimalProfile,
       hasPassword: !!password
     }, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
@@ -70,12 +69,6 @@ export async function PATCH(request) {
       delete body.currentPassword;
     }
 
-    if (Object.prototype.hasOwnProperty.call(body, "oidcClientSecret")) {
-      if (!body.oidcClientSecret || !String(body.oidcClientSecret).trim()) {
-        delete body.oidcClientSecret;
-      }
-    }
-
     const settings = await updateSettings(body);
 
     // Apply outbound proxy settings immediately (no restart required)
@@ -108,8 +101,7 @@ export async function PATCH(request) {
         .catch((error) => console.warn("[AutoPing] settings update failed:", error.message));
     }
 
-    const { password, oidcClientSecret, ...safeSettings } = settings;
-    safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
+    const { password, ...safeSettings } = settings;
     return NextResponse.json(safeSettings, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
     console.log("Error updating settings:", error);

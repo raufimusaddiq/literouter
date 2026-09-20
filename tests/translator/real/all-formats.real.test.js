@@ -28,7 +28,7 @@ const PNG_B64 =
 const PNG_DATA_URI = `data:image/png;base64,${PNG_B64}`;
 
 // Pick first chat LLM, excluding non-chat kinds (embedding/image/tts/stt/...).
-const NON_CHAT_KINDS = new Set(["embedding", "image", "imageToText", "tts", "stt", "video", "music", "webSearch"]);
+const NON_CHAT_KINDS = new Set(["embedding", "image", "imageToText", "tts", "stt", "video", "music"]);
 function firstLlmModel(providerId) {
   const models = getModelsByProviderId(providerId);
   const llm = models.find((m) => {

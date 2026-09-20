@@ -358,38 +358,6 @@ async function deleteCombo(id) {
 }
 
 // ============================================================================
-// CLI TOOLS API
-// ============================================================================
-
-/**
- * Get CLI tool settings
- * @param {string} tool - Tool name: claude | codex | droid | openclaw
- * @returns {Promise<Object>} { success, data: { installed, has9Router, ... } }
- */
-async function getCliToolSettings(tool) {
-  return makeRequest("GET", `/api/cli-tools/${tool}-settings`);
-}
-
-/**
- * Apply CLI tool settings (POST)
- * @param {string} tool - Tool name: claude | codex | droid | openclaw
- * @param {Object} body - Payload depends on tool
- * @returns {Promise<Object>} { success, data }
- */
-async function applyCliToolSettings(tool, body) {
-  return makeRequest("POST", `/api/cli-tools/${tool}-settings`, body);
-}
-
-/**
- * Reset CLI tool settings (DELETE)
- * @param {string} tool - Tool name: claude | codex | droid | openclaw
- * @returns {Promise<Object>} { success, data }
- */
-async function resetCliToolSettings(tool) {
-  return makeRequest("DELETE", `/api/cli-tools/${tool}-settings`);
-}
-
-// ============================================================================
 // SETTINGS API
 // ============================================================================
 
@@ -463,34 +431,6 @@ async function validateProviderNode(data) {
 }
 
 // ============================================================================
-// TUNNEL API
-// ============================================================================
-
-/**
- * Get tunnel status
- * @returns {Promise<Object>} { success, data: { enabled, tunnelUrl, shortId, running } }
- */
-async function getTunnelStatus() {
-  return makeRequest("GET", "/api/tunnel/status");
-}
-
-/**
- * Enable tunnel
- * @returns {Promise<Object>} { success, data: { tunnelUrl, shortId } }
- */
-async function enableTunnel() {
-  return makeRequest("POST", "/api/tunnel/enable");
-}
-
-/**
- * Disable tunnel
- * @returns {Promise<Object>} { success, data: { success } }
- */
-async function disableTunnel() {
-  return makeRequest("POST", "/api/tunnel/disable");
-}
-
-// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -529,19 +469,11 @@ module.exports = {
   deleteCombo,
   
   // CLI Tools
-  getCliToolSettings,
-  applyCliToolSettings,
-  resetCliToolSettings,
 
   // Settings
   getSettings,
   updateSettings,
   resetPassword,
-  
-  // Tunnel
-  getTunnelStatus,
-  enableTunnel,
-  disableTunnel,
   
   // Models
   getModels,

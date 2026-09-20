@@ -385,8 +385,13 @@ export default function ProvidersPage() {
     anthropicCompatibleProviders.length > 0;
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
-      <div className="flex items-center justify-end">
+    <div className="flex min-w-0 flex-col gap-7">
+      <div className="flex flex-col gap-3 rounded-[1.125rem] bg-surface-2 p-4 ring-1 ring-border-subtle sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Catalog</p>
+          <p className="text-sm text-text-main">Providers, routes, and connection health in one surface.</p>
+        </div>
+        <div className="flex items-center justify-end">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -399,6 +404,7 @@ export default function ProvidersPage() {
             </option>
           ))}
         </select>
+        </div>
       </div>
 
       {!hasAnyResult && (

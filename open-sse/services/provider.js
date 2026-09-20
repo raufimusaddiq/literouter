@@ -1,5 +1,6 @@
 import { PROVIDERS } from "../config/providers.js";
 import { OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE } from "../providers/shared.js";
+import { FORMATS } from "../translator/formats.js";
 
 const OPENAI_COMPATIBLE_PREFIX = "openai-compatible-";
 const OPENAI_COMPATIBLE_DEFAULTS = {
@@ -25,6 +26,13 @@ function isAnthropicCompatible(provider) {
 // substring for legacy nodes created before apiType was persisted — their IDs
 // embed the type: openai-compatible-<chat|responses>-<uuid>.
 export function resolveOpenAICompatibleApiType(provider, credentials = null) {
+  const transports = credentials?.providerSpecificData?.transports;
+  if (Array.isArray(transports) && transports.length) {
+    // Multi-transport node: pick the format whose declared capability exists.
+    // Callers want a single default when the client format is unknown.
+    if (transports.includes("chat_completions")) return "chat";
+    if (transports.includes("responses")) return "responses";
+  }
   const stored = credentials?.providerSpecificData?.apiType;
   if (stored === "chat" || stored === "responses") return stored;
   return typeof provider === "string" && provider.includes("responses") ? "responses" : "chat";
@@ -145,7 +153,24 @@ export function getTargetFormat(provider, credentials = null) {
 // Resolve which transport to use for a provider given the client sourceFormat.
 // Multi-endpoint providers (transport.transports[]) pick the entry matching sourceFormat
 // to avoid lossy translation; falls back to the default transport when no match.
-export function resolveTransport(provider, sourceFormat) {
+export function resolveTransport(provider, sourceFormat, credentials = null) {
+  // Node-declared transports (Generic Provider capabilities) are supplied by the
+  // caller on credentials, because node config is not part of the static registry.
+  const declared = credentials?.providerSpecificData?.transports;
+  if (Array.isArray(declared) && declared.length) {
+    const wanted = sourceFormat === FORMATS.CLAUDE ? "messages"
+      : sourceFormat === FORMATS.OPENAI_RESPONSES ? "responses"
+      : sourceFormat === FORMATS.OPENAI ? "chat_completions"
+      : null;
+    if (wanted && declared.includes(wanted)) {
+      const baseUrl = (credentials?.providerSpecificData?.baseUrl || "").replace(/\/$/, "");
+      return {
+        format: sourceFormat,
+        baseUrl: `${baseUrl}${wanted === "messages" ? "/messages" : wanted === "responses" ? "/responses" : "/chat/completions"}`,
+      };
+    }
+    return null;
+  }
   const config = PROVIDERS[provider];
   const transports = config?.transports;
   if (!Array.isArray(transports) || !transports.length) return null;

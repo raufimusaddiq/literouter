@@ -76,25 +76,16 @@ const normalize = (value) => {
  * Extract tokens via better-sqlite3 (bundled dependency).
  * This is the preferred strategy — no external CLI required.
  */
-function extractTokensViaBetterSqlite(dbPath) {
-  // Dynamic require so the route stays importable even if native bindings fail
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Database = require("better-sqlite3");
+async function extractTokensViaBetterSqlite(dbPath) {
+  // Dynamic import for the same reason the DB driver uses one: the route stays
+  // importable when the native binding is missing, and ESM callers (tests,
+  // bundlers) get a real module rather than a bare `require`.
+  const { default: Database } = await import("better-sqlite3");
   const db = new Database(dbPath, { readonly: true, fileMustExist: true });
 
   const query = (key) => {
     const row = db.prepare("SELECT value FROM itemTable WHERE key=? LIMIT 1").get(key);
     return row?.value || null;
-  };
-
-  const normalize = (value) => {
-    if (typeof value !== "string") return value;
-    try {
-      const parsed = JSON.parse(value);
-      return typeof parsed === "string" ? parsed : value;
-    } catch {
-      return value;
-    }
   };
 
   let accessToken = null;
@@ -220,7 +211,7 @@ export async function GET() {
 
     // Strategy 1: better-sqlite3 (bundled — no external tools required)
     try {
-      const tokens = extractTokensViaBetterSqlite(dbPath);
+      const tokens = await extractTokensViaBetterSqlite(dbPath);
       if (tokens.accessToken && tokens.machineId) {
         return NextResponse.json({
           found: true,

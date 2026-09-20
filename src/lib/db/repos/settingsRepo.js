@@ -1,16 +1,20 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
-const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
 const DEFAULT_HEADROOM_URL = process.env.HEADROOM_URL || "http://localhost:8787";
+const REMOVED_SETTINGS = new Set([
+  "tunnelEnabled", "tunnelUrl", "tunnelProvider", "tailscaleEnabled",
+  "tailscaleUrl", "tunnelDashboardAccess", "mitmRouterBaseUrl", "mitmSudoEncrypted",
+]);
+
+function withoutRemovedSettings(settings) {
+  const next = { ...settings };
+  for (const key of REMOVED_SETTINGS) delete next[key];
+  return next;
+}
 
 const DEFAULT_SETTINGS = {
   cloudEnabled: false,
-  tunnelEnabled: false,
-  tunnelUrl: "",
-  tunnelProvider: "cloudflare",
-  tailscaleEnabled: false,
-  tailscaleUrl: "",
   stickyRoundRobinLimit: 3,
   providerStrategies: {},
   quotaVisibility: {},
@@ -25,20 +29,6 @@ const DEFAULT_SETTINGS = {
   },
   requireLogin: true,
   requireApiKey: true,
-  tunnelDashboardAccess: true,
-  authMode: "password",
-  ssoType: "oidc",
-  oidcIssuerUrl: "",
-  oidcClientId: "",
-  oidcClientSecret: "",
-  oidcScopes: "openid profile email",
-  oidcLoginLabel: "Sign in with OIDC",
-  samlEntryPoint: "",
-  samlIssuer: "urn:9router:sp",
-  samlCert: "",
-  samlLoginLabel: "Sign in with SAML SSO",
-  samlAttributeEmail: "email",
-  samlAttributeName: "name",
   enableObservability: false,
   observabilityMaxRecords: 1000,
   observabilityBatchSize: 20,
@@ -47,7 +37,6 @@ const DEFAULT_SETTINGS = {
   outboundProxyEnabled: false,
   outboundProxyUrl: "",
   outboundNoProxy: "",
-  mitmRouterBaseUrl: DEFAULT_MITM_ROUTER_BASE,
   dnsToolEnabled: {},
   rtkEnabled: true,
   headroomEnabled: false,
@@ -65,9 +54,13 @@ const DEFAULT_SETTINGS = {
 };
 
 async function readRaw() {
+  // ponytail: process-local cache, invalidated on write; add Redis version key if multi-process writes appear
+  const cache = global.__liteRouterSettingsCache ??= { raw: null, merged: null };
+  if (cache.raw) return cache.raw;
   const db = await getAdapter();
   const row = db.get(`SELECT data FROM settings WHERE id = 1`);
-  return row ? parseJson(row.data, {}) : {};
+  cache.raw = row ? parseJson(row.data, {}) : {};
+  return cache.raw;
 }
 
 // Merge raw settings with defaults; backward-compat for missing keys
@@ -90,8 +83,11 @@ export function mergeWithDefaults(raw) {
 }
 
 export async function getSettings() {
-  const raw = await readRaw();
-  return mergeWithDefaults(raw);
+  // Cache the merged object too: mergeWithDefaults + raw parse dominated the
+  // call cost, and every caller only reads the result.
+  const cache = global.__liteRouterSettingsCache ??= { raw: null, merged: null };
+  if (!cache.merged) cache.merged = mergeWithDefaults(await readRaw());
+  return cache.merged;
 }
 
 // Atomic read-merge-write inside transaction (prevents losing concurrent updates)
@@ -101,13 +97,16 @@ export async function updateSettings(updates) {
   db.transaction(function () {
     const row = db.get(`SELECT data FROM settings WHERE id = 1`);
     const current = row ? parseJson(row.data, {}) : {};
-    next = { ...current, ...updates };
+    next = withoutRemovedSettings({ ...current, ...updates });
     db.run(
       `INSERT INTO settings(id, data) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
       [stringifyJson(next)],
     );
   });
-  return mergeWithDefaults(next);
+  const cache = (global.__liteRouterSettingsCache ??= { raw: null, merged: null });
+  cache.raw = next;
+  cache.merged = mergeWithDefaults(next);
+  return cache.merged;
 }
 
 export async function isCloudEnabled() {
@@ -126,5 +125,5 @@ export async function getCloudUrl() {
 }
 
 export async function exportSettings() {
-  return await readRaw();
+  return withoutRemovedSettings(await readRaw());
 }

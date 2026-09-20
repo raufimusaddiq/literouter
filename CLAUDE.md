@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-9Router (`9router-app`) — a local AI routing gateway + Next.js dashboard. It exposes one OpenAI-compatible endpoint (`/v1/*`) and routes traffic across 40+ upstream providers with format translation, model-combo fallback, multi-account fallback, OAuth/API-key credential management, token refresh, quota/usage tracking, and optional cloud sync.
+LiteRouter (`9router-app`) — a local AI routing gateway + Next.js dashboard. It exposes one OpenAI-compatible endpoint (`/v1/*`) and routes traffic across 40+ upstream providers with format translation, model-combo fallback, multi-account fallback, OAuth/API-key credential management, token refresh, and quota/usage tracking. This is the minimal profile: no tunnel/Tailscale/MITM runtime, no cloud sync, no CLI-tools writers.
 
 Two published artifacts live in this one repo:
 - The **dashboard + gateway** (root `package.json`, `9router-app`) — the Next.js server that does the actual routing.
@@ -21,6 +21,15 @@ npm install
 PORT=20128 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run dev   # dev (webpack, port 20127 by default via next dev)
 npm run build && PORT=20128 HOSTNAME=0.0.0.0 npm run start           # production
 ```
+
+`npm run dev` runs bare `next dev`, which never loads `custom-server.js`. Only
+that wrapper stamps the per-process `x-9r-peer-token` that proves a peer address,
+so under `next dev` every request is treated as remote: LAN/self-hosted provider
+nodes fail validation with `400`, the localhost-only routes
+(`/api/oauth/cursor/auto-import`, `/api/oauth/kiro/auto-import`,
+`/api/auth/reset-password`, `/api/headroom/*`) return `403`, and keyless `/v1`
+calls return `401`. Use `npm run start` against a built app if you need the local
+operator view; it loads the wrapper and grants it over loopback.
 - Bun variants: `npm run dev:bun` / `build:bun` / `start:bun`.
 - Default runtime port is **20128** (dashboard at `/dashboard`, API at `/v1`).
 - Lint: `npx eslint .` (config `eslint.config.mjs`, extends `eslint-config-next`).
@@ -42,7 +51,6 @@ npx vitest run unit/capabilities.test.js   # single file (path relative to tests
 >
 > **The suite is NOT expected to be all-green on a plain checkout.** ~938 pass, ~64 fail. Judge regressions with `tests/__baseline__/verify-no-regression.mjs`, not a raw run. Expected red:
 > - 26 catalogued in `tests/__baseline__/known-fails.txt` (rtk, oauth-cursor-auto-import, translator-request-normalization, …).
-> - `unit/embeddings.cloud.test.js` imports `cloud/src/handlers/embeddings.js` — the `cloud/` worker dir is **not in this repo**, so it always fails here.
 > - `unit/xai-oauth-service.test.js` times out (5s) when the xAI endpoint-discovery fetch isn't reachable/mocked.
 > - `real/*.real.test.js` make live provider calls — need credentials, skip otherwise.
 - `*.real.test.js` under `tests/translator/real/` make live provider calls — skip unless credentials are set.
@@ -51,7 +59,6 @@ npx vitest run unit/capabilities.test.js   # single file (path relative to tests
 ## Architecture
 
 Two authoritative docs already exist — read them before working in these areas rather than re-deriving:
-- `docs/ARCHITECTURE.md` — full system: request lifecycle, combo/account fallback, OAuth + token refresh, cloud sync, data model.
 - `open-sse/AGENTS.md` — the routing/translation engine's own conventions and "how to add a provider/executor/translator". **Read this before editing anything under `open-sse/`.**
 
 ### Request flow (the thing to understand first)
@@ -70,7 +77,7 @@ Two authoritative docs already exist — read them before working in these areas
 - Never hardcode role/block/model strings — use `open-sse/translator/schema/` and `open-sse/config/` constants. Config-driven and DRY is enforced by convention here.
 
 ### Provider registry (`open-sse/providers/registry/*`)
-- One file per provider. `providers/registry/index.js` is an **auto-generated** static import list — regenerate it with `scripts/migrate-registry.mjs` / `injectDisplayToRegistry.mjs`, don't hand-edit.
+- One file per provider. `providers/registry/index.js` is an **auto-generated** static import list — regenerate it with `scripts/injectDisplayToRegistry.mjs`, don't hand-edit.
 - Add a provider: copy `providers/REGISTRY_TEMPLATE.js`, add models to `config/providerModels.js`. Only add an executor for non-OpenAI-compatible upstreams.
 
 ### Persistence — IMPORTANT (ARCHITECTURE.md is stale here)

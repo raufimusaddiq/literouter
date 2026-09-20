@@ -22,14 +22,10 @@ async function hasValidCliToken(request) {
 // Public API paths — no auth required (LLM API has its own key auth inside handler).
 const PUBLIC_API_PATHS = [
   "/api/health",
-  "/api/init",
   "/api/locale",
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/status",
-  "/api/auth/oidc",
-  "/api/auth/saml",
-  "/api/version",
   "/api/settings/require-login",
 ];
 
@@ -39,10 +35,7 @@ const PUBLIC_PREFIXES = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex", "
 
 // Always require JWT token regardless of requireLogin setting
 const ALWAYS_PROTECTED = [
-  "/api/shutdown",
   "/api/settings/database",
-  "/api/version/shutdown",
-  "/api/version/update",
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
 ];
@@ -53,32 +46,19 @@ const PROTECTED_API_PATHS = [
   "/api/keys",
   "/api/providers",
   "/api/provider-nodes",
-  "/api/proxy-pools",
   "/api/combos",
   "/api/models",
   "/api/usage",
   "/api/oauth",
   "/api/cloud",
-  "/api/media-providers",
   "/api/pricing",
   "/api/tags",
-  "/api/cli-tools",
-  "/api/mcp",
+  "/api/console-logs",
   "/api/translator",
-  "/api/tunnel",
 ];
 
 // Routes that spawn child processes or read host secrets — restrict to localhost.
 const LOCAL_ONLY_PATHS = [
-  "/api/cli-tools/cowork-settings",
-  "/api/cli-tools/antigravity-mitm",
-  "/api/mcp/",
-  "/api/tunnel/tailscale-install",
-  "/api/tunnel/tailscale-enable",
-  "/api/tunnel/tailscale-disable",
-  "/api/tunnel/tailscale-check",
-  "/api/tunnel/enable",
-  "/api/tunnel/disable",
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
   "/api/auth/reset-password",
@@ -88,6 +68,13 @@ const LOCAL_ONLY_PATHS = [
 ];
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+// Non-retained product surfaces (PRD section 18). Hidden only when
+// MINIMAL_PROFILE=true. Trace inbound references before adding an entry:
+// a surface nothing retained imports is deleted outright, not gated here.
+const MINIMAL_HIDDEN_PREFIXES = [
+  "/api/headroom",
+];
 
 // Accepts a Host header, a URL hostname or a raw socket address. Splitting on the first
 // colon only works for IPv4 and would reduce every IPv6 form to "", so a dual-stack
@@ -110,11 +97,10 @@ function isLoopbackPeer(request) {
   if (hasTrustedPeerHeaders(request)) {
     return isLoopbackHostname(request.headers.get("x-9r-real-ip"));
   }
-  // Bare `next dev` forks its server, so the wrapper never loads and no peer address
-  // reaches us. Host is spoofable, so this stays confined to development.
-  if (process.env.NODE_ENV === "development") {
-    return isLoopbackHostname(request.headers.get("host"));
-  }
+  // Without the token there is nothing to prove the peer address. `npm start` and the
+  // published standalone both load custom-server.js and stamp it; a bare `next dev` /
+  // `next start` never does, and a request that skips the wrapper (another in-container
+  // client, or a directly-reached port) must not inherit local-operator access either.
   return false;
 }
 
@@ -202,6 +188,15 @@ export const __test__ = {
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
 
+  // Minimal profile: non-retained product surfaces are not exposed. The routes
+  // still exist in the build so rollback is a config flip, not a redeploy.
+  if (process.env.MINIMAL_PROFILE === "true" && MINIMAL_HIDDEN_PREFIXES.some((p) => pathname.startsWith(p))) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Not available in minimal profile" }, { status: 404 });
+    }
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
   // Local-only gate for spawn-capable / host-secret routes.
   if (LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p))) {
     if (!(await canAccessLocalOnlyRoute(request))) {
@@ -232,26 +227,14 @@ export async function proxy(request) {
   // Protect all dashboard routes
   if (pathname.startsWith("/dashboard")) {
     let requireLogin = true;
-    let tunnelDashboardAccess = true;
 
     try {
       const settings = await loadSettings();
       if (settings) {
         requireLogin = settings.requireLogin !== false;
-        tunnelDashboardAccess = settings.tunnelDashboardAccess === true;
-
-        // Block tunnel/tailscale access if disabled (redirect to login)
-        if (!tunnelDashboardAccess) {
-          const host = (request.headers.get("host") || "").split(":")[0].toLowerCase();
-          const tunnelHost = settings.tunnelUrl ? new URL(settings.tunnelUrl).hostname.toLowerCase() : "";
-          const tailscaleHost = settings.tailscaleUrl ? new URL(settings.tailscaleUrl).hostname.toLowerCase() : "";
-          if ((tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost)) {
-            return NextResponse.redirect(new URL("/login", request.url));
-          }
-        }
       }
     } catch {
-      // On error, keep defaults (require login, block tunnel)
+      // On error, keep the safe default (require login)
     }
 
     // If login not required, allow through

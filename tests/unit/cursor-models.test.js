@@ -1,103 +1,126 @@
+// services/cursorModels.js backs the live Cursor model catalog used by
+// /api/v1/models and /api/providers/[id]/models. The protobuf decode is the
+// part worth locking: it reads field numbers out of an upstream payload the
+// repo does not control.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  clearCursorModelCache,
-  parseCursorUsableModels,
-  resolveCursorModels,
-} from "../../open-sse/services/cursorModels.js";
 
-const originalFetch = global.fetch;
+// agent.api5.cursor.sh is HTTP/2-only, so the fetcher uses node:http2, not fetch.
+const h2 = vi.hoisted(() => ({ connect: vi.fn() }));
+vi.mock("node:http2", () => ({ default: h2 }));
 
-function varint(value) {
-  const bytes = [];
-  while (value >= 0x80) {
-    bytes.push((value & 0x7f) | 0x80);
-    value >>>= 7;
+import { clearCursorModelCache, parseCursorUsableModels, resolveCursorModels } from "../../open-sse/services/cursorModels.js";
+import { encodeField } from "../../open-sse/utils/cursorProtobuf.js";
+
+const LEN = 2;
+const MODEL_ID_FIELD = 1;
+const DISPLAY_MODEL_ID_FIELD = 3;
+const DISPLAY_NAME_FIELD = 4;
+const DISPLAY_NAME_SHORT_FIELD = 5;
+const RESPONSE_MODELS_FIELD = 1;
+
+// agent.v1.ModelDetails, then wrapped in the repeated field of the response.
+function modelDetail({ id, displayName, displayNameShort, displayModelId }) {
+  const parts = [Buffer.from(encodeField(MODEL_ID_FIELD, LEN, Buffer.from(id)))];
+  if (displayModelId) {
+    parts.push(Buffer.from(encodeField(DISPLAY_MODEL_ID_FIELD, LEN, Buffer.from(displayModelId))));
   }
-  bytes.push(value);
-  return Uint8Array.from(bytes);
-}
-
-function field(fieldNumber, value) {
-  return Uint8Array.from([(fieldNumber << 3) | 2, ...varint(value.length), ...value]);
-}
-
-function text(value) {
-  return new TextEncoder().encode(value);
-}
-
-function concat(...parts) {
-  const size = parts.reduce((sum, part) => sum + part.length, 0);
-  const result = new Uint8Array(size);
-  let offset = 0;
-  for (const part of parts) {
-    result.set(part, offset);
-    offset += part.length;
+  if (displayName) parts.push(Buffer.from(encodeField(DISPLAY_NAME_FIELD, LEN, Buffer.from(displayName))));
+  if (displayNameShort) {
+    parts.push(Buffer.from(encodeField(DISPLAY_NAME_SHORT_FIELD, LEN, Buffer.from(displayNameShort))));
   }
-  return result;
+  return Buffer.concat(parts);
 }
 
-function model(id, name) {
-  return field(1, concat(field(1, text(id)), field(4, text(name))));
+function usableModelsResponse(details) {
+  return Buffer.concat(
+    details.map((d) => Buffer.from(encodeField(RESPONSE_MODELS_FIELD, LEN, modelDetail(d))))
+  );
 }
 
-describe("Cursor live model catalog", () => {
-  beforeEach(() => {
-    clearCursorModelCache();
-  });
-
-  afterEach(() => {
-    global.fetch = originalFetch;
-    clearCursorModelCache();
-  });
-
-  it("decodes the GetUsableModels protobuf response", () => {
-    const payload = concat(
-      model("default", "Auto"),
-      model("gpt-5.3-codex", "GPT 5.3 Codex"),
-      model("gpt-5.3-codex", "Duplicate"),
-    );
+describe("parseCursorUsableModels", () => {
+  it("returns id + display name for each model", () => {
+    const payload = usableModelsResponse([
+      { id: "claude-sonnet-4.5", displayName: "Sonnet 4.5" },
+      { id: "gpt-5", displayName: "GPT-5" },
+    ]);
 
     expect(parseCursorUsableModels(payload)).toEqual([
-      { id: "default", name: "Auto" },
-      { id: "gpt-5.3-codex", name: "GPT 5.3 Codex" },
+      { id: "claude-sonnet-4.5", name: "Sonnet 4.5" },
+      { id: "gpt-5", name: "GPT-5" },
     ]);
   });
 
-  it("fetches the account-specific catalog and caches it", async () => {
-    const payload = concat(model("claude-4.6-opus", "Claude 4.6 Opus"));
-    global.fetch = vi.fn().mockResolvedValue(new Response(payload, { status: 200 }));
-    const credentials = {
-      accessToken: "cursor-token",
-      providerSpecificData: { machineId: "machine-id" },
-    };
+  it("falls back through the short name and display id before the raw id", () => {
+    const payload = usableModelsResponse([
+      { id: "m-short", displayNameShort: "Short" },
+      { id: "m-display", displayModelId: "Display Id" },
+      { id: "m-bare" },
+    ]);
 
-    await expect(resolveCursorModels(credentials)).resolves.toEqual({
-      models: [{ id: "claude-4.6-opus", name: "Claude 4.6 Opus" }],
-    });
-    await expect(resolveCursorModels(credentials)).resolves.toEqual({
-      models: [{ id: "claude-4.6-opus", name: "Claude 4.6 Opus" }],
-    });
-
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledWith(
-      "https://agent.api5.cursor.sh/agent.v1.AgentService/GetUsableModels",
-      expect.objectContaining({
-        method: "POST",
-        body: expect.any(Uint8Array),
-        headers: expect.objectContaining({
-          "content-type": "application/proto",
-          accept: "application/proto",
-        }),
-      }),
-    );
+    expect(parseCursorUsableModels(payload)).toEqual([
+      { id: "m-short", name: "Short" },
+      { id: "m-display", name: "Display Id" },
+      { id: "m-bare", name: "m-bare" },
+    ]);
   });
 
-  it("fails open when the Cursor catalog request fails", async () => {
-    global.fetch = vi.fn().mockResolvedValue(new Response("no", { status: 403 }));
+  it("deduplicates repeated model ids, keeping the first", () => {
+    const payload = usableModelsResponse([
+      { id: "dup", displayName: "First" },
+      { id: "dup", displayName: "Second" },
+    ]);
 
-    await expect(resolveCursorModels({
-      accessToken: "cursor-token",
-      providerSpecificData: { machineId: "machine-id" },
-    })).resolves.toBeNull();
+    expect(parseCursorUsableModels(payload)).toEqual([{ id: "dup", name: "First" }]);
+  });
+
+  it("returns an empty list when the response carries no models", () => {
+    expect(parseCursorUsableModels(Buffer.alloc(0))).toEqual([]);
+  });
+});
+
+describe("Cursor live model catalog", () => {
+  // Minimal fake client: emit the response headers + body the fetcher reads.
+  function stubHttp2({ status = 200, body = Buffer.alloc(0), onRequest } = {}) {
+    h2.connect.mockImplementation(() => ({
+      close() {},
+      on() {},
+      request(headers) {
+        onRequest?.(headers);
+        return {
+          on(event, handler) {
+            if (event === "response") handler({ ":status": status });
+            if (event === "data") handler(body);
+            if (event === "end") queueMicrotask(handler);
+          },
+          end() {},
+        };
+      },
+    }));
+  }
+
+  beforeEach(() => clearCursorModelCache());
+  afterEach(() => { h2.connect.mockReset(); clearCursorModelCache(); });
+
+  it("fetches the account-specific catalog once and caches it", async () => {
+    const payload = usableModelsResponse([{ id: "claude-4.6-opus", displayName: "Claude 4.6 Opus" }]);
+    const headers = [];
+    stubHttp2({ body: Buffer.from(payload), onRequest: (h) => headers.push(h) });
+    const credentials = { accessToken: "cursor-token", providerSpecificData: { machineId: "machine-id" } };
+
+    await expect(resolveCursorModels(credentials)).resolves.toEqual({ models: [{ id: "claude-4.6-opus", name: "Claude 4.6 Opus" }] });
+    await expect(resolveCursorModels(credentials)).resolves.toEqual({ models: [{ id: "claude-4.6-opus", name: "Claude 4.6 Opus" }] });
+    expect(h2.connect).toHaveBeenCalledTimes(1);
+    expect(h2.connect).toHaveBeenCalledWith("https://agent.api5.cursor.sh");
+    expect(headers[0]).toMatchObject({
+      ":method": "POST",
+      ":path": "/agent.v1.AgentService/GetUsableModels",
+      "content-type": "application/proto",
+      accept: "application/proto",
+    });
+  });
+
+  it("fails open when the catalog request fails", async () => {
+    stubHttp2({ status: 403 });
+    await expect(resolveCursorModels({ accessToken: "cursor-token", providerSpecificData: { machineId: "machine-id" } })).resolves.toBeNull();
   });
 });

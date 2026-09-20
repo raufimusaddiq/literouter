@@ -53,7 +53,6 @@ const EXTRA_FIELDS = [
   "authHint",
   "passthroughModels",
   "noAuth",
-  "hiddenKinds",
   "hasOAuth",
   "authModes",
 ];
@@ -112,12 +111,6 @@ for (const [cat, re] of Object.entries(CATEGORIES)) {
 
     // passthroughModels
     if (line.includes("passthroughModels: true")) extra.passthroughModels = true;
-
-    // hiddenKinds
-    const hiddenKindsM = line.match(/hiddenKinds:\s*(\[[^\]]+\])/);
-    if (hiddenKindsM) {
-      try { extra.hiddenKinds = JSON.parse(hiddenKindsM[1].replace(/'/g, '"')); } catch {}
-    }
 
     // regions (xiaomi-tokenplan)
     const regionsM = line.match(/regions:\s*(\[[\s\S]*?\])/);

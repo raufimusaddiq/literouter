@@ -10,12 +10,6 @@ export default function LoginPage() {
   const [retryAfter, setRetryAfter] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasPassword, setHasPassword] = useState(null);
-  const [authMode, setAuthMode] = useState("password");
-  const [ssoType, setSsoType] = useState("oidc");
-  const [oidcConfigured, setOidcConfigured] = useState(false);
-  const [oidcLoginLabel, setOidcLoginLabel] = useState("Sign in with OIDC");
-  const [samlConfigured, setSamlConfigured] = useState(false);
-  const [samlLoginLabel, setSamlLoginLabel] = useState("Sign in with SAML SSO");
   const [mustChange, setMustChange] = useState(false);
   const [newPassword, setNewPassword] = useState("");
 
@@ -33,9 +27,7 @@ export default function LoginPage() {
       const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
       try {
-        const res = await fetch(`${baseUrl}/api/auth/status`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(`${baseUrl}/api/auth/status`, { signal: controller.signal });
         clearTimeout(timeoutId);
 
         if (res.ok) {
@@ -45,17 +37,10 @@ export default function LoginPage() {
             return;
           }
           setHasPassword(!!data.hasPassword);
-          setAuthMode(data.authMode || "password");
-          setSsoType(data.ssoType || "oidc");
-          setOidcConfigured(data.oidcConfigured === true);
-          setOidcLoginLabel(data.oidcLoginLabel || "Sign in with OIDC");
-          setSamlConfigured(data.samlConfigured === true);
-          setSamlLoginLabel(data.samlLoginLabel || "Sign in with SAML SSO");
         } else {
-          // Safe fallback on non-OK response to avoid infinite loading state.
           setHasPassword(true);
         }
-      } catch (err) {
+      } catch {
         clearTimeout(timeoutId);
         setHasPassword(true);
       }
@@ -89,7 +74,7 @@ export default function LoginPage() {
         if (data.resetHint) setResetHint(data.resetHint);
         if (data.retryAfter) setRetryAfter(Number(data.retryAfter));
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -113,31 +98,13 @@ export default function LoginPage() {
         const data = await res.json();
         setError(data.error || "Failed to set password");
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOidcLogin = () => {
-    window.location.href = "/api/auth/oidc/start";
-  };
-
-  const handleSamlLogin = () => {
-    window.location.href = "/api/auth/saml/start";
-  };
-
-  const isSsoEnabled = ["sso", "oidc", "saml", "both"].includes(authMode);
-  const activeSsoType = ssoType || (authMode === "saml" ? "saml" : "oidc");
-
-  const samlAvailable = isSsoEnabled && activeSsoType === "saml" && samlConfigured;
-  const oidcAvailable = isSsoEnabled && activeSsoType === "oidc" && oidcConfigured;
-  const ssoAvailable = samlAvailable || oidcAvailable;
-
-  const passwordAvailable = authMode === "password" || authMode === "both" || !ssoAvailable;
-
-  // Show loading state while checking password
   if (hasPassword === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bg p-4">
@@ -151,18 +118,12 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg p-4 relative overflow-hidden">
-      {/* Faint grid background */}
       <div className="landing-grid absolute inset-0 pointer-events-none" aria-hidden="true" />
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary mb-2">9Router</h1>
-          <p className="text-text-muted">
-            {samlAvailable
-              ? "Sign in with SAML 2.0 Single Sign-On"
-              : oidcAvailable
-              ? "Sign in with your OIDC provider to access the dashboard"
-              : "Enter your password to access the dashboard"}
-          </p>
+          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Routing control plane</p>
+          <h1 className="text-4xl font-semibold tracking-[-0.06em] text-text-main mb-2">LiteRouter</h1>
+          <p className="text-text-muted">Enter your password to access the dashboard.</p>
         </div>
 
         <Card>
@@ -188,81 +149,43 @@ export default function LoginPage() {
               </Button>
             </form>
           ) : (
-          <div className="flex flex-col gap-4">
-            {samlAvailable && (
-              <Button type="button" variant="primary" className="w-full" onClick={handleSamlLogin}>
-                {samlLoginLabel}
-              </Button>
-            )}
-
-            {oidcAvailable && (
-              <Button type="button" variant="primary" className="w-full" onClick={handleOidcLogin}>
-                {oidcLoginLabel}
-              </Button>
-            )}
-
-            {ssoAvailable && passwordAvailable && <div className="h-px bg-border/60" />}
-
-            {passwordAvailable ? (
-              <form onSubmit={handleLogin} className="flex flex-col gap-4">
-                {isSsoEnabled && !ssoAvailable && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
-                    {activeSsoType === "saml" ? "SAML SSO" : "OIDC"} login is enabled, but configuration is incomplete. Password login is still available for recovery.
+            <form onSubmit={handleLogin} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">Password</label>
+                <Input
+                  type="password"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoFocus
+                />
+                {error && <p className="text-xs text-red-500">{error}</p>}
+                {retryAfter > 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Locked. Retry in <span className="font-mono">{retryAfter}s</span>.
                   </p>
                 )}
-
-                {authMode === "both" && ssoAvailable && (
-                  <p className="text-xs text-text-muted text-center">
-                    Password and {activeSsoType === "saml" ? "SAML SSO" : "OIDC"} login are both enabled.
+                {resetHint && (
+                  <p className="text-xs text-text-muted">
+                    Forgot password? Open <code className="bg-sidebar px-1 rounded">9router</code> CLI on the host → <b>Settings</b> → <b>Reset Password to Default</b>.
                   </p>
                 )}
+              </div>
 
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">Password</label>
-                  <Input
-                    type="password"
-                    placeholder="Enter password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoFocus={!oidcAvailable}
-                  />
-                  {error && <p className="text-xs text-red-500">{error}</p>}
-                  {retryAfter > 0 && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Locked. Retry in <span className="font-mono">{retryAfter}s</span>.
-                    </p>
-                  )}
-                  {resetHint && (
-                    <p className="text-xs text-text-muted">
-                      Forgot password? Open <code className="bg-sidebar px-1 rounded">9router</code> CLI on the host → <b>Settings</b> → <b>Reset Password to Default</b>.
-                    </p>
-                  )}
-                </div>
+              <Button type="submit" variant="primary" className="w-full" loading={loading} disabled={retryAfter > 0}>
+                {retryAfter > 0 ? `Wait ${retryAfter}s` : "Login"}
+              </Button>
 
-                <Button
-                  type="submit"
-                  variant="primary"
-                  className="w-full"
-                  loading={loading}
-                  disabled={retryAfter > 0}
-                >
-                  {retryAfter > 0 ? `Wait ${retryAfter}s` : "Login"}
-                </Button>
-
-                <p className="text-xs text-center text-text-muted mt-2">
-                  Default password is <code className="bg-sidebar px-1 rounded">123456</code>
+              <p className="text-xs text-center text-text-muted mt-2">
+                Default password is <code className="bg-sidebar px-1 rounded">123456</code>
+              </p>
+              {hasPassword === false && (
+                <p className="text-xs text-center text-amber-600 dark:text-amber-400">
+                  Security risk: no password set. You will be asked to set one when logging in remotely.
                 </p>
-                {hasPassword === false && (
-                  <p className="text-xs text-center text-amber-600 dark:text-amber-400">
-                    Security risk: no password set. You will be asked to set one when logging in remotely.
-                  </p>
-                )}
-              </form>
-            ) : (
-              error && <p className="text-xs text-red-500">{error}</p>
-            )}
-          </div>
+              )}
+            </form>
           )}
         </Card>
       </div>

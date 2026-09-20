@@ -38,7 +38,7 @@ export default function DashboardLayout({ children }) {
   const removeNotification = useNotificationStore((state) => state.removeNotification);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-bg">
+    <div className="h-[100dvh] w-full overflow-hidden bg-bg p-2 sm:p-3 lg:p-4">
       <div className="fixed top-4 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2">
         {notifications.map((n) => {
           const style = getToastStyle(n.type);
@@ -71,34 +71,34 @@ export default function DashboardLayout({ children }) {
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/20 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/35 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar - Desktop */}
-      <div className="hidden lg:flex">
-        <Sidebar />
-      </div>
-
-      {/* Sidebar - Mobile */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 transform lg:hidden transition-transform duration-300 ease-in-out ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <Sidebar onClose={() => setSidebarOpen(false)} />
-      </div>
-
-      {/* Main content */}
-      <main className="flex flex-col flex-1 h-full min-w-0 relative transition-colors duration-300 isolate">
-        {/* Faint grid background */}
-        <div className="landing-grid absolute inset-0 pointer-events-none -z-10" aria-hidden="true" />
-        <Header key={pathname} onMenuClick={() => setSidebarOpen(true)} />
-        <div className={`flex-1 overflow-y-auto custom-scrollbar ${pathname === "/dashboard/basic-chat" ? "" : "p-6 lg:p-10"} ${pathname === "/dashboard/basic-chat" ? "flex flex-col overflow-hidden" : ""}`}>
-          <div className={`${pathname === "/dashboard/basic-chat" ? "flex-1 w-full h-full flex flex-col" : "max-w-7xl mx-auto"}`}>{children}</div>
+      <div className="mx-auto flex h-full w-full max-w-[1800px] gap-3 lg:gap-4">
+        {/* Sidebar - Desktop */}
+        <div className="hidden h-full shrink-0 lg:flex">
+          <Sidebar />
         </div>
-      </main>
+
+        {/* Sidebar - Mobile */}
+        <div
+          className={`fixed inset-y-2 left-2 z-50 transform lg:hidden transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-[calc(100%+1rem)]"
+          }`}
+        >
+          <Sidebar onClose={() => setSidebarOpen(false)} />
+        </div>
+
+        {/* Main workspace */}
+        <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] bg-surface ring-1 ring-border-subtle shadow-[var(--shadow-elevated)] transition-colors duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]">
+          <Header key={pathname} onMenuClick={() => setSidebarOpen(true)} />
+          <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+            <div className="mx-auto w-full max-w-[96rem]">{children}</div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

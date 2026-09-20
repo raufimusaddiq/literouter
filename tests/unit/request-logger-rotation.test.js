@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import { test, expect } from "vitest";
 
 test("request logs stay within session and size limits", async () => {
   process.env.ENABLE_REQUEST_LOGS = "true";

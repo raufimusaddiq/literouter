@@ -153,23 +153,10 @@ export function decryptZedAccessToken(encryptedAccessToken, privateKeyVerifier) 
       )
       .toString("utf8");
   } catch (oaepError) {
-    try {
-      const text = crypto
-        .privateDecrypt(
-          { key: privateKey, padding: crypto.constants.RSA_PKCS1_PADDING },
-          encrypted,
-        )
-        .toString("utf8");
-      // PKCS#1 v1.5 unpadding is not integrity-checked: a wrong-key decrypt
-      // can "succeed" with garbage bytes instead of throwing. Replacement
-      // characters prove the output is not the real UTF-8 token — fail loudly
-      // rather than storing garbage as a credential.
-      if (text.includes("�")) fail(oaepError);
-      return text;
-    } catch (err) {
-      if (err.message.startsWith("Failed to decrypt Zed access token")) throw err;
-      fail(oaepError);
-    }
+    // The callback helper sends RSA-OAEP/SHA-256. PKCS#1 v1.5 has no integrity
+    // check: decrypting a token for another key can produce arbitrary UTF-8 and
+    // be stored as a valid session. Fail closed instead of accepting that output.
+    fail(oaepError);
   }
 }
 

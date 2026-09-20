@@ -14,10 +14,17 @@ function rowToCombo(row) {
   };
 }
 
+// ponytail: process-local cache; UI writes invalidate it, external writers wait for TTL
+const comboCache = global.__liteRouterComboCache ??= { rows: null, expiresAt: 0 };
+function invalidateComboCache() { comboCache.rows = null; comboCache.expiresAt = 0; }
+
 export async function getCombos() {
+  if (comboCache.rows && comboCache.expiresAt > Date.now()) return comboCache.rows.map((c) => structuredClone(c));
   const db = await getAdapter();
   const rows = db.all(`SELECT * FROM combos ORDER BY createdAt ASC`);
-  return rows.map(rowToCombo);
+  comboCache.rows = rows.map(rowToCombo);
+  comboCache.expiresAt = Date.now() + 5000;
+  return comboCache.rows.map((c) => structuredClone(c));
 }
 
 export async function getComboById(id) {
@@ -47,6 +54,7 @@ export async function createCombo(data) {
     `INSERT INTO combos(id, name, kind, models, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?)`,
     [combo.id, combo.name, combo.kind, stringifyJson(combo.models), combo.createdAt, combo.updatedAt]
   );
+  invalidateComboCache();
   return combo;
 }
 
@@ -63,11 +71,13 @@ export async function updateCombo(id, data) {
     );
     result = merged;
   });
+  invalidateComboCache();
   return result;
 }
 
 export async function deleteCombo(id) {
   const db = await getAdapter();
   const res = db.run(`DELETE FROM combos WHERE id = ?`, [id]);
+  invalidateComboCache();
   return (res?.changes ?? 0) > 0;
 }

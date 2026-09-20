@@ -12,6 +12,53 @@ const OPTIONAL_FIELDS = [
 
 const MODEL_LOCK_PREFIX = "modelLock_";
 
+// L1 snapshot per process; L2 invalidation version in Redis (PRD 15.5) so a UI
+// mutation on one replica cannot leave another serving stale connections.
+// ponytail: on Redis failure the version check fails open, so a single-process
+// deploy behaves exactly as before and only multi-replica freshness degrades.
+const connectionCache = global.__liteRouterConnectionCache ??= {
+  rows: null,
+  expiresAt: 0,
+  versionCheckedAt: 0,
+};
+// How long a replica may reuse its own snapshot without asking Redis whether
+// another replica mutated. Separate from CACHE_TTL_MS: the data TTL can be
+// generous because a foreign write is caught by the version check, which has to
+// be frequent enough to count as "immediately" (PRD 15.5 §3).
+const CACHE_TTL_MS = 5000;
+const VERSION_TTL_MS = 500;
+const CACHE_VERSION_KEY = "cache:connections:version";
+
+async function cacheVersion() {
+  const { redisGet } = await import("@/lib/redis.js");
+  return (await redisGet(CACHE_VERSION_KEY)) || null;
+}
+
+async function bumpCacheVersion() {
+  const { redisIncrement } = await import("@/lib/redis.js");
+  return redisIncrement(CACHE_VERSION_KEY);
+}
+
+function invalidateConnectionCache() {
+  connectionCache.rows = null;
+  connectionCache.expiresAt = 0;
+  connectionCache.versionCheckedAt = 0;
+}
+
+// Invalidate locally and tell every replica that its snapshot is stale.
+// Awaited by callers so the Redis version bump lands after the SQLite commit:
+// bumping from inside the transaction could expose the new version before the
+// rows are visible, letting another replica reload the old snapshot and then
+// cache the new version, serving stale data until the TTL expires.
+async function invalidateConnectionCacheEverywhere() {
+  invalidateConnectionCache();
+  try {
+    await bumpCacheVersion();
+  } catch {
+    /* fail open: a local-only invalidation still covers this process */
+  }
+}
+
 function resetHealthStateOnActivation(existing, patch) {
   if (patch?.testStatus !== "active") return patch;
 
@@ -90,16 +137,35 @@ function deriveConnectionName(data, fallbackName) {
 }
 
 export async function getProviderConnections(filter = {}) {
-  const db = await getAdapter();
-  const where = [];
-  const params = [];
-  if (filter.provider) { where.push("provider = ?"); params.push(filter.provider); }
-  if (filter.isActive !== undefined) { where.push("isActive = ?"); params.push(filter.isActive ? 1 : 0); }
-  const sql = `SELECT * FROM providerConnections${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-  const rows = db.all(sql, params);
-  const list = rows.map(rowToConn);
+  const now = Date.now();
+  if (!connectionCache.rows || connectionCache.expiresAt <= now) {
+    await refreshConnectionCache();
+  } else if (connectionCache.versionCheckedAt <= now) {
+    // Held a usable snapshot, but confirm no other replica wrote since. A
+    // foreign bump makes every replica re-read, which is what keeps a UI
+    // mutation from being invisible here until the data TTL happens to lapse.
+    const version = await cacheVersion();
+    connectionCache.versionCheckedAt = Date.now() + VERSION_TTL_MS;
+    if (version !== null && version !== connectionCache.version) {
+      await refreshConnectionCache();
+    }
+  }
+  const list = connectionCache.rows.filter((c) =>
+    (!filter.provider || c.provider === filter.provider)
+    && (filter.isActive === undefined || c.isActive === Boolean(filter.isActive))
+  ).map((c) => structuredClone(c));
   list.sort((a, b) => (a.priority || 999) - (b.priority || 999));
   return list;
+}
+
+async function refreshConnectionCache() {
+  const db = await getAdapter();
+  connectionCache.rows = db.all("SELECT * FROM providerConnections").map(rowToConn);
+  // A Redis outage returns null, which then never compares equal to a real
+  // version — so recovery re-reads once rather than serving a stale snapshot.
+  connectionCache.version = await cacheVersion();
+  connectionCache.expiresAt = Date.now() + CACHE_TTL_MS;
+  connectionCache.versionCheckedAt = Date.now() + VERSION_TTL_MS;
 }
 
 export async function getProviderConnectionById(id) {
@@ -208,11 +274,18 @@ export async function createProviderConnection(data) {
     result = conn;
   });
 
+  if (result) await invalidateConnectionCacheEverywhere();
   return result;
 }
 
 // Critical: OAuth refresh token race — atomic merge inside transaction
 export async function updateProviderConnection(id, data) {
+  // Clear the local snapshot before the first await. getAdapter() is async, so
+  // clearing later happens a microtask after the call, and a selection that
+  // interleaves in that window would read the stale row — which is exactly what
+  // round-robin depends on being fresh. The Redis bump still lands after the
+  // commit, so replicas never see the new version before the rows.
+  invalidateConnectionCache();
   const db = await getAdapter();
   let result;
   db.transaction(() => {
@@ -225,6 +298,7 @@ export async function updateProviderConnection(id, data) {
     if (data.priority !== undefined) reorderInTx(db, existing.provider);
     result = merged;
   });
+  if (result) await invalidateConnectionCacheEverywhere();
   return result;
 }
 
@@ -238,6 +312,7 @@ export async function deleteProviderConnection(id) {
     reorderInTx(db, row.provider);
     ok = true;
   });
+  if (ok) await invalidateConnectionCacheEverywhere();
   return ok;
 }
 
@@ -245,12 +320,14 @@ export async function deleteProviderConnectionsByProvider(providerId) {
   const db = await getAdapter();
   const before = db.get(`SELECT COUNT(*) AS n FROM providerConnections WHERE provider = ?`, [providerId]);
   db.run(`DELETE FROM providerConnections WHERE provider = ?`, [providerId]);
+  if (before?.n) await invalidateConnectionCacheEverywhere();
   return before?.n || 0;
 }
 
 export async function reorderProviderConnections(providerId) {
   const db = await getAdapter();
   db.transaction(() => reorderInTx(db, providerId));
+  await invalidateConnectionCacheEverywhere();
 }
 
 export async function cleanupProviderConnections() {
@@ -281,5 +358,6 @@ export async function cleanupProviderConnections() {
       if (dirty) upsert(db, conn);
     }
   });
+  if (cleaned) await invalidateConnectionCacheEverywhere();
   return cleaned;
 }

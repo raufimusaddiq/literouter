@@ -1,85 +1,13 @@
 import { NextResponse } from "next/server";
 import { getProviderNodeById } from "@/models";
-import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider, AI_PROVIDERS } from "@/shared/constants/providers";
+import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getDefaultModel } from "open-sse/config/providerModels.js";
 import { resolveOllamaLocalHost, resolveXiaomiTokenplanBaseUrl, PROVIDERS } from "open-sse/config/providers.js";
 import { openaiToCommandCodeRequest } from "open-sse/translator/request/openai-to-commandcode.js";
 import { resolveQoderCredentials, resolveQoderModels } from "open-sse/services/qoderModels.js";
 import { normalizeProviderId } from "@/lib/providerNormalization";
-
-// Probe a webSearch/webFetch provider using its searchConfig/fetchConfig.
-// Returns true if API key is accepted (status !== 401 && !== 403).
-async function probeWebProvider(provider, apiKey) {
-  const p = AI_PROVIDERS[provider];
-  if (!p) return null;
-  // Skip if provider has dual-purpose (LLM + search), let LLM validate handle it
-  const kinds = p.serviceKinds || ["llm"];
-  const isWebOnly = kinds.every((k) => k === "webSearch" || k === "webFetch");
-  if (!isWebOnly) return null;
-  const cfg = p.searchConfig || p.fetchConfig;
-  if (!cfg) return null;
-  if (cfg.authType === "none") return true; // no-auth (e.g. searxng)
-
-  let url = cfg.validateUrl || cfg.baseUrl;
-  const headers = { "Content-Type": "application/json" };
-  let body;
-
-  // Apply auth based on authHeader
-  switch (cfg.authHeader) {
-    case "bearer":              headers["Authorization"] = `Bearer ${apiKey}`; break;
-    case "x-api-key":           headers["x-api-key"] = apiKey; break;
-    case "x-subscription-token":headers["x-subscription-token"] = apiKey; break;
-    case "key":                 url += `?key=${encodeURIComponent(apiKey)}&q=ping&cx=test`; break; // google-pse
-    case "api_key":             url += `?api_key=${encodeURIComponent(apiKey)}&q=ping&engine=google`; break; // searchapi
-  }
-
-  // Minimal body for POST endpoints; GET sends nothing
-  if (cfg.method === "POST") {
-    body = JSON.stringify({ query: "ping", q: "ping", url: "https://example.com" });
-  }
-
-  const res = await fetch(url, { method: cfg.method, headers, body, signal: AbortSignal.timeout(8000) });
-  return res.status !== 401 && res.status !== 403;
-}
-
-// Probe a media provider (tts/embedding/stt/image/video) using *Config.
-// Returns true if API key is accepted; null to skip (let default handler decide).
-async function probeMediaProvider(provider, apiKey) {
-  const p = AI_PROVIDERS[provider];
-  if (!p) return null;
-  const MEDIA_KINDS = new Set(["tts", "embedding", "stt", "image", "video", "music", "imageToText"]);
-  const kinds = p.serviceKinds || ["llm"];
-  const isMediaOnly = kinds.every((k) => MEDIA_KINDS.has(k));
-  if (!isMediaOnly) return null;
-  const cfg = p.ttsConfig || p.sttConfig || p.embeddingConfig || p.imageConfig || p.videoConfig || p.musicConfig;
-  // No probe config → best-effort accept (validate at usage time)
-  if (!cfg) return true;
-  if (p.noAuth || cfg.authType === "none") return true;
-  // Skip auth schemes that need provider-specific data
-  if (cfg.authHeader === "playht" || cfg.authHeader === "aws-sigv4") return true;
-
-  const headers = { "Content-Type": "application/json", ...(cfg.extraHeaders || {}) };
-
-  switch (cfg.authHeader) {
-    case "bearer":     headers["Authorization"] = `Bearer ${apiKey}`; break;
-    case "key":        headers["Authorization"] = `Key ${apiKey}`; break;
-    case "x-api-key":  headers["x-api-key"] = apiKey; break;
-    case "x-key":      headers["x-key"] = apiKey; break;
-    case "xi-api-key": headers["xi-api-key"] = apiKey; break;
-    case "token":      headers["Authorization"] = `Token ${apiKey}`; break;
-    case "basic":      headers["Authorization"] = `Basic ${apiKey}`; break;
-    default: return null;
-  }
-
-  const method = cfg.method || "POST";
-  const res = await fetch(cfg.baseUrl, {
-    method,
-    headers,
-    body: method === "GET" ? undefined : JSON.stringify({ input: "ping", text: "ping", prompt: "ping", model: getDefaultModel(provider) || "test" }),
-    signal: AbortSignal.timeout(8000),
-  });
-  return res.status !== 401 && res.status !== 403;
-}
+import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
+import { isLocalRequest } from "@/dashboardGuard";
 
 // POST /api/providers/validate - Validate API key with provider
 export async function POST(request) {
@@ -87,6 +15,27 @@ export async function POST(request) {
     const body = await request.json();
     const provider = normalizeProviderId(body.provider);
     const { apiKey, providerSpecificData } = body;
+    const remote = !isLocalRequest(request);
+    const validateFetch = remote ? fetchPublic : fetch;
+
+    // One gate for every caller-controlled URL this route fetches. Branches below
+    // vary a lot (provider node, azure endpoint, ollama host), so guarding each
+    // call site separately kept missing sinks; this rejects any private/metadata
+    // target before the branch runs. The local operator keeps self-hosted hosts
+    // (``ollama-local`` on the LAN) the same way provider-nodes/validate does.
+    if (remote) {
+      const candidates = [
+        providerSpecificData?.azureEndpoint,
+        providerSpecificData?.baseUrl,
+      ];
+      try {
+        for (const candidate of candidates) {
+          if (typeof candidate === "string" && candidate.trim()) await assertPublicUrlResolved(candidate.trim());
+        }
+      } catch {
+        return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+      }
+    }
 
     const isNoAuth = AI_PROVIDERS[provider]?.noAuth === true;
     if (!provider || (!apiKey && provider !== "ollama-local" && !isNoAuth)) {
@@ -103,42 +52,17 @@ export async function POST(request) {
         if (!node) {
           return NextResponse.json({ error: "OpenAI Compatible node not found" }, { status: 404 });
         }
+        // SSRF guard for remote callers; a local operator may target a
+        // self-hosted node on the private network.
+        if (remote) {
+          try { await assertPublicUrlResolved(node.baseUrl?.trim() || ""); }
+          catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
+        }
         const modelsUrl = `${node.baseUrl?.replace(/\/$/, "")}/models`;
-        const res = await fetch(modelsUrl, {
+        const res = await validateFetch(modelsUrl, {
           headers: { "Authorization": `Bearer ${apiKey}` },
         });
         isValid = res.ok;
-        return NextResponse.json({
-          valid: isValid,
-          error: isValid ? null : "Invalid API key",
-        });
-      }
-
-      // Custom Embedding nodes: probe /models (most embedding APIs are OpenAI-compatible)
-      if (isCustomEmbeddingProvider(provider)) {
-        const node = await getProviderNodeById(provider);
-        if (!node) {
-          return NextResponse.json({ error: "Custom Embedding node not found" }, { status: 404 });
-        }
-        const baseUrl = node.baseUrl?.replace(/\/$/, "");
-        const modelsRes = await fetch(`${baseUrl}/models`, {
-          headers: { "Authorization": `Bearer ${apiKey}` },
-        });
-        if (modelsRes.ok) {
-          return NextResponse.json({ valid: true });
-        }
-        // Auth errors are definitive
-        if (modelsRes.status === 401 || modelsRes.status === 403) {
-          return NextResponse.json({ valid: false, error: "Invalid API key" });
-        }
-        // Fallback: probe /embeddings with a common test model — many providers lack /models
-        const embedRes = await fetch(`${baseUrl}/embeddings`, {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "test", input: "ping" }),
-        });
-        // 401/403 = bad key; anything else (including 400 "model not found") means key works
-        isValid = embedRes.status !== 401 && embedRes.status !== 403;
         return NextResponse.json({
           valid: isValid,
           error: isValid ? null : "Invalid API key",
@@ -151,6 +75,10 @@ export async function POST(request) {
           return NextResponse.json({ error: "Anthropic Compatible node not found" }, { status: 404 });
         }
 
+        if (remote) {
+          try { await assertPublicUrlResolved(node.baseUrl?.trim() || ""); }
+          catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
+        }
         let normalizedBase = node.baseUrl?.trim().replace(/\/$/, "") || "";
         if (normalizedBase.endsWith("/messages")) {
           normalizedBase = normalizedBase.slice(0, -9); // remove /messages
@@ -159,7 +87,7 @@ export async function POST(request) {
         const messagesUrl = `${normalizedBase}/v1/messages`;
         const model = node.defaultModel || "claude-3-haiku-20240307";
 
-        const res = await fetch(messagesUrl, {
+        const res = await validateFetch(messagesUrl, {
           method: "POST",
           headers: {
             "x-api-key": apiKey,
@@ -189,7 +117,7 @@ export async function POST(request) {
           return NextResponse.json({ valid: false, error: "Missing Account ID" });
         }
         const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
-        const cfRes = await fetch(url, {
+        const cfRes = await fetchPublic(url, {
           method: "POST",
           headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -206,7 +134,6 @@ export async function POST(request) {
       }
 
       if (provider === "azure") {
-        const { providerSpecificData } = body;
         const endpoint = (providerSpecificData?.azureEndpoint || "").replace(/\/$/, "");
         const deployment = providerSpecificData?.deployment || "gpt-4";
         const apiVersion = providerSpecificData?.apiVersion || "2024-10-01-preview";
@@ -219,7 +146,10 @@ export async function POST(request) {
         };
         if (organization) headers["OpenAI-Organization"] = organization;
 
-        const azureRes = await fetch(url, {
+        // `azureEndpoint` is caller-supplied. The remote gate at the top of this handler
+        // resolves it once before the branch runs; fetchPublic re-resolves and then
+        // re-validates every redirect hop on top of that.
+        const azureRes = await fetchPublic(url, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -231,24 +161,6 @@ export async function POST(request) {
         return NextResponse.json({
           valid: isValid,
           error: isValid ? null : "Invalid API key or Azure configuration",
-        });
-      }
-
-      // Generic probe for webSearch/webFetch providers (config-driven)
-      const webResult = await probeWebProvider(provider, apiKey);
-      if (webResult !== null) {
-        return NextResponse.json({
-          valid: webResult,
-          error: webResult ? null : "Invalid API key",
-        });
-      }
-
-      // Generic probe for tts/embedding providers (config-driven)
-      const mediaResult = await probeMediaProvider(provider, apiKey);
-      if (mediaResult !== null) {
-        return NextResponse.json({
-          valid: mediaResult,
-          error: mediaResult ? null : "Invalid API key",
         });
       }
 
@@ -366,8 +278,6 @@ export async function POST(request) {
         case "hyperbolic":
         case "ollama":
         case "ollama-local":
-        case "assemblyai":
-        case "nanobanana":
         case "chutes":
         case "xiaomi-mimo":
         case "xiaomi-tokenplan":
@@ -382,7 +292,7 @@ export async function POST(request) {
           };
           const headers = {};
           if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-          const res = await fetch(endpoints[provider], { headers, signal: AbortSignal.timeout(8000) });
+          const res = await validateFetch(endpoints[provider], { headers, signal: AbortSignal.timeout(8000) });
           // xai returns 400 for bad key, 403 for valid-but-no-credit. Other providers use 401.
           if (provider === "xai") {
             isValid = res.status === 200 || res.status === 403;
@@ -429,14 +339,6 @@ export async function POST(request) {
             body: JSON.stringify(payload),
           });
           isValid = res.status !== 401 && res.status !== 403;
-          break;
-        }
-
-        case "deepgram": {
-          const res = await fetch("https://api.deepgram.com/v1/projects", {
-            headers: { "Authorization": `Token ${apiKey}` },
-          });
-          isValid = res.ok;
           break;
         }
 

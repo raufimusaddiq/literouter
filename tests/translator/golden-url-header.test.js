@@ -24,10 +24,21 @@ const SPECIALIZED = new Set([
 ]);
 
 // Sanitize header: khử token + field thời gian động (kimi X-Msh-Device-Id) để snapshot ổn định.
+// Cũng khử các field phụ thuộc môi trường (hostname, phiên bản Node/app) để
+// snapshot khớp giữa máy local và CI runner.
+const ENV_DEPENDENT = new Set([
+  "X-Msh-Device-Name", // hostname của máy đang chạy
+  "X-Msh-Device-Model", // os + arch của máy đang chạy
+  "X-Msh-Version",     // phiên bản package, đổi mỗi lần release
+  "X-PLATFORM-VERSION", // phiên bản Node runtime
+]);
+
 function sanitize(headers) {
   const out = {};
   for (const [k, v] of Object.entries(headers)) {
-    out[k] = typeof v === "string"
+    out[k] = ENV_DEPENDENT.has(k)
+      ? "<ENV>"
+      : typeof v === "string"
       ? v.replace(/Bearer .+/, "Bearer <TOK>")
           .replace(/sk-test-APIKEY|tok-test-ACCESS/g, "<CRED>")
           .replace(/kimi-\d{10,}/g, "kimi-<TS>")

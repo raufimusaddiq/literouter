@@ -249,7 +249,7 @@ function comboMatchesKinds(combo, kindFilter) {
 
 /**
  * Build OpenAI-format models list filtered by service kinds.
- * @param {string[]} kindFilter - List of service kinds to include (e.g. ["llm"], ["webSearch","webFetch"]).
+ * @param {string[]} kindFilter - List of service kinds to include.
  */
 export async function buildModelsList(kindFilter, options = {}) {
   // When this header is present, the /v1/models request came from another
@@ -302,7 +302,7 @@ export async function buildModelsList(kindFilter, options = {}) {
 
   const models = [];
 
-  // Combos first (filtered by kind). Web combos expose `kind` so AI knows search vs fetch.
+  // Combos first (filtered by kind).
   for (const combo of combos) {
     if (!comboMatchesKinds(combo, kindFilter)) continue;
     const entry = {
@@ -310,9 +310,6 @@ export async function buildModelsList(kindFilter, options = {}) {
       object: "model",
       owned_by: "combo",
     };
-    if (combo.kind === "webSearch" || combo.kind === "webFetch") {
-      entry.kind = combo.kind;
-    }
     models.push(entry);
   }
 
@@ -434,8 +431,7 @@ export async function buildModelsList(kindFilter, options = {}) {
         .filter((m) => {
           if (!m?.id) return false;
           const kind = getModelKind(m) || LLM_KIND;
-          // imageToText custom models are vision-capable chat models: expose them
-          // both in the default LLM list and in /v1/models/image-to-text.
+          // imageToText custom models are vision-capable chat models.
           if (!kindFilter.includes(kind) && !(kind === "imageToText" && kindFilter.includes(LLM_KIND))) return false;
           const alias = m.providerAlias;
           return alias === staticAlias || alias === outputAlias || alias === providerId;
@@ -519,24 +515,6 @@ export async function buildModelsList(kindFilter, options = {}) {
         models.push(model);
       }
 
-      // Web search/fetch — provider IS the model, expose as {alias}/search and/or {alias}/fetch with explicit kind
-      const providerInfo = AI_PROVIDERS[providerId];
-      if (kindFilter.includes("webSearch") && providerInfo?.searchConfig) {
-        models.push({
-          id: `${outputAlias}/search`,
-          object: "model",
-          kind: "webSearch",
-          owned_by: outputAlias,
-        });
-      }
-      if (kindFilter.includes("webFetch") && providerInfo?.fetchConfig) {
-        models.push({
-          id: `${outputAlias}/fetch`,
-          object: "model",
-          kind: "webFetch",
-          owned_by: outputAlias,
-        });
-      }
     }
   }
 
@@ -565,8 +543,7 @@ export async function OPTIONS() {
 }
 
 /**
- * GET /v1/models - OpenAI compatible models list (LLM/chat models only by default).
- * For other capabilities use /v1/models/{kind} (image, tts, stt, embedding, image-to-text, web).
+ * GET /v1/models - OpenAI compatible chat models list.
  */
 export async function GET(request) {
   try {

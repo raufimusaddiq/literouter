@@ -1,3 +1,15 @@
+# v0.5.82 (unreleased)
+
+## Security
+- **Provider validation**: `/api/provider-nodes/validate` and the Azure/Cloudflare branches of `/api/providers/validate` now fetch through the SSRF-guarded `fetchPublic` instead of a raw `fetch`, so a caller-supplied base URL can no longer 30x its way to an internal target (metadata endpoints included). Remote callers are pre-rejected with 400; the trusted local operator keeps LAN nodes (LM Studio, vLLM, ollama-compat), including LAN targets reached through a redirect hop — `allowPrivate` is now a per-hop decision rather than a one-shot gate
+- **Local-operator trust**: the spoofable `Host` fallback no longer exists in any environment, so local-operator access now requires `custom-server.js`'s per-process `x-9r-peer-token`, stamped on every request it handles. On a listener that bypasses the wrapper (a bare `next dev`, or another client inside the same container) there is no token to present, so those requests no longer inherit LAN-node validation or the localhost-only routes
+
+## Fixes
+- **Endpoint**: stop advertising Cloudflare Tunnel and Tailscale in the minimal profile; the page no longer polls `/api/tunnel/status`, which is not served there
+- **Console Log**: retain the page in the minimal profile and move its API to `/api/console-logs`; it previously sat under the hidden `/api/translator` prefix, so pruning the translator playground silently took the log stream down with it. Its sidebar group was also blanked wholesale, which discarded the retained entry regardless of its own flag
+- **Sidebar**: hide the external 9English link in the minimal profile so the sidebar carries only product navigation
+- **Round-robin**: persist the account cursor off the request path and invalidate the connection cache before the first await, so a selection can never read a stale cursor
+
 # v0.5.81 (2026-09-18)
 
 ## Features
@@ -300,7 +312,7 @@
 ## Features
 - **Providers**: add TokenRouter (300+ models via OpenAI-compatible gateway) with
   exact per-model pricing for 110 models and `reasoning_effort` thinking config
-- **Providers**: add Self-hosted STT / TTS / Embedding — point 9Router at your own
+- **Providers**: add Self-hosted STT / TTS / Embedding — point LiteRouter at your own
   OpenAI-compatible speech and embedding servers (whisper.cpp, faster-whisper,
   Kokoro-FastAPI, llama-server, vLLM, Infinity). Unlike the named cloud providers
   these read `baseUrl` per connection, so one provider can front several machines
@@ -434,7 +446,7 @@
 - **CLI tools**: Grok Build setup — choose separate main/general-purpose/explore/plan models and preserve each model's context window
 - **GitHub Copilot**: route Claude models through Copilot's native `/v1/messages`
 - **Kiro**: add GPT-5.6 model family (#2596)
-- **RTK**: `X-9Router-Token-Saver` header to bypass token savers per request
+- **RTK**: `X-LiteRouter-Token-Saver` header to bypass token savers per request
 - **Providers**: quota visibility settings
 - **Translator**: drop temperature for all Claude models
 - **i18n**: Thai (th) + Persian (fa) translations / README
@@ -684,7 +696,7 @@
 - Dashboard: show provider node name instead of connection name in topology (#1770) + show explicit `kind="llm"` combos on combos page (#1684)
 
 ## Docs
-- README: add Indonesian 9Router tutorial video (#1709)
+- README: add Indonesian LiteRouter tutorial video (#1709)
 
 # v0.4.71 (2026-06-06)
 
@@ -743,7 +755,7 @@
 ## Fixes
 - Codex: auto-retry when upstream drops mid-stream (no more hangs)
 - Codex: fix random 400/404 errors, tool-calling failures, and unstable prompt cache
-- MITM: support Antigravity 2.x 
+- MITM: support Antigravity 2.x
 - Sanitize Read tool args to prevent retry loops from non-Anthropic models (#1144)
 - Implement json_schema fallback for OpenAI-compatible providers without native Structured Output (#1343)
 - Strip empty Read pages argument in OpenAI-to-Claude translator (#1354)

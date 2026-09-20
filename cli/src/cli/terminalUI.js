@@ -4,7 +4,6 @@ const { showProvidersMenu } = require("./menus/providers");
 const { showApiKeysMenu } = require("./menus/apiKeys");
 const { showCombosMenu } = require("./menus/combos");
 const { showSettingsMenu } = require("./menus/settings");
-const { showCliToolsMenu } = require("./menus/cliTools");
 
 const COLORS = {
   reset: "\x1b[0m",
@@ -18,16 +17,9 @@ const COLORS = {
 let cachedHeader = "";
 let fetchingHeader = false;
 
-function renderHeader(port, keys, tunnel) {
-  const tunnelEnabled = tunnel && tunnel.enabled === true;
+function renderHeader(port, keys) {
   const lines = [];
-  if (tunnelEnabled && tunnel.publicUrl) {
-    lines.push(`Endpoint: ${COLORS.green}${tunnel.publicUrl}/v1${COLORS.reset}`);
-    lines.push(`Tunnel:   ${COLORS.green}ON${COLORS.reset} ${COLORS.dim}(${tunnel.shortId})${COLORS.reset}`);
-  } else {
-    lines.push(`Endpoint: http://localhost:${port}/v1`);
-    lines.push(`Tunnel:   ${COLORS.red}OFF${COLORS.reset} ${COLORS.dim}(local only)${COLORS.reset}`);
-  }
+  lines.push(`Endpoint: http://localhost:${port}/v1`);
   if (!keys || keys.length === 0) {
     lines.push(`Key:      ${COLORS.dim}No API keys yet${COLORS.reset}`);
   } else {
@@ -41,13 +33,9 @@ async function refreshHeaderBg(port) {
   if (fetchingHeader) return;
   fetchingHeader = true;
   try {
-    const [keysResult, tunnelResult] = await Promise.all([
-      api.getApiKeys(),
-      api.getTunnelStatus()
-    ]);
+    const keysResult = await api.getApiKeys();
     const keys = keysResult.success ? (keysResult.data.keys || []) : [];
-    const tunnel = tunnelResult.success ? (tunnelResult.data || {}) : {};
-    cachedHeader = renderHeader(port, keys, tunnel);
+    cachedHeader = renderHeader(port, keys);
   } finally {
     fetchingHeader = false;
   }
@@ -56,7 +44,7 @@ async function refreshHeaderBg(port) {
 function getHeader(port) {
   // Kick off background refresh; return cache (or placeholder on first call).
   refreshHeaderBg(port);
-  return cachedHeader || `Endpoint: http://localhost:${port}/v1\nTunnel:   ${COLORS.dim}...${COLORS.reset}\nKey:      ${COLORS.dim}...${COLORS.reset}`;
+  return cachedHeader || `Endpoint: http://localhost:${port}/v1\nKey:      ${COLORS.dim}...${COLORS.reset}`;
 }
 
 /**
@@ -96,13 +84,6 @@ async function startTerminalUI(port) {
         label: "Combos",
         action: async () => {
           await showCombosMenu([...basePath, "Combos"]);
-          return true;
-        }
-      },
-      {
-        label: "CLI Tools",
-        action: async () => {
-          await showCliToolsMenu(port, [...basePath, "CLI Tools"]);
           return true;
         }
       },

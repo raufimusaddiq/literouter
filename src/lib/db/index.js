@@ -38,11 +38,10 @@ export {
   createCombo, updateCombo, deleteCombo,
 } from "./repos/combosRepo.js";
 
-// Aliases (model + custom + mitm)
+// Aliases (model + custom)
 export {
   getModelAliases, setModelAlias, deleteModelAlias,
   getCustomModels, addCustomModel, deleteCustomModel,
-  getMitmAlias, setMitmAliasAll,
 } from "./repos/aliasRepo.js";
 
 // Pricing
@@ -65,6 +64,8 @@ export {
 // Request details
 export {
   saveRequestDetail, getRequestDetails, getRequestDetailById, getDistinctProviders,
+  flushRequestDetails,
+  ensureShutdownHandler as ensureRequestDetailShutdownHandler,
 } from "./repos/requestDetailsRepo.js";
 
 // Export/import full DB
@@ -81,13 +82,11 @@ export async function exportDb() {
     combos: db.all(`SELECT * FROM combos`).map((r) => ({ id: r.id, name: r.name, kind: r.kind, models: parseJson(r.models, []), createdAt: r.createdAt, updatedAt: r.updatedAt })),
     modelAliases: {},
     customModels: [],
-    mitmAlias: {},
     pricing: {},
   };
 
   for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'modelAliases'`)) out.modelAliases[r.key] = parseJson(r.value);
   for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'customModels'`)) out.customModels.push(parseJson(r.value));
-  for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'mitmAlias'`)) out.mitmAlias[r.key] = parseJson(r.value);
   for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'pricing'`)) out.pricing[r.key] = parseJson(r.value);
 
   return out;
@@ -107,11 +106,13 @@ export async function importDb(payload) {
     db.run(`DELETE FROM proxyPools`);
     db.run(`DELETE FROM apiKeys`);
     db.run(`DELETE FROM combos`);
-    db.run(`DELETE FROM kv WHERE scope IN ('modelAliases', 'customModels', 'mitmAlias', 'pricing')`);
+    db.run(`DELETE FROM kv WHERE scope IN ('modelAliases', 'customModels', 'pricing')`);
 
     // Settings
     if (payload.settings) {
-      db.run(`INSERT INTO settings(id, data) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`, [stringifyJson(payload.settings)]);
+      const settings = { ...payload.settings };
+      for (const key of ["tunnelEnabled", "tunnelUrl", "tunnelProvider", "tailscaleEnabled", "tailscaleUrl", "tunnelDashboardAccess", "mitmRouterBaseUrl", "mitmSudoEncrypted"]) delete settings[key];
+      db.run(`INSERT INTO settings(id, data) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`, [stringifyJson(settings)]);
     }
 
     for (const c of payload.providerConnections || []) {
@@ -154,15 +155,23 @@ export async function importDb(payload) {
       const k = `${m.providerAlias}|${m.id}|${m.type || "llm"}`;
       db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('customModels', ?, ?)`, [k, stringifyJson(m)]);
     }
-    for (const [tool, mappings] of Object.entries(payload.mitmAlias || {})) {
-      db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('mitmAlias', ?, ?)`, [tool, stringifyJson(mappings || {})]);
-    }
     for (const [provider, models] of Object.entries(payload.pricing || {})) {
       db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('pricing', ?, ?)`, [provider, stringifyJson(models || {})]);
     }
   });
 
+  invalidateRuntimeCaches();
+
   return await exportDb();
+}
+
+// Caches live in repo modules; a raw SQL import bypasses their writers.
+// Drop them here so a restore is visible to routing immediately.
+function invalidateRuntimeCaches() {
+  if (global.__liteRouterSettingsCache) { global.__liteRouterSettingsCache.raw = null; global.__liteRouterSettingsCache.merged = null; }
+  if (global.__liteRouterConnectionCache) { global.__liteRouterConnectionCache.rows = null; global.__liteRouterConnectionCache.expiresAt = 0; }
+  if (global.__liteRouterComboCache) { global.__liteRouterComboCache.rows = null; global.__liteRouterComboCache.expiresAt = 0; }
+  if (global.__liteRouterApiKeyCache) { global.__liteRouterApiKeyCache.rows = null; global.__liteRouterApiKeyCache.expiresAt = 0; }
 }
 
 // Eager init helper (optional)
