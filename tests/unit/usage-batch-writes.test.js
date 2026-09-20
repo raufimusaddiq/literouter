@@ -56,10 +56,6 @@ describe("Usage batch persistence", () => {
       tokens: { prompt_tokens: 100 + index, completion_tokens: 10 },
     })));
 
-    expect(__usageBuffer__.size()).toBe(20);
-
-    await flushUsageQueue();
-
     expect(__usageBuffer__.size()).toBe(0);
     expect(mocks.db.transaction).toHaveBeenCalledTimes(1);
 
