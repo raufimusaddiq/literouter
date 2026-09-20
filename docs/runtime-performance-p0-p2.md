@@ -122,18 +122,24 @@ Mutations invalidate/update the relevant local snapshot. Redis version/invalidat
 - proxy pool resolution must use a proxy-pool snapshot
 - snapshot reads return cloned/immutable-safe values where callers may mutate them
 
-### P1.3 Lazy specialized executors
+### P1.3 Lazy specialized executor instantiation
 
 Current problem:
-- executor registry statically imports and eagerly instantiates all specialized executors
+- executor registry eagerly constructs all specialized executors at module load
+
+Compatibility constraint:
+- `getExecutor(provider)` is an established synchronous API used by direct
+  consumers and tests. Converting it to a Promise would be a breaking API change.
 
 Required implementation:
 - retain DefaultExecutor for normal API-key compatible providers
-- specialized executors load dynamically on first use
-- cache loaded instances
-- hidden/unused providers must not instantiate at boot
-- callers await executor resolution
+- keep the synchronous `getExecutor` contract
+- construct specialized executor instances only on first use
+- cache constructed instances and canonicalize executor aliases
+- hidden/unused providers must not allocate executor instances at boot
 - do not change provider behavior or transport translation
+- fully dynamic module imports are deferred to a future breaking API boundary,
+  where they can be introduced without changing synchronous callers implicitly
 
 ### P1.4 Remove barrel side-effect loading
 
@@ -195,7 +201,7 @@ request
   |
   +--> provider-local RR/cooldown runtime state
   |
-  +--> lazy provider executor
+  +--> lazily instantiated provider executor
   |
   '--> upstream
 
