@@ -135,7 +135,7 @@ include upstream (Kenari) and network variance, so they bound the user-visible
 path rather than isolating router cost. The controlled mock table above still
 isolates router overhead and remains the acceptance evidence for the hot path.
 
-Post-burst resource sample, both containers together:
+Historical post-burst resource sample from the retired staging rehearsal:
 
 | Container | RSS | Memory limit |
 | --- | --- | --- |
@@ -147,10 +147,7 @@ Redis held only `literouter:staging:cache:connections:version` after the burst.
 Redis on staging is connection-cache invalidation, not response caching, so a
 chat burst is not expected to add keys.
 
-## Stable designation
+## Historical stable designation
 
-As of 2026-09-20 the `staging` branch and the `ai-staging.investdx.biz.id`
-deployment are declared stable under the name **LiteRouter**. They carry the
-Redis connection-cache invalidation and the reproducible lockfile-based CI
-(#20) plus the Alpine musl native pins (#21). Production `literouter` remains the
-prior image and is untouched.
+The 2026-09-20 staging designation is historical only. Staging is sunset;
+production `literouter` is the sole LiteRouter deployment and release target.
