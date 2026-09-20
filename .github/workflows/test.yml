@@ -33,3 +33,12 @@ jobs:
 
       - run: npx vitest run --reporter=dot
         working-directory: tests
+
+      # Catch standalone tracing/dynamic-import regressions before merge.
+      - run: npm run build
+
+      - name: Runtime bundle budget
+        run: |
+          size_mb="$(du -sm .next/standalone | cut -f1)"
+          echo "standalone runtime: ${size_mb} MiB"
+          test "${size_mb}" -le 140
