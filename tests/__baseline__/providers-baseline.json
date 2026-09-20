@@ -52,11 +52,6 @@
     "clientSecret": "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",
     "tokenUrl": "https://oauth2.googleapis.com/token"
   },
-  "assemblyai": {
-    "baseUrl": "https://api.assemblyai.com/v1/audio/transcriptions",
-    "validateUrl": "https://api.assemblyai.com/v1/account",
-    "format": "openai"
-  },
   "azure": {
     "baseUrl": "",
     "headers": {},
@@ -237,10 +232,6 @@
       "User-Agent": "connect-es/1.6.1"
     },
     "clientVersion": "3.12.17"
-  },
-  "deepgram": {
-    "baseUrl": "https://api.deepgram.com/v1/listen",
-    "format": "openai"
   },
   "deepseek": {
     "baseUrl": "https://api.deepseek.com/chat/completions",
@@ -695,11 +686,6 @@
     "noAuth": true,
     "format": "openai"
   },
-  "nanobanana": {
-    "baseUrl": "https://api.nanobananaapi.ai/v1/chat/completions",
-    "validateUrl": "https://api.nanobananaapi.ai/v1/models",
-    "format": "openai"
-  },
   "nebius": {
     "baseUrl": "https://api.studio.nebius.ai/v1/chat/completions",
     "validateUrl": "https://api.studio.nebius.ai/v1/models",
@@ -1074,5 +1060,10 @@
         }
       }
     ]
+  },
+  "typesafe": {
+    "baseUrl": "https://api.typesafe.ai/v1/systemone",
+    "format": "systemone",
+    "timeoutMs": 10000
   }
 }

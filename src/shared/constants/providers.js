@@ -39,6 +39,10 @@ const byCategory = (cat) => Object.fromEntries(
   REGISTRY.filter(r => r.category === cat).map(r => [r.id, buildProviderEntry(r)])
 );
 
+export function supportsServiceKind(info, kind) {
+  return (info?.serviceKinds ?? ["llm"]).includes(kind);
+}
+
 export const FREE_PROVIDERS = byCategory("free");
 export const FREE_TIER_PROVIDERS = byCategory("freeTier");
 

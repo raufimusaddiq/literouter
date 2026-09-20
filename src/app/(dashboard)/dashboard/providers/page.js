@@ -18,6 +18,7 @@ import {
   WEB_COOKIE_PROVIDERS,
   OPENAI_COMPATIBLE_PREFIX,
   ANTHROPIC_COMPATIBLE_PREFIX,
+  supportsServiceKind,
 } from "@/shared/constants/providers";
 import Link from "next/link";
 import { getErrorCode, getRelativeTime } from "@/shared/utils";
@@ -331,7 +332,7 @@ export default function ProvidersPage() {
       ([key, info]) =>
         !info.hidden &&
         matchSearch(info.name) &&
-        (info.serviceKinds ?? ["llm"]).includes("llm") &&
+        (supportsServiceKind(info, "llm") || supportsServiceKind(info, "systemone")) &&
         matchStatus(getProviderStats(key, dualAuthTypes(info, key)), info.noAuth),
     )
     .sort(([ka, a], [kb, b]) => {
@@ -350,7 +351,7 @@ export default function ProvidersPage() {
     .filter(
       ([key, info]) =>
         !info.hidden &&
-        (info.serviceKinds ?? ["llm"]).includes("llm") &&
+        (supportsServiceKind(info, "llm") || supportsServiceKind(info, "systemone")) &&
         matchSearch(info.name) &&
         matchStatus(getProviderStats(key, "apikey"), info.noAuth),
     )
