@@ -165,6 +165,17 @@ export async function POST(request) {
       }
 
       switch (provider) {
+        case "typesafe": {
+          const typesafeRes = await validateFetch(PROVIDERS.typesafe.baseUrl, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            // Invalid questions authenticate without spending an evaluation.
+            body: JSON.stringify({ model: "jev-latest", state: "ping", questions: {} }),
+          });
+          isValid = typesafeRes.status !== 401 && typesafeRes.status !== 403;
+          break;
+        }
+
         case "openai":
           const openaiRes = await fetch("https://api.openai.com/v1/models", {
             headers: { "Authorization": `Bearer ${apiKey}` },

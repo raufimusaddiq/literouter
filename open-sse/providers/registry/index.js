@@ -83,6 +83,7 @@ import p115 from "./poolside.js";
 import p116 from "./tokenrouter.js";
 import p121 from "./alitp-intl.js";
 import p124 from "./kenari.js";
+import p125 from "./typesafe.js";
 export default [
   p0,
   p1,
@@ -166,4 +167,5 @@ export default [
   p116,
   p121,
   p124,
+  p125,
 ];
