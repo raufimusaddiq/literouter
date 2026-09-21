@@ -10,6 +10,7 @@ import { PROVIDERS } from "open-sse/config/providers.js";
 import { getModelsByProviderId } from "open-sse/config/providerModels.js";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 import { extractUsageFromResponse, saveUsageStats } from "open-sse/handlers/chatCore/requestDetail.js";
+import { trackPendingRequest } from "@/lib/usageDb.js";
 
 const FALLBACK_STATUSES = new Set([401, 403, 408, 429, 500, 502, 503, 504, 529]);
 
@@ -119,6 +120,7 @@ export async function handleSystemOne(request) {
 
     const config = PROVIDERS[provider];
     const proxyOptions = credentials.providerSpecificData || null;
+    trackPendingRequest(model, provider, credentials.connectionId, true);
     try {
       const response = await proxyAwareFetch(config.baseUrl, {
         method: "POST",
@@ -160,6 +162,8 @@ export async function handleSystemOne(request) {
       const fallback = await markAccountUnavailable(credentials.connectionId, 502, error.message, provider, model);
       if (!fallback.shouldFallback) return new Response(lastFailure.text, { status: 502, headers: lastFailure.headers });
       excluded.add(credentials.connectionId);
+    } finally {
+      trackPendingRequest(model, provider, credentials.connectionId, false);
     }
   }
 

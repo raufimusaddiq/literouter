@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   isValidApiKey: vi.fn(),
   proxyAwareFetch: vi.fn(),
   saveUsageStats: vi.fn(),
+  trackPendingRequest: vi.fn(),
 }));
 
 vi.mock("@/lib/localDb", () => ({ getSettings: mocks.getSettings }));
@@ -26,6 +27,7 @@ vi.mock("open-sse/handlers/chatCore/requestDetail.js", async () => {
   const actual = await vi.importActual("open-sse/handlers/chatCore/requestDetail.js");
   return { ...actual, saveUsageStats: mocks.saveUsageStats };
 });
+vi.mock("@/lib/usageDb.js", () => ({ trackPendingRequest: mocks.trackPendingRequest }));
 
 const { handleSystemOne, normalizeSystemOneRequest } = await import("@/sse/handlers/systemOne.js");
 
@@ -103,6 +105,8 @@ describe("System One pass-through", () => {
         endpoint: "/v1/systemone",
         silent: true,
       }));
+    expect(mocks.trackPendingRequest).toHaveBeenNthCalledWith(1, "jev-latest", "typesafe", "connection-1", true);
+    expect(mocks.trackPendingRequest).toHaveBeenLastCalledWith("jev-latest", "typesafe", "connection-1", false);
     expect(mocks.proxyAwareFetch).toHaveBeenCalledWith(
       "https://api.typesafe.ai/v1/systemone",
       expect.objectContaining({

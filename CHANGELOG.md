@@ -8,6 +8,7 @@
 - **Local-operator trust**: the spoofable `Host` fallback no longer exists in any environment, so local-operator access now requires `custom-server.js`'s per-process `x-9r-peer-token`, stamped on every request it handles. On a listener that bypasses the wrapper (a bare `next dev`, or another client inside the same container) there is no token to present, so those requests no longer inherit LAN-node validation or the localhost-only routes
 
 ## Fixes
+- **System One**: include TypeSafe in live usage topology and animate active provider requests
 - **System One**: record TypeSafe Jev input/output usage and cost in dashboard usage history
 - **System One**: dashboard requests now forward an active LiteRouter API key; TypeSafe credentials remain upstream-only and public endpoint authentication stays required
 - **Endpoint**: stop advertising Cloudflare Tunnel and Tailscale in the minimal profile; the page no longer polls `/api/tunnel/status`, which is not served there
