@@ -203,6 +203,26 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.dashboard-backdrop {
+  background-color: var(--color-bg);
+  background-image: linear-gradient(to right, color-mix(in srgb, var(--color-border) 28%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--color-border) 28%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.page-kicker {
+  color: var(--color-primary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+
 button,
 a,
 input,

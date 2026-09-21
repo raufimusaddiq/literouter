@@ -404,8 +404,32 @@ export default function ProvidersPage() {
     compatibleProviders.length > 0 ||
     anthropicCompatibleProviders.length > 0;
 
+  const activeConnections = connections.filter((connection) =>
+    connection.isActive !== false && ["active", "success"].includes(connection.testStatus),
+  ).length;
+  const failingConnections = connections.filter((connection) =>
+    ["error", "expired", "unavailable"].includes(connection.testStatus),
+  ).length;
+
   return (
     <div className="flex min-w-0 flex-col gap-7">
+      <section className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-[14px] bg-primary/[0.07] p-4 ring-1 ring-primary/15">
+          <p className="page-kicker">Provider network</p>
+          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{connections.length}</p>
+          <p className="mt-1 text-xs text-text-muted">Configured connections</p>
+        </div>
+        <div className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle shadow-[var(--shadow-soft)]">
+          <p className="page-kicker text-success">Ready now</p>
+          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{activeConnections}</p>
+          <p className="mt-1 text-xs text-text-muted">Passing or active routes</p>
+        </div>
+        <div className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle shadow-[var(--shadow-soft)]">
+          <p className="page-kicker text-warning">Needs attention</p>
+          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{failingConnections}</p>
+          <p className="mt-1 text-xs text-text-muted">Connections reporting errors</p>
+        </div>
+      </section>
       <div className="flex flex-col gap-3 rounded-[1.125rem] bg-surface-2 p-4 ring-1 ring-border-subtle sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Catalog</p>

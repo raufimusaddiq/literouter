@@ -129,7 +129,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   };
 
   return (
-    <header className="shrink-0 flex items-center justify-between gap-3 border-b border-border-subtle bg-surface px-4 py-4 lg:px-8 lg:py-5">
+    <header className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-surface px-4 py-3 lg:px-8">
       {/* Mobile menu button */}
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
@@ -189,7 +189,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
             <p className="mb-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted lg:block">LiteRouter / workspace</p>
             <div className="flex items-center gap-2">
               {icon && (
-                <span className="material-symbols-outlined text-primary text-xl lg:text-2xl">
+                <span aria-hidden="true" className="material-symbols-outlined text-primary text-xl lg:text-2xl">
                   {icon}
                 </span>
               )}
@@ -236,7 +236,7 @@ function HeaderSearch() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-8 pl-7 pr-7 rounded-lg border border-border bg-surface/60 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+        className="h-9 w-full rounded-[10px] border border-border-subtle bg-surface-2 pl-8 pr-7 text-sm transition-[background-color,border-color,box-shadow] focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/15"
       />
       {query && (
         <button

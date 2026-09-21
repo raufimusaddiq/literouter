@@ -25,9 +25,9 @@ export default function Card({
   return (
     <div
       className={cn(
-        "relative rounded-2xl bg-surface ring-1 ring-border-subtle",
+        "relative rounded-[14px] bg-surface ring-1 ring-border-subtle",
         elev ? "shadow-[var(--shadow-elev)]" : "shadow-[var(--shadow-soft)]",
-        hover && "hover:ring-brand-500/30 transition-colors duration-200 cursor-pointer",
+        hover && "cursor-pointer transition-[box-shadow,ring-color,transform] duration-200 hover:-translate-y-px hover:ring-brand-500/30",
         paddings[padding],
         className
       )}
