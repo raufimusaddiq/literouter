@@ -38,8 +38,8 @@ export default function DashboardLayout({ children }) {
   const removeNotification = useNotificationStore((state) => state.removeNotification);
 
   return (
-    <div className="h-[100dvh] w-full overflow-hidden bg-bg p-2 sm:p-3 lg:p-4">
-      <div className="fixed top-4 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2">
+    <div className="dashboard-backdrop h-[100dvh] w-full overflow-hidden p-2 sm:p-3 lg:p-4">
+      <div className="fixed top-4 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2" aria-live="polite">
         {notifications.map((n) => {
           const style = getToastStyle(n.type);
           return (
@@ -92,7 +92,7 @@ export default function DashboardLayout({ children }) {
         </div>
 
         {/* Main workspace */}
-        <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] bg-surface ring-1 ring-border-subtle shadow-[var(--shadow-elevated)] transition-colors duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]">
+        <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] bg-surface ring-1 ring-border-subtle shadow-[var(--shadow-elevated)] transition-colors duration-300">
           <Header key={pathname} onMenuClick={() => setSidebarOpen(true)} />
           <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
             <div className="mx-auto w-full max-w-[96rem]">{children}</div>

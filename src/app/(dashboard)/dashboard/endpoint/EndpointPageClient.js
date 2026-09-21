@@ -22,11 +22,8 @@ export default function APIPageClient({ machineId }) {
   const [visibleKeys, setVisibleKeys] = useState(new Set());
 
   // Client-side local/remote detection (UI hint only, not a security gate)
-  const [isRemoteHost, setIsRemoteHost] = useState(false);
-  useEffect(() => {
-    if (typeof window !== "undefined")
-      setIsRemoteHost(!["localhost", "127.0.0.1", "::1"].includes(window.location.hostname));
-  }, []);
+  const isRemoteHost = typeof window !== "undefined"
+    && !["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
 
   const { copied, copy } = useCopyToClipboard();
 
@@ -35,11 +32,6 @@ export default function APIPageClient({ machineId }) {
   const unsafeReason = !requireLogin
     ? "Enable \"Require login\" and set a custom password before exposing the endpoint."
     : "Change the default dashboard password before exposing the endpoint.";
-
-  useEffect(() => {
-    fetchData();
-    loadSettings();
-  }, []);
 
   const loadSettings = async () => {
     try {
@@ -96,6 +88,14 @@ export default function APIPageClient({ machineId }) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      fetchData();
+      loadSettings();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, []);
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) return;
@@ -176,7 +176,8 @@ export default function APIPageClient({ machineId }) {
   // Hydration fix: Only access window on client side
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setBaseUrl(`${window.location.origin}/v1`);
+      const id = window.setTimeout(() => setBaseUrl(`${window.location.origin}/v1`), 0);
+      return () => window.clearTimeout(id);
     }
   }, []);
 
@@ -190,9 +191,25 @@ export default function APIPageClient({ machineId }) {
   }
 
   const currentEndpoint = baseUrl;
+  const endpointSecure = requireApiKey && !isLoginUnsafe;
 
   return (
-    <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(20rem,0.78fr)_minmax(0,1.22fr)] xl:items-start">
+    <div className="flex min-w-0 flex-col gap-6">
+      <section className="relative overflow-hidden rounded-[14px] bg-primary/[0.07] p-5 ring-1 ring-primary/15 sm:p-6">
+        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="page-kicker">Routing surface</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-text-main sm:text-3xl">One endpoint. Every provider.</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-text-muted">Keep the client contract stable while LiteRouter handles provider credentials, fallback, and quota state behind it.</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 rounded-xl bg-surface/80 px-3 py-2 ring-1 ring-border-subtle">
+            <span className={`size-2 rounded-full ${endpointSecure ? "bg-success" : "bg-warning"}`} />
+            <span className="text-xs font-semibold text-text-main">{endpointSecure ? "Protected endpoint" : "Review endpoint security"}</span>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(20rem,0.78fr)_minmax(0,1.22fr)] xl:items-start">
       {/* Endpoint Card */}
       <Card className="xl:sticky xl:top-0">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -350,6 +367,7 @@ export default function APIPageClient({ machineId }) {
           </div>
         )}
       </Card>
+      </div>
 
       {/* Add Key Modal */}
       <Modal

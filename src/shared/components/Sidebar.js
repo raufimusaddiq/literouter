@@ -33,15 +33,15 @@ export default function Sidebar({ onClose }) {
       onClick={onClose}
       aria-current={isActive(item.href) ? "page" : undefined}
       className={cn(
-        "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-200 group",
+        "group relative flex min-h-11 touch-manipulation items-center gap-3 rounded-xl px-3 py-2.5 transition-[background-color,color] duration-200 focus-visible:outline-2 focus-visible:outline-primary",
         isActive(item.href)
-          ? "bg-primary text-white shadow-[0_12px_26px_-18px_var(--color-primary)]"
+          ? "bg-primary/10 text-primary before:absolute before:left-0 before:top-2 before:h-7 before:w-0.5 before:rounded-full before:bg-primary"
           : "text-text-muted hover:bg-surface-2/80 hover:text-text-main"
       )}
     >
       <span className={cn(
         "material-symbols-outlined text-[18px]",
-        isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors duration-500"
+        isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors duration-200"
       )}>
         {item.icon}
       </span>
@@ -71,7 +71,7 @@ export default function Sidebar({ onClose }) {
           {systemItems.map(link)}
         </div>
       </nav>
-      <div className="m-1 rounded-xl bg-surface/70 p-3 ring-1 ring-border-subtle" role="status">
+      <div className="m-1 rounded-xl bg-surface/70 p-3 ring-1 ring-border-subtle" role="status" aria-label="Workspace status">
         <div className="flex items-center gap-2 text-xs font-medium text-text-main">
           <span className="size-2 rounded-full bg-success" />
           Workspace online
