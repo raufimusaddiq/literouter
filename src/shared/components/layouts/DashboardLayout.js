@@ -57,7 +57,7 @@ export default function DashboardLayout({ children }) {
                   <button
                     type="button"
                     onClick={() => removeNotification(n.id)}
-                    className="text-current/70 hover:text-current"
+                    className="flex size-8 items-center justify-center rounded text-current/70 hover:bg-black/5 hover:text-current dark:hover:bg-white/5"
                     aria-label="Dismiss notification"
                   >
                     <span className="material-symbols-outlined text-[16px]">close</span>

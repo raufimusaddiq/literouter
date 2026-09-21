@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { cn } from "@/shared/utils/cn";
 
 export default function Select({
@@ -16,16 +17,20 @@ export default function Select({
   selectClassName,
   ...props
 }) {
+  const generatedId = useId();
+  const selectId = props.id || generatedId;
+  const messageId = `${selectId}-message`;
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
-        <label className="text-sm font-medium text-text-main">
+        <label htmlFor={selectId} className="text-sm font-medium text-text-main">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       <div className="relative">
         <select
+          id={selectId}
           value={value}
           onChange={onChange}
           disabled={disabled}
@@ -38,6 +43,8 @@ export default function Select({
             error && "ring-1 ring-red-500 focus:ring-2 focus:ring-red-500/40 border-red-500/40",
             selectClassName
           )}
+          aria-invalid={error ? "true" : undefined}
+          aria-describedby={error || hint ? messageId : undefined}
           {...props}
         >
           <option value="" disabled>
@@ -50,17 +57,17 @@ export default function Select({
           ))}
         </select>
         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-text-muted">
-          <span className="material-symbols-outlined text-[20px]">expand_more</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-[20px]">expand_more</span>
         </div>
       </div>
       {error && (
-        <p className="text-xs text-red-500 flex items-center gap-1">
-          <span className="material-symbols-outlined text-[14px]">error</span>
+        <p id={messageId} role="alert" className="flex items-center gap-1 text-xs text-red-500">
+          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">error</span>
           {error}
         </p>
       )}
       {hint && !error && (
-        <p className="text-xs text-text-muted">{hint}</p>
+        <p id={messageId} className="text-xs text-text-muted">{hint}</p>
       )}
     </div>
   );

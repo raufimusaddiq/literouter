@@ -1,5 +1,5 @@
 import { GoogleAnalytics } from "@next/third-parties/google";
-import { Geist } from "next/font/google";
+import { IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
 import "material-symbols/outlined.css";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/components/ThemeProvider";
@@ -11,9 +11,16 @@ import { RuntimeI18nProvider } from "@/i18n/RuntimeI18nProvider";
 // Hook console immediately at module load time (server-side only, runs once)
 initConsoleLogCapture();
 
-const geist = Geist({
+const plex = IBM_Plex_Sans({
   subsets: ["latin"],
-  variable: "--font-geist",
+  variable: "--font-plex",
+  display: "swap",
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains",
+  display: "swap",
 });
 
 export const metadata = {
@@ -46,7 +53,7 @@ export default function RootLayout({ children }) {
           }}
         />
       </head>
-      <body className={`${geist.variable} font-sans antialiased`}>
+      <body className={`${plex.variable} ${mono.variable} font-sans antialiased`}>
         <ThemeProvider>
           <RuntimeI18nProvider>
             {children}

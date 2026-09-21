@@ -31,8 +31,9 @@ export default function Sidebar({ onClose }) {
       key={item.href}
       href={item.href}
       onClick={onClose}
+      aria-current={isActive(item.href) ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group",
+        "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-200 group",
         isActive(item.href)
           ? "bg-primary text-white shadow-[0_12px_26px_-18px_var(--color-primary)]"
           : "text-text-muted hover:bg-surface-2/80 hover:text-text-main"
@@ -52,8 +53,8 @@ export default function Sidebar({ onClose }) {
     <aside className="flex h-full w-[18.5rem] min-h-0 flex-col overflow-hidden rounded-[1.5rem] bg-sidebar p-3 ring-1 ring-border-subtle transition-colors duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]">
       <div className="px-3 py-4">
         <Link href="/dashboard" className="flex items-center gap-3 group">
-          <div className="flex items-center justify-center size-10 rounded-2xl bg-primary text-white shadow-[0_14px_30px_-16px_var(--color-primary)] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:-translate-y-0.5">
-            <span className="material-symbols-outlined text-[21px]">route</span>
+          <div className="flex size-10 items-center justify-center rounded-2xl bg-primary text-white shadow-[0_14px_30px_-16px_var(--color-primary)] transition-colors duration-200">
+            <span aria-hidden="true" className="material-symbols-outlined text-[21px]">route</span>
           </div>
           <div className="flex min-w-0 flex-col">
             <h1 className="text-[17px] font-semibold tracking-[-0.05em] text-text-main">{APP_CONFIG.name}</h1>
@@ -70,7 +71,7 @@ export default function Sidebar({ onClose }) {
           {systemItems.map(link)}
         </div>
       </nav>
-      <div className="m-1 rounded-xl bg-surface/70 p-3 ring-1 ring-border-subtle">
+      <div className="m-1 rounded-xl bg-surface/70 p-3 ring-1 ring-border-subtle" role="status">
         <div className="flex items-center gap-2 text-xs font-medium text-text-main">
           <span className="size-2 rounded-full bg-success" />
           Workspace online
