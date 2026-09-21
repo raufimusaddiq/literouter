@@ -126,15 +126,15 @@ export default function LoginPage() {
                 <span aria-hidden="true" className="material-symbols-outlined">route</span>
               </div>
               <div>
-                <p className="text-base font-semibold tracking-[-0.04em] text-text-main">LiteRouter</p>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">Control plane</p>
+                <p className="text-base font-semibold tracking-[-0.04em] text-white">LiteRouter</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">Control plane</p>
               </div>
             </div>
             <p className="page-kicker mt-20">Route with intent</p>
-            <h1 className="mt-3 max-w-md text-4xl font-semibold leading-[1.05] tracking-[-0.06em] text-text-main">Your providers. One calm control surface.</h1>
-            <p className="mt-5 max-w-sm text-sm leading-6 text-text-muted">Manage keys, provider health, usage, and quota without changing the client endpoint.</p>
+            <h1 className="mt-3 max-w-md text-4xl font-semibold leading-[1.05] tracking-[-0.06em] text-white">Your providers. One calm control surface.</h1>
+            <p className="mt-5 max-w-sm text-sm leading-6 text-white/55">Manage keys, provider health, usage, and quota without changing the client endpoint.</p>
           </div>
-          <div className="relative z-10 grid grid-cols-3 gap-2 text-xs text-text-muted">
+          <div className="relative z-10 grid grid-cols-3 gap-2 text-xs text-white/55">
             <div className="rounded-xl bg-surface/70 p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-success" />Provider health</div>
             <div className="rounded-xl bg-surface/70 p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-primary" />Fallback routes</div>
             <div className="rounded-xl bg-surface/70 p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-warning" />Quota signals</div>

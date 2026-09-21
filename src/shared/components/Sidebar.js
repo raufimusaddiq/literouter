@@ -35,8 +35,8 @@ export default function Sidebar({ onClose }) {
       className={cn(
         "group relative flex min-h-11 touch-manipulation items-center gap-3 rounded-xl px-3 py-2.5 transition-[background-color,color] duration-200 focus-visible:outline-2 focus-visible:outline-primary",
         isActive(item.href)
-          ? "bg-primary/10 text-primary before:absolute before:left-0 before:top-2 before:h-7 before:w-0.5 before:rounded-full before:bg-primary"
-          : "text-text-muted hover:bg-surface-2/80 hover:text-text-main"
+          ? "bg-primary/15 text-primary before:absolute before:left-0 before:top-2 before:h-7 before:w-0.5 before:rounded-full before:bg-primary"
+          : "text-white/60 hover:bg-white/[0.07] hover:text-white"
       )}
     >
       <span className={cn(
@@ -50,33 +50,33 @@ export default function Sidebar({ onClose }) {
   );
 
   return (
-    <aside className="flex h-full w-[18.5rem] min-h-0 flex-col overflow-hidden rounded-[1.5rem] bg-sidebar p-3 ring-1 ring-border-subtle transition-colors duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]">
+    <aside className="relative flex h-full w-[18.5rem] min-h-0 flex-col overflow-hidden rounded-[1.5rem] bg-sidebar p-3 text-white ring-1 ring-white/10 shadow-[var(--shadow-elevated)] transition-colors duration-300">
       <div className="px-3 py-4">
         <Link href="/dashboard" className="flex items-center gap-3 group">
-          <div className="flex size-10 items-center justify-center rounded-2xl bg-primary text-white shadow-[0_14px_30px_-16px_var(--color-primary)] transition-colors duration-200">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-white shadow-[0_14px_30px_-16px_var(--color-primary)] transition-colors duration-200">
             <span aria-hidden="true" className="material-symbols-outlined text-[21px]">route</span>
           </div>
           <div className="flex min-w-0 flex-col">
-            <h1 className="text-[17px] font-semibold tracking-[-0.05em] text-text-main">{APP_CONFIG.name}</h1>
-            <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-text-muted">Control plane</span>
+            <h1 className="text-[17px] font-semibold tracking-[-0.05em] text-white">{APP_CONFIG.name}</h1>
+            <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-white/45">Control plane</span>
           </div>
         </Link>
       </div>
-      <div className="mx-3 h-px bg-border-subtle" />
+      <div className="mx-3 h-px bg-white/10" />
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-1 py-5 custom-scrollbar">
-        <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted/60">Workspace</p>
+        <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Workspace</p>
         {navItems.map(link)}
         <div className="pt-3 mt-2 space-y-0.5">
-          <p className="px-3 text-[10px] font-semibold text-text-muted/60 uppercase tracking-[0.18em] mb-2">System</p>
+          <p className="px-3 text-[10px] font-semibold text-white/35 uppercase tracking-[0.18em] mb-2">System</p>
           {systemItems.map(link)}
         </div>
       </nav>
-      <div className="m-1 rounded-xl bg-surface/70 p-3 ring-1 ring-border-subtle" role="status" aria-label="Workspace status">
-        <div className="flex items-center gap-2 text-xs font-medium text-text-main">
+      <div className="m-1 rounded-xl bg-white/[0.06] p-3 ring-1 ring-white/10" role="status" aria-label="Workspace status">
+        <div className="flex items-center gap-2 text-xs font-medium text-white">
           <span className="size-2 rounded-full bg-success" />
           Workspace online
         </div>
-        <p className="mt-1 text-[11px] leading-4 text-text-muted">Routes, keys, and provider state stay local.</p>
+        <p className="mt-1 text-[11px] leading-4 text-white/50">Routes, keys, and provider state stay local.</p>
       </div>
     </aside>
   );
