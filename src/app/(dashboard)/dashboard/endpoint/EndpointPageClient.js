@@ -22,8 +22,13 @@ export default function APIPageClient({ machineId }) {
   const [visibleKeys, setVisibleKeys] = useState(new Set());
 
   // Client-side local/remote detection (UI hint only, not a security gate)
-  const isRemoteHost = typeof window !== "undefined"
-    && !["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  const [isRemoteHost, setIsRemoteHost] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setIsRemoteHost(!["localhost", "127.0.0.1", "::1"].includes(window.location.hostname));
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, []);
 
   const { copied, copy } = useCopyToClipboard();
 
