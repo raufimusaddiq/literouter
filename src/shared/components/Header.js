@@ -134,8 +134,10 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
           <button
+            type="button"
             onClick={onMenuClick}
-            className="text-text-main hover:text-primary transition-colors"
+            className="flex size-10 items-center justify-center rounded-lg text-text-main transition-colors hover:bg-surface-2 hover:text-primary"
+            aria-label="Open navigation"
           >
             <span className="material-symbols-outlined">menu</span>
           </button>
@@ -230,6 +232,7 @@ function HeaderSearch() {
       </span>
       <input
         type="text"
+        aria-label={placeholder || "Search"}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
@@ -239,7 +242,7 @@ function HeaderSearch() {
         <button
           type="button"
           onClick={() => setQuery("")}
-          className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main p-0.5 rounded"
+          className="absolute right-0.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-text-muted hover:bg-surface-2 hover:text-text-main"
           aria-label="Clear search"
         >
           <span className="material-symbols-outlined text-[16px]">close</span>

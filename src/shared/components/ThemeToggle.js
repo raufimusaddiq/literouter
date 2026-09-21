@@ -24,12 +24,14 @@ export default function ThemeToggle({ className, variant = "default" }) {
 
   return (
     <button
+      type="button"
       onClick={toggleTheme}
       className={cn(variants[variant], className)}
       aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
       title={`Switch to ${isDark ? "light" : "dark"} mode`}
     >
-      <span
+        <span
+          aria-hidden="true"
         className={cn(
           "material-symbols-outlined text-[22px]",
           variant === "card" && "transition-transform duration-300 group-hover:rotate-12"

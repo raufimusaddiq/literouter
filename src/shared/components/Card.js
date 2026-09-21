@@ -25,9 +25,9 @@ export default function Card({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-[1.125rem] bg-surface ring-1 ring-border-subtle",
+        "relative rounded-2xl bg-surface ring-1 ring-border-subtle",
         elev ? "shadow-[var(--shadow-elev)]" : "shadow-[var(--shadow-soft)]",
-        hover && "hover:-translate-y-0.5 hover:shadow-[var(--shadow-elev)] hover:ring-brand-500/30 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer",
+        hover && "hover:ring-brand-500/30 transition-colors duration-200 cursor-pointer",
         paddings[padding],
         className
       )}
@@ -38,7 +38,7 @@ export default function Card({
           <div className="flex items-center gap-3">
             {icon && (
               <div className="p-2 rounded-[10px] bg-bg text-text-muted">
-                <span className="material-symbols-outlined text-[20px]">{icon}</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">{icon}</span>
               </div>
             )}
             <div>
@@ -104,7 +104,7 @@ Card.ListItem = function CardListItem({
     >
       <div className="flex-1 min-w-0">{children}</div>
       {actions && (
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           {actions}
         </div>
       )}

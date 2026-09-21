@@ -12,8 +12,8 @@ const variants = {
 };
 
 const sizes = {
-  sm: "h-8 px-3 text-xs rounded-lg",
-  md: "h-9 px-4 text-sm rounded-xl",
+  sm: "min-h-9 px-3 text-xs rounded-lg",
+  md: "min-h-10 px-4 text-sm rounded-xl",
   lg: "h-11 px-5 text-sm rounded-xl",
 };
 
@@ -32,8 +32,8 @@ export default function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 font-semibold transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer",
-        "active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
+        "inline-flex items-center justify-center gap-2 font-semibold transition-colors duration-200 ease-out cursor-pointer",
+        "disabled:opacity-50 disabled:cursor-not-allowed",
         variants[variant],
         sizes[size],
         fullWidth && "w-full",
@@ -43,13 +43,13 @@ export default function Button({
       {...props}
     >
       {loading ? (
-        <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+        <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
       ) : icon ? (
-        <span className="material-symbols-outlined text-[18px]">{icon}</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{icon}</span>
       ) : null}
       {children}
       {iconRight && !loading && (
-        <span className="material-symbols-outlined text-[18px]">{iconRight}</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{iconRight}</span>
       )}
     </button>
   );

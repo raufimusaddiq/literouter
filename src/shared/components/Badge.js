@@ -36,6 +36,7 @@ export default function Badge({
     >
       {dot && (
         <span
+          aria-hidden="true"
           className={cn(
             "size-1.5 rounded-full",
             variant === "success" && "bg-green-500",
@@ -47,7 +48,7 @@ export default function Badge({
           )}
         />
       )}
-      {icon && <span className="material-symbols-outlined text-[14px]">{icon}</span>}
+      {icon && <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{icon}</span>}
       {children}
     </span>
   );
