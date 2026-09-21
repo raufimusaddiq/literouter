@@ -164,6 +164,7 @@ export default function LoginPage() {
                 <Input
                   type="password"
                   placeholder="Enter new password"
+                  autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -182,6 +183,7 @@ export default function LoginPage() {
                 <Input
                   type="password"
                   placeholder="Enter password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
