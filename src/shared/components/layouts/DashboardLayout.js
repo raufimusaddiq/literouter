@@ -92,9 +92,9 @@ export default function DashboardLayout({ children }) {
         </div>
 
         {/* Main workspace */}
-        <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] bg-surface ring-1 ring-border-subtle shadow-[var(--shadow-elevated)] transition-colors duration-300">
+        <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] bg-bg ring-1 ring-border-subtle shadow-[var(--shadow-elevated)] transition-colors duration-300">
           <Header key={pathname} onMenuClick={() => setSidebarOpen(true)} />
-          <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
             <div className="mx-auto w-full max-w-[96rem]">{children}</div>
           </div>
         </main>

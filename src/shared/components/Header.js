@@ -129,7 +129,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   };
 
   return (
-    <header className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-surface px-4 py-3 lg:px-8">
+    <header className="flex min-h-[4.75rem] shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-bg px-4 py-3 lg:px-10">
       {/* Mobile menu button */}
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
@@ -186,14 +186,14 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
           </div>
         ) : title ? (
           <div>
-            <p className="mb-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted lg:block">LiteRouter / workspace</p>
+            <p className="mb-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-primary lg:block">LiteRouter / workspace</p>
             <div className="flex items-center gap-2">
               {icon && (
-                <span aria-hidden="true" className="material-symbols-outlined text-primary text-xl lg:text-2xl">
-                  {icon}
+                <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{icon}</span>
                 </span>
               )}
-              <h1 className="text-base font-semibold tracking-[-0.04em] lg:text-[1.65rem] truncate">
+              <h1 className="truncate text-lg font-semibold tracking-[-0.05em] lg:text-[1.9rem]">
                 {translate(title)}
               </h1>
             </div>
@@ -208,6 +208,10 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
 
       {/* Right actions */}
       <div className="flex items-center gap-1 shrink-0">
+        <div className="mr-2 hidden items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-[11px] font-semibold text-text-muted ring-1 ring-border-subtle sm:flex">
+          <span className="size-1.5 rounded-full bg-success" />
+          Live plane
+        </div>
         <HeaderSearch />
         <ThemeToggle />
         <HeaderLanguage />
