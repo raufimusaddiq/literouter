@@ -473,21 +473,24 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         </div>
       )}
 
-      {/* Overview cards + provider topology */}
+      {/* Overview cards */}
+      {loading ? spinner : <OverviewCards stats={stats} />}
+
+      {/* Provider topology + recent requests */}
       {loading ? spinner : (
-        <OverviewCards stats={stats} breakdown={<ProviderTopology
-          providers={providers}
-          activeRequests={stats.activeRequests || []}
-          lastProvider={stats.recentRequests?.[0]?.provider || ""}
-          errorProvider={stats.errorProvider || ""}
-        />} />
+        <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+          <ProviderTopology
+            providers={providers}
+            activeRequests={stats.activeRequests || []}
+            lastProvider={stats.recentRequests?.[0]?.provider || ""}
+            errorProvider={stats.errorProvider || ""}
+          />
+          <RecentRequests requests={stats.recentRequests || []} onOpenDetails={onOpenDetails} />
+        </div>
       )}
 
       {/* Token / Cost chart - sync period */}
       {loading ? spinner : <UsageChart period={period} />}
-
-      {/* Recent requests + table with dropdown selector */}
-      {loading ? spinner : <RecentRequests requests={stats.recentRequests || []} onOpenDetails={onOpenDetails} />}
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
