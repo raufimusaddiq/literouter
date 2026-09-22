@@ -8,7 +8,7 @@ const fmtCost = (n) => `$${(n || 0).toFixed(2)}`;
 
 export default function OverviewCards({ stats, breakdown }) {
   return (
-    <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(18rem,1.05fr)_minmax(0,1.95fr)]">
+    <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
       <div className="flex min-w-0 flex-col gap-3">
         <Card className="flex flex-col justify-between gap-3 bg-primary/[0.08] px-5 py-4 ring-primary/20">
           <span className="text-xs font-semibold text-text-muted">Total requests</span>

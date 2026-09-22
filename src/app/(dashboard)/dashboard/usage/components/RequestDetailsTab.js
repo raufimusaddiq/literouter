@@ -248,7 +248,71 @@ export default function RequestDetailsTab() {
       </Card>
 
       <Card padding="none">
-        <div className="overflow-x-auto">
+        {/* Mobile: card list. Table below is desktop-only. */}
+        <ul className="divide-y divide-black/5 dark:divide-white/5 lg:hidden">
+          {loading ? (
+            <li className="flex items-center justify-center gap-2 p-8 text-sm text-text-muted">
+              <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+              Loading...
+            </li>
+          ) : details.length === 0 ? (
+            <li className="p-8 text-center text-sm text-text-muted">No request details found</li>
+          ) : (
+            details.map((detail, index) => (
+              <li key={`m-${detail.id}-${index}`} className="flex flex-col gap-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-mono text-sm text-text-main">{detail.model}</p>
+                    <p className="mt-0.5 truncate text-xs text-text-muted">{getProviderName(detail.provider, providerNameCache)}</p>
+                  </div>
+                  <span className={cn(
+                    "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
+                    detail.status === "success" ? "bg-success/15 text-success" : "bg-danger/15 text-danger"
+                  )}>
+                    {detail.status || "unknown"}
+                  </span>
+                </div>
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                  <div>
+                    <dt className="text-text-muted">Timestamp</dt>
+                    <dd className="mt-0.5 text-text-main">{new Date(detail.timestamp).toLocaleString()}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-text-muted">Latency</dt>
+                    <dd className="mt-0.5 font-mono text-text-main">
+                      TTFT {detail.latency?.ttft || 0}ms / {detail.latency?.total || 0}ms
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-text-muted">Input</dt>
+                    <dd className="mt-0.5 font-mono text-text-main">{getInputTokens(detail.tokens).toLocaleString()}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-text-muted">Output</dt>
+                    <dd className="mt-0.5 font-mono text-text-main">{(detail.tokens?.completion_tokens || 0).toLocaleString()}</dd>
+                  </div>
+                  {getCachedTokens(detail.tokens) > 0 && (
+                    <div>
+                      <dt className="text-text-muted">Cached</dt>
+                      <dd className="mt-0.5 font-mono text-text-main">{getCachedTokens(detail.tokens).toLocaleString()}</dd>
+                    </div>
+                  )}
+                  {getCacheCreationTokens(detail.tokens) > 0 && (
+                    <div>
+                      <dt className="text-text-muted">Cache creation</dt>
+                      <dd className="mt-0.5 font-mono text-text-main">{getCacheCreationTokens(detail.tokens).toLocaleString()}</dd>
+                    </div>
+                  )}
+                </dl>
+                <Button variant="outline" size="sm" onClick={() => handleViewDetail(detail)} className="w-full">
+                  Detail
+                </Button>
+              </li>
+            ))
+          )}
+        </ul>
+
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full min-w-[880px]">
             <thead>
               <tr className="border-b border-black/5 dark:border-white/5">

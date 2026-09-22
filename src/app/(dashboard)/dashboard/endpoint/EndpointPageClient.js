@@ -212,7 +212,7 @@ export default function APIPageClient({ machineId }) {
         )}
       />
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(20rem,0.78fr)_minmax(0,1.22fr)] xl:items-start">
+      <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-[minmax(20rem,0.78fr)_minmax(0,1.22fr)] xl:items-start">
       {/* Endpoint Card */}
       <Card className="xl:sticky xl:top-0">
         <h2 className="mb-4 flex items-center gap-2 text-base font-semibold sm:text-lg">
@@ -418,19 +418,20 @@ export default function APIPageClient({ machineId }) {
         onClose={() => setCreatedKey(null)}
       >
         <div className="flex flex-col gap-4">
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2 font-medium">
+          <div className="rounded-lg border border-warning/30 bg-warning/10 p-4">
+            <p className="mb-2 flex items-center gap-2 text-sm font-medium text-warning">
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">key</span>
               Save this key now!
             </p>
-            <p className="text-sm text-yellow-700 dark:text-yellow-300">
+            <p className="text-sm text-text-muted">
               This is the only time you will see this key. Store it securely.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex min-w-0 flex-wrap gap-2 sm:flex-nowrap">
             <Input
               value={createdKey || ""}
               readOnly
-              className="flex-1 font-mono text-sm"
+              className="min-w-0 flex-1 basis-full font-mono text-sm sm:basis-auto"
             />
             <Button
               variant="secondary"
