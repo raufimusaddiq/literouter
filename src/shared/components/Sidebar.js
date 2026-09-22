@@ -7,6 +7,7 @@ import { cn } from "@/shared/utils/cn";
 import { APP_CONFIG } from "@/shared/constants/config";
 
 const navItems = [
+  { href: "/dashboard", label: "Overview", icon: "dashboard" },
   { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "api" },
   { href: "/dashboard/systemone", label: "System One", icon: "account_tree" },
   { href: "/dashboard/providers", label: "Providers", icon: "dns" },
@@ -23,8 +24,8 @@ const systemItems = [
 
 export default function Sidebar({ onClose }) {
   const pathname = usePathname();
-  const isActive = (href) => href === "/dashboard/endpoint"
-    ? pathname === "/dashboard" || pathname.startsWith(href)
+  const isActive = (href) => href === "/dashboard"
+    ? pathname === "/dashboard"
     : pathname.startsWith(href);
   const link = (item) => (
     <Link
