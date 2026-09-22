@@ -420,7 +420,7 @@ export default function ProfilePage() {
                   type="button"
                   onClick={() => setTheme(option)}
                   className={cn(
-                    "flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md font-medium transition-all flex-1 sm:flex-initial",
+                    "flex min-h-11 items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 rounded-md font-medium transition-colors flex-1 sm:flex-initial",
                     theme === option
                       ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
                       : "text-text-muted hover:text-text-main"

@@ -521,7 +521,7 @@ export default function ModelSelectModal({
                     key={combo.id}
                     onClick={() => handleSelect({ id: combo.name, name: combo.name, value: combo.name })}
                     className={`
-                      px-2 py-1 rounded-xl text-xs font-medium transition-all border hover:cursor-pointer flex items-center gap-1
+                      min-h-11 px-2 rounded-xl text-xs font-medium transition-colors border hover:cursor-pointer flex items-center gap-1
                       ${isSelected
                         ? "bg-primary text-primary-foreground border-primary"
                         : addedModelValues.includes(combo.name)
@@ -571,7 +571,7 @@ export default function ModelSelectModal({
                     onClick={() => handleSelect(model)}
                     title={isPlaceholder ? "Select to pre-fill, then edit model ID in the input" : undefined}
                     className={`
-                      px-2 py-1 rounded-xl text-xs font-medium transition-all border hover:cursor-pointer
+                      min-h-11 px-2 rounded-xl text-xs font-medium transition-colors border hover:cursor-pointer
                       ${isPlaceholder
                         ? "border-dashed border-border text-text-muted hover:border-primary/50 hover:text-primary bg-surface italic"
                         : isSelected

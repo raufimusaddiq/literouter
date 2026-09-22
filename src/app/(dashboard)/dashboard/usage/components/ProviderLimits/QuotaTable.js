@@ -183,7 +183,7 @@ export default function QuotaTable({
                   quota.remaining === 0 ? "border-black/10 dark:border-white/10" : "border-transparent"
                 }`}>
                   <div
-                    className={`h-full transition-all duration-300 ${colors.bg}`}
+                    className={`h-full transition-[width] duration-300 ${colors.bg}`}
                     style={{ width: `${Math.min(quota.remaining, 100)}%` }}
                   />
                 </div>

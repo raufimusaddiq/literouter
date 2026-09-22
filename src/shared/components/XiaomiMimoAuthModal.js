@@ -202,10 +202,10 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
         {/* Not found — offer OAuth fallback */}
         {phase === "not-found" && (
           <>
-            <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+            <div className="bg-warning/10 p-3 rounded-lg border border-warning/30">
               <div className="flex gap-2 items-start">
-                <span className="material-symbols-outlined text-amber-600 dark:text-amber-400">info</span>
-                <div className="text-sm text-amber-800 dark:text-amber-200">
+                <span className="material-symbols-outlined text-warning">info</span>
+                <div className="text-sm text-text-muted">
                   <p className="font-medium">Local credentials not found</p>
                   <p className="mt-1 opacity-80">{error}</p>
                   <p className="mt-2 opacity-80">

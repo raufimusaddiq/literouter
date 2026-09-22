@@ -5,7 +5,7 @@ import ThemeToggle from "../ThemeToggle";
 
 export default function AuthLayout({ children }) {
   return (
-    <div className="min-h-screen flex flex-col relative bg-bg transition-colors duration-500 overflow-x-hidden selection:bg-primary/20 selection:text-primary">
+    <div className="min-h-dvh flex flex-col relative bg-bg transition-colors duration-500 overflow-x-hidden selection:bg-primary/20 selection:text-primary">
 
       {/* Theme toggle */}
       <div className="absolute top-6 right-6 z-20">

@@ -6,6 +6,9 @@
 /* Hide icon ligature text until font is ready */
 .material-symbols-outlined { opacity: 0; }
 .fonts-loaded .material-symbols-outlined { opacity: 1; transition: opacity .12s ease-out; }
+/* Fail-open: if the icon font never loads, reveal ligature text instead of leaving icon-only controls blank. */
+@keyframes ms-fallback { to { opacity: 1; } }
+.material-symbols-outlined { animation: ms-fallback 0s linear 2s forwards; }
 
 /* LiteRouter: neutral instrument panel; color carries state, not decoration. */
 :root {

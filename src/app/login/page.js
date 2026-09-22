@@ -107,7 +107,7 @@ export default function LoginPage() {
 
   if (hasPassword === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg p-4">
+      <div className="min-h-dvh flex items-center justify-center bg-bg p-4">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           <p className="text-text-muted mt-4">Loading...</p>
@@ -117,7 +117,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="dashboard-backdrop flex min-h-screen items-center justify-center overflow-hidden p-4 sm:p-6">
+    <div className="dashboard-backdrop flex min-h-dvh items-center justify-center overflow-hidden p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
       <div className="grid w-full max-w-6xl overflow-hidden border-y border-border-subtle bg-surface lg:grid-cols-[1.05fr_0.95fr] lg:border-x">
         <section className="relative hidden min-h-[34rem] overflow-hidden bg-surface-2 p-10 lg:flex lg:flex-col lg:justify-between">
           <div className="relative z-10">
@@ -156,7 +156,7 @@ export default function LoginPage() {
         <Card className="shadow-none">
           {mustChange ? (
             <form onSubmit={handleSetNewPassword} className="flex flex-col gap-4">
-              <p className="text-sm text-amber-600 dark:text-amber-400 text-center">
+              <p className="text-sm text-warning text-center">
                 Set a new password before accessing the dashboard remotely.
               </p>
               <div className="flex flex-col gap-2">
@@ -191,7 +191,7 @@ export default function LoginPage() {
                 />
                 {error && <p className="text-xs text-red-500">{error}</p>}
                 {retryAfter > 0 && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                  <p className="text-xs text-warning">
                     Locked. Retry in <span className="font-mono">{retryAfter}s</span>.
                   </p>
                 )}
@@ -210,7 +210,7 @@ export default function LoginPage() {
                 Default password is <code className="bg-sidebar px-1 rounded">123456</code>
               </p>
               {hasPassword === false && (
-                <p className="text-xs text-center text-amber-600 dark:text-amber-400">
+                <p className="text-xs text-center text-warning">
                   Security risk: no password set. You will be asked to set one when logging in remotely.
                 </p>
               )}

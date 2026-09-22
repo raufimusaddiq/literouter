@@ -21,7 +21,7 @@ function getToastStyle(type) {
   }
   if (type === "warning") {
     return {
-      wrapper: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      wrapper: "border-warning/30 bg-warning/10 text-warning",
       icon: "warning",
     };
   }
@@ -38,7 +38,7 @@ export default function DashboardLayout({ children }) {
   const removeNotification = useNotificationStore((state) => state.removeNotification);
 
   return (
-    <div className="dashboard-backdrop h-[100dvh] w-full overflow-hidden">
+    <div className="dashboard-backdrop h-[100dvh] w-full overflow-hidden [padding:env(safe-area-inset-top)_env(safe-area-inset-right)_env(safe-area-inset-bottom)_env(safe-area-inset-left)]">
       <a
         href="#main-content"
         className="sr-only fixed left-3 top-3 z-[100] rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground focus:not-sr-only"

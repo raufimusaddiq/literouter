@@ -645,7 +645,7 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
       {/* Remove */}
       <button
         onClick={onRemove}
-        className="p-0.5 hover:bg-red-500/10 rounded text-text-muted hover:text-red-500 transition-all"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-muted hover:bg-red-500/10 hover:text-red-500 transition-colors"
         title="Remove"
       >
         <span className="material-symbols-outlined text-[12px]">close</span>
