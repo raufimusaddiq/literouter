@@ -205,8 +205,8 @@ export default function APIPageClient({ machineId }) {
         title="One endpoint. Every provider."
         description="Keep the client contract stable while LiteRouter handles provider credentials, fallback, and quota state behind it."
         action={(
-          <div className="flex shrink-0 items-center gap-2 border-l-2 border-border pl-3">
-            <span className={`size-2 rounded-full ${endpointSecure ? "bg-success" : "bg-warning"}`} />
+          <div className="flex items-center gap-2 lg:border-l-2 lg:border-border lg:pl-3">
+            <span className={`size-2 shrink-0 rounded-full ${endpointSecure ? "bg-success" : "bg-warning"}`} />
             <span className="text-xs font-semibold text-text-main">{endpointSecure ? "Protected endpoint" : "Review endpoint security"}</span>
           </div>
         )}
@@ -215,7 +215,7 @@ export default function APIPageClient({ machineId }) {
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(20rem,0.78fr)_minmax(0,1.22fr)] xl:items-start">
       {/* Endpoint Card */}
       <Card className="xl:sticky xl:top-0">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        <h2 className="mb-4 flex items-center gap-2 text-base font-semibold sm:text-lg">
           <span className="material-symbols-outlined text-primary">api</span>
           API Endpoint
         </h2>
@@ -260,8 +260,8 @@ export default function APIPageClient({ machineId }) {
 
       {/* API Keys */}
       <Card id="require-api-key">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-base font-semibold sm:text-lg">
             <span className="material-symbols-outlined text-primary">vpn_key</span>
             API Keys
           </h2>
@@ -270,7 +270,7 @@ export default function APIPageClient({ machineId }) {
           </Button>
         </div>
 
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
+        <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-4">
           <div>
             <p className="font-medium">Require API key</p>
             <p className="text-sm text-text-muted">
@@ -305,12 +305,12 @@ export default function APIPageClient({ machineId }) {
             {keys.map((key) => (
               <div
                 key={key.id}
-                className={`group flex items-center justify-between py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 ${key.isActive === false ? "opacity-60" : ""}`}
+                className={`group flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.03] py-3 last:border-b-0 dark:border-white/[0.03] ${key.isActive === false ? "opacity-60" : ""}`}
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{key.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <code className="text-xs text-text-muted font-mono">
+                  <div className="mt-1 flex min-w-0 items-center gap-1">
+                    <code className="min-w-0 truncate font-mono text-xs text-text-muted">
                       {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
                     </code>
                     <button

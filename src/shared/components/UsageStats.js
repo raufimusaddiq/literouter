@@ -39,12 +39,21 @@ function TimeAgo({ timestamp }) {
   return <>{timeAgo(timestamp)}</>;
 }
 
-function RecentRequests({ requests = [] }) {
+function RecentRequests({ requests = [], onOpenDetails }) {
   return (
-    <Card className="flex min-w-0 flex-col overflow-hidden" padding="sm" style={{ height: 480 }}>
+    <Card className="flex min-w-0 flex-col overflow-hidden" padding="sm">
       {/* Header */}
-      <div className="px-1 py-2 border-b border-border shrink-0">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-1 py-2 shrink-0">
         <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Recent Requests</span>
+        {onOpenDetails ? (
+          <button
+            type="button"
+            onClick={onOpenDetails}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            View details
+          </button>
+        ) : null}
       </div>
 
       {!requests.length ? (
@@ -200,7 +209,7 @@ const PERIODS = [
   { value: "60d", label: "60D" },
 ];
 
-export default function UsageStats({ period: periodProp, setPeriod: setPeriodProp, hidePeriodSelector = false } = {}) {
+export default function UsageStats({ period: periodProp, setPeriod: setPeriodProp, hidePeriodSelector = false, onOpenDetails } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -464,26 +473,22 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         </div>
       )}
 
-      {/* Overview cards */}
-      {loading ? spinner : <OverviewCards stats={stats} />}
-
-      {/* Provider topology + Recent Requests */}
+      {/* Overview cards + provider topology */}
       {loading ? spinner : (
-        <div className="grid min-w-0 grid-cols-1 items-stretch gap-2 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-          <ProviderTopology
-            providers={providers}
-            activeRequests={stats.activeRequests || []}
-            lastProvider={stats.recentRequests?.[0]?.provider || ""}
-            errorProvider={stats.errorProvider || ""}
-          />
-          <RecentRequests requests={stats.recentRequests || []} />
-        </div>
+        <OverviewCards stats={stats} breakdown={<ProviderTopology
+          providers={providers}
+          activeRequests={stats.activeRequests || []}
+          lastProvider={stats.recentRequests?.[0]?.provider || ""}
+          errorProvider={stats.errorProvider || ""}
+        />} />
       )}
 
       {/* Token / Cost chart - sync period */}
       {loading ? spinner : <UsageChart period={period} />}
 
-      {/* Table with dropdown selector */}
+      {/* Recent requests + table with dropdown selector */}
+      {loading ? spinner : <RecentRequests requests={stats.recentRequests || []} onOpenDetails={onOpenDetails} />}
+
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <select
