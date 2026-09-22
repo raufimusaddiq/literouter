@@ -129,7 +129,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   };
 
   return (
-    <header className="flex min-h-[4.75rem] shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-bg px-4 py-3 lg:px-10">
+    <header className="flex min-h-[5.5rem] shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-bg px-4 py-3 lg:px-12">
       {/* Mobile menu button */}
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
@@ -186,7 +186,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
           </div>
         ) : title ? (
           <div>
-            <p className="mb-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-primary lg:block">LiteRouter / workspace</p>
+            <p className="mb-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-text-subtle lg:block">LiteRouter / workspace</p>
             <div className="flex items-center gap-2">
               {icon && (
                 <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">

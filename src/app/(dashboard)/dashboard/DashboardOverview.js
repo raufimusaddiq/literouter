@@ -87,20 +87,20 @@ export default function DashboardOverview() {
       )}
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]">
-        <article className="relative min-h-[18rem] overflow-hidden rounded-[18px] bg-sidebar p-6 text-white shadow-[var(--shadow-elevated)] sm:p-8">
+        <article className="relative min-h-[18rem] overflow-hidden rounded-[14px] bg-surface p-6 text-text-main ring-1 ring-border-subtle shadow-[var(--shadow-elevated)] sm:p-8">
           <div className="relative z-10 flex h-full flex-col justify-between gap-10">
             <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-white/60"><span className="size-2 rounded-full bg-success" />Route plane online</div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-text-muted"><span className="size-2 rounded-full bg-success" />Route plane online</div>
               <Badge variant={protectedEndpoint ? "success" : "warning"} size="sm" dot>{protectedEndpoint ? "Protected" : "Review security"}</Badge>
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Primary endpoint</p>
               <h3 className="mt-3 max-w-xl text-3xl font-semibold leading-[1.05] tracking-[-0.06em] sm:text-5xl">Everything routes through here.</h3>
-              <p className="mt-4 max-w-lg text-sm leading-6 text-white/60">One OpenAI-compatible surface for provider credentials, fallback, and request observability.</p>
+              <p className="mt-4 max-w-lg text-sm leading-6 text-text-muted">One OpenAI-compatible surface for provider credentials, fallback, and request observability.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <code className="min-w-0 truncate rounded-lg bg-black/25 px-3 py-2 font-mono text-xs text-primary ring-1 ring-white/10">{endpoint}</code>
-              <Link href="/dashboard/endpoint" className="shrink-0 text-xs font-semibold text-white underline decoration-white/25 underline-offset-4 transition-colors hover:text-primary">Manage endpoint</Link>
+              <code className="min-w-0 truncate rounded-lg bg-bg-alt px-3 py-2 font-mono text-xs text-primary ring-1 ring-border-subtle">{endpoint}</code>
+              <Link href="/dashboard/endpoint" className="shrink-0 text-xs font-semibold text-text-main underline decoration-border underline-offset-4 transition-colors hover:text-primary">Manage endpoint</Link>
             </div>
           </div>
           <div className="pointer-events-none absolute -right-16 -top-16 size-64 rounded-full border border-primary/20" aria-hidden="true" />

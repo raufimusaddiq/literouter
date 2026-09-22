@@ -7,40 +7,40 @@
 .material-symbols-outlined { opacity: 0; }
 .fonts-loaded .material-symbols-outlined { opacity: 1; transition: opacity .12s ease-out; }
 
-/* LiteRouter: graphite control plane, one high-signal route color. */
+/* LiteRouter: porcelain workbench, one high-signal route color. */
 :root {
-  --color-brand-50: #ecfdf5;
-  --color-brand-100: #d1fae5;
-  --color-brand-200: #a7f3d0;
-  --color-brand-300: #6ee7b7;
-  --color-brand-400: #34d399;
-  --color-brand-500: #16a34a;
-  --color-brand-600: #15803d;
-  --color-brand-700: #166534;
-  --color-brand-800: #14532d;
-  --color-brand-900: #052e16;
+  --color-brand-50: #fff4ed;
+  --color-brand-100: #ffe3d2;
+  --color-brand-200: #ffc3a1;
+  --color-brand-300: #f99b72;
+  --color-brand-400: #df7048;
+  --color-brand-500: #c4552d;
+  --color-brand-600: #a74425;
+  --color-brand-700: #87371f;
+  --color-brand-800: #682b1d;
+  --color-brand-900: #411b15;
 
   /* Primary (legacy alias for backward compat with existing components) */
   --color-primary: var(--color-brand-500);
   --color-primary-hover: var(--color-brand-600);
 
   /* Surfaces & backgrounds (light) */
-  --color-bg: #f2f6f3;
-  --color-bg-alt: #e6eeea;
-  --color-surface: #fbfdfb;
-  --color-surface-2: #f0f5f2;
-  --color-surface-3: #e1ebe5;
-  --color-sidebar: #101a17;
+  --color-bg: #f5f4ef;
+  --color-bg-alt: #ebeae3;
+  --color-surface: #fcfbf8;
+  --color-surface-2: #efeee8;
+  --color-surface-3: #dfded6;
+  --color-sidebar: #e8e7df;
 
   /* Borders */
-  --color-border: #d6e2dc;
-  --color-border-subtle: #e4eee8;
+  --color-border: #d8d6cd;
+  --color-border-subtle: #e5e3db;
 
   /* Text */
-  --color-text: #10201a;
-  --color-text-main: #10201a;
-  --color-text-muted: #61736b;
-  --color-text-subtle: #8fa098;
+  --color-text: #202225;
+  --color-text-main: #202225;
+  --color-text-muted: #6d6d68;
+  --color-text-subtle: #96968f;
 
   /* Status */
   --color-danger: #cf222e;
@@ -54,47 +54,47 @@
 
   /* Shadows */
   --shadow-soft: 0 1px 2px 0 rgba(17,24,39,0.03);
-  --shadow-warm: 0 12px 30px -18px rgba(22,163,74,0.42);
-  --shadow-elevated: 0 24px 60px -32px rgba(15,35,25,0.28);
+  --shadow-warm: 0 12px 30px -18px rgba(196,85,45,0.34);
+  --shadow-elevated: 0 24px 60px -32px rgba(32,34,37,0.18);
   --shadow-elev:
     inset 0 1px 0 0 rgba(255,255,255,0.8),
     0 1px 2px rgba(15,23,42,0.03),
-    0 18px 42px -24px rgba(15,35,25,0.18);
-  --shadow-focus: 0 0 0 3px rgba(22,163,74,0.18);
+    0 18px 42px -24px rgba(32,34,37,0.14);
+  --shadow-focus: 0 0 0 3px rgba(196,85,45,0.18);
 
   color-scheme: light;
 }
 
 .dark {
-  --color-brand-50: #052e16;
-  --color-brand-100: #14532d;
-  --color-brand-200: #166534;
-  --color-brand-300: #15803d;
-  --color-brand-400: #34d399;
-  --color-brand-500: #34d399;
-  --color-brand-600: #6ee7b7;
-  --color-brand-700: #a7f3d0;
-  --color-brand-800: #d1fae5;
-  --color-brand-900: #ecfdf5;
+  --color-brand-50: #411b15;
+  --color-brand-100: #682b1d;
+  --color-brand-200: #87371f;
+  --color-brand-300: #a74425;
+  --color-brand-400: #df7048;
+  --color-brand-500: #f29a73;
+  --color-brand-600: #ffb08c;
+  --color-brand-700: #ffc3a1;
+  --color-brand-800: #ffe3d2;
+  --color-brand-900: #fff4ed;
 
-  --color-primary: #34d399;
-  --color-primary-hover: #6ee7b7;
+  --color-primary: #f29a73;
+  --color-primary-hover: #ffb08c;
 
   /* Surfaces (dark - Claude-like neutral warm) */
-  --color-bg: #09100e;
-  --color-bg-alt: #101a17;
-  --color-surface: #111b17;
-  --color-surface-2: #17251f;
-  --color-surface-3: #20332a;
-  --color-sidebar: #060c0a;
+  --color-bg: #121314;
+  --color-bg-alt: #18191a;
+  --color-surface: #1b1c1e;
+  --color-surface-2: #232426;
+  --color-surface-3: #303135;
+  --color-sidebar: #1a1b1d;
 
-  --color-border: #294036;
-  --color-border-subtle: #1d3027;
+  --color-border: #37383b;
+  --color-border-subtle: #292a2d;
 
-  --color-text: #e7f4ec;
-  --color-text-main: #e7f4ec;
-  --color-text-muted: #9bb2a5;
-  --color-text-subtle: #688073;
+  --color-text: #f1f0ec;
+  --color-text-main: #f1f0ec;
+  --color-text-muted: #a3a29c;
+  --color-text-subtle: #74746f;
 
   --color-danger: #ef4444;
   --color-success: #22c55e;
@@ -102,13 +102,13 @@
   --color-info: #60a5fa;
 
   --shadow-soft: 0 1px 2px 0 rgba(0,0,0,0.2);
-  --shadow-warm: 0 14px 34px -18px rgba(52,211,153,0.42);
+  --shadow-warm: 0 14px 34px -18px rgba(242,154,115,0.32);
   --shadow-elevated: 0 20px 48px -24px rgba(0,0,0,0.6);
   --shadow-elev:
     inset 0 1px 0 0 rgba(255,255,255,0.06),
     0 1px 2px rgba(0,0,0,0.4),
     0 16px 48px -8px rgba(0,0,0,0.45);
-  --shadow-focus: 0 0 0 3px rgba(52,211,153,0.22);
+  --shadow-focus: 0 0 0 3px rgba(242,154,115,0.22);
 
   color-scheme: dark;
 }
@@ -166,18 +166,18 @@ select {
   --color-info: var(--color-info);
 
   /* Static fallbacks (explicit per-mode usage if needed) */
-  --color-bg-light: #f5f6fa;
-  --color-bg-dark: #11121a;
-  --color-surface-light: #ffffff;
-  --color-surface-dark: #1a1c27;
-  --color-sidebar-light: #eff1f7;
-  --color-sidebar-dark: #171924;
-  --color-border-light: #e3e6ef;
-  --color-border-dark: #303344;
-  --color-text-main-light: #0a0a0a;
-  --color-text-main-dark: #ededed;
-  --color-text-muted-light: #6B7280;
-  --color-text-muted-dark: #9ca3af;
+  --color-bg-light: #f5f4ef;
+  --color-bg-dark: #121314;
+  --color-surface-light: #fcfbf8;
+  --color-surface-dark: #1b1c1e;
+  --color-sidebar-light: #e8e7df;
+  --color-sidebar-dark: #1a1b1d;
+  --color-border-light: #d8d6cd;
+  --color-border-dark: #37383b;
+  --color-text-main-light: #202225;
+  --color-text-main-dark: #f1f0ec;
+  --color-text-muted-light: #6d6d68;
+  --color-text-muted-dark: #a3a29c;
 
   /* Radius */
   --radius-brand: var(--radius-brand);
@@ -205,8 +205,6 @@ body {
 
 .dashboard-backdrop {
   background-color: var(--color-bg);
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 22%, transparent) 1px, transparent 1px);
-  background-size: 24px 24px;
 }
 
 .page-kicker {
@@ -255,7 +253,7 @@ html {
 
 /* Selection - brand-tinted */
 ::selection {
-  background-color: rgba(79, 70, 229, 0.18);
+  background-color: color-mix(in srgb, var(--color-primary) 22%, transparent);
   color: var(--color-primary);
 }
 .dark ::selection {
