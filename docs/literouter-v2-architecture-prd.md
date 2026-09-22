@@ -1259,6 +1259,56 @@ For Node main and each v2 candidate:
 - overview API latency;
 - dashboard initial usable render using a reproducible browser script.
 
+### 19.4 Prompt-cache hit preservation
+
+Prompt-cache behavior is a release-blocking compatibility surface, not an incidental translator detail.
+
+The current LiteRouter code deliberately manipulates cache boundaries to preserve high cache-hit rates, especially for Claude/Anthropic-style traffic. V2 must reproduce the **effective cache semantics** before the corresponding route can cut over. A simpler implementation that merely forwards whatever cache markers the client supplied is not considered compatible.
+
+Current behavior that must be captured in fixtures before porting includes:
+
+- Claude passthrough cache anchors are applied only after normalization and all enabled token-saver/body transforms, so the cache boundary describes the final upstream body rather than a pre-transform body.
+- the last system block is re-anchored with an ephemeral 1-hour cache marker;
+- the last cacheable tool is re-anchored with an ephemeral 1-hour cache marker;
+- a tool with defer_loading=true must not also carry cache_control;
+- the completed conversation tail is anchored on the last cache-eligible block of the latest assistant turn with the existing short-lived cache policy;
+- when no assistant turn exists yet, the opening/final eligible message is anchored so the first conversational prefix can be reused;
+- cache markers are kept within the upstream marker budget;
+- mid-conversation system content is folded in place rather than blindly hoisted ahead of the conversation when doing so would make a volatile block invalidate the stable prefix;
+- thinking/redacted-thinking blocks are not used as cache-control anchors;
+- provider quirks that require cache_control to survive an OpenAI-format normalization path remain supported.
+
+V2 must also preserve cache accounting exposed by upstream providers and by LiteRouter Usage:
+
+- cached token counts;
+- cache-read token counts;
+- cache-creation token counts where reported;
+- any provider-specific cache fields currently retained by the public/request-detail contract.
+
+Cache compatibility must be tested at the **outbound request-body level** and, where an upstream exposes cache-read/create counters deterministically enough for testing, at the observed response/Usage level.
+
+Required cache differential fixtures:
+
+1. stable system + stable tool catalog + growing conversation;
+2. first-turn request with no assistant history;
+3. subsequent turn with a previous assistant response;
+4. tool list containing defer_loading=true at the tail;
+5. requests already carrying client cache_control markers;
+6. requests at and beyond the upstream cache-marker budget;
+7. mid-conversation system/reminder blocks that vary between turns;
+8. thinking-enabled Claude requests;
+9. token-saver disabled;
+10. each retained token/body transform enabled independently and in supported combinations;
+11. account fallback retries using the same logical request;
+12. Combo fallback from a non-Claude provider to a Claude-format provider;
+13. OpenAI-compatible providers whose quirk configuration preserves cache_control.
+
+For deterministic fixtures, Node and Go outbound bodies must be compared after normalizing only values that are intentionally nondeterministic. Cache-control placement, TTL, message/tool ordering, and the cacheable prefix are **not** normalizable differences.
+
+Add a cache-stability regression harness that generates request N and request N+1 from the same conversation and verifies that the serialized upstream prefix through the intended cache breakpoint is unchanged unless a configured transform intentionally changes that prefix.
+
+The inference cutover is blocked if the Go path produces lower cache reuse than current main on the controlled cache fixture set. If a live provider is used for confirmation, compare cache-read/cache-creation counters over repeated identical-prefix requests, but do not make an unstable public-provider measurement the only correctness proof.
+
 ## 20. Correctness and test strategy
 
 ### 20.1 Contract tests
