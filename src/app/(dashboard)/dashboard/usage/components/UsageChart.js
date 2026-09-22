@@ -75,12 +75,12 @@ export default function UsageChart({ period = "7d" }) {
           <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="gradTokens" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-warning)" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="var(--color-warning)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gradCost" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.25} />
                 <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="gradCost" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--color-warning)" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="var(--color-warning)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} />
@@ -113,7 +113,7 @@ export default function UsageChart({ period = "7d" }) {
               <Area
                 type="monotone"
                 dataKey="tokens"
-                stroke="var(--color-warning)"
+                stroke="var(--color-primary)"
                 strokeWidth={2}
                 fill="url(#gradTokens)"
                 dot={false}
@@ -123,7 +123,7 @@ export default function UsageChart({ period = "7d" }) {
               <Area
                 type="monotone"
                 dataKey="cost"
-                stroke="var(--color-primary)"
+                stroke="var(--color-warning)"
                 strokeWidth={2}
                 fill="url(#gradCost)"
                 dot={false}
