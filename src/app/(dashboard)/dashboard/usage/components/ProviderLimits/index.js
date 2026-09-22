@@ -1253,6 +1253,7 @@ export default function ProviderLimits() {
                         size="sm"
                         checked={conn.isActive ?? true}
                         disabled={rowBusy}
+                        aria-label={`${conn.isActive === false ? "Enable" : "Disable"} connection ${conn.name || conn.id}`}
                         onChange={(nextActive) =>
                           handleToggleConnectionActive(conn.id, nextActive)
                         }

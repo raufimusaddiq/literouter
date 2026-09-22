@@ -271,6 +271,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
           checked={connection.isActive ?? true}
           onChange={onToggleActive}
           title={(connection.isActive ?? true) ? "Disable connection" : "Enable connection"}
+          aria-label={(connection.isActive ?? true) ? "Disable connection" : "Enable connection"}
         />
       </div>
     </div>

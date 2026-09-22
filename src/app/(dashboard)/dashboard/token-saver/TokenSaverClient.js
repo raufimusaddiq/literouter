@@ -509,6 +509,7 @@ export default function TokenSaverClient() {
           <Toggle
             checked={rtkEnabled}
             onChange={() => handleRtkEnabled(!rtkEnabled)}
+            aria-label="RETOKEN enabled"
           />
         </div>
         <div className="flex items-center justify-between py-4 gap-4 flex-wrap">
@@ -545,6 +546,7 @@ export default function TokenSaverClient() {
           <Toggle
             checked={headroomEnabled}
             onChange={() => handleHeadroomEnabled(!headroomEnabled)}
+            aria-label="Compress context"
           />
         </div>
         {headroomStatus.installed && (
@@ -575,6 +577,7 @@ export default function TokenSaverClient() {
                         checked={active}
                         disabled={restartingProxy}
                         onChange={() => toggleExtraActive(extra, !active)}
+                        aria-label={`Enable ${extra} proxy`}
                       />
                       <span className="font-medium">[{extra}]</span>
                       <button
@@ -692,6 +695,7 @@ export default function TokenSaverClient() {
             <Toggle
               checked={cavemanEnabled}
               onChange={() => handleCavemanEnabled(!cavemanEnabled)}
+              aria-label="Terse output mode"
             />
           </div>
         </div>
@@ -743,6 +747,7 @@ export default function TokenSaverClient() {
             <Toggle
               checked={ponytailEnabled}
               onChange={() => handlePonytailEnabled(!ponytailEnabled)}
+              aria-label="Ponytail mode"
             />
           </div>
         </div>
@@ -783,6 +788,7 @@ export default function TokenSaverClient() {
             checked={pxpipeEnabled}
             disabled={!pxpipeStatus.installed}
             onChange={() => handlePxpipeEnabled(!pxpipeEnabled)}
+            aria-label="PXPIPE"
           />
         </div>
         )}

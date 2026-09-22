@@ -90,6 +90,11 @@ function getCacheCreationTokens(tokens) {
   return tokens?.cache_creation_input_tokens || 0;
 }
 
+/** Treat anything that is neither missing nor an explicit success as an error. */
+function isErrorStatus(status) {
+  return !!status && status !== "success" && status !== "ok";
+}
+
 function getInputTokens(tokens) {
   const prompt = tokens?.prompt_tokens || tokens?.input_tokens || 0;
   // Canonical storage keeps prompt cache-inclusive. Legacy Claude rows may have
@@ -267,7 +272,9 @@ export default function RequestDetailsTab() {
                   </div>
                   <span className={cn(
                     "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
-                    detail.status === "success" ? "bg-success/15 text-success" : "bg-danger/15 text-danger"
+                    isErrorStatus(detail.status)
+                      ? "bg-danger/15 text-danger"
+                      : "bg-success/15 text-success"
                   )}>
                     {detail.status || "unknown"}
                   </span>

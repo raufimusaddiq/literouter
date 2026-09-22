@@ -280,6 +280,7 @@ export default function APIPageClient({ machineId }) {
           <Toggle
             checked={requireApiKey}
             onChange={() => handleRequireApiKey(!requireApiKey)}
+            aria-label="Require API key"
           />
         </div>
 
@@ -359,6 +360,7 @@ export default function APIPageClient({ machineId }) {
                       }
                     }}
                     title={key.isActive ? "Pause key" : "Resume key"}
+                    aria-label={`${key.isActive === false ? "Resume" : "Pause"} key ${key.name}`}
                   />
                   <button
                     type="button"
