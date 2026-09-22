@@ -67,7 +67,7 @@ function UsageContent() {
 
       {activeTab === "overview" && (
         <Suspense fallback={<CardSkeleton />}>
-          <UsageStats period={period} setPeriod={setPeriod} hidePeriodSelector />
+          <UsageStats period={period} setPeriod={setPeriod} hidePeriodSelector onOpenDetails={() => handleTabChange("details")} />
         </Suspense>
       )}
       {activeTab === "logs" && <RequestLogger />}
