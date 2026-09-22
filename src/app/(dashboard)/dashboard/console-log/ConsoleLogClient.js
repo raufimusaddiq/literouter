@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button } from "@/shared/components";
+import { Card, Button, PageIntro } from "@/shared/components";
 import { CONSOLE_LOG_CONFIG } from "@/shared/constants/config";
 
 const LOG_LEVEL_COLORS = {
@@ -69,21 +69,21 @@ export default function ConsoleLogClient() {
   }, [logs]);
 
   return (
-    <div>
+    <div className="flex flex-col gap-6">
+      <PageIntro eyebrow="Diagnostics" title="Watch the router speak." description="Live server events and route diagnostics from the local process." action={<Button size="sm" variant="outline" icon="delete" onClick={handleClear}>Clear log</Button>} />
       <Card padding="none" className="overflow-hidden">
         <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Live output</p>
             <p className="mt-1 text-sm text-text-main">Server events and route diagnostics.</p>
           </div>
-          <Button size="sm" variant="outline" icon="delete" onClick={handleClear}>
-            Clear
-          </Button>
+          <span className={`text-xs font-medium ${connected ? "text-success" : "text-warning"}`}>{connected ? "Streaming" : "Disconnected"}</span>
         </div>
         <div
           ref={logRef}
-          className="h-[calc(100dvh-220px)] overflow-y-auto bg-[#11121a] p-5 font-mono text-xs"
+          className="h-[calc(100dvh-260px)] overflow-y-auto bg-[#111214] p-5 font-mono text-xs"
         >
+          <div aria-live="polite" aria-atomic="false" role="status">
           {logs.length === 0 ? (
             <span className="text-text-muted">No console logs yet.</span>
           ) : (
@@ -93,6 +93,7 @@ export default function ConsoleLogClient() {
               ))}
             </div>
           )}
+          </div>
         </div>
       </Card>
     </div>

@@ -118,28 +118,28 @@ export default function LoginPage() {
 
   return (
     <div className="dashboard-backdrop flex min-h-screen items-center justify-center overflow-hidden p-4 sm:p-6">
-      <div className="grid w-full max-w-5xl overflow-hidden rounded-[1.5rem] bg-surface shadow-[var(--shadow-elevated)] ring-1 ring-border-subtle lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="relative hidden min-h-[34rem] overflow-hidden bg-sidebar p-10 lg:flex lg:flex-col lg:justify-between">
+      <div className="grid w-full max-w-6xl overflow-hidden border-y border-border-subtle bg-surface lg:grid-cols-[1.05fr_0.95fr] lg:border-x">
+        <section className="relative hidden min-h-[34rem] overflow-hidden bg-surface-2 p-10 lg:flex lg:flex-col lg:justify-between">
           <div className="relative z-10">
             <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-2xl bg-primary text-white shadow-[0_14px_30px_-16px_var(--color-primary)]">
+              <div className="flex size-11 items-center justify-center rounded-[10px] bg-primary text-white shadow-[0_14px_30px_-16px_var(--color-primary)]">
                 <span aria-hidden="true" className="material-symbols-outlined">route</span>
               </div>
               <div>
-                <p className="text-base font-semibold tracking-[-0.04em] text-white">LiteRouter</p>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">Control plane</p>
+                <p className="text-base font-semibold tracking-[-0.04em] text-text-main">LiteRouter</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">Control plane</p>
               </div>
             </div>
-            <p className="page-kicker mt-20">Route with intent</p>
-            <h1 className="mt-3 max-w-md text-4xl font-semibold leading-[1.05] tracking-[-0.06em] text-white">Your providers. One calm control surface.</h1>
-            <p className="mt-5 max-w-sm text-sm leading-6 text-white/55">Manage keys, provider health, usage, and quota without changing the client endpoint.</p>
+            <p className="page-kicker mt-20">Local routing control plane</p>
+            <h1 className="mt-3 max-w-md text-4xl font-semibold leading-[1.05] tracking-[-0.06em] text-text-main">One endpoint. Clear operational state.</h1>
+            <p className="mt-5 max-w-sm text-sm leading-6 text-text-muted">Manage keys, providers, usage, and quota without changing the client contract.</p>
           </div>
-          <div className="relative z-10 grid grid-cols-3 gap-2 text-xs text-white/55">
-            <div className="rounded-xl bg-surface/70 p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-success" />Provider health</div>
-            <div className="rounded-xl bg-surface/70 p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-primary" />Fallback routes</div>
-            <div className="rounded-xl bg-surface/70 p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-warning" />Quota signals</div>
+          <div className="relative z-10 grid grid-cols-3 gap-2 text-xs text-text-muted">
+            <div className="rounded-[8px] bg-surface p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-success" />Provider health</div>
+            <div className="rounded-[8px] bg-surface p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-primary" />Fallback routes</div>
+            <div className="rounded-[8px] bg-surface p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-warning" />Quota signals</div>
           </div>
-          <div className="landing-grid absolute inset-0 opacity-30" aria-hidden="true" />
+          <div className="landing-grid absolute inset-0 opacity-10" aria-hidden="true" />
         </section>
 
         <section className="flex items-center p-6 sm:p-10">

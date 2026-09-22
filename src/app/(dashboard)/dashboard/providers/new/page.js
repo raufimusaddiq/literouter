@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Card, Button, Input, Select, Toggle } from "@/shared/components";
+import { Card, Button, Input, Select, Toggle, PageIntro } from "@/shared/components";
 import { AI_PROVIDERS, AUTH_METHODS } from "@/shared/constants/config";
 
 const providerOptions = Object.values(AI_PROVIDERS).map((p) => ({
@@ -83,10 +83,11 @@ export default function NewProviderPage() {
           <span className="material-symbols-outlined text-lg">arrow_back</span>
           Back to Providers
         </Link>
-        <h1 className="text-3xl font-semibold tracking-tight">Add New Provider</h1>
-        <p className="text-text-muted mt-2">
-          Configure a new AI provider to use with your applications.
-        </p>
+        <PageIntro
+          eyebrow="Provider setup"
+          title="Add a provider connection."
+          description="Store credentials once, then let LiteRouter handle routing and fallback for clients."
+        />
       </div>
 
       {/* Form */}
@@ -217,4 +218,3 @@ export default function NewProviderPage() {
     </div>
   );
 }
-

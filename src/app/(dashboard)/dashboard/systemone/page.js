@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { APIKEY_PROVIDERS, supportsServiceKind } from "@/shared/constants/providers";
 import { getModelsByProviderId } from "@/shared/constants/models";
-import { Badge, Button, Card, Select } from "@/shared/components";
+import { Badge, Button, Card, Select, PageIntro } from "@/shared/components";
 
 const SAMPLE = {
   state: { message: "My card was charged twice." },
@@ -89,16 +89,12 @@ export default function SystemOnePage() {
 
   return (
     <main className="flex min-w-0 flex-col gap-7 overflow-x-hidden">
-      <div className="flex flex-col gap-4 rounded-[1.125rem] bg-surface-2 p-5 ring-1 ring-border-subtle sm:flex-row sm:items-end sm:justify-between sm:p-6">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">System One workspace</p>
-          <h1 className="mt-2 max-w-5xl text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Run a typed decision request.</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">Choose a registered provider, edit the native request, and inspect the upstream response without leaving LiteRouter.</p>
-        </div>
-        <Link href="/dashboard/providers" className="shrink-0">
-          <Button variant="secondary" icon="settings">Configure providers</Button>
-        </Link>
-      </div>
+      <PageIntro
+        eyebrow="System One workspace"
+        title="Run a typed decision request."
+        description="Choose a registered provider, edit the native request, and inspect the upstream response without leaving LiteRouter."
+        action={<Link href="/dashboard/providers" className="shrink-0"><Button variant="secondary" icon="settings">Configure providers</Button></Link>}
+      />
 
       {providers.length === 0 ? (
         <Card>

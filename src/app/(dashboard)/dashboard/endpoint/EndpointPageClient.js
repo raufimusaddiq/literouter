@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal } from "@/shared/components";
+import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal, PageIntro } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import EndpointRow from "./components/EndpointRow";
 import SecurityWarning from "./components/SecurityWarning";
@@ -200,19 +200,17 @@ export default function APIPageClient({ machineId }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <section className="relative overflow-hidden rounded-[14px] bg-primary/[0.07] p-5 ring-1 ring-primary/15 sm:p-6">
-        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="page-kicker">Routing surface</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-text-main sm:text-3xl">One endpoint. Every provider.</h2>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-text-muted">Keep the client contract stable while LiteRouter handles provider credentials, fallback, and quota state behind it.</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-xl bg-surface/80 px-3 py-2 ring-1 ring-border-subtle">
+      <PageIntro
+        eyebrow="Client contract"
+        title="One endpoint. Every provider."
+        description="Keep the client contract stable while LiteRouter handles provider credentials, fallback, and quota state behind it."
+        action={(
+          <div className="flex shrink-0 items-center gap-2 border-l-2 border-border pl-3">
             <span className={`size-2 rounded-full ${endpointSecure ? "bg-success" : "bg-warning"}`} />
             <span className="text-xs font-semibold text-text-main">{endpointSecure ? "Protected endpoint" : "Review endpoint security"}</span>
           </div>
-        </div>
-      </section>
+        )}
+      />
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(20rem,0.78fr)_minmax(0,1.22fr)] xl:items-start">
       {/* Endpoint Card */}
@@ -337,7 +335,7 @@ export default function APIPageClient({ machineId }) {
                     Created {new Date(key.createdAt).toLocaleDateString()}
                   </p>
                   {key.isActive === false && (
-                    <p className="text-xs text-orange-500 mt-1">Paused</p>
+                    <p className="text-xs text-warning mt-1">Paused</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
