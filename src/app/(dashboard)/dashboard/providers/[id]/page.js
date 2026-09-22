@@ -1581,6 +1581,7 @@ export default function ProviderDetailPage() {
                 <Toggle
                   checked={providerStrategy === "round-robin"}
                   onChange={handleRoundRobinToggle}
+                  aria-label="Round Robin routing"
                 />
                 {providerStrategy === "round-robin" && (
                   <div className="flex items-center gap-1.5">

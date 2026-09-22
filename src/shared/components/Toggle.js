@@ -9,6 +9,7 @@ export default function Toggle({
   description,
   disabled = false,
   size = "md",
+  "aria-label": ariaLabel,
   className,
 }) {
   const sizes = {
@@ -33,26 +34,28 @@ export default function Toggle({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={ariaLabel || label || undefined}
         disabled={disabled}
         onClick={handleClick}
         className={cn(
-          "relative inline-flex shrink-0 cursor-pointer rounded-full",
+          "relative inline-flex shrink-0 cursor-pointer items-center rounded-full",
+          // Keep the visual track small but guarantee a 44px touch target on phones.
+          "after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']",
           "transition-colors duration-200 ease-in-out",
-          "focus:outline-none focus:ring-2 focus:ring-brand-500/30",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
           checked ? "bg-brand-500" : "bg-surface-3",
           sizes[size].track,
           disabled && "cursor-not-allowed"
         )}
       >
-        <span
-          className={cn(
-            "pointer-events-none inline-block rounded-full bg-white shadow-sm",
-            "transform transition duration-200 ease-in-out",
-            checked ? sizes[size].translate : "translate-x-0.5",
-            sizes[size].thumb,
-            "mt-0.5"
-          )}
-        />
+      <span
+        className={cn(
+          "pointer-events-none relative inline-block rounded-full bg-white shadow-sm",
+          "transform transition duration-200 ease-in-out",
+          checked ? sizes[size].translate : "translate-x-0.5",
+          sizes[size].thumb
+        )}
+      />
       </button>
       {(label || description) && (
         <div className="flex flex-col">

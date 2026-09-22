@@ -855,6 +855,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
                   checked={!allDisabled}
                   onChange={() => {}}
                   title={allDisabled ? "Enable provider" : "Disable provider"}
+                  aria-label={allDisabled ? "Enable provider" : "Disable provider"}
                 />
               </div>
             )}
@@ -980,6 +981,7 @@ function ApiKeyProviderCard({
                   checked={!allDisabled}
                   onChange={() => {}}
                   title={allDisabled ? "Enable provider" : "Disable provider"}
+                  aria-label={allDisabled ? "Enable provider" : "Disable provider"}
                 />
               </div>
             )}
