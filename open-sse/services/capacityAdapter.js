@@ -12,7 +12,6 @@ import { getCapabilitiesForModel } from "../providers/capabilities.js";
 
 const CAPABILITY_KEYS = ["vision", "pdf", "audioInput", "videoInput"];
 const HARD_CAPS = new Set(CAPABILITY_KEYS);
-const DEFAULT_FALLBACK_MODEL = "oc/mimo-v2.5-free";
 
 // Normalize a capability entry to { enabled, roundRobin, models }. Backward-compat:
 // accept the legacy array form [{model, enabled}] (treated as enabled, fallback).
@@ -30,14 +29,11 @@ function normalizeCapEntry(entry) {
   return { enabled: false, roundRobin: false, models: [] };
 }
 
-// Resolve one capability's full config. Enabled pools with no models fall back
-// to DEFAULT_FALLBACK_MODEL so the toggle is never a no-op.
+// Resolve one capability's full config. An enabled pool with no models is a
+// no-op: the user cleared every model on purpose, and silently substituting a
+// model they cannot see or remove is worse than doing nothing.
 export function getCapacityAdapterConfig(cap, settings) {
-  const entry = normalizeCapEntry(settings?.capacityAdapter?.[cap]);
-  if (entry.enabled && entry.models.length === 0) {
-    return { ...entry, models: [DEFAULT_FALLBACK_MODEL] };
-  }
-  return entry;
+  return normalizeCapEntry(settings?.capacityAdapter?.[cap]);
 }
 
 // Flatten enabled models across all capability pools, in priority order, deduped.
