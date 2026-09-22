@@ -22,9 +22,9 @@ const DEFAULT_SETTINGS = {
   comboStickyRoundRobinLimit: 1,
   comboStrategies: {},
   capacityAdapter: {
-    vision: { enabled: true, roundRobin: false, models: [] },
+    vision: { enabled: false, roundRobin: false, models: [] },
     pdf: { enabled: false, roundRobin: false, models: [] },
-    audioInput: { enabled: true, roundRobin: false, models: [] },
+    audioInput: { enabled: false, roundRobin: false, models: [] },
     videoInput: { enabled: false, roundRobin: false, models: [] },
   },
   requireLogin: true,
