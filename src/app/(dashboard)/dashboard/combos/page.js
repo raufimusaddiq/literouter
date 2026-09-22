@@ -21,8 +21,9 @@ const CAPACITY_ADAPTER_CAPS = [
   // pdf, videoInput temporarily hidden — no translator support yet for those blocks.
   { key: "audioInput", label: "Audio", icon: "graphic_eq", desc: "Audio input" },
 ];
-const DEFAULT_FALLBACK_MODEL = "oc/mimo-v2.5-free";
-const EMPTY_CAP_ENTRY = { enabled: true, roundRobin: false, models: [] };
+// Opt-in: an adapter with no model pool does nothing, so it starts disabled
+// rather than showing an enabled switch that has no effect.
+const EMPTY_CAP_ENTRY = { enabled: false, roundRobin: false, models: [] };
 const EMPTY_CAPACITY_ADAPTER = {
   vision: { ...EMPTY_CAP_ENTRY },
   pdf: { ...EMPTY_CAP_ENTRY },
@@ -456,8 +457,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
   };
 
   const handleRemove = (index) => {
-    const next = models.filter((_, i) => i !== index);
-    patch({ models: next.length === 0 ? [DEFAULT_FALLBACK_MODEL] : next });
+    patch({ models: models.filter((_, i) => i !== index) });
   };
 
   const handleMove = (index, delta) => {
