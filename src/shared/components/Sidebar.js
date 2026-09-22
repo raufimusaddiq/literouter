@@ -6,12 +6,18 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/shared/utils/cn";
 import { APP_CONFIG } from "@/shared/constants/config";
 
-const navItems = [
+const operateItems = [
   { href: "/dashboard", label: "Overview", icon: "dashboard" },
   { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "api" },
-  { href: "/dashboard/systemone", label: "System One", icon: "account_tree" },
   { href: "/dashboard/providers", label: "Providers", icon: "dns" },
+];
+
+const routeItems = [
   { href: "/dashboard/combos", label: "Combo & Vision Adapter", icon: "layers" },
+  { href: "/dashboard/systemone", label: "System One", icon: "account_tree" },
+];
+
+const observeItems = [
   { href: "/dashboard/usage", label: "Usage", icon: "bar_chart" },
   { href: "/dashboard/quota", label: "Quota Tracker", icon: "data_usage" },
   { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
@@ -65,10 +71,18 @@ export default function Sidebar({ onClose }) {
       </div>
       <div className="mx-3 h-px bg-border-subtle" />
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-1 py-5 custom-scrollbar">
-        <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-subtle">Workspace</p>
-        {navItems.map(link)}
-        <div className="pt-3 mt-2 space-y-0.5">
-          <p className="px-3 text-[10px] font-semibold text-text-subtle uppercase tracking-[0.18em] mb-2">System</p>
+        <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-subtle">Operate</p>
+        {operateItems.map(link)}
+        <div className="mt-5 space-y-0.5">
+          <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-subtle">Route</p>
+          {routeItems.map(link)}
+        </div>
+        <div className="mt-5 space-y-0.5">
+          <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-subtle">Observe</p>
+          {observeItems.map(link)}
+        </div>
+        <div className="mt-5 space-y-0.5">
+          <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-subtle">System</p>
           {systemItems.map(link)}
         </div>
       </nav>

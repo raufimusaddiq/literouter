@@ -5,7 +5,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
-import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, ConfirmModal, CapacityBadges, Select, Toggle } from "@/shared/components";
+import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, ConfirmModal, CapacityBadges, Select, Toggle, PageIntro } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
@@ -42,6 +42,15 @@ function normalizeCapEntry(entry) {
     };
   }
   return { ...EMPTY_CAP_ENTRY };
+}
+
+function StrategyNote({ title, text }) {
+  return (
+    <div className="border-l-2 border-border pl-3">
+      <p className="text-sm font-semibold text-text-main">{title}</p>
+      <p className="mt-1 text-xs leading-5 text-text-muted">{text}</p>
+    </div>
+  );
 }
 
 export default function CombosPage() {
@@ -195,22 +204,16 @@ export default function CombosPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
-      {/* Header */}
-      <div className="flex flex-col gap-4 rounded-[1.125rem] bg-surface-2 p-5 ring-1 ring-border-subtle sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Routing strategy</p>
-          <p className="text-sm text-text-muted">
-            Group models under one name, then pick a strategy per combo:
-          </p>
-          <ul className="mt-3 flex flex-col gap-1.5 text-sm text-text-muted">
-            <li><span className="font-medium text-text-main">Fallback</span> — tries models in order (next on failure)</li>
-            <li><span className="font-medium text-text-main">Round Robin</span> — rotates models across requests to spread load</li>
-            <li><span className="font-medium text-text-main">Fusion</span> — queries all models in parallel, then a judge synthesizes one answer. Best quality, but costs the most: every request bills all panel models + the judge (N+1 calls)</li>
-          </ul>
-        </div>
-        <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto whitespace-nowrap">
-          Create Combo
-        </Button>
+      <PageIntro
+        eyebrow="Route composition"
+        title="Name the fallback path."
+        description="Bundle models under one client-facing name, then choose how LiteRouter moves through them."
+        action={<Button icon="add" onClick={() => setShowCreateModal(true)}>Create combo</Button>}
+      />
+      <div className="grid gap-3 border-b border-border-subtle pb-6 sm:grid-cols-3">
+        <StrategyNote title="Fallback" text="Try models in priority order." />
+        <StrategyNote title="Round robin" text="Spread requests across the pool." />
+        <StrategyNote title="Fusion" text="Parallel panel plus judge. Highest cost." />
       </div>
 
       {/* Combos List */}

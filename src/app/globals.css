@@ -7,30 +7,30 @@
 .material-symbols-outlined { opacity: 0; }
 .fonts-loaded .material-symbols-outlined { opacity: 1; transition: opacity .12s ease-out; }
 
-/* LiteRouter: porcelain workbench, one high-signal route color. */
+/* LiteRouter: neutral instrument panel; color carries state, not decoration. */
 :root {
-  --color-brand-50: #fff4ed;
-  --color-brand-100: #ffe3d2;
-  --color-brand-200: #ffc3a1;
-  --color-brand-300: #f99b72;
-  --color-brand-400: #df7048;
-  --color-brand-500: #c4552d;
-  --color-brand-600: #a74425;
-  --color-brand-700: #87371f;
-  --color-brand-800: #682b1d;
-  --color-brand-900: #411b15;
+  --color-brand-50: #f4f4f2;
+  --color-brand-100: #e8e8e5;
+  --color-brand-200: #d3d3cf;
+  --color-brand-300: #b5b5b0;
+  --color-brand-400: #8d8d88;
+  --color-brand-500: #292a2d;
+  --color-brand-600: #202125;
+  --color-brand-700: #17181b;
+  --color-brand-800: #101114;
+  --color-brand-900: #090a0c;
 
   /* Primary (legacy alias for backward compat with existing components) */
   --color-primary: var(--color-brand-500);
   --color-primary-hover: var(--color-brand-600);
 
   /* Surfaces & backgrounds (light) */
-  --color-bg: #f5f4ef;
-  --color-bg-alt: #ebeae3;
-  --color-surface: #fcfbf8;
-  --color-surface-2: #efeee8;
-  --color-surface-3: #dfded6;
-  --color-sidebar: #e8e7df;
+  --color-bg: #f4f4f1;
+  --color-bg-alt: #e9e9e5;
+  --color-surface: #fbfbf9;
+  --color-surface-2: #eeeeeb;
+  --color-surface-3: #deded9;
+  --color-sidebar: #ececea;
 
   /* Borders */
   --color-border: #d8d6cd;
@@ -54,31 +54,31 @@
 
   /* Shadows */
   --shadow-soft: 0 1px 2px 0 rgba(17,24,39,0.03);
-  --shadow-warm: 0 12px 30px -18px rgba(196,85,45,0.34);
+  --shadow-warm: 0 12px 30px -18px rgba(32,34,37,0.16);
   --shadow-elevated: 0 24px 60px -32px rgba(32,34,37,0.18);
   --shadow-elev:
     inset 0 1px 0 0 rgba(255,255,255,0.8),
     0 1px 2px rgba(15,23,42,0.03),
     0 18px 42px -24px rgba(32,34,37,0.14);
-  --shadow-focus: 0 0 0 3px rgba(196,85,45,0.18);
+  --shadow-focus: 0 0 0 3px rgba(32,34,37,0.18);
 
   color-scheme: light;
 }
 
 .dark {
-  --color-brand-50: #411b15;
-  --color-brand-100: #682b1d;
-  --color-brand-200: #87371f;
-  --color-brand-300: #a74425;
-  --color-brand-400: #df7048;
-  --color-brand-500: #f29a73;
-  --color-brand-600: #ffb08c;
-  --color-brand-700: #ffc3a1;
-  --color-brand-800: #ffe3d2;
-  --color-brand-900: #fff4ed;
+  --color-brand-50: #303135;
+  --color-brand-100: #3b3c40;
+  --color-brand-200: #515257;
+  --color-brand-300: #6e6f74;
+  --color-brand-400: #a5a6a9;
+  --color-brand-500: #e9e9e5;
+  --color-brand-600: #f4f4f0;
+  --color-brand-700: #fafaf7;
+  --color-brand-800: #fdfdfb;
+  --color-brand-900: #ffffff;
 
-  --color-primary: #f29a73;
-  --color-primary-hover: #ffb08c;
+  --color-primary: #e9e9e5;
+  --color-primary-hover: #f4f4f0;
 
   /* Surfaces (dark - Claude-like neutral warm) */
   --color-bg: #121314;
@@ -102,13 +102,13 @@
   --color-info: #60a5fa;
 
   --shadow-soft: 0 1px 2px 0 rgba(0,0,0,0.2);
-  --shadow-warm: 0 14px 34px -18px rgba(242,154,115,0.32);
+  --shadow-warm: 0 14px 34px -18px rgba(255,255,255,0.16);
   --shadow-elevated: 0 20px 48px -24px rgba(0,0,0,0.6);
   --shadow-elev:
     inset 0 1px 0 0 rgba(255,255,255,0.06),
     0 1px 2px rgba(0,0,0,0.4),
     0 16px 48px -8px rgba(0,0,0,0.45);
-  --shadow-focus: 0 0 0 3px rgba(242,154,115,0.22);
+  --shadow-focus: 0 0 0 3px rgba(255,255,255,0.2);
 
   color-scheme: dark;
 }

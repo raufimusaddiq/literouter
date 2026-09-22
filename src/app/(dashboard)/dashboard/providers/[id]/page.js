@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
-import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, XiaomiMimoAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
+import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, XiaomiMimoAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal, PageIntro } from "@/shared/components";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
@@ -1366,10 +1366,10 @@ export default function ProviderDetailPage() {
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {/* Header */}
-      <div className="min-w-0 rounded-[1.125rem] bg-surface-2 p-5 ring-1 ring-border-subtle">
+      <div className="min-w-0 border-b border-border-subtle pb-6">
         <Link
           href="/dashboard/providers"
-          className="mb-4 inline-flex items-center gap-1 text-sm text-text-muted transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-primary"
+          className="mb-4 inline-flex items-center gap-1 text-sm text-text-muted transition-colors hover:text-primary focus-visible:text-primary"
         >
           <span className="material-symbols-outlined text-lg">arrow_back</span>
           Back to Providers

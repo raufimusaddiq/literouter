@@ -8,6 +8,7 @@ import {
   Badge,
   Button,
   Toggle,
+  PageIntro,
 } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
@@ -413,6 +414,11 @@ export default function ProvidersPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-7">
+      <PageIntro
+        eyebrow="Provider network"
+        title="Keep the route supply visible."
+        description="Connect accounts, test upstreams, and see which paths are ready before client traffic arrives."
+      />
       <section className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-[14px] bg-primary/[0.07] p-4 ring-1 ring-primary/15">
           <p className="page-kicker">Provider network</p>
@@ -430,7 +436,7 @@ export default function ProvidersPage() {
           <p className="mt-1 text-xs text-text-muted">Connections reporting errors</p>
         </div>
       </section>
-      <div className="flex flex-col gap-3 rounded-[1.125rem] bg-surface-2 p-4 ring-1 ring-border-subtle sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Catalog</p>
           <p className="text-sm text-text-main">Providers, routes, and connection health in one surface.</p>
@@ -784,19 +790,6 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
   const { connected, error, errorCode, errorTime, allDisabled } = stats;
   const isNoAuth = !!provider.noAuth;
 
-  const dotColors = {
-    free: "bg-green-500",
-    oauth: "bg-blue-500",
-    apikey: "bg-amber-500",
-    compatible: "bg-orange-500",
-  };
-  const dotLabels = {
-    free: "Free",
-    oauth: "OAuth",
-    apikey: "API Key",
-    compatible: "Compatible",
-  };
-
   return (
     <Link href={`/dashboard/providers/${providerId}`} className="group min-w-0">
       <Card
@@ -902,19 +895,6 @@ function ApiKeyProviderCard({
   const isAnthropicCompatible = providerId.startsWith(
     ANTHROPIC_COMPATIBLE_PREFIX,
   );
-
-  const dotColors = {
-    free: "bg-green-500",
-    oauth: "bg-blue-500",
-    apikey: "bg-amber-500",
-    compatible: "bg-orange-500",
-  };
-  const dotLabels = {
-    free: "Free",
-    oauth: "OAuth",
-    apikey: "API Key",
-    compatible: "Compatible",
-  };
 
   const getIconPath = () => {
     if (isCompatible && provider.apiType)

@@ -11,6 +11,8 @@
 
 ## Build, Test, and Development
 
+Before any heavy command (`npm install`, builds, full test suites, Docker build/pull, migrations), check resource usage and service health first: `uptime`, `free -h`, `df -h /opt/9router /tmp`, active processes, `docker ps`/container health, and the relevant health endpoint. Do not start heavy work when resources are constrained or the target service is unhealthy; report the condition first.
+
 ```bash
 cp .env.example .env
 npm install

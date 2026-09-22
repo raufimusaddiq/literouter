@@ -39,6 +39,12 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="dashboard-backdrop h-[100dvh] w-full overflow-hidden">
+      <a
+        href="#main-content"
+        className="sr-only fixed left-3 top-3 z-[100] rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white focus:not-sr-only"
+      >
+        Skip to content
+      </a>
       <div className="fixed top-4 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2" aria-live="polite">
         {notifications.map((n) => {
           const style = getToastStyle(n.type);
@@ -92,7 +98,7 @@ export default function DashboardLayout({ children }) {
         </div>
 
         {/* Main workspace */}
-        <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg transition-colors duration-300">
+        <main id="main-content" className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg transition-colors duration-300">
           <Header key={pathname} onMenuClick={() => setSidebarOpen(true)} />
           <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-4 py-7 sm:px-7 lg:px-12 lg:py-10">
             <div className="mx-auto w-full max-w-[110rem]">{children}</div>
