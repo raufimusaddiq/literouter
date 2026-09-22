@@ -361,10 +361,13 @@ export default function APIPageClient({ machineId }) {
                     title={key.isActive ? "Pause key" : "Resume key"}
                   />
                   <button
+                    type="button"
                     onClick={() => handleDeleteKey(key.id)}
                     className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
+                    title={`Delete ${key.name}`}
+                    aria-label={`Delete ${key.name}`}
                   >
-                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">delete</span>
                   </button>
                 </div>
               </div>
