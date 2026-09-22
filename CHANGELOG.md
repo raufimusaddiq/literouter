@@ -8,7 +8,7 @@
 - **Local-operator trust**: the spoofable `Host` fallback no longer exists in any environment, so local-operator access now requires `custom-server.js`'s per-process `x-9r-peer-token`, stamped on every request it handles. On a listener that bypasses the wrapper (a bare `next dev`, or another client inside the same container) there is no token to present, so those requests no longer inherit LAN-node validation or the localhost-only routes
 
 ## Fixes
-- **Usage**: normalize the overview summary into five equal desktop metric cards instead of letting Total requests dominate the row
+- **Usage**: keep Total requests as the hero metric while stretching the supporting token/cost cards to the same desktop height
 - **Branding**: replace the legacy indigo tab icon with a neutral theme-aware LiteRouter favicon and retire the stale file-based ICO override
 - **Usage**: align the Overview/Details switch with the period selector after the observability header refresh
 - **System One**: include TypeSafe in live usage topology and animate active provider requests
