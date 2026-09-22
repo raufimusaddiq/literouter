@@ -27,7 +27,8 @@ export const metadata = {
   title: "LiteRouter — AI routing control plane",
   description: "A lean control plane for provider keys, routing, usage, and quota.",
   icons: {
-    icon: "/favicon.svg",
+    icon: [{ url: "/favicon.svg?v=2", type: "image/svg+xml" }],
+    shortcut: "/favicon.svg?v=2",
   },
 };
 
