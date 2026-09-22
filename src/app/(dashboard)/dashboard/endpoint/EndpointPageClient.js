@@ -315,8 +315,9 @@ export default function APIPageClient({ machineId }) {
                     </code>
                     <button
                       onClick={() => toggleKeyVisibility(key.id)}
-                      className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-muted hover:bg-black/5 hover:text-primary dark:hover:bg-white/5 transition-colors"
                       title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
+                      aria-label={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
                     >
                       <span className="material-symbols-outlined text-[14px]">
                         {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
@@ -324,7 +325,8 @@ export default function APIPageClient({ machineId }) {
                     </button>
                     <button
                       onClick={() => copy(key.key, key.id)}
-                      className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-muted hover:bg-black/5 hover:text-primary dark:hover:bg-white/5 transition-colors"
+                      aria-label={copied === key.id ? "Copied" : "Copy key"}
                     >
                       <span className="material-symbols-outlined text-[14px]">
                         {copied === key.id ? "check" : "content_copy"}
@@ -360,7 +362,7 @@ export default function APIPageClient({ machineId }) {
                   />
                   <button
                     onClick={() => handleDeleteKey(key.id)}
-                    className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
                   >
                     <span className="material-symbols-outlined text-[18px]">delete</span>
                   </button>

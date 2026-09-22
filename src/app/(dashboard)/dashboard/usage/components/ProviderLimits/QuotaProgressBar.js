@@ -102,7 +102,7 @@ export default function QuotaProgressBar({
       {!unlimited && (
         <div className={cn("h-2 rounded-full overflow-hidden", colors.bgLight)}>
           <div
-            className={cn("h-full transition-all duration-300", colors.bg)}
+            className={cn("h-full transition-[width] duration-300", colors.bg)}
             style={{ width: `${Math.min(remaining, 100)}%` }}
           />
         </div>

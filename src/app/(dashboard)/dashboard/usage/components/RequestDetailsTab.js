@@ -422,7 +422,7 @@ export default function RequestDetailsTab() {
                     "text-xs px-2 py-0.5 rounded",
                     selectedDetail.pxpipe.applied
                       ? "bg-green-500/15 text-green-600"
-                      : "bg-amber-500/15 text-amber-600"
+                      : "bg-warning/15 text-warning"
                   )}>
                     {selectedDetail.pxpipe.applied ? "Activated" : "Skipped"}
                   </span>
@@ -488,7 +488,7 @@ export default function RequestDetailsTab() {
                       <span className="material-symbols-outlined text-[16px]">psychology</span>
                       Thinking Process
                     </h4>
-                    <pre className="max-h-[200px] max-w-full overflow-auto rounded-lg border border-amber-200 bg-amber-50 p-3 font-mono text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:p-4">
+                    <pre className="max-h-[200px] max-w-full overflow-auto rounded-lg border border-warning/30 bg-warning/10 p-3 font-mono text-xs text-text-main sm:p-4">
                       {selectedDetail.response.thinking}
                     </pre>
                   </div>

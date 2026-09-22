@@ -8,7 +8,7 @@ export default function ThemeToggle({ className, variant = "default" }) {
 
   const variants = {
     default: cn(
-      "flex items-center justify-center size-10 rounded-full",
+      "flex items-center justify-center size-11 rounded-full",
       "text-text-muted hover:text-text-main",
       "hover:bg-surface-2 transition-colors"
     ),
@@ -18,7 +18,7 @@ export default function ThemeToggle({ className, variant = "default" }) {
       "border border-border",
       "backdrop-blur-md shadow-sm hover:shadow-[var(--shadow-warm)]",
       "text-text-muted hover:text-brand-500",
-      "transition-all group"
+      "transition-colors group"
     ),
   };
 

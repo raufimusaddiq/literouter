@@ -42,7 +42,7 @@ function ModelItem({ index, model, isFirst, isLast, onEdit, onMoveUp, onMoveDown
           <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
         </button>
       </div>
-      <button onClick={onRemove} className="p-0.5 hover:bg-red-500/10 rounded text-text-muted hover:text-red-500 transition-all" title="Remove">
+      <button type="button" onClick={onRemove} className="flex min-h-11 min-w-11 items-center justify-center rounded text-text-muted hover:bg-red-500/10 hover:text-red-500 transition-colors" title="Remove" aria-label="Remove">
         <span className="material-symbols-outlined text-[12px]">close</span>
       </button>
     </div>

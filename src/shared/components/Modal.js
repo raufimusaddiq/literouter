@@ -74,7 +74,7 @@ export default function Modal({
                       onClick={onClose}
                       aria-label="Close"
                       title="Close"
-                      className="w-4 h-4 rounded-full bg-[#FF5F56] hover:brightness-90 transition-all cursor-pointer flex items-center justify-center group/dot"
+                      className="size-4 rounded-full bg-[#FF5F56] hover:brightness-90 transition-[filter] cursor-pointer flex items-center justify-center group/dot"
                     >
                       <span className="text-[9px] font-bold text-white opacity-0 group-hover/dot:opacity-100 transition-opacity leading-none">✕</span>
                     </button>

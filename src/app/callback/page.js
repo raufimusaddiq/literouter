@@ -85,7 +85,7 @@ function CallbackContent() {
   }, [searchParams]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg">
+    <div className="min-h-dvh flex items-center justify-center bg-bg">
       <div className="text-center p-8 max-w-md">
         {status === "processing" && (
           <>
@@ -135,7 +135,7 @@ function CallbackContent() {
 export default function CallbackPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-bg">
+      <div className="min-h-dvh flex items-center justify-center bg-bg">
         <div className="text-center p-8">
           <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
             <span className="material-symbols-outlined text-3xl text-primary animate-spin">progress_activity</span>
