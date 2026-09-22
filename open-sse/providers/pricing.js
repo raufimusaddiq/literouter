@@ -49,11 +49,18 @@ export const MODEL_PRICING = {
   "gpt-5.2-codex":                { input: 1.75,  output: 14.00, cached: 0.175, reasoning: 14.00,  cache_creation: 1.75  },
   "gpt-5.3-codex":                { input: 1.75,  output: 14.00, cached: 0.175, reasoning: 14.00,  cache_creation: 1.75  },
   "gpt-5.3-codex-spark":         { input: 3.00,  output: 12.00, cached: 0.30,  reasoning: 12.00,  cache_creation: 3.00  },
-  "gpt-5.6":                      { input: 2.50,  output: 15.00, cached: 0.25,  reasoning: 15.00,  cache_creation: 2.50  },
-  "gpt-5.6-luna":                 { input: 1.00,  output: 6.00,  cached: 0.10,  reasoning: 6.00,   cache_creation: 1.00  },
-  "gpt-5.6-terra":                { input: 2.50,  output: 15.00, cached: 0.25,  reasoning: 15.00,  cache_creation: 2.50  },
-  "gpt-5.6-sol":                  { input: 5.00,  output: 30.00, cached: 0.50,  reasoning: 30.00,  cache_creation: 5.00  },
-  "gpt-6-astra":                  { input: 5.00,  output: 30.00, cached: 0.50,  reasoning: 30.00,  cache_creation: 5.00  },
+  // Same source/block as the gpt-6 rows below (see note there).
+  "gpt-5.6":                      { input: 1.00,  output: 6.00,  cached: 0.10,  reasoning: 6.00,   cache_creation: 1.25  },
+  "gpt-5.6-luna":                 { input: 0.10,  output: 0.60,  cached: 0.01,  reasoning: 0.60,   cache_creation: 0.125 },
+  "gpt-5.6-terra":                { input: 1.00,  output: 6.00,  cached: 0.10,  reasoning: 6.00,   cache_creation: 1.25  },
+  "gpt-5.6-sol":                  { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.50  },
+  // OpenAI's published rate card (platform.openai.com/docs/pricing), Standard tier.
+  // The page lists the cheaper block second; Batch is always the discounted tier, so
+  // the cheaper block is Standard. Estimates only - Codex bills against subscription
+  // quota windows, not per token.
+  "gpt-6-astra":                  { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 25.00, cache_creation: 6.25  },
+  "gpt-6-sol":                    { input: 1.00,  output: 5.00,  cached: 0.10,  reasoning: 5.00,  cache_creation: 1.25  },
+  "gpt-6-luna":                   { input: 0.05,  output: 0.25,  cached: 0.005, reasoning: 0.25,  cache_creation: 0.0625 },
   "o1":                           { input: 15.00, output: 60.00, cached: 7.50,  reasoning: 90.00,  cache_creation: 15.00 },
   "o1-mini":                      { input: 3.00,  output: 12.00, cached: 1.50,  reasoning: 18.00,  cache_creation: 3.00  },
 
