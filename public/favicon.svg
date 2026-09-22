@@ -1,11 +1,15 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="32" height="32" rx="8" fill="url(#literouter)"/>
-  <path d="M5 11.5h7.5l3 9H23" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="24.5" cy="20.5" r="2.6" fill="white"/>
-  <defs>
-    <linearGradient id="literouter" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#6366f1"/>
-      <stop offset="1" stop-color="#3730a3"/>
-    </linearGradient>
-  </defs>
+  <style>
+    .tile { fill: #f4f4f1; stroke: #d8d6cd; }
+    .route { stroke: #292a2d; }
+    .node { fill: #292a2d; }
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: #232426; stroke: #37383b; }
+      .route { stroke: #f1f0ec; }
+      .node { fill: #f1f0ec; }
+    }
+  </style>
+  <rect class="tile" x="1" y="1" width="30" height="30" rx="8" stroke-width="2"/>
+  <path class="route" d="M6.5 10.5h7l3 10h6.5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle class="node" cx="24.5" cy="20.5" r="2.75"/>
 </svg>

@@ -15,18 +15,18 @@ const compactCost = (n) => {
 
 export default function OverviewCards({ stats }) {
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] lg:items-start">
-      <Card className="flex flex-col gap-2 bg-primary/[0.08] px-5 py-4 ring-primary/20">
+    <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <Card className="flex min-w-0 flex-col justify-between gap-3 bg-primary/[0.08] px-4 py-3 ring-primary/20">
         <span className="text-xs font-semibold text-text-muted">Total requests</span>
-        <span className="metric-value block truncate text-3xl font-semibold text-text-main" title={fmt(stats.totalRequests)}>{fmt(stats.totalRequests)}</span>
-        <span className="text-xs text-text-muted">Across the selected period</span>
+        <div>
+          <span className="metric-value block truncate text-xl font-semibold text-text-main" title={fmt(stats.totalRequests)}>{fmt(stats.totalRequests)}</span>
+          <span className="mt-1 block text-[10px] text-text-muted">Across the selected period</span>
+        </div>
       </Card>
-      <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
-        <Metric label="Input tokens" value={compact(stats.totalPromptTokens)} exact={fmt(stats.totalPromptTokens)} />
-        <Metric label="Cached tokens" value={compact(stats.totalCachedTokens)} exact={fmt(stats.totalCachedTokens)} />
-        <Metric label="Output tokens" value={compact(stats.totalCompletionTokens)} exact={fmt(stats.totalCompletionTokens)} />
-        <Metric label="Estimated cost" value={`~${compactCost(stats.totalCost)}`} exact={`~${fmtCost(stats.totalCost)}`} detail="Not actual billing" />
-      </div>
+      <Metric label="Input tokens" value={compact(stats.totalPromptTokens)} exact={fmt(stats.totalPromptTokens)} />
+      <Metric label="Cached tokens" value={compact(stats.totalCachedTokens)} exact={fmt(stats.totalCachedTokens)} />
+      <Metric label="Output tokens" value={compact(stats.totalCompletionTokens)} exact={fmt(stats.totalCompletionTokens)} />
+      <Metric label="Estimated cost" value={`~${compactCost(stats.totalCost)}`} exact={`~${fmtCost(stats.totalCost)}`} detail="Not actual billing" />
     </div>
   );
 }
