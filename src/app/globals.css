@@ -23,6 +23,7 @@
   /* Primary (legacy alias for backward compat with existing components) */
   --color-primary: var(--color-brand-500);
   --color-primary-hover: var(--color-brand-600);
+  --color-primary-foreground: #ffffff;
 
   /* Surfaces & backgrounds (light) */
   --color-bg: #f4f4f1;
@@ -79,6 +80,7 @@
 
   --color-primary: #e9e9e5;
   --color-primary-hover: #f4f4f0;
+  --color-primary-foreground: #202225;
 
   /* Surfaces (dark - Claude-like neutral warm) */
   --color-bg: #121314;
@@ -145,6 +147,7 @@ select {
   /* Primary aliases */
   --color-primary: var(--color-primary);
   --color-primary-hover: var(--color-primary-hover);
+  --color-primary-foreground: var(--color-primary-foreground);
 
   /* Semantic */
   --color-bg: var(--color-bg);

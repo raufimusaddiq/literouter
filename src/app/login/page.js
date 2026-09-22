@@ -122,7 +122,7 @@ export default function LoginPage() {
         <section className="relative hidden min-h-[34rem] overflow-hidden bg-surface-2 p-10 lg:flex lg:flex-col lg:justify-between">
           <div className="relative z-10">
             <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-[10px] bg-primary text-white shadow-[0_14px_30px_-16px_var(--color-primary)]">
+              <div className="flex size-11 items-center justify-center rounded-[10px] bg-primary text-primary-foreground shadow-[0_14px_30px_-16px_var(--color-primary)]">
                 <span aria-hidden="true" className="material-symbols-outlined">route</span>
               </div>
               <div>

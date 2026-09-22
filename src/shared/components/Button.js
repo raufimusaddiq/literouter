@@ -3,7 +3,7 @@
 import { cn } from "@/shared/utils/cn";
 
 const variants = {
-  primary: "bg-brand-500 hover:bg-brand-600 text-white shadow-[0_10px_20px_-14px_var(--color-primary)] disabled:bg-surface-3 disabled:text-text-muted",
+  primary: "bg-primary hover:bg-primary-hover text-primary-foreground shadow-[0_10px_20px_-14px_var(--color-primary)] disabled:bg-surface-3 disabled:text-text-muted",
   secondary: "bg-surface-2 hover:bg-surface-3 text-text-main ring-1 ring-border disabled:opacity-50",
   outline: "ring-1 ring-border text-text-main hover:bg-surface-2 hover:ring-brand-500/40",
   ghost: "text-text-muted hover:bg-surface-2 hover:text-text-main",

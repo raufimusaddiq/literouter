@@ -60,7 +60,7 @@ export default function Sidebar({ onClose }) {
     <aside className="relative flex h-full w-[15.5rem] min-h-0 flex-col overflow-hidden border-r border-border-subtle bg-sidebar p-3 text-text-main transition-colors duration-300">
       <div className="px-3 py-4">
         <Link href="/dashboard" className="flex items-center gap-3 group">
-          <div className="flex size-10 items-center justify-center rounded-[10px] bg-primary text-white shadow-[0_14px_30px_-16px_var(--color-primary)] transition-colors duration-200">
+          <div className="flex size-10 items-center justify-center rounded-[10px] bg-primary text-primary-foreground shadow-[0_14px_30px_-16px_var(--color-primary)] transition-colors duration-200">
             <span aria-hidden="true" className="material-symbols-outlined text-[21px]">route</span>
           </div>
           <div className="flex min-w-0 flex-col">
