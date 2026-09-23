@@ -258,37 +258,74 @@ Preserve:
 - connection priorities/reordering;
 - Combo ordered fallback;
 - Combo round-robin/sticky behavior;
-- Combo per-combo strategy override through `comboStrategies`, retaining fallback and round-robin behavior used by LiteRouter;
+- Combo per-combo strategy override through `comboStrategies`;
+- Combo ordered fallback;
+- Combo round-robin and sticky rotation;
+- Fusion/panel+judge, including configurable judge selection, quorum/grace behavior, panel hard timeout, tool-history flattening, graceful degradation when only one panel succeeds, and streaming through the judge;
+- capability-aware Combo auto-switch/reordering when an existing Combo member can satisfy the request;
+- capacity-adapter fallback pools when no existing Combo/target model satisfies a required input capability;
+- capacity-adapter fallback or round-robin strategy per capability;
 - per-provider routing overrides through `providerStrategies`, including provider-specific fallback strategy and sticky round-robin limits;
-- Fusion/panel+judge is not part of the v2 retained product contract unless reintroduced by a later explicit product decision;
-- capability/capacity-adapter routing is not part of the v2 retained product contract; multimodal blocks may still pass through normal LLM chat protocols when the selected model/provider supports them.
 - Generic Provider/custom provider nodes;
 - proxy-pool binding per connection and provider-level pool rotation;
 - outbound global proxy + no-proxy behavior.
 
-### 5.4 Explicitly non-retained routing surfaces
+### 5.4 Combo and capability-routing contract
 
-LiteRouter v2 is an LLM chat router plus System One. It is not a general media router.
+All currently reachable Combo behavior in LiteRouter main is part of the v2 retained product contract.
 
-The following current-main routing surfaces are explicitly **not** part of the v2 product contract:
+LiteRouter remains an LLM chat router plus System One; the retained capability logic exists **inside LLM Combo routing**, not as a separate media-provider product surface.
 
-- vision capacity-adapter pools;
-- audio-input capacity-adapter pools;
-- stored pdf/video capacity-adapter state;
-- automatic model substitution based on media capability;
-- history trimming that exists only to support a capacity-adapter substitution;
-- Fusion/panel+judge execution.
+Retain:
 
-This does **not** prohibit normal multimodal content inside retained LLM protocols. If an OpenAI Responses, Chat Completions, Anthropic Messages, or other retained LLM request contains an image/audio/file block that the selected upstream model already supports, LiteRouter may preserve and forward that block according to the protocol contract.
+- Combo CRUD;
+- ordered model membership;
+- drag/reorder behavior and explicit up/down ordering semantics;
+- add/remove/deselect model behavior;
+- inline model editing where currently supported;
+- model aliases in Combo selection;
+- per-combo strategy stored in `comboStrategies`;
+- strategy values `fallback`, `round-robin`, and `fusion`;
+- global Combo defaults and sticky round-robin limits;
+- per-combo round-robin rotation state;
+- capability detection on the active request;
+- stable capability-based reordering of existing Combo members;
+- Vision Adapter / capacity-adapter pools;
+- audio-input adapter pools;
+- stored pdf/video adapter compatibility while those capabilities remain hidden in the current UI;
+- per-capability `enabled`, `roundRobin`, and ordered `models`;
+- legacy stored-array normalization for capacity-adapter settings;
+- an enabled adapter with an empty pool remaining a deliberate no-op;
+- the ability to deselect the final adapter model;
+- adapter models being inserted only when none of the original route candidates satisfy the hard capability;
+- context-window-aware history trimming when a capacity-adapter target has a smaller context window;
+- model capability badges/metadata used by the Combo UI and routing compiler.
 
-The distinction is:
+Fusion is hard-retained and must preserve current behavior:
+
+- panel fan-out runs in parallel;
+- panel calls are forced non-streaming;
+- panel tools are removed while tool history is flattened into prose so context is preserved;
+- configurable judge model, defaulting to the first Combo member when unset;
+- `minPanel` quorum behavior;
+- straggler grace window;
+- hard panel timeout;
+- zero successful panels -> failure;
+- exactly one successful panel -> direct answer without judge fusion;
+- two or more successful panels -> judge synthesis;
+- the judge preserves the client's original streaming/tools behavior.
+
+The capacity adapter is not a general media endpoint. Its contract is only:
 
 ~~~text
-retained: selected LLM model receives its supported chat/multimodal payload
-removed:  LiteRouter dynamically reroutes to a separate capability/media pool
+retained LLM request
+  -> detect required capability
+  -> existing Combo/target already capable? use it
+  -> otherwise consult configured capacity pool
+  -> route to a capable LLM model
 ~~~
 
-Existing databases may still contain `capacityAdapter` or Fusion-related settings from current main. Migration must tolerate those keys without manual database editing, but v2 does not activate those removed behaviors. Unknown/deprecated JSON settings should be preserved or migrated safely so rollback to the retained Node image remains possible during the rollback window.
+The rewrite does not reintroduce standalone image/video generation, TTS/STT, embeddings, media-provider management, or other removed media product surfaces.
 
 ### 5.5 Provider catalog contract
 
@@ -499,7 +536,7 @@ Durable behavior includes:
 - proxy pools;
 - Combo definitions.
 
-The settings parity inventory must include current defaults and dynamically stored settings, including `providerStrategies`, `comboStrategies`, global fallback/sticky settings, quota visibility/auto-ping, login/API-key policy, observability, outbound proxy/no-proxy, RTK, Headroom, Caveman, Ponytail, PXPIPE, provider thinking, and other active settings found by the Phase 0 manifest. Legacy `capacityAdapter` and Fusion-only settings are tolerated for migration/rollback compatibility but are not activated by v2.
+The settings parity inventory must include current defaults and dynamically stored settings, including `providerStrategies`, `comboStrategies`, `capacityAdapter`, global fallback/sticky settings, Fusion judge/tuning state where currently stored, quota visibility/auto-ping, login/API-key policy, observability, outbound proxy/no-proxy, RTK, Headroom, Caveman, Ponytail, PXPIPE, provider thinking, and other active settings found by the Phase 0 manifest.
 
 Database backup/export and restore/import are daily-driver features and receive dedicated migration tests.
 
@@ -573,6 +610,37 @@ Phase 0 must generate a test-parity ledger. Every existing regression test gets 
 - `sunset` — behavior intentionally removed by an explicit product decision.
 
 A v2 phase cannot delete the Node implementation that owns a behavior while tests for that behavior remain unclassified.
+
+### 5.15.1 Combo parity fixtures
+
+The differential suite must include deterministic fixtures for:
+
+1. ordered fallback success on first model;
+2. fallback to second/third model after retry-eligible failures;
+3. no fallback on non-retryable request errors;
+4. Combo round-robin rotation;
+5. Combo sticky round-robin limit;
+6. per-combo `comboStrategies` override;
+7. Fusion with all panels successful;
+8. Fusion quorum reached with a straggler;
+9. Fusion panel timeout;
+10. Fusion with exactly one successful panel;
+11. Fusion with zero successful panels;
+12. explicit judge selection and default-judge behavior;
+13. tool history through Fusion;
+14. streaming judge response;
+15. existing Combo member capability auto-switch;
+16. capacity-adapter insertion only when original candidates lack the required capability;
+17. capacity-adapter fallback mode;
+18. capacity-adapter round-robin mode;
+19. disabled capacity adapter;
+20. enabled empty adapter pool as no-op;
+21. deselecting the final adapter model;
+22. ordered adapter model pool;
+23. legacy adapter settings-array normalization;
+24. context trimming for a smaller adapter model while retaining system/instruction head and active user/media tail.
+
+For all fixtures, Node current-main behavior remains the oracle until the Go implementation matches the externally relevant route selection and response behavior.
 
 ### 5.16 Main-drift rule
 
@@ -1139,7 +1207,7 @@ combo-local runtime cursor
   -> normal account routing
 ~~~
 
-Fusion is intentionally not part of the v2 retained product scope. The Go Combo implementation covers retained ordered fallback and round-robin/sticky behavior only unless Fusion is separately reintroduced later.
+Fusion remains a distinct retained execution mode because it intentionally fans out requests and then synthesizes through a judge. It must remain separate from normal ordered fallback logic and receive dedicated differential/concurrency tests.
 
 ### 9.5 System One/Jev flow
 
@@ -1641,7 +1709,7 @@ Port the shared routing machinery:
 - account selection;
 - fill-first/RR/sticky/per-provider strategies;
 - model locks/cooldowns;
-- Combo fallback/round-robin and per-combo `comboStrategies`;
+- Combo fallback/round-robin/Fusion, capability auto-switch, capacity adapters, and per-combo `comboStrategies`;
 - proxy pools/global outbound proxy;
 - quota logic;
 - token-saver/cache transforms.
@@ -2197,7 +2265,7 @@ Recommended dependency order:
 8. feat(v2): Anthropic Messages + count_tokens;
 9. feat(v2): System One + Ollama compatibility + Gemini v1beta compatibility;
 10. feat(v2): routing/account strategies/cooldowns/proxy behavior;
-11. feat(v2): Combo fallback/round-robin + `comboStrategies` parity;
+11. feat(v2): full Combo parity — fallback/RR/sticky/Fusion/capability auto-switch/capacity adapters;
 12. feat(v2): cache/RTK/Caveman/Ponytail/Headroom/PXPIPE transforms;
 13. feat(v2): providers in bounded groups with provider-specific differential tests;
 14. feat(v2): telemetry/Usage/request-details/console/live events;
@@ -2246,7 +2314,7 @@ Go may not become the production database/credential owner until all of these pa
 - parity manifest refreshed against latest main;
 - all public route families used by the deployment classified and implemented;
 - every currently configured provider/account classified and implemented;
-- every configured Combo using retained fallback/round-robin behavior implemented;
+- every configured Combo, Fusion strategy, and capacity-adapter pool implemented;
 - contract suite green;
 - differential suite green;
 - prompt-cache parity green;
@@ -2276,7 +2344,7 @@ Static UI cutover additionally requires:
 - login/logout/password/require-login behavior proven;
 - endpoint/API-key workflow proven;
 - provider/add/import/test/reorder/proxy workflows proven;
-- Combo fallback/round-robin and per-combo strategy workflow proven;
+- full Combo workflow proven: CRUD/order/fallback/RR/sticky/Fusion/judge/capability auto-switch/capacity adapters;
 - System One workflow proven;
 - Usage/Quota/log/detail/topology live behavior proven;
 - Token Saver/Headroom behavior proven;
@@ -2432,7 +2500,7 @@ The following are **not** open anymore:
 - no production dual-writer phase;
 - Caveman, Ponytail, Headroom, and PXPIPE are hard-retained daily-driver features;
 - `providerStrategies` and `comboStrategies` are hard-retained routing configuration contracts;
-- Fusion and capability/capacity adapters are explicitly not retained in v2;
+- all current Combo behavior, including Fusion and capability/capacity adapters, is hard-retained in v2;
 - Redis is not required for single-instance v2;
 - all active provider registry entries require explicit migration disposition;
 - current public compatibility routes beyond the three primary LLM endpoints are part of the parity audit.
@@ -2445,7 +2513,7 @@ LiteRouter v2 is complete only when:
 - all retained public inference/discovery/compatibility contracts are served by Go;
 - all 80 active providers from the audited baseline, plus any later active providers, have an explicit reviewed disposition;
 - all providers/accounts configured in the production daily-driver database work through the v2 path;
-- all retained provider/account/Combo fallback/round-robin behavior and `providerStrategies`/`comboStrategies` semantics pass compatibility tests;
+- all retained provider/account behavior and the full Combo contract (fallback/RR/sticky/Fusion/judge/capability auto-switch/capacity adapters) plus `providerStrategies`/`comboStrategies` semantics pass compatibility tests;
 - prompt-cache behavior does not regress on controlled fixtures;
 - OAuth/token refresh and credential rotation are durable and rollback-safe;
 - API keys, login/session, provider management, model catalog, aliases/custom/disabled models, pricing, proxy pools, `providerStrategies`, `comboStrategies`, RTK, Caveman, Ponytail, Headroom, PXPIPE, backup/restore, Usage, request details, quota, logs, and System One are served without the full Node runtime;
