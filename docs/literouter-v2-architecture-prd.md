@@ -485,6 +485,118 @@ Explicitly durable operational state, if required for compatibility:
 
 The implementation must document each state field's ownership rather than storing mixed configuration and request-serving cursors in one row.
 
+## 7.3 Configuration lifecycle and Redis-free single-instance flow
+
+For the normal LiteRouter v2 deployment, Redis is not part of configuration serving.
+
+The configuration lifecycle is:
+
+~~~text
+process start
+  -> open SQLite
+  -> run/verify schema migrations
+  -> load durable configuration
+  -> compile RuntimeSnapshot
+  -> atomically publish snapshot
+  -> mark readiness healthy
+~~~
+
+Until the initial RuntimeSnapshot has compiled successfully, readiness must return unhealthy and inference must not accept normal production traffic.
+
+Steady-state inference reads configuration only from process memory:
+
+~~~text
+request
+  -> runtime.Load()
+  -> RoutePlan lookup
+  -> account/runtime-state selection
+  -> upstream
+~~~
+
+No Redis lookup, Redis version check, SQLite read, or filesystem read is permitted on the successful steady-state configuration path.
+
+Configuration mutations follow this model:
+
+~~~text
+admin mutation
+  -> validate
+  -> persist durable change in SQLite
+  -> compile a complete coherent RuntimeSnapshot
+  -> atomically swap active snapshot
+  -> publish config.changed
+  -> acknowledge active snapshot version
+~~~
+
+The implementation must guarantee that an acknowledged mutation corresponds to a known active snapshot version. A mutation must not report success merely because SQLite committed if the new configuration could not be activated.
+
+Requests already in flight retain the snapshot reference with which they started. New requests observe the newly published snapshot. This prevents a request from seeing a partially mixed provider/account/combo/settings state.
+
+### 7.4 Runtime state ownership
+
+RuntimeSnapshot contains immutable request-serving configuration.
+
+Examples:
+
+- settings required by routing;
+- API-key index;
+- model and alias indexes;
+- provider metadata;
+- provider-node metadata;
+- connection/account configuration;
+- Combo definitions and compiled graphs;
+- proxy-pool configuration;
+- pricing/configuration needed by telemetry;
+- precompiled route metadata.
+
+Mutable operational state lives separately in process memory.
+
+Examples:
+
+- provider/account round-robin cursors;
+- sticky-use counters;
+- active request counts;
+- circuit-breaker state;
+- transient cooldown state;
+- transport-pool state;
+- live provider health;
+- short-lived quota observations.
+
+Request-serving cursors must never be persisted synchronously merely to advance routing state.
+
+For operational state that must survive restart, such as a provider-specific lock/reset timestamp whose compatibility contract requires restart durability, the preferred flow is:
+
+~~~text
+provider response changes state
+  -> update in-memory runtime state immediately
+  -> request path observes new state immediately
+  -> enqueue durable state update
+  -> SQLite persists asynchronously
+~~~
+
+If a specific state transition cannot safely be acknowledged without durable persistence, that exception must be documented explicitly and kept off the normal successful inference path.
+
+### 7.5 Redis reintroduction boundary
+
+Redis may be reintroduced only when LiteRouter runs multiple independently serving replicas that require cross-process invalidation or coordination.
+
+A future multi-replica flow may look like:
+
+~~~text
+Replica A
+  -> SQLite/config authority mutation
+  -> local snapshot swap
+  -> publish config version/invalidation
+
+Redis or another coordination bus
+  -> Replica B observes version
+  -> reload/compile
+  -> local snapshot swap
+~~~
+
+Redis is therefore an optional coordination layer, not a source of truth and not an inference-path cache.
+
+The v2 single-instance production definition of done requires that LiteRouter starts, serves configuration, routes inference, records Usage, and operates the dashboard without Redis.
+
 ## 8. Route compilation
 
 ### 8.1 Why compile
