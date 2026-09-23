@@ -2,7 +2,7 @@
 
 Status: Proposed
 Target branch: main
-Source baseline: main at dc28cdf82c763fbe975188e4291df1f97bde9cec
+Source baseline: audited against main at 25e9df0e02efc3ff47fa1fa616b6fbb55143dac1 (2026-09-23)
 Scope: architecture rewrite, migration plan, data-plane/control-plane split, static dashboard replacement
 Implementation status: design only; this PR must not change production runtime behavior
 
@@ -39,6 +39,8 @@ The key invariant is stronger than "memory-first":
 Configuration changes are persisted first, compiled into a new immutable runtime snapshot, then atomically swapped into the request-serving process. Native protocol requests use a minimal passthrough path. Telemetry is bounded and asynchronous. SQLite remains the durable system of record for the single-instance deployment. Redis is not required for the v2 single-instance runtime.
 
 This rewrite must be delivered incrementally. The existing Node implementation remains the compatibility oracle until each replacement path passes contract, replay, benchmark, security, and rollback gates.
+
+A 2026-09-23 feature audit against main `25e9df0e02efc3ff47fa1fa616b6fbb55143dac1` expanded the original scope: the compatibility contract includes 95 current API route files, 80 active provider registry entries, 234 unit-regression files, all current public compatibility endpoints, and every visible daily-driver dashboard workflow. Section 5 is the audited feature ledger.
 
 ## 2. Problem statement
 
@@ -167,82 +169,359 @@ The initial v2 release does not attempt to:
 
 ## 5. Product compatibility invariants
 
-The following are release-blocking until explicitly superseded by another approved PRD.
+The following are release-blocking until explicitly superseded by another approved product decision.
 
-### 5.1 Public inference contracts
+This section was audited against current main at \`25e9df0e02efc3ff47fa1fa616b6fbb55143dac1\` on 2026-09-23. The repository is still changing quickly; Phase 0 must generate a machine-readable parity manifest from the then-current main and CI must fail on unclassified drift.
 
-Preserve:
+### 5.1 Public client contracts
 
-- POST /v1/chat/completions
-- POST /v1/responses
-- POST /v1/messages
-- POST /v1/systemone where currently supported
-- current model identifiers and aliases
-- current API-key behavior for remote callers
-- expected streaming termination semantics
-- client disconnect/cancellation behavior
-- response status and error shape where clients depend on it
+V2 must preserve the currently exposed client-facing behavior, not only the three headline LLM endpoints.
 
-### 5.2 Routing behavior
+Required public routes and compatibility aliases include:
+
+- \`POST /v1/chat/completions\`;
+- \`POST /v1/responses\`;
+- \`POST /v1/responses/compact\`, including the current compact-mode semantics;
+- \`POST /v1/messages\`;
+- \`POST /v1/messages/count_tokens\`, including the current response shape;
+- \`POST /v1/systemone\`;
+- \`POST /v1/api/chat\`, including Ollama-compatible response transformation;
+- \`GET /v1\` and \`GET /v1/models\`;
+- \`GET /v1/models/{provider}/{model}\` catch-all lookup;
+- \`GET /v1/models/info\`;
+- \`GET /v1beta/models\`;
+- Gemini-compatible \`POST /v1beta/models/{model}:generateContent\`;
+- Gemini-compatible \`POST /v1beta/models/{model}:streamGenerateContent\`;
+- current rewrite aliases \`/responses\` and \`/codex/:path*\`;
+- current double-prefix compatibility for \`/v1/v1\` where clients rely on it;
+- CORS/preflight behavior required by the current clients.
+
+The current Gemini-compatible route has a special native Gemini TTS path. V2 must preserve the currently routable native TTS behavior, authentication forms, cancellation, timeout/error mapping, account fallback, safe header forwarding, and Gemini response/stream shape before that route family can move.
+
+The public contract also includes:
+
+- current model identifiers, provider prefixes, aliases, and custom models;
+- model-list filtering and disabled-model behavior;
+- live model resolution where current providers perform it;
+- compatible-provider model discovery and recursion protection;
+- API-key behavior across Bearer, Anthropic \`x-api-key\`, and currently supported Gemini key forms;
+- streaming terminal semantics, including exactly-once terminal behavior where the current tests require it;
+- non-streaming behavior;
+- client disconnect/cancellation behavior;
+- required response headers;
+- current status/error shapes where clients depend on them;
+- request-body limits at least as permissive as the current production path for long contexts/base64 images.
+
+A route may change internal implementation but may not silently disappear because it was not listed in the original v2 proposal.
+
+### 5.2 Transport and protocol behavior
+
+Preserve all currently exercised transport behavior:
+
+- OpenAI Chat Completions;
+- OpenAI Responses;
+- Anthropic Messages;
+- Gemini GenerateContent and Gemini SSE compatibility;
+- Ollama-compatible chat transformation;
+- System One/Jev native JSON forwarding;
+- native passthrough when source and target are compatible;
+- translation only when required;
+- Responses custom tools, parallel tool calls, multi-turn state, compact mode, terminal events, and abort handling;
+- Anthropic tool-use/tool-result ordering and count-token compatibility;
+- reasoning/thinking fields and provider-specific effort/level mappings;
+- multimodal/file block routing that current main supports;
+- continuity/modality stripping rules already covered by current tests;
+- provider-specific wire formats and terminal integrity.
+
+Unknown forward-compatible fields on a native path must remain preserved wherever the current path preserves them.
+
+### 5.3 Routing behavior
 
 Preserve:
 
 - multi-provider routing;
 - multiple accounts per provider;
 - fill-first behavior;
-- round-robin behavior;
-- sticky round-robin behavior;
+- global round-robin and sticky-round-robin limits;
+- per-provider strategy overrides and per-provider sticky limits;
+- preferred/pinned connection behavior where currently used;
 - account exclusion during retries;
 - bounded account fallback;
 - model-level cooldown/lock behavior;
-- provider-specific exact reset times where available;
+- manual model-cooldown visibility and clearing;
+- provider-specific precise reset times;
+- GitHub monthly usage-limit reset behavior;
+- Antigravity per-model live quota blocking/reset behavior;
+- quota-aware account/provider selection;
+- no-auth/free-provider virtual connections;
+- no-auth/free-provider proxy-pool selection and rotation where configured;
+- connection priorities/reordering;
 - Combo ordered fallback;
 - Combo round-robin/sticky behavior;
-- Fusion while it remains a retained feature;
-- capability-adapter behavior while it remains a retained feature;
+- Combo per-combo strategy override;
+- Fusion panel/judge behavior, quorum/grace timeout behavior, tool-history flattening, and graceful degradation;
+- capability/capacity adapters;
 - Generic Provider/custom provider nodes;
-- proxy-pool binding where configured;
-- no-auth/free providers.
+- proxy-pool binding per connection and provider-level pool rotation;
+- outbound global proxy + no-proxy behavior.
 
-### 5.3 Retained transforms and features
+### 5.4 Capability adapter contract
 
-Before implementation, create a compatibility inventory for:
+Capability adapters are a current user-visible routing feature and are retained.
 
-- RTK/token saver;
-- Caveman;
-- Ponytail;
-- PXPipe if reachable by retained configuration;
-- Headroom if reachable by retained configuration;
+At the audited baseline:
+
+- \`vision\` and \`audioInput\` are exposed in the Combo UI;
+- \`pdf\` and \`videoInput\` remain represented in stored settings for compatibility even while hidden due to translator limitations;
+- an adapter has \`enabled\`, \`roundRobin\`, and ordered \`models\`;
+- legacy stored array form remains readable;
+- an enabled adapter with an empty model list is a deliberate no-op;
+- fresh/default adapters are disabled rather than silently selecting a hard-coded model;
+- a user may deselect the final model;
+- adapter models are used only when the original route set cannot satisfy the required hard capability;
+- adapter fallback/round-robin semantics are preserved;
+- history trimming for a smaller adapter context window preserves system/instruction head and the active user/media tail according to current behavior.
+
+The latest semantics from main PRs #71 and #72 are part of this contract.
+
+### 5.5 Provider catalog contract
+
+The active provider registry is a compatibility contract.
+
+At the audited main SHA there are 80 active registry entries:
+
+\`alicode-intl\`, \`alicode\`, \`anthropic\`, \`antigravity\`, \`azure\`, \`blackbox\`, \`byteplus\`, \`cerebras\`, \`chutes\`, \`claude\`, \`cline\`, \`clinepass\`, \`cloudflare-ai\`, \`codebuddy-cn\`, \`codex\`, \`cohere\`, \`commandcode\`, \`cursor\`, \`deepseek\`, \`featherless\`, \`fireworks\`, \`gemini-cli\`, \`gemini\`, \`github\`, \`gitlab\`, \`glm-cn\`, \`glm\`, \`grok-cli\`, \`grok-web\`, \`groq\`, \`hyperbolic\`, \`iflow\`, \`kilocode\`, \`kimchi\`, \`kimi\`, \`kiro\`, \`mimo-free\`, \`minimax-cn\`, \`minimax\`, \`mistral\`, \`mmf\`, \`nebius\`, \`nvidia\`, \`ollama-local\`, \`ollama\`, \`openai\`, \`opencode-go\`, \`opencode\`, \`openrouter\`, \`perplexity-web\`, \`perplexity\`, \`perplexity-agent\`, \`qoder\`, \`siliconflow\`, \`together\`, \`venice\`, \`vercel-ai-gateway\`, \`vertex-partner\`, \`vertex\`, \`volcengine-ark\`, \`xai\`, \`xiaomi-mimo\`, \`xiaomi-tokenplan\`, \`alims-intl\`, \`codebuddy-intl\`, \`zed\`, \`api-airforce\`, \`baidu\`, \`bazaarlink\`, \`bluesminds\`, \`kilo-gateway\`, \`llm7\`, \`sambanova\`, \`tencent\`, \`morph\`, \`poolside\`, \`tokenrouter\`, \`alitp-intl\`, \`kenari\`, and \`typesafe\`.
+
+Every active entry must receive an explicit v2 disposition in the parity manifest:
+
+- \`preserve-native\`;
+- \`preserve-via-shared-protocol-adapter\`;
+- \`replace-with-equivalent\`; or
+- \`sunset-by-explicit-product-decision\`.
+
+No active provider may disappear merely because its executor is difficult to port.
+
+The currently intentionally hidden registry entries \`trae\`, \`devin-cli\`, and \`windsurf\` remain hidden unless a separate product decision changes their status. Existing tests for hidden/internal adapters may remain as source-regression coverage but do not automatically make the provider user-visible.
+
+### 5.6 Provider connection/authentication workflows
+
+Preserve the provider-management behavior used by current main, including where applicable:
+
+- OAuth authorize/callback/exchange;
+- API-key connections;
+- access-token connections;
+- no-auth/free connections;
+- web-cookie/session flows;
+- provider-specific PAT/cookie/API-key helpers;
+- on-demand token refresh;
+- configured background token refresh when enabled, even though the current production compose disables it;
+- provider model discovery;
+- suggested-model discovery;
+- provider validation/test;
+- batch tests;
+- connection health/status;
+- provider-specific quota reads;
+- live model catalogs;
+- model test/ping;
 - provider thinking controls;
-- request bypass/warmup behavior;
+- quota auto-ping where supported;
+- proxy assignment and testing.
+
+Current import helpers are also compatibility surfaces, including:
+
+- Codex token import and bulk import;
+- Cursor import and auto-import;
+- GitLab PAT;
+- Grok CLI bulk import;
+- iFlow cookie;
+- Kiro API-key, import, auto-import, CLI-proxy import, and social auth/exchange;
+- Xiaomi Mimo API-key and auto-import;
+- the generic \`/oauth/{provider}/{action}\` flow.
+
+Credential update behavior must preserve current identity/dedup semantics. In particular, the v2 storage layer must not collapse distinct OAuth identities that current main keeps separate, and must preserve Codex multi-account/workspace identity behavior.
+
+Refresh-token rotation is correctness-critical. A refresh operation that produces new credentials must update runtime state and durable state atomically enough that a restart does not revive a consumed/stale refresh token.
+
+### 5.7 Models, aliases, pricing, and availability
+
+Preserve:
+
+- model aliases;
+- custom models and capability metadata;
+- disabled models;
+- pricing overrides;
+- current provider/model catalog;
+- manual catalog sync behavior;
+- model availability/cooldown reporting and clearing;
+- model test/ping;
+- provider-prefix customization;
+- compatible-provider model discovery;
+- live-provider model resolution for the providers that currently implement it;
+- model capabilities, context windows, options, and service-kind metadata exposed to clients/UI;
+- recursion prevention when one LiteRouter-compatible endpoint discovers models from another.
+
+Model catalog updates landing on main during the migration must be caught by the parity-manifest drift gate rather than silently missing from Go.
+
+### 5.8 Retained request transforms and cache behavior
+
+Retain:
+
+- RTK/token saver and its current supported request shapes/safety behavior;
+- Caveman and its configured levels, including locale-dependent level visibility;
+- Ponytail and its configured levels;
+- Headroom, because it is currently user-visible in the Token Saver UI, including enablement, URL/timeout settings, managed start/stop/restart/status, extras, and proxy behavior;
+- PXPIPE runtime/settings/API compatibility when enabled in an existing database. PXPIPE is currently experimental and hidden from the normal UI, so v2 does not need to make it newly user-visible, but it may not silently discard an enabled existing configuration;
+- provider thinking controls;
+- system-prompt injection behavior;
+- request bypass/warmup behavior where currently reachable;
 - source-format detection;
-- provider-specific token refresh.
+- provider-specific thought-signature/session/cloaking behavior;
+- image prefetch/hardening behavior used by current providers;
+- prompt-cache anchoring and cached-token accounting specified in section 19.4.
 
-A feature may only be omitted from v2 after a separate explicit decision documents that it is no longer part of the LiteRouter product contract.
+Transforms must retain their current fail-open/fail-safe semantics where a transform failure is not supposed to fail the LLM request.
 
-### 5.4 Durable state
+### 5.9 Dashboard/operator workflows
 
-The migration must preserve, where present:
+The static dashboard replacement must preserve the currently visible operator surfaces:
 
-- settings;
-- API keys;
-- provider connections;
-- provider credentials;
+1. Overview;
+2. Endpoint & Key;
+3. Providers;
+4. Combo & Vision Adapter;
+5. System One;
+6. Usage;
+7. Quota Tracker;
+8. Token Saver;
+9. Console Log;
+10. Settings/Profile.
+
+It must also preserve reachable supporting workflows, including pricing settings.
+
+Specific daily-driver behavior to preserve includes:
+
+- API-key create/read/mask/copy/pause/resume/delete;
+- first-run default-key provisioning when no key exists;
+- \`requireApiKey\`;
+- dashboard \`requireLogin\`;
+- password setup/change/login/logout/reset behavior;
+- endpoint security warnings;
+- light/dark/system theme;
+- locale selection/persistence;
+- global and per-provider routing strategy controls;
+- global and per-combo routing strategy controls;
+- proxy configuration, no-proxy configuration, and proxy testing;
+- provider CRUD/reorder/test/model discovery;
+- aliases/custom models/disabled models;
+- proxy-pool CRUD/test and per-connection/bulk assignment;
+- Combo CRUD/reorder/strategy/judge configuration;
+- capability-adapter configuration;
+- System One request workbench;
+- Usage overview/charts/tables;
+- Usage live updates;
+- request log view;
+- request-detail filters/pagination/drawer;
+- request detail client request, translated provider request, raw provider response, token/cache fields, and transform diagnostics;
+- provider topology/activity;
+- Quota provider/account limits, reset windows, and health;
+- quota auto-ping controls where currently exposed;
+- Codex reset-credit behavior;
+- Console Log retrieval, streaming, and clearing;
+- observability enablement and limits;
+- database export/import;
+- settings required by Headroom and PXPIPE compatibility.
+
+The v2 visual design may change, but these workflows cannot be dropped accidentally.
+
+### 5.10 Current control/API surface
+
+Phase 0 must inventory every current \`src/app/api/**/route.js\` file. At the audited main SHA there are 95 API route files.
+
+The inventory must include at least these categories:
+
+- auth/session;
+- keys;
+- settings and database backup/restore;
+- locale/tags;
+- combos;
+- providers and provider tests;
+- OAuth/import helpers;
 - provider nodes;
 - proxy pools;
-- combos;
-- model aliases;
-- custom models;
+- models, aliases, custom/disabled models, availability, tests, catalog sync;
 - pricing;
-- disabled models;
-- Usage history;
+- Usage/history/stats/chart/request logs/request details/provider breakdown/live stream;
+- quota/reset-credit behavior;
+- console logs and console-log stream;
+- health;
+- Headroom management/proxy;
+- PXPIPE management/health/logs/stats;
+- all public \`v1\` and \`v1beta\` routes.
+
+The new control API may consolidate or rename private/admin endpoints, but the old dashboard and any retained CLI consumer must have a compatibility path until its caller has migrated.
+
+### 5.11 Durable state and settings
+
+The current SQLite schema version at the audited baseline is 2. The migration must preserve all current durable tables and their data:
+
+- \`_meta\`;
+- \`settings\`;
+- \`providerConnections\`;
+- \`providerNodes\`;
+- \`proxyPools\`;
+- \`apiKeys\`;
+- \`combos\`;
+- \`kv\`;
+- \`usageHistory\`;
+- \`usageDaily\`;
+- \`requestDetails\`.
+
+This includes data stored in JSON columns and KV scopes, not only typed columns.
+
+Durable behavior includes:
+
+- provider credentials and provider-specific data;
+- provider priority and active state;
+- model locks/cooldowns and error/backoff state when currently restart-durable;
+- aliases;
+- custom/disabled models;
+- pricing;
+- Usage history/daily aggregates;
 - request details;
-- quota-relevant state that is currently durable;
-- schema migration version.
+- settings;
+- API keys;
+- proxy pools;
+- Combo definitions.
+
+The settings parity inventory must include current defaults and dynamically stored settings, including routing strategies, quota visibility/auto-ping, capability adapters, login/API-key policy, observability, outbound proxy/no-proxy, RTK, Headroom, Caveman, Ponytail, PXPIPE, provider thinking, and other active settings found by the Phase 0 manifest.
+
+Database backup/export and restore/import are daily-driver features and receive dedicated migration tests.
 
 No production migration may require manually editing SQLite rows.
 
-### 5.5 Security behavior
+### 5.12 Observability contract
+
+Preserve:
+
+- Usage history and daily aggregation;
+- request counts;
+- prompt/completion/cached/cache-creation token visibility where reported;
+- cost/pricing calculations;
+- provider/model/account/API-key/endpoint breakdowns used today;
+- recent/live request state;
+- request logs;
+- request details;
+- request-detail redaction;
+- provider topology/activity;
+- quota/provider limit cards;
+- console logs;
+- live Usage/console event streams;
+- bounded retention/settings;
+- graceful drain on shutdown.
+
+Observability being disabled must continue to reduce detailed capture according to current settings without breaking critical Usage/accounting behavior.
+
+### 5.13 Security and network behavior
 
 The rewrite must preserve or strengthen:
 
@@ -250,13 +529,57 @@ The rewrite must preserve or strengthen:
 - dashboard authentication;
 - local/operator trust boundaries;
 - protection from spoofed forwarding headers;
+- trusted reverse-proxy peer handling;
+- current internal-peer proof semantics or a simpler equally strong replacement;
 - outbound SSRF protection for user-configurable provider URLs;
-- metadata/private-network blocking rules where applicable;
+- metadata/private/link-local blocking rules where applicable;
+- redirect revalidation;
 - credential redaction;
 - request-log header sanitization;
 - constant-time or equivalently safe API-key comparison;
 - secrets staying server-side;
-- provider validation using the same outbound-network policy as inference.
+- provider validation using the same outbound-network policy as inference;
+- image-fetch hardening;
+- safe forwarding/removal of content-encoding/content-length/hop-by-hop headers where current native routes require it.
+
+The current custom server also handles h2c upgrade traffic from clients such as JBR 25 by replaying it through the HTTP/1.1 handler. V2 must either support the relevant client transport natively or provide a verified compatibility path before Node is removed.
+
+### 5.14 Auxiliary repository surfaces
+
+The initial v2 production rewrite is a server/control-plane migration, not a forced deletion of repository auxiliary tooling.
+
+The existing CLI/tray/package sources may remain on the repository during migration. They do not have to be rewritten into Go in the first production cutover, but:
+
+- their builds must not be broken unintentionally;
+- any server APIs they still consume must remain compatible until those callers are migrated or explicitly deprecated;
+- hidden/media-only CLI commands are not automatically new v2 server product requirements.
+
+### 5.15 Regression-suite parity manifest
+
+At the audited main SHA the repository has 234 \`tests/unit/*.test.js\` files.
+
+Phase 0 must generate a test-parity ledger. Every existing regression test gets exactly one disposition:
+
+- \`ported\` — equivalent Go/UI test exists;
+- \`differential\` — behavior is proven by Node-vs-Go fixture;
+- \`retained-node\` — Node-only surface still exists during migration;
+- \`not-applicable\` — implementation-only test whose external invariant is covered elsewhere, with written rationale;
+- \`sunset\` — behavior intentionally removed by an explicit product decision.
+
+A v2 phase cannot delete the Node implementation that owns a behavior while tests for that behavior remain unclassified.
+
+### 5.16 Main-drift rule
+
+The parity manifest records the exact source main SHA.
+
+Before every cutover PR and before Node removal:
+
+1. compare current main against the manifest SHA;
+2. classify any new/changed public route, provider, setting, durable field, dashboard workflow, or relevant regression test;
+3. update fixtures/implementation as required;
+4. advance the manifest SHA only after review.
+
+This prevents a long-running rewrite from shipping with the feature set that existed only when the project started.
 
 ## 6. Target architecture
 
@@ -596,6 +919,61 @@ Redis or another coordination bus
 Redis is therefore an optional coordination layer, not a source of truth and not an inference-path cache.
 
 The v2 single-instance production definition of done requires that LiteRouter starts, serves configuration, routes inference, records Usage, and operates the dashboard without Redis.
+
+## 7.6 Configuration mutation transaction protocol
+
+For a single v2 process, configuration mutation is serialized by a **control-plane mutation lock**. This lock is never acquired by inference reads.
+
+The required mutation protocol is:
+
+~~~text
+control mutation lock
+  -> load current logical config state
+  -> apply requested mutation in memory
+  -> validate full candidate state
+  -> compile complete candidate RuntimeSnapshot
+  -> begin SQLite transaction
+  -> persist mutation
+  -> bump monotonic config_revision in _meta
+  -> commit
+  -> atomic publish of already-compiled snapshot
+  -> emit config.changed(snapshotVersion/configRevision)
+  -> respond success
+  -> release mutation lock
+~~~
+
+Rules:
+
+- all validation and snapshot compilation that can fail must happen before the durable commit;
+- if SQLite commit fails, discard the candidate snapshot and keep the old active snapshot;
+- after commit, the atomic pointer publication itself must not depend on fallible external work;
+- the API does not return success until the committed revision is the active snapshot;
+- if the process crashes after commit but before publication, startup recompiles the committed database before readiness, so the durable database still wins;
+- application-generated IDs/timestamps needed by the snapshot are chosen before commit so the persisted and compiled states are identical;
+- direct external edits to the live SQLite file while LiteRouter is running are unsupported.
+
+The \`config_revision\` value is also useful for diagnostics, backup metadata, and future multi-replica invalidation. It is not polled by the inference hot path.
+
+### 7.7 Database import/restore protocol
+
+Database restore is not an ordinary settings mutation.
+
+A restore must:
+
+1. authenticate the operator;
+2. write/parse the incoming backup into a temporary location;
+3. verify file/schema integrity;
+4. run required migrations against the temporary candidate, not the live database;
+5. compile a RuntimeSnapshot from the candidate database;
+6. stop accepting control mutations;
+7. quiesce or drain telemetry writes;
+8. take a rollback copy/checkpoint of the current live database;
+9. replace/import the candidate using an atomic or transactionally equivalent procedure;
+10. publish the already-validated snapshot;
+11. reopen telemetry;
+12. return success only after the new database and snapshot are active.
+
+On any failure before activation, the old database and old snapshot remain active. On activation failure, restore the rollback copy before accepting traffic.
 
 ## 8. Route compilation
 
@@ -940,6 +1318,21 @@ Proposed event families:
 
 The browser should not receive credentials or raw sensitive headers in live events.
 
+### 12.4 Critical accounting overflow policy
+
+Critical Usage/accounting events must never be silently dropped merely because the normal in-memory queue is full.
+
+Normal behavior remains asynchronous and non-blocking. Under exceptional queue saturation:
+
+1. diagnostic events shed first;
+2. critical enqueue applies a short bounded backpressure window;
+3. if capacity still cannot be obtained, the telemetry subsystem triggers an emergency batch/direct flush path;
+4. if SQLite remains unavailable, inference may continue only with an explicit degraded-health signal and a monotonic lost-accounting counter if an event ultimately cannot be persisted.
+
+The normal successful hot path still performs no SQLite write. Emergency persistence is an overload/failure path, not the default architecture.
+
+Shutdown must stop accepting new requests, allow active streams a bounded drain window, flush accepted critical telemetry, perform safe WAL maintenance if configured, and only then close SQLite.
+
 ## 13. Control-plane API
 
 ### 13.1 Versioned API
@@ -1145,161 +1538,304 @@ The policy must be unit-tested against:
 - IPv4-mapped IPv6;
 - DNS rebinding/redirect cases that the current security boundary handles.
 
-## 17. Detailed migration plan
+## 17. Detailed migration and daily-driver rollout plan
 
-The rewrite is a strangler migration. No big-bang replacement.
+The rewrite is a strangler migration, but production data has one hard rule:
 
-### Phase 0 - contract freeze and benchmark harness
+> **There is no live dual-writer phase. Exactly one application runtime owns the production SQLite database and rotating provider credentials at a time.**
 
-Deliverables:
+WAL improves SQLite concurrency; it does not make two independently implemented application-level read-merge-write state machines safe. The migration therefore keeps Go read-only/offline until it also has enough control-plane compatibility to become the sole production database owner.
 
-- compatibility inventory of all retained ingress/provider/features;
-- golden fixtures for representative requests/responses;
-- mock upstreams for OpenAI, Responses, Anthropic, System One;
-- existing Node output captured for deterministic cases;
-- benchmark harness that can target Node and Go with identical payloads;
-- explicit current-main baseline report.
+### Phase 0 - freeze an auditable compatibility manifest
 
-Required before Go owns production traffic.
-
-### Phase 1 - Go skeleton and persistence compatibility
+Audit the then-current main, beginning from the 2026-09-23 baseline in section 5.
 
 Deliverables:
 
-- cmd/literouter process;
-- config/environment loading;
-- health/readiness endpoints;
-- read-only access to a copy of current SQLite data;
-- schema/version validation;
-- runtime snapshot compiler;
-- static route/model/provider indexes;
-- no production routing yet.
+- machine-readable manifest containing source main SHA;
+- every public/rewrite route;
+- every current API route;
+- active and intentionally hidden provider registries;
+- dashboard/operator workflows;
+- settings/defaults and durable schema/KV scopes;
+- retained transforms;
+- background/runtime jobs;
+- existing regression tests and their disposition;
+- production deployment/environment assumptions;
+- list of providers/accounts/models/Combos actually configured in a sanitized production snapshot;
+- list of routes/models used recently where Usage data can provide it without exposing prompt content.
 
-Gate:
+The manifest is reviewed before implementation starts and checked for drift before every later cutover.
 
-- can load a production-copy database without mutation;
-- snapshot build is deterministic;
-- secrets never appear in debug output.
-
-### Phase 2 - native inference core
-
-Implement in this order unless compatibility evidence requires a different sequence:
-
-1. generic OpenAI-compatible native path;
-2. OpenAI Responses native path;
-3. Anthropic Messages native path;
-4. System One native path;
-5. provider/account selection;
-6. cooldown/fallback;
-7. aliases/custom provider nodes;
-8. Combo;
-9. retained transforms;
-10. provider-specific OAuth/token/quota adapters.
-
-Gate each family independently with contract tests.
-
-### Phase 3 - telemetry and observability
+### Phase 1 - differential harness and immutable production baseline
 
 Deliver:
 
-- request lifecycle events;
-- bounded telemetry queue;
-- batched Usage persistence;
-- request-detail persistence;
-- live event stream;
-- metrics for queue depth/drop count, active requests, route mode, upstream timings.
+- golden request/response fixtures for every public transport family;
+- mock upstreams for OpenAI Chat, Responses, Anthropic Messages, Gemini compatibility, Ollama compatibility, and System One;
+- provider-specific fixtures for custom wire protocols;
+- cache-stability fixtures;
+- existing Node outputs captured for deterministic cases;
+- DB fixture built from a sanitized current schema;
+- benchmark harness targeting Node and Go with identical payloads;
+- security fixtures;
+- current-main latency/RSS/CPU/image/browser baseline.
 
-Do not cut traffic until Usage parity is proven.
+This phase changes no production routing.
 
-### Phase 4 - shadow/replay verification
+### Phase 2 - Go skeleton, store compatibility, and snapshot compiler
 
-Preferred verification methods, in order of safety:
+Deliver:
 
-1. replay sanitized captured request fixtures offline;
-2. send deterministic requests to mock upstreams through both implementations;
-3. for safe idempotent/controlled upstream tests, compare live behavior.
-
-Do not duplicate arbitrary production model requests to paid upstreams merely for shadowing.
-
-Compare:
-
-- status;
-- headers required by clients;
-- first event;
-- event sequence;
-- terminal event;
-- error classification;
-- selected route/account where deterministic;
-- Usage record;
-- request-detail record.
-
-### Phase 5 - inference cutover
-
-Run Node dashboard/control plane and Go data plane side by side.
-
-Caddy routing:
-
-~~~text
-/v1/chat/completions -> Go
-/v1/responses        -> Go
-/v1/messages         -> Go
-/v1/systemone        -> Go
-/dashboard/*         -> Node
-/api/*               -> Node
-~~~
-
-Prefer one durable writer for overlapping data categories. The exact ownership of SQLite writes during this phase must be documented before cutover.
-
-If both processes need the same SQLite file, do not assume WAL makes dual application writers safe enough. Define ownership per table or introduce an explicit bridge. A safer initial cutover is for Go to own inference telemetry writes while Node remains control-plane writer, with both behaviors rehearsed against a copy of production data.
-
-Rollback:
-
-- Caddy routes inference back to Node;
-- stop Go writer before rollback if required by the data-ownership model;
-- verify health and representative route.
-
-### Phase 6 - Go control-plane API
-
-Port mutations/read APIs to Go.
-
-Order:
-
-1. overview/read models;
-2. providers/provider nodes;
-3. keys/settings;
-4. combos;
-5. Usage/request details;
-6. quota;
-7. token-saver settings;
-8. System One workspace APIs;
-9. remaining retained operator functions.
-
-Node pages may call Go admin APIs during this transition if CORS/same-origin routing remains simple.
-
-### Phase 7 - static dashboard
-
-Build new Vite/React UI against /admin/v1.
-
-Port workflows page by page. Do not combine this with another visual redesign unless separately scoped.
+- \`cmd/literouter\`;
+- configuration/environment loader;
+- liveness/readiness;
+- SQLite schema/version reader;
+- migration framework compatible with the current database;
+- immutable ConfigState/RuntimeSnapshot compiler;
+- runtime state manager;
+- exact mutation protocol from section 7.6;
+- read-only loading of a production-copy database.
 
 Gate:
 
-- critical operator workflows are feature-complete;
-- no production-only Next API dependency remains;
-- cold navigation and interaction performance are measured.
+- all current durable tables/KV scopes load;
+- snapshot compile is deterministic;
+- secrets never appear in diagnostics;
+- corrupt/unsupported DB keeps readiness false;
+- current database can still be opened by the Node rollback image.
 
-### Phase 8 - Node/Next removal
+### Phase 3 - public ingress/protocol parity
 
-Only after all gates:
+Implement and differentially test public surfaces before provider breadth:
+
+1. model discovery/list/single-model/info;
+2. OpenAI Chat Completions;
+3. OpenAI Responses;
+4. Responses compact;
+5. Anthropic Messages;
+6. Anthropic count_tokens compatibility;
+7. System One;
+8. Ollama-compatible \`/v1/api/chat\`;
+9. Gemini-compatible \`/v1beta\` list/generate/stream;
+10. current route aliases/rewrites and CORS behavior;
+11. relevant h2c/client transport compatibility.
+
+Native paths are implemented first, then translation paths.
+
+No production credentials are used concurrently by Node and Go in this phase.
+
+### Phase 4 - routing, providers, credentials, and transforms
+
+Port the shared routing machinery:
+
+- API-key validation;
+- route compilation;
+- aliases/custom/disabled models;
+- account selection;
+- fill-first/RR/sticky/per-provider strategies;
+- model locks/cooldowns;
+- Combo fallback/RR/Fusion;
+- capability adapters;
+- proxy pools/global outbound proxy;
+- quota logic;
+- token-saver/cache transforms.
+
+Then migrate providers in reviewable groups.
+
+For every provider moved:
+
+- registry metadata parity;
+- auth mode parity;
+- credential refresh parity;
+- model discovery parity;
+- request/response wire parity;
+- quota/reset/error classification parity;
+- proxy behavior;
+- Usage extraction;
+- current provider-specific regression tests.
+
+The 80-active-provider ledger must be fully classified before v2 is declared feature complete.
+
+### Phase 5 - telemetry and complete Go control-plane compatibility
+
+**This phase happens before production inference cutover.**
+
+Deliver:
+
+- Usage/history/request-details writer;
+- critical-accounting overflow policy;
+- live request/event stream;
+- console logs;
+- quota read models;
+- Go admin/control APIs;
+- compatibility endpoints required by the existing Next dashboard/CLI;
+- provider/OAuth/import workflows;
+- keys/settings/auth;
+- model/alias/custom/disabled/pricing workflows;
+- provider nodes and proxy pools;
+- Combo/capability-adapter workflows;
+- database backup/restore;
+- Headroom management;
+- PXPIPE compatibility;
+- health endpoints.
+
+At the end of Phase 5, Go must be capable of being the **only process that opens the production SQLite database for application writes**.
+
+The existing Next dashboard may continue to render the UI, but after production cutover all its data/mutation calls must go to Go APIs. The Node UI process must have an explicit UI-only mode that:
+
+- does not open/mutate the production SQLite database;
+- does not run token-refresh/quota/background jobs;
+- does not own provider credentials;
+- does not append Usage/request details;
+- does not perform server-side routing.
+
+### Phase 6 - offline replay and safe canary validation
+
+Verification order:
+
+1. replay sanitized fixtures offline;
+2. run Node and Go against deterministic mock upstreams;
+3. run Go against a sanitized/copy database with no live credential rotation;
+4. use dedicated canary provider accounts/API keys for selected live upstream smoke tests;
+5. compare with current Node production behavior.
+
+**Never allow Node and Go to concurrently use the same rotating OAuth refresh token merely for canary testing.** A refresh-token rotation by one runtime can invalidate the other runtime's durable token and turn a harmless canary into a production outage.
+
+Live canary credentials must therefore be:
+
+- dedicated to the canary; or
+- non-rotating API keys safe for parallel use.
+
+Compare:
+
+- status/error;
+- required headers;
+- first event/TTFT;
+- stream event sequence and terminal event;
+- outbound normalized body;
+- cache anchors;
+- selected route/account where deterministic;
+- retry/cooldown classification;
+- Usage/accounting;
+- request detail/redaction;
+- cancellation.
+
+### Phase 7 - production preflight and credential ownership transfer
+
+Before touching edge routes:
+
+1. regenerate the parity manifest against latest main;
+2. build a production route matrix from the live DB/Usage metadata without copying prompt contents;
+3. confirm every currently configured provider/account/model/Combo is implemented;
+4. confirm every recently used public route is implemented;
+5. run Node-side health/provider checks where safe;
+6. checkpoint SQLite/WAL and create a versioned backup;
+7. verify backup restore on a disposable copy;
+8. verify rollback Node image can open the current schema;
+9. disable new control mutations for the cutover window;
+10. stop background jobs;
+11. drain active Node inference requests;
+12. stop the full Node runtime so it releases database and rotating-credential ownership.
+
+Only after Node has relinquished ownership may Go open the live volume as writable.
+
+### Phase 8 - controlled production cutover
+
+Start Go with the live volume.
+
+Startup must:
+
+- open/migrate SQLite;
+- compile the runtime snapshot;
+- restore durable cooldown/credential/config state;
+- become ready only when the active snapshot is valid.
+
+Run local representative smoke checks before changing Caddy.
+
+Then route all server-owned compatibility surfaces together:
+
+~~~text
+/v1/*       -> Go
+/v1beta/*   -> Go
+/responses  -> Go
+/codex/*    -> Go
+/api/*      -> Go compatibility/control API
+
+/dashboard/*, /login, UI assets -> Node UI-only temporarily
+~~~
+
+This is deliberately **not** a split where Node control logic and Go inference logic both mutate SQLite.
+
+Immediate post-cutover checks:
+
+- configured daily-driver providers;
+- one native streaming route;
+- one translated route if used;
+- one Combo/fallback route if used;
+- model list;
+- API-key auth;
+- Usage append/live update;
+- quota;
+- admin mutation + snapshot version;
+- login/dashboard;
+- token refresh path when safely testable;
+- backup/export.
+
+If a gate fails, execute rollback immediately rather than patching production in place.
+
+### Phase 9 - soak as the daily-driver core
+
+Keep Node only as UI renderer while Go owns all server state and APIs.
+
+During the soak window, monitor:
+
+- unexpected 4xx/5xx by provider/model;
+- fallback rate;
+- cache-read/cache-create ratios;
+- token-refresh failures;
+- model locks;
+- Usage/accounting gaps;
+- telemetry pressure;
+- RSS/CPU;
+- stream cancellations;
+- dashboard API errors;
+- SQLite busy/checkpoint behavior.
+
+Any main-branch feature added during the soak triggers parity-manifest drift review.
+
+Do not remove the rollback image or make a forward-only schema change during this window.
+
+### Phase 10 - static dashboard cutover
+
+Build/port the Vite/React dashboard against the Go control API.
+
+Port and browser-test all workflows in section 5.9.
+
+Do not combine this phase with another large visual redesign. Preserve interaction semantics first; visual refinement can follow.
+
+Gate:
+
+- every visible dashboard route has workflow parity;
+- authentication/session behavior is proven;
+- no provider credential is exposed to browser JavaScript;
+- accessibility/basic responsive smoke tests pass;
+- cold and cached navigation meet the recorded performance budgets.
+
+Then route dashboard/static assets to the new UI.
+
+### Phase 11 - Node/Next removal
+
+Only after all gates and the agreed soak window:
 
 - remove Next production runtime;
-- remove custom-server.js;
-- remove Node inference modules;
-- remove obsolete /api compatibility routes after deprecation window;
-- remove Redis from default compose if no retained runtime function needs it;
-- shrink production Docker image;
-- update README and operational docs;
-- retain migration/rollback tooling for at least one release window.
+- remove custom-server.js only after trusted-proxy/h2c compatibility is covered;
+- remove Node inference/control modules;
+- remove old private \`/api\` compatibility aliases only when no retained UI/CLI caller needs them;
+- remove Redis from default compose if no explicitly retained function needs it;
+- shrink production image;
+- update README/runbooks;
+- retain the pre-removal Node image and compatible DB backup for the rollback window.
 
 ## 18. Current-to-target modification map
 
@@ -1644,33 +2180,45 @@ No implementation phase is "done" solely because Go tests are green; compatibili
 
 Do not implement v2 in one enormous PR.
 
-Recommended PR sequence:
+Recommended dependency order:
 
-1. docs: approve v2 architecture PRD;
-2. test: add compatibility fixtures and differential harness without changing runtime;
-3. feat(v2): add Go skeleton, health, SQLite read compatibility, snapshot compiler;
-4. feat(v2): add generic OpenAI native route;
-5. feat(v2): add Responses and Anthropic native routes;
-6. feat(v2): add routing/account/cooldown/fallback;
-7. feat(v2): add Combo/custom nodes/aliases;
-8. feat(v2): port provider-specific adapters and retained transforms in reviewable groups;
-9. feat(v2): add telemetry/Usage/request-details parity;
-10. ops(v2): add side-by-side container and Caddy routing support, disabled by default;
-11. perf(v2): publish Node-vs-Go benchmark evidence;
-12. release(v2): cut inference paths to Go after review gates;
-13. feat(v2-control): add /admin/v1 API;
-14. feat(v2-ui): add static UI shell and overview;
-15. feat(v2-ui): port remaining dashboard workflows in bounded PRs;
-16. release(v2): remove Node from production path;
-17. cleanup(v2): remove obsolete Node/Next runtime only after rollback window.
+1. docs: approve audited v2 architecture/rollout PRD;
+2. test: add generated parity manifest + main-drift checker;
+3. test: add differential fixtures/mock upstreams/benchmark harness;
+4. feat(v2): Go skeleton, health, current SQLite read compatibility, snapshot compiler;
+5. feat(v2): config mutation protocol + compatible store layer on fixture databases;
+6. feat(v2): model discovery + OpenAI Chat native path;
+7. feat(v2): Responses + compact;
+8. feat(v2): Anthropic Messages + count_tokens;
+9. feat(v2): System One + Ollama compatibility + Gemini v1beta compatibility;
+10. feat(v2): routing/account strategies/cooldowns/proxy behavior;
+11. feat(v2): Combo/Fusion/capability adapters;
+12. feat(v2): cache/token-saver/Headroom/PXPIPE-compatible transforms;
+13. feat(v2): providers in bounded groups with provider-specific differential tests;
+14. feat(v2): telemetry/Usage/request-details/console/live events;
+15. feat(v2-control): auth/keys/settings/models/providers/provider-nodes/proxy-pools/combos/pricing/quota;
+16. feat(v2-control): OAuth/import/provider-specific control workflows + backup/restore;
+17. feat(node-ui): explicit UI-only mode consuming Go APIs and never opening live SQLite;
+18. ops(v2): side-by-side *non-production-writer* deployment and dedicated-canary support;
+19. perf(v2): publish Node-vs-Go benchmarks and cache-parity evidence;
+20. release(v2): controlled credential/database ownership transfer and Go core cutover;
+21. soak(v2): daily-driver observation fixes, still schema-backward-compatible;
+22. feat(v2-ui): static UI shell + overview;
+23. feat(v2-ui): port every remaining operator workflow in bounded PRs;
+24. release(v2-ui): static dashboard cutover;
+25. cleanup(v2): remove obsolete Node/Next runtime after rollback window.
 
 Each implementation PR must state:
 
-- what compatibility surface moved;
-- which Node behavior remains authoritative;
-- differential test result;
+- parity-manifest entries moved;
+- exact current-main SHA used for comparison;
+- Node behavior that remains authoritative;
+- relevant existing regression tests and their disposition;
+- differential result;
+- durable-state impact;
+- credential-ownership impact;
 - rollback impact;
-- benchmark impact when the hot path changes.
+- benchmark/cache impact when the hot path changes.
 
 ## 26. Review and merge discipline
 
@@ -1686,49 +2234,103 @@ Preferred discipline:
 
 ## 27. Cutover gates
 
-Inference cutover requires all of:
+### 27.1 Go server ownership gate
 
+Go may not become the production database/credential owner until all of these pass:
+
+- parity manifest refreshed against latest main;
+- all public route families used by the deployment classified and implemented;
+- every currently configured provider/account classified and implemented;
+- every configured Combo/capability adapter implemented;
 - contract suite green;
 - differential suite green;
-- security suite green;
-- existing retained Node regression suite green;
-- production-copy SQLite load succeeds;
-- Usage parity succeeds;
-- streaming cancellation succeeds;
-- controlled p50/p95 not worse than main;
-- concurrent streaming CPU/RSS acceptable;
+- prompt-cache parity green;
+- security/SSRF/trusted-proxy suite green;
+- relevant existing Node regression tests classified and covered;
+- production-copy SQLite load/compile succeeds;
+- backup + disposable restore rehearsal succeeds;
+- API keys/login/auth parity succeeds;
+- model-list/model-info parity succeeds;
+- Usage/request-detail parity succeeds;
+- quota/cooldown/reset semantics succeed;
+- OAuth/token-refresh tests succeed for configured OAuth providers;
+- streaming/non-streaming terminal and cancellation tests succeed;
+- controlled p50/p95/TTFT not worse than approved baseline;
+- concurrent CPU/RSS/queue behavior acceptable;
+- Go control API covers every current dashboard mutation needed during Node UI-only phase;
+- Node UI-only mode proves it does not open/mutate production SQLite or run credential/background jobs;
 - rollback rehearsal succeeds;
 - reviewer blockers resolved.
 
-Node removal requires additional gates:
+### 27.2 Static dashboard gate
 
-- Go admin API feature parity;
-- static dashboard critical workflow parity;
-- no required production Next API routes;
-- no provider credential exposed to browser;
-- production stable observation period completed;
-- rollback artifact retained.
+Static UI cutover additionally requires:
+
+- every visible dashboard route in section 5.9 ported;
+- all current critical workflows browser-tested;
+- login/logout/password/require-login behavior proven;
+- endpoint/API-key workflow proven;
+- provider/add/import/test/reorder/proxy workflows proven;
+- Combo/Fusion/capability adapter workflow proven;
+- System One workflow proven;
+- Usage/Quota/log/detail/topology live behavior proven;
+- Token Saver/Headroom behavior proven;
+- Settings/proxy/observability/database backup+restore proven;
+- no secrets/provider credentials exposed to the browser;
+- cold/cached interaction budgets met.
+
+### 27.3 Node removal gate
+
+Node/Next removal additionally requires:
+
+- stable daily-driver soak completed;
+- no unclassified parity-manifest drift;
+- no required production Next API route remains;
+- no retained CLI/tool depends on an endpoint scheduled for removal;
+- schema remains rollback-compatible or a tested reverse migration exists;
+- immutable rollback artifact retained;
+- final rollback rehearsal succeeds.
 
 ## 28. Rollback plan
 
-### During data-plane-only cutover
+### 28.1 Core cutover rollback
 
-Rollback must be an edge-route change plus writer ownership handoff if necessary.
+Because production never runs two live SQLite writers, rollback is an ownership transfer, not a race between runtimes.
 
 Procedure:
 
-1. stop or quiesce the Go writer according to the phase's SQLite ownership model;
-2. route /v1 paths back to the known-good Node container;
-3. verify health;
-4. run representative native + streaming request;
-5. verify Usage is still appendable;
-6. preserve failed Go logs and snapshot version for debugging.
+1. stop accepting new Go requests at the edge;
+2. drain active Go streams for the bounded shutdown window;
+3. flush accepted critical telemetry;
+4. stop Go and release SQLite/credential ownership;
+5. verify SQLite integrity/checkpoint state;
+6. start the known-good full Node image against the same backward-compatible volume;
+7. wait for Node health/readiness;
+8. route \`/v1*\`, \`/v1beta*\`, aliases, and \`/api/*\` back to Node;
+9. run representative auth/model-list/native-stream/Usage checks;
+10. preserve failed Go logs, config revision, runtime snapshot version, and image SHA for diagnosis.
 
-### After Node removal
+Do not leave Go running read/write against the live volume after rollback.
 
-Keep one immutable pre-removal Node image and compatible database backup for the agreed rollback window.
+### 28.2 Database rollback
 
-If v2 introduces a forward-only schema migration, Node removal is blocked until a tested reverse migration or compatibility path exists.
+Before core cutover, keep:
+
+- a checkpointed pre-cutover DB backup;
+- the exact schema version;
+- the exact Node image SHA.
+
+Until the rollback window closes, v2 migrations must be additive/backward-compatible with that Node image. A forward-only schema change is prohibited during the daily-driver soak unless a tested reverse migration is delivered in the same change.
+
+Database restore/import uses the safe procedure in section 7.7; do not overwrite the live database with an unvalidated backup.
+
+### 28.3 OAuth credential rollback
+
+Rotating OAuth credentials require special care.
+
+Once Go owns production credentials, Node must not refresh them in parallel. If Go refreshes a token before rollback, the updated credential must already be durably stored in the shared database so the restarted Node image reads the newest token pair.
+
+Rollback tests for configured OAuth providers must cover this handoff.
 
 ## 29. Risks and mitigations
 
@@ -1749,13 +2351,15 @@ Mitigation:
 - judge data-plane success using controlled router overhead, TTFT overhead, CPU, RSS, throughput, and maintainability;
 - report public endpoint latency separately.
 
-### Risk: SQLite dual-writer transition
+### Risk: SQLite or rotating-credential dual ownership
 
 Mitigation:
-- define table/write ownership;
-- prefer one writer per category;
-- rehearse with production-copy volume;
-- no casual assumption that WAL alone solves application-level coordination.
+- production has exactly one application writer/credential owner at a time;
+- Go is read-only/offline before the ownership-transfer cutover;
+- Node becomes UI-only after Go takes ownership;
+- no live shared-refresh-token canary between Node and Go;
+- rehearse ownership transfer and rollback against a production-copy database;
+- keep schema backward-compatible through the rollback window.
 
 ### Risk: static UI loses convenient Next behavior
 
@@ -1809,32 +2413,49 @@ Approval of this PRD means agreement with these architectural directions:
 
 ## 31. Open implementation decisions
 
-These do not block approval of the architectural direction, but each must be resolved before the affected implementation phase:
+These choices remain open, but none may weaken the compatibility/rollout gates above:
 
-- exact Go router/HTTP library: standard net/http is the default unless benchmark evidence justifies another dependency;
-- exact SQLite driver after evaluating CGO/static-image implications;
-- whether the static UI is Caddy-served or embedded;
-- precise critical-telemetry durability/overflow policy;
-- schema additions needed to separate durable locks from configuration;
-- exact Caddy side-by-side cutover topology;
-- retained status of PXPipe/Headroom if they are still reachable only through legacy configuration;
-- browser-performance budget values after capturing a reproducible current-production baseline.
+- exact Go router/HTTP library: standard \`net/http\` is the default unless benchmark evidence justifies another dependency;
+- exact SQLite driver after evaluating CGO/static-image implications and current schema/backup compatibility;
+- whether the final static UI is Caddy-served or embedded;
+- exact queue capacities, bounded backpressure duration, and degraded-health thresholds for critical telemetry;
+- exact browser-performance budget numbers after capturing a reproducible baseline;
+- exact duration/traffic criteria for the daily-driver soak window.
+
+The following are **not** open anymore:
+
+- no production dual-writer phase;
+- Headroom is retained because it is user-visible today;
+- PXPIPE enabled-state/runtime/API compatibility is preserved even though its normal UI is currently hidden;
+- Fusion and capability adapters are retained;
+- Redis is not required for single-instance v2;
+- all active provider registry entries require explicit migration disposition;
+- current public compatibility routes beyond the three primary LLM endpoints are part of the parity audit.
 
 ## 32. Definition of done
 
 LiteRouter v2 is complete only when:
 
-- all retained public inference contracts are served by Go;
-- all retained provider/account/Combo behavior passes compatibility tests;
-- Usage, request details, quota, keys, providers, settings, and operator workflows are served without the Node runtime;
-- static React dashboard is the production control plane;
+- parity manifest is refreshed against the final migration main SHA with no unclassified drift;
+- all retained public inference/discovery/compatibility contracts are served by Go;
+- all 80 active providers from the audited baseline, plus any later active providers, have an explicit reviewed disposition;
+- all providers/accounts configured in the production daily-driver database work through the v2 path;
+- all retained provider/account/Combo/Fusion/capability-adapter behavior passes compatibility tests;
+- prompt-cache behavior does not regress on controlled fixtures;
+- OAuth/token refresh and credential rotation are durable and rollback-safe;
+- API keys, login/session, provider management, model catalog, aliases/custom/disabled models, pricing, proxy pools, settings, backup/restore, Usage, request details, quota, logs, Headroom, PXPIPE compatibility, and System One are served without the full Node runtime;
+- every visible current dashboard workflow has static-UI parity;
 - steady-state inference performs no synchronous SQLite/Redis lookup for configuration;
 - native streaming does not perform unnecessary protocol re-encoding;
-- telemetry is asynchronous and bounded;
-- existing production data has migrated without manual row editing;
-- production image no longer requires Next/Node;
-- benchmark report demonstrates no regression against the approved main baseline;
-- rollback has been rehearsed;
-- obsolete Node/Next paths have been removed only after the rollback window.
+- telemetry is asynchronous in the normal path, bounded, and does not silently discard critical accounting on ordinary queue saturation;
+- existing production data migrates without manual row editing;
+- exactly one runtime owns production SQLite writes/rotating credentials during migration;
+- production image no longer requires Next/Node after the rollback window;
+- benchmark report demonstrates no regression against the approved baseline;
+- cache, concurrency, cancellation, DB restore, and security suites pass;
+- daily-driver soak completes without unresolved correctness blockers;
+- rollback has been rehearsed after the final schema used for cutover;
+- the retained rollback image can still open the database until the rollback window closes;
+- obsolete Node/Next paths are removed only after those conditions are satisfied.
 
-At that point LiteRouter is no longer architecturally "9Router with fewer surfaces." It is a LiteRouter-owned routing system with compatibility to the public behavior that matters.
+The migration optimizes for a boring daily driver: correctness, credential safety, cache-hit preservation, and reversible rollout take precedence over deleting the old runtime quickly.
