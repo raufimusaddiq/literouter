@@ -808,7 +808,7 @@ Explicitly durable operational state, if required for compatibility:
 
 The implementation must document each state field's ownership rather than storing mixed configuration and request-serving cursors in one row.
 
-## 7.3 Configuration lifecycle and Redis-free single-instance flow
+### 7.3 Configuration lifecycle and Redis-free single-instance flow
 
 For the normal LiteRouter v2 deployment, Redis is not part of configuration serving.
 
@@ -920,7 +920,7 @@ Redis is therefore an optional coordination layer, not a source of truth and not
 
 The v2 single-instance production definition of done requires that LiteRouter starts, serves configuration, routes inference, records Usage, and operates the dashboard without Redis.
 
-## 7.6 Configuration mutation transaction protocol
+### 7.6 Configuration mutation transaction protocol
 
 For a single v2 process, configuration mutation is serialized by a **control-plane mutation lock**. This lock is never acquired by inference reads.
 
