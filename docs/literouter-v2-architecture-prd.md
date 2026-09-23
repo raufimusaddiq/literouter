@@ -830,25 +830,24 @@ snapshot = runtime.Load()
 
 No lock is required to read the active snapshot.
 
-A configuration mutation follows:
+A configuration mutation follows the single normative protocol defined in section 7.6:
 
 ~~~text
 admin request
-  -> validate
-  -> SQLite transaction
-  -> read committed durable state needed for compilation
-  -> compile new immutable snapshot
-  -> validate snapshot
-  -> atomic swap
+  -> acquire control-plane mutation lock
+  -> load current logical config
+  -> apply mutation to candidate state
+  -> validate candidate state
+  -> compile + validate complete candidate RuntimeSnapshot
+  -> SQLite transaction persists the same candidate mutation
+  -> bump config_revision
+  -> COMMIT
+  -> atomic publish of the already-compiled snapshot
   -> emit config.changed
+  -> acknowledge success
 ~~~
 
-If compilation fails after the SQLite transaction, the control API must not silently continue serving stale configuration indefinitely. The implementation must either:
-
-1. compile before commit when validation can be performed without committing; or
-2. commit, attempt compile, and return the service to a known state by reloading/compiling the committed database before acknowledging success.
-
-The selected transaction/compile protocol must be documented and tested.
+There is no alternate commit-then-compile implementation. Any validation or compilation that can fail must happen before the durable commit. After commit, snapshot publication must require no fallible external operation. If the process crashes in the narrow commit-before-publish window, startup recompiles the committed database before readiness.
 
 ### 7.2 Runtime state vs durable configuration
 
@@ -1372,7 +1371,7 @@ Under pressure:
 - queue capacity and drop counters must be visible;
 - shutdown must attempt bounded drain.
 
-Exact durability semantics for accepted critical events must be documented before implementation.
+Section 12.4 is the normative durability behavior for accepted critical events. Concrete queue capacities, bounded backpressure duration, and degraded-health thresholds are implementation tuning values, not an alternate durability model; they must be fixed and load-tested in the telemetry implementation PR before that PR can merge.
 
 ### 12.3 Live events
 
@@ -2486,14 +2485,16 @@ Approval of this PRD means agreement with these architectural directions:
 
 ## 31. Open implementation decisions
 
-These choices remain open, but none may weaken the compatibility/rollout gates above:
+These choices remain open, but each has an explicit decision deadline so Codex must not invent a project-wide choice in an unrelated PR:
 
-- exact Go router/HTTP library: standard `net/http` is the default unless benchmark evidence justifies another dependency;
-- exact SQLite driver after evaluating CGO/static-image implications and current schema/backup compatibility;
-- whether the final static UI is Caddy-served or embedded;
-- exact queue capacities, bounded backpressure duration, and degraded-health thresholds for critical telemetry;
-- exact browser-performance budget numbers after capturing a reproducible baseline;
-- exact duration/traffic criteria for the daily-driver soak window.
+- Go router/HTTP library: standard `net/http` is the default; changing it requires benchmark evidence in the first ingress PR that needs the change.
+- SQLite driver: resolve in the Phase 2 store/snapshot PR after testing current-schema compatibility, backup/restore behavior, concurrency, CGO/static-image impact, and image size. PostgreSQL is not part of v2.
+- Static UI serving: choose Caddy-served vs embedded in the first static-UI shell PR; this must not affect the Go control API contract.
+- Critical telemetry queue capacities/backpressure/health thresholds: choose and load-test them in the Phase 5 telemetry PR. Section 12.4 already fixes the durability semantics.
+- Browser performance budgets: Phase 1 captures the reproducible Node baseline; the static-UI shell PR records exact candidate budgets before UI cutover.
+- Daily-driver soak duration/traffic criteria: freeze them in Phase 7 production preflight before any ownership-transfer/cutover operation.
+
+None of these open tuning choices blocks Phase 0 parity-manifest work or Phase 1 differential-harness work.
 
 The following are **not** open anymore:
 
