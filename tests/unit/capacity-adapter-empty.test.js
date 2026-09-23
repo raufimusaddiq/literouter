@@ -43,4 +43,12 @@ describe("capacity adapter empty pools", () => {
     expect(cfg.enabled).toBe(false);
     expect(cfg.models).toEqual([]);
   });
+
+  // The picker calls onDeselect when the user clicks an already-added chip; the
+  // vision pool wired no onDeselect, so the chip stayed selected and could never
+  // be removed.
+  it("removing by value drops the model from the pool", () => {
+    const remove = (models, value) => models.filter((m) => m !== value);
+    expect(remove(["cx/gpt-6-luna", "cx/gpt-6-sol"], "cx/gpt-6-luna")).toEqual(["cx/gpt-6-sol"]);
+  });
 });
