@@ -171,7 +171,7 @@ The initial v2 release does not attempt to:
 
 The following are release-blocking until explicitly superseded by another approved product decision.
 
-This section was audited against current main at \`25e9df0e02efc3ff47fa1fa616b6fbb55143dac1\` on 2026-09-23. The repository is still changing quickly; Phase 0 must generate a machine-readable parity manifest from the then-current main and CI must fail on unclassified drift.
+This section was audited against current main at `25e9df0e02efc3ff47fa1fa616b6fbb55143dac1` on 2026-09-23. The repository is still changing quickly; Phase 0 must generate a machine-readable parity manifest from the then-current main and CI must fail on unclassified drift.
 
 ### 5.1 Public client contracts
 
@@ -179,21 +179,21 @@ V2 must preserve the currently exposed client-facing behavior, not only the thre
 
 Required public routes and compatibility aliases include:
 
-- \`POST /v1/chat/completions\`;
-- \`POST /v1/responses\`;
-- \`POST /v1/responses/compact\`, including the current compact-mode semantics;
-- \`POST /v1/messages\`;
-- \`POST /v1/messages/count_tokens\`, including the current response shape;
-- \`POST /v1/systemone\`;
-- \`POST /v1/api/chat\`, including Ollama-compatible response transformation;
-- \`GET /v1\` and \`GET /v1/models\`;
-- \`GET /v1/models/{provider}/{model}\` catch-all lookup;
-- \`GET /v1/models/info\`;
-- \`GET /v1beta/models\`;
-- Gemini-compatible \`POST /v1beta/models/{model}:generateContent\`;
-- Gemini-compatible \`POST /v1beta/models/{model}:streamGenerateContent\`;
-- current rewrite aliases \`/responses\` and \`/codex/:path*\`;
-- current double-prefix compatibility for \`/v1/v1\` where clients rely on it;
+- `POST /v1/chat/completions`;
+- `POST /v1/responses`;
+- `POST /v1/responses/compact`, including the current compact-mode semantics;
+- `POST /v1/messages`;
+- `POST /v1/messages/count_tokens`, including the current response shape;
+- `POST /v1/systemone`;
+- `POST /v1/api/chat`, including Ollama-compatible response transformation;
+- `GET /v1` and `GET /v1/models`;
+- `GET /v1/models/{provider}/{model}` catch-all lookup;
+- `GET /v1/models/info`;
+- `GET /v1beta/models`;
+- Gemini-compatible `POST /v1beta/models/{model}:generateContent`;
+- Gemini-compatible `POST /v1beta/models/{model}:streamGenerateContent`;
+- current rewrite aliases `/responses` and `/codex/:path*`;
+- current double-prefix compatibility for `/v1/v1` where clients rely on it;
 - CORS/preflight behavior required by the current clients.
 
 The current Gemini-compatible route has a special native Gemini TTS path. V2 must preserve the currently routable native TTS behavior, authentication forms, cancellation, timeout/error mapping, account fallback, safe header forwarding, and Gemini response/stream shape before that route family can move.
@@ -204,7 +204,7 @@ The public contract also includes:
 - model-list filtering and disabled-model behavior;
 - live model resolution where current providers perform it;
 - compatible-provider model discovery and recursion protection;
-- API-key behavior across Bearer, Anthropic \`x-api-key\`, and currently supported Gemini key forms;
+- API-key behavior across Bearer, Anthropic `x-api-key`, and currently supported Gemini key forms;
 - streaming terminal semantics, including exactly-once terminal behavior where the current tests require it;
 - non-streaming behavior;
 - client disconnect/cancellation behavior;
@@ -271,9 +271,9 @@ Capability adapters are a current user-visible routing feature and are retained.
 
 At the audited baseline:
 
-- \`vision\` and \`audioInput\` are exposed in the Combo UI;
-- \`pdf\` and \`videoInput\` remain represented in stored settings for compatibility even while hidden due to translator limitations;
-- an adapter has \`enabled\`, \`roundRobin\`, and ordered \`models\`;
+- `vision` and `audioInput` are exposed in the Combo UI;
+- `pdf` and `videoInput` remain represented in stored settings for compatibility even while hidden due to translator limitations;
+- an adapter has `enabled`, `roundRobin`, and ordered `models`;
 - legacy stored array form remains readable;
 - an enabled adapter with an empty model list is a deliberate no-op;
 - fresh/default adapters are disabled rather than silently selecting a hard-coded model;
@@ -290,18 +290,18 @@ The active provider registry is a compatibility contract.
 
 At the audited main SHA there are 80 active registry entries:
 
-\`alicode-intl\`, \`alicode\`, \`anthropic\`, \`antigravity\`, \`azure\`, \`blackbox\`, \`byteplus\`, \`cerebras\`, \`chutes\`, \`claude\`, \`cline\`, \`clinepass\`, \`cloudflare-ai\`, \`codebuddy-cn\`, \`codex\`, \`cohere\`, \`commandcode\`, \`cursor\`, \`deepseek\`, \`featherless\`, \`fireworks\`, \`gemini-cli\`, \`gemini\`, \`github\`, \`gitlab\`, \`glm-cn\`, \`glm\`, \`grok-cli\`, \`grok-web\`, \`groq\`, \`hyperbolic\`, \`iflow\`, \`kilocode\`, \`kimchi\`, \`kimi\`, \`kiro\`, \`mimo-free\`, \`minimax-cn\`, \`minimax\`, \`mistral\`, \`mmf\`, \`nebius\`, \`nvidia\`, \`ollama-local\`, \`ollama\`, \`openai\`, \`opencode-go\`, \`opencode\`, \`openrouter\`, \`perplexity-web\`, \`perplexity\`, \`perplexity-agent\`, \`qoder\`, \`siliconflow\`, \`together\`, \`venice\`, \`vercel-ai-gateway\`, \`vertex-partner\`, \`vertex\`, \`volcengine-ark\`, \`xai\`, \`xiaomi-mimo\`, \`xiaomi-tokenplan\`, \`alims-intl\`, \`codebuddy-intl\`, \`zed\`, \`api-airforce\`, \`baidu\`, \`bazaarlink\`, \`bluesminds\`, \`kilo-gateway\`, \`llm7\`, \`sambanova\`, \`tencent\`, \`morph\`, \`poolside\`, \`tokenrouter\`, \`alitp-intl\`, \`kenari\`, and \`typesafe\`.
+`alicode-intl`, `alicode`, `anthropic`, `antigravity`, `azure`, `blackbox`, `byteplus`, `cerebras`, `chutes`, `claude`, `cline`, `clinepass`, `cloudflare-ai`, `codebuddy-cn`, `codex`, `cohere`, `commandcode`, `cursor`, `deepseek`, `featherless`, `fireworks`, `gemini-cli`, `gemini`, `github`, `gitlab`, `glm-cn`, `glm`, `grok-cli`, `grok-web`, `groq`, `hyperbolic`, `iflow`, `kilocode`, `kimchi`, `kimi`, `kiro`, `mimo-free`, `minimax-cn`, `minimax`, `mistral`, `mmf`, `nebius`, `nvidia`, `ollama-local`, `ollama`, `openai`, `opencode-go`, `opencode`, `openrouter`, `perplexity-web`, `perplexity`, `perplexity-agent`, `qoder`, `siliconflow`, `together`, `venice`, `vercel-ai-gateway`, `vertex-partner`, `vertex`, `volcengine-ark`, `xai`, `xiaomi-mimo`, `xiaomi-tokenplan`, `alims-intl`, `codebuddy-intl`, `zed`, `api-airforce`, `baidu`, `bazaarlink`, `bluesminds`, `kilo-gateway`, `llm7`, `sambanova`, `tencent`, `morph`, `poolside`, `tokenrouter`, `alitp-intl`, `kenari`, and `typesafe`.
 
 Every active entry must receive an explicit v2 disposition in the parity manifest:
 
-- \`preserve-native\`;
-- \`preserve-via-shared-protocol-adapter\`;
-- \`replace-with-equivalent\`; or
-- \`sunset-by-explicit-product-decision\`.
+- `preserve-native`;
+- `preserve-via-shared-protocol-adapter`;
+- `replace-with-equivalent`; or
+- `sunset-by-explicit-product-decision`.
 
 No active provider may disappear merely because its executor is difficult to port.
 
-The currently intentionally hidden registry entries \`trae\`, \`devin-cli\`, and \`windsurf\` remain hidden unless a separate product decision changes their status. Existing tests for hidden/internal adapters may remain as source-regression coverage but do not automatically make the provider user-visible.
+The currently intentionally hidden registry entries `trae`, `devin-cli`, and `windsurf` remain hidden unless a separate product decision changes their status. Existing tests for hidden/internal adapters may remain as source-regression coverage but do not automatically make the provider user-visible.
 
 ### 5.6 Provider connection/authentication workflows
 
@@ -336,7 +336,7 @@ Current import helpers are also compatibility surfaces, including:
 - iFlow cookie;
 - Kiro API-key, import, auto-import, CLI-proxy import, and social auth/exchange;
 - Xiaomi Mimo API-key and auto-import;
-- the generic \`/oauth/{provider}/{action}\` flow.
+- the generic `/oauth/{provider}/{action}` flow.
 
 Credential update behavior must preserve current identity/dedup semantics. In particular, the v2 storage layer must not collapse distinct OAuth identities that current main keeps separate, and must preserve Codex multi-account/workspace identity behavior.
 
@@ -402,8 +402,8 @@ Specific daily-driver behavior to preserve includes:
 
 - API-key create/read/mask/copy/pause/resume/delete;
 - first-run default-key provisioning when no key exists;
-- \`requireApiKey\`;
-- dashboard \`requireLogin\`;
+- `requireApiKey`;
+- dashboard `requireLogin`;
 - password setup/change/login/logout/reset behavior;
 - endpoint security warnings;
 - light/dark/system theme;
@@ -435,7 +435,7 @@ The v2 visual design may change, but these workflows cannot be dropped accidenta
 
 ### 5.10 Current control/API surface
 
-Phase 0 must inventory every current \`src/app/api/**/route.js\` file. At the audited main SHA there are 95 API route files.
+Phase 0 must inventory every current `src/app/api/**/route.js` file. At the audited main SHA there are 95 API route files.
 
 The inventory must include at least these categories:
 
@@ -456,7 +456,7 @@ The inventory must include at least these categories:
 - health;
 - Headroom management/proxy;
 - PXPIPE management/health/logs/stats;
-- all public \`v1\` and \`v1beta\` routes.
+- all public `v1` and `v1beta` routes.
 
 The new control API may consolidate or rename private/admin endpoints, but the old dashboard and any retained CLI consumer must have a compatibility path until its caller has migrated.
 
@@ -464,17 +464,17 @@ The new control API may consolidate or rename private/admin endpoints, but the o
 
 The current SQLite schema version at the audited baseline is 2. The migration must preserve all current durable tables and their data:
 
-- \`_meta\`;
-- \`settings\`;
-- \`providerConnections\`;
-- \`providerNodes\`;
-- \`proxyPools\`;
-- \`apiKeys\`;
-- \`combos\`;
-- \`kv\`;
-- \`usageHistory\`;
-- \`usageDaily\`;
-- \`requestDetails\`.
+- `_meta`;
+- `settings`;
+- `providerConnections`;
+- `providerNodes`;
+- `proxyPools`;
+- `apiKeys`;
+- `combos`;
+- `kv`;
+- `usageHistory`;
+- `usageDaily`;
+- `requestDetails`.
 
 This includes data stored in JSON columns and KV scopes, not only typed columns.
 
@@ -556,15 +556,15 @@ The existing CLI/tray/package sources may remain on the repository during migrat
 
 ### 5.15 Regression-suite parity manifest
 
-At the audited main SHA the repository has 234 \`tests/unit/*.test.js\` files.
+At the audited main SHA the repository has 234 `tests/unit/*.test.js` files.
 
 Phase 0 must generate a test-parity ledger. Every existing regression test gets exactly one disposition:
 
-- \`ported\` — equivalent Go/UI test exists;
-- \`differential\` — behavior is proven by Node-vs-Go fixture;
-- \`retained-node\` — Node-only surface still exists during migration;
-- \`not-applicable\` — implementation-only test whose external invariant is covered elsewhere, with written rationale;
-- \`sunset\` — behavior intentionally removed by an explicit product decision.
+- `ported` — equivalent Go/UI test exists;
+- `differential` — behavior is proven by Node-vs-Go fixture;
+- `retained-node` — Node-only surface still exists during migration;
+- `not-applicable` — implementation-only test whose external invariant is covered elsewhere, with written rationale;
+- `sunset` — behavior intentionally removed by an explicit product decision.
 
 A v2 phase cannot delete the Node implementation that owns a behavior while tests for that behavior remain unclassified.
 
@@ -952,7 +952,7 @@ Rules:
 - application-generated IDs/timestamps needed by the snapshot are chosen before commit so the persisted and compiled states are identical;
 - direct external edits to the live SQLite file while LiteRouter is running are unsupported.
 
-The \`config_revision\` value is also useful for diagnostics, backup metadata, and future multi-replica invalidation. It is not polled by the inference hot path.
+The `config_revision` value is also useful for diagnostics, backup metadata, and future multi-replica invalidation. It is not polled by the inference hot path.
 
 ### 7.7 Database import/restore protocol
 
@@ -1587,7 +1587,7 @@ This phase changes no production routing.
 
 Deliver:
 
-- \`cmd/literouter\`;
+- `cmd/literouter`;
 - configuration/environment loader;
 - liveness/readiness;
 - SQLite schema/version reader;
@@ -1616,8 +1616,8 @@ Implement and differentially test public surfaces before provider breadth:
 5. Anthropic Messages;
 6. Anthropic count_tokens compatibility;
 7. System One;
-8. Ollama-compatible \`/v1/api/chat\`;
-9. Gemini-compatible \`/v1beta\` list/generate/stream;
+8. Ollama-compatible `/v1/api/chat`;
+9. Gemini-compatible `/v1beta` list/generate/stream;
 10. current route aliases/rewrites and CORS behavior;
 11. relevant h2c/client transport compatibility.
 
@@ -1831,7 +1831,7 @@ Only after all gates and the agreed soak window:
 - remove Next production runtime;
 - remove custom-server.js only after trusted-proxy/h2c compatibility is covered;
 - remove Node inference/control modules;
-- remove old private \`/api\` compatibility aliases only when no retained UI/CLI caller needs them;
+- remove old private `/api` compatibility aliases only when no retained UI/CLI caller needs them;
 - remove Redis from default compose if no explicitly retained function needs it;
 - shrink production image;
 - update README/runbooks;
@@ -2306,7 +2306,7 @@ Procedure:
 5. verify SQLite integrity/checkpoint state;
 6. start the known-good full Node image against the same backward-compatible volume;
 7. wait for Node health/readiness;
-8. route \`/v1*\`, \`/v1beta*\`, aliases, and \`/api/*\` back to Node;
+8. route `/v1*`, `/v1beta*`, aliases, and `/api/*` back to Node;
 9. run representative auth/model-list/native-stream/Usage checks;
 10. preserve failed Go logs, config revision, runtime snapshot version, and image SHA for diagnosis.
 
@@ -2415,7 +2415,7 @@ Approval of this PRD means agreement with these architectural directions:
 
 These choices remain open, but none may weaken the compatibility/rollout gates above:
 
-- exact Go router/HTTP library: standard \`net/http\` is the default unless benchmark evidence justifies another dependency;
+- exact Go router/HTTP library: standard `net/http` is the default unless benchmark evidence justifies another dependency;
 - exact SQLite driver after evaluating CGO/static-image implications and current schema/backup compatibility;
 - whether the final static UI is Caddy-served or embedded;
 - exact queue capacities, bounded backpressure duration, and degraded-health thresholds for critical telemetry;
