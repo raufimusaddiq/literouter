@@ -478,7 +478,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
 
       {/* Provider topology + recent requests */}
       {loading ? spinner : (
-        <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:h-[480px] lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
           <ProviderTopology
             providers={providers}
             activeRequests={stats.activeRequests || []}
