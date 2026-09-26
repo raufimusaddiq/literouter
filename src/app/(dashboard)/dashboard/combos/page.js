@@ -56,6 +56,7 @@ function StrategyNote({ title, text }) {
 
 export default function CombosPage() {
   const [combos, setCombos] = useState([]);
+  const comboByName = Object.fromEntries(combos.map((combo) => [combo.name, combo.models]));
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCombo, setEditingCombo] = useState(null);
@@ -304,6 +305,10 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
   const current = strategy.fallbackStrategy || "fallback";
   const judge = strategy.judgeModel || "";
   const isFusion = current === "fusion";
+  // The synced catalog is server-only, so resolving here would fall back to the
+  // generic patterns and under-report the limits. getCaps carries the server's
+  // answer for /api/models.
+  const comboCaps = aggregateComboCapabilities(combo.models, comboByName, getCaps);
 
   return (
     <Card padding="sm" className="group">
@@ -322,6 +327,11 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
                   <code key={index} className="inline-flex items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5">
                     <span>{model}</span>
                     <CapacityBadges caps={getCaps?.(model)} />
+                    <CapacityBadges caps={
+                      comboByName[model]
+                        ? aggregateComboCapabilities(comboByName[model], comboByName, getCaps)
+                        : getCaps?.(model)
+                    } />
                   </code>
                 ))
               )}
