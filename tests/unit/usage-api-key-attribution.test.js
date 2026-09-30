@@ -19,15 +19,17 @@ afterEach(() => {
 });
 
 describe("Usage stats API key attribution", () => {
-  it("keeps API keys with the same masked prefix in separate buckets", async () => {
+  it.each(["24h", "today", "7d", "30d"])("keeps API keys separate without exposing credentials (%s)", async (period) => {
     const apiKeyA = "sk-machine-aaaaaa-11111111";
     const apiKeyB = "sk-machine-bbbbbb-22222222";
+    const timestamp = new Date().toISOString();
 
     await db.saveRequestUsage({
       provider: "openai",
       model: "gpt-4",
       connectionId: "c1",
       apiKey: apiKeyA,
+      timestamp,
       tokens: { prompt_tokens: 10, completion_tokens: 5 },
       endpoint: "/v1/chat",
       status: "ok",
@@ -38,15 +40,23 @@ describe("Usage stats API key attribution", () => {
       model: "gpt-4",
       connectionId: "c1",
       apiKey: apiKeyB,
+      timestamp,
       tokens: { prompt_tokens: 20, completion_tokens: 10 },
       endpoint: "/v1/chat",
       status: "ok",
     });
 
-    const stats = await db.getUsageStats("24h");
+    const stats = await db.getUsageStats(period);
     const apiKeyEntries = Object.values(stats.byApiKey);
 
     expect(apiKeyEntries).toHaveLength(2);
+    expect(apiKeyEntries.map((entry) => entry.lastUsed)).toEqual([timestamp, timestamp]);
+    expect(JSON.stringify(stats)).not.toContain(apiKeyA);
+    expect(JSON.stringify(stats)).not.toContain(apiKeyB);
+    expect(Object.keys(stats.byApiKey).sort()).toEqual([
+      "sk-machi***1111|gpt-4|openai",
+      "sk-machi***2222|gpt-4|openai",
+    ]);
 
     expect(
       apiKeyEntries

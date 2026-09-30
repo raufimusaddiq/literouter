@@ -122,17 +122,16 @@ describe("name collision no longer destroys a key silently (#4311)", () => {
     expect(after.apiKey).toBe("REPLACEMENT-KEY");
   });
 
-  it("defaults to the previous overwrite behaviour for existing callers", async () => {
-    // Every other call site in the repo (oauth routes, bulk import) omits the
-    // flag, so they must keep working exactly as before.
+  it("rejects an omitted overwrite flag without changing credentials", async () => {
     const orig = await original;
-    const updated = await createProviderConnection({
+    const before = (await getProviderConnections({ provider: P }))[0];
+    await expect(createProviderConnection({
       provider: P,
       authType: "apikey",
       name: orig.name,
       apiKey: "LEGACY-PATH-KEY",
-    });
-    expect(updated.id).toBe(orig.id);
+    })).rejects.toMatchObject({ code: "PROVIDER_NAME_CONFLICT", existingId: orig.id });
+    expect((await getProviderConnections({ provider: P }))[0]).toEqual(before);
   });
 
   it("does not collide across different providers", async () => {
