@@ -100,6 +100,8 @@ deploy_main '${head}' 75
     expect(script).toContain('fetch --quiet "$TARGET" "$BASE_BRANCH"');
     expect(script).toContain("--clearenv");
     expect(script).toContain("--tmpfs /tmp --dir /tmp/.codex");
+    expect(script).toContain("--setenv PATH /opt/node:/usr/bin:/bin");
+    expect(script).toContain('--ro-bind "$NODE_BIN" /opt/node/node');
     expect(script).toContain('git clone --no-hardlinks --no-checkout "$REPO" "$WORKTREE"');
     expect(script).not.toContain("--ro-bind /etc /etc");
     expect(script).not.toContain('worktree add --detach');
