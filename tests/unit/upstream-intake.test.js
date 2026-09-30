@@ -139,6 +139,29 @@ refresh_host_health
     expect(script).toContain("GitHub CI owns validation");
     expect(script).toContain('HOST_HEALTH=$(check_host_health)');
   });
+
+  it("rejects a stale or missing reviewed head before repairing", () => {
+    const result = run(`
+WORKTREE=/fixture/worktree
+PR_NUM=75
+REPAIRS=0
+wait_for_gates() { return 2; }
+refresh_host_health() { return 0; }
+gh() { echo '{"headRefOid":"not-a-sha"}'; }
+while true; do
+  if wait_for_gates "$PR_NUM"; then break; else gate_status=$?; fi
+  if [ "$gate_status" -ne 2 ] || [ "$REPAIRS" -ge 3 ]; then exit 1; fi
+  REPAIRS=$((REPAIRS + 1))
+  FEEDBACK=/fixture/feedback.json
+  gh pr view 75 > "$FEEDBACK"
+  HEAD_SHA=$(jq -r .headRefOid "$FEEDBACK")
+  [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'no reviewed head for repair; stopping'; exit 1; }
+done
+`);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("no reviewed head for repair; stopping");
+    expect(script).toContain('HEAD_SHA=$(jq -r .headRefOid "$FEEDBACK")');
+  });
 });
 
 // CI-only loopback fixtures: no provider calls or production credentials.

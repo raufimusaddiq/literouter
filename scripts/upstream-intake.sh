@@ -94,7 +94,6 @@ wait_for_gates() {
   if [ "${RUN_DEADLINE:-$deadline}" -lt "$deadline" ]; then deadline=$RUN_DEADLINE; fi
   while [ "$(date +%s)" -lt "$deadline" ]; do
     snapshot=$(gh pr view "$pr" --repo raufimusaddiq/literouter --json headRefOid,mergeStateStatus,statusCheckRollup,reviews) || return 1
-    HEAD_SHA=$(jq -r .headRefOid <<< "$snapshot")
     state=$(jq -r '[.mergeStateStatus, (if (.statusCheckRollup | length) > 0 and all(.statusCheckRollup[]; .status=="COMPLETED" and .conclusion=="SUCCESS") then 0 else 1 end)] | @tsv' <<< "$snapshot")
     verdict=$(jq -r '.headRefOid as $head | [.reviews[] | select((.author.login=="personal-code-reviewer" or .author.login=="personal-code-reviewer[bot]") and .commit.oid==$head)] | last | .state // "PENDING"' <<< "$snapshot")
     pending=$(jq '[.statusCheckRollup[] | select(.status!="COMPLETED")] | length' <<< "$snapshot")
@@ -294,6 +293,8 @@ while true; do
   REPAIRS=$((REPAIRS + 1))
   FEEDBACK="$WORKTREE/intake-ci-feedback.txt"
   gh pr view "$PR_NUM" --repo raufimusaddiq/literouter --json headRefOid,reviews,statusCheckRollup > "$FEEDBACK"
+  HEAD_SHA=$(jq -r .headRefOid "$FEEDBACK")
+  [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { log "$LOG_PREFIX: no reviewed head for repair; stopping"; exit 1; }
   gh run list --repo raufimusaddiq/literouter --branch "$BRANCH" --limit 30 \
     --json databaseId,headSha,status,conclusion \
     --jq ".[] | select(.headSha==\"$HEAD_SHA\" and .status==\"completed\" and .conclusion==\"failure\") | .databaseId" \
@@ -322,5 +323,6 @@ $HOST_HEALTH" >> "$REPORT_DIR/.$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}.log" 2>&1
   git -C "$WORKTREE" push "$TARGET" "$BRANCH"
 done
 if [ "$DEPLOY" != true ]; then log "$LOG_PREFIX: PR ready; review-only run complete"; exit 0; fi
+HEAD_SHA=$(gh pr view "$PR_NUM" --repo raufimusaddiq/literouter --json headRefOid --jq .headRefOid)
 deploy_main "$HEAD_SHA" "$PR_NUM" || { log "$LOG_PREFIX: deploy tail failed for $PR_URL"; exit 1; }
 log "$LOG_PREFIX: released $HEAD_SHA from $PR_URL"
