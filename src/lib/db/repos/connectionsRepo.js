@@ -268,7 +268,7 @@ export async function createProviderConnection(data) {
       // genuinely mean "update this one" pass allowOverwrite; everyone else gets
       // a typed error naming the row that would have been replaced. #4311
       // OAuth dedup matches account identity, not a display-name collision.
-      if (isApikey ? data.allowOverwrite !== true : data.allowOverwrite === false) {
+      if (isApikey && data.allowOverwrite !== true) {
         const err = new Error(
           `A connection named "${existing.name}" already exists for provider "${data.provider}". ` +
           `Pass allowOverwrite: true to replace it.`

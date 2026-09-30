@@ -83,6 +83,17 @@ describe("provider insert is O(1) in pool size (#4311)", () => {
 });
 
 describe("name collision no longer destroys a key silently (#4311)", () => {
+  it.each([undefined, false])("refreshes the same OAuth identity with allowOverwrite=%s", async (allowOverwrite) => {
+    const provider = `oauth-refresh-${Date.now()}-${allowOverwrite}`;
+    const identity = { provider, authType: "oauth", email: "login@example.com" };
+    const original = await createProviderConnection({ ...identity, accessToken: "old-token" });
+    const updated = await createProviderConnection({ ...identity, accessToken: "new-token", allowOverwrite });
+    expect(updated.id).toBe(original.id);
+    const connections = await getProviderConnections({ provider });
+    expect(connections).toHaveLength(1);
+    expect(connections[0].accessToken).toBe("new-token");
+  });
+
   // Seeded once: these cases each mutate the SAME row, so a per-test seed
   // would make the later assertions depend on earlier ones.
   const P = `openai-compatible-clash-${Date.now()}`;
