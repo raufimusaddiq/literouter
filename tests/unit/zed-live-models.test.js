@@ -77,16 +77,18 @@ afterEach(() => {
 const originalDataDir = process.env.DATA_DIR;
 let GET;
 let createProviderConnection;
+let tempDataDir;
 
 beforeAll(async () => {
-  process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "9router-zed-live-"));
+  tempDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-zed-live-"));
+  process.env.DATA_DIR = tempDataDir;
   vi.resetModules();
   ({ GET } = await import("@/app/api/providers/[id]/models/route.js"));
   ({ createProviderConnection } = await import("@/models/index.js"));
 });
 
 afterAll(() => {
-  fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true });
+  if (tempDataDir) fs.rmSync(tempDataDir, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });

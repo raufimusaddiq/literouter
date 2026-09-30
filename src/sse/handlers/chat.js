@@ -242,7 +242,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   while (true) {
     if (++accountAttempts > maxAccountAttempts) {
       log.warn("FALLBACK", `attempt cap ${maxAccountAttempts} reached for ${provider}/${model}`);
-      return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
+      return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable", lastHeaders);
     }
     const credentials = await getProviderCredentials(provider, excludeConnectionIds, model);
 

@@ -176,6 +176,9 @@ export function restoreToolNames(payload, map) {
     out[key] = value;
   };
 
+  if (typeof payload.event === "string" && payload.data) put("data", restoreToolNames(payload.data, map));
+  if (payload.type === "response.completed" && payload.response) put("response", restoreToolNames(payload.response, map));
+
   // Claude streaming content_block_start event.
   if (payload.type === "content_block_start") {
     const block = payload.content_block;
