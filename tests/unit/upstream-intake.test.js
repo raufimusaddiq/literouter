@@ -30,6 +30,7 @@ function run(body, data = approved) {
   }
 }
 
+
 const mockView = `
 gh() { while [ "$#" -gt 0 ]; do
   if [ "$1" = --jq ]; then jq -r "$2" <<< "$PR_DATA"; return; fi

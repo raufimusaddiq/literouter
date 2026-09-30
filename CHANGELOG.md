@@ -9,7 +9,7 @@
 - **Local-operator trust**: the spoofable `Host` fallback no longer exists in any environment, so local-operator access now requires `custom-server.js`'s per-process `x-9r-peer-token`, stamped on every request it handles. On a listener that bypasses the wrapper (a bare `next dev`, or another client inside the same container) there is no token to present, so those requests no longer inherit LAN-node validation or the localhost-only routes
 
 ## Fixes
-- **Upstream intake**: fix scheduled Codex PATH, SIGPIPE, stale fork refs, and merged-image selection; run ephemeral `--yolo` intake in an unprivileged `bwrap` standalone clone without Docker, SSH, host Git metadata, or deployment credentials; require host health and current-head review, retain failed workspaces, dispose successful deployments
+- **Upstream intake**: fix scheduled startup and merge-SHA deployment; isolate ephemeral `--yolo` agents from host networking and credentials behind a model-only Unix-socket broker; delegate all installs/builds/tests to CI, wait for current-head CI/Hermes, repair completed blockers, retain failures, dispose after successful deployment
 - **Usage**: distribute view and period controls across the toolbar on desktop and keep the provider topology aligned with the Recent Requests panel height
 - **Usage**: keep Total requests as the hero metric while stretching the supporting token/cost cards to the same desktop height
 - **Branding**: replace the legacy indigo tab icon with a neutral theme-aware LiteRouter favicon and retire the stale file-based ICO override

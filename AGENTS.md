@@ -13,6 +13,11 @@
 
 Before any heavy command (`npm install`, builds, full test suites, Docker build/pull, migrations), check resource usage and service health first: `uptime`, `free -h`, `df -h /opt/9router /tmp`, active processes, `docker ps`/container health, and the relevant health endpoint. Do not start heavy work when resources are constrained or the target service is unhealthy; report the condition first.
 
+This instance is a production host. Agents, including disposable upstream-intake
+agents, must not run local dependency installs, builds, or test suites (focused
+tests included). Delegate validation to GitHub CI. The commands below are for
+isolated development machines, not this instance.
+
 ```bash
 cp .env.example .env
 npm install
@@ -32,11 +37,18 @@ Use Conventional Commits, for example `fix(translator): preserve tool errors` or
 
 ## Testing Guidelines
 
-Name tests `*.test.js` or `*.test.cjs`; place unit tests in `tests/unit/` and translator tests in `tests/translator/`. Add the smallest regression test for non-trivial fixes. Run focused tests first, then `npx vitest run` and relevant baseline verification scripts. Live tests require credentials and must not gate ordinary changes.
+Name tests `*.test.js` or `*.test.cjs`; place unit tests in `tests/unit/` and translator tests in `tests/translator/`. Add the smallest regression test for non-trivial fixes. On this production instance, push the change and let CI run tests and builds; never install or run them locally. Live tests require credentials and must not gate ordinary changes.
 
 ## Pull Requests and Deployment
 
 PRs target `main`. Include intent, affected paths, tests run, and operational impact. Follow `docs/literouter-baseline/pr-merge-runbook.md`: merge only with green CI and no blocking Hermes review; do not retrigger queued reviews. Staging is retired. Merges publish an immutable production image; deploy only the merged SHA with `compose.production.yml`, then verify container health and `/api/health`.
+
+Disposable upstream intake must wait for checks and current-head Hermes review.
+Repair completed CI failures and blocking findings with real code changes, push,
+then wait again. Do not finish at PR creation, bypass gates, retrigger pending
+reviews, or delete the workspace before successful deployment. Retain a failed
+workspace for retry; the host controller, not untrusted upstream code, owns
+GitHub credentials, merge, and deployment.
 
 ## Security and Configuration
 
