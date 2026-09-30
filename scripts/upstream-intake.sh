@@ -19,18 +19,38 @@ REPORT_DIR=$REPO/docs/literouter-baseline/intake
 LOG_PREFIX=upstream-intake
 CODEX_HOME_DIR=/home/ubuntu/.codex
 CODEX_BIN=$(readlink -f "$(command -v codex)")
+# Local-router API key so the sandboxed agent can reach the Codex endpoint the
+# real config points at; it authorizes nothing else on the host.
+ROUTER_KEY=${ROUTER_API_KEY:-$(sed -n 's/^export ROUTER_API_KEY="\(.*\)"/\1/p' /home/ubuntu/.bashrc)}
 
 log() { printf '%s %s\n' "$(date -Is)" "$*"; }
+
+# Minimal config pointing at the host's 9Router endpoint, with the provider key
+# resolved directly so the sandbox never needs the user's shell environment.
+write_sandbox_config() {
+  cat > "$SANDBOX_HOME/.codex/config.toml" <<EOF
+model = "codex"
+model_provider = "9router"
+
+[model_providers.9router]
+name = "9Router"
+base_url = "http://172.30.0.2:20128/v1"
+env_key = "ROUTER_API_KEY"
+wire_api = "responses"
+EOF
+}
 
 # Upstream commits are untrusted. --yolo still has host access, so confine the
 # agent to the worktree with no Docker socket, no repo, no ~/.codex, no SSH
 # keys, an empty environment, and a private writable /tmp.
 codex_sandbox() {
-  bwrap --unshare-all --die-with-parent --new-session --ro-bind /usr /usr --ro-bind /bin /bin \
+  bwrap --unshare-user --unshare-pid --unshare-ipc --unshare-uts --unshare-cgroup \
+    --die-with-parent --new-session --ro-bind /usr /usr --ro-bind /bin /bin \
     --ro-bind /lib /lib --ro-bind /lib64 /lib64 --ro-bind /etc /etc --proc /proc --dev /dev \
     --tmpfs /tmp --ro-bind "$WORKTREE" "$WORKTREE" --bind "$WORKTREE" "$WORKTREE" \
     --ro-bind "$SANDBOX_AUTH" /tmp/.codex/auth.json --chdir "$WORKTREE" \
     --setenv CODEX_HOME /tmp/.codex --setenv HOME /tmp --setenv PATH /usr/bin:/bin \
+    --setenv ROUTER_API_KEY "$ROUTER_KEY" \
     "$CODEX_BIN" "$@"
 }
 
@@ -153,6 +173,7 @@ SANDBOX_HOME=$(mktemp -d)
 mkdir -p "$SANDBOX_HOME/.codex"
 cp "$CODEX_HOME_DIR/auth.json" "$SANDBOX_HOME/.codex/auth.json" 2>/dev/null || cp "$CODEX_HOME_DIR/.credentials.json" "$SANDBOX_HOME/.codex/auth.json"
 SANDBOX_AUTH="$SANDBOX_HOME/.codex/auth.json"
+write_sandbox_config
 COMMITS=$(git -C "$WORKTREE" log --oneline --no-decorate "$BASE_SHA..$UPSTREAM_SHA")
 
 PROMPT=$(cat <<EOF
