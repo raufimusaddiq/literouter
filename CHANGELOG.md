@@ -5,10 +5,14 @@
 - **System One**: add `/v1/systemone` TypeSafe pass-through with a dedicated provider catalog, model-aware request workspace, connection testing, API-key setup, registry validation, and upstream header pass-through
 
 ## Security
+- **Provider connections**: require explicit `allowOverwrite: true` before replacing same-name API-key credentials, including direct repository callers; OAuth identity refresh remains unchanged
+- **Usage**: mask API keys in live and daily statistics object keys, including the daily last-used overlay, without exposing stored credentials
 - **Provider validation**: `/api/provider-nodes/validate` and the Azure/Cloudflare branches of `/api/providers/validate` now fetch through the SSRF-guarded `fetchPublic` instead of a raw `fetch`, so a caller-supplied base URL can no longer 30x its way to an internal target (metadata endpoints included). Remote callers are pre-rejected with 400; the trusted local operator keeps LAN nodes (LM Studio, vLLM, ollama-compat), including LAN targets reached through a redirect hop — `allowPrivate` is now a per-hop decision rather than a one-shot gate
 - **Local-operator trust**: the spoofable `Host` fallback no longer exists in any environment, so local-operator access now requires `custom-server.js`'s per-process `x-9r-peer-token`, stamped on every request it handles. On a listener that bypasses the wrapper (a bare `next dev`, or another client inside the same container) there is no token to present, so those requests no longer inherit LAN-node validation or the localhost-only routes
 
 ## Fixes
+- **OAuth**: keep same-identity credential refresh independent of the API-key name-collision overwrite flag, including callers passing `false`
+- **OpenCode**: reconcile Free Muse tool-choice and reasoning regression checks with the required cloaked fingerprint quartet; retain caller tools, input, and the 1.3 Free auto-only policy
 - **Usage**: distribute view and period controls across the toolbar on desktop and keep the provider topology aligned with the Recent Requests panel height
 - **Usage**: keep Total requests as the hero metric while stretching the supporting token/cost cards to the same desktop height
 - **Branding**: replace the legacy indigo tab icon with a neutral theme-aware LiteRouter favicon and retire the stale file-based ICO override
