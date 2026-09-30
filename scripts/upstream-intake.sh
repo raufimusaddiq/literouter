@@ -17,41 +17,30 @@ DEPLOY=${UPSTREAM_INTAKE_DEPLOY:-false}
 WORK_ROOT=${UPSTREAM_INTAKE_DIR:-/var/tmp/9router-upstream-intake}
 REPORT_DIR=$REPO/docs/literouter-baseline/intake
 LOG_PREFIX=upstream-intake
-CODEX_HOME_DIR=/home/ubuntu/.codex
 CODEX_BIN=$(readlink -f "$(command -v codex)")
+CODEX_PACKAGE=$(dirname "$(dirname "$CODEX_BIN")")
+NODE_BIN=$(readlink -f "$(command -v node)")
 # Local-router API key so the sandboxed agent can reach the Codex endpoint the
 # real config points at; it authorizes nothing else on the host.
 ROUTER_KEY=${ROUTER_API_KEY:-$(sed -n 's/^export ROUTER_API_KEY="\(.*\)"/\1/p' /home/ubuntu/.bashrc)}
 
 log() { printf '%s %s\n' "$(date -Is)" "$*"; }
 
-# Minimal config pointing at the host's 9Router endpoint, with the provider key
-# resolved directly so the sandbox never needs the user's shell environment.
-write_sandbox_config() {
-  cat > "$SANDBOX_HOME/.codex/config.toml" <<EOF
-model = "codex"
-model_provider = "9router"
-
-[model_providers.9router]
-name = "9Router"
-base_url = "http://172.30.0.2:20128/v1"
-env_key = "ROUTER_API_KEY"
-wire_api = "responses"
-EOF
-}
-
 # Upstream commits are untrusted. --yolo still has host access, so confine the
-# agent to the worktree with no Docker socket, no repo, no ~/.codex, no SSH
-# keys, an empty environment, and a private writable /tmp.
+# agent to a standalone clone: no Docker socket, host Git metadata, ~/.codex,
+# SSH keys, or host environment. Network is shared for model API access, not
+# restricted to a single endpoint. Only the inference API key is supplied.
 codex_sandbox() {
-  bwrap --unshare-user --unshare-pid --unshare-ipc --unshare-uts --unshare-cgroup \
-    --die-with-parent --new-session --ro-bind /usr /usr --ro-bind /bin /bin \
-    --ro-bind /lib /lib --ro-bind /lib64 /lib64 --ro-bind /etc /etc --proc /proc --dev /dev \
-    --tmpfs /tmp --ro-bind "$WORKTREE" "$WORKTREE" --bind "$WORKTREE" "$WORKTREE" \
-    --ro-bind "$SANDBOX_AUTH" /tmp/.codex/auth.json --chdir "$WORKTREE" \
-    --setenv CODEX_HOME /tmp/.codex --setenv HOME /tmp --setenv PATH /usr/bin:/bin \
-    --setenv ROUTER_API_KEY "$ROUTER_KEY" \
-    "$CODEX_BIN" "$@"
+  bwrap --unshare-all --share-net --die-with-parent --new-session --cap-drop ALL \
+    --ro-bind /usr /usr --ro-bind /bin /bin --ro-bind /lib /lib --ro-bind /lib64 /lib64 \
+    --ro-bind /etc/ssl/certs /etc/ssl/certs --ro-bind /etc/resolv.conf /etc/resolv.conf \
+    --ro-bind /etc/nsswitch.conf /etc/nsswitch.conf --proc /proc --dev /dev \
+    --tmpfs /tmp --bind "$WORKTREE" "$WORKTREE" --chdir "$WORKTREE" \
+    --ro-bind "$CODEX_PACKAGE" /opt/codex --ro-bind "$NODE_BIN" /opt/node/node \
+    --ro-bind "$REPO/scripts/upstream-intake.codex.toml" /tmp/.codex/config.toml \
+    --clearenv --setenv CODEX_HOME /tmp/.codex --setenv HOME /tmp \
+    --setenv PATH /opt/node:/usr/bin:/bin --args 3 /opt/codex/bin/codex "$@" \
+    3< <(printf '%s\0' --setenv ROUTER_API_KEY "$ROUTER_KEY")
 }
 
 check_host_health() {
@@ -136,7 +125,9 @@ cleanup() {
     return "$status"
   fi
   if [ -n "${WORKTREE:-}" ] && [ -d "$WORKTREE" ]; then
-    git -C "$REPO" worktree remove --force "$WORKTREE" || return 1
+    # Only this run's mktemp-created standalone clone, never the work root.
+    [[ "$WORKTREE" == "$WORK_ROOT"/worktree.* ]] || return 1
+    rm -rf -- "$WORKTREE" || return 1
   fi
   log "$LOG_PREFIX: disposable workspace removed; reports and PR history retained"
 }
@@ -162,18 +153,19 @@ log "$LOG_PREFIX: upstream master $UPSTREAM_SHA is $BEHIND commit(s) ahead of $B
 
 mkdir -p "$WORK_ROOT" "$REPORT_DIR"
 WORKTREE=$(mktemp -d "$WORK_ROOT/worktree.XXXXXX")
-git -C "$REPO" worktree add --detach "$WORKTREE" "$UPSTREAM_SHA" >/dev/null
+# Separate Git metadata and objects: binding a linked worktree would expose the
+# host repository's writable .git or leave the agent unable to cherry-pick.
+git clone --no-hardlinks --no-checkout "$REPO" "$WORKTREE" >/dev/null
+git -C "$WORKTREE" fetch --no-tags "$REPO" "$UPSTREAM_SHA" "$BASE_SHA"
+git -C "$WORKTREE" checkout --detach "$UPSTREAM_SHA"
+git -C "$WORKTREE" remote set-url origin "$(git -C "$REPO" remote get-url "$REMOTE")"
+git -C "$WORKTREE" remote add "$TARGET" "$(git -C "$REPO" remote get-url "$TARGET")"
+git -C "$WORKTREE" config user.name "$(git -C "$REPO" config user.name)"
+git -C "$WORKTREE" config user.email "$(git -C "$REPO" config user.email)"
 
 BRANCH="upstream-intake/$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}"
 REPORT="$REPORT_DIR/$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}.md"
 REPORT_IN_WORKTREE="$WORKTREE/intake-report.md"
-# Sanitized Codex home: auth only, no config, no sessions, no history. The agent
-# never sees the real ~/.codex or any repository credential.
-SANDBOX_HOME=$(mktemp -d)
-mkdir -p "$SANDBOX_HOME/.codex"
-cp "$CODEX_HOME_DIR/auth.json" "$SANDBOX_HOME/.codex/auth.json" 2>/dev/null || cp "$CODEX_HOME_DIR/.credentials.json" "$SANDBOX_HOME/.codex/auth.json"
-SANDBOX_AUTH="$SANDBOX_HOME/.codex/auth.json"
-write_sandbox_config
 COMMITS=$(git -C "$WORKTREE" log --oneline --no-decorate "$BASE_SHA..$UPSTREAM_SHA")
 
 PROMPT=$(cat <<EOF
@@ -205,8 +197,8 @@ Tasks:
 EOF
 )
 
-# --yolo inside bwrap: untrusted upstream content gets no host, Docker, SSH, or
-# credential surface. --ephemeral prevents persisted session artifacts.
+# --yolo inside bwrap: no host filesystem, Docker, SSH, or deploy credentials.
+# The inference API credential remains necessary; sessions are ephemeral.
 # Fail closed: a Codex failure or missing report stops the intake rather than
 # silently reporting success with nothing retained.
 if ! codex_sandbox exec --yolo --ephemeral --cd "$WORKTREE" "$PROMPT" \

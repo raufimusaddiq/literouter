@@ -1,4 +1,4 @@
-import { readFileSync, mkdtempSync, writeFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,18 +15,19 @@ const approved = {
   reviews: [{ author: { login: "personal-code-reviewer" }, commit: { oid: head }, state: "APPROVED" }],
 };
 
-// ponytail: real browser-safe path is bash + jq; run the test body from a file so
-// `run` is sourced at top level and `set -e` exits like production.
 function run(body, data = approved) {
-  const dir = mkdtempSync(join(tmpdir(), "intake-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "worktree."));
   const file = join(dir, "run.sh");
-  writeFileSync(file, `${helpers}\nLOG_PREFIX=test\nREPO=/repo\nTARGET=origin-literouter\n${body}`);
-  const result = spawnSync("bash", [file], {
-    env: { ...process.env, PR_DATA: JSON.stringify(data), MERGED: merged },
-    encoding: "utf8",
-    timeout: 4000,
-  });
-  return result.status === null ? { ...result, status: -1 } : result;
+  writeFileSync(file, `set -euo pipefail\n${helpers}\nLOG_PREFIX=test\nREPO=/repo\nTARGET=origin-literouter\n${body}\n`);
+  try {
+    return spawnSync("bash", [file], {
+      env: { ...process.env, PR_DATA: JSON.stringify(data), MERGED: merged, TEST_WORKTREE: dir, TEST_WORK_ROOT: tmpdir() },
+      encoding: "utf8",
+      timeout: 4000,
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 const mockView = `
@@ -82,20 +83,24 @@ deploy_main '${head}' 75
   });
 
   it("keeps failed workspaces, removes only the successful run worktree", () => {
-    const body = `DEPLOY=true\nWORKTREE=/tmp\ngit() { echo "removed $*"; }\ntrap cleanup EXIT\n`;
+    const body = `DEPLOY=true\nWORK_ROOT="$TEST_WORK_ROOT"\nWORKTREE="$TEST_WORKTREE"\nrm() { echo "removed $*"; }\ntrap cleanup EXIT\n`;
     const failed = run(`${body}false`);
     expect(failed.status).toBe(1);
     expect(failed.stdout).toContain("retaining workspace");
-    expect(failed.stdout).not.toContain("removed -C");
+    expect(failed.stdout).not.toContain("removed -rf");
     const success = run(`${body}true`);
     expect(success.status).toBe(0);
-    expect(success.stdout).toContain("removed -C /repo worktree remove --force /tmp");
+    expect(success.stdout).toContain("removed -rf -- ");
     expect(script).not.toContain('rm -rf "$WORK_ROOT"');
   });
 
   it("lists all commits without a pipefail SIGPIPE and uses ephemeral yolo", () => {
     expect(script).not.toContain("| head -50");
-    expect(script).toContain('codex exec --yolo --ephemeral --cd "$WORKTREE"');
+    expect(script).toContain('codex_sandbox exec --yolo --ephemeral --cd "$WORKTREE"');
     expect(script).toContain('fetch --quiet "$TARGET" "$BASE_BRANCH"');
+    expect(script).toContain("--clearenv");
+    expect(script).toContain('git clone --no-hardlinks --no-checkout "$REPO" "$WORKTREE"');
+    expect(script).not.toContain("--ro-bind /etc /etc");
+    expect(script).not.toContain('worktree add --detach');
   });
 });
