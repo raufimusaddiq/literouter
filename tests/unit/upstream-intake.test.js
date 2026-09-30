@@ -100,6 +100,26 @@ deploy_main '${head}' 75
     expect(script).not.toContain('rm -rf "$WORK_ROOT"');
   });
 
+  it("logs host capacity failures and stops the broker on early exit", () => {
+    const result = run(`
+PROXY_PID=1234
+PROXY_SOCKET=/fixture/model.sock
+PROXY_DIR=/fixture
+kill() { echo "stopped $1"; }
+wait() { echo "waited $1"; }
+rm() { echo "unlinked $*"; }
+rmdir() { echo "removed-directory $*"; }
+check_host_health() { echo 'MemAvailable: low; container: unhealthy'; return 1; }
+trap cleanup EXIT
+refresh_host_health
+`);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("MemAvailable: low; container: unhealthy");
+    expect(result.stdout).toContain("stopped 1234");
+    expect(result.stdout).toContain("waited 1234");
+    expect(result.stdout).toContain("unlinked -f -- /fixture/model.sock");
+  });
+
   it("lists all commits without a pipefail SIGPIPE and uses ephemeral yolo", () => {
     expect(script).not.toContain("| head -50");
     expect(script).toContain('codex_sandbox exec --yolo --ephemeral --cd "$WORKTREE"');
@@ -145,7 +165,7 @@ it("brokers only Codex inference, hides the credential, streams through the Unix
     await once(bridge, "listening");
     const call = (path, body, method = "POST") => new Promise((resolve, reject) => {
       const req = request({ hostname: "127.0.0.1", port: bridge.address().port, path, method,
-        headers: { authorization: "Bearer untrusted-client-key" } }, (res) => {
+        headers: { authorization: "Bearer untrusted-client-key", "content-length": Buffer.byteLength(body) } }, (res) => {
         let output = "";
         res.setEncoding("utf8");
         res.on("data", (chunk) => { output += chunk; });

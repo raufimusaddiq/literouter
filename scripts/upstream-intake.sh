@@ -75,6 +75,13 @@ check_host_health() {
   df -Pk "$REPO" /tmp | awk 'NR > 1 && $4 < 5242880 { bad=1 } END { exit bad }'
 }
 
+refresh_host_health() {
+  local status=0
+  HOST_HEALTH=$(check_host_health) || status=$?
+  printf '%s\n' "$HOST_HEALTH"
+  return "$status"
+}
+
 # --- gated tail helpers -------------------------------------------------------
 
 # Wait for every required check on a PR head, then require Hermes APPROVE.
@@ -198,8 +205,8 @@ BRANCH="upstream-intake/$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}"
 REPORT="$REPORT_DIR/$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}.md"
 REPORT_IN_WORKTREE="$WORKTREE/intake-report.md"
 COMMITS=$(git -C "$WORKTREE" log --oneline --no-decorate "$BASE_SHA..$UPSTREAM_SHA")
+refresh_host_health || { log "$LOG_PREFIX: host gate failed before agent start"; exit 1; }
 start_model_proxy
-HOST_HEALTH=$(check_host_health) || { log "$LOG_PREFIX: host gate failed before agent start"; exit 1; }
 
 PROMPT=$(cat <<EOF
 You are reviewing upstream 9router commits for LiteRouter, a deliberately minimal fork.
@@ -277,7 +284,7 @@ while true; do
   if [ "$gate_status" -ne 2 ] || [ "$REPAIRS" -ge 3 ]; then
     log "$LOG_PREFIX: gates not satisfied; workspace retained for retry"; exit 1
   fi
-  HOST_HEALTH=$(check_host_health) || { log "$LOG_PREFIX: host gate failed before repair"; exit 1; }
+  refresh_host_health || { log "$LOG_PREFIX: host gate failed before repair"; exit 1; }
   REPAIRS=$((REPAIRS + 1))
   FEEDBACK="$WORKTREE/intake-ci-feedback.txt"
   gh pr view "$PR_NUM" --repo raufimusaddiq/literouter --json headRefOid,reviews,statusCheckRollup > "$FEEDBACK"
