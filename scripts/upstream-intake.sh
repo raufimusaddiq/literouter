@@ -35,7 +35,7 @@ codex_sandbox() {
     --ro-bind /usr /usr --ro-bind /bin /bin --ro-bind /lib /lib --ro-bind /lib64 /lib64 \
     --ro-bind /etc/ssl/certs /etc/ssl/certs --ro-bind /etc/resolv.conf /etc/resolv.conf \
     --ro-bind /etc/nsswitch.conf /etc/nsswitch.conf --proc /proc --dev /dev \
-    --tmpfs /tmp --bind "$WORKTREE" "$WORKTREE" --chdir "$WORKTREE" \
+    --tmpfs /tmp --dir /tmp/.codex --bind "$WORKTREE" "$WORKTREE" --chdir "$WORKTREE" \
     --ro-bind "$CODEX_PACKAGE" /opt/codex --ro-bind "$NODE_BIN" /opt/node/node \
     --ro-bind "$REPO/scripts/upstream-intake.codex.toml" /tmp/.codex/config.toml \
     --clearenv --setenv CODEX_HOME /tmp/.codex --setenv HOME /tmp \
