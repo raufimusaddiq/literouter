@@ -17,6 +17,9 @@ DEPLOY=${UPSTREAM_INTAKE_DEPLOY:-false}
 WORK_ROOT=${UPSTREAM_INTAKE_DIR:-/var/tmp/9router-upstream-intake}
 REPORT_DIR=$REPO/docs/literouter-baseline/intake
 LOG_PREFIX=upstream-intake
+# Repair attempts before the run stops and retains the workspace. Raise for
+# more unattended persistence; each attempt needs a new commit to continue.
+MAX_REPAIRS=${UPSTREAM_INTAKE_MAX_REPAIRS:-3}
 RUN_DEADLINE=$(( $(date +%s) + 7200 ))
 CODEX_BIN=$(readlink -f "$(command -v codex)")
 CODEX_PACKAGE=$(dirname "$(dirname "$CODEX_BIN")")
@@ -286,7 +289,7 @@ PR_NUM=$(basename "$PR_URL")
 REPAIRS=0
 while true; do
   if wait_for_gates "$PR_NUM"; then break; else gate_status=$?; fi
-  if [ "$gate_status" -ne 2 ] || [ "$REPAIRS" -ge 3 ]; then
+  if [ "$gate_status" -ne 2 ] || [ "$REPAIRS" -ge "$MAX_REPAIRS" ]; then
     log "$LOG_PREFIX: gates not satisfied; workspace retained for retry"; exit 1
   fi
   refresh_host_health || { log "$LOG_PREFIX: host gate failed before repair"; exit 1; }

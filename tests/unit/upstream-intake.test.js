@@ -144,13 +144,14 @@ refresh_host_health
     const result = run(`
 PR_NUM=75
 REPAIRS=0
+MAX_REPAIRS=3
 wait_for_gates() { return 2; }
 refresh_host_health() { return 0; }
 FEEDBACK=$(mktemp)
 printf '{"headRefOid":"not-a-sha"}' > "$FEEDBACK"
 while true; do
   if wait_for_gates "$PR_NUM"; then break; else gate_status=$?; fi
-  if [ "$gate_status" -ne 2 ] || [ "$REPAIRS" -ge 3 ]; then exit 1; fi
+  if [ "$gate_status" -ne 2 ] || [ "$REPAIRS" -ge "$MAX_REPAIRS" ]; then exit 1; fi
   REPAIRS=$((REPAIRS + 1))
   HEAD_SHA=$(jq -r .headRefOid "$FEEDBACK")
   [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'no reviewed head for repair; stopping'; exit 1; }
