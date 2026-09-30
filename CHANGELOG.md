@@ -12,6 +12,7 @@
 
 ## Fixes
 - **Upstream intake**: fix scheduled startup and merge-SHA deployment; isolate ephemeral `--yolo` agents from host networking and credentials behind a model-only Unix-socket broker; delegate all installs/builds/tests to CI, wait for current-head CI/Hermes, repair completed blockers, retain failures, dispose after successful deployment
+- **Upstream intake**: make the repair-attempt ceiling configurable via `UPSTREAM_INTAKE_MAX_REPAIRS` (default 3) so unattended runs keep resolving reviewer blockers instead of stopping
 - **OAuth**: keep same-identity credential refresh independent of the API-key name-collision overwrite flag, including callers passing `false`
 - **OpenCode**: reconcile Free Muse tool-choice and reasoning regression checks with the required cloaked fingerprint quartet; retain caller tools, input, and the 1.3 Free auto-only policy
 - **Usage**: distribute view and period controls across the toolbar on desktop and keep the provider topology aligned with the Recent Requests panel height
