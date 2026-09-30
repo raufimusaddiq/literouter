@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getAdapter } from "../../src/lib/db/driver.js";
 
 import {
   createProviderConnection,
@@ -28,6 +29,25 @@ async function seed(provider, n) {
 }
 
 describe("provider insert is O(1) in pool size (#4311)", () => {
+  it.each([
+    ["gaps", [2, 7, 11]],
+    ["duplicates", [7, 7, 11]],
+  ])("appends above legacy %s without rewriting the pool", async (label, priorities) => {
+    const provider = `openai-compatible-legacy-${label}-${Date.now()}`;
+    await seed(provider, priorities.length);
+    const db = await getAdapter();
+    priorities.forEach((priority, i) => db.run(
+      "UPDATE providerConnections SET priority = ? WHERE provider = ? AND name = ?",
+      [priority, provider, `seed-${i}`],
+    ));
+    const appended = await createProviderConnection({ provider, authType: "apikey", name: "appended", apiKey: "new" });
+    expect(appended.priority).toBe(12);
+    const list = await getProviderConnections({ provider });
+    expect(list.map((connection) => connection.priority)).toEqual([...priorities, 12]);
+    expect(list.filter((connection) => connection.id !== appended.id).map((connection) => connection.apiKey).sort())
+      .toEqual(["k0", "k1", "k2"]);
+  });
+
   it("assigns sequential priorities without a renumber pass", async () => {
     const P = `openai-compatible-seq-${Date.now()}`;
     await seed(P, 3);

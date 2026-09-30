@@ -292,6 +292,8 @@ export async function createProviderConnection(data) {
     let connectionPriority = data.priority;
     if (!connectionPriority) {
       // SQL avoids loading/re-writing the pool; aggregate cost depends on indexes.
+      // Gaps or duplicate legacy priorities are safe: MAX + 1 exceeds every
+      // stored value; idx_pc_priority is non-unique (see schema.js).
       const maxRow = db.get(`SELECT MAX(priority) AS m FROM providerConnections WHERE provider = ?`, [data.provider]);
       connectionPriority = (maxRow?.m || 0) + 1;
     }
