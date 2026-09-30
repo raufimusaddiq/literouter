@@ -17,8 +17,22 @@ DEPLOY=${UPSTREAM_INTAKE_DEPLOY:-false}
 WORK_ROOT=${UPSTREAM_INTAKE_DIR:-/var/tmp/9router-upstream-intake}
 REPORT_DIR=$REPO/docs/literouter-baseline/intake
 LOG_PREFIX=upstream-intake
+CODEX_HOME_DIR=/home/ubuntu/.codex
+CODEX_BIN=$(readlink -f "$(command -v codex)")
 
 log() { printf '%s %s\n' "$(date -Is)" "$*"; }
+
+# Upstream commits are untrusted. --yolo still has host access, so confine the
+# agent to the worktree with no Docker socket, no repo, no ~/.codex, no SSH
+# keys, an empty environment, and a private writable /tmp.
+codex_sandbox() {
+  bwrap --unshare-all --die-with-parent --new-session --ro-bind /usr /usr --ro-bind /bin /bin \
+    --ro-bind /lib /lib --ro-bind /lib64 /lib64 --ro-bind /etc /etc --proc /proc --dev /dev \
+    --tmpfs /tmp --ro-bind "$WORKTREE" "$WORKTREE" --bind "$WORKTREE" "$WORKTREE" \
+    --ro-bind "$SANDBOX_AUTH" /tmp/.codex/auth.json --chdir "$WORKTREE" \
+    --setenv CODEX_HOME /tmp/.codex --setenv HOME /tmp --setenv PATH /usr/bin:/bin \
+    "$CODEX_BIN" "$@"
+}
 
 check_host_health() {
   uptime
@@ -108,7 +122,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-command -v codex >/dev/null || { log "$LOG_PREFIX: codex missing from PATH"; exit 1; }
+{ command -v codex >/dev/null && command -v bwrap >/dev/null; } || { log "$LOG_PREFIX: codex or bwrap missing from PATH"; exit 1; }
 check_host_health || { log "$LOG_PREFIX: host capacity/health gate failed; not starting intake"; exit 1; }
 git -C "$REPO" fetch --quiet "$REMOTE" master
 git -C "$REPO" fetch --quiet "$TARGET" "$BASE_BRANCH"
@@ -133,6 +147,12 @@ git -C "$REPO" worktree add --detach "$WORKTREE" "$UPSTREAM_SHA" >/dev/null
 BRANCH="upstream-intake/$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}"
 REPORT="$REPORT_DIR/$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}.md"
 REPORT_IN_WORKTREE="$WORKTREE/intake-report.md"
+# Sanitized Codex home: auth only, no config, no sessions, no history. The agent
+# never sees the real ~/.codex or any repository credential.
+SANDBOX_HOME=$(mktemp -d)
+mkdir -p "$SANDBOX_HOME/.codex"
+cp "$CODEX_HOME_DIR/auth.json" "$SANDBOX_HOME/.codex/auth.json" 2>/dev/null || cp "$CODEX_HOME_DIR/.credentials.json" "$SANDBOX_HOME/.codex/auth.json"
+SANDBOX_AUTH="$SANDBOX_HOME/.codex/auth.json"
 COMMITS=$(git -C "$WORKTREE" log --oneline --no-decorate "$BASE_SHA..$UPSTREAM_SHA")
 
 PROMPT=$(cat <<EOF
@@ -164,11 +184,11 @@ Tasks:
 EOF
 )
 
-# Explicitly authorized --yolo has host access, not workspace isolation.
-# --ephemeral prevents persisted session artifacts; the timer owns deployment.
+# --yolo inside bwrap: untrusted upstream content gets no host, Docker, SSH, or
+# credential surface. --ephemeral prevents persisted session artifacts.
 # Fail closed: a Codex failure or missing report stops the intake rather than
 # silently reporting success with nothing retained.
-if ! (cd "$WORKTREE" && codex exec --yolo --ephemeral --cd "$WORKTREE" "$PROMPT") \
+if ! codex_sandbox exec --yolo --ephemeral --cd "$WORKTREE" "$PROMPT" \
   >"$REPORT_DIR/.$(date -u +%Y%m%d)-${UPSTREAM_SHA:0:8}.log" 2>&1
 then
   log "$LOG_PREFIX: codex exec failed; no intake retained"; exit 1
