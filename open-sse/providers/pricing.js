@@ -54,6 +54,7 @@ export const MODEL_PRICING = {
   "gpt-5.6-luna":                 { input: 0.10,  output: 0.60,  cached: 0.01,  reasoning: 0.60,   cache_creation: 0.125 },
   "gpt-5.6-terra":                { input: 1.00,  output: 6.00,  cached: 0.10,  reasoning: 6.00,   cache_creation: 1.25  },
   "gpt-5.6-sol":                  { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.50  },
+  "gpt-6.1-sol":                  { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 2.50  },
   // OpenAI's published rate card (platform.openai.com/docs/pricing), Standard tier.
   // The page lists the cheaper block second; Batch is always the discounted tier, so
   // the cheaper block is Standard. Estimates only - Codex bills against subscription
