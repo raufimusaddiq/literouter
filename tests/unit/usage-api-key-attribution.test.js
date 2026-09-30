@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe("Usage stats API key attribution", () => {
-  it.each(["24h", "today", "7d", "30d"])("keeps API keys separate without exposing credentials (%s)", async (period) => {
+  it("keeps API keys separate without exposing credentials across live and daily periods", async () => {
     const apiKeyA = "sk-machine-aaaaaa-11111111";
     const apiKeyB = "sk-machine-bbbbbb-22222222";
     const timestamp = new Date().toISOString();
@@ -46,22 +46,26 @@ describe("Usage stats API key attribution", () => {
       status: "ok",
     });
 
-    const stats = await db.getUsageStats(period);
-    const apiKeyEntries = Object.values(stats.byApiKey);
+    // The DB adapter is process-global; seed once rather than resetting modules
+    // between periods (which does not replace its open database).
+    for (const period of ["24h", "today", "7d", "30d"]) {
+      const stats = await db.getUsageStats(period);
+      const apiKeyEntries = Object.values(stats.byApiKey);
 
-    expect(apiKeyEntries).toHaveLength(2);
-    expect(apiKeyEntries.map((entry) => entry.lastUsed)).toEqual([timestamp, timestamp]);
-    expect(JSON.stringify(stats)).not.toContain(apiKeyA);
-    expect(JSON.stringify(stats)).not.toContain(apiKeyB);
-    expect(Object.keys(stats.byApiKey).sort()).toEqual([
-      "sk-machi***1111|gpt-4|openai",
-      "sk-machi***2222|gpt-4|openai",
-    ]);
+      expect(apiKeyEntries).toHaveLength(2);
+      expect(apiKeyEntries.map((entry) => entry.lastUsed)).toEqual([timestamp, timestamp]);
+      expect(JSON.stringify(stats)).not.toContain(apiKeyA);
+      expect(JSON.stringify(stats)).not.toContain(apiKeyB);
+      expect(Object.keys(stats.byApiKey).sort()).toEqual([
+        "sk-machi***1111|gpt-4|openai",
+        "sk-machi***2222|gpt-4|openai",
+      ]);
 
-    expect(
-      apiKeyEntries
-        .map((entry) => entry.promptTokens)
-        .sort((a, b) => a - b)
-    ).toEqual([10, 20]);
+      expect(
+        apiKeyEntries
+          .map((entry) => entry.promptTokens)
+          .sort((a, b) => a - b)
+      ).toEqual([10, 20]);
+    }
   });
 });
