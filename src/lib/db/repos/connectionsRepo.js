@@ -178,7 +178,13 @@ export async function getProviderConnectionById(id) {
   return row ? structuredClone(row) : null;
 }
 
-// Internal sync reorder — must be called INSIDE a transaction
+// Internal sync reorder — must be called INSIDE a transaction.
+//
+// Normalizes priorities to a contiguous 1..N after a DELETE or an explicit
+// reorder, so gaps don't accumulate over time.
+//
+// Default inserts append via MAX(priority)+1 without rewriting existing rows.
+// Explicit priority inserts retain the existing reorder behavior.
 function reorderInTx(db, providerId) {
   const list = db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [providerId]).map(rowToConn);
   list.sort((a, b) => {
@@ -187,7 +193,10 @@ function reorderInTx(db, providerId) {
     return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
   });
   list.forEach((c, i) => {
-    db.run(`UPDATE providerConnections SET priority = ? WHERE id = ?`, [i + 1, c.id]);
+    const want = i + 1;
+    if ((c.priority || 0) !== want) {
+      db.run(`UPDATE providerConnections SET priority = ? WHERE id = ?`, [want, c.id]);
+    }
   });
 }
 
@@ -197,7 +206,21 @@ export async function createProviderConnection(data) {
   let result;
 
   db.transaction(() => {
-    const all = db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [data.provider]).map(rowToConn);
+    // apikey connections are deduped by name and need only the current max
+    // priority, so query for those directly instead of loading the whole pool
+    // (O(pool) per key — the other half of the import cost in #4311). The oauth
+    // branch below still scans, because its identity rules compare fields
+    // inside providerSpecificData and have no single-column equivalent.
+    const isApikey = data.authType === "apikey" && !!data.name;
+    const all = isApikey
+      ? db.all(
+          `SELECT * FROM providerConnections WHERE provider = ? AND authType = ? AND name = ?`,
+          [data.provider, "apikey", data.name]
+        ).map(rowToConn)
+      : db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [data.provider]).map(rowToConn);
+    const poolSize = isApikey
+      ? db.get(`SELECT COUNT(*) AS n FROM providerConnections WHERE provider = ?`, [data.provider])?.n ?? all.length
+      : all.length;
 
     let existing = null;
     if (data.authType === "oauth" && data.email) {
@@ -239,6 +262,21 @@ export async function createProviderConnection(data) {
     // access_token: never dedup — user manages duplicates manually
 
     if (existing) {
+      // Name collision on an apikey connection used to silently replace the
+      // stored apiKey, so a script that reused names ("Key 1", "Key 2", …)
+      // destroyed existing pool entries with no 409 and no warning. Callers that
+      // genuinely mean "update this one" pass allowOverwrite; everyone else gets
+      // a typed error naming the row that would have been replaced. #4311
+      if (data.allowOverwrite === false) {
+        const err = new Error(
+          `A connection named "${existing.name}" already exists for provider "${data.provider}". ` +
+          `Pass allowOverwrite: true to replace it.`
+        );
+        err.code = "PROVIDER_NAME_CONFLICT";
+        err.existingId = existing.id;
+        err.existingName = existing.name;
+        throw err;
+      }
       const normalized = resetHealthStateOnActivation(existing, data);
       const merged = { ...existing, ...normalized, updatedAt: now };
       upsert(db, merged);
@@ -248,11 +286,13 @@ export async function createProviderConnection(data) {
 
     let connectionName = data.name || null;
     if (!connectionName && (data.authType === "oauth" || data.authType === "access_token")) {
-      connectionName = deriveConnectionName(data, data.email || `Account ${all.length + 1}`);
+      connectionName = deriveConnectionName(data, data.email || `Account ${poolSize + 1}`);
     }
     let connectionPriority = data.priority;
     if (!connectionPriority) {
-      connectionPriority = all.reduce((m, c) => Math.max(m, c.priority || 0), 0) + 1;
+      // SQL avoids loading/re-writing the pool; aggregate cost depends on indexes.
+      const maxRow = db.get(`SELECT MAX(priority) AS m FROM providerConnections WHERE provider = ?`, [data.provider]);
+      connectionPriority = (maxRow?.m || 0) + 1;
     }
 
     const conn = {
@@ -274,7 +314,7 @@ export async function createProviderConnection(data) {
     if (data.email !== undefined) conn.email = data.email;
 
     upsert(db, conn);
-    reorderInTx(db, data.provider);
+    if (data.priority) reorderInTx(db, data.provider);
     result = conn;
   });
 
