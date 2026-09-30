@@ -17,6 +17,7 @@ DEPLOY=${UPSTREAM_INTAKE_DEPLOY:-false}
 WORK_ROOT=${UPSTREAM_INTAKE_DIR:-/var/tmp/9router-upstream-intake}
 REPORT_DIR=$REPO/docs/literouter-baseline/intake
 LOG_PREFIX=upstream-intake
+RUN_DEADLINE=$(( $(date +%s) + 7200 ))
 CODEX_BIN=$(readlink -f "$(command -v codex)")
 CODEX_PACKAGE=$(dirname "$(dirname "$CODEX_BIN")")
 NODE_BIN=$(readlink -f "$(command -v node)")
@@ -30,7 +31,9 @@ log() { printf '%s %s\n' "$(date -Is)" "$*"; }
 # host Git metadata, SSH, host environment, or inference/deploy credentials.
 # A Unix-socket broker outside the sandbox permits only the Codex inference route.
 codex_sandbox() {
-  bwrap --unshare-all --die-with-parent --new-session --cap-drop ALL \
+  local remaining=$(( RUN_DEADLINE - $(date +%s) - 60 ))
+  [ "$remaining" -gt 0 ] || return 1
+  timeout --kill-after=10s "$remaining" bwrap --unshare-all --die-with-parent --new-session --cap-drop ALL \
     --ro-bind /usr /usr --ro-bind /bin /bin --ro-bind /lib /lib --ro-bind /lib64 /lib64 \
     --ro-bind /etc/ssl/certs /etc/ssl/certs --ro-bind /etc/resolv.conf /etc/resolv.conf \
     --ro-bind /etc/nsswitch.conf /etc/nsswitch.conf --proc /proc --dev /dev \
@@ -88,11 +91,12 @@ refresh_host_health() {
 # Returns non-zero on failure or timeout so the caller never merges blindly.
 wait_for_gates() {
   local pr=$1 deadline=$(( $(date +%s) + 3600 )) state verdict snapshot pending failed
+  if [ "${RUN_DEADLINE:-$deadline}" -lt "$deadline" ]; then deadline=$RUN_DEADLINE; fi
   while [ "$(date +%s)" -lt "$deadline" ]; do
     snapshot=$(gh pr view "$pr" --repo raufimusaddiq/literouter --json headRefOid,mergeStateStatus,statusCheckRollup,reviews) || return 1
     HEAD_SHA=$(jq -r .headRefOid <<< "$snapshot")
     state=$(jq -r '[.mergeStateStatus, (if (.statusCheckRollup | length) > 0 and all(.statusCheckRollup[]; .status=="COMPLETED" and .conclusion=="SUCCESS") then 0 else 1 end)] | @tsv' <<< "$snapshot")
-    verdict=$(jq -r '.headRefOid as $head | [.reviews[] | select(.author.login=="personal-code-reviewer" and .commit.oid==$head)] | last | .state // "PENDING"' <<< "$snapshot")
+    verdict=$(jq -r '.headRefOid as $head | [.reviews[] | select((.author.login=="personal-code-reviewer" or .author.login=="personal-code-reviewer[bot]") and .commit.oid==$head)] | last | .state // "PENDING"' <<< "$snapshot")
     pending=$(jq '[.statusCheckRollup[] | select(.status!="COMPLETED")] | length' <<< "$snapshot")
     failed=$(jq '[.statusCheckRollup[] | select(.status=="COMPLETED" and .conclusion!="SUCCESS")] | length' <<< "$snapshot")
     log "$LOG_PREFIX: pr=$pr state=$state review=$verdict"
@@ -170,6 +174,8 @@ cleanup() {
   log "$LOG_PREFIX: disposable workspace removed; reports and PR history retained"
 }
 trap cleanup EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
 
 { command -v codex >/dev/null && command -v bwrap >/dev/null; } || { log "$LOG_PREFIX: codex or bwrap missing from PATH"; exit 1; }
 check_host_health || { log "$LOG_PREFIX: host capacity/health gate failed; not starting intake"; exit 1; }

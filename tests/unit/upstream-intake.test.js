@@ -45,6 +45,9 @@ wait_for_gates 75
 describe("upstream intake shell lifecycle", () => {
   it("accepts green checks and current-head Hermes approval", () => {
     expect(run(mockView).status).toBe(0);
+    expect(run(mockView, { ...approved, reviews: [{ ...approved.reviews[0],
+      author: { login: "personal-code-reviewer[bot]" },
+    }] }).status).toBe(0);
   });
 
   it("waits for checks, current-head approval, and the actual Hermes reviewer", () => {

@@ -11,5 +11,5 @@ ExecStart=/opt/9router/scripts/upstream-intake.sh
 WorkingDirectory=/opt/9router
 StandardOutput=append:/var/log/upstream-intake.log
 StandardError=append:/var/log/upstream-intake.log
-TimeoutStartSec=2h
+TimeoutStartSec=130min
 User=ubuntu
