@@ -99,7 +99,7 @@ export async function resolveConnectionProxyConfig(
         proxyPool.isActive === true &&
         proxyUrl;
 
-      poolStrictProxy = proxyPool?.strictProxy === true;
+      poolStrictProxy = !proxyPool || proxyPool.strictProxy === true;
 
       if (isValidPool) {
         /**
@@ -178,6 +178,10 @@ export async function resolveConnectionProxyConfig(
       ...legacy,
     };
   } catch (error) {
+    const requestedPool = normalizeString(providerSpecificData?.proxyPoolId);
+    if (requestedPool && requestedPool !== "__none__") {
+      throw new Error("Proxy pool could not be resolved", { cause: error });
+    }
     console.error(
       "[resolveConnectionProxyConfig] Failed to resolve proxy config:",
       error

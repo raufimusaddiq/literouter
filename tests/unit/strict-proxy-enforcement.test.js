@@ -13,7 +13,12 @@
 //    attempt. When no proxy URL resolves there is nothing to try, so it
 //    reaches the trailing `return originalFetch(url, options)` and connects
 //    directly.
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
+
+const originalFetch = globalThis.fetch;
+globalThis.fetch = vi.fn().mockRejectedValue(new Error("network stub"));
+vi.resetModules();
+afterAll(() => { globalThis.fetch = originalFetch; });
 
 vi.mock("@/models", () => ({
   getProxyPoolById: vi.fn(),
@@ -51,6 +56,18 @@ describe("strict pool keeps strictProxy when the pool is unusable (#4333)", () =
   it("still reports strictProxy:false when no pool is assigned", async () => {
     const cfg = await resolveConnectionProxyConfig({});
     expect(cfg.strictProxy).toBe(false);
+  });
+
+  it("fails closed when an assigned pool was deleted", async () => {
+    getProxyPoolById.mockResolvedValue(null);
+    const config = await resolveConnectionProxyConfig({ proxyPoolId: "deleted" });
+    expect(config.strictProxy).toBe(true);
+    await expect(proxyAwareFetch("https://api.example.com", {}, config)).rejects.toThrow(/strictProxy/);
+  });
+
+  it("fails closed when the pool lookup fails", async () => {
+    getProxyPoolById.mockRejectedValueOnce(new Error("DB unavailable"));
+    await expect(resolveConnectionProxyConfig({ proxyPoolId: "p1" })).rejects.toThrow("Proxy pool could not be resolved");
   });
 });
 

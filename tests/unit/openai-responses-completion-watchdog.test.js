@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/usageDb.js", () => ({
+  trackPendingRequest: vi.fn(),
+  appendRequestLog: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { createSSETransformStreamWithLogger } from "../../open-sse/utils/stream.js";
 
@@ -23,13 +28,15 @@ function completedResponses(text) {
     .map((l) => JSON.parse(l.slice(6)).response);
 }
 
-async function readAll(reader) {
+async function readAll(reader, onChunk = null) {
   const decoder = new TextDecoder();
   let text = "";
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
-    text += decoder.decode(value, { stream: true });
+    const chunk = decoder.decode(value, { stream: true });
+    text += chunk;
+    onChunk?.(chunk);
   }
   return text + decoder.decode();
 }
@@ -48,14 +55,19 @@ describe("pending response.completed watchdog", () => {
     vi.useFakeTimers();
     try {
       const { source, reader } = await pipe();
+      let liveText = "";
+      const pendingOutput = readAll(reader, (chunk) => { liveText += chunk; });
       source.enqueue(encoder.encode(`data: ${JSON.stringify(FINISH_CHUNK)}\n\n`));
       await vi.advanceTimersByTimeAsync(20);
 
+      expect(completedResponses(liveText)).toHaveLength(0);
+
       // No trailer, no [DONE] — only the watchdog can close this out.
       await vi.advanceTimersByTimeAsync(3000);
+      expect(completedResponses(liveText)).toHaveLength(1);
       source.close();
 
-      const completed = completedResponses(await readAll(reader));
+      const completed = completedResponses(await pendingOutput);
       expect(completed.length, "exactly one response.completed").toBe(1);
       expect(completed[0].status).toBe("completed");
       expect(completed[0].usage, "no usage was ever reported").toBeUndefined();
@@ -68,6 +80,7 @@ describe("pending response.completed watchdog", () => {
     vi.useFakeTimers();
     try {
       const { source, reader } = await pipe();
+      const pendingOutput = readAll(reader);
       source.enqueue(encoder.encode(`data: ${JSON.stringify(FINISH_CHUNK)}\n\n`));
       await vi.advanceTimersByTimeAsync(20);
       source.enqueue(encoder.encode(`data: ${JSON.stringify(USAGE_TRAILER)}\n\n`));
@@ -77,7 +90,7 @@ describe("pending response.completed watchdog", () => {
       await vi.advanceTimersByTimeAsync(10000);
       source.close();
 
-      const completed = completedResponses(await readAll(reader));
+      const completed = completedResponses(await pendingOutput);
       expect(completed.length, "exactly one response.completed").toBe(1);
       expect(completed[0].usage).toMatchObject({ input_tokens: 120, output_tokens: 30 });
     } finally {

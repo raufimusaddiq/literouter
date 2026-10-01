@@ -4,6 +4,7 @@
 // still get the "Continue." restoration.
 import { describe, it, expect } from "vitest";
 import { translateRequest } from "../../open-sse/translator/index.js";
+import "../translator/registerAll.js";
 
 const roles = (body) => body.messages.map((m) => m.role);
 

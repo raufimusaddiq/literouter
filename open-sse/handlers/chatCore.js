@@ -233,7 +233,6 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     customToolNames = new Set([...(names || []), ...(before || [])]);
   }
 
-  // Dedupe duplicate built-in tools when equivalent MCP tools are present (Claude clients only).
   if (Array.isArray(translatedBody.tools)) {
     const { tools: deduped, stripped } = dedupeTools(translatedBody.tools, { clientTool, model });
     if (stripped.length > 0) {
