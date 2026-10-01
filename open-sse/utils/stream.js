@@ -298,7 +298,15 @@ export function createSSEStream(options = {}) {
           // if the upstream keeps the HTTP connection open, so finish now.
           if (targetFormat === FORMATS.OPENAI && sourceFormat === FORMATS.OPENAI_RESPONSES &&
               state.completionPending && !state.completedSent) {
-            flushPendingCompletion(controller);
+            const completed = translateResponse(targetFormat, sourceFormat, null, state);
+            for (const item of completed || []) {
+              if (item === null || item === undefined) continue;
+              const output = formatSSE(item, sourceFormat);
+              reqLogger?.appendConvertedChunk?.(output);
+              controller.enqueue(sharedEncoder.encode(output));
+              sseEmittedCount++;
+            }
+            finalizeStream();
           }
 
           // Synthesize response.failed if the Responses stream never sent a terminal event
