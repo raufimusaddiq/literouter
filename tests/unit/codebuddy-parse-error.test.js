@@ -3,6 +3,33 @@ import { CodeBuddyExecutor } from "../../open-sse/executors/codebuddy-cn.js";
 import { CodeBuddyIntlExecutor } from "../../open-sse/executors/codebuddy-intl.js";
 
 describe("CodeBuddy parseError", () => {
+  describe.each([CodeBuddyExecutor, CodeBuddyIntlExecutor])("%s shared error parsing", (Executor) => {
+    it.each([
+      ["", "2026-09-28T12:00:00+08:00"],
+      [" UTC+0", "2026-09-28T12:00:00+00:00"],
+      [" UTC+05:30", "2026-09-28T12:00:00+05:30"],
+    ])("preserves the reset timezone %s", (suffix, timestamp) => {
+      const parsed = new Executor().parseError({ status: 200 }, JSON.stringify({
+        code: 6004,
+        message: `frequency limit until 2026-09-28 12:00:00${suffix}`,
+      }));
+      expect(parsed.status).toBe(429);
+      expect(parsed.resetsAtMs).toBe(new Date(timestamp).getTime());
+    });
+
+    it("retains the HTTP error when the body is malformed", () => {
+      expect(new Executor().parseError({ status: 502 }, "not JSON")).toEqual({
+        status: 502, message: "not JSON",
+      });
+    });
+
+    it("keeps a frequency limit without a reset timestamp", () => {
+      expect(new Executor().parseError({ status: 200 }, JSON.stringify({ code: 6004 }))).toEqual({
+        status: 429, message: "CodeBuddy frequency limit (6004)", resetsAtMs: null,
+      });
+    });
+  });
+
   it("parses code 6004 frequency limit with timestamp into 429 and resetsAtMs on codebuddy-cn", () => {
     const executor = new CodeBuddyExecutor();
     const bodyText = JSON.stringify({
