@@ -11,6 +11,8 @@
 - **Local-operator trust**: the spoofable `Host` fallback no longer exists in any environment, so local-operator access now requires `custom-server.js`'s per-process `x-9r-peer-token`, stamped on every request it handles. On a listener that bypasses the wrapper (a bare `next dev`, or another client inside the same container) there is no token to present, so those requests no longer inherit LAN-node validation or the localhost-only routes
 
 ## Fixes
+- **Upstream intake**: wait for host capacity instead of abandoning repairs, resume pending intake PRs after controller failures, and check deployment health inside the container's network.
+- **Request logs**: lower the production debug-log size limit from 1024 MB to 500 MB.
 - **Upstream intake**: fix scheduled startup and merge-SHA deployment; isolate ephemeral `--yolo` agents from host networking and credentials behind a model-only Unix-socket broker; delegate all installs/builds/tests to CI, wait for current-head CI/Hermes, repair completed blockers, retain failures, dispose after successful deployment
 - **Upstream intake**: make the repair-attempt ceiling configurable via `UPSTREAM_INTAKE_MAX_REPAIRS` (default 3) so unattended runs keep resolving reviewer blockers instead of stopping
 - **OAuth**: keep same-identity credential refresh independent of the API-key name-collision overwrite flag, including callers passing `false`

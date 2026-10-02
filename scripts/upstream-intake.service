@@ -12,4 +12,6 @@ WorkingDirectory=/opt/9router
 StandardOutput=append:/var/log/upstream-intake.log
 StandardError=append:/var/log/upstream-intake.log
 TimeoutStartSec=130min
+Restart=on-failure
+RestartSec=5min
 User=ubuntu
