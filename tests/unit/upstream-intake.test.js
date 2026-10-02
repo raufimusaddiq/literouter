@@ -94,6 +94,18 @@ echo "$PR_URL $BRANCH $HEAD_SHA"
     }] }).status).toBe(0);
   });
 
+  it("ignores stale GitHub heads immediately after a push", () => {
+    const result = run(`
+gh() { printf '%s\\n' "$PR_DATA"; }
+sleep() { exit 77; }
+wait_for_gates 78 '${merged}'
+`, { ...approved, statusCheckRollup: [{ status: "COMPLETED", conclusion: "FAILURE" }] });
+    expect(result.status).toBe(77);
+    expect(result.stdout).toContain("GitHub head is stale");
+    expect(script).toContain('wait_for_gates "$PR_NUM" "$EXPECTED_HEAD"');
+    expect(script).toContain("feedback stale or checks pending");
+  });
+
   it("waits for checks, current-head approval, and the actual Hermes reviewer", () => {
     for (const data of [
       { ...approved, statusCheckRollup: [] },

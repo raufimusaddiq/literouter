@@ -121,9 +121,15 @@ find_pending_intake() {
 # Returns non-zero on failure or timeout so the caller never merges blindly.
 wait_for_gates() {
   local pr=$1 deadline=$(( $(date +%s) + 3600 )) state verdict snapshot pending failed
+  local expected=${2:-}
   if [ "${RUN_DEADLINE:-$deadline}" -lt "$deadline" ]; then deadline=$RUN_DEADLINE; fi
   while [ "$(date +%s)" -lt "$deadline" ]; do
     snapshot=$(gh pr view "$pr" --repo raufimusaddiq/literouter --json headRefOid,mergeStateStatus,statusCheckRollup,reviews) || return 1
+    if [ -n "$expected" ] && [ "$(jq -r .headRefOid <<< "$snapshot")" != "$expected" ]; then
+      log "$LOG_PREFIX: pr=$pr GitHub head is stale; waiting for $expected"
+      sleep 30
+      continue
+    fi
     state=$(jq -r '[.mergeStateStatus, (if (.statusCheckRollup | length) > 0 and all(.statusCheckRollup[]; .status=="COMPLETED" and .conclusion=="SUCCESS") then 0 else 1 end)] | @tsv' <<< "$snapshot")
     verdict=$(jq -r '.headRefOid as $head | [.reviews[] | select((.author.login=="personal-code-reviewer" or .author.login=="personal-code-reviewer[bot]") and .commit.oid==$head)] | last | .state // "PENDING"' <<< "$snapshot")
     pending=$(jq '[.statusCheckRollup[] | select(.status!="COMPLETED")] | length' <<< "$snapshot")
@@ -340,16 +346,21 @@ case "$PR_URL" in https://github.com/raufimusaddiq/literouter/pull/*) ;; *) log 
 PR_NUM=$(basename "$PR_URL")
 REPAIRS=0
 while true; do
-  if wait_for_gates "$PR_NUM"; then break; else gate_status=$?; fi
+  EXPECTED_HEAD=$(git -C "$WORKTREE" rev-parse "$BRANCH")
+  if wait_for_gates "$PR_NUM" "$EXPECTED_HEAD"; then break; else gate_status=$?; fi
   if [ "$gate_status" -ne 2 ] || [ "$REPAIRS" -ge "$MAX_REPAIRS" ]; then
     log "$LOG_PREFIX: gates not satisfied; workspace retained for retry"; exit 1
   fi
   wait_for_host_health || exit 1
-  REPAIRS=$((REPAIRS + 1))
   FEEDBACK="$WORKTREE/intake-ci-feedback.txt"
   gh pr view "$PR_NUM" --repo raufimusaddiq/literouter --json headRefOid,mergeStateStatus,reviews,statusCheckRollup > "$FEEDBACK"
   HEAD_SHA=$(jq -r .headRefOid "$FEEDBACK")
   [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { log "$LOG_PREFIX: no reviewed head for repair; stopping"; exit 1; }
+  if [ "$HEAD_SHA" != "$EXPECTED_HEAD" ] || [ "$(jq '[.statusCheckRollup[] | select(.status!="COMPLETED")] | length' "$FEEDBACK")" -gt 0 ] || [ "$(jq '.statusCheckRollup | length' "$FEEDBACK")" -eq 0 ]; then
+    log "$LOG_PREFIX: feedback stale or checks pending; waiting without invoking repair"
+    continue
+  fi
+  REPAIRS=$((REPAIRS + 1))
   gh run list --repo raufimusaddiq/literouter --branch "$BRANCH" --limit 30 \
     --json databaseId,headSha,status,conclusion \
     --jq ".[] | select(.headSha==\"$HEAD_SHA\" and .status==\"completed\" and .conclusion==\"failure\") | .databaseId" \
