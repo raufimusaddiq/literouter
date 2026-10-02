@@ -94,6 +94,7 @@ const LIVE_MODEL_RESOLVERS = {
     }, {
       log: console,
       proxyOptions: {
+        proxyPoolId: proxy.proxyPoolId || null,
         connectionProxyEnabled: proxy.connectionProxyEnabled === true,
         connectionProxyUrl: proxy.connectionProxyUrl || "",
         connectionNoProxy: proxy.connectionNoProxy || "",

@@ -16,17 +16,102 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 
 const originalFetch = globalThis.fetch;
-globalThis.fetch = vi.fn().mockRejectedValue(new Error("network stub"));
+const networkFetch = vi.fn().mockRejectedValue(new Error("network stub"));
+globalThis.fetch = networkFetch;
+for (const name of ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"]) {
+  vi.stubEnv(name, "");
+}
 vi.resetModules();
-afterAll(() => { globalThis.fetch = originalFetch; });
+afterAll(() => {
+  globalThis.fetch = originalFetch;
+  vi.unstubAllEnvs();
+});
 
 vi.mock("@/models", () => ({
   getProxyPoolById: vi.fn(),
 }));
 
+vi.mock("@/lib/localDb", () => ({
+  getProviderConnections: vi.fn(async () => [{
+    id: "strict-connection",
+    apiKey: "test-key",
+    providerSpecificData: { proxyPoolId: "p1" },
+  }]),
+  getSettings: vi.fn(async () => ({
+    providerStrategies: { opencode: { proxyPoolId: "p1" } },
+  })),
+  getProxyPools: vi.fn(),
+  updateProviderConnection: vi.fn(),
+  validateApiKey: vi.fn(),
+}));
+
+vi.mock("../../open-sse/executors/index.js", () => ({
+  getExecutor: () => ({
+    execute: async ({ proxyOptions }) => {
+      await proxyAwareFetch("https://api.example.com/v1/chat", {}, proxyOptions);
+      throw new Error("Unexpected network access");
+    },
+  }),
+}));
+
+vi.mock("../../open-sse/utils/requestLogger.js", () => ({
+  createRequestLogger: async () => ({
+    logClientRawRequest: vi.fn(),
+    logRawRequest: vi.fn(),
+    logError: vi.fn(),
+  }),
+}));
+
+vi.mock("@/lib/usageDb.js", () => ({
+  trackPendingRequest: vi.fn(),
+  appendRequestLog: vi.fn(async () => {}),
+  saveRequestDetail: vi.fn(async () => {}),
+}));
+
 const { getProxyPoolById } = await import("@/models");
 const { resolveConnectionProxyConfig } = await import("../../src/lib/network/connectionProxy.js");
 const { proxyAwareFetch } = await import("../../open-sse/utils/proxyFetch.js");
+const { getProviderCredentials } = await import("../../src/sse/services/auth.js");
+const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
+
+describe("strict pool policy reaches inference from credential selection", () => {
+  it.each([
+    ["deleted", null],
+    ["inactive", { isActive: false, proxyUrl: "http://127.0.0.1:7890", strictProxy: true }],
+    ["empty", { isActive: true, proxyUrl: "", strictProxy: true }],
+  ])("refuses direct inference for a %s pool", async (label, pool) => {
+    getProxyPoolById.mockResolvedValue(pool);
+    networkFetch.mockClear();
+    const credentials = await getProviderCredentials("openai");
+    expect(credentials.providerSpecificData.strictProxy).toBe(true);
+    expect(credentials.providerSpecificData.connectionProxyPoolId).toBe("p1");
+
+    const result = await handleChatCore({
+      body: { messages: [{ role: "user", content: "hello" }], stream: false },
+      modelInfo: { provider: "openai", model: "gpt-4.1" },
+      credentials,
+      connectionId: credentials.connectionId,
+      log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      rtkEnabled: false,
+      headroomEnabled: false,
+      cavemanEnabled: false,
+      ponytailEnabled: false,
+      pxpipeEnabled: false,
+    });
+
+    expect(result.status).toBe(502);
+    expect(result.error).toMatch(/strictProxy/);
+    expect(networkFetch).not.toHaveBeenCalled();
+  });
+
+  it("preserves strict pool policy for public provider credentials", async () => {
+    getProxyPoolById.mockResolvedValue(null);
+    const credentials = await getProviderCredentials("opencode");
+    expect(credentials.id).toBe("noauth");
+    expect(credentials.providerSpecificData.strictProxy).toBe(true);
+    expect(credentials.providerSpecificData.connectionProxyPoolId).toBe("p1");
+  });
+});
 
 describe("strict pool keeps strictProxy when the pool is unusable (#4333)", () => {
   it("keeps strictProxy for an inactive strict pool", async () => {
