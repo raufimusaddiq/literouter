@@ -144,7 +144,17 @@ describe("Responses response.completed reports token usage", () => {
     expect(completed[0].data.response.usage).toEqual({ input_tokens: 300, output_tokens: 20, total_tokens: 320 });
   });
 
-  it.each([0, 999])("derives the total when upstream reports inconsistent total_tokens=%i", async (totalTokens) => {
+  it.each([
+    [0, 320],
+    [319, 320],
+    [-1, 320],
+    [320.5, 320],
+    ["999", 320],
+    [null, 320],
+    [undefined, 320],
+    [320, 320],
+    [999, 999],
+  ])("normalizes upstream total_tokens=%s to %i", async (totalTokens, expectedTotal) => {
     const events = parseEvents(await runTransform(FORMATS.OPENAI, [
       ...sse({ id: "c4", object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content: "Hi" } }] }),
       ...sse({
@@ -161,7 +171,7 @@ describe("Responses response.completed reports token usage", () => {
     expect(completed[0].data.response.usage).toEqual({
       input_tokens: 300,
       output_tokens: 20,
-      total_tokens: 320,
+      total_tokens: expectedTotal,
     });
   });
 

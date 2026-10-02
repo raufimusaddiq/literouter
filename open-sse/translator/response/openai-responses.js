@@ -37,7 +37,9 @@ function toResponsesUsage(usage) {
   const responseUsage = {
     input_tokens: inputTokens,
     output_tokens: outputTokens,
-    total_tokens: inputTokens + outputTokens
+    total_tokens: Number.isInteger(usage.total_tokens) && usage.total_tokens >= inputTokens + outputTokens
+      ? usage.total_tokens
+      : inputTokens + outputTokens
   };
   const cachedTokens = [usage.input_tokens_details?.cached_tokens, usage.prompt_tokens_details?.cached_tokens].find(Number.isInteger);
   const reasoningTokens = [usage.output_tokens_details?.reasoning_tokens, usage.completion_tokens_details?.reasoning_tokens].find(Number.isInteger);

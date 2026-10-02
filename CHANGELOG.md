@@ -11,6 +11,7 @@
 - **Local-operator trust**: the spoofable `Host` fallback no longer exists in any environment, so local-operator access now requires `custom-server.js`'s per-process `x-9r-peer-token`, stamped on every request it handles. On a listener that bypasses the wrapper (a bare `next dev`, or another client inside the same container) there is no token to present, so those requests no longer inherit LAN-node validation or the localhost-only routes
 
 ## Fixes
+- **Responses usage**: preserve integer upstream token totals at least as large as input plus output; derive totals only when absent, malformed, or below the component sum. Cover larger provider totals and invalid totals without changing completion timing or placeholder handling.
 - **CodeBuddy**: share frequency-limit error parsing across CN and international executors; preserve reset timezones and HTTP-error fallback with regression coverage for both providers.
 - **Proxy pools**: return a controlled 503 when chat credential/proxy lookup fails; atomically reject deletion of pools referenced by connections or provider strategies with 409. Distinguish missing pools from unconfigured proxies without permitting direct-IP fallback when the deleted pool's policy is unknown.
 - **Strict proxy / Codex**: carry resolved strict-pool policy through credential selection, inference, refresh retries, quota checks, and Grok model discovery so unusable pools cannot silently route directly; refresh the Codex provider baseline for the 0.159.0 CLI identity.
