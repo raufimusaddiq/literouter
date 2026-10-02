@@ -23,7 +23,7 @@ const approved = {
 function run(body, data = approved) {
   const dir = mkdtempSync(join(tmpdir(), "worktree."));
   const file = join(dir, "run.sh");
-  writeFileSync(file, `set -euo pipefail\n${helpers}\nLOG_PREFIX=test\nREPO=/repo\nTARGET=origin-literouter\n${body}\n`);
+  writeFileSync(file, `set -euo pipefail\n${helpers}\nLOG_PREFIX=test\nREPO=/repo\nTARGET=origin-literouter\nBASE_BRANCH=main\nRUN_DEADLINE=$(( $(date +%s) + 60 ))\n${body}\n`);
   try {
     return spawnSync("bash", [file], {
       env: { ...process.env, PR_DATA: JSON.stringify(data), MERGED: merged, TEST_WORKTREE: dir, TEST_WORK_ROOT: tmpdir() },
@@ -43,11 +43,67 @@ wait_for_gates 75
 `;
 
 describe("upstream intake shell lifecycle", () => {
+  it("waits for host recovery without starting work; bounds the wait", () => {
+    const result = run(`
+attempts=0
+refresh_host_health() { attempts=$((attempts + 1)); [ "$attempts" -ge 3 ]; }
+sleep() { echo waiting; }
+wait_for_host_health
+echo "recovered attempts=$attempts"
+`);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout.match(/^waiting$/gm)).toHaveLength(2);
+    expect(result.stdout).toContain("recovered attempts=3");
+    const expired = run(`
+refresh_host_health() { return 1; }
+sleep() { RUN_DEADLINE=0; }
+wait_for_host_health
+`);
+    expect(expired.status).toBe(1);
+    expect(expired.stdout).toContain("host wait timed out");
+  });
+
+  it("resumes pending intake heads, rejects invalid metadata and API failures", () => {
+    const pending = { url: "https://github.com/raufimusaddiq/literouter/pull/78",
+      headRefName: "upstream-intake/20261001-example", headRefOid: head };
+    const body = `
+gh() { printf '%s\\n' "$PR_DATA"; }
+find_pending_intake
+echo "$PR_URL $BRANCH $HEAD_SHA"
+`;
+    const result = run(body, pending);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain(`${pending.url} ${pending.headRefName} ${head}`);
+    for (const invalid of [
+      { ...pending, headRefOid: "invalid" },
+      { ...pending, headRefName: "main" },
+      { ...pending, url: "https://example.com/pull/78" },
+    ]) expect(run(body, invalid).status).toBe(1);
+    expect(run("gh() { return 1; }; find_pending_intake").status).toBe(1);
+    expect(run('gh() { return 0; }; find_pending_intake; [ -z "$PR_URL" ]').status).toBe(0);
+    expect(script.indexOf("find_pending_intake\nmkdir")).toBeLessThan(script.indexOf("BEHIND=$("));
+    expect(script).toContain('git -C "$WORKTREE" checkout -b "$BRANCH" "$HEAD_SHA"');
+    const service = readFileSync(new URL("../../scripts/upstream-intake.service", import.meta.url), "utf8");
+    expect(service).toContain("Restart=on-failure\nRestartSec=5min");
+  });
+
   it("accepts green checks and current-head Hermes approval", () => {
     expect(run(mockView).status).toBe(0);
     expect(run(mockView, { ...approved, reviews: [{ ...approved.reviews[0],
       author: { login: "personal-code-reviewer[bot]" },
     }] }).status).toBe(0);
+  });
+
+  it("ignores stale GitHub heads immediately after a push", () => {
+    const result = run(`
+gh() { printf '%s\\n' "$PR_DATA"; }
+sleep() { exit 77; }
+wait_for_gates 78 '${merged}'
+`, { ...approved, statusCheckRollup: [{ status: "COMPLETED", conclusion: "FAILURE" }] });
+    expect(result.status).toBe(77);
+    expect(result.stdout).toContain("GitHub head is stale");
+    expect(script).toContain('wait_for_gates "$PR_NUM" "$EXPECTED_HEAD"');
+    expect(script).toContain("feedback stale or checks pending");
   });
 
   it("waits for checks, current-head approval, and the actual Hermes reviewer", () => {
@@ -62,8 +118,12 @@ describe("upstream intake shell lifecycle", () => {
   it("repairs completed blockers, but waits until pending reviews finish", () => {
     expect(run(mockView, { ...approved, statusCheckRollup: [{ status: "COMPLETED", conclusion: "FAILURE" }] }).status).toBe(2);
     expect(run(mockView, { ...approved, reviews: [{ ...approved.reviews[0], state: "CHANGES_REQUESTED" }] }).status).toBe(2);
+    expect(run(mockView, { ...approved, mergeStateStatus: "DIRTY" }).status).toBe(2);
     expect(run(mockView, { ...approved, statusCheckRollup: [
       { status: "COMPLETED", conclusion: "FAILURE" }, { status: "IN_PROGRESS", conclusion: "" },
+    ] }).status).toBe(77);
+    expect(run(mockView, { ...approved, mergeStateStatus: "DIRTY", statusCheckRollup: [
+      { status: "IN_PROGRESS", conclusion: "" },
     ] }).status).toBe(77);
     expect(run("gh() { return 1; }; wait_for_gates 75").status).toBe(1);
   });
@@ -89,6 +149,8 @@ deploy_main '${head}' 75
     expect(result.stdout).toContain(`--match-head-commit ${head}`);
     expect(result.stdout).toContain(`host-gate\npull ghcr.io/raufimusaddiq/literouter-production:production-${merged}`);
     expect(result.stdout).toContain(`tag=production-${merged}`);
+    expect(script).toContain('docker exec literouter node -e');
+    expect(script).not.toContain('curl --max-time 15 -fsS http://127.0.0.1:20128');
   });
 
   it("keeps failed workspaces, removes only the successful run worktree", () => {
@@ -100,6 +162,10 @@ deploy_main '${head}' 75
     const success = run(`${body}true`);
     expect(success.status).toBe(0);
     expect(success.stdout).toContain("removed -rf -- ");
+    const reviewOnly = run(`${body}DEPLOY=false\nPR_URL=https://github.com/raufimusaddiq/literouter/pull/78\ntrue`);
+    expect(reviewOnly.status).toBe(0);
+    expect(reviewOnly.stdout).toContain("retaining review-only workspace");
+    expect(reviewOnly.stdout).not.toContain("removed -rf");
     expect(script).not.toContain('rm -rf "$WORK_ROOT"');
   });
 
@@ -138,6 +204,9 @@ refresh_host_health
     expect(script).not.toContain("--setenv ROUTER_API_KEY");
     expect(script).toContain("GitHub CI owns validation");
     expect(script).toContain('HOST_HEALTH=$(check_host_health)');
+    expect(script).toContain('actions/jobs/$job_id/logs');
+    expect(script).not.toContain('--log-failed');
+    expect(script).not.toContain('using `git cherry-pick -x`');
   });
 
   it("rejects a stale or missing reviewed head before repairing", () => {
