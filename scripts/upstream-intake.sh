@@ -196,6 +196,10 @@ cleanup() {
     log "$LOG_PREFIX: retaining workspace ${WORKTREE:-none} for inspection/retry"
     return "$status"
   fi
+  if [ "${DEPLOY:-false}" != true ] && [ -n "${PR_URL:-}" ]; then
+    log "$LOG_PREFIX: retaining review-only workspace ${WORKTREE:-none} until deployment"
+    return 0
+  fi
   if [ -n "${WORKTREE:-}" ] && [ -d "$WORKTREE" ]; then
     # Only this run's mktemp-created standalone clone, never the work root.
     [[ "$WORKTREE" == "$WORK_ROOT"/worktree.* ]] || return 1

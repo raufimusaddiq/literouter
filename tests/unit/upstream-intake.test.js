@@ -146,6 +146,10 @@ deploy_main '${head}' 75
     const success = run(`${body}true`);
     expect(success.status).toBe(0);
     expect(success.stdout).toContain("removed -rf -- ");
+    const reviewOnly = run(`${body}DEPLOY=false\nPR_URL=https://github.com/raufimusaddiq/literouter/pull/78\ntrue`);
+    expect(reviewOnly.status).toBe(0);
+    expect(reviewOnly.stdout).toContain("retaining review-only workspace");
+    expect(reviewOnly.stdout).not.toContain("removed -rf");
     expect(script).not.toContain('rm -rf "$WORK_ROOT"');
   });
 
