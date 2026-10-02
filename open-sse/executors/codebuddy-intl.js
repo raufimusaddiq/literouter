@@ -1,4 +1,5 @@
 import { DefaultExecutor } from "./default.js";
+import { parseCodeBuddyError } from "./codebuddy-error.js";
 
 /**
  * CodeBuddyIntlExecutor — talks to https://www.codebuddy.ai/v2/chat/completions
@@ -38,6 +39,9 @@ export class CodeBuddyIntlExecutor extends DefaultExecutor {
     }
 
     return transformed;
+  }
+  parseError(response, bodyText) {
+    return parseCodeBuddyError(bodyText) || super.parseError(response, bodyText);
   }
 }
 

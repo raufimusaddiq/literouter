@@ -467,6 +467,7 @@ const PROVIDER_MODELS_CONFIG = {
       }, {
         log: console,
         proxyOptions: {
+          proxyPoolId: proxy.proxyPoolId || null,
           connectionProxyEnabled: proxy.connectionProxyEnabled === true,
           connectionProxyUrl: proxy.connectionProxyUrl || "",
           connectionNoProxy: proxy.connectionNoProxy || "",

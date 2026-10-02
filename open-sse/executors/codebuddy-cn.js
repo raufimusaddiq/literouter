@@ -1,4 +1,5 @@
 import { DefaultExecutor } from "./default.js";
+import { parseCodeBuddyError } from "./codebuddy-error.js";
 
 /**
  * CodeBuddyExecutor — talks to https://copilot.tencent.com/v2/chat/completions
@@ -63,6 +64,9 @@ export class CodeBuddyExecutor extends DefaultExecutor {
     // + reasoning_summary on plain requests makes CodeBuddy trip its content
     // filter and return an error (#2071).
     return transformed;
+  }
+  parseError(response, bodyText) {
+    return parseCodeBuddyError(bodyText) || super.parseError(response, bodyText);
   }
 }
 
