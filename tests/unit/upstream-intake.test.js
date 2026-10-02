@@ -106,8 +106,12 @@ echo "$PR_URL $BRANCH $HEAD_SHA"
   it("repairs completed blockers, but waits until pending reviews finish", () => {
     expect(run(mockView, { ...approved, statusCheckRollup: [{ status: "COMPLETED", conclusion: "FAILURE" }] }).status).toBe(2);
     expect(run(mockView, { ...approved, reviews: [{ ...approved.reviews[0], state: "CHANGES_REQUESTED" }] }).status).toBe(2);
+    expect(run(mockView, { ...approved, mergeStateStatus: "DIRTY" }).status).toBe(2);
     expect(run(mockView, { ...approved, statusCheckRollup: [
       { status: "COMPLETED", conclusion: "FAILURE" }, { status: "IN_PROGRESS", conclusion: "" },
+    ] }).status).toBe(77);
+    expect(run(mockView, { ...approved, mergeStateStatus: "DIRTY", statusCheckRollup: [
+      { status: "IN_PROGRESS", conclusion: "" },
     ] }).status).toBe(77);
     expect(run("gh() { return 1; }; wait_for_gates 75").status).toBe(1);
   });
