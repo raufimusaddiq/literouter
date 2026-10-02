@@ -38,12 +38,26 @@ vi.mock("@/lib/localDb", () => ({
     providerSpecificData: { proxyPoolId: "p1" },
   }]),
   getSettings: vi.fn(async () => ({
+    requireApiKey: true,
     providerStrategies: { opencode: { proxyPoolId: "p1" } },
   })),
   getProxyPools: vi.fn(),
   updateProviderConnection: vi.fn(),
-  validateApiKey: vi.fn(),
+  validateApiKey: vi.fn(async () => true),
 }));
+
+vi.mock("../../src/sse/services/model.js", () => ({
+  getModelInfo: vi.fn(async (model) => ({ provider: model.split("/")[0], model: "gpt-4.1" })),
+  getComboModels: vi.fn(async () => null),
+}));
+
+vi.mock("../../src/sse/services/tokenRefresh.js", () => ({
+  updateProviderCredentials: vi.fn(),
+  checkAndRefreshToken: vi.fn(),
+}));
+
+vi.mock("@/lib/pxpipe/loader.js", () => ({ getTransform: vi.fn() }));
+vi.mock("@/lib/pxpipe/events.js", () => ({ appendPxpipeEvent: vi.fn() }));
 
 vi.mock("../../open-sse/executors/index.js", () => ({
   getExecutor: () => ({
@@ -73,6 +87,22 @@ const { resolveConnectionProxyConfig } = await import("../../src/lib/network/con
 const { proxyAwareFetch } = await import("../../open-sse/utils/proxyFetch.js");
 const { getProviderCredentials } = await import("../../src/sse/services/auth.js");
 const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
+const { handleChat } = await import("../../src/sse/handlers/chat.js");
+
+describe("chat credential lookup failures", () => {
+  it.each(["openai", "opencode"])("returns 503 without network access for %s", async (provider) => {
+    getProxyPoolById.mockRejectedValueOnce(new Error("DB unavailable"));
+    networkFetch.mockClear();
+    const response = await handleChat(new Request("http://localhost/api/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer test-key" },
+      body: JSON.stringify({ model: `${provider}/gpt-4.1`, messages: [{ role: "user", content: "hello" }] }),
+    }));
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.message).toBe(`Credentials unavailable for provider: ${provider}`);
+    expect(networkFetch).not.toHaveBeenCalled();
+  });
+});
 
 describe("strict pool policy reaches inference from credential selection", () => {
   it.each([
@@ -146,6 +176,7 @@ describe("strict pool keeps strictProxy when the pool is unusable (#4333)", () =
   it("fails closed when an assigned pool was deleted", async () => {
     getProxyPoolById.mockResolvedValue(null);
     const config = await resolveConnectionProxyConfig({ proxyPoolId: "deleted" });
+    expect(config.source).toBe("missing-pool");
     expect(config.strictProxy).toBe(true);
     await expect(proxyAwareFetch("https://api.example.com", {}, config)).rejects.toThrow(/strictProxy/);
   });

@@ -82,6 +82,7 @@ export async function resolveConnectionProxyConfig(
     // path below reports strictProxy:false and the request silently leaves
     // over the direct IP — the leak strict mode exists to prevent (#4333).
     let poolStrictProxy = false;
+    let poolMissing = false;
 
     /**
      * -----------------------------
@@ -99,7 +100,8 @@ export async function resolveConnectionProxyConfig(
         proxyPool.isActive === true &&
         proxyUrl;
 
-      poolStrictProxy = !proxyPool || proxyPool.strictProxy === true;
+      poolMissing = !proxyPool;
+      poolStrictProxy = poolMissing || proxyPool.strictProxy === true;
 
       if (isValidPool) {
         /**
@@ -168,7 +170,7 @@ export async function resolveConnectionProxyConfig(
      * -----------------------------
      */
     return {
-      source: "none",
+      source: poolMissing ? "missing-pool" : "none",
 
       proxyPoolId: proxyPoolId || null,
       proxyPool: null,

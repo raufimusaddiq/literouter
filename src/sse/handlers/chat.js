@@ -244,7 +244,13 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       log.warn("FALLBACK", `attempt cap ${maxAccountAttempts} reached for ${provider}/${model}`);
       return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable", lastHeaders);
     }
-    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model);
+    let credentials;
+    try {
+      credentials = await getProviderCredentials(provider, excludeConnectionIds, model);
+    } catch (error) {
+      log.error("AUTH", `Credential resolution failed for ${provider}: ${error.message}`);
+      return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `Credentials unavailable for provider: ${provider}`);
+    }
 
     // All accounts unavailable
     if (!credentials || credentials.allRateLimited) {

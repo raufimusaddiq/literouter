@@ -117,6 +117,9 @@ export async function DELETE(request, { params }) {
     await deleteProxyPool(id);
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error.code === "PROXY_POOL_IN_USE") {
+      return NextResponse.json({ error: "Proxy pool is currently in use" }, { status: 409 });
+    }
     console.log("Error deleting proxy pool:", error);
     return NextResponse.json({ error: "Failed to delete proxy pool" }, { status: 500 });
   }

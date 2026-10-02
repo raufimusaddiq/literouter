@@ -111,6 +111,19 @@ export async function deleteProxyPool(id) {
   db.transaction(() => {
     const row = db.get(`SELECT * FROM proxyPools WHERE id = ?`, [id]);
     if (!row) return;
+    const connections = db.all(`SELECT data FROM providerConnections`);
+    const settings = parseJson(db.get(`SELECT data FROM settings WHERE id = 1`)?.data, {});
+    const connectionBound = connections.some((connection) =>
+      String(parseJson(connection.data, {}).providerSpecificData?.proxyPoolId ?? "").trim() === id
+    );
+    const strategyBound = Object.values(settings.providerStrategies || {}).some((strategy) =>
+      String(strategy?.proxyPoolId ?? "").trim() === id
+    );
+    if (connectionBound || strategyBound) {
+      const error = new Error("Proxy pool is currently in use");
+      error.code = "PROXY_POOL_IN_USE";
+      throw error;
+    }
     removed = rowToPool(row);
     db.run(`DELETE FROM proxyPools WHERE id = ?`, [id]);
   });
