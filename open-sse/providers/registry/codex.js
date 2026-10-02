@@ -41,6 +41,7 @@ export default {
     cliVersion: CODEX_CLI_VERSION,
     headers: {
       originator: "codex_cli_rs",
+      version: CODEX_CLI_VERSION,
       "User-Agent": `codex_cli_rs/${CODEX_CLI_VERSION}`,
     },
     usage: {

@@ -195,7 +195,7 @@ export function extractKiroEffortLevel(body, model) {
   const normalized = effort.toLowerCase();
   if (normalized === "none" || normalized === "off" || normalized === "disabled") return null;
   if (normalized === "xhigh") return kiroModelLacksXhigh(model) ? "high" : "xhigh";
-  if (normalized === "max") return "max";
+  if (normalized === "max") return body?.output_config?.effort != null ? "max" : "high";
   if (["low", "medium", "high"].includes(normalized)) return normalized;
   return null;
 }

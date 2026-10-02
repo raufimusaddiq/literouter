@@ -29,8 +29,8 @@ describe("Codex gpt-6 models", () => {
     expect(executor.buildUrl(id, true)).toBe("https://chatgpt.com/backend-api/codex/responses");
   });
 
-  it("uses the updated Codex CLI identity", () => {
-    const headers = new CodexExecutor().buildHeaders({ accessToken: "test-token" }, true);
+  it.each([true, false])("uses the updated Codex CLI identity (stream=%s)", (stream) => {
+    const headers = new CodexExecutor().buildHeaders({ accessToken: "test-token" }, stream);
     expect(headers.version).toBe("0.159.0");
     expect(headers["User-Agent"]).toBe("codex_cli_rs/0.159.0");
   });

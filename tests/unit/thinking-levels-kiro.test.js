@@ -23,6 +23,15 @@ describe("getThinkingLevels for Kiro", () => {
     }
   });
 
+  it.each([
+    { reasoning_effort: "max" },
+    { reasoning: { effort: "max" } },
+  ])("maps OpenAI max to Claude high without changing native effort: %j", (body) => {
+    expect(buildKiroAdditionalModelRequestFieldsForModel(body, "claude-sonnet-4.6")?.output_config?.effort).toBe("high");
+    expect(buildKiroAdditionalModelRequestFieldsForModel(body, "gpt-5.6-sol")?.reasoning?.effort).toBe("xhigh");
+    expect(buildKiroAdditionalModelRequestFieldsForModel({ ...body, output_config: { effort: "max" } }, "claude-sonnet-4.6")?.output_config?.effort).toBe("max");
+  });
+
   it("passes xhigh/max through on the wire for 4.7+, clamps xhigh on 4.6", () => {
     const xhigh = { output_config: { effort: "xhigh" } };
     expect(buildKiroAdditionalModelRequestFieldsForModel(xhigh, "claude-sonnet-5")?.output_config?.effort).toBe("xhigh");
