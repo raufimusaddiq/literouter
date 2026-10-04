@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
 import { Modal, Button, Input } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { matchesOAuthState } from "@/shared/utils/oauthCallback";
 
 // Providers using the dynamic-port local callback proxy.
 // Browser OAuth: popup → auto callback → auto exchange → poll-status.
@@ -32,8 +33,8 @@ const PASTE_TOKEN_PROVIDERS = {
 
 /**
  * OAuth Modal Component
- * - Localhost: Auto callback via popup message
- * - Remote: Manual paste callback URL
+ * - Same-origin callback: Auto callback via popup message
+ * - Other origins: Manual paste callback URL
  */
 export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, onClose, oauthMeta, idcConfig }) {
   const [step, setStep] = useState("waiting"); // waiting | input | success | error
@@ -66,16 +67,12 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
   const { copied, copy } = useCopyToClipboard();
 
   // State for client-only values to avoid hydration mismatch
-  const [isLocalhost, setIsLocalhost] = useState(false);
   const [placeholderUrl, setPlaceholderUrl] = useState("/callback?code=...");
   const callbackProcessedRef = useRef(false);
 
-  // Detect if running on localhost (client-side only)
+  // Initialize the fallback placeholder client-side only.
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setIsLocalhost(
-        window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-      );
       setPlaceholderUrl(`${window.location.origin}/callback?code=...`);
     }
   }, []);
@@ -86,6 +83,11 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
   const exchangeTokens = useCallback(async (code, state) => {
     if (!authData) return;
     try {
+      if (provider === "antigravity" && !matchesOAuthState(authData.state, state)) {
+        throw new Error("Callback belongs to a different login attempt; use the latest authorization URL");
+      }
+      if (callbackProcessedRef.current) return;
+      callbackProcessedRef.current = true;
       const res = await fetch(`/api/oauth/${provider}/exchange`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -271,6 +273,9 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
     if (!provider) return;
     try {
       setError(null);
+      setAuthData(null);
+      setCallbackUrl("");
+      callbackProcessedRef.current = false;
 
       // Trae/Windsurf: proxy OAuth (browser mode) — handled by dedicated flow.
       // Paste-token mode is handled by handleManualSubmit (no /authorize call).
@@ -368,6 +373,9 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
+      // The server may override the requested callback for hosted Antigravity.
+      redirectUri = data.redirectUri || redirectUri;
+
       // Codex: start proxy with server-side session (auto-exchange) + fallback to channels
       let codexProxyActive = false;
       let codexServerSide = false;
@@ -444,12 +452,12 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         if (!popupRef.current) {
           setStep("input");
         }
-      } else if (!isLocalhost || provider === "codex" || provider === "xai") {
-        // Non-localhost or proxy failed: manual input mode
+      } else if (new URL(redirectUri).origin !== window.location.origin || provider === "codex" || provider === "xai") {
+        // Cross-origin callback or proxy failed: manual input mode.
         setStep("input");
         window.open(data.authUrl, "_blank");
       } else {
-        // Localhost (non-Codex/xAI): Open popup and wait for message
+        // Same-origin callback: open popup and wait for message.
         setStep("waiting");
         popupRef.current = window.open(data.authUrl, "oauth_popup", "width=600,height=700");
         if (!popupRef.current) {
@@ -569,6 +577,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
     // Handler for callback data - only process once
     const handleCallback = async (data) => {
       if (callbackProcessedRef.current) return; // Already processed
+      if (!data || (provider === "antigravity" && !matchesOAuthState(authData.state, data.state))) return;
 
       const { code, token, state, error: callbackError, errorDescription } = data;
 
@@ -580,17 +589,15 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
       }
 
       if (token || code) {
-        callbackProcessedRef.current = true;
         await exchangeTokens(token || code, state);
       }
     };
 
     // Method 1: postMessage from popup
     const handleMessage = (event) => {
-      // Allow messages from same origin or localhost (any port)
-      const isLocalhost = event.origin.includes("localhost") || event.origin.includes("127.0.0.1");
-      const isSameOrigin = event.origin === window.location.origin;
-      if (!isLocalhost && !isSameOrigin) return;
+      // Accept only the dashboard or this attempt's exact callback origin.
+      const callbackOrigin = authData.redirectUri ? new URL(authData.redirectUri).origin : window.location.origin;
+      if (event.origin !== window.location.origin && event.origin !== callbackOrigin) return;
       
       if (event.data?.type === "oauth_callback") {
         handleCallback(event.data.data);
@@ -640,7 +647,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
       window.removeEventListener("storage", handleStorage);
       if (channel) channel.close();
     };
-  }, [authData, exchangeTokens]);
+  }, [authData, exchangeTokens, provider]);
 
   // Handle manual URL input
   const handleManualSubmit = async () => {
@@ -747,7 +754,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
     ? "http://127.0.0.1:56121/callback?code=... or copied code"
     : isKimchiProvider
       ? `${placeholderUrl.replace("code=...", "token=...")} or copied token`
-      : placeholderUrl;
+      : authData?.redirectUri ? `${authData.redirectUri}?code=...` : placeholderUrl;
 
   return (
     <Modal isOpen={isOpen} title={modalTitle} onClose={handleClose} size="lg">
