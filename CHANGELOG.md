@@ -11,6 +11,7 @@
 - **Local-operator trust**: the spoofable `Host` fallback no longer exists in any environment, so local-operator access now requires `custom-server.js`'s per-process `x-9r-peer-token`, stamped on every request it handles. On a listener that bypasses the wrapper (a bare `next dev`, or another client inside the same container) there is no token to present, so those requests no longer inherit LAN-node validation or the localhost-only routes
 
 ## Fixes
+- **Antigravity OAuth**: allow a validated `ANTIGRAVITY_REDIRECT_URI` runtime override, reuse the server-selected URL during exchange, enable automatic same-origin hosted callbacks, ignore callbacks from other login attempts, and prevent duplicate code exchanges. Public callbacks still require Google OAuth client approval; localhost/manual paste remains the default.
 - **Responses completion**: allow `PENDING_COMPLETION_FLUSH_MS` to configure the deferred-completion watchdog through the existing positive timeout parser; retain the 3000 ms default for missing or invalid values. Add configuration regression coverage.
 - **Responses usage**: preserve integer upstream token totals at least as large as input plus output; derive totals only when absent, malformed, or below the component sum. Cover larger provider totals and invalid totals without changing completion timing or placeholder handling.
 - **CodeBuddy**: share frequency-limit error parsing across CN and international executors; preserve reset timezones and HTTP-error fallback with regression coverage for both providers.
