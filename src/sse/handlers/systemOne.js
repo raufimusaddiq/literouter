@@ -1,4 +1,4 @@
-import { getSettings } from "@/lib/localDb";
+import { getSettings, getProviderNodeById } from "@/lib/localDb";
 import {
   getProviderCredentials,
   markAccountUnavailable,
@@ -32,10 +32,11 @@ export function normalizeSystemOneRequest(body) {
   const [prefix, ...rest] = rawModel.split("/");
   const provider = rest.length ? prefix : "typesafe";
   const model = rest.length ? rest.join("/") : rawModel;
-  if (!model || PROVIDERS[provider]?.format !== "systemone") {
+  const isCustomNode = isCustomSystemOneProvider(provider);
+  if (!model || (PROVIDERS[provider]?.format !== "systemone" && !isCustomNode)) {
     return { error: `Unsupported System One provider or model: ${rawModel}` };
   }
-  if (!getModelsByProviderId(provider).some((entry) => entry.id === model)) {
+  if (!isCustomNode && !getModelsByProviderId(provider).some((entry) => entry.id === model)) {
     return { error: `Unsupported model for ${provider}: ${model}` };
   }
   if (!Object.prototype.hasOwnProperty.call(body, "state")) {
@@ -46,6 +47,12 @@ export function normalizeSystemOneRequest(body) {
   }
 
   return { provider, model, body: { ...body, model } };
+}
+
+// Custom System One nodes (prefix "systemone-<uuid>") are async — resolved in
+// handleSystemOne, where a cache-hit node lookup is one await like getSettings.
+export function isCustomSystemOneProvider(providerId) {
+  return typeof providerId === "string" && providerId.startsWith("systemone-");
 }
 
 function copyHeaders(response) {
@@ -70,7 +77,9 @@ async function readFailure(response) {
 
 async function recordSystemOneUsage(response, provider, model, connectionId, apiKey) {
   try {
-    const usage = extractUsageFromResponse(await response.clone().json());
+    const payload = await response.clone().json();
+    // Cloudflare Workers AI wraps System One payloads in { result: {...}, success }.
+    const usage = extractUsageFromResponse(payload?.result ?? payload);
     saveUsageStats({
       provider,
       model,
@@ -99,6 +108,12 @@ export async function handleSystemOne(request) {
   }
 
   const { provider, model, body } = input;
+  // Custom node resolution happens once per request; getProviderNodeById is
+  // cache-backed (same pattern as getSettings).
+  const customNode = isCustomSystemOneProvider(provider) ? await getProviderNodeById(provider) : null;
+  if (isCustomSystemOneProvider(provider) && !customNode) {
+    return systemOneError(400, `Unknown System One provider: ${provider}`);
+  }
   const excluded = new Set();
   let lastFailure = null;
   const maxAttempts = Math.max(1, Number(process.env.MAX_ACCOUNT_FALLBACK_ATTEMPTS) || 10);
@@ -118,11 +133,19 @@ export async function handleSystemOne(request) {
       return systemOneError(429, credentials?.lastError || `No active credentials for provider: ${provider}`, retryAfter ? { "Retry-After": String(retryAfter) } : {});
     }
 
-    const config = PROVIDERS[provider];
+    const config = customNode ? { baseUrl: customNode.baseUrl } : PROVIDERS[provider];
+    // Built-in dual-transport providers (e.g. Cloudflare Clef) keep chat and
+    // System One endpoints separate. System One URLs may reference {accountId}
+    // (connection providerSpecificData) and {model} (request model id).
+    const systemOneUrl = config.systemOneTransport
+      ? config.systemOneTransport.baseUrl
+          .replace("{accountId}", encodeURIComponent(credentials.providerSpecificData?.accountId || ""))
+          .replace("{model}", encodeURIComponent(model))
+      : config.baseUrl;
     const proxyOptions = credentials.providerSpecificData || null;
     trackPendingRequest(model, provider, credentials.connectionId, true);
     try {
-      const response = await proxyAwareFetch(config.baseUrl, {
+      const response = await proxyAwareFetch(systemOneUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -26,7 +26,14 @@ export default {
     baseUrl: "https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1/chat/completions",
     thinkingFormat: "openai",
   },
+  systemOneTransport: {
+    baseUrl: "https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/run/@cf/cloudflare/{model}",
+    // Cloudflare Workers AI wraps System One responses in { result, success }.
+    responseWrapper: "result",
+  },
   models: [
+    { id: "@cf/cloudflare/clef", name: "Clef" },
+    { id: "@cf/cloudflare/clef-flash", name: "Clef Flash" },
     { id: "@cf/meta/llama-3.2-1b-instruct", name: "Llama 3.2 1B Instruct" },
     { id: "@cf/meta/llama-3.2-3b-instruct", name: "Llama 3.2 3B Instruct" },
     { id: "@cf/meta/llama-3.1-8b-instruct-fp8-fast", name: "Llama 3.1 8B Instruct FP8 Fast" },
@@ -41,5 +48,5 @@ export default {
     { id: "@cf/qwen/qwq-32b", name: "QwQ 32B" },
     { id: "@cf/qwen/qwen2.5-coder-32b-instruct", name: "Qwen 2.5 Coder 32B Instruct" },
   ],
-  serviceKinds: ["llm"],
+  serviceKinds: ["llm", "systemone"],
 };

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createProviderNode, getProviderNodes } from "@/models";
-import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX } from "@/shared/constants/providers";
+import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, SYSTEM_ONE_PREFIX } from "@/shared/constants/providers";
 import { generateId } from "@/shared/utils";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +77,20 @@ export async function POST(request) {
         prefix: prefix.trim(),
         baseUrl: sanitizedBaseUrl,
         name: name.trim(),
+      });
+      return NextResponse.json({ node }, { status: 201 });
+    }
+
+    if (nodeType === "systemone") {
+      const node = await createProviderNode({
+        id: `${SYSTEM_ONE_PREFIX}${generateId()}`,
+        type: "systemone",
+        prefix: prefix.trim(),
+        baseUrl: baseUrl.trim().replace(/\/$/, ""),
+        name: name.trim(),
+        defaultModels: Array.isArray(body.models)
+          ? body.models.map((m) => String(m).trim()).filter(Boolean).slice(0, 64)
+          : undefined,
       });
       return NextResponse.json({ node }, { status: 201 });
     }

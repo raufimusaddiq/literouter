@@ -3,6 +3,7 @@
 ## Features
 - **Codex**: add native `gpt-6.1-sol` catalog support using the existing Codex Responses transport and Standard token pricing for usage estimates
 - **System One**: add `/v1/systemone` TypeSafe pass-through with a dedicated provider catalog, model-aware request workspace, connection testing, API-key setup, registry validation, and upstream header pass-through
+- **System One**: add custom System One provider nodes (name, prefix, base URL, optional model catalog) with dashboard creation, model listing, request handling, and connection validation, plus built-in Cloudflare Clef and Clef-Flash System One support
 
 ## Security
 - **Provider connections**: require explicit `allowOverwrite: true` before replacing same-name API-key credentials, including direct repository callers; OAuth identity refresh remains unchanged

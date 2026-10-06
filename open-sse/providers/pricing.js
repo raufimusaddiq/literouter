@@ -160,6 +160,11 @@ export const PROVIDER_PRICING = {
   typesafe: {
     "jev-latest": { input: 0.042, output: 0 },
   },
+  // Cloudflare Workers AI Clef (input-only pricing; output tokens billed at $0).
+  "cloudflare-ai": {
+    "@cf/cloudflare/clef": { input: 0.24, output: 0 },
+    "@cf/cloudflare/clef-flash": { input: 0.09, output: 0 },
+  },
   // GitHub Copilot (gh) — explicit override, matches canonical gpt-5.3-codex rate
   gh: {
     "gpt-5.3-codex": { input: 1.75, output: 14.00, cached: 0.175, reasoning: 14.00, cache_creation: 1.75 },

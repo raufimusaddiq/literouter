@@ -18,7 +18,9 @@ describe("System One provider catalog", () => {
       .map(([id]) => id)
       .sort();
 
-    expect(systemOneIds.slice().sort()).toEqual(registrySystemOneIds);
+    // cloudflare-ai carries a dedicated systemOneTransport (Clef/Clef-Flash),
+    // not a systemone-format primary transport, so it is excluded here.
+    expect(systemOneIds.filter((id) => id !== "cloudflare-ai").sort()).toEqual(registrySystemOneIds);
   });
 
   it("keeps System One providers out of the chat provider list", () => {
