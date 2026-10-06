@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { createProviderNode, getProviderNodes } from "@/models";
-import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX } from "@/shared/constants/providers";
+import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, SYSTEM_ONE_PREFIX } from "@/shared/constants/providers";
 import { generateId } from "@/shared/utils";
+import { assertPublicUrlResolved } from "@/shared/utils/ssrfGuard.js";
+import { isLocalRequest } from "@/dashboardGuard";
+import { PROVIDERS } from "open-sse/config/providers.js";
 
 export const dynamic = "force-dynamic";
+// Every registry provider id/alias is reserved as a display prefix, so a user
+// node can never shadow a built-in System One route.
+const PROVIDER_NODE_RESERVED_PREFIXES = new Set(Object.keys(PROVIDERS).flatMap((id) => {
+  const entry = PROVIDERS[id];
+  return [id, entry?.alias, ...(entry?.aliases || [])].filter(Boolean);
+}));
 
 const OPENAI_COMPATIBLE_DEFAULTS = {
   baseUrl: "https://api.openai.com/v1",
@@ -77,6 +86,43 @@ export async function POST(request) {
         prefix: prefix.trim(),
         baseUrl: sanitizedBaseUrl,
         name: name.trim(),
+      });
+      return NextResponse.json({ node }, { status: 201 });
+    }
+
+    if (nodeType === "systemone") {
+      const trimmedPrefix = prefix.trim();
+      if (trimmedPrefix.startsWith(SYSTEM_ONE_PREFIX) || PROVIDER_NODE_RESERVED_PREFIXES.has(trimmedPrefix)) {
+        return NextResponse.json({ error: "Reserved prefix" }, { status: 400 });
+      }
+      const sanitizedBaseUrl = baseUrl.trim().replace(/\/$/, "");
+      try {
+        new URL(sanitizedBaseUrl);
+      } catch {
+        return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
+      }
+      // Same SSRF gate the validate route applies: block literal and resolved
+      // internal hosts (169.254.169.254, LAN) for remote callers; the trusted
+      // local operator keeps LAN nodes.
+      const localOperator = isLocalRequest(request);
+      try {
+        await assertPublicUrlResolved(sanitizedBaseUrl, { allowPrivate: localOperator });
+      } catch {
+        return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+      }
+      const existingNodes = await getProviderNodes();
+      if (existingNodes.some((node) => node.prefix === trimmedPrefix)) {
+        return NextResponse.json({ error: "Prefix already in use" }, { status: 400 });
+      }
+      const node = await createProviderNode({
+        id: `${SYSTEM_ONE_PREFIX}${generateId()}`,
+        type: "systemone",
+        prefix: trimmedPrefix,
+        baseUrl: sanitizedBaseUrl,
+        name: name.trim(),
+        defaultModels: Array.isArray(body.models)
+          ? body.models.map((m) => String(m).trim()).filter(Boolean).slice(0, 64)
+          : undefined,
       });
       return NextResponse.json({ node }, { status: 201 });
     }

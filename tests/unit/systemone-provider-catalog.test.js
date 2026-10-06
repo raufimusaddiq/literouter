@@ -18,7 +18,15 @@ describe("System One provider catalog", () => {
       .map(([id]) => id)
       .sort();
 
-    expect(systemOneIds.slice().sort()).toEqual(registrySystemOneIds);
+    // cloudflare-ai carries a dedicated systemOneTransport (Clef/Clef-Flash),
+    // not a systemone-format primary transport, so it is excluded here.
+    expect(systemOneIds.filter((id) => id !== "cloudflare-ai").sort()).toEqual(registrySystemOneIds);
+  });
+
+  it("marks System One-only models so they stay out of the chat catalog", () => {
+    const clef = getModelsByProviderId("cloudflare-ai").find((m) => m.id === "@cf/cloudflare/clef");
+    expect(clef?.kind).toBe("systemone");
+    expect(getModelsByProviderId("cloudflare-ai")[0].id).not.toBe("@cf/cloudflare/clef");
   });
 
   it("keeps System One providers out of the chat provider list", () => {

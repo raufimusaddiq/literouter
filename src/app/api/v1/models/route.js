@@ -5,7 +5,7 @@ import {
   isAnthropicCompatibleProvider,
   isOpenAICompatibleProvider,
 } from "@/shared/constants/providers";
-import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
+import { getProviderConnections, getProviderNodes, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { resolveKiroModels } from "open-sse/services/kiroModels.js";
 import { resolveKimchiModels } from "open-sse/services/kimchiModels.js";
@@ -156,6 +156,7 @@ const MODEL_TYPE_TO_KIND = {
   stt: "stt",
   imageToText: "imageToText",
   video: "video",
+  systemone: "systemone",
 };
 
 function modelKind(model) {
@@ -360,6 +361,7 @@ export async function buildModelsList(kindFilter, options = {}) {
         || staticAlias
       ).trim();
       const providerModels = PROVIDER_MODELS[staticAlias] || [];
+      const isSystemOneNode = typeof providerId === "string" && providerId.startsWith("systemone-");
       const enabledModels = conn?.providerSpecificData?.enabledModels;
       const hasExplicitEnabledModels =
         Array.isArray(enabledModels) && enabledModels.length > 0;
@@ -382,6 +384,16 @@ export async function buildModelsList(kindFilter, options = {}) {
             ),
           )
         : providerModels.map((model) => model.id);
+
+      if (isSystemOneNode && !hasExplicitEnabledModels) {
+        const nodeModels = conn?.providerSpecificData?.models;
+        if (Array.isArray(nodeModels) && nodeModels.length > 0) {
+          rawModelIds = nodeModels.filter((modelId) => typeof modelId === "string" && modelId.trim() !== "");
+        } else {
+          // No stored catalog: surface a placeholder so prefix routing remains discoverable.
+          rawModelIds = ["*"];
+        }
+      }
 
       if (isCompatibleProvider && rawModelIds.length === 0 && !skipDynamicFetch) {
         rawModelIds = await fetchCompatibleModelIds(conn);
@@ -476,7 +488,9 @@ export async function buildModelsList(kindFilter, options = {}) {
         const kind = customKind || liveKind || staticModelKindById.get(modelId) || inferKindFromUnknownModelId(modelId);
         // imageToText custom models stay in the LLM list (vision-capable chat models)
         const allowAsLlm = kind === "imageToText" && kindFilter.includes(LLM_KIND);
-        if (!kindFilter.includes(kind) && !allowAsLlm) continue;
+        // System One nodes list all native models as kind "systemone" only when requested.
+        const nodeKind = isSystemOneNode ? "systemone" : kind;
+        if (!kindFilter.includes(nodeKind) && !allowAsLlm) continue;
         if (isDisabled(outputAlias, modelId) || isDisabled(staticAlias, modelId)) continue;
 
         const model = {
@@ -517,6 +531,30 @@ export async function buildModelsList(kindFilter, options = {}) {
       }
 
     }
+
+    // Custom System One nodes: list stored catalogs so clients discover
+    // prefix/model route IDs. "*" placeholder means any model id is accepted.
+    if (kindFilter.includes("systemone")) {
+      let systemOneNodes = [];
+      try {
+        systemOneNodes = await getProviderNodes({ type: "systemone" });
+      } catch (e) {
+        console.log("Could not fetch System One nodes");
+      }
+      for (const node of systemOneNodes) {
+        const nodeModels = Array.isArray(node.defaultModels) && node.defaultModels.length
+          ? node.defaultModels
+          : ["*"];
+        for (const modelId of nodeModels) {
+          if (typeof modelId !== "string" || modelId.trim() === "") continue;
+          models.push({
+            id: `${node.prefix || node.id}/${modelId}`,
+            object: "model",
+            owned_by: node.id,
+          });
+        }
+      }
+    }
   }
 
   const dedupedModels = [];
@@ -550,7 +588,9 @@ export async function GET(request) {
   try {
     // Detect cross-instance recursive /models fetch (another 9router fetching our /models)
     const skipDynamicFetch = request?.headers?.get(INTERNAL_MODELS_FETCH_HEADER) === "1";
-    const data = await buildModelsList([LLM_KIND], { skipDynamicFetch });
+    const kind = request.nextUrl.searchParams?.get("kind");
+    const kindFilter = kind ? [kind] : [LLM_KIND];
+    const data = await buildModelsList(kindFilter, { skipDynamicFetch });
     return Response.json({ object: "list", data }, {
       headers: { "Access-Control-Allow-Origin": "*" },
     });

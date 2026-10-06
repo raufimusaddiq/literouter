@@ -75,6 +75,7 @@ export async function createProviderNode(data) {
     name: data.name,
     prefix: data.prefix,
     apiType: data.apiType,
+    defaultModels: Array.isArray(data.defaultModels) && data.defaultModels.length ? data.defaultModels : undefined,
     transports: Array.isArray(data.transports) && data.transports.length ? data.transports : undefined,
     baseUrl: data.baseUrl,
     createdAt: now,

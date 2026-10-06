@@ -1,7 +1,7 @@
 import { getProviderConnectionById, updateProviderConnection } from "@/lib/localDb";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { testProxyUrl } from "@/lib/network/proxyTest";
-import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
+import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isSystemOneProvider } from "@/shared/constants/providers";
 import { getDefaultModel } from "open-sse/config/providerModels.js";
 import { resolveOllamaLocalHost, PROVIDERS } from "open-sse/config/providers.js";
 import { CODEX_CLI_VERSION } from "open-sse/config/appConstants.js";
@@ -474,6 +474,23 @@ async function fetchWithConnectionProxy(url, options = {}, effectiveProxy = null
 }
 
 async function testApiKeyConnection(connection, effectiveProxy = null) {
+  if (isSystemOneProvider(connection.provider)) {
+    const baseUrl = connection.providerSpecificData?.baseUrl;
+    if (!baseUrl) return { valid: false, error: "Missing base URL" };
+    try {
+      // Invalid questions: auth check without spending an evaluation.
+      const res = await fetchWithConnectionProxy(baseUrl.replace(/\/$/, ""), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${connection.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "ping", state: "ping", questions: {} }),
+      }, effectiveProxy);
+      const valid = res.status !== 401 && res.status !== 403;
+      return { valid, error: valid ? null : "Invalid API key" };
+    } catch (err) {
+      return { valid: false, error: err.message };
+    }
+  }
+
   if (isOpenAICompatibleProvider(connection.provider)) {
     const modelsBase = connection.providerSpecificData?.baseUrl;
     if (!modelsBase) return { valid: false, error: "Missing base URL" };

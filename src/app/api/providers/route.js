@@ -7,7 +7,7 @@ import {
   getProxyPoolById,
 } from "@/models";
 import { APIKEY_PROVIDERS } from "@/shared/constants/config";
-import { AI_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
+import { AI_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isSystemOneProvider } from "@/shared/constants/providers";
 import { normalizeProviderId, normalizeProviderSpecificData } from "@/lib/providerNormalization";
 
 export const dynamic = "force-dynamic";
@@ -110,7 +110,8 @@ export async function POST(request) {
       supportsApiKeyMode ||
       isWebCookieProvider ||
       isOpenAICompatibleProvider(provider) ||
-      isAnthropicCompatibleProvider(provider);
+      isAnthropicCompatibleProvider(provider) ||
+      isSystemOneProvider(provider);
 
     if (!provider || !isValidProvider) {
       return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
@@ -147,6 +148,17 @@ export async function POST(request) {
       providerSpecificData = {
         prefix: node.prefix,
         baseUrl: node.baseUrl,
+        nodeName: node.name,
+      };
+    } else if (isSystemOneProvider(provider)) {
+      const node = await getProviderNodeById(provider);
+      if (!node) {
+        return NextResponse.json({ error: "System One node not found" }, { status: 404 });
+      }
+      providerSpecificData = {
+        prefix: node.prefix,
+        baseUrl: node.baseUrl,
+        models: Array.isArray(node.defaultModels) ? node.defaultModels : undefined,
         nodeName: node.name,
       };
     }

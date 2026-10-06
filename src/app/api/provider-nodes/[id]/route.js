@@ -31,7 +31,7 @@ export async function PUT(request, { params }) {
     }
 
     let sanitizedBaseUrl = baseUrl.trim();
-    
+
     // Sanitize Base URL for Anthropic Compatible
     if (node.type === "anthropic-compatible") {
       sanitizedBaseUrl = sanitizedBaseUrl.replace(/\/$/, "");
