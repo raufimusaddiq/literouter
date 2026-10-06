@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createProviderNode, getProviderNodes } from "@/models";
+import { createProviderNode } from "@/models";
 import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, SYSTEM_ONE_PREFIX } from "@/shared/constants/providers";
 import { generateId } from "@/shared/utils";
 
 export const dynamic = "force-dynamic";
-const PROVIDER_NODE_RESERVED_PREFIXES = new Set(["typesafe", "cloudflare-ai", "cf"]);
+const PROVIDER_NODE_RESERVED_PREFIXES = new Set(["typesafe", "cloudflare-ai", "cf", "jev", "clef"]);
 
 const OPENAI_COMPATIBLE_DEFAULTS = {
   baseUrl: "https://api.openai.com/v1",

@@ -107,7 +107,7 @@ async function recordSystemOneUsage(response, provider, model, connectionId, api
 export async function handleSystemOne(request) {
   let input;
   try {
-  input = await normalizeSystemOneRequest(await request.json());
+    input = await normalizeSystemOneRequest(await request.json());
   } catch {
     return systemOneError(400, "Invalid JSON body");
   }
@@ -152,7 +152,7 @@ export async function handleSystemOne(request) {
     const systemOneUrl = config.systemOneTransport
       ? config.systemOneTransport.baseUrl
           .replace("{accountId}", encodeURIComponent(credentials.providerSpecificData?.accountId || ""))
-          .replace("{model}", encodeURIComponent(model))
+          .replace("{model}", model)
       : config.baseUrl;
     const proxyOptions = credentials.providerSpecificData || null;
     trackPendingRequest(model, provider, credentials.connectionId, true);
