@@ -1,4 +1,4 @@
-import { getSettings, getProviderNodeById } from "@/lib/localDb";
+import { getSettings, getProviderNodeById, getProviderNodes } from "@/lib/localDb";
 import {
   getProviderCredentials,
   markAccountUnavailable,
@@ -21,7 +21,7 @@ export function systemOneError(status, message, headers = {}) {
   });
 }
 
-export function normalizeSystemOneRequest(body) {
+export async function normalizeSystemOneRequest(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return { error: "Request body must be a JSON object" };
   }
@@ -30,13 +30,19 @@ export function normalizeSystemOneRequest(body) {
   if (!rawModel) return { error: "Missing model" };
 
   const [prefix, ...rest] = rawModel.split("/");
-  const provider = rest.length ? prefix : "typesafe";
+  const provider = rest.length
+    ? (isCustomSystemOneProvider(prefix) ? prefix : await resolveSystemOneNodeByPrefix(prefix) || prefix)
+    : "typesafe";
   const model = rest.length ? rest.join("/") : rawModel;
+  const config = PROVIDERS[provider];
   const isCustomNode = isCustomSystemOneProvider(provider);
-  if (!model || (PROVIDERS[provider]?.format !== "systemone" && !isCustomNode)) {
+  if (!model || (!config?.systemOneTransport && config?.format !== "systemone" && !isCustomNode)) {
     return { error: `Unsupported System One provider or model: ${rawModel}` };
   }
-  if (!isCustomNode && !getModelsByProviderId(provider).some((entry) => entry.id === model)) {
+  if (config?.systemOneTransport && !getModelsByProviderId(provider).some((entry) => entry.id === model)) {
+    return { error: `Unsupported model for ${provider}: ${model}` };
+  }
+  if (!config?.systemOneTransport && !isCustomNode && !getModelsByProviderId(provider).some((entry) => entry.id === model)) {
     return { error: `Unsupported model for ${provider}: ${model}` };
   }
   if (!Object.prototype.hasOwnProperty.call(body, "state")) {
@@ -53,6 +59,12 @@ export function normalizeSystemOneRequest(body) {
 // handleSystemOne, where a cache-hit node lookup is one await like getSettings.
 export function isCustomSystemOneProvider(providerId) {
   return typeof providerId === "string" && providerId.startsWith("systemone-");
+}
+
+async function resolveSystemOneNodeByPrefix(displayPrefix) {
+  const nodes = await getProviderNodes({ type: "systemone" });
+  const node = nodes.find((n) => n.prefix === displayPrefix);
+  return node?.id || null;
 }
 
 function copyHeaders(response) {
@@ -95,7 +107,7 @@ async function recordSystemOneUsage(response, provider, model, connectionId, api
 export async function handleSystemOne(request) {
   let input;
   try {
-    input = normalizeSystemOneRequest(await request.json());
+  input = await normalizeSystemOneRequest(await request.json());
   } catch {
     return systemOneError(400, "Invalid JSON body");
   }

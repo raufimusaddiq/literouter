@@ -133,6 +133,18 @@ export async function POST(request) {
       return NextResponse.json({ valid: false, error: getModelsErrorMessage(res.status) });
     }
 
+    // System One node validation: native endpoint, auth-only probe.
+    if (type === "systemone") {
+      const res = await fetchNode(baseUrl.replace(/\/$/, ""), {
+        method: "POST",
+        localOperator,
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "ping", state: "ping", questions: {} }),
+      });
+      const valid = res.status !== 401 && res.status !== 403;
+      return NextResponse.json({ valid, error: valid ? null : "API key unauthorized" });
+    }
+
     // OpenAI Compatible Validation (Default)
     const modelsUrl = `${baseUrl.replace(/\/$/, "")}/models`;
     const res = await fetchNode(modelsUrl, {

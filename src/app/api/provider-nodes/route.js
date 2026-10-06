@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { createProviderNode, getProviderNodes } from "@/models";
 import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, SYSTEM_ONE_PREFIX } from "@/shared/constants/providers";
+import { getProviderNodes } from "@/lib/localDb";
 import { generateId } from "@/shared/utils";
 
 export const dynamic = "force-dynamic";
+const PROVIDER_NODE_RESERVED_PREFIXES = new Set(["typesafe", "cloudflare-ai", "cf"]);
 
 const OPENAI_COMPATIBLE_DEFAULTS = {
   baseUrl: "https://api.openai.com/v1",
@@ -82,10 +84,18 @@ export async function POST(request) {
     }
 
     if (nodeType === "systemone") {
+      const trimmedPrefix = prefix.trim();
+      if (trimmedPrefix.startsWith(SYSTEM_ONE_PREFIX) || PROVIDER_NODE_RESERVED_PREFIXES.has(trimmedPrefix)) {
+        return NextResponse.json({ error: "Reserved prefix" }, { status: 400 });
+      }
+      const existingNodes = await getProviderNodes();
+      if (existingNodes.some((node) => node.prefix === trimmedPrefix)) {
+        return NextResponse.json({ error: "Prefix already in use" }, { status: 400 });
+      }
       const node = await createProviderNode({
         id: `${SYSTEM_ONE_PREFIX}${generateId()}`,
         type: "systemone",
-        prefix: prefix.trim(),
+        prefix: trimmedPrefix,
         baseUrl: baseUrl.trim().replace(/\/$/, ""),
         name: name.trim(),
         defaultModels: Array.isArray(body.models)

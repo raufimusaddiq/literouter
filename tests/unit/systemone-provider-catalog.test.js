@@ -23,6 +23,12 @@ describe("System One provider catalog", () => {
     expect(systemOneIds.filter((id) => id !== "cloudflare-ai").sort()).toEqual(registrySystemOneIds);
   });
 
+  it("marks System One-only models so they stay out of the chat catalog", () => {
+    const clef = getModelsByProviderId("cloudflare-ai").find((m) => m.id === "@cf/cloudflare/clef");
+    expect(clef?.kind).toBe("systemone");
+    expect(getModelsByProviderId("cloudflare-ai")[0].id).not.toBe("@cf/cloudflare/clef");
+  });
+
   it("keeps System One providers out of the chat provider list", () => {
     const chatIds = Object.values(APIKEY_PROVIDERS)
       .filter((provider) => supportsServiceKind(provider, "llm") && !supportsServiceKind(provider, "systemone"))

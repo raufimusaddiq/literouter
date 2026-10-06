@@ -156,6 +156,7 @@ const MODEL_TYPE_TO_KIND = {
   stt: "stt",
   imageToText: "imageToText",
   video: "video",
+  systemone: "systemone",
 };
 
 function modelKind(model) {
@@ -284,13 +285,6 @@ export async function buildModelsList(kindFilter, options = {}) {
     modelAliases = await getModelAliases();
   } catch (e) {
     console.log("Could not fetch model aliases");
-  }
-
-  let systemOneNodes = [];
-  try {
-    systemOneNodes = await getProviderNodes({ type: "systemone" });
-  } catch (e) {
-    console.log("Could not fetch System One nodes");
   }
 
   let disabledByAlias = {};
@@ -541,6 +535,12 @@ export async function buildModelsList(kindFilter, options = {}) {
     // Custom System One nodes: list stored catalogs so clients discover
     // prefix/model route IDs. "*" placeholder means any model id is accepted.
     if (kindFilter.includes("systemone")) {
+      let systemOneNodes = [];
+      try {
+        systemOneNodes = await getProviderNodes({ type: "systemone" });
+      } catch (e) {
+        console.log("Could not fetch System One nodes");
+      }
       for (const node of systemOneNodes) {
         const nodeModels = Array.isArray(node.defaultModels) && node.defaultModels.length
           ? node.defaultModels
@@ -589,7 +589,7 @@ export async function GET(request) {
     // Detect cross-instance recursive /models fetch (another 9router fetching our /models)
     const skipDynamicFetch = request?.headers?.get(INTERNAL_MODELS_FETCH_HEADER) === "1";
     const kind = request.nextUrl.searchParams?.get("kind");
-    const kindFilter = kind === "systemone" ? ["systemone"] : [LLM_KIND];
+    const kindFilter = kind ? [kind] : [LLM_KIND];
     const data = await buildModelsList(kindFilter, { skipDynamicFetch });
     return Response.json({ object: "list", data }, {
       headers: { "Access-Control-Allow-Origin": "*" },

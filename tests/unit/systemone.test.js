@@ -4,6 +4,7 @@ import { getModelsByProviderId } from "open-sse/config/providerModels.js";
 
 const mocks = vi.hoisted(() => ({
   getSettings: vi.fn().mockResolvedValue({ requireApiKey: false }),
+  getProviderNodes: vi.fn().mockResolvedValue([]),
   getProviderCredentials: vi.fn(),
   markAccountUnavailable: vi.fn(),
   clearAccountError: vi.fn(),
@@ -14,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   trackPendingRequest: vi.fn(),
 }));
 
-vi.mock("@/lib/localDb", () => ({ getSettings: mocks.getSettings }));
+vi.mock("@/lib/localDb", () => ({ getSettings: mocks.getSettings, getProviderNodes: mocks.getProviderNodes }));
 vi.mock("@/sse/services/auth.js", () => ({
   getProviderCredentials: mocks.getProviderCredentials,
   markAccountUnavailable: mocks.markAccountUnavailable,
@@ -40,8 +41,8 @@ describe("System One request normalization", () => {
   it("resolves TypeSafe models from the registry model catalog", () => {
     expect(getModelsByProviderId("typesafe").map(({ id }) => id)).toEqual(["jev-latest"]);
   });
-  it("accepts the native TypeSafe shape and normalizes a provider-prefixed model", () => {
-    const result = normalizeSystemOneRequest({
+  it("accepts the native TypeSafe shape and normalizes a provider-prefixed model", async () => {
+    const result = await normalizeSystemOneRequest({
       model: "typesafe/jev-latest",
       state: { message: "hello" },
       questions: { urgent: { type: "noul", instructions: "Is this urgent?" } },
@@ -53,17 +54,17 @@ describe("System One request normalization", () => {
     expect(result.body.model).toBe("jev-latest");
   });
 
-  it("rejects empty questions before contacting upstream", () => {
-    expect(normalizeSystemOneRequest({ model: "jev-latest", state: "hello", questions: {} }).error)
+  it("rejects empty questions before contacting upstream", async () => {
+    expect((await normalizeSystemOneRequest({ model: "jev-latest", state: "hello", questions: {} })).error)
       .toBe("questions must be a non-empty object");
   });
 
-  it("rejects models not registered for the provider", () => {
-    expect(normalizeSystemOneRequest({
+  it("rejects models not registered for the provider", async () => {
+    expect((await normalizeSystemOneRequest({
       model: "typesafe/not-a-model",
       state: "hello",
       questions: { ok: { type: "noul", instructions: "Is it okay?" } },
-    }).error).toBe("Unsupported model for typesafe: not-a-model");
+    })).error).toBe("Unsupported model for typesafe: not-a-model");
   });
 });
 
