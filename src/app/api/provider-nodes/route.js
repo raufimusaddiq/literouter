@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createProviderNode, getProviderNodes } from "@/models";
 import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, SYSTEM_ONE_PREFIX } from "@/shared/constants/providers";
-import { getProviderNodes } from "@/lib/localDb";
 import { generateId } from "@/shared/utils";
 
 export const dynamic = "force-dynamic";
