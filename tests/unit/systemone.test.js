@@ -5,6 +5,7 @@ import { getModelsByProviderId } from "open-sse/config/providerModels.js";
 const mocks = vi.hoisted(() => ({
   getSettings: vi.fn().mockResolvedValue({ requireApiKey: false }),
   getProviderNodes: vi.fn().mockResolvedValue([]),
+  getProviderNodeById: vi.fn().mockResolvedValue(null),
   getProviderCredentials: vi.fn(),
   markAccountUnavailable: vi.fn(),
   clearAccountError: vi.fn(),
@@ -15,7 +16,7 @@ const mocks = vi.hoisted(() => ({
   trackPendingRequest: vi.fn(),
 }));
 
-vi.mock("@/lib/localDb", () => ({ getSettings: mocks.getSettings, getProviderNodes: mocks.getProviderNodes }));
+vi.mock("@/lib/localDb", () => ({ getSettings: mocks.getSettings, getProviderNodes: mocks.getProviderNodes, getProviderNodeById: mocks.getProviderNodeById }));
 vi.mock("@/sse/services/auth.js", () => ({
   getProviderCredentials: mocks.getProviderCredentials,
   markAccountUnavailable: mocks.markAccountUnavailable,

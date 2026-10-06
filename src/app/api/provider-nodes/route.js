@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createProviderNode } from "@/models";
+import { createProviderNode, getProviderNodes } from "@/models";
 import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, SYSTEM_ONE_PREFIX } from "@/shared/constants/providers";
 import { generateId } from "@/shared/utils";
 import { assertPublicUrlResolved } from "@/shared/utils/ssrfGuard.js";
