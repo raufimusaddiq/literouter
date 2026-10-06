@@ -4,6 +4,7 @@
 - **Codex**: add native `gpt-6.1-sol` catalog support using the existing Codex Responses transport and Standard token pricing for usage estimates
 - **System One**: add `/v1/systemone` TypeSafe pass-through with a dedicated provider catalog, model-aware request workspace, connection testing, API-key setup, registry validation, and upstream header pass-through
 - **System One**: route custom node prefixes and Cloudflare Clef/Clef-Flash model IDs through `/v1/systemone`, validate System One node keys with an auth-only probe, reject duplicate or reserved node prefixes, and scope `/v1/models?kind=` to the requested kind
+- **System One**: apply the SSRF guard to custom node base URLs at creation, derive reserved prefixes from the provider registry, serve `/v1/models/{id}` for the requested kind, and use the correct Cloudflare Clef run URL template
 - **System One**: add custom System One provider nodes (name, prefix, base URL, optional model catalog) with dashboard creation, model listing, request handling, and connection validation, plus built-in Cloudflare Clef and Clef-Flash System One support
 
 ## Security
