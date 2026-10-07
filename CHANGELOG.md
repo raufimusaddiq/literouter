@@ -1,5 +1,9 @@
 # v0.5.82 (unreleased)
 
+## Upstream Core Fixes (2026-10-07)
+- **Claude**: cache final tool results within the existing four-breakpoint budget.
+- **Models**: correct provider-scoped context/output limits and publish nested combo minima without restoring broad capability aggregation or UI features.
+
 ## Features
 - **Codex**: add native `gpt-6.1-sol` catalog support using the existing Codex Responses transport and Standard token pricing for usage estimates
 - **System One**: add `/v1/systemone` TypeSafe pass-through with a dedicated provider catalog, model-aware request workspace, connection testing, API-key setup, registry validation, and upstream header pass-through
