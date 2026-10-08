@@ -58,6 +58,11 @@ const COOLDOWN = {
  */
 export const ERROR_RULES = [
   // --- Text-based rules (checked first, order = priority) ---
+  // Model-scoped overflow: this request can never fit this model but may fit a
+  // larger-context combo seat. Fall through with cooldownMs 0 — the account is
+  // healthy, so rotating accounts (or locking one) would not help.
+  { text: "context_length_exceeded",  cooldownMs: 0 },
+  { text: "exceeds the model's maximum context length", cooldownMs: 0 },
   { text: "no credentials",           cooldownMs: COOLDOWN.long },
   { text: "request not allowed",      cooldownMs: COOLDOWN.short },
   { text: "improperly formed request", cooldownMs: COOLDOWN.long },
