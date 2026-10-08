@@ -254,12 +254,6 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels, display) {
       break;
     }
     case "openai-responses": {
-      if (none && canDisable) { body.reasoning = { effort: "none", summary: "auto" }; break; }
-      const level = toLevel(eff);
-      body.reasoning = { summary: "auto" };
-      if (level && level !== "auto") {
-        body.reasoning.effort = normalizeOpenAILevel(level, supportedLevels);
-      }
       // The Responses API nests effort: reasoning:{effort,summary}. A top-level
       // reasoning_effort is rejected by strict upstreams (Meta: "unknown
       // parameter `reasoning_effort`"). "none" is expressed by omitting reasoning.
