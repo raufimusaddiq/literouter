@@ -38,6 +38,11 @@ describe("netlifyRelay helpers", () => {
     expect(net.NETLIFY_RELAY_FUNCTION_CODE).toContain("x-relay-path");
   });
 
+  it("relay does not advertise compression after buffering the response", () => {
+    expect(net.NETLIFY_RELAY_FUNCTION_CODE).toContain('lower === "accept-encoding"');
+    expect(net.NETLIFY_RELAY_FUNCTION_CODE).toContain('"content-encoding" || key === "content-length"');
+  });
+
   it("relay bundle is Lambda-compatible CJS with string body (digest deploys run no build step)", async () => {
     // Live-verified failure modes: `export default` -> Runtime.UserCodeSyntaxError
     // (502); stream object as body -> cannot-unmarshal-object-into-Go-struct
@@ -140,6 +145,10 @@ describe("netlifyRelay helpers", () => {
         5000, 5
       )
     ).rejects.toThrow("boom");
+
+    await expect(
+      net.pollDeployReady("d1", "tok", async () => ({ ok: false, status: 401 }), 5000, 5)
+    ).rejects.toThrow(/status failed \(401\)/);
 
     await expect(
       net.pollDeployReady(

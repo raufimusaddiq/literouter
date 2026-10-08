@@ -47,7 +47,12 @@ export const NETLIFY_RELAY_FUNCTION_CODE = `exports.handler = async (event) => {
   const forwardHeaders = { ...event.headers };
   for (const k of Object.keys(forwardHeaders)) {
     const lower = k.toLowerCase();
-    if (lower === "x-relay-target" || lower === "x-relay-path" || lower === "host") {
+    if (
+      lower === "x-relay-target" ||
+      lower === "x-relay-path" ||
+      lower === "host" ||
+      lower === "accept-encoding"
+    ) {
       delete forwardHeaders[k];
     }
   }
@@ -66,12 +71,13 @@ export const NETLIFY_RELAY_FUNCTION_CODE = `exports.handler = async (event) => {
     // fails with cannot-unmarshal-object-into-Go-struct-field (live 502).
     // So buffer here: text for API payloads (JSON/SSE), base64 for binary.
     // Tradeoff vs the other relays: SSE arrives buffered, stays valid SSE.
-    const responseHeaders = {};
-    upstream.headers.forEach((value, key) => {
-      responseHeaders[key] = value;
-    });
     const contentType = upstream.headers.get("content-type") || "";
     const isText = new RegExp("^(text/|[^;]*json|[^;]*event-stream|[^;]*javascript|[^;]*xml|[^;]*urlencoded)", "i").test(contentType);
+    const responseHeaders = {};
+    upstream.headers.forEach((value, key) => {
+      if (key === "content-encoding" || key === "content-length") return;
+      responseHeaders[key] = value;
+    });
     const rawBody = await upstream.arrayBuffer();
     const responseBody = isText
       ? Buffer.from(rawBody).toString("utf8")

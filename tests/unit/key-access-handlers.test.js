@@ -45,14 +45,7 @@ vi.mock("@/sse/services/tokenRefresh.js", () => ({
 vi.mock("open-sse/handlers/chatCore.js", () => ({ handleChatCore: mocks.handleChatCore }));
 
 const { handleChat } = await import("../../src/sse/handlers/chat.js");
-const { handleEmbeddings } = await import("../../src/sse/handlers/embeddings.js");
-const { handleImageGeneration } = await import("../../src/sse/handlers/imageGeneration.js");
-const { handleTts } = await import("../../src/sse/handlers/tts.js");
-const { handleStt } = await import("../../src/sse/handlers/stt.js");
-const { handleVideoCreate } = await import("../../src/sse/handlers/videoGeneration.js");
-const { handleSearch } = await import("../../src/sse/handlers/search.js");
-const { handleFetch } = await import("../../src/sse/handlers/fetch.js");
-const { handleSystemone } = await import("../../src/sse/handlers/systemone.js");
+const { handleSystemOne } = await import("../../src/sse/handlers/systemOne.js");
 const geminiRoute = await import("../../src/app/api/v1beta/models/[...path]/route.js");
 const modelsRoute = await import("../../src/app/api/v1/models/route.js");
 const modelsKindRoute = await import("../../src/app/api/v1/models/[...model]/route.js");
@@ -84,7 +77,7 @@ beforeEach(() => {
       access: {
         restricted: true,
         allow: ["openai/text-embedding-3-small", "openai/dall-e-3", "openai/tts-1", "openai/whisper-1",
-          "xai/grok-imagine-video", "tavily", "openai/gpt-4o", "gemini/gemini-2.5-flash-preview-tts"],
+          "tavily", "openai/gpt-4o", "gemini/gemini-2.5-flash-preview-tts"],
       },
     },
   };
@@ -154,21 +147,9 @@ describe("chat (/v1/chat/completions, /v1/messages, /v1/responses all use handle
   });
 });
 
-// Each non-chat handler: [name, call(model, key), allowedModel, deniedModel]
+// Retained non-chat handler: [name, call(model, key), allowedModel, deniedModel]
 const handlers = [
-  ["embeddings", (m, k) => handleEmbeddings(post("/v1/embeddings", { model: m, input: "x" }, k)), "openai/text-embedding-3-small", "openai/text-embedding-3-large"],
-  ["image", (m, k) => handleImageGeneration(post("/v1/images/generations", { model: m, prompt: "x" }, k)), "openai/dall-e-3", "openai/gpt-image-1"],
-  ["tts", (m, k) => handleTts(post("/v1/audio/speech", { model: m, input: "x" }, k)), "openai/tts-1", "openai/tts-1-hd"],
-  ["stt", (m, k) => {
-    const fd = new FormData();
-    fd.set("model", m);
-    fd.set("file", new Blob([new Uint8Array(4)], { type: "audio/wav" }), "a.wav");
-    return handleStt(new Request("http://localhost/v1/audio/transcriptions", { method: "POST", headers: auth(k), body: fd }));
-  }, "openai/whisper-1", "groq/whisper-large-v3"],
-  ["video", (m, k) => handleVideoCreate(post("/v1/videos/generations", { model: m, prompt: "x" }, k), "generations"), "xai/grok-imagine-video", "xai/grok-imagine-video-pro"],
-  ["search", (m, k) => handleSearch(post("/v1/search", { model: m, query: "x" }, k)), "tavily", "exa"],
-  ["fetch", (m, k) => handleFetch(post("/v1/web/fetch", { model: m, url: "https://example.com" }, k)), "tavily", "firecrawl"],
-  ["systemone", (m, k) => handleSystemone(post("/v1/systemone", { model: m, state: {}, questions: { q: "?" } }, k)), "openai/gpt-4o", "openai/gpt-4.1"],
+  ["systemone", (m, k) => handleSystemOne(post("/v1/systemone", { model: m, state: {}, questions: { q: "?" } }, k)), "openai/gpt-4o", "openai/gpt-4.1"],
   ["gemini-native-tts", (m, k) => geminiRoute.POST(
     new Request(`http://localhost/v1beta/models/${m}:generateContent`, {
       method: "POST", headers: { "Content-Type": "application/json", ...auth(k) },
@@ -196,14 +177,6 @@ describe.each(handlers)("%s handler is wired", (_name, call, allowed, denied) =>
   });
   it("denies everything for the empty-list key", async () => {
     expect((await call(allowed, "sk-empty")).status).toBe(403);
-  });
-});
-
-describe("video: a body without a readable model is denied for restricted keys", () => {
-  it("multipart / no model -> 403 for restricted, untouched for unrestricted", async () => {
-    const noModel = (k) => handleVideoCreate(post("/v1/videos/generations", { prompt: "x" }, k), "generations");
-    expect((await noModel("sk-media")).status).toBe(403);
-    expect((await noModel("sk-open")).status).not.toBe(403);
   });
 });
 

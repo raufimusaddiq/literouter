@@ -12,7 +12,7 @@ let tempDir;
 const originalDataDir = process.env.DATA_DIR;
 
 function writeLegacyDb(dir) {
-  // The apiKeys DDL as it was before the access columns + a stamped v1 _meta.
+  // The DDL from the previous schema, before the access columns and kv table.
   fs.mkdirSync(path.join(dir, "db"), { recursive: true });
   const db = new DatabaseSync(path.join(dir, "db", "data.sqlite"));
   db.exec(`CREATE TABLE _meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
