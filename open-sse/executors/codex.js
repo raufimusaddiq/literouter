@@ -15,7 +15,7 @@ import { resolveSessionId } from "../utils/sessionManager.js";
 import { stripCodexUnsupportedPatterns } from "../utils/codexToolSchema.js";
 
 // SSE error patterns inside 200-OK bodies. Some retry same account first; capacity rotates accounts.
-const CODEX_SSE_RETRY_PATTERNS = ["server_is_overloaded", "service_unavailable_error"];
+const CODEX_SSE_RETRY_PATTERNS = ["server_is_overloaded", "service_unavailable_error", "response protection is unavailable"];
 const CODEX_SSE_ACCOUNT_FALLBACK_PATTERNS = ["selected model is at capacity", "model_at_capacity"];
 const CODEX_SSE_USER_OUTPUT_PATTERNS = [
   "event: response.output_text.delta",
@@ -211,6 +211,11 @@ export class CodexExecutor extends BaseExecutor {
    */
   buildHeaders(credentials, stream = true) {
     const headers = super.buildHeaders(credentials, stream);
+    // Native remote compaction needs the client's beta opt-in on /responses.
+    const betaFeatures = credentials?.rawHeaders?.["x-codex-beta-features"];
+    if (typeof betaFeatures === "string" && betaFeatures.trim()) {
+      headers["x-codex-beta-features"] = betaFeatures;
+    }
     headers["session_id"] = this._currentSessionId || credentials?.connectionId || "default";
     // Identify client type to Codex backend (matches official codex CLI)
     if (!headers["originator"]) headers["originator"] = "codex_cli_rs";
@@ -332,11 +337,12 @@ export class CodexExecutor extends BaseExecutor {
         chunks.push(value);
         text += decoder.decode(value, { stream: true });
         const lowerText = text.toLowerCase();
+        // Never replay a request after user-visible output, even if it quotes an error.
+        if (CODEX_SSE_USER_OUTPUT_PATTERNS.some(p => lowerText.includes(p))) break;
         const accountHit = CODEX_SSE_ACCOUNT_FALLBACK_PATTERNS.find(p => lowerText.includes(p));
         if (accountHit) { matched = accountHit; accountFallback = true; break; }
         const retryHit = CODEX_SSE_RETRY_PATTERNS.find(p => lowerText.includes(p));
         if (retryHit) { matched = retryHit; break; }
-        if (CODEX_SSE_USER_OUTPUT_PATTERNS.some(p => lowerText.includes(p))) break;
       }
     } catch (e) {
       dbg("CODEX", `peek read error: ${e.message}`);
