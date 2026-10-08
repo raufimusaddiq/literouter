@@ -7,6 +7,17 @@ import { describe, expect, it } from "vitest";
 import { checkFallbackError } from "../../open-sse/services/accountFallback.js";
 
 describe("checkFallbackError — request-scoped vs account-scoped failures", () => {
+  it("falls through on context overflow without cooling the account down", () => {
+    for (const text of [
+      JSON.stringify({ error: { code: "context_length_exceeded", message: "the request exceeds the model's maximum context length" } }),
+      "This model's maximum context length is 1048576 tokens. However, you requested 1186139 tokens",
+    ]) {
+      const result = checkFallbackError(400, text);
+      expect(result.shouldFallback).toBe(true);
+      expect(result.cooldownMs).toBe(0);
+    }
+  });
+
   it("does not cool the account down for a 400 caused by the request", () => {
     const result = checkFallbackError(400, JSON.stringify({
       error: {
