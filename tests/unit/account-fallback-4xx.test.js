@@ -19,7 +19,7 @@ describe("checkFallbackError — request-scoped vs account-scoped failures", () 
     }
   });
 
-  it("does not cool the account down for a 400 caused by the request", () => {
+  it("falls through (no cooldown) on context overflow even when worded as a generic 400", () => {
     const result = checkFallbackError(400, JSON.stringify({
       error: {
         message: "This model's maximum context length is 1048576 tokens. However, you requested 1186139 tokens",
@@ -27,7 +27,7 @@ describe("checkFallbackError — request-scoped vs account-scoped failures", () 
       },
     }));
 
-    expect(result).toEqual({ shouldFallback: false, cooldownMs: 0 });
+    expect(result).toEqual({ shouldFallback: true, cooldownMs: 0 });
   });
 
   it("still falls back for account-scoped statuses", () => {
