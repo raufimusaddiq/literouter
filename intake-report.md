@@ -1,0 +1,37 @@
+# Upstream Intake — ce4460ef (2026-10-08)
+
+- `477b2aed` fix(opencode-go): send reasoning_effort — **Keep**: provider request compatibility.
+- `7c2b1fe3` fix(translator): drop replayed reasoning fields — **Keep**: protocol compatibility.
+- `2daf25ff` fix(qoder): billing blocks/SSE status — **Keep**: provider error compatibility.
+- `da004655` fix(responses): usage on completed — **Keep**: protocol compatibility/usage correctness.
+- `0f488c70` fix(claude): refusal mapping — **Keep**: protocol compatibility.
+- `6af26a9e` fix(proxy-pools): header forwarding — **Keep**: routing/security correctness; Vercel route deletion preserved.
+- `30464bc2` fix(gemini): terminal turns/functionCalls — **Keep**: protocol correctness.
+- `5d2cfbf3` fix(translator): empty think markers — **Keep**: protocol compatibility; deleted transformer path preserved.
+- `c2148179` fix(commandcode): raw byte replay — **Keep**: protocol/data-loss fix.
+- `273f0c32` fix(responses): streamed output in completed — **Keep**: protocol compatibility.
+- `fbcaa282` fix(responses): watchdog — **Keep**: stream safety.
+- `7111db35` fix(responses): real usage — **Keep**: protocol/usage correctness.
+- `75834e96` fix(claude): trailing user — **Keep**: protocol correctness.
+- `5e9bd464` fix(claude): prefill — **Keep**: protocol correctness.
+- `49c761cd` fix(claude): cache breakpoint — **Keep**: prompt-cache compatibility.
+- `89ffac5a` fix(capabilities): GPT limits — **Keep**: model routing correctness.
+- `0dd4d6be` fix(codex): strict flags — **Keep**: tool protocol compatibility.
+- `625df74d` fix(gemini): $ref — **Keep**: protocol compatibility.
+- `b00ba1aa` fix(muse): transport/thinking — **Keep**: routing/protocol correctness.
+- `46627249` fix(ollama): cached usage — **Keep**: usage correctness.
+- `6e4f82db` fix(gemini): duplicate tool IDs — **Keep**: protocol correctness.
+- `3125ac2b` fix(kimi): Responses routing — **Keep**: routing/protocol correctness.
+- `0f7f6e72` fix(capabilities): GLM context — **Keep**: routing capability correctness.
+- `c61ee37d` fix(capabilities): GLM thinking — **Keep**: routing/protocol capability.
+- `09f6d395` fix(gemini): properties map — **Keep**: protocol compatibility.
+- `d8c585fb` feat(keys): per-API-key access control — **Keep**: security/access control; DB migration and chat/models enforcement retained, deleted media handlers preserved.
+- `24664f2c` fix(proxy): strictProxy — **Keep**: security/routing fail-closed behavior.
+- `aafe3002` fix(gemini): schema keywords — **Keep**: protocol compatibility.
+- `4f274c7f` fix(claude): container_upload — **Keep**: protocol correctness.
+- `0bc7f86e` fix(codex): refresh reuse — **Keep**: credential-refresh correctness.
+- `b65d2d0a` fix(claude): decloak fallback — **Keep**: protocol/tool compatibility.
+- `239bcfc5` perf(providers): O(1) insert/refuse overwrite — **Keep**: SQLite/performance and silent key-overwrite protection.
+- `fdcba3e1` fix(capabilities): catalog cache — **Keep**: model routing correctness/performance.
+- `37a6b7e0` fix(combo limits): server capabilities — **Keep**: capability/limit correctness.
+- `4fa46034` feat(proxy-pools): Netlify relay — **Keep**: routing infrastructure; dashboard deletion preserved.
