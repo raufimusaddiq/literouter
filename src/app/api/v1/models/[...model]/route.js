@@ -1,4 +1,3 @@
-const keyAccess = await getKeyAccessContext(request);
 
 import { buildModelsList } from "../route.js";
 import { getKeyAccessContext, filterModelsListForKey } from "@/sse/services/keyAccess.js";
