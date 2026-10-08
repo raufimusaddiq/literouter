@@ -75,6 +75,10 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const reqTag = log?.tagForSession ? log.tagForSession(sessionSeed) : (log?.nextTag ? log.nextTag() : "");
 
   const sourceFormat = sourceFormatOverride || detectFormat(body);
+  const compact = body._compact === true;
+  if (compact && (provider !== "codex" || sourceFormat !== FORMATS.OPENAI_RESPONSES)) {
+    return createErrorResult(HTTP_STATUS.BAD_REQUEST, "Native compaction requires a Codex Responses provider");
+  }
 
   // Check for bypass patterns (warmup, skip, cc naming)
   const bypassResponse = handleBypassRequest(body, model, userAgent, ccFilterNaming);
@@ -123,7 +127,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   }
 
   // Per-request opt-out: client can bypass all token savers via header
-  const tokenSaverEnabled = isTokenSaverEnabled(clientRawRequest?.headers);
+  const tokenSaverEnabled = !compact && isTokenSaverEnabled(clientRawRequest?.headers);
 
   // Cursor's translator rewrites tool_result into user text, so RTK must run on
   // the source body before translation. Every other pair translates the tool
@@ -136,7 +140,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (preTranslateRtkLine) console.log(preTranslateRtkLine);
 
   const clientRequestedStreaming = body.stream === true || sourceFormat === FORMATS.ANTIGRAVITY || sourceFormat === FORMATS.GEMINI || sourceFormat === FORMATS.GEMINI_CLI;
-  const providerRequiresStreaming = PROVIDERS[provider]?.forceStream === true || getModelForceStream(alias, model);
+  const providerRequiresStreaming = !compact && (PROVIDERS[provider]?.forceStream === true || getModelForceStream(alias, model));
   let stream = providerRequiresStreaming ? true : (sourceFormat === FORMATS.CLAUDE ? body.stream === true : body.stream !== false);
 
   // Image generation models require non-streaming (Google v1internal:generateContent)
@@ -160,6 +164,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (clientPrefersJson && !clientPrefersSSE && body.stream !== true && !providerRequiresStreaming) {
     stream = false;
   }
+  if (compact) stream = false;
 
   const reqLogger = await createRequestLogger(sourceFormat, targetFormat, model);
   if (clientRawRequest) reqLogger.logClientRawRequest(clientRawRequest.endpoint, clientRawRequest.body, clientRawRequest.headers);
@@ -169,7 +174,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Native passthrough: CLI tool and provider are the same ecosystem
   // Skip all translation/normalization — only model and Bearer are swapped
   const clientTool = detectClientTool(clientRawRequest?.headers || {}, body);
-  const passthrough = isNativePassthrough(clientTool, provider);
+  const passthrough = compact || isNativePassthrough(clientTool, provider);
 
   // Expose raw client headers to translators/executors for session-id resolution
   if (credentials) credentials.rawHeaders = clientRawRequest?.headers || {};
@@ -316,7 +321,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   // PXPIPE: image bulky context (Claude-format bodies only), last saver before dispatch
   let pxpipeSummary = null;
-  if (pxpipeEnabled) {
+  if (pxpipeEnabled && !compact) {
     const pxpipeResult = await compressWithPxpipe(translatedBody, {
       enabled: true, format: finalFormat, model: upstreamModel,
       minChars: pxpipeMinChars, timeoutMs: pxpipeTimeoutMs, transform: pxpipeTransform,
