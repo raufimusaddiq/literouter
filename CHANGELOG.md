@@ -18,6 +18,7 @@
 - **Local-operator trust**: the spoofable `Host` fallback no longer exists in any environment, so local-operator access now requires `custom-server.js`'s per-process `x-9r-peer-token`, stamped on every request it handles. On a listener that bypasses the wrapper (a bare `next dev`, or another client inside the same container) there is no token to present, so those requests no longer inherit LAN-node validation or the localhost-only routes
 
 ## Fixes
+- **Codex native compaction**: preserve the client's remote-compaction beta header on `/responses`; retry upstream response-protection outages before streaming, then return a real 503 instead of an empty successful stream.
 - **Codex compaction**: route compact requests using request-local state, keep the compact endpoint JSON-only, preserve encrypted compact output, and reject malformed compact responses instead of recording empty SSE success.
 - **Antigravity OAuth**: allow a validated `ANTIGRAVITY_REDIRECT_URI` runtime override, reuse the server-selected URL during exchange, enable automatic same-origin hosted callbacks, ignore callbacks from other login attempts, and prevent duplicate code exchanges. Public callbacks still require Google OAuth client approval; localhost/manual paste remains the default.
 - **Responses completion**: allow `PENDING_COMPLETION_FLUSH_MS` to configure the deferred-completion watchdog through the existing positive timeout parser; retain the 3000 ms default for missing or invalid values. Add configuration regression coverage.

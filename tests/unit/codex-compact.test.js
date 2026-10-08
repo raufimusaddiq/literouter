@@ -79,6 +79,52 @@ describe("Codex native compaction", () => {
     }
   });
 
+  it("preserves the native compaction beta opt-in and encrypted history on /responses", async () => {
+    const text = 'data: {"type":"response.completed","response":{"output":[{"type":"compaction","encrypted_content":"new-encrypted-state"}]}}\n\n';
+    fetchMock.mockImplementation(async () => new Response(text, {
+      headers: { "content-type": "text/event-stream" },
+    }));
+    const result = await new CodexExecutor().execute({
+      model, stream: true,
+      credentials: { ...credentials, rawHeaders: {
+        "x-codex-beta-features": "remote_compaction_v2",
+        "authorization": "Bearer untrusted-client-token",
+      } },
+      body: { model, input, client_metadata: { "x-codex-turn-metadata": '{"request_kind":"compaction"}' } },
+    });
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toMatch(/\/responses$/);
+    expect(options.headers["x-codex-beta-features"]).toBe("remote_compaction_v2");
+    expect(options.headers.Authorization).toBe("Bearer test-token");
+    expect(JSON.parse(options.body).input).toEqual(input);
+    expect(JSON.parse(options.body).client_metadata).toEqual({ "x-codex-turn-metadata": '{"request_kind":"compaction"}' });
+    await expect(result.response.text()).resolves.toBe(text);
+    expect(new CodexExecutor().buildHeaders(credentials)["x-codex-beta-features"]).toBeUndefined();
+  });
+
+  it("retries response-protection failures on cx and returns a real error when exhausted", async () => {
+    const executor = new CodexExecutor();
+    executor.config = { ...executor.config, retry: { 503: { attempts: 1, delayMs: 0 } } };
+    fetchMock.mockImplementation(async () => new Response(
+      'event: error\ndata: {"type":"error","error":{"message":"response protection is unavailable","type":"internal_error"}}\n\n',
+      { headers: { "content-type": "text/event-stream" } },
+    ));
+    const result = await executor.execute({ model, credentials, stream: true, body: { model, input } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.response.status).toBe(503);
+    expect((await result.response.json()).error.message).toBe("response protection is unavailable");
+  });
+
+  it("does not retry when normal output quotes a response-protection error", async () => {
+    const text = 'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"response protection is unavailable"}\n\n';
+    fetchMock.mockImplementation(async () => new Response(text, {
+      headers: { "content-type": "text/event-stream" },
+    }));
+    const result = await new CodexExecutor().execute({ model, credentials, stream: true, body: { model, input } });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await expect(result.response.text()).resolves.toBe(text);
+  });
+
   it.each([
     [{ object: "response", output: [] }, "application/json"],
     [compactResponse, "text/event-stream"],
