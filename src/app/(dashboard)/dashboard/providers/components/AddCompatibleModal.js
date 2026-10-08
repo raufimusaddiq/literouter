@@ -27,6 +27,18 @@ const VARIANT_CONFIG = {
     errorLabel: "Anthropic Compatible",
     hasApiType: false,
   },
+  systemone: {
+    title: "Add System One Provider",
+    type: "systemone",
+    defaultBaseUrl: "https://api.typesafe.ai/v1/systemone",
+    namePlaceholder: "System One (Prod)",
+    prefixPlaceholder: "s1-prod",
+    baseUrlHint: "Use the full System One endpoint URL. The system forwards the native JSON body unchanged.",
+    modelIdPlaceholder: "e.g. jev-latest, @cf/cloudflare/clef",
+    errorLabel: "System One",
+    hasApiType: false,
+    hasModels: true,
+  },
 };
 
 const API_TYPE_OPTIONS = [
@@ -42,6 +54,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
     ...(config.hasApiType ? { apiType: "chat" } : {}),
     transports: config.hasApiType ? ["chat_completions"] : ["messages"],
     baseUrl: config.defaultBaseUrl,
+    ...(config.hasModels ? { models: "" } : {}),
   });
 
   const [formData, setFormData] = useState(initialFormData);
@@ -76,6 +89,9 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
           transports: formData.transports,
           baseUrl: formData.baseUrl,
           type: config.type,
+          ...(config.hasModels
+            ? { models: formData.models.split(/[\n,]/).map((m) => m.trim()).filter(Boolean) }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -160,28 +176,30 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
             onChange={(e) => setFormData({ ...formData, apiType: e.target.value })}
           />
         )}
-        <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-text-primary">Native transports</span>
-          {[
-            ["chat_completions", "OpenAI Chat Completions", "/chat/completions"],
-            ["responses", "OpenAI Responses", "/responses"],
-            ["messages", "Anthropic Messages", "/messages"],
-          ].map(([value, label, path]) => (
-            <label key={value} className="flex items-center gap-2 text-sm text-text-muted">
-              <input
-                type="checkbox"
-                checked={formData.transports.includes(value)}
-                onChange={(e) => setFormData((prev) => ({
-                  ...prev,
-                  transports: e.target.checked
-                    ? [...new Set([...prev.transports, value])]
-                    : prev.transports.filter((transport) => transport !== value),
-                }))}
-              />
-              {label} <code className="text-xs">{path}</code>
-            </label>
-          ))}
-        </div>
+        {config.hasApiType && (
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-text-primary">Native transports</span>
+            {[
+              ["chat_completions", "OpenAI Chat Completions", "/chat/completions"],
+              ["responses", "OpenAI Responses", "/responses"],
+              ["messages", "Anthropic Messages", "/messages"],
+            ].map(([value, label, path]) => (
+              <label key={value} className="flex items-center gap-2 text-sm text-text-muted">
+                <input
+                  type="checkbox"
+                  checked={formData.transports.includes(value)}
+                  onChange={(e) => setFormData((prev) => ({
+                    ...prev,
+                    transports: e.target.checked
+                      ? [...new Set([...prev.transports, value])]
+                      : prev.transports.filter((transport) => transport !== value),
+                  }))}
+                />
+                {label} <code className="text-xs">{path}</code>
+              </label>
+            ))}
+          </div>
+        )}
         <Input
           label="Base URL"
           value={formData.baseUrl}
@@ -189,6 +207,15 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
           placeholder={config.defaultBaseUrl}
           hint={config.baseUrlHint}
         />
+        {config.hasModels && (
+          <Input
+            label="Models (optional)"
+            value={formData.models}
+            onChange={(e) => setFormData({ ...formData, models: e.target.value })}
+            placeholder={config.modelIdPlaceholder}
+            hint="Comma- or newline-separated. Leave empty to accept any model ID."
+          />
+        )}
         <Input
           label="API Key (for Check)"
           type="password"

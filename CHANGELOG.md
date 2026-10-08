@@ -1,14 +1,40 @@
 # v0.5.82 (unreleased)
 
+## Upstream Core Fixes (2026-10-07)
+- **Claude**: cache final tool results within the existing four-breakpoint budget.
+- **Models**: correct provider-scoped context/output limits and publish nested combo minima without restoring broad capability aggregation or UI features.
+
 ## Features
 - **Codex**: add native `gpt-6.1-sol` catalog support using the existing Codex Responses transport and Standard token pricing for usage estimates
 - **System One**: add `/v1/systemone` TypeSafe pass-through with a dedicated provider catalog, model-aware request workspace, connection testing, API-key setup, registry validation, and upstream header pass-through
+- **System One**: route custom node prefixes and Cloudflare Clef/Clef-Flash model IDs through `/v1/systemone`, validate System One node keys with an auth-only probe, reject duplicate or reserved node prefixes, and scope `/v1/models?kind=` to the requested kind
+- **System One**: apply the SSRF guard to custom node base URLs at creation, derive reserved prefixes from the provider registry, serve `/v1/models/{id}` for the requested kind, and use the correct Cloudflare Clef run URL template
+- **System One**: add custom System One provider nodes (name, prefix, base URL, optional model catalog) with dashboard creation, model listing, request handling, and connection validation, plus built-in Cloudflare Clef and Clef-Flash System One support
 
 ## Security
+- **Provider connections**: require explicit `allowOverwrite: true` before replacing same-name API-key credentials, including direct repository callers; OAuth identity refresh remains unchanged
+- **Usage**: mask API keys in live and daily statistics object keys, including the daily last-used overlay, without exposing stored credentials
 - **Provider validation**: `/api/provider-nodes/validate` and the Azure/Cloudflare branches of `/api/providers/validate` now fetch through the SSRF-guarded `fetchPublic` instead of a raw `fetch`, so a caller-supplied base URL can no longer 30x its way to an internal target (metadata endpoints included). Remote callers are pre-rejected with 400; the trusted local operator keeps LAN nodes (LM Studio, vLLM, ollama-compat), including LAN targets reached through a redirect hop — `allowPrivate` is now a per-hop decision rather than a one-shot gate
 - **Local-operator trust**: the spoofable `Host` fallback no longer exists in any environment, so local-operator access now requires `custom-server.js`'s per-process `x-9r-peer-token`, stamped on every request it handles. On a listener that bypasses the wrapper (a bare `next dev`, or another client inside the same container) there is no token to present, so those requests no longer inherit LAN-node validation or the localhost-only routes
 
 ## Fixes
+- **Combo fallback**: treat upstream context-length 400s as model-scoped and try the next combo model immediately without cooling the account down; other request-scoped 4xx still return directly.
+- **Codex native compaction**: preserve the client's remote-compaction beta header on `/responses`; retry upstream response-protection outages before streaming, then return a real 503 instead of an empty successful stream.
+- **Codex compaction**: route compact requests using request-local state, keep the compact endpoint JSON-only, preserve encrypted compact output, and reject malformed compact responses instead of recording empty SSE success.
+- **Antigravity OAuth**: allow a validated `ANTIGRAVITY_REDIRECT_URI` runtime override, reuse the server-selected URL during exchange, enable automatic same-origin hosted callbacks, ignore callbacks from other login attempts, and prevent duplicate code exchanges. Public callbacks still require Google OAuth client approval; localhost/manual paste remains the default.
+- **Responses completion**: allow `PENDING_COMPLETION_FLUSH_MS` to configure the deferred-completion watchdog through the existing positive timeout parser; retain the 3000 ms default for missing or invalid values. Add configuration regression coverage.
+- **Responses usage**: preserve integer upstream token totals at least as large as input plus output; derive totals only when absent, malformed, or below the component sum. Cover larger provider totals and invalid totals without changing completion timing or placeholder handling.
+- **CodeBuddy**: share frequency-limit error parsing across CN and international executors; preserve reset timezones and HTTP-error fallback with regression coverage for both providers.
+- **Proxy pools**: return a controlled 503 when chat credential/proxy lookup fails; atomically reject deletion of pools referenced by connections or provider strategies with 409. Distinguish missing pools from unconfigured proxies without permitting direct-IP fallback when the deleted pool's policy is unknown.
+- **Strict proxy / Codex**: carry resolved strict-pool policy through credential selection, inference, refresh retries, quota checks, and Grok model discovery so unusable pools cannot silently route directly; refresh the Codex provider baseline for the 0.159.0 CLI identity.
+- **Codex / Kiro**: restore the Codex CLI version header; map OpenAI `max` effort to Claude `high` while preserving explicit native Kiro `max` and GPT `xhigh`. Cover both Codex stream modes and effort-source precedence; retain real Claude trailing-turn normalization in force-stream tests and align Grok golden headers with the configured 1.0.44 identity.
+- **Core upstream intake (2026-10-01)**: preserve Claude file uploads and terminal conversation roles, normalize DeepSeek tools/thinking and Gemini schemas, retain late Responses usage with a bounded 3-second completion wait, refresh Grok/Codex protocol identities, avoid stale Codex refresh-token reuse, preserve strict proxy routing even when a pool is unusable, deleted, or unreadable, and map CodeBuddy frequency limits to account fallback. Isolate provider-priority DB regressions without removing LiteRouter coverage; no new providers, UI, CLI, tunnel, MITM, or cloud-sync features.
+- **Upstream intake**: wait for host capacity instead of abandoning repairs, resume pending intake PRs after controller failures, and check deployment health inside the container's network.
+- **Request logs**: lower the production debug-log size limit from 1024 MB to 500 MB.
+- **Upstream intake**: fix scheduled startup and merge-SHA deployment; isolate ephemeral `--yolo` agents from host networking and credentials behind a model-only Unix-socket broker; delegate all installs/builds/tests to CI, wait for current-head CI/Hermes, repair completed blockers, retain failures, dispose after successful deployment
+- **Upstream intake**: make the repair-attempt ceiling configurable via `UPSTREAM_INTAKE_MAX_REPAIRS` (default 3) so unattended runs keep resolving reviewer blockers instead of stopping
+- **OAuth**: keep same-identity credential refresh independent of the API-key name-collision overwrite flag, including callers passing `false`
+- **OpenCode**: reconcile Free Muse tool-choice and reasoning regression checks with the required cloaked fingerprint quartet; retain caller tools, input, and the 1.3 Free auto-only policy
 - **Usage**: distribute view and period controls across the toolbar on desktop and keep the provider topology aligned with the Recent Requests panel height
 - **Usage**: keep Total requests as the hero metric while stretching the supporting token/cost cards to the same desktop height
 - **Branding**: replace the legacy indigo tab icon with a neutral theme-aware LiteRouter favicon and retire the stale file-based ICO override

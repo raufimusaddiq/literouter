@@ -71,6 +71,7 @@ export const WEB_COOKIE_PROVIDERS = byCategory("webCookie");
 
 export const OPENAI_COMPATIBLE_PREFIX = "openai-compatible-";
 export const ANTHROPIC_COMPATIBLE_PREFIX = "anthropic-compatible-";
+export const SYSTEM_ONE_PREFIX = "systemone-";
 
 export function isOpenAICompatibleProvider(providerId) {
   return typeof providerId === "string" && providerId.startsWith(OPENAI_COMPATIBLE_PREFIX);
@@ -78,6 +79,10 @@ export function isOpenAICompatibleProvider(providerId) {
 
 export function isAnthropicCompatibleProvider(providerId) {
   return typeof providerId === "string" && providerId.startsWith(ANTHROPIC_COMPATIBLE_PREFIX);
+}
+
+export function isSystemOneProvider(providerId) {
+  return typeof providerId === "string" && providerId.startsWith(SYSTEM_ONE_PREFIX);
 }
 
 // All providers (combined)

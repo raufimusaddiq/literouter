@@ -106,6 +106,7 @@ export default function ProvidersPage() {
   const [showAddCompatibleModal, setShowAddCompatibleModal] = useState(false);
   const [showAddAnthropicCompatibleModal, setShowAddAnthropicCompatibleModal] =
     useState(false);
+  const [showAddSystemOneModal, setShowAddSystemOneModal] = useState(false);
   const [testingMode, setTestingMode] = useState(null);
   const [testResults, setTestResults] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -380,6 +381,17 @@ export default function ProvidersPage() {
       if (ca !== cb) return ca - cb;
       return (a.name || "").localeCompare(b.name || "");
     });
+  const systemOneNodes = providerNodes
+    .filter((node) => node.type === "systemone")
+    .map((node) => ({
+      id: node.id,
+      name: node.name || "System One Node",
+      color: "#E551BA",
+      textIcon: "S1",
+    }))
+    .filter(
+      (p) => matchSearch(p.name) && matchStatus(getProviderStats(p.id, "apikey")),
+    );
   const isApikeySearching = !!searchQuery.trim() || statusFilter !== "all";
   const visibleApikeyEntries =
     isApikeySearching || showAllApikey
@@ -401,6 +413,7 @@ export default function ProvidersPage() {
     freeEntries.length > 0 ||
     freeTierEntries.length > 0 ||
     systemOneEntries.length > 0 ||
+    systemOneNodes.length > 0 ||
     apikeyEntries.length > 0 ||
     compatibleProviders.length > 0 ||
     anthropicCompatibleProviders.length > 0;
@@ -520,30 +533,41 @@ export default function ProvidersPage() {
         )}
       </div>
 
-      {systemOneEntries.length > 0 && (
+      {(systemOneEntries.length > 0 || systemOneNodes.length > 0) && (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold sm:text-xl">System One providers</h2>
             <p className="mt-1 text-sm text-text-muted">Typed decision APIs with their own request format and model catalog.</p>
           </div>
-          <button
-            onClick={() => handleBatchTest("systemone")}
-            disabled={!!testingMode}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
-              testingMode === "systemone"
-                ? "animate-pulse border-primary/40 bg-primary/20 text-primary"
-                : "border-border bg-bg text-text-muted hover:border-primary/40 hover:text-text-main"
-            }`}
-            title="Test all System One connections"
-            aria-label="Test all System One connections"
-          >
-            <span className={`material-symbols-outlined text-[14px]${testingMode === "systemone" ? " animate-spin" : ""}`}>play_arrow</span>
-            {testingMode === "systemone" ? "Testing..." : "Test All"}
-          </button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="add"
+              onClick={() => setShowAddSystemOneModal(true)}
+              className="w-full sm:w-auto"
+            >
+              Add System One
+            </Button>
+            <button
+              onClick={() => handleBatchTest("systemone")}
+              disabled={!!testingMode}
+              className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+                testingMode === "systemone"
+                  ? "animate-pulse border-primary/40 bg-primary/20 text-primary"
+                  : "border-border bg-bg text-text-muted hover:border-primary/40 hover:text-text-main"
+              }`}
+              title="Test all System One connections"
+              aria-label="Test all System One connections"
+            >
+              <span className={`material-symbols-outlined text-[14px]${testingMode === "systemone" ? " animate-spin" : ""}`}>play_arrow</span>
+              {testingMode === "systemone" ? "Testing..." : "Test All"}
+            </button>
+          </div>
         </div>
         <div className="flex flex-col divide-y divide-border-subtle overflow-hidden rounded-[10px] bg-surface ring-1 ring-border-subtle">
-          {systemOneEntries.map(([key, info]) => (
+          {[...systemOneEntries.map(([key, info]) => ({ key, info })), ...systemOneNodes.map((node) => ({ key: node.id, info: node }))].map(({ key, info }) => (
             <ApiKeyProviderCard
               key={key}
               providerId={key}
@@ -752,6 +776,15 @@ export default function ProvidersPage() {
         onCreated={(node) => {
           setProviderNodes((prev) => [...prev, node]);
           setShowAddAnthropicCompatibleModal(false);
+        }}
+      />
+      <AddCompatibleModal
+        variant="systemone"
+        isOpen={showAddSystemOneModal}
+        onClose={() => setShowAddSystemOneModal(false)}
+        onCreated={(node) => {
+          setProviderNodes((prev) => [...prev, node]);
+          setShowAddSystemOneModal(false);
         }}
       />
 

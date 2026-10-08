@@ -4,12 +4,14 @@ import { openAICompletionToClaudeMessage } from "../../translator/response/nonst
 import { ollamaBodyToOpenAI } from "../../translator/response/ollama-to-openai.js";
 import { addBufferToUsage, filterUsageForFormat } from "../../utils/usageTracking.js";
 import { createErrorResult } from "../../utils/error.js";
+import { upstreamResponseHeaders } from "../../utils/upstreamHeaders.js";
 import { HTTP_STATUS } from "../../config/runtimeConfig.js";
 import { parseSSEToOpenAIResponse } from "./sseToJsonHandler.js";
 import { unwrapClineEnvelope } from "../../shared/clineEnvelope.js";
 import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, saveUsageStats, formatDoneLine } from "./requestDetail.js";
 import { appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { decloakToolNames } from "../../utils/claudeCloaking.js";
+import { restoreToolNames } from "../../utils/opencodeFingerprint.js";
 import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index.js";
 import { rewriteResponsesCustomToolOutput } from "../../translator/concerns/responsesFunctionTools.js";
 import { PROVIDERS } from "../../config/providers.js";
@@ -296,6 +298,10 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   trackDone();
   const contentType = providerResponse.headers.get("content-type") || "";
   let responseBody;
+  if (body._compact === true && contentType.includes("text/event-stream")) {
+    appendLog({ status: `FAILED ${HTTP_STATUS.BAD_GATEWAY}` });
+    return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Expected JSON from Codex compact endpoint");
+  }
 
   if (contentType.includes("text/event-stream")) {
     const sseText = await providerResponse.text();
@@ -313,6 +319,15 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
       console.error(`[ChatCore] Failed to parse JSON from ${provider}:`, err.message);
       return createErrorResult(HTTP_STATUS.BAD_GATEWAY, `Invalid JSON response from ${provider}`);
     }
+  }
+
+  if (body._compact === true && (
+    responseBody?.object !== "response.compaction"
+    || !Array.isArray(responseBody.output)
+    || !responseBody.output.some((item) => item?.type === "compaction" && typeof item.encrypted_content === "string" && item.encrypted_content.length > 0)
+  )) {
+    appendLog({ status: `FAILED ${HTTP_STATUS.BAD_GATEWAY}` });
+    return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Invalid Codex compact response");
   }
 
   // Unwrap before any consumer reads choices/usage so non-stream clients get a
@@ -350,7 +365,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   const isClaudeMessageResponse = sourceFormat === FORMATS.CLAUDE && translatedResponse?.type === "message";
   // Responses-format translation produces a `object:"response"` body with no
   // `choices`; skip the Chat-Completions-specific post-processing below for it.
-  const isResponsesResponse = sourceFormat === FORMATS.OPENAI_RESPONSES && translatedResponse?.object === "response";
+  const isResponsesResponse = sourceFormat === FORMATS.OPENAI_RESPONSES && (translatedResponse?.object === "response" || translatedResponse?.object === "response.compaction");
 
   // Fix finish_reason for tool_calls: some providers return non-standard values (e.g. "other")
   if (translatedResponse?.choices?.[0]) {
@@ -376,7 +391,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     }
   }
 
-  if (translatedResponse?.usage) {
+  if (translatedResponse?.usage && body._compact !== true) {
     translatedResponse.usage = filterUsageForFormat(addBufferToUsage(translatedResponse.usage), sourceFormat);
   }
 
@@ -414,8 +429,8 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
 
   return {
     success: true,
-    response: new Response(JSON.stringify(translatedResponse), {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    response: new Response(JSON.stringify(restoreToolNames(translatedResponse, toolNameMap)), {
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", ...upstreamResponseHeaders(providerResponse.headers) }
     })
   };
 }

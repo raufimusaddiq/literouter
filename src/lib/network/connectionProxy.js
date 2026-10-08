@@ -82,6 +82,7 @@ export async function resolveConnectionProxyConfig(
     // path below reports strictProxy:false and the request silently leaves
     // over the direct IP — the leak strict mode exists to prevent (#4333).
     let poolStrictProxy = false;
+    let poolMissing = false;
 
     /**
      * -----------------------------
@@ -99,14 +100,15 @@ export async function resolveConnectionProxyConfig(
         proxyPool.isActive === true &&
         proxyUrl;
 
-      poolStrictProxy = proxyPool?.strictProxy === true;
+      poolMissing = !proxyPool;
+      poolStrictProxy = poolMissing || proxyPool.strictProxy === true;
 
       if (isValidPool) {
         /**
-         * Vercel/Cloudflare/Deno/Netlify relay proxies use base URL rewriting
+         * Vercel/Cloudflare relay proxies use base URL rewriting
          * instead of HTTP_PROXY environment variables.
          */
-        if (proxyPool.type === "vercel" || proxyPool.type === "cloudflare" || proxyPool.type === "deno" || proxyPool.type === "netlify") {
+        if (proxyPool.type === "vercel" || proxyPool.type === "cloudflare" || proxyPool.type === "deno") {
           return {
             source: proxyPool.type,
 
@@ -168,7 +170,7 @@ export async function resolveConnectionProxyConfig(
      * -----------------------------
      */
     return {
-      source: "none",
+      source: poolMissing ? "missing-pool" : "none",
 
       proxyPoolId: proxyPoolId || null,
       proxyPool: null,
@@ -178,6 +180,10 @@ export async function resolveConnectionProxyConfig(
       ...legacy,
     };
   } catch (error) {
+    const requestedPool = normalizeString(providerSpecificData?.proxyPoolId);
+    if (requestedPool && requestedPool !== "__none__") {
+      throw new Error("Proxy pool could not be resolved", { cause: error });
+    }
     console.error(
       "[resolveConnectionProxyConfig] Failed to resolve proxy config:",
       error

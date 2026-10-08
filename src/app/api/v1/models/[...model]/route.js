@@ -1,6 +1,4 @@
-
 import { buildModelsList } from "../route.js";
-import { getKeyAccessContext, filterModelsListForKey } from "@/sse/services/keyAccess.js";
 
 const LLM_KIND = "llm";
 
@@ -34,7 +32,9 @@ export async function GET(request, { params }) {
     const identifier = path.filter(Boolean).join("/");
     // Match the same LLM catalog exposed by GET /v1/models. A catch-all
     // parameter is required because provider-prefixed IDs contain a slash.
-    const models = await filterModelsListForKey(keyAccess, await buildModelsList([LLM_KIND]));
+    const kind = request.nextUrl?.searchParams?.get("kind");
+    const kindFilter = kind ? [kind] : [LLM_KIND];
+    const models = await buildModelsList(kindFilter);
     const matchedModel = models.find((candidate) => candidate.id === identifier);
 
     if (!matchedModel) {

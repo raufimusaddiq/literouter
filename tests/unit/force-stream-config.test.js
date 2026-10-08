@@ -47,7 +47,8 @@ vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
   proxyAwareFetch: vi.fn(),
 }));
 
-vi.mock("../../open-sse/translator/formats/claude.js", () => ({
+vi.mock("../../open-sse/translator/formats/claude.js", async (importOriginal) => ({
+  ...await importOriginal(),
   normalizeClaudePassthrough: vi.fn(),
   anchorClaudeCache: vi.fn(),
   prepareClaudeRequest: vi.fn((body) => body),

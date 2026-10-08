@@ -29,6 +29,12 @@ describe("Codex gpt-6 models", () => {
     expect(executor.buildUrl(id, true)).toBe("https://chatgpt.com/backend-api/codex/responses");
   });
 
+  it.each([true, false])("uses the updated Codex CLI identity (stream=%s)", (stream) => {
+    const headers = new CodexExecutor().buildHeaders({ accessToken: "test-token" }, stream);
+    expect(headers.version).toBe("0.159.0");
+    expect(headers["User-Agent"]).toBe("codex_cli_rs/0.159.0");
+  });
+
   it("does not register review variants for gpt-6", () => {
     // withCodexReviewModels() is imported but never applied to this array, and the
     // gpt-6 review variants were dropped on purpose. Guard against a stray line

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProviderNodeById } from "@/models";
-import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
+import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isSystemOneProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getDefaultModel } from "open-sse/config/providerModels.js";
 import { resolveOllamaLocalHost, resolveXiaomiTokenplanBaseUrl, PROVIDERS } from "open-sse/config/providers.js";
 import { openaiToCommandCodeRequest } from "open-sse/translator/request/openai-to-commandcode.js";
@@ -131,6 +131,25 @@ export async function POST(request) {
           valid: isValid,
           error: isValid ? null : "Invalid API token or Account ID",
         });
+      }
+
+      if (isSystemOneProvider(provider)) {
+        const node = await getProviderNodeById(provider);
+        if (!node) {
+          return NextResponse.json({ valid: false, error: "System One node not found" }, { status: 404 });
+        }
+        if (remote) {
+          try { await assertPublicUrlResolved(node.baseUrl?.trim() || ""); }
+          catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
+        }
+        // Invalid questions authenticate without spending an evaluation.
+        const res = await validateFetch(node.baseUrl.replace(/\/$/, ""), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "ping", state: "ping", questions: {} }),
+        });
+        const isValid = res.status !== 401 && res.status !== 403;
+        return NextResponse.json({ valid: isValid, error: isValid ? null : "Invalid API key" });
       }
 
       if (provider === "azure") {

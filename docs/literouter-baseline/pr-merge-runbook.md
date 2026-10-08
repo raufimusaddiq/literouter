@@ -14,6 +14,11 @@ raises no blocker.** A 🟡 outcome with suggestions is a merge, not a hold.
 
 ## Unit tests in CI
 
+This instance is a production host: agents must not install dependencies, build,
+or run local tests, including focused suites. Add regressions, push real changes,
+wait for GitHub CI. Disposable upstream agents keep their workspace until gates
+pass and deployment is healthy; completed failures trigger repairs, not disposal.
+
 `.github/workflows/test.yml` runs the vitest suite on every PR and on pushes to
 `main`. It installs root deps (`next`, `undici`, `uuid`, …) plus the
 runner's own lockfile, then `npx vitest run` from `tests/`.

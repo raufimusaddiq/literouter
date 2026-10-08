@@ -15,7 +15,7 @@ import { resolveSessionId } from "../utils/sessionManager.js";
 import { stripCodexUnsupportedPatterns } from "../utils/codexToolSchema.js";
 
 // SSE error patterns inside 200-OK bodies. Some retry same account first; capacity rotates accounts.
-const CODEX_SSE_RETRY_PATTERNS = ["server_is_overloaded", "service_unavailable_error"];
+const CODEX_SSE_RETRY_PATTERNS = ["server_is_overloaded", "service_unavailable_error", "response protection is unavailable"];
 const CODEX_SSE_ACCOUNT_FALLBACK_PATTERNS = ["selected model is at capacity", "model_at_capacity"];
 const CODEX_SSE_USER_OUTPUT_PATTERNS = [
   "event: response.output_text.delta",
@@ -213,6 +213,11 @@ export class CodexExecutor extends BaseExecutor {
    */
   buildHeaders(credentials, stream = true) {
     const headers = super.buildHeaders(credentials, stream);
+    // Native remote compaction needs the client's beta opt-in on /responses.
+    const betaFeatures = credentials?.rawHeaders?.["x-codex-beta-features"];
+    if (typeof betaFeatures === "string" && betaFeatures.trim()) {
+      headers["x-codex-beta-features"] = betaFeatures;
+    }
     headers["session_id"] = this._currentSessionId || credentials?.connectionId || "default";
     // Identify client type to Codex backend (matches official codex CLI)
     if (!headers["originator"]) headers["originator"] = "codex_cli_rs";
@@ -231,9 +236,9 @@ export class CodexExecutor extends BaseExecutor {
     return headers;
   }
 
-  buildUrl(model, stream, urlIndex = 0, credentials = null) {
+  buildUrl(model, stream, urlIndex = 0, credentials = null, body = null) {
     const base = super.buildUrl(model, stream, urlIndex, credentials);
-    return this._isCompact ? `${base}/compact` : base;
+    return body?._compact === true ? `${base}/compact` : base;
   }
 
   async refreshCredentials(credentials, log) {
@@ -268,6 +273,7 @@ export class CodexExecutor extends BaseExecutor {
   }
 
   async execute(args) {
+    if (args.body?._compact === true) return super.execute({ ...args, stream: false });
     const imgCount = Array.isArray(args.body?.input) ? args.body.input.reduce((n, it) => n + (Array.isArray(it.content) ? it.content.filter(c => c.type === "image_url").length : 0), 0) : 0;
     const inputLen = Array.isArray(args.body?.input) ? args.body.input.length : 0;
     dbg("CODEX", `execute start | inputItems=${inputLen} | images=${imgCount} | sessionId=${this._currentSessionId || "pending"}`);
@@ -333,11 +339,12 @@ export class CodexExecutor extends BaseExecutor {
         chunks.push(value);
         text += decoder.decode(value, { stream: true });
         const lowerText = text.toLowerCase();
+        // Never replay a request after user-visible output, even if it quotes an error.
+        if (CODEX_SSE_USER_OUTPUT_PATTERNS.some(p => lowerText.includes(p))) break;
         const accountHit = CODEX_SSE_ACCOUNT_FALLBACK_PATTERNS.find(p => lowerText.includes(p));
         if (accountHit) { matched = accountHit; accountFallback = true; break; }
         const retryHit = CODEX_SSE_RETRY_PATTERNS.find(p => lowerText.includes(p));
         if (retryHit) { matched = retryHit; break; }
-        if (CODEX_SSE_USER_OUTPUT_PATTERNS.some(p => lowerText.includes(p))) break;
       }
     } catch (e) {
       dbg("CODEX", `peek read error: ${e.message}`);
@@ -403,10 +410,16 @@ export class CodexExecutor extends BaseExecutor {
    * Image fetching is handled separately in prefetchImages() so this stays sync.
    */
   transformRequest(model, body, stream, credentials) {
-    this._isCompact = !!body._compact;
-    delete body._compact;
-    // Resolve conversation-stable session_id (priority: body → assistant-text → workspace → machine)
+    // Resolve identity before either endpoint builds its headers.
     this._currentSessionId = resolveCacheSessionId(body, credentials);
+    if (body._compact === true) {
+      return {
+        model: getModelUpstreamId("cx", body.model || model),
+        input: body.input,
+        ...(body.instructions !== undefined ? { instructions: body.instructions } : {}),
+      };
+    }
+    delete body._compact;
     // Convert string input to array format (Codex API requires input as array)
     const normalized = normalizeResponsesInput(body.input);
     if (normalized) body.input = normalized;

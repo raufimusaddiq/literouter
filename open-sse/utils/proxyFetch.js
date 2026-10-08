@@ -145,8 +145,6 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
     throw new Error("[ProxyFetch] Proxy required but none resolved (strictProxy=true)");
   }
 
-  // got-scraping disabled — use native fetch directly
-  // (Re-enable per-host by wrapping with tryGotScrapingFetch when needed)
   return originalFetch(url, options);
 }
 
