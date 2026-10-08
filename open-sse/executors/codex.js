@@ -229,9 +229,9 @@ export class CodexExecutor extends BaseExecutor {
     return headers;
   }
 
-  buildUrl(model, stream, urlIndex = 0, credentials = null) {
+  buildUrl(model, stream, urlIndex = 0, credentials = null, body = null) {
     const base = super.buildUrl(model, stream, urlIndex, credentials);
-    return this._isCompact ? `${base}/compact` : base;
+    return body?._compact === true ? `${base}/compact` : base;
   }
 
   async refreshCredentials(credentials, log) {
@@ -266,6 +266,7 @@ export class CodexExecutor extends BaseExecutor {
   }
 
   async execute(args) {
+    if (args.body?._compact === true) return super.execute({ ...args, stream: false });
     const imgCount = Array.isArray(args.body?.input) ? args.body.input.reduce((n, it) => n + (Array.isArray(it.content) ? it.content.filter(c => c.type === "image_url").length : 0), 0) : 0;
     const inputLen = Array.isArray(args.body?.input) ? args.body.input.length : 0;
     dbg("CODEX", `execute start | inputItems=${inputLen} | images=${imgCount} | sessionId=${this._currentSessionId || "pending"}`);
@@ -401,10 +402,16 @@ export class CodexExecutor extends BaseExecutor {
    * Image fetching is handled separately in prefetchImages() so this stays sync.
    */
   transformRequest(model, body, stream, credentials) {
-    this._isCompact = !!body._compact;
-    delete body._compact;
-    // Resolve conversation-stable session_id (priority: body → assistant-text → workspace → machine)
+    // Resolve identity before either endpoint builds its headers.
     this._currentSessionId = resolveCacheSessionId(body, credentials);
+    if (body._compact === true) {
+      return {
+        model: getModelUpstreamId("cx", body.model || model),
+        input: body.input,
+        ...(body.instructions !== undefined ? { instructions: body.instructions } : {}),
+      };
+    }
+    delete body._compact;
     // Convert string input to array format (Codex API requires input as array)
     const normalized = normalizeResponsesInput(body.input);
     if (normalized) body.input = normalized;
