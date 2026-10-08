@@ -11,6 +11,7 @@ describe("checkFallbackError — request-scoped vs account-scoped failures", () 
     for (const text of [
       JSON.stringify({ error: { code: "context_length_exceeded", message: "the request exceeds the model's maximum context length" } }),
       "This model's maximum context length is 1048576 tokens. However, you requested 1186139 tokens",
+      "the request exceeds the model's maximum context length",
     ]) {
       const result = checkFallbackError(400, text);
       expect(result.shouldFallback).toBe(true);
