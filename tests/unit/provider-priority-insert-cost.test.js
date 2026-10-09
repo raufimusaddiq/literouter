@@ -1,12 +1,33 @@
-import { describe, expect, it } from "vitest";
-import { getAdapter } from "../../src/lib/db/driver.js";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
-import {
+const originalDataDir = process.env.DATA_DIR;
+const originalAdapter = global._dbAdapter;
+const tempDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "literouter-provider-priority-"));
+process.env.DATA_DIR = tempDataDir;
+global._dbAdapter = { instance: null, initPromise: null, logged: false };
+vi.resetModules();
+const { getAdapter } = await import("../../src/lib/db/driver.js");
+
+const {
   createProviderConnection,
   getProviderConnections,
   deleteProviderConnection,
   updateProviderConnection,
-} from "../../src/lib/db/index.js";
+} = await import("../../src/lib/db/index.js");
+
+afterAll(() => {
+  try {
+    global._dbAdapter.instance?.close();
+  } finally {
+    global._dbAdapter = originalAdapter;
+    if (originalDataDir === undefined) delete process.env.DATA_DIR;
+    else process.env.DATA_DIR = originalDataDir;
+    fs.rmSync(tempDataDir, { recursive: true, force: true });
+  }
+});
 
 // #4311: POST /api/providers was O(pool) per insert. Inside one transaction it
 // read the whole pool AND renumbered every row's priority, so a 5k-key import
@@ -147,7 +168,7 @@ describe("name collision no longer destroys a key silently (#4311)", () => {
   it("does not collide across different providers", async () => {
     const orig = await original;
     const other = await createProviderConnection({
-      provider: "openai-compatible-other",
+      provider: `openai-compatible-other-${Date.now()}`,
       authType: "apikey",
       name: orig.name,
       apiKey: "other-key",

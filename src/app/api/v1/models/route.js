@@ -179,11 +179,11 @@ const parseOpenAIStyleModels = (data) => {
 const INTERNAL_MODELS_FETCH_HEADER = "x-9r-internal-models-fetch";
 
 // LLM kind sentinel — combos/models with no explicit kind default to LLM
-const LLM_KIND = "llm";
+export const LLM_KIND = "llm";
 
 // Map per-model `type` field (in PROVIDER_MODELS) to service kind.
 // Models without `type` are treated as LLM.
-const MODEL_TYPE_TO_KIND = {
+export const MODEL_TYPE_TO_KIND = {
   image: "image",
   tts: "tts",
   embedding: "embedding",
