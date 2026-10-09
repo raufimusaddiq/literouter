@@ -272,7 +272,9 @@ function providerMatchesKinds(providerId, kindFilter) {
   const kinds = Array.isArray(provider?.serviceKinds) && provider.serviceKinds.length > 0
     ? provider.serviceKinds
     : [LLM_KIND];
-  return kindFilter.some((k) => kinds.includes(k));
+  if (kindFilter.some((k) => kinds.includes(k))) return true;
+  return (PROVIDER_MODELS[PROVIDER_ID_TO_ALIAS[providerId] || providerId] || [])
+    .some((model) => kindFilter.includes(modelKind(model)));
 }
 
 // Combo matches kindFilter when its `kind` field is in the list.
