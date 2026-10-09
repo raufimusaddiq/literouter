@@ -379,7 +379,7 @@ export async function buildModelsList(kindFilter, options = {}) {
     if (combo.kind === "webSearch" || combo.kind === "webFetch") {
       entry.kind = combo.kind;
     } else {
-      const comboCaps = aggregateComboCapabilities(combo.models, comboByName, comboSeatCapabilities);
+      const comboCaps = aggregateComboCapabilities(combo.models, combosByName, comboSeatCapabilities);
       if (comboCaps) entry.capabilities = comboCaps;
       // Any seat can serve the request, so the only window a combo can promise is
       // its smallest. Combo entries were the only models on this endpoint that

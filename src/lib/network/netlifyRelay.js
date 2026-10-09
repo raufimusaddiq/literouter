@@ -207,6 +207,7 @@ export async function pollDeployReady(deployId, token, fetchImpl = fetch, maxMs 
     const res = await fetchImpl(`${NETLIFY_API}/deploys/${deployId}`, {
       headers: netlifyHeaders(token),
     });
+    if (!res.ok) throw new Error(`Netlify status failed (${res.status})`);
     const data = await res.json().catch(() => ({}));
     if (data.state === "ready") return data;
     if (data.state === "error") {

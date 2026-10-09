@@ -173,6 +173,7 @@ const DEVIN_CLI_GPT_CAPS = { vision: true, reasoning: true, search: true, thinki
 export const PROVIDER_CAPABILITIES = {
   "opencode-go": {
     "gpt-5.6-luna": { vision: true, reasoning: true, search: true, thinkingFormat: "openai-responses", contextWindow: 272000, maxOutput: 128000 },
+    "glm-5.3-flash": { vision: true, videoInput: true, pdf: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 131072 },
   },
   // NVIDIA NIM is OpenAI-compatible → rejects MiniMax/GLM native `thinking` field.
   // Force openai reasoning_effort format for its reasoning models. #issue
@@ -430,7 +431,7 @@ export const PATTERN_CAPABILITIES = [
   // will occur if the thinking.type parameter is set to disabled)." Set on the
   // pattern rather than an exact entry so both glm-5.3 and glm-5.3-flash get it
   // while keeping thinkingEffortSupported:true, which the pattern owns. #4409
-  { pattern: "*glm-5.3*",       caps: { reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 128000 } },
+  { pattern: "*glm-5.3*",       caps: { reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, thinkingCanDisable: false, contextWindow: 200000, maxOutput: 128000 } },
   // 5.2 keeps its 1M window. thinkingCanDisable is deliberately NOT set here:
   // the exact MODEL_CAPABILITIES entry for glm-5.2 (added Sep 2026) already
   // declares it false, and that predates this fix — z.ai's docs suggest 5.2 can

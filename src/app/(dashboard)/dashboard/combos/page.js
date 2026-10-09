@@ -9,6 +9,7 @@ import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, ConfirmModa
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
+import { aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 
 // Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -56,7 +57,7 @@ function StrategyNote({ title, text }) {
 
 export default function CombosPage() {
   const [combos, setCombos] = useState([]);
-  const comboByName = Object.fromEntries(combos.map((combo) => [combo.name, combo.models]));
+  const comboByName = Object.fromEntries(combos.map((combo) => [combo.name, combo]));
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCombo, setEditingCombo] = useState(null);

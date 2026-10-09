@@ -1,5 +1,9 @@
 # v0.5.82 (unreleased)
 
+- **Chat routing**: restore Cursor pre-translate RTK, Codex compaction validation, cross-provider tool dedupe, and proxy-aware credential refresh.
+- **Models**: fix combo capability aggregation, restore Claude Sonnet 5.5 and GLM 5.3 limits, and filter `/v1/models/{kind}` lookups by API-key access.
+- **Providers**: restore Muse Spark Responses routing and Netlify relay pool resolution.
+- **Security**: enforce API-key model access on System One before credential lookup.
 - **Proxy pools**: stop Netlify relays from advertising compressed bodies after buffering them and fail deploy polling immediately on status errors.
 - **Database**: create the `kv` table before versioned migration cleanup on legacy databases.
 - **Models**: import the missing combo capability aggregator used by `/v1/models`.

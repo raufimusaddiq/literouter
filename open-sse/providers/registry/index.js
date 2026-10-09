@@ -84,6 +84,7 @@ import p116 from "./tokenrouter.js";
 import p121 from "./alitp-intl.js";
 import p124 from "./kenari.js";
 import p125 from "./typesafe.js";
+import p126 from "./muse.js";
 export default [
   p0,
   p1,
@@ -168,4 +169,5 @@ export default [
   p121,
   p124,
   p125,
+  p126,
 ];

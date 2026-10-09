@@ -1,6 +1,12 @@
 import { buildModelsList } from "../route.js";
 
 const LLM_KIND = "llm";
+const MODEL_TYPE_TO_KIND = {
+  image: "image",
+  tts: "tts",
+  embedding: "embedding",
+  stt: "stt",
+};
 
 export async function OPTIONS() {
   return new Response(null, {
@@ -33,8 +39,12 @@ export async function GET(request, { params }) {
     // Match the same LLM catalog exposed by GET /v1/models. A catch-all
     // parameter is required because provider-prefixed IDs contain a slash.
     const kind = request.nextUrl?.searchParams?.get("kind");
-    const kindFilter = kind ? [kind] : [LLM_KIND];
+    const isKindLookup = path.length === 1 && (MODEL_TYPE_TO_KIND[path[0]] || path[0] === "llm");
+    const kindFilter = isKindLookup ? [MODEL_TYPE_TO_KIND[path[0]] || LLM_KIND] : kind ? [kind] : [LLM_KIND];
     const models = await buildModelsList(kindFilter);
+    if (isKindLookup) {
+      return json({ object: "list", data: models });
+    }
     const matchedModel = models.find((candidate) => candidate.id === identifier);
 
     if (!matchedModel) {

@@ -8,6 +8,7 @@ import {
 } from "../services/auth.js";
 import { PROVIDERS } from "open-sse/config/providers.js";
 import { getModelsByProviderId } from "open-sse/config/providerModels.js";
+import { getKeyAccessContext, enforceKeyAccessResolved } from "../services/keyAccess.js";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 import { extractUsageFromResponse, saveUsageStats } from "open-sse/handlers/chatCore/requestDetail.js";
 import { trackPendingRequest } from "@/lib/usageDb.js";
@@ -36,7 +37,7 @@ export async function normalizeSystemOneRequest(body) {
   const model = rest.length ? rest.join("/") : rawModel;
   const config = PROVIDERS[provider];
   const isCustomNode = isCustomSystemOneProvider(provider);
-  if (!model || (!config?.systemOneTransport && config?.format !== "systemone" && !isCustomNode)) {
+  if (!model || (!config?.systemOneTransport && config?.format !== "systemone" && config?.format !== "openai" && !isCustomNode)) {
     return { error: `Unsupported System One provider or model: ${rawModel}` };
   }
   if (config?.systemOneTransport && !getModelsByProviderId(provider).some((entry) => entry.id === model)) {
@@ -113,6 +114,10 @@ export async function handleSystemOne(request) {
   }
   if (input.error) return systemOneError(400, input.error);
 
+  const keyAccess = await getKeyAccessContext(request);
+  const keyAccessDenied = await enforceKeyAccessResolved(keyAccess, input.body.model, input.provider, input.model);
+  if (keyAccessDenied) return keyAccessDenied;
+
   const clientApiKey = extractApiKey(request);
   const settings = await getSettings();
   if (settings.requireApiKey && (!clientApiKey || !(await isValidApiKey(clientApiKey)))) {
@@ -145,7 +150,9 @@ export async function handleSystemOne(request) {
       return systemOneError(429, credentials?.lastError || `No active credentials for provider: ${provider}`, retryAfter ? { "Retry-After": String(retryAfter) } : {});
     }
 
-    const config = customNode ? { baseUrl: customNode.baseUrl } : PROVIDERS[provider];
+    const config = customNode
+      ? { baseUrl: customNode.baseUrl, format: customNode.apiType === "responses" ? "openai-responses" : "openai" }
+      : PROVIDERS[provider];
     // Built-in dual-transport providers (e.g. Cloudflare Clef) keep chat and
     // System One endpoints separate. System One URLs may reference {accountId}
     // (connection providerSpecificData) and {model} (request model id).

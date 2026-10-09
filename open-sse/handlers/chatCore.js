@@ -73,6 +73,10 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const reqTag = log?.tagForSession ? log.tagForSession(sessionSeed) : (log?.nextTag ? log.nextTag() : "");
 
   const sourceFormat = sourceFormatOverride || detectFormat(body);
+  const compact = body._compact === true;
+  if (compact && (provider !== "codex" || sourceFormat !== FORMATS.OPENAI_RESPONSES)) {
+    return createErrorResult(HTTP_STATUS.BAD_REQUEST, "Native compaction requires a Codex Responses provider");
+  }
 
   // Check for bypass patterns (warmup, skip, cc naming)
   const bypassResponse = handleBypassRequest(body, model, userAgent, ccFilterNaming);
@@ -133,6 +137,9 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   }
 
   const clientRequestedStreaming = body.stream === true || sourceFormat === FORMATS.ANTIGRAVITY || sourceFormat === FORMATS.GEMINI || sourceFormat === FORMATS.GEMINI_CLI;
+  const preTranslateRtk = provider === "cursor"
+    ? compressMessages(body, isTokenSaverEnabled(clientRawRequest?.headers) && rtkEnabled)
+    : null;
   const providerRequiresStreaming = PROVIDERS[provider]?.forceStream === true || getModelForceStream(alias, model);
   let stream = providerRequiresStreaming ? true : (sourceFormat === FORMATS.CLAUDE ? body.stream === true : body.stream !== false);
 
@@ -231,8 +238,8 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   }
 
   // Dedupe duplicate built-in tools when equivalent MCP tools are present (Claude clients only).
-  if (clientTool === "claude" && Array.isArray(translatedBody.tools)) {
-    const { tools: deduped, stripped } = dedupeTools(translatedBody.tools);
+  if (Array.isArray(translatedBody.tools)) {
+    const { tools: deduped, stripped } = dedupeTools(translatedBody.tools, { clientTool, model });
     if (stripped.length > 0) {
       translatedBody.tools = deduped;
       log?.debug?.("TOOLDEDUP", `stripped ${stripped.length}: ${stripped.slice(0, 3).join(", ")}${stripped.length > 3 ? "..." : ""}`);
@@ -284,7 +291,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const tokenSaverEnabled = isTokenSaverEnabled(clientRawRequest?.headers);
 
   // RTK: compress tool_result content
-  const rtkStats = compressMessages(translatedBody, tokenSaverEnabled && rtkEnabled);
+  const rtkStats = preTranslateRtk || compressMessages(translatedBody, tokenSaverEnabled && rtkEnabled);
   const rtkLine = formatRtkLog(rtkStats);
   if (rtkLine) console.log(rtkLine);
 
@@ -454,7 +461,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       // refreshWithRetry's 2nd/3rd attempt reuses the already-consumed RT →
       // invalid_grant → auth_failed retryable=false.
       const newCredentials = await refreshWithRetry(async () => {
-        const result = await executor.refreshCredentials(credentials, log);
+        const result = await executor.refreshCredentials(credentials, log, proxyOptions);
         if (result?.refreshToken && result.refreshToken !== credentials.refreshToken) {
           if (result.accessToken) credentials.accessToken = result.accessToken;
           credentials.refreshToken = result.refreshToken;
