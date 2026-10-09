@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getAdapter } from "../../src/lib/db/driver.js";
 
 import {
   createProviderConnection,
@@ -28,6 +29,25 @@ async function seed(provider, n) {
 }
 
 describe("provider insert is O(1) in pool size (#4311)", () => {
+  it.each([
+    ["gaps", [2, 7, 11]],
+    ["duplicates", [7, 7, 11]],
+  ])("appends above legacy %s without rewriting the pool", async (label, priorities) => {
+    const provider = `openai-compatible-legacy-${label}-${Date.now()}`;
+    await seed(provider, priorities.length);
+    const db = await getAdapter();
+    priorities.forEach((priority, i) => db.run(
+      "UPDATE providerConnections SET priority = ? WHERE provider = ? AND name = ?",
+      [priority, provider, `seed-${i}`],
+    ));
+    const appended = await createProviderConnection({ provider, authType: "apikey", name: "appended", apiKey: "new" });
+    expect(appended.priority).toBe(12);
+    const list = await getProviderConnections({ provider });
+    expect(list.map((connection) => connection.priority)).toEqual([...priorities, 12]);
+    expect(list.filter((connection) => connection.id !== appended.id).map((connection) => connection.apiKey).sort())
+      .toEqual(["k0", "k1", "k2"]);
+  });
+
   it("assigns sequential priorities without a renumber pass", async () => {
     const P = `openai-compatible-seq-${Date.now()}`;
     await seed(P, 3);
@@ -112,17 +132,16 @@ describe("name collision no longer destroys a key silently (#4311)", () => {
     expect(after.apiKey).toBe("REPLACEMENT-KEY");
   });
 
-  it("defaults to the previous overwrite behaviour for existing callers", async () => {
-    // Every other call site in the repo (oauth routes, bulk import) omits the
-    // flag, so they must keep working exactly as before.
+  it("rejects an omitted overwrite flag without changing credentials", async () => {
     const orig = await original;
-    const updated = await createProviderConnection({
+    const before = (await getProviderConnections({ provider: P }))[0];
+    await expect(createProviderConnection({
       provider: P,
       authType: "apikey",
       name: orig.name,
       apiKey: "LEGACY-PATH-KEY",
-    });
-    expect(updated.id).toBe(orig.id);
+    })).rejects.toMatchObject({ code: "PROVIDER_NAME_CONFLICT", existingId: orig.id });
+    expect((await getProviderConnections({ provider: P }))[0]).toEqual(before);
   });
 
   it("does not collide across different providers", async () => {

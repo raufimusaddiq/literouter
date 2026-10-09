@@ -42,7 +42,7 @@ function comboSeatCapabilities(seat) {
   const slash = seat.indexOf("/");
   if (slash <= 0) return null;
   const alias = seat.slice(0, slash);
-  return getCapabilitiesForModel(ALIAS_TO_PROVIDER_ID[alias] || alias, seat.slice(slash + 1));
+  return getCapabilitiesForModel(resolveProviderId(alias), seat.slice(slash + 1));
 }
 
 // Per-provider live model resolvers. Each receives a connection record and

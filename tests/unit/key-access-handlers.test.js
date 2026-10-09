@@ -8,6 +8,7 @@ const fx = vi.hoisted(() => ({
     { id: "c1", name: "Main", models: ["openai/model-a", "openai/model-b"] },
   ],
   keys: {},
+  providerConnections: [],
 }));
 const mocks = vi.hoisted(() => ({
   getProviderCredentials: vi.fn(),
@@ -20,7 +21,7 @@ vi.mock("@/lib/localDb", () => ({
   getComboByName: async (name) => fx.combos.find((c) => c.name === name) || null,
   getProviderNodes: async () => [],
   getCombos: async () => fx.combos,
-  getProviderConnections: async () => [],
+  getProviderConnections: async () => fx.providerConnections,
   getProviderConnectionById: async () => null,
   getCustomModels: async () => [],
 }));
@@ -68,12 +69,12 @@ const post = (path, body, k, extra = {}) => new Request(`http://localhost${path}
 beforeEach(() => {
   vi.clearAllMocks();
   fx.keys = {
-    "sk-open": { id: "o", name: "open", isActive: true, access: { restricted: false, allow: [] } },
-    "sk-combo": { id: "c", name: "combo", isActive: true, access: { restricted: true, allow: ["Main"] } },
-    "sk-b": { id: "b", name: "b", isActive: true, access: { restricted: true, allow: ["openai/model-b"] } },
-    "sk-empty": { id: "e", name: "empty", isActive: true, access: { restricted: true, allow: [] } },
+    "sk-open": { id: "o", key: "sk-open", name: "open", isActive: true, access: { restricted: false, allow: [] } },
+    "sk-combo": { id: "c", key: "sk-combo", name: "combo", isActive: true, access: { restricted: true, allow: ["Main"] } },
+    "sk-b": { id: "b", key: "sk-b", name: "b", isActive: true, access: { restricted: true, allow: ["openai/model-b"] } },
+    "sk-empty": { id: "e", key: "sk-empty", name: "empty", isActive: true, access: { restricted: true, allow: [] } },
     "sk-media": {
-      id: "m", name: "media", isActive: true,
+      id: "m", key: "sk-media", name: "media", isActive: true,
       access: {
         restricted: true,
         allow: ["openai/text-embedding-3-small", "openai/dall-e-3", "openai/tts-1", "openai/whisper-1",
@@ -81,6 +82,10 @@ beforeEach(() => {
       },
     },
   };
+  fx.providerConnections = [{
+    id: "conn-openai", provider: "openai", isActive: true, apiKey: "sk-test",
+    providerSpecificData: {},
+  }];
   mocks.getProviderCredentials.mockResolvedValue(null);
   // model-a always fails upstream (500), so a combo of [model-a, model-b] only
   // succeeds by failing over to model-b.
@@ -188,7 +193,7 @@ describe("/v1/models routes filter by key", () => {
     expect(all).toContain("Main");
     const someModel = all.find((id) => id.startsWith("openai/"));
     expect(someModel).toBeTruthy();
-    fx.keys["sk-mix"] = { id: "x", name: "mix", isActive: true, access: { restricted: true, allow: ["Main", someModel.toUpperCase()] } };
+    fx.keys["sk-mix"] = { id: "x", key: "sk-mix", name: "mix", isActive: true, access: { restricted: true, allow: ["Main", someModel.toUpperCase()] } };
     expect(await list("sk-mix")).toEqual(["Main", someModel]);
     expect(await list("sk-combo")).toEqual(["Main"]);
     expect(await list("sk-empty")).toEqual([]);

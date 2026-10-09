@@ -134,8 +134,12 @@ function resolveFormat(targetFormat, model, provider) {
   const caps = getCapabilitiesForModel(provider, model);
   const isOpenAIWire = targetFormat === "openai" || targetFormat === "openai-responses";
   if (caps.thinkingFormat === "openai-responses") return "openai-responses";
-  if (!caps.thinkingFormat && provider === "muse" && targetFormat === "openai-responses") return "openai-responses";
   if (caps.thinkingFormat && !(isOpenAIWire && NATIVE_ONLY_FORMATS.has(caps.thinkingFormat))) {
+    // Muse (Meta) strict Responses API rejects top-level reasoning_effort and
+    // requires nested reasoning: { effort, summary }.
+    if (targetFormat === "openai-responses") {
+      return "openai-responses";
+    }
     return caps.thinkingFormat;
   }
   return FORMAT_TO_NATIVE[targetFormat] || "openai";

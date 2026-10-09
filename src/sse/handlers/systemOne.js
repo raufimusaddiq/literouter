@@ -62,7 +62,7 @@ export function isCustomSystemOneProvider(providerId) {
   return typeof providerId === "string" && providerId.startsWith("systemone-");
 }
 
-async function resolveSystemOneNodeByPrefix(displayPrefix) {
+export async function resolveSystemOneNodeByPrefix(displayPrefix) {
   const nodes = await getProviderNodes({ type: "systemone" });
   const node = nodes.find((n) => n.prefix === displayPrefix);
   return node?.id || null;
@@ -119,17 +119,10 @@ export async function handleSystemOne(request) {
   }
 
   const keyAccess = await getKeyAccessContext(request);
-  const rawModel = typeof parsedBody?.model === "string" ? parsedBody.model.trim() : "";
-  const [rawPrefix, ...rawRest] = rawModel.split("/");
-  const rawProvider = rawRest.length
-    ? (isCustomSystemOneProvider(rawPrefix) ? rawPrefix : await resolveSystemOneNodeByPrefix(rawPrefix) || rawPrefix)
-    : "typesafe";
-  const rawModelId = rawRest.length ? rawRest.join("/") : rawModel;
-  const keyAccessDenied = await enforceKeyAccessResolved(keyAccess, parsedBody?.model, rawProvider, rawModelId);
-  if (keyAccessDenied) return keyAccessDenied;
-
   const input = await normalizeSystemOneRequest(parsedBody);
   if (input.error) return systemOneError(400, input.error);
+  const keyAccessDenied = await enforceKeyAccessResolved(keyAccess, input.body.model, input.provider, input.model);
+  if (keyAccessDenied) return keyAccessDenied;
 
   const { provider, model, body } = input;
   // Custom node resolution happens once per request; getProviderNodeById is

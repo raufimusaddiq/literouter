@@ -639,6 +639,14 @@ const COMMANDCODE_TEXT_ONLY = new Set([
   "inclusionai/ling-3.0-flash-sante:free",
 ]);
 
+// Capability tables are keyed by provider ID; registry aliases stay user-facing.
+const ALIAS_TO_PROVIDER_ID = {};
+for (const entry of REGISTRY) {
+  ALIAS_TO_PROVIDER_ID[entry.id] = entry.id;
+  if (entry.alias) ALIAS_TO_PROVIDER_ID[entry.alias] = entry.id;
+  for (const alias of entry.aliases || []) ALIAS_TO_PROVIDER_ID[alias] = entry.id;
+}
+
 function isCommandCodeTextOnly(model) {
   const key = String(model || "").toLowerCase();
   if (COMMANDCODE_TEXT_ONLY.has(key)) return true;
@@ -648,8 +656,10 @@ function isCommandCodeTextOnly(model) {
   }
   return false;
 }
-export function getCapabilitiesForModel(provider, model) {
+export function getCapabilitiesForModel(providerInput, model) {
   if (!model) return { ...DEFAULT_CAPABILITIES };
+
+  const provider = ALIAS_TO_PROVIDER_ID[providerInput] || providerInput;
 
   // Canonical exact lookup strips vendor prefix: "anthropic/claude-opus-4.7" -> "claude-opus-4.7".
   const baseModel = model.includes("/") ? model.split("/").pop() : model;

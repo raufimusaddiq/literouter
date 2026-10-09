@@ -2,6 +2,7 @@
 
 - **Intake fixes**: restore OpenAI-Responses thinking wire format, GLM 5.2/5.3 1M context windows, nested combo seat limits, `/v1/models?kind=`, System One auth ordering, tool-name mapping, and the Combos page nested lookup prop.
 - **Chat routing**: restore Cursor pre-translate RTK, Codex compaction validation, cross-provider tool dedupe, and proxy-aware credential refresh.
+- **Models**: resolve provider aliases before capability lookup so provider-specific catalog limits apply consistently.
 - **Models**: fix combo capability aggregation, restore Claude Sonnet 5.5 and GLM 5.3 limits, and filter `/v1/models/{kind}` lookups by API-key access.
 - **Providers**: restore Muse Spark Responses routing and Netlify relay pool resolution.
 - **Models**: resolve nested combo seat limits through the same resolver as combo capabilities, preserving provider-scoped context limits.
