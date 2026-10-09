@@ -15,6 +15,7 @@
 - **Models**: restore Sonnet 5.5 pattern matching, OpenCode Go Luna/GPM overrides, and catalog-backed combo capabilities.
 - **Providers**: declare the Muse Responses transport so Responses-only models route to the matching endpoint.
 - **Migrations**: create `kv` before legacy-data cleanup, and preserve relay header filtering for compressed responses.
+- **Models**: import the provider registry so capability lookups resolve aliases without a startup error.
 
 ## Upstream Core Fixes (2026-10-07)
 - **Claude**: cache final tool results within the existing four-breakpoint budget.

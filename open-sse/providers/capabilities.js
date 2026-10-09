@@ -36,6 +36,7 @@
 // 2.0+, Grok, Perplexity). Verify with: curl -s https://models.dev/api.json
 
 import { matchPattern } from "./pricing.js";
+import REGISTRY from "./registry/index.js";
 import { looksLikeVisionModel } from "./visionPatterns.js";
 
 /**
