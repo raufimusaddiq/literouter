@@ -520,8 +520,8 @@ export function aggregateComboCapabilities(comboModels, comboLookup = null, reso
   const allCaps = comboModels.map((fullId) => {
     // Nested combo: bare name (no slash) that exists in the lookup — recurse
     if (!fullId.includes("/") && comboLookup?.[fullId]) {
-      return aggregateComboCapabilities(comboLookup[fullId], comboLookup, resolveCaps, _depth + 1)
-          ?? resolveCaps?.(fullId)
+      return resolveCaps?.(fullId)
+          ?? aggregateComboCapabilities(comboLookup[fullId], comboLookup, resolveCaps, _depth + 1)
           ?? getCapabilitiesForModel(null, fullId);
     }
     const slash = fullId.indexOf("/");

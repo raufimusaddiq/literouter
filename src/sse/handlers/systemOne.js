@@ -8,7 +8,7 @@ import {
 } from "../services/auth.js";
 import { PROVIDERS } from "open-sse/config/providers.js";
 import { getModelsByProviderId } from "open-sse/config/providerModels.js";
-import { getKeyAccessContext, enforceKeyAccessResolved } from "../services/keyAccess.js";
+import { getKeyAccessContext, enforceKeyAccessResolved, enforceKeyAccess } from "../services/keyAccess.js";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 import { extractUsageFromResponse, saveUsageStats } from "open-sse/handlers/chatCore/requestDetail.js";
 import { trackPendingRequest } from "@/lib/usageDb.js";

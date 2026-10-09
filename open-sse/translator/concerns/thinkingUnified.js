@@ -129,9 +129,11 @@ const NATIVE_ONLY_FORMATS = new Set(["gemini-level", "gemini-budget", "claude-bu
 
 function resolveFormat(targetFormat, model, provider) {
   if (targetFormat === "commandcode") return "commandcode";
+  if (provider === "codex" && /gpt-5\.6-(sol|terra|luna)/.test(model)) return "openai";
   const providerFmt = provider ? PROVIDERS[provider]?.thinkingFormat : null;
   if (providerFmt) return providerFmt;
   const caps = getCapabilitiesForModel(provider, model);
+  // Codex GPT-5.6 executor normalizes nested reasoning before its Responses transport.
   const isOpenAIWire = targetFormat === "openai" || targetFormat === "openai-responses";
   if (caps.thinkingFormat === "openai-responses") return "openai-responses";
   if (caps.thinkingFormat && !(isOpenAIWire && NATIVE_ONLY_FORMATS.has(caps.thinkingFormat))) {
@@ -167,8 +169,8 @@ function toLevel(cfg) {
   return null;
 }
 
-function normalizeOpenAILevel(level, supportedLevels) {
-  if (level === "minimal" && supportedLevels && !supportedLevels.includes("minimal") && supportedLevels.includes("low")) {
+function normalizeOpenAILevel(level, supportedLevels, responsesMinimalClamp = false) {
+  if (level === "minimal" && (responsesMinimalClamp || (supportedLevels && !supportedLevels.includes("minimal") && supportedLevels.includes("low")))) {
     return "low";
   }
   if (level !== "max" && level !== "ultra") return level;
@@ -260,7 +262,7 @@ function stripAll(body) {
 }
 
 // Apply unified thinking config to body in the resolved provider-native format.
-function applyFormat(fmt, body, cfg, caps, supportedLevels, display) {
+function applyFormat(fmt, body, cfg, caps, supportedLevels, display, responsesMinimalClamp) {
   const none = cfg.mode === "none";
   const canDisable = caps.thinkingCanDisable !== false;
   // Model cannot disable thinking → clamp "none" to minimal effort instead.
@@ -270,7 +272,9 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels, display) {
     case "openai": {
       if (none && canDisable) { body.reasoning_effort = "none"; break; }
       const level = toLevel(eff);
-      if (level) body.reasoning_effort = normalizeOpenAILevel(level, supportedLevels);
+      if (level) {
+        body.reasoning_effort = normalizeOpenAILevel(level, supportedLevels, responsesMinimalClamp);
+      }
       break;
     }
     case "openai-responses": {
@@ -278,7 +282,7 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels, display) {
       const level = toLevel(eff);
       body.reasoning = { summary: "auto" };
       if (level && level !== "auto") {
-        body.reasoning.effort = normalizeOpenAILevel(level, supportedLevels);
+        body.reasoning.effort = normalizeOpenAILevel(level, supportedLevels, responsesMinimalClamp);
       }
       break;
     }
@@ -420,11 +424,13 @@ export function applyThinking(targetFormat, model, body, provider = null, intent
 
   const fmt = resolveFormat(targetFormat, cleanModel, provider);
   const supportedLevels = getThinkingLevels(provider, cleanModel);
+  const responsesMinimalClamp = targetFormat === "openai-responses"
+    && supportedLevels?.includes("minimal");
   // Anthropic's `display` (summarized | omitted) decides whether thinking text
   // comes back at all; keep what the client asked for instead of resetting it.
   // An OpenAI-shaped client's ask arrives via the captured intent instead.
   const display = typeof body.thinking?.display === "string" ? body.thinking.display : intent?.display;
   stripAll(body);
-  applyFormat(fmt, body, cfg, caps, supportedLevels, display);
+  applyFormat(fmt, body, cfg, caps, supportedLevels, display, responsesMinimalClamp);
   return body;
 }

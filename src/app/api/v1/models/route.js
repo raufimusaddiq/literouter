@@ -39,11 +39,18 @@ const ALIAS_TO_PROVIDER_ID = {
   ...ALIAS_TO_ID,
 };
 
-function comboSeatCapabilities(seat) {
-  const slash = seat.indexOf("/");
-  if (slash <= 0) return null;
-  const alias = seat.slice(0, slash);
-  return getCapabilitiesForModel(resolveProviderId(alias), seat.slice(slash + 1));
+function makeComboSeatResolver(nestedComboModels) {
+  const comboSeatCapabilities = (seat) => {
+    const slash = seat.indexOf("/");
+    if (slash <= 0) {
+      const nested = nestedComboModels?.get(seat);
+      if (!nested) return null;
+      return aggregateComboCapabilities(nested, nestedComboModels, comboSeatCapabilities);
+    }
+    const alias = seat.slice(0, slash);
+    return getCapabilitiesForModel(resolveProviderId(alias), seat.slice(slash + 1));
+  };
+  return comboSeatCapabilities;
 }
 
 // Per-provider live model resolvers. Each receives a connection record and
@@ -280,7 +287,7 @@ function comboMatchesKinds(combo, kindFilter) {
 // treated as a literal model and publishes the 200k floor. Expand nested
 // names (cycle-guarded) so the published window is the true min across the
 // whole chain.
-function comboSeatLimits(combo, combosByName, visiting = new Set()) {
+function comboSeatLimits(combo, combosByName, comboSeatNestedNames, visiting = new Set()) {
   const name = typeof combo?.name === "string" ? combo.name : null;
   if (name) {
     if (visiting.has(name)) return { contextWindow: undefined, maxOutput: undefined };
@@ -296,13 +303,13 @@ function comboSeatLimits(combo, combosByName, visiting = new Set()) {
       if (slash <= 0) {
         const nested = combosByName.get(seat);
         if (nested) {
-          const nestedLimits = comboSeatLimits(nested, combosByName, visiting);
+          const nestedLimits = comboSeatLimits(nested, combosByName, comboSeatNestedNames, visiting);
           if (Number.isFinite(nestedLimits.contextWindow)) contextWindow = Math.min(contextWindow, nestedLimits.contextWindow);
           if (Number.isFinite(nestedLimits.maxOutput)) maxOutput = Math.min(maxOutput, nestedLimits.maxOutput);
           continue;
         }
       }
-      const caps = aggregateComboCapabilities([seat], null, comboSeatCapabilities);
+      const caps = aggregateComboCapabilities([seat], null, makeComboSeatResolver(comboSeatNestedNames));
       if (Number.isFinite(caps?.contextWindow)) contextWindow = Math.min(contextWindow, caps.contextWindow);
       if (Number.isFinite(caps?.maxOutput)) maxOutput = Math.min(maxOutput, caps.maxOutput);
     }
@@ -373,6 +380,11 @@ export async function buildModelsList(kindFilter, options = {}) {
   const combosByName = new Map(
     combos.filter((c) => typeof c?.name === "string").map((c) => [c.name, c]),
   );
+  const comboSeatNestedNames = new Map(
+    [...combosByName.entries()]
+      .filter(([, combo]) => Array.isArray(combo.models))
+      .map(([name, combo]) => [name, combo.models]),
+  );
 
   // Combos first (filtered by kind).
   for (const combo of combos) {
@@ -385,13 +397,13 @@ export async function buildModelsList(kindFilter, options = {}) {
     if (combo.kind === "webSearch" || combo.kind === "webFetch") {
       entry.kind = combo.kind;
     } else {
-      const comboCaps = aggregateComboCapabilities(combo.models, combosByName, comboSeatCapabilities);
+      const comboCaps = aggregateComboCapabilities(combo.models, combosByName, makeComboSeatResolver(comboSeatNestedNames));
       if (comboCaps) entry.capabilities = comboCaps;
       // Any seat can serve the request, so the only window a combo can promise is
       // its smallest. Combo entries were the only models on this endpoint that
       // published no limits at all, which leaves a client to guess from the name —
       // and it guesses high (see the snake_case note on the per-provider path).
-      const { contextWindow, maxOutput } = comboSeatLimits(combo, combosByName);
+      const { contextWindow, maxOutput } = comboSeatLimits(combo, combosByName, comboSeatNestedNames);
       if (Number.isFinite(contextWindow)) entry.context_length = contextWindow;
       if (Number.isFinite(maxOutput)) entry.max_completion_tokens = maxOutput;
     }

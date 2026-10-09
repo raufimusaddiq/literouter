@@ -1,5 +1,8 @@
 # v0.5.82 (unreleased)
 
+- **Models**: resolve nested combo capabilities through provider-aware seat lookups before default fallbacks.
+- **Thinking**: keep Codex GPT-5.6 reasoning effort in Chat Completions wire form for Responses requests, with Responses-only minimal clamping for Codex Luna.
+- **System One**: import the API-key model-access enforcement helper used by request validation.
 - **Models**: preserve provider aliases in combo seat capability lookup and carry Grok CLI proxy-pool policy through model discovery.
 - **Muse**: keep the shared Muse Spark thinking wire on OpenAI Chat while preserving the Responses transport.
 - **System One**: resolve API-key model access before request validation so restricted keys cannot probe catalog behavior.
