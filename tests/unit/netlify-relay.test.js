@@ -133,7 +133,7 @@ describe("netlifyRelay helpers", () => {
   it("pollDeployReady resolves on ready and throws on error/timeout", async () => {
     const ready = await net.pollDeployReady(
       "d1", "tok",
-      async () => ({ json: async () => ({ state: "ready", id: "d1" }) }),
+      async () => ({ ok: true, json: async () => ({ state: "ready", id: "d1" }) }),
       5000, 5
     );
     expect(ready.id).toBe("d1");
@@ -141,7 +141,7 @@ describe("netlifyRelay helpers", () => {
     await expect(
       net.pollDeployReady(
         "d1", "tok",
-        async () => ({ json: async () => ({ state: "error", error_message: "boom" }) }),
+        async () => ({ ok: true, json: async () => ({ state: "error", error_message: "boom" }) }),
         5000, 5
       )
     ).rejects.toThrow("boom");
@@ -153,7 +153,7 @@ describe("netlifyRelay helpers", () => {
     await expect(
       net.pollDeployReady(
         "d1", "tok",
-        async () => ({ json: async () => ({ state: "building" }) }),
+        async () => ({ ok: true, json: async () => ({ state: "building" }) }),
         30, 5
       )
     ).rejects.toThrow(/timed out/);

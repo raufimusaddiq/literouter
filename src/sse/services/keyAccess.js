@@ -188,7 +188,7 @@ export async function filterModelsListForKey(ctx, list) {
       continue;
     }
     const info = await getModelInfo(entry.id);
-    if (!info?.provider) continue;
+    if (!info?.provider) { out.push(entry); continue; }
     if (KEY_ACCESS_PROVIDER_AS_MODEL_KINDS.includes(entry.kind)) {
       if (sets.providers.has(lower(info.provider))) out.push(entry);
       continue;

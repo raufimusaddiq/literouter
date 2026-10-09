@@ -237,6 +237,7 @@ export default function CombosPage() {
         <div className="flex flex-col gap-4">
           {combos.map((combo) => (
             <ComboCard
+              comboByName={comboByName}
               key={combo.id}
               combo={combo}
               getCaps={getCaps}
@@ -301,7 +302,7 @@ const STRATEGY_OPTIONS = [
   { value: "fusion", label: "Fusion — panel + judge" },
 ];
 
-function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdit, onDelete, strategy = {}, onSetStrategy }) {
+function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, onCopy, onEdit, onDelete, strategy = {}, onSetStrategy }) {
   const [showJudgeSelect, setShowJudgeSelect] = useState(false);
   const current = strategy.fallbackStrategy || "fallback";
   const judge = strategy.judgeModel || "";

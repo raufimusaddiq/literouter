@@ -106,12 +106,6 @@ async function recordSystemOneUsage(response, provider, model, connectionId, api
 }
 
 export async function handleSystemOne(request) {
-  const clientApiKey = extractApiKey(request);
-  const settings = await getSettings();
-  if (settings.requireApiKey && (!clientApiKey || !(await isValidApiKey(clientApiKey)))) {
-    return systemOneError(401, clientApiKey ? "Invalid API key" : "Missing API key");
-  }
-
   let input;
   try {
     input = await normalizeSystemOneRequest(await request.json());
@@ -119,6 +113,12 @@ export async function handleSystemOne(request) {
     return systemOneError(400, "Invalid JSON body");
   }
   if (input.error) return systemOneError(400, input.error);
+
+  const clientApiKey = extractApiKey(request);
+  const settings = await getSettings();
+  if (settings.requireApiKey && (!clientApiKey || !(await isValidApiKey(clientApiKey)))) {
+    return systemOneError(401, clientApiKey ? "Invalid API key" : "Missing API key");
+  }
 
   const keyAccess = await getKeyAccessContext(request);
   const keyAccessDenied = await enforceKeyAccessResolved(keyAccess, input.body.model, input.provider, input.model);

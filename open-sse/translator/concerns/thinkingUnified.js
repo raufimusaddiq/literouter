@@ -134,11 +134,6 @@ function resolveFormat(targetFormat, model, provider) {
   const caps = getCapabilitiesForModel(provider, model);
   const isOpenAIWire = targetFormat === "openai" || targetFormat === "openai-responses";
   if (caps.thinkingFormat && !(isOpenAIWire && NATIVE_ONLY_FORMATS.has(caps.thinkingFormat))) {
-    // Muse (Meta) strict Responses API rejects top-level reasoning_effort and
-    // requires nested reasoning: { effort, summary }. Other upstreams keep Chat-shaped effort.
-    if (targetFormat === "openai-responses") {
-      return "openai-responses";
-    }
     return caps.thinkingFormat;
   }
   return FORMAT_TO_NATIVE[targetFormat] || "openai";
@@ -273,19 +268,12 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels, display) {
       break;
     }
     case "openai-responses": {
-      // The Responses API nests effort: reasoning:{effort,summary}. A top-level
-      // reasoning_effort is rejected by strict upstreams (Meta: "unknown
-      // parameter `reasoning_effort`"). "none" is expressed by omitting reasoning.
-      if (none && canDisable) { delete body.reasoning; break; }
+      if (none && canDisable) { body.reasoning = { effort: "none", summary: "auto" }; break; }
       const level = toLevel(eff);
-      if (level) {
-        const current = body.reasoning && typeof body.reasoning === "object" && !Array.isArray(body.reasoning)
-          ? body.reasoning
-          : {};
-        body.reasoning = { ...current, effort: normalizeOpenAILevel(level, supportedLevels) };
-        if (!body.reasoning.summary) body.reasoning.summary = "auto";
+      body.reasoning = { summary: "auto" };
+      if (level && level !== "auto") {
+        body.reasoning.effort = normalizeOpenAILevel(level, supportedLevels);
       }
-      delete body.reasoning_effort;
       break;
     }
     case "claude-adaptive": {
