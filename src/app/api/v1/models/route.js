@@ -300,7 +300,7 @@ function comboSeatLimits(combo, combosByName, visiting = new Set()) {
           continue;
         }
       }
-      const caps = comboSeatCapabilities(seat) || getCapabilitiesForModel(null, seat);
+      const caps = aggregateComboCapabilities([seat], null, comboSeatCapabilities);
       if (Number.isFinite(caps?.contextWindow)) contextWindow = Math.min(contextWindow, caps.contextWindow);
       if (Number.isFinite(caps?.maxOutput)) maxOutput = Math.min(maxOutput, caps.maxOutput);
     }

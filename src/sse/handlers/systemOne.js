@@ -106,14 +106,12 @@ async function recordSystemOneUsage(response, provider, model, connectionId, api
 }
 
 export async function handleSystemOne(request) {
-  let input;
+  let parsedBody;
   try {
-    input = await normalizeSystemOneRequest(await request.json());
+    parsedBody = await request.json();
   } catch {
     return systemOneError(400, "Invalid JSON body");
   }
-  if (input.error) return systemOneError(400, input.error);
-
   const clientApiKey = extractApiKey(request);
   const settings = await getSettings();
   if (settings.requireApiKey && (!clientApiKey || !(await isValidApiKey(clientApiKey)))) {
@@ -121,8 +119,17 @@ export async function handleSystemOne(request) {
   }
 
   const keyAccess = await getKeyAccessContext(request);
-  const keyAccessDenied = await enforceKeyAccessResolved(keyAccess, input.body.model, input.provider, input.model);
+  const rawModel = typeof parsedBody?.model === "string" ? parsedBody.model.trim() : "";
+  const [rawPrefix, ...rawRest] = rawModel.split("/");
+  const rawProvider = rawRest.length
+    ? (isCustomSystemOneProvider(rawPrefix) ? rawPrefix : await resolveSystemOneNodeByPrefix(rawPrefix) || rawPrefix)
+    : "typesafe";
+  const rawModelId = rawRest.length ? rawRest.join("/") : rawModel;
+  const keyAccessDenied = await enforceKeyAccessResolved(keyAccess, parsedBody?.model, rawProvider, rawModelId);
   if (keyAccessDenied) return keyAccessDenied;
+
+  const input = await normalizeSystemOneRequest(parsedBody);
+  if (input.error) return systemOneError(400, input.error);
 
   const { provider, model, body } = input;
   // Custom node resolution happens once per request; getProviderNodeById is

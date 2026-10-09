@@ -133,6 +133,8 @@ function resolveFormat(targetFormat, model, provider) {
   if (providerFmt) return providerFmt;
   const caps = getCapabilitiesForModel(provider, model);
   const isOpenAIWire = targetFormat === "openai" || targetFormat === "openai-responses";
+  if (caps.thinkingFormat === "openai-responses") return "openai-responses";
+  if (!caps.thinkingFormat && provider === "muse" && targetFormat === "openai-responses") return "openai-responses";
   if (caps.thinkingFormat && !(isOpenAIWire && NATIVE_ONLY_FORMATS.has(caps.thinkingFormat))) {
     return caps.thinkingFormat;
   }
