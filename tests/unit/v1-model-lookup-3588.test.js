@@ -6,6 +6,15 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../../src/app/api/v1/models/route.js", () => ({
   buildModelsList: mocks.buildModelsList,
+  LLM_KIND: "llm",
+  MODEL_TYPE_TO_KIND: {
+    image: "image",
+    tts: "tts",
+    embedding: "embedding",
+    stt: "stt",
+    imageToText: "imageToText",
+    video: "video",
+  },
 }));
 
 const { GET } = await import("../../src/app/api/v1/models/[...model]/route.js");

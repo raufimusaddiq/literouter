@@ -1,6 +1,7 @@
 # v0.5.82 (unreleased)
 
 - **Models**: restore single-segment `/v1/models/{kind}` catalog lookups while keeping key-access filtering.
+- **System One**: enforce resolved provider/model access after request normalization.
 - **Tests**: isolate provider priority tests from the real user database.
 - **Models**: resolve nested combo capabilities through provider-aware seat lookups before default fallbacks.
 - **Thinking**: keep Codex GPT-5.6 reasoning effort in Chat Completions wire form for Responses requests, with Responses-only minimal clamping for Codex Luna.

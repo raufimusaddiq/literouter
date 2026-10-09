@@ -127,6 +127,8 @@ export async function handleSystemOne(request) {
   if (input.error) return systemOneError(400, input.error);
 
   const { provider, model, body } = input;
+  const resolvedAccessDenied = await enforceKeyAccessResolved(keyAccess, rawModel, provider, model);
+  if (resolvedAccessDenied) return resolvedAccessDenied;
   // Custom node resolution happens once per request; getProviderNodeById is
   // cache-backed (same pattern as getSettings).
   const customNode = isCustomSystemOneProvider(provider) ? await getProviderNodeById(provider) : null;
