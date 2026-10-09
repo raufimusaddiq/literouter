@@ -3,6 +3,7 @@
 - **Models**: keep single-model `/v1/models/{provider}/{model}` lookups while removed capability-list paths return 404.
 - **Models**: restore `/v1/models/{kind}` key-access-filtered catalog lookups.
 - **Tests**: pin key-access model-kind fixtures to explicit static models, avoiding environment-dependent catalog behavior.
+- **Chat routing**: restore the missing upstream-error header helper import.
 - **Tests**: pin key-access model-kind fixtures to explicit static models, avoiding environment-dependent catalog behavior.
 - **Key access**: include the System One test model in the restricted-key allow-list fixture.
 - **System One**: enforce resolved provider/model access after request normalization.

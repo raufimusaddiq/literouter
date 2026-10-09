@@ -84,7 +84,7 @@ beforeEach(() => {
   };
   fx.providerConnections = [{
     id: "conn-openai", provider: "openai", isActive: true, apiKey: "sk-test",
-    providerSpecificData: { enabledModels: ["text-embedding-3-small"] },
+    providerSpecificData: { enabledModels: ["gpt-4o", "text-embedding-3-small"] },
   }];
   mocks.getProviderCredentials.mockResolvedValue(null);
   // model-a always fails upstream (500), so a combo of [model-a, model-b] only
