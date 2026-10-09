@@ -1,5 +1,5 @@
 # v0.5.82 (unreleased)
-- **Models**: restore single-segment `/v1/models/{kind}` catalog lookups while keeping key-access filtering.
+
 - **Models**: keep single-model `/v1/models/{provider}/{model}` lookups while removed capability-list paths return 404.
 - **Key access**: include the System One test model in the restricted-key allow-list fixture.
 - **System One**: enforce resolved provider/model access after request normalization.
