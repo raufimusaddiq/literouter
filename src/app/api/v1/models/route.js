@@ -3,6 +3,7 @@ import {
   ALIAS_TO_ID,
   AI_PROVIDERS,
   getProviderAlias,
+  resolveProviderId,
   ID_TO_ALIAS,
   isAnthropicCompatibleProvider,
   isOpenAICompatibleProvider,
@@ -124,6 +125,7 @@ const LIVE_MODEL_RESOLVERS = {
         connectionProxyUrl: proxy.connectionProxyUrl || "",
         connectionNoProxy: proxy.connectionNoProxy || "",
         vercelRelayUrl: proxy.vercelRelayUrl || "",
+        proxyPoolId: proxy.proxyPoolId || null,
         strictProxy: proxy.strictProxy === true,
       },
       onCredentialsRefreshed: async (refreshed) => {

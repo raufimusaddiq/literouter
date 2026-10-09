@@ -47,8 +47,7 @@ export async function getApiKeyById(id) {
 // Used by the /v1 handlers to read the presented key's access settings.
 export async function getApiKeyByKey(key) {
   if (!key) return null;
-  const db = await getAdapter();
-  const row = db.get(`SELECT * FROM apiKeys WHERE key = ?`, [key]);
+  const row = (await allKeys()).find((candidate) => candidate.key === key);
   return rowToKey(row);
 }
 

@@ -1,5 +1,10 @@
 # v0.5.82 (unreleased)
 
+- **Models**: preserve provider aliases in combo seat capability lookup and carry Grok CLI proxy-pool policy through model discovery.
+- **Muse**: keep the shared Muse Spark thinking wire on OpenAI Chat while preserving the Responses transport.
+- **System One**: resolve API-key model access before request validation so restricted keys cannot probe catalog behavior.
+- **Database**: serve `/v1` API-key access checks from the existing API-key cache.
+- **Errors**: forward upstream rate-limit headers from provider error responses.
 - **Intake fixes**: restore OpenAI-Responses thinking wire format, GLM 5.2/5.3 1M context windows, nested combo seat limits, `/v1/models?kind=`, System One auth ordering, tool-name mapping, and the Combos page nested lookup prop.
 - **Chat routing**: restore Cursor pre-translate RTK, Codex compaction validation, cross-provider tool dedupe, and proxy-aware credential refresh.
 - **Models**: resolve provider aliases before capability lookup so provider-specific catalog limits apply consistently.

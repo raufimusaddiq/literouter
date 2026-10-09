@@ -119,10 +119,12 @@ export async function handleSystemOne(request) {
   }
 
   const keyAccess = await getKeyAccessContext(request);
+  const rawModel = typeof parsedBody?.model === "string" ? parsedBody.model.trim() : "";
+  const keyAccessDenied = await enforceKeyAccess(keyAccess, rawModel);
+  if (keyAccessDenied) return keyAccessDenied;
+
   const input = await normalizeSystemOneRequest(parsedBody);
   if (input.error) return systemOneError(400, input.error);
-  const keyAccessDenied = await enforceKeyAccessResolved(keyAccess, input.body.model, input.provider, input.model);
-  if (keyAccessDenied) return keyAccessDenied;
 
   const { provider, model, body } = input;
   // Custom node resolution happens once per request; getProviderNodeById is
