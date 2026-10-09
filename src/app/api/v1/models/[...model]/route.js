@@ -1,4 +1,4 @@
-import { buildModelsList, LLM_KIND, MODEL_TYPE_TO_KIND } from "../route.js";
+import { buildModelsList, LLM_KIND } from "../route.js";
 import { getKeyAccessContext, filterModelsListForKey } from "@/sse/services/keyAccess.js";
 
 export async function OPTIONS() {
@@ -37,10 +37,6 @@ export async function GET(request, { params }) {
       await getKeyAccessContext(request),
       await buildModelsList(kindFilter)
     );
-    const isKindLookup = path.length === 1 && (path[0] === LLM_KIND || path[0] in MODEL_TYPE_TO_KIND);
-    if (isKindLookup) {
-      return json({ object: "list", data: models });
-    }
     const matchedModel = models.find((candidate) => candidate.id === identifier);
 
     if (!matchedModel) {

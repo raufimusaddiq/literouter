@@ -78,7 +78,7 @@ beforeEach(() => {
       access: {
         restricted: true,
         allow: ["openai/text-embedding-3-small", "openai/dall-e-3", "openai/tts-1", "openai/whisper-1",
-          "tavily", "openai/gpt-4o", "gemini/gemini-2.5-flash-preview-tts"],
+          "tavily", "openai/gpt-4o", "gemini/gemini-2.5-flash-preview-tts", "typesafe/jev-latest"],
       },
     },
   };
