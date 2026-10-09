@@ -149,7 +149,7 @@ describe("chat (/v1/chat/completions, /v1/messages, /v1/responses all use handle
 
 // Retained non-chat handler: [name, call(model, key), allowedModel, deniedModel]
 const handlers = [
-  ["systemone", (m, k) => handleSystemOne(post("/v1/systemone", { model: m, state: {}, questions: { q: "?" } }, k)), "openai/gpt-4o", "openai/gpt-4.1"],
+  ["systemone", (m, k) => handleSystemOne(post("/v1/systemone", { model: m, state: {}, questions: { q: "?" } }, k)), "typesafe/jev-latest", "typesafe/not-a-model"],
   ["gemini-native-tts", (m, k) => geminiRoute.POST(
     new Request(`http://localhost/v1beta/models/${m}:generateContent`, {
       method: "POST", headers: { "Content-Type": "application/json", ...auth(k) },

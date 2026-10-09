@@ -7,6 +7,7 @@
 - **Proxy pools**: stop Netlify relays from advertising compressed bodies after buffering them and fail deploy polling immediately on status errors.
 - **Database**: create the `kv` table before versioned migration cleanup on legacy databases.
 - **Models**: import the missing combo capability aggregator used by `/v1/models`.
+- **Models**: expose `/v1/models/{kind}` as a kind lookup while preserving single-model 404 behavior, and normalize UI-alias combo seats to provider IDs.
 
 ## Upstream Core Fixes (2026-10-07)
 - **Claude**: cache final tool results within the existing four-breakpoint budget.

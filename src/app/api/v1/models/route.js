@@ -3,6 +3,7 @@ import {
   ALIAS_TO_ID,
   AI_PROVIDERS,
   getProviderAlias,
+  ID_TO_ALIAS,
   isAnthropicCompatibleProvider,
   isOpenAICompatibleProvider,
 } from "@/shared/constants/providers";
@@ -30,6 +31,9 @@ import {
 const ALIAS_TO_PROVIDER_ID = {
   ...Object.fromEntries(
     Object.entries(PROVIDER_ID_TO_ALIAS).map(([id, alias]) => [alias, id])
+  ),
+  ...Object.fromEntries(
+    Object.entries(ID_TO_ALIAS).map(([id, alias]) => [alias, id])
   ),
   ...ALIAS_TO_ID,
 };

@@ -106,6 +106,7 @@ export const MODEL_CAPABILITIES = {
   "claude-sonnet-5-thinking": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
   "claude-sonnet-5-agentic": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
   "claude-sonnet-5-thinking-agentic": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
+  "claude-sonnet-5-5": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
 
   // Gemini image-gen / OpenAI image / xai image variants
   "gpt-image-1":       { imageOutput: true, tools: false },
@@ -431,7 +432,7 @@ export const PATTERN_CAPABILITIES = [
   // will occur if the thinking.type parameter is set to disabled)." Set on the
   // pattern rather than an exact entry so both glm-5.3 and glm-5.3-flash get it
   // while keeping thinkingEffortSupported:true, which the pattern owns. #4409
-  { pattern: "*glm-5.3*",       caps: { reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, thinkingCanDisable: false, contextWindow: 200000, maxOutput: 128000 } },
+  { pattern: "*glm-5.3*",       caps: { reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 131072 } },
   // 5.2 keeps its 1M window. thinkingCanDisable is deliberately NOT set here:
   // the exact MODEL_CAPABILITIES entry for glm-5.2 (added Sep 2026) already
   // declares it false, and that predates this fix — z.ai's docs suggest 5.2 can

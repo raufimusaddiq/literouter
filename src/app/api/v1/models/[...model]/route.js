@@ -39,7 +39,7 @@ export async function GET(request, { params }) {
     // Match the same LLM catalog exposed by GET /v1/models. A catch-all
     // parameter is required because provider-prefixed IDs contain a slash.
     const kind = request.nextUrl?.searchParams?.get("kind");
-    const isKindLookup = path.length === 1 && (MODEL_TYPE_TO_KIND[path[0]] || path[0] === "llm");
+    const isKindLookup = path.length === 1 && (path[0] === "llm" || path[0] in MODEL_TYPE_TO_KIND);
     const kindFilter = isKindLookup ? [MODEL_TYPE_TO_KIND[path[0]] || LLM_KIND] : kind ? [kind] : [LLM_KIND];
     const models = await buildModelsList(kindFilter);
     if (isKindLookup) {
