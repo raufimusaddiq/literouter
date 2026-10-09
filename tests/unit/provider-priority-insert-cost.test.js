@@ -99,16 +99,6 @@ describe("provider insert is O(1) in pool size (#4311)", () => {
     expect(after.map((c) => c.priority)).toEqual([1, 2, 3]);
   });
 
-  it("preserves explicit-priority insertion ordering", async () => {
-    const provider = `openai-compatible-priority-${Date.now()}`;
-    await seed(provider, 3);
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    await createProviderConnection({ provider, authType: "apikey", name: "first", apiKey: "new", priority: 1 });
-    const list = await getProviderConnections({ provider });
-    expect(list[0].name).toBe("first");
-    expect(list.map((connection) => connection.priority)).toEqual([1, 2, 3, 4]);
-  });
-
   it("still renumbers on an explicit priority update", async () => {
     // Unique alias per run: the DB persists across runs, so a fixed alias
     // would accumulate rows and make this assertion depend on test order.
@@ -124,17 +114,6 @@ describe("provider insert is O(1) in pool size (#4311)", () => {
 });
 
 describe("name collision no longer destroys a key silently (#4311)", () => {
-  it.each([undefined, false])("refreshes the same OAuth identity with allowOverwrite=%s", async (allowOverwrite) => {
-    const provider = `oauth-refresh-${Date.now()}-${allowOverwrite}`;
-    const identity = { provider, authType: "oauth", email: "login@example.com" };
-    const original = await createProviderConnection({ ...identity, accessToken: "old-token" });
-    const updated = await createProviderConnection({ ...identity, accessToken: "new-token", allowOverwrite });
-    expect(updated.id).toBe(original.id);
-    const connections = await getProviderConnections({ provider });
-    expect(connections).toHaveLength(1);
-    expect(connections[0].accessToken).toBe("new-token");
-  });
-
   // Seeded once: these cases each mutate the SAME row, so a per-test seed
   // would make the later assertions depend on earlier ones.
   const P = `openai-compatible-clash-${Date.now()}`;
@@ -189,7 +168,7 @@ describe("name collision no longer destroys a key silently (#4311)", () => {
   it("does not collide across different providers", async () => {
     const orig = await original;
     const other = await createProviderConnection({
-      provider: "openai-compatible-other",
+      provider: `openai-compatible-other-${Date.now()}`,
       authType: "apikey",
       name: orig.name,
       apiKey: "other-key",

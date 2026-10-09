@@ -183,8 +183,10 @@ export async function getProviderConnectionById(id) {
 // Normalizes priorities to a contiguous 1..N after a DELETE or an explicit
 // reorder, so gaps don't accumulate over time.
 //
-// Default inserts append via MAX(priority)+1 without rewriting existing rows.
-// Explicit priority inserts retain the existing reorder behavior.
+// Deliberately NOT called on insert: a new connection already gets
+// MAX(priority)+1, which sorts after every existing row, so the order is
+// identical with or without the rewrite. Skipping it there is what makes
+// import O(1) per key instead of O(pool) — see createProviderConnection.
 function reorderInTx(db, providerId) {
   const list = db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [providerId]).map(rowToConn);
   list.sort((a, b) => {
@@ -267,7 +269,6 @@ export async function createProviderConnection(data) {
       // destroyed existing pool entries with no 409 and no warning. Callers that
       // genuinely mean "update this one" pass allowOverwrite; everyone else gets
       // a typed error naming the row that would have been replaced. #4311
-      // OAuth dedup matches account identity, not a display-name collision.
       if (isApikey && data.allowOverwrite !== true) {
         const err = new Error(
           `A connection named "${existing.name}" already exists for provider "${data.provider}". ` +
@@ -291,9 +292,9 @@ export async function createProviderConnection(data) {
     }
     let connectionPriority = data.priority;
     if (!connectionPriority) {
-      // SQL avoids loading/re-writing the pool; aggregate cost depends on indexes.
-      // Gaps or duplicate legacy priorities are safe: MAX + 1 exceeds every
-      // stored value; idx_pc_priority is non-unique (see schema.js).
+      // MAX(priority)+1 in SQL rather than a reduce over the loaded pool: the
+      // apikey path no longer has the whole pool in memory, and the aggregate
+      // is served by the index instead of a row scan. #4311
       const maxRow = db.get(`SELECT MAX(priority) AS m FROM providerConnections WHERE provider = ?`, [data.provider]);
       connectionPriority = (maxRow?.m || 0) + 1;
     }
@@ -317,7 +318,11 @@ export async function createProviderConnection(data) {
     if (data.email !== undefined) conn.email = data.email;
 
     upsert(db, conn);
-    if (data.priority) reorderInTx(db, data.provider);
+    // No reorderInTx here. `conn.priority` is already MAX(priority)+1, so the
+    // row sorts last and the resulting order is what reorderInTx would have
+    // produced anyway. The rewrite cost ~2N statements per insert — O(pool) —
+    // which made a 5k-key import O(n*m): ~25M statements at a 5k pool, and it
+    // serialized every parallel writer on the same transaction. #4311
     result = conn;
   });
 

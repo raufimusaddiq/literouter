@@ -4,7 +4,6 @@
 import { describe, it, expect } from "vitest";
 import { normalizeClaudePassthrough, prepareClaudeRequest } from "../../open-sse/translator/formats/claude.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
-import "../translator/registerAll.js";
 
 const roles = (body) => body.messages.map((m) => m.role);
 const history = (last) => [

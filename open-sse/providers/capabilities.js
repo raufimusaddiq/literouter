@@ -36,6 +36,7 @@
 // 2.0+, Grok, Perplexity). Verify with: curl -s https://models.dev/api.json
 
 import { matchPattern } from "./pricing.js";
+import REGISTRY from "./registry/index.js";
 import { looksLikeVisionModel } from "./visionPatterns.js";
 
 /**
@@ -106,13 +107,21 @@ export const MODEL_CAPABILITIES = {
   "claude-sonnet-5-thinking": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
   "claude-sonnet-5-agentic": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
   "claude-sonnet-5-thinking-agentic": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
+  "claude-sonnet-5-5": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
 
   // Gemini image-gen / OpenAI image / xai image variants
   "gpt-image-1":       { imageOutput: true, tools: false },
 
   // GLM vision variants (text GLM has no vision) — 5.3-Flash and 5V-Turbo are
   // natively multimodal per z.ai, and 5.3-Flash carries the full 1M window.
-  "glm-5.3-flash":     { vision: true, videoInput: true, pdf: true, reasoning: true, thinkingFormat: "zai", contextWindow: 1000000, maxOutput: 131072 },
+  //
+  // thinkingCanDisable:false on the 5.3 line is REQUIRED, not a default. z.ai's
+  // docs state: "GLM-5.3 and GLM-5.3-FLASH no longer support disabling thinking
+  // (an error will occur if the thinking.type parameter is set to disabled)."
+  // With it left true, applyThinking emitted enable_thinking:false whenever a
+  // turn asked for no reasoning, and z.ai answered 400 code 1210 "Invalid API
+  // parameter" — intermittently, because only some turns ask. #4409
+  "glm-5.3-flash":     { vision: true, videoInput: true, pdf: true, reasoning: true, thinkingFormat: "zai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 131072 },
   "glm-4.6v":          { vision: true, videoInput: true, reasoning: true, thinkingFormat: "zai", contextWindow: 128000, maxOutput: 32768 },
   "glm-4.5v":          { vision: true, videoInput: true, reasoning: true, thinkingFormat: "zai", contextWindow: 64000, maxOutput: 16384 },
 
@@ -164,10 +173,6 @@ const DEVIN_CLI_GPT_CAPS = { vision: true, reasoning: true, search: true, thinki
  * Provider-specific capability overrides. Keyed by provider alias/id.
  */
 export const PROVIDER_CAPABILITIES = {
-  "opencode-go": {
-    "gpt-5.6-luna": { vision: true, reasoning: true, search: true, thinkingFormat: "openai-responses", contextWindow: 272000, maxOutput: 128000 },
-    "glm-5.3-flash": { vision: true, videoInput: true, pdf: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 131072 },
-  },
   // NVIDIA NIM is OpenAI-compatible → rejects MiniMax/GLM native `thinking` field.
   // Force openai reasoning_effort format for its reasoning models. #issue
   "nvidia": {
@@ -176,6 +181,13 @@ export const PROVIDER_CAPABILITIES = {
     "z-ai/glm-5.2": { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 128000 },
     "deepseek-ai/deepseek-v4-pro": { reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 65536 },
     "deepseek-ai/deepseek-v4-flash": { reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 65536 },
+  },
+  // glm-5.3-flash on OpenCode Go is served by a backend that rejects the z.ai
+  // `thinking` object (400: unknown field "thinking") and wants reasoning_effort.
+  // Overrides the global entry, whose z.ai shape is correct for z.ai itself.
+  "opencode-go": {
+    "gpt-5.6-luna": { vision: true, reasoning: true, search: true, thinkingFormat: "openai-responses", contextWindow: 272000, maxOutput: 128000 },
+    "glm-5.3-flash": { vision: true, videoInput: true, pdf: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 131072 },
   },
   "codex": {
     "gpt-6-astra":               { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 272000, maxOutput: 128000 },
@@ -305,6 +317,10 @@ export const PROVIDER_CAPABILITIES = {
   },
 };
 
+// Qoder CN serves the identical model catalog from the CN gateway, so it shares
+// the intl Qoder capability table verbatim (vision/reasoning/contextWindow).
+PROVIDER_CAPABILITIES["qoder-cn"] = PROVIDER_CAPABILITIES["qoder"];
+PROVIDER_CAPABILITIES.cx = PROVIDER_CAPABILITIES.codex;
 PROVIDER_CAPABILITIES.dv = PROVIDER_CAPABILITIES["devin-cli"];
 PROVIDER_CAPABILITIES.devin = PROVIDER_CAPABILITIES["devin-cli"];
 
@@ -317,12 +333,12 @@ PROVIDER_CAPABILITIES.devin = PROVIDER_CAPABILITIES["devin-cli"];
 export const PATTERN_CAPABILITIES = [
   // ── Claude (4.6+ = adaptive thinking; older/haiku = budget) ──────
   { pattern: "*claude*opus-5*",     caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 } },
-  { pattern: "*claude*sonnet-5*",   caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 } },
   { pattern: "*claude*opus-4.6*",   caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive" } },
   { pattern: "*claude*opus-4.7*",   caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive" } },
   { pattern: "*claude*opus-4.8*",   caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive" } },
   { pattern: "*claude*sonnet-4.6*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive" } },
   { pattern: "*claude*sonnet-4.7*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive" } },
+  { pattern: "*claude*sonnet-5*",   caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 } },
   { pattern: "*claude*haiku*",  caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-budget" } },
   { pattern: "*claude*opus*",   caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-budget" } },
   { pattern: "*claude*sonnet*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-budget" } },
@@ -410,8 +426,13 @@ export const PATTERN_CAPABILITIES = [
   // ── GLM / Z.ai (thinking.enabled; disable via enable_thinking:false) ─
   // reasoning_effort is only read by z.ai from GLM-5.2 onward (docs.z.ai/guides/capabilities/thinking) —
   // older GLM (4.x, 5.0, 5.1, 5-turbo, 5v-turbo) ignore it, so gate it per exact version, not the "*glm-5*" catch-all.
-  { pattern: "*glm-5.3*",       caps: { reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, contextWindow: 200000, maxOutput: 128000 } },
-  { pattern: "*glm-5.2*",       caps: { reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, contextWindow: 200000, maxOutput: 128000 } },
+  // thinkingCanDisable:false for the whole 5.3 line, per z.ai docs:
+  // "GLM-5.3 and GLM-5.3-FLASH no longer support disabling thinking (an error
+  // will occur if the thinking.type parameter is set to disabled)." Set on the
+  // pattern rather than an exact entry so both glm-5.3 and glm-5.3-flash get it
+  // while keeping thinkingEffortSupported:true, which the pattern owns. #4409
+  { pattern: "*glm-5.3*",       caps: { reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 131072 } },
+  { pattern: "*glm-5.2*",       caps: { reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, contextWindow: 1000000, maxOutput: 128000 } },
   { pattern: "*glm-5*",         caps: { reasoning: true, thinkingFormat: "zai", contextWindow: 200000, maxOutput: 128000 } },
   { pattern: "*glm-4.7*",       caps: { reasoning: true, thinkingFormat: "zai", contextWindow: 200000, maxOutput: 128000 } },
   { pattern: "*glm-4*",         caps: { reasoning: true, thinkingFormat: "zai", contextWindow: 200000 } },
@@ -474,6 +495,60 @@ export const PATTERN_CAPABILITIES = [
   { pattern: "*nemotron*",      caps: { reasoning: true, contextWindow: 128000 } },
   { pattern: "*ling-*",         caps: { reasoning: true, contextWindow: 128000 } },
 ];
+
+/**
+ * Aggregate capabilities for a combo from its constituent model IDs.
+ * Each entry in comboModels is a fully-qualified "provider/model" string.
+ *
+ * Union:        vision, pdf, audioInput, videoInput, imageOutput, audioOutput, search
+ * Intersection: tools
+ * Primary:      reasoning fields from the first (primary) model
+ * Conservative: contextWindow = min; maxOutput = max
+ *
+ * @param {string[]} comboModels
+ * @param {Object|null} [comboLookup] optional map of combo name → models array for nested resolution
+ * @param {Function|null} [resolveCaps] optional (fullId) → caps override. The synced model
+ *   catalog is server-only (it reads a file), so a browser-side resolution cannot see the
+ *   limits it supplies and silently falls back to the generic patterns below. Callers that
+ *   have the server's answer (/api/models, via useModelCaps) pass it here; it is merged over
+ *   the local tables, so fields it does not carry (tools, pdf, audio/video, thinking*) survive.
+ * @param {number} [_depth] internal recursion depth guard
+ * @returns {object|null} full capabilities object, or null for empty input
+ */
+export function aggregateComboCapabilities(comboModels, comboLookup = null, resolveCaps = null, _depth = 0) {
+  if (!comboModels?.length || _depth > 6) return null;
+  const allCaps = comboModels.map((fullId) => {
+    // Nested combo: bare name (no slash) that exists in the lookup — recurse
+    if (!fullId.includes("/") && comboLookup?.[fullId]) {
+      return resolveCaps?.(fullId)
+          ?? aggregateComboCapabilities(comboLookup[fullId], comboLookup, resolveCaps, _depth + 1)
+          ?? getCapabilitiesForModel(null, fullId);
+    }
+    const slash = fullId.indexOf("/");
+    const provider = slash === -1 ? null : fullId.slice(0, slash);
+    const model = slash === -1 ? fullId : fullId.slice(slash + 1);
+    const local = getCapabilitiesForModel(provider, model);
+    const override = resolveCaps?.(fullId);
+    return override ? { ...local, ...override } : local;
+  });
+  const first = allCaps[0];
+  return {
+    vision:      allCaps.some((c) => c.vision),
+    pdf:         allCaps.some((c) => c.pdf),
+    audioInput:  allCaps.some((c) => c.audioInput),
+    videoInput:  allCaps.some((c) => c.videoInput),
+    imageOutput: allCaps.some((c) => c.imageOutput),
+    audioOutput: allCaps.some((c) => c.audioOutput),
+    search:      allCaps.some((c) => c.search),
+    tools:       allCaps.every((c) => c.tools),
+    reasoning:          first.reasoning,
+    thinkingFormat:     first.thinkingFormat,
+    thinkingCanDisable: first.thinkingCanDisable,
+    thinkingRange:      first.thinkingRange,
+    contextWindow: Math.min(...allCaps.map((c) => c.contextWindow)),
+    maxOutput:     Math.max(...allCaps.map((c) => c.maxOutput)),
+  };
+}
 
 /**
  * Resolve capabilities for a model using the 4-step fallback chain,
@@ -565,6 +640,14 @@ const COMMANDCODE_TEXT_ONLY = new Set([
   "inclusionai/ling-3.0-flash-sante:free",
 ]);
 
+// Capability tables are keyed by provider ID; registry aliases stay user-facing.
+const ALIAS_TO_PROVIDER_ID = {};
+for (const entry of REGISTRY) {
+  ALIAS_TO_PROVIDER_ID[entry.id] = entry.id;
+  if (entry.alias) ALIAS_TO_PROVIDER_ID[entry.alias] = entry.id;
+  for (const alias of entry.aliases || []) ALIAS_TO_PROVIDER_ID[alias] = entry.id;
+}
+
 function isCommandCodeTextOnly(model) {
   const key = String(model || "").toLowerCase();
   if (COMMANDCODE_TEXT_ONLY.has(key)) return true;
@@ -574,8 +657,10 @@ function isCommandCodeTextOnly(model) {
   }
   return false;
 }
-export function getCapabilitiesForModel(provider, model) {
+export function getCapabilitiesForModel(providerInput, model) {
   if (!model) return { ...DEFAULT_CAPABILITIES };
+
+  const provider = ALIAS_TO_PROVIDER_ID[providerInput] || providerInput;
 
   // Canonical exact lookup strips vendor prefix: "anthropic/claude-opus-4.7" -> "claude-opus-4.7".
   const baseModel = model.includes("/") ? model.split("/").pop() : model;

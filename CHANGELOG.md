@@ -1,5 +1,40 @@
 # v0.5.82 (unreleased)
 
+- **Models**: include explicitly enabled non-LLM models when filtering kind catalogs by provider service kind.
+- **Tests**: invoke the single-model catch-all handler directly so key-access coverage does not depend on Next.js route precedence.
+- **Models**: keep single-model `/v1/models/{provider}/{model}` lookups while removed capability-list paths return 404.
+- **Models**: restore `/v1/models/{kind}` key-access-filtered catalog lookups.
+- **Tests**: pin key-access model-kind fixtures to explicit static models, avoiding environment-dependent catalog behavior.
+- **Chat routing**: restore the missing upstream-error header helper import.
+- **Tests**: pin key-access model-kind fixtures to explicit static models, avoiding environment-dependent catalog behavior.
+- **Key access**: include the System One test model in the restricted-key allow-list fixture.
+- **System One**: enforce resolved provider/model access after request normalization.
+- **Tests**: isolate provider priority tests from the real user database.
+- **Models**: resolve nested combo capabilities through provider-aware seat lookups before default fallbacks.
+- **Thinking**: keep Codex GPT-5.6 reasoning effort in Chat Completions wire form for Responses requests, with Responses-only minimal clamping for Codex Luna.
+- **System One**: import the API-key model-access enforcement helper used by request validation.
+- **Models**: preserve provider aliases in combo seat capability lookup and carry Grok CLI proxy-pool policy through model discovery.
+- **Muse**: keep the shared Muse Spark thinking wire on OpenAI Chat while preserving the Responses transport.
+- **System One**: resolve API-key model access before request validation so restricted keys cannot probe catalog behavior.
+- **Database**: preserve restricted-key access settings in cached API-key lookups.
+- **Errors**: forward upstream rate-limit headers from provider error responses.
+- **Intake fixes**: restore OpenAI-Responses thinking wire format, GLM 5.2/5.3 1M context windows, nested combo seat limits, `/v1/models?kind=`, System One auth ordering, tool-name mapping, and the Combos page nested lookup prop.
+- **Chat routing**: restore Cursor pre-translate RTK, Codex compaction validation, cross-provider tool dedupe, and proxy-aware credential refresh.
+- **Models**: resolve provider aliases before capability lookup so provider-specific catalog limits apply consistently.
+- **Models**: fix combo capability aggregation, restore Claude Sonnet 5.5 and GLM 5.3 limits, and filter `/v1/models/{kind}` lookups by API-key access.
+- **Providers**: restore Muse Spark Responses routing and Netlify relay pool resolution.
+- **Models**: resolve nested combo seat limits through the same resolver as combo capabilities, preserving provider-scoped context limits.
+- **Thinking**: keep transport-specific `openai-responses` thinking overrides while preserving provider-specific GLM and Muse formats.
+- **Security**: enforce API-key model access on System One before credential lookup.
+- **Proxy pools**: stop Netlify relays from advertising compressed bodies after buffering them and fail deploy polling immediately on status errors.
+- **Database**: create the `kv` table before versioned migration cleanup on legacy databases.
+- **Models**: import the missing combo capability aggregator used by `/v1/models`.
+- **Models**: expose `/v1/models/{kind}` as a kind lookup while preserving single-model 404 behavior, and normalize UI-alias combo seats to provider IDs.
+- **Models**: restore Sonnet 5.5 pattern matching, OpenCode Go Luna/GPM overrides, and catalog-backed combo capabilities.
+- **Providers**: declare the Muse Responses transport so Responses-only models route to the matching endpoint.
+- **Migrations**: create `kv` before legacy-data cleanup, and preserve relay header filtering for compressed responses.
+- **Models**: import the provider registry so capability lookups resolve aliases without a startup error.
+
 ## Upstream Core Fixes (2026-10-07)
 - **Claude**: cache final tool results within the existing four-breakpoint budget.
 - **Models**: correct provider-scoped context/output limits and publish nested combo minima without restoring broad capability aggregation or UI features.
@@ -18,6 +53,7 @@
 - **Local-operator trust**: the spoofable `Host` fallback no longer exists in any environment, so local-operator access now requires `custom-server.js`'s per-process `x-9r-peer-token`, stamped on every request it handles. On a listener that bypasses the wrapper (a bare `next dev`, or another client inside the same container) there is no token to present, so those requests no longer inherit LAN-node validation or the localhost-only routes
 
 ## Fixes
+- Restore `/v1/models/{kind}` lists while keeping per-key access filtering
 - **Claude**: bump the Claude Code CLI fingerprint to 2.1.295 so Opus 5.5 passes the version gate (upstream requires >= 2.1.280).
 - **Combo fallback**: treat upstream context-length 400s as model-scoped and try the next combo model immediately without cooling the account down; other request-scoped 4xx still return directly.
 - **Codex native compaction**: preserve the client's remote-compaction beta header on `/responses`; retry upstream response-protection outages before streaming, then return a real 503 instead of an empty successful stream.

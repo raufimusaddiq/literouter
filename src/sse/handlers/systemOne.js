@@ -8,6 +8,7 @@ import {
 } from "../services/auth.js";
 import { PROVIDERS } from "open-sse/config/providers.js";
 import { getModelsByProviderId } from "open-sse/config/providerModels.js";
+import { getKeyAccessContext, enforceKeyAccessResolved, enforceKeyAccess } from "../services/keyAccess.js";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 import { extractUsageFromResponse, saveUsageStats } from "open-sse/handlers/chatCore/requestDetail.js";
 import { trackPendingRequest } from "@/lib/usageDb.js";
@@ -36,7 +37,7 @@ export async function normalizeSystemOneRequest(body) {
   const model = rest.length ? rest.join("/") : rawModel;
   const config = PROVIDERS[provider];
   const isCustomNode = isCustomSystemOneProvider(provider);
-  if (!model || (!config?.systemOneTransport && config?.format !== "systemone" && !isCustomNode)) {
+  if (!model || (!config?.systemOneTransport && config?.format !== "systemone" && config?.format !== "openai" && !isCustomNode)) {
     return { error: `Unsupported System One provider or model: ${rawModel}` };
   }
   if (config?.systemOneTransport && !getModelsByProviderId(provider).some((entry) => entry.id === model)) {
@@ -61,7 +62,7 @@ export function isCustomSystemOneProvider(providerId) {
   return typeof providerId === "string" && providerId.startsWith("systemone-");
 }
 
-async function resolveSystemOneNodeByPrefix(displayPrefix) {
+export async function resolveSystemOneNodeByPrefix(displayPrefix) {
   const nodes = await getProviderNodes({ type: "systemone" });
   const node = nodes.find((n) => n.prefix === displayPrefix);
   return node?.id || null;
@@ -105,21 +106,29 @@ async function recordSystemOneUsage(response, provider, model, connectionId, api
 }
 
 export async function handleSystemOne(request) {
-  let input;
+  let parsedBody;
   try {
-    input = await normalizeSystemOneRequest(await request.json());
+    parsedBody = await request.json();
   } catch {
     return systemOneError(400, "Invalid JSON body");
   }
-  if (input.error) return systemOneError(400, input.error);
-
   const clientApiKey = extractApiKey(request);
   const settings = await getSettings();
   if (settings.requireApiKey && (!clientApiKey || !(await isValidApiKey(clientApiKey)))) {
     return systemOneError(401, clientApiKey ? "Invalid API key" : "Missing API key");
   }
 
+  const keyAccess = await getKeyAccessContext(request);
+  const rawModel = typeof parsedBody?.model === "string" ? parsedBody.model.trim() : "";
+  const keyAccessDenied = await enforceKeyAccess(keyAccess, rawModel);
+  if (keyAccessDenied) return keyAccessDenied;
+
+  const input = await normalizeSystemOneRequest(parsedBody);
+  if (input.error) return systemOneError(400, input.error);
+
   const { provider, model, body } = input;
+  const resolvedAccessDenied = await enforceKeyAccessResolved(keyAccess, rawModel, provider, model);
+  if (resolvedAccessDenied) return resolvedAccessDenied;
   // Custom node resolution happens once per request; getProviderNodeById is
   // cache-backed (same pattern as getSettings).
   const customNode = isCustomSystemOneProvider(provider) ? await getProviderNodeById(provider) : null;
@@ -145,7 +154,9 @@ export async function handleSystemOne(request) {
       return systemOneError(429, credentials?.lastError || `No active credentials for provider: ${provider}`, retryAfter ? { "Retry-After": String(retryAfter) } : {});
     }
 
-    const config = customNode ? { baseUrl: customNode.baseUrl } : PROVIDERS[provider];
+    const config = customNode
+      ? { baseUrl: customNode.baseUrl, format: customNode.apiType === "responses" ? "openai-responses" : "openai" }
+      : PROVIDERS[provider];
     // Built-in dual-transport providers (e.g. Cloudflare Clef) keep chat and
     // System One endpoints separate. System One URLs may reference {accountId}
     // (connection providerSpecificData) and {model} (request model id).

@@ -3,7 +3,6 @@ import { setCatalogSource } from "../../open-sse/providers/capabilities.js";
 
 const db = vi.hoisted(() => ({
   getProviderConnections: vi.fn(),
-  getProviderNodes: vi.fn(async () => []),
   getCombos: vi.fn(),
   getCustomModels: vi.fn(async () => []),
   getModelAliases: vi.fn(async () => ({})),
@@ -39,6 +38,18 @@ async function modelsWithCombo(providerId, modelId, combos) {
 }
 
 describe("/v1/models combo limits", () => {
+  it("includes enabled IDs outside the provider's static service kinds", async () => {
+    db.getProviderConnections.mockResolvedValue([{
+      id: 1,
+      provider: "openai",
+      isActive: true,
+      providerSpecificData: { enabledModels: ["text-embedding-3-small"] },
+    }]);
+    db.getCombos.mockResolvedValue([]);
+    const models = await buildModelsList(["embedding"]);
+    expect(models.map((model) => model.id)).toContain("openai/text-embedding-3-small");
+  });
+
   it.each([
     ["ocg", "opencode-go", "mimo-v2.5"],
     ["xmtp", "xiaomi-tokenplan", "mimo-v2.5"],
@@ -52,6 +63,7 @@ describe("/v1/models combo limits", () => {
     expect(published).toMatchObject({
       context_length: 180000,
       max_completion_tokens: 16000,
+      capabilities: { contextWindow: 180000, maxOutput: 16000 },
     });
   });
 
@@ -65,6 +77,7 @@ describe("/v1/models combo limits", () => {
     expect(outer).toMatchObject({
       context_length: 180000,
       max_completion_tokens: 16000,
+      capabilities: { contextWindow: 180000, maxOutput: 16000 },
     });
   });
 
@@ -76,6 +89,7 @@ describe("/v1/models combo limits", () => {
 
     expect(combo).toMatchObject({
       context_length: 200000,
+      capabilities: { contextWindow: 200000 },
     });
   });
 });

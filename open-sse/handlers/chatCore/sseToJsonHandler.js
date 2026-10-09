@@ -206,6 +206,13 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
       const jsonResponse = isResponsesJson
         ? JSON.parse((await providerResponse.text()).replace(/\s*data:\s*\[DONE\]\s*$/, "").trim())
         : await convertResponsesStreamToJson(providerResponse.body);
+      if (body._compact === true && (
+        jsonResponse?.object !== "response.compaction"
+        || !Array.isArray(jsonResponse.output)
+        || !jsonResponse.output.some((item) => item?.type === "compaction" && typeof item.encrypted_content === "string" && item.encrypted_content.length > 0)
+      )) {
+        return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Invalid Codex compact response");
+      }
       if (onRequestSuccess) await onRequestSuccess();
 
       const usage = jsonResponse.usage || {};
