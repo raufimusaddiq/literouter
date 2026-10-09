@@ -274,7 +274,7 @@ function providerMatchesKinds(providerId, kindFilter) {
     : [LLM_KIND];
   if (kindFilter.some((k) => kinds.includes(k))) return true;
   return (PROVIDER_MODELS[PROVIDER_ID_TO_ALIAS[providerId] || providerId] || [])
-    .some((model) => kindFilter.includes(modelKind(model)));
+    .some((model) => kindFilter.includes(modelKind(model) === LLM_KIND ? inferKindFromUnknownModelId(model.id) : modelKind(model)));
 }
 
 // Combo matches kindFilter when its `kind` field is in the list.
