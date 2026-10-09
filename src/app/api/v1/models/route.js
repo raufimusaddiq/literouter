@@ -267,14 +267,21 @@ async function fetchCompatibleModelIds(connection) {
 
 // Provider matches kindFilter when its serviceKinds intersect the requested kinds.
 // LLM is the default kind for providers missing serviceKinds.
-function providerMatchesKinds(providerId, kindFilter) {
+function providerMatchesKinds(providerId, kindFilter, candidateModels) {
   const provider = AI_PROVIDERS[providerId];
   const kinds = Array.isArray(provider?.serviceKinds) && provider.serviceKinds.length > 0
     ? provider.serviceKinds
     : [LLM_KIND];
   if (kindFilter.some((k) => kinds.includes(k))) return true;
-  return (PROVIDER_MODELS[PROVIDER_ID_TO_ALIAS[providerId] || providerId] || [])
-    .some((model) => kindFilter.includes(modelKind(model) === LLM_KIND ? inferKindFromUnknownModelId(model.id) : modelKind(model)));
+  const models = candidateModels
+    || (PROVIDER_MODELS[PROVIDER_ID_TO_ALIAS[providerId] || providerId] || []);
+  return models.some((model) => {
+    const modelId = typeof model === "string" ? model : model.id;
+    if (!modelId) return false;
+    return kindFilter.includes(modelKind(model) === LLM_KIND
+      ? inferKindFromUnknownModelId(modelId)
+      : modelKind(model));
+  });
 }
 
 // Combo matches kindFilter when its `kind` field is in the list.
@@ -446,8 +453,6 @@ export async function buildModelsList(kindFilter, options = {}) {
     }
   } else {
     for (const [providerId, conn] of activeConnectionByProvider.entries()) {
-      if (!providerMatchesKinds(providerId, kindFilter)) continue;
-
       const staticAlias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
       const outputAlias = (
         conn?.providerSpecificData?.prefix
@@ -460,6 +465,11 @@ export async function buildModelsList(kindFilter, options = {}) {
         Array.isArray(enabledModels) && enabledModels.length > 0;
       const isCompatibleProvider =
         isOpenAICompatibleProvider(providerId) || isAnthropicCompatibleProvider(providerId);
+      if (!providerMatchesKinds(
+        providerId,
+        kindFilter,
+        hasExplicitEnabledModels ? enabledModels : undefined,
+      )) continue;
 
       // Build kind lookup for static models so we can filter even when only IDs are exposed
       const staticModelKindById = new Map(

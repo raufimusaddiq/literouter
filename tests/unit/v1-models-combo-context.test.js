@@ -38,6 +38,18 @@ async function modelsWithCombo(providerId, modelId, combos) {
 }
 
 describe("/v1/models combo limits", () => {
+  it("includes enabled IDs outside the provider's static service kinds", async () => {
+    db.getProviderConnections.mockResolvedValue([{
+      id: 1,
+      provider: "openai",
+      isActive: true,
+      providerSpecificData: { enabledModels: ["text-embedding-3-small"] },
+    }]);
+    db.getCombos.mockResolvedValue([]);
+    const models = await buildModelsList(["embedding"]);
+    expect(models.map((model) => model.id)).toContain("openai/text-embedding-3-small");
+  });
+
   it.each([
     ["ocg", "opencode-go", "mimo-v2.5"],
     ["xmtp", "xiaomi-tokenplan", "mimo-v2.5"],
