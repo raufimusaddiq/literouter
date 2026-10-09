@@ -14,7 +14,7 @@ function invalidateApiKeyCache() { keyCache.rows = null; keyCache.expiresAt = 0;
 async function allKeys() {
   if (keyCache.rows && keyCache.expiresAt > Date.now()) return keyCache.rows;
   const db = await getAdapter();
-  keyCache.rows = db.all(`SELECT key, isActive FROM apiKeys`);
+  keyCache.rows = db.all(`SELECT id, key, name, isActive, accessRestricted, accessAllow FROM apiKeys`);
   keyCache.expiresAt = Date.now() + CACHE_TTL_MS;
   return keyCache.rows;
 }
