@@ -2,6 +2,8 @@
 
 - **Models**: keep single-model `/v1/models/{provider}/{model}` lookups while removed capability-list paths return 404.
 - **Models**: restore `/v1/models/{kind}` key-access-filtered catalog lookups.
+- **Tests**: point key-access model-kind assertions at the `/v1/models/{kind}` route.
+- **Tests**: point key-access model-kind assertions at the `/v1/models/{kind}` route.
 - **Key access**: include the System One test model in the restricted-key allow-list fixture.
 - **System One**: enforce resolved provider/model access after request normalization.
 - **Tests**: isolate provider priority tests from the real user database.
