@@ -32,10 +32,17 @@ export async function GET(request, { params }) {
     // Match the same LLM catalog exposed by GET /v1/models. A catch-all
     // parameter is required because provider-prefixed IDs contain a slash.
     const kind = request.nextUrl?.searchParams?.get("kind");
-    const kindFilter = kind ? [kind] : ["llm"];
+    if (kind) {
+      const data = await filterModelsListForKey(
+        await getKeyAccessContext(request),
+        await buildModelsList([kind])
+      );
+      return json({ object: "list", data });
+    }
+
     const models = await filterModelsListForKey(
       await getKeyAccessContext(request),
-      await buildModelsList(kindFilter)
+      await buildModelsList(["llm"])
     );
     const matchedModel = models.find((candidate) => candidate.id === identifier);
 
