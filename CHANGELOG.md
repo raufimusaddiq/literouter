@@ -1,5 +1,6 @@
 # v0.5.82 (unreleased)
 
+- **Tests**: invoke the single-model catch-all handler directly so key-access coverage does not depend on Next.js route precedence.
 - **Models**: keep single-model `/v1/models/{provider}/{model}` lookups while removed capability-list paths return 404.
 - **Models**: restore `/v1/models/{kind}` key-access-filtered catalog lookups.
 - **Tests**: pin key-access model-kind fixtures to explicit static models, avoiding environment-dependent catalog behavior.

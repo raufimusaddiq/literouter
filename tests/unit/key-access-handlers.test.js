@@ -50,6 +50,7 @@ const { handleSystemOne } = await import("../../src/sse/handlers/systemOne.js");
 const geminiRoute = await import("../../src/app/api/v1beta/models/[...path]/route.js");
 const modelsRoute = await import("../../src/app/api/v1/models/route.js");
 const modelsKindRoute = await import("../../src/app/api/v1/models/[kind]/route.js");
+const modelsModelRoute = await import("../../src/app/api/v1/models/[...model]/route.js");
 
 const enc = new TextEncoder();
 const sse = (frames) => new Response(new ReadableStream({
@@ -200,13 +201,14 @@ describe("/v1/models routes filter by key", () => {
     expect(await list(null)).toEqual(all); // no key: unchanged (middleware governs remote access)
   });
   it("/v1/models/{kind} and single-model lookup are filtered too", async () => {
-    const kind = async (k, path) => modelsKindRoute.GET(new Request(`http://localhost/v1/models/${path.join("/")}`, { headers: auth(k) }), { params: Promise.resolve({ kind: path[0] }) });
-    const emb = await (await kind("sk-open", ["embedding"])).json();
+    const kind = async (k, kindName) => modelsKindRoute.GET(new Request(`http://localhost/v1/models/${kindName}`, { headers: auth(k) }), { params: Promise.resolve({ kind: kindName }) });
+    const model = async (k, path) => modelsModelRoute.GET(new Request(`http://localhost/v1/models/${path.join("/")}`, { headers: auth(k) }), { params: Promise.resolve({ model: path }) });
+    const emb = await (await kind("sk-open", "embedding")).json();
     expect(emb.data.length).toBeGreaterThan(0);
-    expect((await (await kind("sk-empty", ["embedding"])).json()).data).toEqual([]);
+    expect((await (await kind("sk-empty", "embedding")).json()).data).toEqual([]);
     const all = (await (await modelsRoute.GET(new Request("http://localhost/v1/models"))).json()).data;
     const one = all.find((m) => m.owned_by !== "combo").id;
-    expect((await kind("sk-open", one.split("/"))).status).toBe(200);
-    expect((await kind("sk-empty", one.split("/"))).status).toBe(404);
+    expect((await model("sk-open", one.split("/"))).status).toBe(200);
+    expect((await model("sk-empty", one.split("/"))).status).toBe(404);
   });
 });
