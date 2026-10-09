@@ -48,6 +48,7 @@
 - **Local-operator trust**: the spoofable `Host` fallback no longer exists in any environment, so local-operator access now requires `custom-server.js`'s per-process `x-9r-peer-token`, stamped on every request it handles. On a listener that bypasses the wrapper (a bare `next dev`, or another client inside the same container) there is no token to present, so those requests no longer inherit LAN-node validation or the localhost-only routes
 
 ## Fixes
+- Restore `/v1/models/{kind}` lists while keeping per-key access filtering
 - **Claude**: bump the Claude Code CLI fingerprint to 2.1.295 so Opus 5.5 passes the version gate (upstream requires >= 2.1.280).
 - **Combo fallback**: treat upstream context-length 400s as model-scoped and try the next combo model immediately without cooling the account down; other request-scoped 4xx still return directly.
 - **Codex native compaction**: preserve the client's remote-compaction beta header on `/responses`; retry upstream response-protection outages before streaming, then return a real 503 instead of an empty successful stream.
