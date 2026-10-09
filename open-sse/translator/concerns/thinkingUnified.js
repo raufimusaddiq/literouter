@@ -136,7 +136,7 @@ function resolveFormat(targetFormat, model, provider) {
   if (caps.thinkingFormat && !(isOpenAIWire && NATIVE_ONLY_FORMATS.has(caps.thinkingFormat))) {
     // Muse (Meta) strict Responses API rejects top-level reasoning_effort and
     // requires nested reasoning: { effort, summary }. Other upstreams keep Chat-shaped effort.
-    if (provider === "muse" && targetFormat === "openai-responses") {
+    if (targetFormat === "openai-responses") {
       return "openai-responses";
     }
     return caps.thinkingFormat;

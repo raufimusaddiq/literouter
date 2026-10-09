@@ -106,6 +106,12 @@ async function recordSystemOneUsage(response, provider, model, connectionId, api
 }
 
 export async function handleSystemOne(request) {
+  const clientApiKey = extractApiKey(request);
+  const settings = await getSettings();
+  if (settings.requireApiKey && (!clientApiKey || !(await isValidApiKey(clientApiKey)))) {
+    return systemOneError(401, clientApiKey ? "Invalid API key" : "Missing API key");
+  }
+
   let input;
   try {
     input = await normalizeSystemOneRequest(await request.json());
@@ -117,12 +123,6 @@ export async function handleSystemOne(request) {
   const keyAccess = await getKeyAccessContext(request);
   const keyAccessDenied = await enforceKeyAccessResolved(keyAccess, input.body.model, input.provider, input.model);
   if (keyAccessDenied) return keyAccessDenied;
-
-  const clientApiKey = extractApiKey(request);
-  const settings = await getSettings();
-  if (settings.requireApiKey && (!clientApiKey || !(await isValidApiKey(clientApiKey)))) {
-    return systemOneError(401, clientApiKey ? "Invalid API key" : "Missing API key");
-  }
 
   const { provider, model, body } = input;
   // Custom node resolution happens once per request; getProviderNodeById is

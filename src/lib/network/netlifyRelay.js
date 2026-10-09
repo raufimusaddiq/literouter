@@ -47,7 +47,12 @@ export const NETLIFY_RELAY_FUNCTION_CODE = `exports.handler = async (event) => {
   const forwardHeaders = { ...event.headers };
   for (const k of Object.keys(forwardHeaders)) {
     const lower = k.toLowerCase();
-    if (["x-relay-target", "x-relay-path", "host", "accept-encoding"].includes(lower)) {
+    if (
+      lower === "x-relay-target" ||
+      lower === "x-relay-path" ||
+      lower === "host" ||
+      lower === "accept-encoding"
+    ) {
       delete forwardHeaders[k];
     }
   }

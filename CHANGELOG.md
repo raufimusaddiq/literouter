@@ -8,6 +8,9 @@
 - **Database**: create the `kv` table before versioned migration cleanup on legacy databases.
 - **Models**: import the missing combo capability aggregator used by `/v1/models`.
 - **Models**: expose `/v1/models/{kind}` as a kind lookup while preserving single-model 404 behavior, and normalize UI-alias combo seats to provider IDs.
+- **Models**: restore Sonnet 5.5 pattern matching, OpenCode Go Luna/GPM overrides, and catalog-backed combo capabilities.
+- **Providers**: declare the Muse Responses transport so Responses-only models route to the matching endpoint.
+- **Migrations**: create `kv` before legacy-data cleanup, and preserve relay header filtering for compressed responses.
 
 ## Upstream Core Fixes (2026-10-07)
 - **Claude**: cache final tool results within the existing four-breakpoint budget.
