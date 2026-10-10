@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { CursorExecutor } from "../../open-sse/executors/cursor.js";
+import { CursorExecutor, buildAgentRunFrame } from "../../open-sse/executors/cursor.js";
 import { decodeMessage, encodeField, wrapConnectRPCFrame } from "../../open-sse/utils/cursorProtobuf.js";
 
 const LEN = 2;
@@ -73,6 +73,29 @@ async function runAgent({ frames, stream, model = "gpt-5.2", tools }) {
 }
 
 describe("CursorExecutor AgentService exec_request handling", () => {
+  for (const [model, effort, key, value] of [
+    ["gpt-5.2", "high", "reasoning", "high"],
+    ["claude-4.6-opus", "minimal", "effort", "low"],
+    ["composer-2.5", "ultra", "effort", "max"],
+  ]) {
+    it(`forwards ${effort} as a RequestedModel parameter for ${model}`, () => {
+      const frame = buildAgentRunFrame([{ role: "user", content: "hi" }], model, [], effort);
+      const run = decodeMessage(decodeMessage(frame.subarray(5)).get(1)[0].value);
+      const requested = decodeMessage(run.get(9)[0].value);
+      const parameter = decodeMessage(requested.get(3)[0].value);
+      expect(Buffer.from(parameter.get(1)[0].value).toString()).toBe(key);
+      expect(Buffer.from(parameter.get(2)[0].value).toString()).toBe(value);
+      expect(Buffer.from(requested.get(1)[0].value).toString()).toBe(model);
+      expect(run.has(3)).toBe(true);
+    });
+  }
+  for (const effort of [null, "none", ""]) {
+    it(`does not invent a RequestedModel parameter for ${String(effort)}`, () => {
+      const frame = buildAgentRunFrame([{ role: "user", content: "hi" }], "gpt-5.2", [], effort);
+      const run = decodeMessage(decodeMessage(frame.subarray(5)).get(1)[0].value);
+      expect(decodeMessage(run.get(9)[0].value).has(3)).toBe(false);
+    });
+  }
   for (const intent of [{ reasoning_effort: "high" }, { reasoning: { effort: "high" } }]) {
     it(`passes ${Object.keys(intent)[0]} through the AgentService executor`, async () => {
       const executor = new CursorExecutor();
