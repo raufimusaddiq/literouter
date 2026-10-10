@@ -28,10 +28,3 @@ export function nodeRoutes(node) {
     baseUrl,
   }));
 }
-
-export function preferredApiType(node) {
-  const routes = nodeRoutes(node) || [];
-  if (routes.some((r) => r.format === "openai")) return "chat";
-  if (routes.some((r) => r.format === "openai-responses")) return "responses";
-  return null;
-}

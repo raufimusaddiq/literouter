@@ -68,7 +68,12 @@ export async function convertResponsesStreamToJson(stream) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
+      const text = decoder.decode(value, { stream: true });
+      // buffer holds no "\n\n" after the previous split, so a new boundary can only
+      // be inside `text` or straddle the join; otherwise skip re-scanning the buffer.
+      const straddles = text.charCodeAt(0) === 10 && buffer.charCodeAt(buffer.length - 1) === 10;
+      buffer += text;
+      if (!straddles && !text.includes("\n\n")) continue;
       const messages = buffer.split("\n\n");
       buffer = messages.pop() || "";
 

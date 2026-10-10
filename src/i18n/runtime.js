@@ -4,6 +4,8 @@ import { DEFAULT_LOCALE, LOCALE_COOKIE, normalizeLocale } from "./config";
 
 let translationMap = {};
 let currentLocale = DEFAULT_LOCALE;
+// Locale whose literals are currently held in translationMap
+let loadedLocale = "en";
 let reloadCallbacks = [];
 
 // Read locale from cookie
@@ -20,15 +22,19 @@ function getLocaleFromCookie() {
 async function loadTranslations(locale) {
   if (locale === "en") {
     translationMap = {};
+    loadedLocale = "en";
     return;
   }
+  if (locale === loadedLocale) return;
   
   try {
     const response = await fetch(`/i18n/literals/${locale}.json`);
     translationMap = await response.json();
+    loadedLocale = locale;
   } catch (err) {
     console.error("Failed to load translations:", err);
     translationMap = {};
+    loadedLocale = null;
   }
 }
 
@@ -127,11 +133,13 @@ export async function initRuntimeI18n() {
   currentLocale = getLocaleFromCookie();
   await loadTranslations(currentLocale);
   
-  // Process existing DOM
-  processElement(document.body);
+  // Process existing DOM (English text is already the source text)
+  if (currentLocale !== "en") processElement(document.body);
   
   // Watch for new nodes
   const observer = new MutationObserver((mutations) => {
+    // In English, nodes are either untouched or were restored by reloadTranslations
+    if (currentLocale === "en") return;
     mutations.forEach((mutation) => {
       mutation.addedNodes.forEach((node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
@@ -151,12 +159,15 @@ export async function initRuntimeI18n() {
 
 // Reload translations when locale changes
 export async function reloadTranslations() {
+  const previousLocale = currentLocale;
   currentLocale = getLocaleFromCookie();
   await loadTranslations(currentLocale);
   
   // Notify all registered callbacks
   reloadCallbacks.forEach(callback => callback());
   
-  // Re-process entire DOM (will use stored original text)
+  // Re-process entire DOM (will use stored original text); nothing to restore
+  // or translate when staying in English
+  if (previousLocale === "en" && currentLocale === "en") return;
   processElement(document.body);
 }

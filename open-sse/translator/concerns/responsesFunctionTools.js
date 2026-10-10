@@ -167,21 +167,6 @@ function extractCustomToolInput(argumentsText) {
 }
 
 /**
- * Rewrite one parsed Responses SSE event for converted custom tools.
- * Stateless convenience wrapper — prefer createResponsesEventRewriter() per
- * stream so argument events (delta/done) can be resolved via remembered ids.
- * Returns null when the event must be suppressed (argument deltas — Codex wants
- * the whole freeform input at once), or { event, data } for the event to emit.
- */
-export function rewriteResponsesCustomToolEvent(eventName, data, customToolNames) {
-  if (customToolNames instanceof Set || Array.isArray(customToolNames)) {
-    return createResponsesEventRewriter(customToolNames)(eventName, data);
-  }
-  // A stateful rewriter was passed in directly.
-  return customToolNames?.(eventName, data) ?? { event: eventName, data };
-}
-
-/**
  * Stateful per-stream rewriter. Tracks converted item ids seen on
  * output_item.added so later argument events (which carry only `item_id`,
  * no `item`) can be resolved back to the tool name.

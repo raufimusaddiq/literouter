@@ -117,64 +117,6 @@ export function storeGeminiThoughtSignature(toolCallId, signature, sessionId = n
 }
 
 /**
- * Retrieve a thought signature by tool_call_id (RAM first, then SQLite fallback).
- * `model` is the target model; signatures produced by another model family are ignored.
- */
-export async function getGeminiThoughtSignature(toolCallId, sessionId = null, model = null) {
-  if (typeof toolCallId !== "string" || !toolCallId) return null;
-
-  const family = signatureFamily(model);
-  pruneMemoryExpired();
-
-  if (sessionId && typeof sessionId === "string") {
-    const sessionKey = `${sessionId}:${toolCallId}`;
-    const sessionEntry = memorySignatures.get(sessionKey);
-    if (sessionEntry && sessionEntry.expiresAt > Date.now() && isCompatible(sessionEntry, family)) {
-      return sessionEntry.signature;
-    }
-  }
-
-  const entry = memorySignatures.get(toolCallId);
-  if (entry && entry.expiresAt > Date.now() && isCompatible(entry, family)) {
-    return entry.signature;
-  }
-
-  try {
-    if (sessionId && typeof sessionId === "string") {
-      const sessionKey = `${sessionId}:${toolCallId}`;
-      const sessionRow = await signatureKv.get(sessionKey);
-      if (sessionRow && typeof sessionRow.signature === "string" && (!sessionRow.expiresAt || sessionRow.expiresAt > Date.now()) && isCompatible(sessionRow, family)) {
-        memorySignatures.set(sessionKey, {
-          signature: sessionRow.signature,
-          family: sessionRow.family || null,
-          expiresAt: Date.now() + MEMORY_TTL_MS,
-        });
-        return sessionRow.signature;
-      }
-    }
-
-    const row = await signatureKv.get(toolCallId);
-    if (row && typeof row.signature === "string") {
-      if (row.expiresAt && row.expiresAt <= Date.now()) {
-        signatureKv.remove(toolCallId).catch(() => {});
-        return null;
-      }
-      if (!isCompatible(row, family)) return null;
-      memorySignatures.set(toolCallId, {
-        signature: row.signature,
-        family: row.family || null,
-        expiresAt: Date.now() + MEMORY_TTL_MS,
-      });
-      return row.signature;
-    }
-  } catch {
-    // Fail-open
-  }
-
-  return null;
-}
-
-/**
  * Synchronous get from RAM cache only (for sync translators).
  * `model` is the target model; signatures produced by another model family are ignored.
  */

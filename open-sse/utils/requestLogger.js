@@ -272,34 +272,3 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
     }
   };
 }
-
-// Legacy functions for backward compatibility
-export function logRequest() {}
-export function logResponse() {}
-export function logError(provider, { error, url, model, requestBody }) {
-  if (!fs || !LOGS_DIR) return;
-  
-  try {
-    if (!fs.existsSync(LOGS_DIR)) {
-      fs.mkdirSync(LOGS_DIR, { recursive: true });
-    }
-    
-    const date = new Date().toISOString().split("T")[0];
-    const logPath = path.join(LOGS_DIR, `${provider}-${date}.log`);
-    
-    const logEntry = {
-      timestamp: new Date().toISOString(),
-      type: "error",
-      provider,
-      model,
-      url,
-      error: error?.message || String(error),
-      stack: error?.stack,
-      requestBody
-    };
-    
-    fs.appendFileSync(logPath, JSON.stringify(logEntry) + "\n");
-  } catch (err) {
-    console.log("[LOG] Failed to write error log:", err.message);
-  }
-}

@@ -1,6 +1,14 @@
 const REFRESH_RESULT_TTL_MS = 10_000;
 const refreshDedupCache = new Map();
 
+// Results are keyed by the consumed (old) token, which rotating providers never
+// send again — drop expired results so the map does not grow per refresh.
+function pruneExpired(now) {
+  for (const [key, entry] of refreshDedupCache) {
+    if (!entry.promise && entry.expiresAt <= now) refreshDedupCache.delete(key);
+  }
+}
+
 export async function dedupRefresh(provider, oldToken, fn, log) {
   if (!oldToken) return fn();
   const key = `${provider}:${oldToken}`;
@@ -16,6 +24,7 @@ export async function dedupRefresh(provider, oldToken, fn, log) {
     }
     refreshDedupCache.delete(key);
   }
+  pruneExpired(Date.now());
   const promise = (async () => {
     try {
       const result = await fn();

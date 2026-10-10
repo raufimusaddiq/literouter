@@ -272,6 +272,15 @@ describe("DB SQLite layer — public API parity", () => {
     expect(after.find((m) => m.id === "m1")).toBeUndefined();
   });
 
+  it("customModels: add is visible immediately after a cached read", async () => {
+    await sqliteDb.getCustomModels(); // prime the kv scope cache
+    await sqliteDb.addCustomModel({ providerAlias: "p2", id: "m2", type: "llm", name: "Model 2" });
+    expect((await sqliteDb.getCustomModels()).find((m) => m.id === "m2")?.name).toBe("Model 2");
+    await sqliteDb.addCustomModel({ providerAlias: "p2", id: "m2", type: "llm", name: "Renamed" });
+    expect((await sqliteDb.getCustomModels()).find((m) => m.id === "m2")?.name).toBe("Renamed");
+    await sqliteDb.deleteCustomModel({ providerAlias: "p2", id: "m2" });
+  });
+
   it("disabledModels: add/remove per provider", async () => {
     await sqliteDb.disableModels("openai", ["gpt-3", "gpt-4"]);
     expect(await sqliteDb.getDisabledByProvider("openai")).toEqual(expect.arrayContaining(["gpt-3", "gpt-4"]));

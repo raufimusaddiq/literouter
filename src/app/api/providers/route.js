@@ -49,7 +49,9 @@ async function normalizeProxyPoolId(proxyPoolId) {
 // GET /api/providers - List all connections
 export async function GET() {
   try {
-    const connections = await getProviderConnections();
+    // The map below builds fresh top-level objects and nothing is mutated, so
+    // skip the per-row deep clone of the whole cached pool.
+    const connections = await getProviderConnections({}, { clone: false });
 
     // Build nodeNameMap for compatible providers (id → name)
     let nodeNameMap = {};

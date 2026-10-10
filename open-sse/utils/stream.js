@@ -137,6 +137,10 @@ export function createSSEStream(options = {}) {
       buffer += text;
       reqLogger?.appendProviderChunk?.(text);
 
+      // buffer holds no "\n" after the previous split; without one in `text` the
+      // split below would just rebuild the same partial line (O(n^2) on long lines).
+      if (!text.includes("\n")) return;
+
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
 

@@ -110,7 +110,7 @@ export async function fetchImageAsBase64(imageUrl, options = {}) {
       chunks.push(value);
     }
 
-    const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+    const buf = Buffer.concat(chunks, total);
     const mimeType = detectImageMime(buf);
     if (!mimeType) return null; // not a recognized image — reject disguised payloads
 

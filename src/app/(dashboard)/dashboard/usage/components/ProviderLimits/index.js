@@ -12,7 +12,6 @@ import {
   getHiddenQuotaRows,
   getQuotaVisibilityKey,
   getConnectionLabel,
-  getConnectionQuotaRemaining,
   sortVisibleConnections,
   buildLoadingState,
   filterQuotaStateByConnections,
@@ -664,6 +663,15 @@ export default function ProviderLimits() {
       return;
     }
 
+    const clearTimers = () => {
+      clearInterval(intervalRef.current);
+      clearInterval(countdownRef.current);
+    };
+
+    // refreshAll changes identity whenever a refresh settles; if that happens while
+    // the tab is hidden, leave starting intervals to the visibilitychange handler.
+    if (document.hidden) return clearTimers;
+
     // Main refresh interval
     intervalRef.current = setInterval(() => {
       refreshAll();
@@ -677,10 +685,7 @@ export default function ProviderLimits() {
       });
     }, 1000);
 
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    };
+    return clearTimers;
   }, [autoRefresh, refreshAll, hasHydratedAutoRefresh]);
 
   // Pause auto-refresh when tab is hidden (Page Visibility API)
@@ -697,6 +702,8 @@ export default function ProviderLimits() {
         }
       } else if (autoRefresh && hasHydratedAutoRefresh) {
         // Resume auto-refresh when tab becomes visible
+        clearInterval(intervalRef.current);
+        clearInterval(countdownRef.current);
         intervalRef.current = setInterval(() => refreshAll(), REFRESH_INTERVAL_MS);
         countdownRef.current = setInterval(() => {
           setCountdown((prev) => (prev <= 1 ? 60 : prev - 1));

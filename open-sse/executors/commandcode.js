@@ -164,7 +164,10 @@ export async function inspectAndWrapCommandCodeResponse(originalResponse, model)
       }
 
       rawChunks.push(value);
-      buffer += decoder.decode(value, { stream: true });
+      const text = decoder.decode(value, { stream: true });
+      buffer += text;
+      // buffer holds no "\n" after the previous split; skip re-splitting it until one arrives.
+      if (!text.includes("\n")) continue;
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
 
@@ -285,7 +288,10 @@ function wrapNdjsonAsOpenAISse(streamBody, model, originalResponse = null) {
 
   const transform = new TransformStream({
     transform(chunk, controller) {
-      buffer += decoder.decode(chunk, { stream: true });
+      const text = decoder.decode(chunk, { stream: true });
+      buffer += text;
+      // buffer holds no "\n" after the previous split; skip re-splitting it until one arrives.
+      if (!text.includes("\n")) return;
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
       for (const line of lines) {

@@ -21,7 +21,8 @@ function getActiveModelLocks(connection) {
 
 export async function GET() {
   try {
-    const connections = await getProviderConnections();
+    // Read-only scan polled by the dashboard; skip the per-row structuredClone.
+    const connections = await getProviderConnections({}, { clone: false });
     const models = [];
 
     for (const connection of connections) {

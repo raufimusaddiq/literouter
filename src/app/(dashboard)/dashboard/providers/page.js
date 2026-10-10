@@ -173,8 +173,14 @@ export default function ProvidersPage() {
     fetchData();
   }, []);
 
+  // Sort comparators call this O(P log P) times per render; each call scans every
+  // connection, so cache results for the duration of this render.
+  const providerStatsCache = new Map();
   const getProviderStats = (providerId, authType) => {
     const authTypes = Array.isArray(authType) ? authType : [authType];
+    const cacheKey = `${providerId}\u0000${authTypes.join(",")}`;
+    const cached = providerStatsCache.get(cacheKey);
+    if (cached) return cached;
     const providerConnections = connections.filter(
       (c) => c.provider === providerId && authTypes.includes(c.authType),
     );
@@ -214,7 +220,9 @@ export default function ProvidersPage() {
       ? getRelativeTime(latestError.lastErrorAt)
       : null;
 
-    return { connected, error, total, errorCode, errorTime, allDisabled };
+    const stats = { connected, error, total, errorCode, errorTime, allDisabled };
+    providerStatsCache.set(cacheKey, stats);
+    return stats;
   };
 
   const matchStatus = (stats, isNoAuth) =>

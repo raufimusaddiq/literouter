@@ -1,5 +1,9 @@
 # v0.5.82 (unreleased)
 
+- **Performance**: stop O(n²) re-splitting of partial SSE lines in the stream translator, Responses stream-to-JSON converter, and GitHub/CommandCode executors; reuse the stall timer per chunk; cache compiled pricing/capability glob regexes; bound the token-refresh dedup map; count RTK lines without splitting large tool results.
+- **Performance**: skip per-row deep clones of the connection pool on read-only paths (`/api/providers`, `/api/models/availability`, `/v1/models`, usage stats, account cooldown); aggregate usage "last used" overlays in SQL; release usage SSE listeners on client abort; invalidate the custom-model cache after raw SQL upserts.
+- **Dashboard**: lazy-load recharts (usage chart) and @dnd-kit (combo editor); pause request-log and model-availability polling while the tab is hidden; fix duplicate quota-poll timers after background refreshes; skip the i18n DOM pass while the locale stays English and cache loaded literals.
+- **Cleanup**: remove unreachable modules (broken legacy OAuth service classes, unused barrels, Grok Build config, Qoder shims, provider-limit cards, RTK registry, compact/combo duplicates), ~60 unused exports, and the unused `confbox`, `express`, `http-proxy-middleware`, `selfsigned`, `socks-proxy-agent`, and `chalk` root dependencies.
 - **Models**: include explicitly enabled non-LLM models when filtering kind catalogs by provider service kind.
 - **Tests**: invoke the single-model catch-all handler directly so key-access coverage does not depend on Next.js route precedence.
 - **Models**: keep single-model `/v1/models/{provider}/{model}` lookups while removed capability-list paths return 404.
