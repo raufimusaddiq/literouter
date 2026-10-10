@@ -191,7 +191,10 @@ export class GithubExecutor extends BaseExecutor {
 
     const transformStream = new TransformStream({
       async transform(chunk, controller) {
-        buffer += decoder.decode(chunk, { stream: true });
+        const text = decoder.decode(chunk, { stream: true });
+        buffer += text;
+        // buffer holds no "\n" after the previous split; skip re-splitting it until one arrives.
+        if (!text.includes("\n")) return;
         const lines = buffer.split("\n");
 
         buffer = lines.pop() || "";
@@ -293,7 +296,10 @@ export class GithubExecutor extends BaseExecutor {
 
     const transformStream = new TransformStream({
       async transform(chunk, controller) {
-        buffer += decoder.decode(chunk, { stream: true });
+        const text = decoder.decode(chunk, { stream: true });
+        buffer += text;
+        // buffer holds no "\n" after the previous split; skip re-splitting it until one arrives.
+        if (!text.includes("\n")) return;
         const lines = buffer.split("\n");
 
         buffer = lines.pop() || "";

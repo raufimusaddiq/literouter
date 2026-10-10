@@ -149,15 +149,6 @@ export async function restartHeadroomProxy(opts = {}) {
   return startHeadroomProxy(opts);
 }
 
-export function getHeadroomLogTail(maxLines = 200) {
-  try {
-    if (!fs.existsSync(LOG_FILE)) return "";
-    const content = fs.readFileSync(LOG_FILE, "utf8");
-    const lines = content.split(/\r?\n/).filter(Boolean);
-    return lines.slice(-maxLines).join("\n");
-  } catch { return ""; }
-}
-
 // Install (or upgrade) headroom-ai with the requested compression extras.
 // `extras` is a whitelist from HEADROOM_COMPRESSION_EXTRAS — anything else
 // is rejected to keep the install surface predictable. Always installs the

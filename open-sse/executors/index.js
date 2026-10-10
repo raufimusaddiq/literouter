@@ -91,17 +91,6 @@ export function hasSpecializedExecutor(provider) {
   return Boolean(factories[canonicalProvider(provider)]);
 }
 
-export function clearExecutorCache(provider = null) {
-  if (!provider) {
-    specializedCache.clear();
-    defaultCache.clear();
-    return;
-  }
-  const id = canonicalProvider(provider);
-  specializedCache.delete(id);
-  defaultCache.delete(id);
-}
-
 export { BaseExecutor } from "./base.js";
 export { AntigravityExecutor } from "./antigravity.js";
 export { AzureExecutor } from "./azure.js";

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { CardSkeleton } from "@/shared/components/Loading";
-import { PageIntro } from "@/shared/components";
+import PageIntro from "@/shared/components/PageIntro";
 import ProviderLimits from "../usage/components/ProviderLimits";
 
 export default function QuotaPage() {

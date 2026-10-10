@@ -72,13 +72,6 @@ export function getProvider(name) {
 }
 
 /**
- * Get all provider names
- */
-export function getProviderNames() {
-  return Object.keys(PROVIDERS);
-}
-
-/**
  * Generate auth data for a provider
  * @param {object} [meta] - Provider-specific metadata (e.g. gitlab clientId/baseUrl)
  */

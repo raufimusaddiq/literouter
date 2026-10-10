@@ -368,12 +368,22 @@ export const PATTERN_PRICING = [
   { pattern: "grok-*",          pricing: { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  } },
 ];
 
+// Compiled per pattern once: capability/pricing lookups scan the full pattern
+// tables (100+ globs, two tests each) on every request.
+const patternRegexCache = new Map();
+const PATTERN_REGEX_CACHE_MAX = 1000;
+
 /**
  * Match a model ID against a glob pattern (* = wildcard). Case-insensitive:
  * registry ids mix casing (e.g. "MiniMax-M2.5" vs "minimax-m2.5").
  */
 export function matchPattern(pattern, model) {
-  const regex = new RegExp("^" + pattern.split("*").map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$", "i");
+  let regex = patternRegexCache.get(pattern);
+  if (!regex) {
+    regex = new RegExp("^" + pattern.split("*").map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$", "i");
+    if (patternRegexCache.size >= PATTERN_REGEX_CACHE_MAX) patternRegexCache.clear();
+    patternRegexCache.set(pattern, regex);
+  }
   return regex.test(model);
 }
 

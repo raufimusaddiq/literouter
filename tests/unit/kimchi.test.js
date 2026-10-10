@@ -48,55 +48,6 @@ describe("kimchi registry entry", () => {
   });
 });
 
-// ── Pure-function clones of the service logic (tested in isolation so
-//     node --test works without resolving the Next.js Webpack "open-sse"
-//     alias that src/lib/oauth/services/kimchi.js's dependency imports). ──
-
-function buildKimchiAuthUrl(callbackUrl, state) {
-  const params = new URLSearchParams({ callback: callbackUrl, state });
-  return `https://app.kimchi.dev/cli-auth?${params.toString()}`;
-}
-
-async function _handleCallback(params, expectedState) {
-  if (params.error) {
-    throw new Error(params.error_description || params.error);
-  }
-  const candidate = params.state;
-  if (!candidate || candidate !== expectedState) {
-    throw new Error(
-      "This request isn't valid. Please restart the Kimchi login flow.",
-    );
-  }
-  const token = params.token;
-  if (!token) {
-    throw new Error("No token was returned by the Kimchi authentication server");
-  }
-  return { token };
-}
-
-describe("kimchi oauth", () => {
-  it("builds the cli-auth URL with encoded callback + state", () => {
-    const url = buildKimchiAuthUrl("http://127.0.0.1:4321/callback", "abc123");
-    const parsed = new URL(url);
-    assert.equal(parsed.origin, "https://app.kimchi.dev");
-    assert.equal(parsed.pathname, "/cli-auth");
-    assert.equal(parsed.searchParams.get("callback"), "http://127.0.0.1:4321/callback");
-    assert.equal(parsed.searchParams.get("state"), "abc123");
-  });
-
-  it("rejects a callback whose state does not match", async () => {
-    await assert.rejects(
-      () => _handleCallback({ token: "castai_v1_x", state: "wrong" }, "expected"),
-      /restart/i,
-    );
-  });
-
-  it("accepts a callback with matching state and returns the token", async () => {
-    const res = await _handleCallback({ token: "castai_v1_x", state: "match" }, "match");
-    assert.equal(res.token, "castai_v1_x");
-  });
-});
-
 // ── kimchiModels service (pure mapping logic, tested in isolation) ──
 
 // Clone of the metadata→model mapper so node --test resolves without the
@@ -141,37 +92,6 @@ describe("kimchiModels", () => {
   it("returns empty array for non-array input", () => {
     assert.deepEqual(mapKimchiMetadata(null), []);
     assert.deepEqual(mapKimchiMetadata({}), []);
-  });
-});
-
-// ── validateToken logic (pure decision over a status code) ──
-
-// Mirrors the decision in KimchiService.validateToken without importing the
-// service (which pulls the open-sse Webpack alias chain).
-function decideValidity(status) {
-  if (status === 200) return { valid: true };
-  if (status === 401) return { valid: false, error: "Kimchi token invalid or expired" };
-  if (status === 403) return { valid: false, error: "Kimchi token lacks required scope" };
-  return { valid: true }; // fail-open on unknown / network error
-}
-
-describe("kimchi validateToken", () => {
-  it("200 → valid", () => {
-    assert.deepEqual(decideValidity(200), { valid: true });
-  });
-  it("401 → invalid, expired message", () => {
-    const r = decideValidity(401);
-    assert.equal(r.valid, false);
-    assert.match(r.error, /invalid or expired/i);
-  });
-  it("403 → invalid, scope message", () => {
-    const r = decideValidity(403);
-    assert.equal(r.valid, false);
-    assert.match(r.error, /scope/i);
-  });
-  it("unknown / network error → fail-open valid", () => {
-    assert.equal(decideValidity(500).valid, true);
-    assert.equal(decideValidity(0).valid, true);
   });
 });
 

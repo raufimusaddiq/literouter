@@ -343,7 +343,7 @@ export async function buildModelsList(kindFilter, options = {}) {
   const skipDynamicFetch = options.skipDynamicFetch === true;
   let connections = [];
   try {
-    connections = await getProviderConnections();
+    connections = await getProviderConnections({}, { clone: false });
     connections = connections.filter(c => c.isActive !== false);
   } catch (e) {
     console.log("Could not fetch providers, returning all models");
@@ -378,10 +378,12 @@ export async function buildModelsList(kindFilter, options = {}) {
   }
   const isDisabled = (alias, modelId) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
 
+  // Only the first active connection per provider is used (and handed to live
+  // resolvers), so clone that one instead of the whole cached pool per call.
   const activeConnectionByProvider = new Map();
   for (const conn of connections) {
     if (!activeConnectionByProvider.has(conn.provider)) {
-      activeConnectionByProvider.set(conn.provider, conn);
+      activeConnectionByProvider.set(conn.provider, structuredClone(conn));
     }
   }
 

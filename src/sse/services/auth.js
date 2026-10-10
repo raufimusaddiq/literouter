@@ -49,8 +49,6 @@ export function resetProviderSelectionState(provider = null) {
   else selectionState.clear();
 }
 
-export const __selectionState = selectionState;
-
 const GITHUB_MONTHLY_USAGE_LIMIT = "you've reached your additional usage limit for your plan";
 
 function githubMonthlyResetMs(status, errorText, provider) {
@@ -236,7 +234,8 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
  */
 export async function markAccountUnavailable(connectionId, status, errorText, provider = null, model = null, resetsAtMs = null) {
   if (!connectionId || connectionId === "noauth") return { shouldFallback: false, cooldownMs: 0 };
-  const connections = await getProviderConnections({ provider });
+  // Read-only lookup (backoffLevel/name); no need to clone the provider's pool.
+  const connections = await getProviderConnections({ provider }, { clone: false });
   const conn = connections.find(c => c.id === connectionId);
   const backoffLevel = conn?.backoffLevel || 0;
 

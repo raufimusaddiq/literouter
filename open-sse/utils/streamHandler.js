@@ -241,7 +241,9 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
       if (isDebugEnabled && (chunkCount <= 5 || chunkCount % 20 === 0 || gap > 5000)) {
         dbg(tag, `chunk #${chunkCount} | size=${sz}B | gap=${gap}ms | total=${totalBytes}B`);
       }
-      armStall();
+      // Node Timeout.refresh() re-arms in place; avoids a clearTimeout+setTimeout pair per chunk.
+      if (stallTimer?.refresh) stallTimer.refresh();
+      else armStall();
       controller.enqueue(chunk);
     },
     flush() { dbg(tag, `upstream EOF | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); }

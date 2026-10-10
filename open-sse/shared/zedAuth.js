@@ -416,9 +416,3 @@ export async function resolveZedModels(credentials, options = {}) {
     if (modelInflight.get(key) === promise) modelInflight.delete(key);
   }
 }
-
-export function clearZedCaches() {
-  llmTokenCache.clear();
-  modelCache.clear();
-  modelInflight.clear();
-}

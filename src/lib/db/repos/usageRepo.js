@@ -127,7 +127,7 @@ async function getConnectionMapCached() {
   if (Date.now() - connCache.ts < CONN_CACHE_TTL_MS) return connCache.map;
   try {
     const { getProviderConnections } = await import("./connectionsRepo.js");
-    const all = await getProviderConnections();
+    const all = await getProviderConnections({}, { clone: false });
     const map = {};
     for (const c of all) map[c.id] = c.name || c.email || c.id;
     connCache.map = map;
@@ -521,7 +521,7 @@ export async function getUsageStats(period = "all") {
   ]);
 
   let allConnections = [];
-  try { allConnections = await getProviderConnections(); } catch {}
+  try { allConnections = await getProviderConnections({}, { clone: false }); } catch {}
   const connectionMap = {};
   for (const c of allConnections) connectionMap[c.id] = c.name || c.email || c.id;
 
@@ -715,8 +715,10 @@ export async function getUsageStats(period = "all") {
       maxDays ? Date.now() - maxDays * 86400000 : 0,
       Date.now() - OVERLAY_WINDOW_MS
     );
+    // Only MAX(timestamp) per key tuple matters here, so aggregate in SQL
+    // instead of materializing every history row in the window per call.
     const histRows = db.all(
-      `SELECT timestamp, provider, model, connectionId, apiKey, endpoint FROM usageHistory WHERE timestamp >= ?`,
+      `SELECT MAX(timestamp) AS timestamp, provider, model, connectionId, apiKey, endpoint FROM usageHistory WHERE timestamp >= ? GROUP BY provider, model, connectionId, apiKey, endpoint`,
       [new Date(overlayCutoff).toISOString()]
     );
     for (const e of histRows) {
@@ -929,7 +931,7 @@ export async function getRecentLogs(limit = 200) {
     const connMap = {};
     try {
       const { getProviderConnections } = await import("./connectionsRepo.js");
-      const connections = await getProviderConnections();
+      const connections = await getProviderConnections({}, { clone: false });
       for (const c of connections) connMap[c.id] = c.name || c.email || "";
     } catch {}
 

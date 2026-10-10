@@ -214,10 +214,6 @@ export async function redisSet(name, value, ttlSeconds = 0) {
   return command(args);
 }
 
-export async function redisDelete(name) {
-  return command(["DEL", key(name)]);
-}
-
 export async function redisIncrement(name) {
   return command(["INCR", key(name)]);
 }
