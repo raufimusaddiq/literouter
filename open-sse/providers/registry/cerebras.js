@@ -27,5 +27,6 @@ export default {
     { id: "llama-4-scout-17b-16e-instruct", name: "Llama 4 Scout" },
     { id: "qwen-3-235b-a22b-instruct-2507", name: "Qwen3 235B A22B" },
     { id: "qwen-3-32b", name: "Qwen3 32B" },
+    { id: "qwen-3.8-27b", name: "Qwen3.8 27B" },
   ],
 };

@@ -107,7 +107,15 @@ export const MODEL_CAPABILITIES = {
   "claude-sonnet-5-thinking": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
   "claude-sonnet-5-agentic": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
   "claude-sonnet-5-thinking-agentic": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
+  // 5.5 generation (models.dev: 1M ctx, pdf+image input, adaptive thinking)
+  "claude-opus-5-5":   { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
+  "claude-opus-5.5":   { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
   "claude-sonnet-5-5": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
+  "claude-sonnet-5.5": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
+  "claude-haiku-5-5":  { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
+  "claude-haiku-5.5":  { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
+  // Fable 5 predates the adaptive generation — budget thinking, 1M window.
+  "claude-fable-5":    { vision: true, reasoning: true, search: true, thinkingFormat: "claude-budget", contextWindow: 1000000, maxOutput: 128000 },
 
   // Gemini image-gen / OpenAI image / xai image variants
   "gpt-image-1":       { imageOutput: true, tools: false },
@@ -136,7 +144,8 @@ export const MODEL_CAPABILITIES = {
   // 128K/64K limits are kept here. The repeated fields are deliberate: an exact entry
   // short-circuits the pattern table, so a vision-only delta would drop them.
   "deepseek-v4.1-flash": { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
-  "deepseek-flash":      { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 128000, maxOutput: 64000 },
+  // models.dev/deepseek: GA id carries the full V4.1 1M window, 384k output.
+  "deepseek-flash":      { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
 
   // Qwen plain coder/text (no vision) — registry "vision-model" / "coder-model" aliases
   "vision-model":      { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 1000000 },
@@ -370,6 +379,11 @@ export const PATTERN_CAPABILITIES = [
 
   // ── OpenAI GPT-5.x (vision + thinking + web search) ──────────────
   { pattern: "*gpt-5*image*",   caps: { imageOutput: true } },
+  // gpt-5.3-codex accepts images per models.dev (input text+image+pdf); the
+  // generic codex pattern below would leave vision off.
+  // Spark tier: 128k window / 32k output (models.dev openai).
+  { pattern: "*gpt-5.3-codex-spark*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 128000, maxOutput: 32000 } },
+  { pattern: "*gpt-5.3-codex*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 400000, maxOutput: 128000 } },
   { pattern: "*gpt-5*codex*",   caps: { reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 400000, maxOutput: 128000 } },
   // gpt-5.4 is where the 1.05M window starts, but the mini and nano tiers stayed
   // at 400k — first match wins, so those two have to be listed ahead of it.
@@ -399,6 +413,10 @@ export const PATTERN_CAPABILITIES = [
   { pattern: "*grok-4.6*",      caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 500000, maxOutput: 500000 } },
   // Grok 4.5 (Grok CLI / Grok Build): 500k context per cli-chat-proxy /v1/models
   { pattern: "*grok-4.5*",      caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 500000, maxOutput: 64000 } },
+  // Grok 4.7 (docs.x.ai): 500k context, no output cap. 4.3: 1M ctx / 32k out.
+  { pattern: "*grok-4.7*",      caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 500000, maxOutput: 500000 } },
+  { pattern: "*grok-4.3*",      caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 30000 } },
+  { pattern: "*grok-build*",    caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 256000, maxOutput: 256000 } },
   { pattern: "*grok-4*",        caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 256000 } },
   { pattern: "*grok-3*",        caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 131072 } },
   { pattern: "*grok*",          caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 256000 } },
@@ -413,6 +431,8 @@ export const PATTERN_CAPABILITIES = [
   { pattern: "*qwen3.7*",       caps: { vision: true, videoInput: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 1000000, maxOutput: 65536 } },
   { pattern: "*qwen*plus*",     caps: { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 1000000, maxOutput: 65536 } },
   { pattern: "*qwen*235b*",     caps: { reasoning: true, thinkingFormat: "qwen", contextWindow: 262144 } },
+  // Qwen3.8 27B is multimodal (text+image) unlike the text-only 3.5/3.6 27B tiers.
+  { pattern: "*qwen-3.8-27b*",  caps: { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 131072, maxOutput: 40960 } },
   { pattern: "*qwq*",           caps: { reasoning: true, thinkingFormat: "qwen", thinkingCanDisable: false, contextWindow: 131072 } },
   { pattern: "*qwen*",          caps: { reasoning: true, thinkingFormat: "qwen", contextWindow: 262144 } },
 
@@ -474,6 +494,8 @@ export const PATTERN_CAPABILITIES = [
   { pattern: "*command*",       caps: { contextWindow: 128000 } },
 
   // ── Perplexity (web search native) ───────────────────────────────
+  { pattern: "*sonar-deep-research*",   caps: { search: true, reasoning: true, tools: false, contextWindow: 128000, maxOutput: 32768 } },
+  { pattern: "*sonar-reasoning-pro*",   caps: { search: true, reasoning: true, tools: false, vision: true, contextWindow: 128000, maxOutput: 4096 } },
   { pattern: "*sonar*",         caps: { search: true, contextWindow: 128000 } },
   { pattern: "*pplx*",          caps: { search: true, contextWindow: 128000 } },
   { pattern: "*perplexity*",    caps: { search: true, contextWindow: 128000 } },
@@ -483,6 +505,8 @@ export const PATTERN_CAPABILITIES = [
   // (":free" or "-free", depending on reseller) before the plain id.
   { pattern: "*laguna-s-2.1*free*", caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 32000 } },
   { pattern: "*laguna-s-2.1*",  caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 32000 } },
+  // Laguna M.1: 262k ctx, 32k out (models.dev poolside).
+  { pattern: "*laguna-m.1*",    caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 262144, maxOutput: 32000 } },
   { pattern: "*laguna*",        caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 32000 } },
 
 

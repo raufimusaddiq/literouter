@@ -24,6 +24,8 @@ export default {
   },
   models: [
     { id: "sonar-pro", name: "Sonar Pro" },
+    { id: "sonar-reasoning-pro", name: "Sonar Reasoning Pro" },
+    { id: "sonar-deep-research", name: "Sonar Deep Research" },
     { id: "sonar", name: "Sonar" },
   ],
   serviceKinds: ["llm"],

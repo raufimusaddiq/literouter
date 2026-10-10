@@ -35,6 +35,10 @@
 - **Migrations**: create `kv` before legacy-data cleanup, and preserve relay header filtering for compressed responses.
 - **Models**: import the provider registry so capability lookups resolve aliases without a startup error.
 
+## Model Metadata (2026-10-10)
+- **Registry**: add missing static catalog entries — Anthropic (Opus/Sonnet/Haiku 5.5, Fable 5), OpenAI (GPT-6 family, 5.5/5.4-pro/5.2-pro, 5.3-codex(+spark)), xAI (Grok 4.7/4.3, Grok Build 0.1), DeepSeek GA deepseek-flash, MiniMax M2/M2.7/M2.5-highspeed, Perplexity Sonar Reasoning Pro / Deep Research, Poolside Laguna M.1, Cerebras Qwen3.8 27B.
+- **Capabilities**: correct windows for Grok 4.7 (500k) and 4.3 (1M), DeepSeek GA flash (1M/384k), Laguna M.1 (262k), Sonar reasoning variants; add vision for gpt-5.3-codex and Qwen3.8 27B; adaptive thinking for Claude 5.5 tier.
+
 ## Upstream Core Fixes (2026-10-07)
 - **Claude**: cache final tool results within the existing four-breakpoint budget.
 - **Models**: correct provider-scoped context/output limits and publish nested combo minima without restoring broad capability aggregation or UI features.
