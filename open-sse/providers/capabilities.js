@@ -143,7 +143,10 @@ export const MODEL_CAPABILITIES = {
   // DeepSeek API; it previously fell through to the generic *deepseek* pattern, whose
   // 128K/64K limits are kept here. The repeated fields are deliberate: an exact entry
   // short-circuits the pattern table, so a vision-only delta would drop them.
+  // Some providers (e.g. Kenari) expose this model under the hyphenated ID
+  // "deepseek-v4-1-flash" (dash instead of dot); add it as an alias (#4293).
   "deepseek-v4.1-flash": { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
+  "deepseek-v4-1-flash": { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
   // models.dev/deepseek: GA id carries the full V4.1 1M window, 384k output.
   "deepseek-flash":      { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
 
