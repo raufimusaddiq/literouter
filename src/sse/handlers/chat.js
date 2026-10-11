@@ -27,6 +27,7 @@ import { updateProviderCredentials, checkAndRefreshToken } from "../services/tok
 import { getProjectIdForConnection } from "open-sse/services/projectId.js";
 import { stripModelContextMarker } from "open-sse/utils/modelMarkers.js";
 import { getKeyAccessContext, enforceKeyAccess, filterAdapterModels } from "../services/keyAccess.js";
+import { PROVIDERS } from "open-sse/config/providers.js";
 
 /**
  * Handle chat completion request
@@ -232,6 +233,9 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   }
 
   const { provider, model } = modelInfo;
+  if (PROVIDERS[provider]?.format === "systemone" || provider.startsWith("systemone-")) {
+    return errorResponse(HTTP_STATUS.BAD_REQUEST, `${provider} only supports System One; use POST /v1/systemone`);
+  }
 
   // Routing shown in the unified "▶" line (client model → provider/model)
 
