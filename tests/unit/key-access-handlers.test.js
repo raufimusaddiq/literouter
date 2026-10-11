@@ -198,11 +198,11 @@ describe.each(handlers)("%s handler is wired", (_name, call, allowed, denied) =>
 describe("/v1/models routes filter by key", () => {
   const list = async (k) => (await (await modelsRoute.GET(new Request("http://localhost/v1/models", { headers: auth(k) }))).json()).data.map((m) => m.id);
 
-  it("keeps Jev out of chat discovery but available in the System One catalog", async () => {
-    fx.providerConnections.push({
+  it.each([true, false])("preserves System One discovery with active connections: %s", async (active) => {
+    fx.providerConnections = active ? [{
       id: "conn-typesafe", provider: "typesafe", isActive: true,
       providerSpecificData: { enabledModels: ["jev-latest"] },
-    });
+    }] : [];
     expect(await list("sk-open")).not.toContain("typesafe/jev-latest");
     const systemOne = await modelsRoute.buildModelsList(["systemone"]);
     expect(systemOne.map((model) => model.id)).toContain("typesafe/jev-latest");
