@@ -1,5 +1,8 @@
 # v0.5.82 (unreleased)
 
+- **Cursor**: forward reasoning effort to AgentService; reject empty turns and avoid successful completion on transport failures.
+- **Capabilities**: recognize the hyphenated DeepSeek V4.1 Flash vision alias without changing the GA model limits.
+
 - **Performance**: stop O(n²) re-splitting of partial SSE lines in the stream translator, Responses stream-to-JSON converter, and GitHub/CommandCode executors; reuse the stall timer per chunk; cache compiled pricing/capability glob regexes; bound the token-refresh dedup map; count RTK lines without splitting large tool results.
 - **Performance**: skip per-row deep clones of the connection pool on read-only paths (`/api/providers`, `/api/models/availability`, `/v1/models`, usage stats, account cooldown); aggregate usage "last used" overlays in SQL; release usage SSE listeners on client abort; invalidate the custom-model cache after raw SQL upserts.
 - **Dashboard**: lazy-load recharts (usage chart) and @dnd-kit (combo editor); pause request-log and model-availability polling while the tab is hidden; fix duplicate quota-poll timers after background refreshes; skip the i18n DOM pass while the locale stays English and cache loaded literals.
