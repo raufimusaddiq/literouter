@@ -103,6 +103,15 @@ const chat = (model, k) => handleChat(post("/v1/chat/completions", { model, stre
 describe("chat (/v1/chat/completions, /v1/messages, /v1/responses all use handleChat)", () => {
   beforeEach(() => mocks.getProviderCredentials.mockResolvedValue({ connectionId: "conn", connectionName: "mock" }));
 
+  it.each(["/v1/chat/completions", "/v1/messages", "/v1/responses"])("rejects System One-only models on %s before credential lookup", async (endpoint) => {
+    const response = await handleChat(post(endpoint, {
+      model: "typesafe/jev-latest", messages: [{ role: "user", content: "hi" }],
+    }, "sk-open"));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.message).toContain("POST /v1/systemone");
+    expect(mocks.getProviderCredentials).not.toHaveBeenCalled();
+    expect(mocks.handleChatCore).not.toHaveBeenCalled();
+  });
   it("unrestricted key reaches the provider for the combo and models", async () => {
     for (const m of ["Main", "openai/model-b"]) {
       expect((await chat(m, "sk-open")).status).toBe(200);
@@ -189,6 +198,15 @@ describe.each(handlers)("%s handler is wired", (_name, call, allowed, denied) =>
 describe("/v1/models routes filter by key", () => {
   const list = async (k) => (await (await modelsRoute.GET(new Request("http://localhost/v1/models", { headers: auth(k) }))).json()).data.map((m) => m.id);
 
+  it("keeps Jev out of chat discovery but available in the System One catalog", async () => {
+    fx.providerConnections.push({
+      id: "conn-typesafe", provider: "typesafe", isActive: true,
+      providerSpecificData: { enabledModels: ["jev-latest"] },
+    });
+    expect(await list("sk-open")).not.toContain("typesafe/jev-latest");
+    const systemOne = await modelsRoute.buildModelsList(["systemone"]);
+    expect(systemOne.map((model) => model.id)).toContain("typesafe/jev-latest");
+  });
   it("unrestricted sees the full catalog; restricted keys see only their entries", async () => {
     const all = await list("sk-open");
     expect(all).toContain("Main");

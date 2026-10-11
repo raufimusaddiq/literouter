@@ -23,7 +23,7 @@ export default {
     timeoutMs: 10000,
   },
   models: [
-    { id: "jev-latest", name: "Jev (latest)" },
+    { id: "jev-latest", name: "Jev (latest)", kind: "systemone" },
   ],
   serviceKinds: ["systemone"],
 };
