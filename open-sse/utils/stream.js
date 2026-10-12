@@ -84,6 +84,7 @@ export function createSSEStream(options = {}) {
   let openAIResponsesTerminalSeen = false;
   let openAIResponsesDoneSent = false;
   let streamDoneSent = false;  // track duplicate [DONE] across transform + flush
+  let translatedDoneEmitted = false;  // a translator already produced the chat [DONE] frame
   let finalized = false;
   let completionFlushTimer = null;
 
@@ -422,6 +423,7 @@ export function createSSEStream(options = {}) {
             const output = formatSSE(item, sourceFormat);
             reqLogger?.appendConvertedChunk?.(output);
             controller.enqueue(sharedEncoder.encode(output));
+            if (output.startsWith("data: [DONE]")) translatedDoneEmitted = true;
             sseEmittedCount++;
           }
         }
@@ -506,6 +508,7 @@ export function createSSEStream(options = {}) {
                 const output = formatSSE(item, sourceFormat);
                 reqLogger?.appendConvertedChunk?.(output);
                 controller.enqueue(sharedEncoder.encode(output));
+                if (output.startsWith("data: [DONE]")) translatedDoneEmitted = true;
               }
             }
           }
@@ -526,7 +529,18 @@ export function createSSEStream(options = {}) {
             const output = formatSSE(item, sourceFormat);
             reqLogger?.appendConvertedChunk?.(output);
             controller.enqueue(sharedEncoder.encode(output));
+            if (output.startsWith("data: [DONE]")) translatedDoneEmitted = true;
           }
+        }
+
+        // Chat Completions clients behind a translated upstream (Responses, Claude, ...)
+        // never receive the sentinel from the upstream; strict clients wait for it.
+        if (sourceFormat === FORMATS.OPENAI && !translatedDoneEmitted) {
+          const doneOutput = "data: [DONE]\n\n";
+          reqLogger?.appendConvertedChunk?.(doneOutput);
+          controller.enqueue(sharedEncoder.encode(doneOutput));
+          translatedDoneEmitted = true;
+          streamDoneSent = true;
         }
 
         // Synthesize response.failed if a Responses passthrough stream never reached a terminal event
