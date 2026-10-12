@@ -213,6 +213,14 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
       )) {
         return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Invalid Codex compact response");
       }
+      // A failed stream, or one that ended with no terminal event and no output,
+      // must surface as an error instead of an empty 200 the client reads as "no tool call".
+      const noOutput = !Array.isArray(jsonResponse?.output) || jsonResponse.output.length === 0;
+      if (jsonResponse?.status === "failed" || (jsonResponse?.status === "in_progress" && noOutput)) {
+        const upstreamError = jsonResponse.error;
+        const message = upstreamError?.message || "Upstream Responses stream ended without a result";
+        return createErrorResult(upstreamError?.type === "invalid_request_error" ? HTTP_STATUS.BAD_REQUEST : HTTP_STATUS.BAD_GATEWAY, message);
+      }
       if (onRequestSuccess) await onRequestSuccess();
 
       const usage = jsonResponse.usage || {};

@@ -36,6 +36,10 @@ function processSSEMessage(msg, state) {
     }
   } else if (eventType === "response.failed") {
     state.status = "failed";
+    state.error = parsed.response?.error || parsed.error || state.error;
+  } else if (eventType === "error") {
+    state.status = "failed";
+    state.error = parsed.error || parsed || state.error;
   }
 }
 
@@ -97,7 +101,7 @@ export async function convertResponsesStreamToJson(stream) {
     output.push(state.items.get(i) || { type: "message", content: [], role: "assistant" });
   }
 
-  return {
+  const result = {
     id: state.responseId || `resp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     object: "response",
     created_at: state.created,
@@ -105,4 +109,6 @@ export async function convertResponsesStreamToJson(stream) {
     output,
     usage: state.usage
   };
+  if (state.error) result.error = state.error;
+  return result;
 }

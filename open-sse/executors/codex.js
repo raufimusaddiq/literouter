@@ -140,6 +140,11 @@ function resolveCacheSessionId(body, credentials) {
 function normalizeReasoningEffort(model, value) {
   const supportedLevels = getThinkingLevels("codex", model);
   if (supportedLevels?.includes(value)) return value;
+  // Models that cannot disable reasoning reject "none"; use their lowest real level.
+  if (value === "none" && supportedLevels?.length) {
+    const lowest = supportedLevels.find((level) => level !== "none");
+    if (lowest) return lowest;
+  }
   if (value === "ultra" && supportedLevels?.includes("max")) return "max";
   if (value === "max" || value === "ultra") return "xhigh";
   return value;
