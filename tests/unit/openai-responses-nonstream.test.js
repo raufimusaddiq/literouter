@@ -111,6 +111,26 @@ describe("non-stream Claude upstream for a Responses-API client", () => {
     expect(call.name).toBe("get_weather");
     expect(JSON.parse(call.arguments)).toEqual({ city: "Paris" });
   });
+
+  it("maps Claude max_tokens to an incomplete Responses status", () => {
+    const out = translateNonStreamingResponse({
+      id: "msg_3", type: "message", role: "assistant", model: "claude-haiku-5-5",
+      content: [{ type: "text", text: "cut" }],
+      stop_reason: "max_tokens",
+      usage: { input_tokens: 3, output_tokens: 2 },
+    }, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES);
+    expect(out.status).toBe("incomplete");
+    expect(out.incomplete_details).toEqual({ reason: "max_output_tokens" });
+  });
+
+  it("maps Gemini MAX_TOKENS and SAFETY to incomplete statuses", () => {
+    const gemini = (finishReason) => translateNonStreamingResponse({
+      candidates: [{ content: { role: "model", parts: [{ text: "cut" }] }, finishReason }],
+    }, FORMATS.GEMINI, FORMATS.OPENAI_RESPONSES);
+    expect(gemini("MAX_TOKENS")).toMatchObject({ status: "incomplete", incomplete_details: { reason: "max_output_tokens" } });
+    expect(gemini("SAFETY")).toMatchObject({ status: "incomplete", incomplete_details: { reason: "content_filter" } });
+    expect(gemini("STOP").status).toBe("completed");
+  });
 });
 
 describe("non-stream Responses upstream for a Chat client (OpenCode Go Luna)", () => {
