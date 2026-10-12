@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FORMATS } from "open-sse/translator/formats.js";
-import { createSSEStream, STREAM_MODE } from "open-sse/utils/stream.js";
+import { createSSETransformStreamWithLogger } from "open-sse/utils/stream.js";
 
 // Responses and Claude upstreams never send `data: [DONE]`; a Chat Completions
 // client behind them must still get exactly one sentinel at the end.
@@ -11,14 +11,7 @@ async function collect(targetFormat, events) {
       controller.close();
     },
   });
-  const transform = createSSEStream({
-    mode: STREAM_MODE.TRANSLATE,
-    targetFormat,
-    sourceFormat: FORMATS.OPENAI,
-    provider: "test",
-    model: "m",
-    connectionId: "c",
-  });
+  const transform = createSSETransformStreamWithLogger(targetFormat, FORMATS.OPENAI, "test", null, null, "m", "c");
   const reader = upstream.pipeThrough(transform).getReader();
   const decoder = new TextDecoder();
   let text = "";
