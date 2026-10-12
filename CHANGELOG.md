@@ -1,5 +1,6 @@
 # v0.5.82 (unreleased)
 
+- **Codex**: map `reasoning_effort: "none"` to the lowest supported level for `gpt-6.1-sol` (which rejects it upstream), and return the upstream error for non-streaming requests whose Responses stream fails or ends without a result instead of an empty 200 with `finish_reason: "in_progress"`.
 - **System One**: reject chat requests to System One-only providers with HTTP 400 directing clients to `POST /v1/systemone`, before credential lookup or upstream fetch. Classify Jev as System One and exclude System One-only providers from the default chat catalog, retaining explicit System One discovery.
 - **Cursor**: forward reasoning effort to AgentService; reject empty turns and avoid successful completion on transport failures.
 - **Capabilities**: recognize the hyphenated DeepSeek V4.1 Flash vision alias without changing the GA model limits.
