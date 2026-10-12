@@ -86,6 +86,33 @@ describe("non-stream Chat upstream for a Responses-API client (op-ericding bug)"
   });
 });
 
+describe("non-stream Claude upstream for a Responses-API client", () => {
+  it("returns a Responses object with the text as an output message", () => {
+    const out = translateNonStreamingResponse({
+      id: "msg_1", type: "message", role: "assistant", model: "claude-haiku-5-5",
+      content: [{ type: "text", text: "smoke-ok" }],
+      stop_reason: "end_turn",
+      usage: { input_tokens: 3, output_tokens: 2 },
+    }, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES);
+    expect(out.object).toBe("response");
+    expect(out.choices).toBeUndefined();
+    const msg = out.output.find((item) => item.type === "message");
+    expect(msg.content[0].text).toBe("smoke-ok");
+  });
+
+  it("surfaces tool_use as a function_call output item", () => {
+    const out = translateNonStreamingResponse({
+      id: "msg_2", type: "message", role: "assistant", model: "claude-haiku-5-5",
+      content: [{ type: "tool_use", id: "toolu_1", name: "get_weather", input: { city: "Paris" } }],
+      stop_reason: "tool_use",
+      usage: { input_tokens: 3, output_tokens: 2 },
+    }, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES);
+    const call = out.output.find((item) => item.type === "function_call");
+    expect(call.name).toBe("get_weather");
+    expect(JSON.parse(call.arguments)).toEqual({ city: "Paris" });
+  });
+});
+
 describe("non-stream Responses upstream for a Chat client (OpenCode Go Luna)", () => {
   it("preserves stream:false when translating Chat to Responses", () => {
     const out = openaiToOpenAIResponsesRequest("gpt-5.6-luna", {

@@ -150,6 +150,22 @@ function responsesToOpenAICompletion(responseBody) {
  * Translate non-streaming response body from provider format → OpenAI format.
  */
 export function translateNonStreamingResponse(responseBody, targetFormat, sourceFormat, customToolNames = null) {
+  const translated = translateToClientShape(responseBody, targetFormat, sourceFormat, customToolNames);
+  // Claude/Gemini/Ollama upstreams are normalized to chat.completion above; a
+  // Responses client needs the Responses `output` shape instead.
+  if (
+    sourceFormat === FORMATS.OPENAI_RESPONSES
+    && targetFormat !== FORMATS.OPENAI
+    && targetFormat !== FORMATS.OPENAI_RESPONSES
+    && translated?.object === "chat.completion"
+    && Array.isArray(translated.choices)
+  ) {
+    return openAICompletionToResponses(translated, customToolNames);
+  }
+  return translated;
+}
+
+function translateToClientShape(responseBody, targetFormat, sourceFormat, customToolNames = null) {
   if (targetFormat === sourceFormat) return responseBody;
   // Responses-native upstream serving a Chat Completions client (for example
   // OpenCode Go Luna selected directly or as the primary Combo model).
