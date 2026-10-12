@@ -86,6 +86,53 @@ describe("non-stream Chat upstream for a Responses-API client (op-ericding bug)"
   });
 });
 
+describe("non-stream Claude upstream for a Responses-API client", () => {
+  it("returns a Responses object with the text as an output message", () => {
+    const out = translateNonStreamingResponse({
+      id: "msg_1", type: "message", role: "assistant", model: "claude-haiku-5-5",
+      content: [{ type: "text", text: "smoke-ok" }],
+      stop_reason: "end_turn",
+      usage: { input_tokens: 3, output_tokens: 2 },
+    }, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES);
+    expect(out.object).toBe("response");
+    expect(out.choices).toBeUndefined();
+    const msg = out.output.find((item) => item.type === "message");
+    expect(msg.content[0].text).toBe("smoke-ok");
+  });
+
+  it("surfaces tool_use as a function_call output item", () => {
+    const out = translateNonStreamingResponse({
+      id: "msg_2", type: "message", role: "assistant", model: "claude-haiku-5-5",
+      content: [{ type: "tool_use", id: "toolu_1", name: "get_weather", input: { city: "Paris" } }],
+      stop_reason: "tool_use",
+      usage: { input_tokens: 3, output_tokens: 2 },
+    }, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES);
+    const call = out.output.find((item) => item.type === "function_call");
+    expect(call.name).toBe("get_weather");
+    expect(JSON.parse(call.arguments)).toEqual({ city: "Paris" });
+  });
+
+  it("maps Claude max_tokens to an incomplete Responses status", () => {
+    const out = translateNonStreamingResponse({
+      id: "msg_3", type: "message", role: "assistant", model: "claude-haiku-5-5",
+      content: [{ type: "text", text: "cut" }],
+      stop_reason: "max_tokens",
+      usage: { input_tokens: 3, output_tokens: 2 },
+    }, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES);
+    expect(out.status).toBe("incomplete");
+    expect(out.incomplete_details).toEqual({ reason: "max_output_tokens" });
+  });
+
+  it("maps Gemini MAX_TOKENS and SAFETY to incomplete statuses", () => {
+    const gemini = (finishReason) => translateNonStreamingResponse({
+      candidates: [{ content: { role: "model", parts: [{ text: "cut" }] }, finishReason }],
+    }, FORMATS.GEMINI, FORMATS.OPENAI_RESPONSES);
+    expect(gemini("MAX_TOKENS")).toMatchObject({ status: "incomplete", incomplete_details: { reason: "max_output_tokens" } });
+    expect(gemini("SAFETY")).toMatchObject({ status: "incomplete", incomplete_details: { reason: "content_filter" } });
+    expect(gemini("STOP").status).toBe("completed");
+  });
+});
+
 describe("non-stream Responses upstream for a Chat client (OpenCode Go Luna)", () => {
   it("preserves stream:false when translating Chat to Responses", () => {
     const out = openaiToOpenAIResponsesRequest("gpt-5.6-luna", {

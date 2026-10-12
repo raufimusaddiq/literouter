@@ -74,7 +74,17 @@ function openAICompletionToResponses(responseBody, customToolNames = null) {
   }
 
   const usage = responseBody.usage || {};
-  const status = choice.finish_reason === "tool_calls" ? "completed" : (choice.finish_reason === "stop" ? "completed" : (choice.finish_reason || "completed"));
+  // Responses `status` is completed|incomplete|failed; provider stop reasons must not leak into it.
+  const finishReason = String(choice.finish_reason || "").toLowerCase();
+  let status = "completed";
+  let incompleteReason = null;
+  if (["length", "max_tokens", "max_output_tokens"].includes(finishReason)) {
+    status = "incomplete";
+    incompleteReason = "max_output_tokens";
+  } else if (["content_filter", "safety", "recitation", "blocklist", "prohibited_content", "spii", "refusal"].includes(finishReason)) {
+    status = "incomplete";
+    incompleteReason = "content_filter";
+  }
 
   return {
     id: `resp_${responseBody.id || ""}`.replace(/^resp_chatcmpl-/, "resp_"),
@@ -84,6 +94,7 @@ function openAICompletionToResponses(responseBody, customToolNames = null) {
     status,
     background: false,
     error: null,
+    ...(incompleteReason ? { incomplete_details: { reason: incompleteReason } } : {}),
     output,
     usage: {
       input_tokens: usage.prompt_tokens || usage.input_tokens || 0,
@@ -150,6 +161,22 @@ function responsesToOpenAICompletion(responseBody) {
  * Translate non-streaming response body from provider format → OpenAI format.
  */
 export function translateNonStreamingResponse(responseBody, targetFormat, sourceFormat, customToolNames = null) {
+  const translated = translateToClientShape(responseBody, targetFormat, sourceFormat, customToolNames);
+  // Claude/Gemini/Ollama upstreams are normalized to chat.completion above; a
+  // Responses client needs the Responses `output` shape instead.
+  if (
+    sourceFormat === FORMATS.OPENAI_RESPONSES
+    && targetFormat !== FORMATS.OPENAI
+    && targetFormat !== FORMATS.OPENAI_RESPONSES
+    && translated?.object === "chat.completion"
+    && Array.isArray(translated.choices)
+  ) {
+    return openAICompletionToResponses(translated, customToolNames);
+  }
+  return translated;
+}
+
+function translateToClientShape(responseBody, targetFormat, sourceFormat, customToolNames = null) {
   if (targetFormat === sourceFormat) return responseBody;
   // Responses-native upstream serving a Chat Completions client (for example
   // OpenCode Go Luna selected directly or as the primary Combo model).
