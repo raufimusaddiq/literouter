@@ -307,6 +307,10 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
         };
       }
 
+      if (sourceFormat === FORMATS.CLAUDE) {
+        finalResp = openAICompletionToClaudeMessage(finalResp);
+      }
+
       return { success: true, response: new Response(JSON.stringify(restoreToolNames(finalResp, toolNameMap)), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
     } catch (err) {
       console.error("[ChatCore] Responses API SSE→JSON failed:", err);
