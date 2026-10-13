@@ -1,5 +1,6 @@
 # v0.5.82 (unreleased)
 
+- **Tool calls**: forward `tool_choice` (`required`, `none`, named function) and `parallel_tool_calls` from Chat Completions to Responses upstreams such as Codex, and rewrite tool names outside `[a-zA-Z0-9_-]` (for example MCP `server.tool`) for the upstream while restoring the original name in responses.
 - **Streaming**: send the `data: [DONE]` sentinel to Chat Completions clients served by Responses, Claude, and other translated upstreams, which never emit one themselves.
 - **Responses**: return a Responses-shaped body (`output` items, `function_call` for tools) for non-streaming `/v1/responses` requests served by Claude, Gemini, and other non-OpenAI upstreams, instead of a raw `chat.completion`.
 - **Codex**: map `reasoning_effort: "none"` to the lowest supported level for `gpt-6.1-sol` (which rejects it upstream), and return the upstream error for non-streaming requests whose Responses stream fails or ends without a result instead of an empty 200 with `finish_reason: "in_progress"`.

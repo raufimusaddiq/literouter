@@ -315,6 +315,43 @@ function buildReasoningInputItem(msg) {
   return item;
 }
 
+// Responses upstreams (Codex) require tool names matching ^[a-zA-Z0-9_-]+$; MCP-style
+// names with dots/colons are rewritten and mapped back on the response. Names that are
+// already valid are reserved first so an alias can never collide with a real tool.
+const VALID_TOOL_NAME = new RegExp(`^[a-zA-Z0-9_-]{1,${MAX_TOOL_NAME_LEN}}$`);
+
+function createToolNameSanitizer(declaredNames) {
+  const used = new Set(declaredNames.filter((name) => VALID_TOOL_NAME.test(name)));
+  const toOriginal = new Map();
+  const toSafe = new Map();
+  const safe = (original) => {
+    if (VALID_TOOL_NAME.test(original)) return original;
+    if (toSafe.has(original)) return toSafe.get(original);
+    const base = original.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, MAX_TOOL_NAME_LEN) || "tool";
+    let candidate = base;
+    let n = 2;
+    while (used.has(candidate)) {
+      const suffix = `_${n++}`;
+      candidate = base.slice(0, MAX_TOOL_NAME_LEN - suffix.length) + suffix;
+    }
+    used.add(candidate);
+    toOriginal.set(candidate, original);
+    toSafe.set(original, candidate);
+    return candidate;
+  };
+  return { safe, toOriginal };
+}
+
+
+// Chat Completions tool_choice -> Responses tool_choice.
+function convertToolChoice(choice, safeName) {
+  if (choice && typeof choice === "object" && !Array.isArray(choice) && choice.type === OPENAI_BLOCK.FUNCTION) {
+    const name = typeof choice.function?.name === "string" ? choice.function.name : choice.name;
+    return typeof name === "string" && name.trim() ? { type: OPENAI_BLOCK.FUNCTION, name: safeName(name.trim()) } : undefined;
+  }
+  return choice;
+}
+
 /**
  * Convert OpenAI Chat Completions to OpenAI Responses API format
  */
@@ -337,6 +374,12 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
     stream: stream !== false,
     store: false
   };
+  const toolNames = createToolNameSanitizer([
+    ...(Array.isArray(body.tools) ? body.tools.map((tool) => tool?.function?.name) : []),
+    ...(Array.isArray(body.messages) ? body.messages.flatMap((msg) => (Array.isArray(msg?.tool_calls) ? msg.tool_calls.map((tc) => tc?.function?.name) : [])) : []),
+    body.tool_choice?.function?.name,
+    body.tool_choice?.name,
+  ].filter((name) => typeof name === "string").map((name) => name.trim()).filter(Boolean));
 
   // Extract system message as instructions
   let hasSystemMessage = false;
@@ -404,7 +447,7 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
         result.input.push({
           type: RESPONSES_ITEM.FUNCTION_CALL,
           call_id: clampResponsesCallId(tc.id),
-          name: name.slice(0, MAX_TOOL_NAME_LEN),
+          name: toolNames.safe(name),
           arguments: coerceResponsesArguments(tc.function?.arguments)
         });
       }
@@ -434,7 +477,7 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
         if (!name) return null;
         return {
           type: OPENAI_BLOCK.FUNCTION,
-          name: name.slice(0, MAX_TOOL_NAME_LEN),
+          name: toolNames.safe(name),
           description: String(tool.function.description || ""),
           parameters: normalizeToolParameters(tool.function.parameters),
           strict: tool.function.strict
@@ -458,6 +501,13 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
   if (body.reasoning_effort !== undefined) result.reasoning = { effort: body.reasoning_effort, summary: "auto" };
   if (body.service_tier !== undefined) result.service_tier = body.service_tier;
   if (body.prompt_cache_key !== undefined) result.prompt_cache_key = body.prompt_cache_key;
+
+  if (body.tool_choice !== undefined) {
+    const toolChoice = convertToolChoice(body.tool_choice, toolNames.safe);
+    if (toolChoice !== undefined) result.tool_choice = toolChoice;
+  }
+  if (body.parallel_tool_calls !== undefined) result.parallel_tool_calls = body.parallel_tool_calls;
+  if (toolNames.toOriginal.size > 0) result._toolNameMap = toolNames.toOriginal;
 
   return result;
 }
