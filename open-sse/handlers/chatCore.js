@@ -21,6 +21,7 @@ import { handleForcedSSEToJson } from "./chatCore/sseToJsonHandler.js";
 import { handleNonStreamingResponse } from "./chatCore/nonStreamingHandler.js";
 import { handleStreamingResponse, buildOnStreamComplete } from "./chatCore/streamingHandler.js";
 import { detectClientTool, isNativePassthrough } from "../utils/clientDetector.js";
+import { adaptClaudeRequestAfterRejection } from "../utils/claudeRequestFallback.js";
 import { dedupeTools } from "../utils/toolDeduper.js";
 import { injectCaveman } from "../rtk/caveman.js";
 import { injectPonytail } from "../rtk/ponytail.js";
@@ -507,6 +508,34 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     } catch (e) {
       log?.warn?.("TOKEN", `${provider.toUpperCase()} | refresh threw: ${e.message}`);
     }
+  }
+
+  // Some Claude models reject forced tool_choice or disabled thinking; adapt once and retry.
+  if (!providerResponse.ok && providerResponse.status === HTTP_STATUS.BAD_REQUEST && targetFormat === FORMATS.CLAUDE) {
+    try {
+      const adapted = adaptClaudeRequestAfterRejection(translatedBody, await providerResponse.clone().text());
+      if (adapted) {
+        const retryResult = await executor.execute({
+          model,
+          body: adapted,
+          stream,
+          credentials,
+          providerSessionId: sessionSeed,
+          clientTool,
+          signal: streamController.signal,
+          log,
+          proxyOptions,
+        });
+        if (retryResult.response.ok) {
+          translatedBody = adapted;
+          providerResponse = retryResult.response;
+          providerUrl = retryResult.url;
+          providerHeaders = retryResult.headers;
+          finalBody = retryResult.transformedBody;
+          providerResponseFormat = retryResult.responseFormat || targetFormat;
+        }
+      }
+    } catch { log?.warn?.("CLAUDE", `${provider.toUpperCase()} | request adaptation retry failed`); }
   }
 
   // Provider returned error
