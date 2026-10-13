@@ -315,32 +315,33 @@ function buildReasoningInputItem(msg) {
   return item;
 }
 
-/**
- * Convert OpenAI Chat Completions to OpenAI Responses API format
- */
 // Responses upstreams (Codex) require tool names matching ^[a-zA-Z0-9_-]+$; MCP-style
-// names with dots/colons are rewritten and mapped back on the response.
-function createToolNameSanitizer() {
+// names with dots/colons are rewritten and mapped back on the response. Names that are
+// already valid are reserved first so an alias can never collide with a real tool.
+const VALID_TOOL_NAME = new RegExp(`^[a-zA-Z0-9_-]{1,${MAX_TOOL_NAME_LEN}}$`);
+
+function createToolNameSanitizer(declaredNames) {
+  const used = new Set(declaredNames.filter((name) => VALID_TOOL_NAME.test(name)));
   const toOriginal = new Map();
   const toSafe = new Map();
   const safe = (original) => {
+    if (VALID_TOOL_NAME.test(original)) return original;
     if (toSafe.has(original)) return toSafe.get(original);
-    let candidate = original.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, MAX_TOOL_NAME_LEN);
-    if (candidate !== original) {
-      let n = 2;
-      while (toOriginal.has(candidate) && toOriginal.get(candidate) !== original) {
-        const suffix = `_${n++}`;
-        candidate = candidate.slice(0, MAX_TOOL_NAME_LEN - suffix.length) + suffix;
-      }
-      toOriginal.set(candidate, original);
-    } else {
-      candidate = original.slice(0, MAX_TOOL_NAME_LEN);
+    const base = original.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, MAX_TOOL_NAME_LEN) || "tool";
+    let candidate = base;
+    let n = 2;
+    while (used.has(candidate)) {
+      const suffix = `_${n++}`;
+      candidate = base.slice(0, MAX_TOOL_NAME_LEN - suffix.length) + suffix;
     }
+    used.add(candidate);
+    toOriginal.set(candidate, original);
     toSafe.set(original, candidate);
     return candidate;
   };
   return { safe, toOriginal };
 }
+
 
 // Chat Completions tool_choice -> Responses tool_choice.
 function convertToolChoice(choice, safeName) {
@@ -351,6 +352,9 @@ function convertToolChoice(choice, safeName) {
   return choice;
 }
 
+/**
+ * Convert OpenAI Chat Completions to OpenAI Responses API format
+ */
 export function openaiToOpenAIResponsesRequest(model, body, stream, credentials) {
   // Body already in Responses API format (e.g. Cursor CLI calling /chat/completions with input[])
   if (body.input) {
@@ -370,7 +374,12 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
     stream: stream !== false,
     store: false
   };
-  const toolNames = createToolNameSanitizer();
+  const toolNames = createToolNameSanitizer([
+    ...(Array.isArray(body.tools) ? body.tools.map((tool) => tool?.function?.name) : []),
+    ...(Array.isArray(body.messages) ? body.messages.flatMap((msg) => (Array.isArray(msg?.tool_calls) ? msg.tool_calls.map((tc) => tc?.function?.name) : [])) : []),
+    body.tool_choice?.function?.name,
+    body.tool_choice?.name,
+  ].filter((name) => typeof name === "string").map((name) => name.trim()).filter(Boolean));
 
   // Extract system message as instructions
   let hasSystemMessage = false;

@@ -59,4 +59,29 @@ describe("Responses tool name sanitizing", () => {
     }, true, {});
     expect(out._toolNameMap).toBeUndefined();
   });
+
+  it.each([
+    ["valid name declared first", ["a_b", "a.b"]],
+    ["valid name declared last", ["a.b", "a_b"]],
+  ])("never maps a real tool onto an alias: %s", (_label, names) => {
+    const out = openaiToOpenAIResponsesRequest("gpt-6.1-sol", {
+      messages: [
+        { role: "user", content: "hi" },
+        { role: "assistant", content: null, tool_calls: [
+          { id: "c1", type: "function", function: { name: "a_b", arguments: "{}" } },
+          { id: "c2", type: "function", function: { name: "a.b", arguments: "{}" } },
+        ] },
+      ],
+      tools: names.map(fn),
+      tool_choice: { type: "function", function: { name: "a_b" } },
+    }, true, {});
+    const declared = out.tools.map((tool) => tool.name);
+    expect(new Set(declared).size).toBe(2);
+    expect(declared).toContain("a_b");
+    const alias = declared.find((name) => name !== "a_b");
+    expect(out._toolNameMap.get(alias)).toBe("a.b");
+    expect(out._toolNameMap.has("a_b")).toBe(false);
+    expect(out.tool_choice).toEqual({ type: "function", name: "a_b" });
+    expect(out.input.filter((item) => item.type === "function_call").map((item) => item.name)).toEqual(["a_b", alias]);
+  });
 });
