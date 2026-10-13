@@ -99,7 +99,7 @@ retention_edits_scan() {
         printf '%s\n' "$sha" >> "$tmp/expected" ;;
       120000)
         [ -L "$abs" ] || return 0
-        actual=$(readlink -- "$abs" | tr -d '\n' | retention_clone_git "$dir" hash-object --stdin) || return 0
+        actual=$(readlink -n -- "$abs" | retention_clone_git "$dir" hash-object --stdin) || return 0
         [ "$actual" = "$sha" ] || return 0 ;;
       *) return 0 ;;
     esac

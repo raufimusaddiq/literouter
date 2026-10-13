@@ -2,6 +2,7 @@ import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { createServer, request } from "node:http";
 import { once } from "node:events";
@@ -11,6 +12,7 @@ const { createBroker, createBridge } = createRequire(import.meta.url)("../../scr
 
 const script = readFileSync(new URL("../../scripts/upstream-intake.sh", import.meta.url), "utf8");
 const helpers = script.slice(script.indexOf("log()"), script.indexOf("trap cleanup EXIT"));
+const retentionLib = fileURLToPath(new URL("../../scripts/upstream-intake-retention.sh", import.meta.url));
 const head = "a".repeat(40);
 const merged = "b".repeat(40);
 const approved = {
@@ -23,7 +25,7 @@ const approved = {
 function run(body, data = approved) {
   const dir = mkdtempSync(join(tmpdir(), "worktree."));
   const file = join(dir, "run.sh");
-  writeFileSync(file, `set -euo pipefail\n${helpers}\nLOG_PREFIX=test\nREPO=/repo\nTARGET=origin-literouter\nBASE_BRANCH=main\nRUN_DEADLINE=$(( $(date +%s) + 60 ))\n${body}\n`);
+  writeFileSync(file, `set -euo pipefail\n. "${retentionLib}"\n${helpers}\nLOG_PREFIX=test\nREPO=/repo\nREMOTE=origin\nTARGET=origin-literouter\nBASE_BRANCH=main\nRUN_DEADLINE=$(( $(date +%s) + 60 ))\n${body}\n`);
   try {
     return spawnSync("bash", [file], {
       env: { ...process.env, PR_DATA: JSON.stringify(data), MERGED: merged, TEST_WORKTREE: dir, TEST_WORK_ROOT: tmpdir() },
@@ -154,7 +156,7 @@ deploy_main '${head}' 75
   });
 
   it("keeps failed workspaces, removes only the successful run worktree", () => {
-    const body = `DEPLOY=true\nWORK_ROOT="$TEST_WORK_ROOT"\nWORKTREE="$TEST_WORKTREE"\nrm() { echo "removed $*"; }\ntrap cleanup EXIT\n`;
+    const body = `DEPLOY=true\nWORK_ROOT="$TEST_WORK_ROOT"\nWORKTREE="$TEST_WORKTREE"\nrm() { echo "removed $*"; }\ngh() { return 1; }\ntrap cleanup EXIT\n`;
     const failed = run(`${body}false`);
     expect(failed.status).toBe(1);
     expect(failed.stdout).toContain("retaining workspace");

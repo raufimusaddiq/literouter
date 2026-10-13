@@ -163,6 +163,26 @@ describe("retention_classify", () => {
     }
   });
 
+  it("hashes tracked symlink targets byte for byte, including newlines", () => {
+    const makeLinked = (name) => {
+      const dir = makeClone(name);
+      git(dir, "checkout", "--quiet", "-b", `upstream-intake/${name.toLowerCase()}`);
+      fs.symlinkSync("ab", path.join(dir, "link"));
+      git(dir, "add", "link");
+      git(dir, "commit", "--quiet", "-m", "link");
+      git(dir, "push", "--quiet", path.join(root, "target.git"), `upstream-intake/${name.toLowerCase()}`);
+      return dir;
+    };
+    const same = makeLinked("LINKOK");
+    age(same);
+    expect(classify(same)).toBe("RECLAIM");
+    const edited = makeLinked("LINKED");
+    fs.rmSync(path.join(edited, "link"));
+    fs.symlinkSync("a\nb", path.join(edited, "link"));
+    age(edited);
+    expect(classify(edited)).toBe("KEEP:uncommitted or untracked edits");
+  });
+
   it("treats a never-checked-out clone as clean only while its work tree is empty", () => {
     const empty = path.join(work, "worktree.EMPTY1");
     git(root, "clone", "--quiet", "--no-hardlinks", "--no-checkout", host, empty);
