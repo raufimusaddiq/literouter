@@ -73,19 +73,21 @@ retention_has_edits() {
 }
 
 retention_edits_scan() {
-  local dir=$1 tmp=$2 rec meta path mode type sha abs actual leftovers
+  local dir=$1 tmp=$2 rec meta path mode sha abs actual leftovers
   local -x LC_ALL=C
   if [ ! -e "$dir/.git/index" ]; then
     leftovers=$(find "$dir" -mindepth 1 -maxdepth 1 ! -name .git -print -quit 2>/dev/null) || return 0
     [ -z "$leftovers" ] || return 0
     return 1
   fi
+  # Staged content that differs from HEAD (even if the work tree was restored to HEAD).
+  retention_clone_git "$dir" diff-index --cached --quiet HEAD -- 2>/dev/null || return 0
   retention_clone_git "$dir" ls-tree -r -z --full-tree HEAD > "$tmp/tree" 2>/dev/null || return 0
   : > "$tmp/paths"; : > "$tmp/expected"; : > "$tmp/tracked"
   while IFS= read -r -d '' rec; do
     meta=${rec%%$'\t'*}
     path=${rec#*$'\t'}
-    read -r mode type sha <<< "$meta"
+    read -r mode _ sha <<< "$meta"
     [[ "$path" != *$'\n'* ]] || return 0
     abs=$dir/$path
     printf '%s\0' "$path" >> "$tmp/tracked"

@@ -28,8 +28,8 @@ NODE_BIN=$(readlink -f "$(command -v node)")
 # real config points at; it authorizes nothing else on the host.
 ROUTER_KEY=${ROUTER_API_KEY:-$(sed -n 's/^export ROUTER_API_KEY="\(.*\)"/\1/p' /home/ubuntu/.bashrc)}
 
-# Retention helpers (functions only). Sourced ahead of log() so tests that slice
-# the controller from log() onward do not depend on this file's location.
+# Retention helpers (functions only). Sourced before the log helper so tests that
+# slice the controller from the helper onward do not depend on this file's location.
 # shellcheck source=scripts/upstream-intake-retention.sh
 . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/upstream-intake-retention.sh"
 log() { printf '%s %s\n' "$(date -Is)" "$*"; }

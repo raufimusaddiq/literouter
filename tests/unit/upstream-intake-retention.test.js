@@ -138,6 +138,17 @@ describe("retention_classify", () => {
     const edits = {
       modified: (d) => fs.writeFileSync(path.join(d, "a.txt"), "changed"),
       staged: (d) => { fs.writeFileSync(path.join(d, "a.txt"), "staged"); git(d, "add", "a.txt"); },
+      // Worktree restored to HEAD while the index still holds unpublished content.
+      stagedOnly: (d) => {
+        fs.writeFileSync(path.join(d, "a.txt"), "staged only");
+        git(d, "add", "a.txt");
+        git(d, "restore", "--source=HEAD", "--worktree", "--", "a.txt");
+      },
+      stagedNewThenRemoved: (d) => {
+        fs.writeFileSync(path.join(d, "new.txt"), "n");
+        git(d, "add", "new.txt");
+        fs.rmSync(path.join(d, "new.txt"));
+      },
       deleted: (d) => fs.rmSync(path.join(d, "a.txt")),
       stagedDelete: (d) => git(d, "rm", "--quiet", "a.txt"),
       untracked: (d) => fs.writeFileSync(path.join(d, "notes.js"), "x"),
