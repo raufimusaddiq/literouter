@@ -327,6 +327,9 @@ function convertOpenAIToolChoice(choice, safeName = (name) => name) {
     // Already Claude-native — only pass through types Claude actually accepts,
     // so a malformed or unknown type can never leak into the upstream request.
     if (CLAUDE_TOOL_CHOICE_TYPES.has(choice.type)) {
+      if (choice.type === "tool" && typeof choice.name === "string") {
+        return { ...choice, name: safeName(choice.name.trim()) };
+      }
       return choice;
     }
   }

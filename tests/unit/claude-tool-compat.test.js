@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { openaiToClaudeRequest } from "../../open-sse/translator/request/openai-to-claude.js";
 import { claudeToOpenAIResponse } from "../../open-sse/translator/response/claude-to-openai.js";
+import { initState } from "../../open-sse/translator/index.js";
+import { FORMATS } from "../../open-sse/translator/formats.js";
 import { adaptClaudeRequestAfterRejection } from "../../open-sse/utils/claudeRequestFallback.js";
 
 const fn = (name) => ({ type: "function", function: { name, description: "d", parameters: { type: "object", properties: {} } } });
@@ -51,39 +53,48 @@ describe("Claude tool name sanitizing", () => {
   });
 });
 
+describe("Claude-native named tool_choice", () => {
+  it("sanitizes the name so it matches the rewritten declaration", () => {
+    const out = build({ tools: [fn("mcp.srv.list")], tool_choice: { type: "tool", name: "mcp.srv.list" } });
+    const alias = out.tools[0].name;
+    expect(alias).toMatch(/^[a-zA-Z0-9_-]+$/);
+    expect(out.tool_choice).toEqual({ type: "tool", name: alias });
+  });
+});
+
+// Runs the production translator state; each emitted chunk is cloned because the
+// first tool-call chunk shares its mutable object with the state.
+function streamToolArguments(events) {
+  const state = initState(FORMATS.OPENAI);
+  const out = [];
+  for (const ev of events) {
+    const r = claudeToOpenAIResponse(ev, state);
+    for (const chunk of Array.isArray(r) ? r : [r]) if (chunk) out.push(structuredClone(chunk));
+  }
+  return out.flatMap((c) => c.choices?.[0]?.delta?.tool_calls || []).map((tc) => tc.function?.arguments || "").join("");
+}
+
+const START = { type: "message_start", message: { id: "m", model: "claude", role: "assistant", content: [], usage: { input_tokens: 1, output_tokens: 0 } } };
+
 describe("Claude streaming no-argument tool call", () => {
   it("completes arguments with {} when no input_json_delta arrives", () => {
-    const state = {};
-    const out = [];
-    for (const ev of [
-      { type: "message_start", message: { id: "m", model: "claude", role: "assistant", content: [], usage: { input_tokens: 1, output_tokens: 0 } } },
+    const args = streamToolArguments([
+      START,
       { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "toolu_1", name: "ping", input: {} } },
       { type: "content_block_stop", index: 0 },
       { type: "message_delta", delta: { stop_reason: "tool_use" }, usage: { output_tokens: 1 } },
       { type: "message_stop" },
-    ]) {
-      const r = claudeToOpenAIResponse(ev, state);
-      if (Array.isArray(r)) out.push(...r);
-      else if (r) out.push(r);
-    }
-    const args = out.flatMap((c) => c.choices?.[0]?.delta?.tool_calls || []).map((tc) => tc.function?.arguments || "").join("");
+    ]);
     expect(JSON.parse(args)).toEqual({});
   });
 
   it("does not append to arguments that were streamed", () => {
-    const state = {};
-    const out = [];
-    for (const ev of [
-      { type: "message_start", message: { id: "m", model: "claude", role: "assistant", content: [], usage: { input_tokens: 1, output_tokens: 0 } } },
+    const args = streamToolArguments([
+      START,
       { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "toolu_1", name: "get_weather", input: {} } },
       { type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json: "{\"city\":\"Paris\"}" } },
       { type: "content_block_stop", index: 0 },
-    ]) {
-      const r = claudeToOpenAIResponse(ev, state);
-      if (Array.isArray(r)) out.push(...r);
-      else if (r) out.push(r);
-    }
-    const args = out.flatMap((c) => c.choices?.[0]?.delta?.tool_calls || []).map((tc) => tc.function?.arguments || "").join("");
+    ]);
     expect(args).toBe("{\"city\":\"Paris\"}");
   });
 });
