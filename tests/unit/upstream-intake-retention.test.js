@@ -80,8 +80,8 @@ afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 describe("retention_classify", () => {
   it("reclaims an old clean clone detached at an upstream commit, even with the generated report", () => {
     const dir = makeClone("AAAAAA");
-    age(dir);
     fs.writeFileSync(path.join(dir, "intake-report.md"), "report");
+    age(dir);
     expect(classify(dir)).toBe("RECLAIM");
   });
 
@@ -134,15 +134,34 @@ describe("retention_classify", () => {
     expect(classify(dir)).toBe("KEEP:detached HEAD at unrecognized commit");
   });
 
-  it("keeps tracked edits and untracked files made after checkout", () => {
-    const dirty = makeClone("AAAAAA");
-    age(dirty);
-    fs.writeFileSync(path.join(dirty, "a.txt"), "changed");
-    expect(classify(dirty)).toBe("KEEP:uncommitted or untracked edits");
-    const untracked = makeClone("BBBBBB");
-    age(untracked);
-    fs.writeFileSync(path.join(untracked, "notes.js"), "x");
-    expect(classify(untracked)).toBe("KEEP:uncommitted or untracked edits");
+  it("keeps modified, staged, deleted and untracked work even once everything is old", () => {
+    const edits = {
+      modified: (d) => fs.writeFileSync(path.join(d, "a.txt"), "changed"),
+      staged: (d) => { fs.writeFileSync(path.join(d, "a.txt"), "staged"); git(d, "add", "a.txt"); },
+      deleted: (d) => fs.rmSync(path.join(d, "a.txt")),
+      stagedDelete: (d) => git(d, "rm", "--quiet", "a.txt"),
+      untracked: (d) => fs.writeFileSync(path.join(d, "notes.js"), "x"),
+      untrackedInDir: (d) => { fs.mkdirSync(path.join(d, "src")); fs.writeFileSync(path.join(d, "src", "new.js"), "x"); },
+    };
+    let n = 0;
+    for (const [name, edit] of Object.entries(edits)) {
+      const dir = makeClone(`DIRT${String(n++).padStart(2, "0")}`);
+      edit(dir);
+      age(dir);
+      expect(classify(dir), name).toBe("KEEP:uncommitted or untracked edits");
+    }
+  });
+
+  it("treats a never-checked-out clone as clean only while its work tree is empty", () => {
+    const empty = path.join(work, "worktree.EMPTY1");
+    git(root, "clone", "--quiet", "--no-hardlinks", "--no-checkout", host, empty);
+    age(empty);
+    expect(classify(empty)).toBe("RECLAIM");
+    const stray = path.join(work, "worktree.EMPTY2");
+    git(root, "clone", "--quiet", "--no-hardlinks", "--no-checkout", host, stray);
+    fs.writeFileSync(path.join(stray, "agent-notes.md"), "x");
+    age(stray);
+    expect(classify(stray)).toBe("KEEP:uncommitted or untracked edits");
   });
 
   it("keeps clones with unknown refs, a missing index, or unreadable git metadata", () => {

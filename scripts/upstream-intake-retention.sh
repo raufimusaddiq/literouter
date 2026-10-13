@@ -10,8 +10,8 @@
 #   * HEAD is on such a branch, or detached at a commit already in $REMOTE/master or
 #     $TARGET/$BASE_BRANCH (an upstream commit under review is not agent work);
 #   * no ref outside refs/heads, refs/remotes, refs/tags (stash, notes, ...);
-#   * no file (other than the generated reports) newer than .git/index, i.e. no
-#     uncommitted or untracked edits;
+#   * work tree identical to HEAD (content hashes, no filters): no staged, modified,
+#     deleted or untracked files (the generated reports are ignored);
 #   * garbage collection only: last activity older than RETAIN_DAYS (>= 2).
 # The clone is untrusted: git reads it with --git-dir only (no work tree, so no
 # filters/fsmonitor/hooks) and with config keys that execute programs overridden.
@@ -60,13 +60,57 @@ retention_recent() {
   [ -n "$hit" ]
 }
 
-# Uncommitted/untracked edits: a file newer than the index. No index = unknown = edits.
+# Uncommitted, staged, deleted or untracked work. Compares the work tree with the HEAD
+# tree directly (raw content hashes, no filters, no index), so staged-only edits and
+# deletions are visible. Any doubt counts as edits. A clone never checked out (no index)
+# is clean only if its work tree is empty. Returns 0 = edits/doubt, 1 = clean.
 retention_has_edits() {
-  local dir=$1 hit
-  [ -f "$dir/.git/index" ] && [ ! -L "$dir/.git/index" ] || return 0
-  hit=$(find "$dir" -path "$dir/.git" -prune -o \( -type f -o -type l \) -newer "$dir/.git/index" \
-    ! -path "$dir/intake-report.md" ! -path "$dir/intake-ci-feedback.txt" -print -quit 2>/dev/null) || return 0
-  [ -n "$hit" ]
+  local tmp rc=0
+  tmp=$(mktemp -d) || return 0
+  retention_edits_scan "$1" "$tmp" || rc=$?
+  rm -rf -- "$tmp"
+  return "$rc"
+}
+
+retention_edits_scan() {
+  local dir=$1 tmp=$2 rec meta path mode type sha abs actual leftovers
+  local -x LC_ALL=C
+  if [ ! -e "$dir/.git/index" ]; then
+    leftovers=$(find "$dir" -mindepth 1 -maxdepth 1 ! -name .git -print -quit 2>/dev/null) || return 0
+    [ -z "$leftovers" ] || return 0
+    return 1
+  fi
+  retention_clone_git "$dir" ls-tree -r -z --full-tree HEAD > "$tmp/tree" 2>/dev/null || return 0
+  : > "$tmp/paths"; : > "$tmp/expected"; : > "$tmp/tracked"
+  while IFS= read -r -d '' rec; do
+    meta=${rec%%$'\t'*}
+    path=${rec#*$'\t'}
+    read -r mode type sha <<< "$meta"
+    [[ "$path" != *$'\n'* ]] || return 0
+    abs=$dir/$path
+    printf '%s\0' "$path" >> "$tmp/tracked"
+    case "$mode" in
+      100644|100755)
+        { [ -f "$abs" ] && [ ! -L "$abs" ]; } || return 0
+        if [ "$mode" = 100755 ]; then [ -x "$abs" ] || return 0; else [ ! -x "$abs" ] || return 0; fi
+        printf '%s\n' "$abs" >> "$tmp/paths"
+        printf '%s\n' "$sha" >> "$tmp/expected" ;;
+      120000)
+        [ -L "$abs" ] || return 0
+        actual=$(readlink -- "$abs" | tr -d '\n' | retention_clone_git "$dir" hash-object --stdin) || return 0
+        [ "$actual" = "$sha" ] || return 0 ;;
+      *) return 0 ;;
+    esac
+  done < "$tmp/tree"
+  if [ -s "$tmp/paths" ]; then
+    retention_clone_git "$dir" hash-object --no-filters --stdin-paths < "$tmp/paths" > "$tmp/actual" 2>/dev/null || return 0
+    cmp -s "$tmp/expected" "$tmp/actual" || return 0
+  fi
+  find "$dir" -path "$dir/.git" -prune -o ! -type d ! -path "$dir/intake-report.md" \
+    ! -path "$dir/intake-ci-feedback.txt" -printf '%P\0' 2>/dev/null | sort -z > "$tmp/files" || return 0
+  sort -z < "$tmp/tracked" > "$tmp/tracked.sorted" || return 0
+  [ "$(comm -z -13 "$tmp/tracked.sorted" "$tmp/files" | head -c 1 | wc -c)" -eq 0 ] || return 0
+  return 1
 }
 
 retention_load_open_prs() {
