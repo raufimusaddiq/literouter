@@ -111,7 +111,7 @@ export function claudeToOpenAIResponse(chunk, state) {
         break;
       }
       // A no-argument tool never receives an input_json_delta; clients still need valid JSON.
-      const stoppedToolCall = state.toolCalls.get(chunk.index);
+      const stoppedToolCall = state.toolCalls?.get(chunk.index);
       if (stoppedToolCall && stoppedToolCall.function.arguments === "") {
         stoppedToolCall.function.arguments = "{}";
         results.push(createChunk(state, {
