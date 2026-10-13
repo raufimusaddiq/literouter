@@ -85,3 +85,23 @@ workflow has run once.
 
 No local build, so no `docker builder prune` needed. Builds no longer touch this
 box's RAM or disk.
+
+### Intake workspace retention
+
+Intake clones live in `$UPSTREAM_INTAKE_DIR/worktree.*` (default
+`/var/tmp/9router-upstream-intake`). `scripts/upstream-intake-retention.sh` decides
+what may be deleted; it never reads a clone with a work tree or its hooks/config.
+
+| Situation | Outcome |
+|---|---|
+| Failed run, clone holds nothing unpublished (detached at an upstream commit, or every branch merged/published with no open PR, clean) | removed at exit |
+| Failed run with unpushed commits, dirty/untracked edits, unknown refs, or unverifiable state | retained |
+| Successful review-only run with an open PR | retained |
+| Startup GC, clone idle >= `UPSTREAM_INTAKE_RETAIN_DAYS` (default 14, min 2) and all work merged into `origin-literouter/main`, or published on `origin-literouter` with no open PR, or upstream-only | removed |
+| Anything else (recent, open PR, unpublished, dirty, symlink, unknown ref, GitHub/Git error) | kept; reason logged |
+
+GC is bounded per run (`UPSTREAM_INTAKE_GC_SCAN_MAX` oldest candidates, default 50;
+`UPSTREAM_INTAKE_GC_DELETE_MAX` removals, default 5), takes `.gc.lock` in the work
+root, and skips the run's own clone. Never compare against `origin/main`: `origin`
+is upstream `decolua/9router`; published/merged evidence comes only from
+`origin-literouter`.

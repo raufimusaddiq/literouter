@@ -29,6 +29,8 @@ NODE_BIN=$(readlink -f "$(command -v node)")
 ROUTER_KEY=${ROUTER_API_KEY:-$(sed -n 's/^export ROUTER_API_KEY="\(.*\)"/\1/p' /home/ubuntu/.bashrc)}
 
 log() { printf '%s %s\n' "$(date -Is)" "$*"; }
+# shellcheck source=scripts/upstream-intake-retention.sh
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/upstream-intake-retention.sh"
 
 # Upstream commits are untrusted: standalone clone, no external network, Docker,
 # host Git metadata, SSH, host environment, or inference/deploy credentials.
@@ -199,11 +201,19 @@ cleanup() {
     rmdir -- "$PROXY_DIR"
   fi
   if [ "$status" -ne 0 ]; then
-    log "$LOG_PREFIX: retaining workspace ${WORKTREE:-none} for inspection/retry"
+    if [ -n "${WORKTREE:-}" ] && [ -d "$WORKTREE" ]; then
+      if retention_reclaim_failed "$WORKTREE"; then
+        log "$LOG_PREFIX: failed run; removed $WORKTREE ($RETENTION_REASON)"
+      else
+        log "$LOG_PREFIX: retaining workspace $WORKTREE for inspection/retry ($RETENTION_REASON)"
+      fi
+    else
+      log "$LOG_PREFIX: failed before a workspace existed; nothing to retain"
+    fi
     return "$status"
   fi
   if [ "${DEPLOY:-false}" != true ] && [ -n "${PR_URL:-}" ]; then
-    log "$LOG_PREFIX: retaining review-only workspace ${WORKTREE:-none} until deployment"
+    log "$LOG_PREFIX: retaining review-only workspace ${WORKTREE:-none}; startup GC reclaims it after ${RETAIN_DAYS}d once published"
     return 0
   fi
   if [ -n "${WORKTREE:-}" ] && [ -d "$WORKTREE" ]; then
@@ -226,6 +236,8 @@ BASE_SHA=$(git -C "$REPO" rev-parse "$TARGET/$BASE_BRANCH")
 
 find_pending_intake
 mkdir -p "$WORK_ROOT" "$REPORT_DIR"
+# Bounded GC of old, provably published clones; never fails the run.
+retention_gc || log "$LOG_PREFIX: retention GC failed; continuing"
 if [ -n "$PR_URL" ]; then
   log "$LOG_PREFIX: resuming $PR_URL branch=$BRANCH at $HEAD_SHA"
   # A fresh isolated clone resumes the published head. Failed clones remain
