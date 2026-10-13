@@ -165,10 +165,12 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
   if (PROVIDERS[provider]?.quirks?.cloakToolsOnOAuth) {
     const apiKey = credentials?.accessToken || credentials?.apiKey || null;
     if (apiKey?.includes("sk-ant-oat")) {
+      const sanitizedNames = result._toolNameMap;
       const { body: cloakedBody, toolNameMap } = cloakClaudeTools(result);
       result = cloakedBody;
       if (toolNameMap?.size > 0) {
-        result._toolNameMap = toolNameMap;
+        // cloaked → sanitized → original (e.g. "a_b_cc" → "a_b" → "a.b")
+        result._toolNameMap = new Map([...toolNameMap].map(([cloaked, name]) => [cloaked, sanitizedNames?.get(name) ?? name]));
       }
     }
   }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { openaiToClaudeRequest } from "../../open-sse/translator/request/openai-to-claude.js";
 import { claudeToOpenAIResponse } from "../../open-sse/translator/response/claude-to-openai.js";
-import { initState } from "../../open-sse/translator/index.js";
+import { initState, translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { adaptClaudeRequestAfterRejection } from "../../open-sse/utils/claudeRequestFallback.js";
 
@@ -96,6 +96,32 @@ describe("Claude streaming no-argument tool call", () => {
       { type: "content_block_stop", index: 0 },
     ]);
     expect(args).toBe("{\"city\":\"Paris\"}");
+  });
+});
+
+describe("Claude OAuth cloaking keeps the original tool name", () => {
+  it("restores a dotted MCP name through sanitizing and cloaking", () => {
+    const body = {
+      messages: [{ role: "user", content: "hi" }],
+      tools: [fn("mcp.srv.list")],
+    };
+    const out = translateRequest(
+      FORMATS.OPENAI, FORMATS.CLAUDE, "claude-sonnet-5-5", body, true,
+      { accessToken: "sk-ant-oat01-test" }, "claude", null, [], "conn-test", null,
+    );
+    const declared = out.tools.find((tool) => tool.name?.startsWith("mcp"))?.name;
+    expect(declared).toBeTruthy();
+    expect(declared).toMatch(/^[a-zA-Z0-9_-]+$/);
+    expect(out._toolNameMap.get(declared)).toBe("mcp.srv.list");
+
+    // Response side: the model calls the declared (cloaked) name; the client must see its own.
+    const state = { ...initState(FORMATS.OPENAI), toolNameMap: out._toolNameMap };
+    const chunks = [
+      { type: "message_start", message: { id: "m", model: "claude", role: "assistant", content: [], usage: { input_tokens: 1, output_tokens: 0 } } },
+      { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "toolu_1", name: declared, input: {} } },
+    ].flatMap((ev) => { const r = claudeToOpenAIResponse(ev, state); return Array.isArray(r) ? r : [r]; });
+    const names = chunks.flatMap((c) => c?.choices?.[0]?.delta?.tool_calls || []).map((tc) => tc.function?.name);
+    expect(names).toContain("mcp.srv.list");
   });
 });
 
