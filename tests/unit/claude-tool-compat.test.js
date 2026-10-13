@@ -143,6 +143,17 @@ describe("Claude request adaptation after a 400", () => {
     expect(next.thinking).toEqual({ type: "between_tools" });
   });
 
+  it("switches disabled thinking to adaptive with low effort when the model requires adaptive", () => {
+    const body = { thinking: { type: "disabled" }, output_config: { format: "x" } };
+    const next = adaptClaudeRequestAfterRejection(
+      body,
+      reject('"thinking.type.disabled" is not supported for this model. Use "thinking.type.adaptive" and "output_config.effort" to control thinking behavior.'),
+    );
+    expect(next.thinking).toEqual({ type: "adaptive" });
+    expect(next.output_config).toEqual({ format: "x", effort: "low" });
+    expect(body.thinking).toEqual({ type: "disabled" });
+  });
+
   it("returns null for unrelated errors or when nothing applies", () => {
     expect(adaptClaudeRequestAfterRejection({ tool_choice: { type: "any" } }, reject("max_tokens too large"))).toBeNull();
     expect(adaptClaudeRequestAfterRejection({ tool_choice: { type: "auto" } }, reject('tool_choice: type "any" not supported for this model'))).toBeNull();

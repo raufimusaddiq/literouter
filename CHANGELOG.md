@@ -1,5 +1,6 @@
 # v0.5.82 (unreleased)
 
+- **Claude**: when Opus rejects `thinking: disabled` and asks for adaptive thinking, retry once with `thinking: adaptive` and low `output_config.effort` so `reasoning_effort: "none"` no longer fails.
 - **Claude**: map `tool_choice: "none"` to Claude's `none`; rewrite MCP-style tool names (dots) the upstream rejects and restore them in responses; complete streamed no-argument tool calls with `{}`; and retry once without forced `tool_choice` or with `thinking: between_tools` when Sonnet/Opus reject them.
 - **Tool calls**: forward `tool_choice` (`required`, `none`, named function) and `parallel_tool_calls` from Chat Completions to Responses upstreams such as Codex, and rewrite tool names outside `[a-zA-Z0-9_-]` (for example MCP `server.tool`) for the upstream while restoring the original name in responses.
 - **Streaming**: send the `data: [DONE]` sentinel to Chat Completions clients served by Responses, Claude, and other translated upstreams, which never emit one themselves.
