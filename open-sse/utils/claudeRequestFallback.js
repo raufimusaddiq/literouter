@@ -34,5 +34,13 @@ export function adaptClaudeRequestAfterRejection(body, rawErrorBody) {
     changed = true;
   }
 
+  // ""thinking.type.disabled" is not supported for this model. Use "thinking.type.adaptive"
+  // and "output_config.effort" to control thinking behavior." — keep thinking minimal instead.
+  if (/thinking\.type\.disabled/.test(message) && /adaptive/.test(message) && body.thinking?.type === "disabled") {
+    next.thinking = { type: "adaptive" };
+    next.output_config = { ...(body.output_config || {}), effort: body.output_config?.effort || "low" };
+    changed = true;
+  }
+
   return changed ? next : null;
 }
