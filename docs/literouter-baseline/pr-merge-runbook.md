@@ -105,3 +105,15 @@ GC is bounded per run (`UPSTREAM_INTAKE_GC_SCAN_MAX` oldest candidates, default 
 root, and skips the run's own clone. Never compare against `origin/main`: `origin`
 is upstream `decolua/9router`; published/merged evidence comes only from
 `origin-literouter`.
+
+Tags, remote-tracking refs, and every commit named in a reflog must already exist in
+the host repo (reachable from a host ref); otherwise the clone is kept, so a tag or
+rewritten work can never hold the only copy of a commit. Before enabling the GC on a
+host with retained clones, list candidates read-only (no fetch, no removal) and get
+deletion approved:
+
+```bash
+( . scripts/upstream-intake-retention.sh; log() { echo "$*"; }; REPO=/opt/9router REMOTE=origin \
+  TARGET=origin-literouter BASE_BRANCH=main LOG_PREFIX=manifest \
+  WORK_ROOT=/var/tmp/9router-upstream-intake retention_manifest )
+```

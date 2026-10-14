@@ -344,3 +344,82 @@ describe("retention_reclaim_failed", () => {
     expect(reclaim(open, { FAKE_GH_OPEN: "upstream-intake/o" })).toBe("KEPT:branch upstream-intake/o has an open PR");
   });
 });
+
+describe("commits that exist only outside branches", () => {
+  // Leaves one agent commit with no branch: HEAD goes back to the upstream commit.
+  const strayCommit = (dir) => {
+    commitIn(dir);
+    const sha = git(dir, "rev-parse", "HEAD");
+    git(dir, "checkout", "--quiet", "--detach", upstreamSha);
+    return sha;
+  };
+  const TAG_REASON = (ref) => `KEEP:ref ${ref} holds commits not reachable from any host ref`;
+
+  it("keeps a clone whose only copy of a commit is a lightweight or annotated tag", () => {
+    const light = makeClone("TAGLT1");
+    git(light, "tag", "keepme", strayCommit(light));
+    age(light);
+    expect(classify(light)).toBe(TAG_REASON("refs/tags/keepme"));
+    const annotated = makeClone("TAGAN1");
+    git(annotated, "tag", "-a", "-m", "m", "keepme2", strayCommit(annotated));
+    age(annotated);
+    expect(classify(annotated)).toBe(TAG_REASON("refs/tags/keepme2"));
+  });
+
+  it("keeps a clone with a planted remote-tracking ref to an unpublished commit", () => {
+    const dir = makeClone("REMREF");
+    git(dir, "update-ref", "refs/remotes/agent/wip", strayCommit(dir));
+    age(dir);
+    expect(classify(dir)).toBe(TAG_REASON("refs/remotes/agent/wip"));
+  });
+
+  it("keeps a clone whose abandoned commit survives only in a reflog", () => {
+    const dir = makeClone("REFLOG");
+    strayCommit(dir);
+    age(dir);
+    expect(classify(dir)).toMatch(/^KEEP:reflog holds 1 commit\(s\) absent from the host repo/);
+  });
+
+  it("still reclaims a clone whose tags are the host's own", () => {
+    git(host, "tag", "v1", baseSha);
+    const dir = makeClone("HOSTTG");
+    expect(git(dir, "tag", "--list", "v1")).toBe("v1");
+    age(dir);
+    expect(classify(dir)).toBe("RECLAIM");
+  });
+
+  it("never lets GC delete a clone that only a tag preserves", () => {
+    const dir = makeClone("TAGGC1");
+    git(dir, "tag", "keepme", strayCommit(dir));
+    age(dir);
+    lib("retention_gc");
+    expect(fs.existsSync(dir)).toBe(true);
+    expect(git(dir, "rev-parse", "keepme")).toMatch(/^[0-9a-f]{40}$/);
+  });
+});
+
+describe("retention_manifest", () => {
+  it("lists every clone with bytes, idle days, and verdicts, without deleting or fetching", () => {
+    const old = makeClone("OLD001");
+    age(old);
+    const recent = makeClone("NEW001");
+    const unpublished = makeClone("UNP001");
+    git(unpublished, "checkout", "--quiet", "-b", "upstream-intake/z");
+    commitIn(unpublished);
+    age(unpublished);
+    const refsBefore = git(host, "for-each-ref");
+    const out = lib("retention_manifest");
+    const rows = Object.fromEntries(out.split("\n").filter((l) => l.includes("/worktree.")).map((l) => {
+      const cols = l.split("\t");
+      return [path.basename(cols[0]), cols];
+    }));
+    expect(rows["worktree.OLD001"].slice(3, 5)).toEqual(["yes", "RECLAIM"]);
+    expect(Number(rows["worktree.OLD001"][1])).toBeGreaterThan(0);
+    expect(rows["worktree.NEW001"][3]).toBe("no");
+    expect(rows["worktree.UNP001"][4]).toBe("KEEP");
+    expect(out).toMatch(/#total\t3\t\d+/);
+    expect(out).toMatch(/#eligible\t1\t\d+/);
+    for (const dir of [old, recent, unpublished]) expect(fs.existsSync(dir)).toBe(true);
+    expect(git(host, "for-each-ref")).toBe(refsBefore);
+  });
+});

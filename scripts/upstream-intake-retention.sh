@@ -9,7 +9,11 @@
 #     of the same-named branch on $TARGET (freshly fetched) with no open PR;
 #   * HEAD is on such a branch, or detached at a commit already in $REMOTE/master or
 #     $TARGET/$BASE_BRANCH (an upstream commit under review is not agent work);
-#   * no ref outside refs/heads, refs/remotes, refs/tags (stash, notes, ...);
+#   * no ref outside refs/heads, refs/remotes, refs/tags (stash, notes, ...); every tag
+#     and remote-tracking ref must point at a commit the host repo already reaches
+#     through one of its own refs, so a tag can never hold the only copy of a commit;
+#   * every commit named in any reflog exists in the host repo (rewritten or abandoned
+#     work that survives only in the clone keeps it);
 #   * work tree identical to HEAD (content hashes, no filters): no staged, modified,
 #     deleted or untracked files (the generated reports are ignored);
 #   * garbage collection only: last activity older than RETAIN_DAYS (>= 2).
@@ -132,7 +136,11 @@ retention_branch_published() {
   local name=$1 sha=$2
   if grep -Fxq -- "$name" <<< "$RETENTION_OPEN_BRANCHES"; then RETENTION_REASON="branch $name has an open PR"; return 1; fi
   if retention_host_git merge-base --is-ancestor "$sha" "refs/remotes/$TARGET/$BASE_BRANCH" 2>/dev/null; then return 0; fi
-  if ! retention_host_git fetch --quiet --no-tags "$TARGET" "+refs/heads/$name:refs/remotes/$TARGET/$name" 2>/dev/null; then
+  if [ "${RETENTION_OFFLINE:-0}" != 1 ] \
+    && ! retention_host_git fetch --quiet --no-tags "$TARGET" "+refs/heads/$name:refs/remotes/$TARGET/$name" 2>/dev/null </dev/null; then
+    RETENTION_REASON="branch $name not on $TARGET (unpublished or unverifiable)"; return 1
+  fi
+  if ! retention_host_git rev-parse -q --verify "refs/remotes/$TARGET/$name" >/dev/null 2>&1; then
     RETENTION_REASON="branch $name not on $TARGET (unpublished or unverifiable)"; return 1
   fi
   if ! retention_host_git merge-base --is-ancestor "$sha" "refs/remotes/$TARGET/$name" 2>/dev/null; then
@@ -140,9 +148,28 @@ retention_branch_published() {
   fi
 }
 
+# A ref target the host repo already reaches through some ref is not unique to the clone.
+retention_host_holds() {
+  local commit
+  retention_host_git cat-file -e "$1" 2>/dev/null || return 1
+  commit=$(retention_host_git rev-parse -q --verify "$1^{commit}" 2>/dev/null) || return 1
+  [ -n "$(retention_host_git for-each-ref --contains "$commit" --count=1 --format=x 2>/dev/null)" ]
+}
+
+# Commits that only survive in reflogs (abandoned or rewritten work) must exist in the host repo.
+retention_reflogs_preserved() {
+  local shas out missing
+  shas=$(retention_clone_git "$1" reflog show --all --format=%H 2>/dev/null) || { RETENTION_REASON="reflogs unreadable"; return 1; }
+  [ -n "$shas" ] || return 0
+  out=$(sort -u <<< "$shas" | retention_host_git cat-file --batch-check 2>/dev/null) || { RETENTION_REASON="host object check failed"; return 1; }
+  missing=$(grep -c ' missing$' <<< "$out" || true)
+  [ "${missing:-1}" = 0 ] || { RETENTION_REASON="reflog holds $missing commit(s) absent from the host repo"; return 1; }
+}
+
 # $1 clone, $2 enforce age (1 = GC, 0 = failed-run cleanup). 0 = reclaimable.
 retention_classify() {
   local dir=$1 enforce_age=${2:-1} refs ref sha name head_ref head_sha
+  local -A held=()
   RETENTION_REASON=""
   retention_safe_dir "$dir" || { RETENTION_REASON="unsafe path"; return 1; }
   if [ "$enforce_age" = 1 ] && retention_recent "$dir"; then RETENTION_REASON="active within ${RETAIN_DAYS}d"; return 1; fi
@@ -156,7 +183,12 @@ retention_classify() {
         name=${ref#refs/heads/}
         git check-ref-format --branch "$name" >/dev/null 2>&1 || { RETENTION_REASON="odd branch name"; return 1; }
         retention_branch_published "$name" "$sha" || return 1 ;;
-      refs/remotes/*|refs/tags/*) ;;
+      refs/remotes/*|refs/tags/*)
+        # Not unique to the clone only if the host repo already reaches the commit through a ref.
+        if [ -z "${held[$sha]:-}" ]; then
+          retention_host_holds "$sha" || { RETENTION_REASON="ref $ref holds commits not reachable from any host ref"; return 1; }
+          held[$sha]=1
+        fi ;;
       *) RETENTION_REASON="unknown ref $ref"; return 1 ;;
     esac
   done <<< "$refs"
@@ -166,6 +198,7 @@ retention_classify() {
     head_sha=$(retention_clone_git "$dir" rev-parse -q --verify 'HEAD^{commit}') || { RETENTION_REASON="HEAD unreadable"; return 1; }
     retention_known_upstream_commit "$head_sha" || { RETENTION_REASON="detached HEAD at unrecognized commit"; return 1; }
   fi
+  retention_reflogs_preserved "$dir" || return 1
   if retention_has_edits "$dir"; then RETENTION_REASON="uncommitted or untracked edits"; return 1; fi
   RETENTION_REASON="all work published or upstream"
 }
@@ -208,4 +241,28 @@ retention_gc() {
   retention_log "scanned ${#candidates[@]} clone(s), removed $removed (retain=${RETAIN_DAYS}d scan<=$RETAIN_SCAN_MAX delete<=$RETAIN_DELETE_MAX)"
   exec {lock_fd}>&-
   return 0
+}
+
+# Read-only dry run over every direct worktree.* child: no fetch (existing tracking refs
+# only), no removal, no lock. TSV: path, bytes, idle_days, age_ok (idle >= RETAIN_DAYS),
+# content verdict (age ignored), reason; then totals. "Eligible" = age_ok and RECLAIM.
+retention_manifest() {
+  local dir bytes idle newest age_ok verdict total=0 total_bytes=0 elig=0 elig_bytes=0
+  local RETENTION_OFFLINE=1
+  retention_root_ok || { echo "unsafe work root" >&2; return 1; }
+  retention_load_open_prs || { echo "open-PR state unavailable" >&2; return 1; }
+  printf 'path\tbytes\tidle_days\tage_ok\tcontent\treason\n'
+  while IFS= read -r -u 3 dir; do
+    [ -n "$dir" ] || continue
+    bytes=$(du -sb --one-file-system -- "$dir" 2>/dev/null | cut -f1) || bytes=0
+    newest=$(find "$dir" -path "$dir/.git/objects" -prune -o -printf '%T@\n' 2>/dev/null | sort -n | tail -n 1)
+    newest=${newest%.*}
+    idle=$(( newest > 0 ? ($(date +%s) - newest) / 86400 : 0 ))
+    if [ "$idle" -ge "$RETAIN_DAYS" ]; then age_ok=yes; else age_ok=no; fi
+    if retention_classify "$dir" 0; then verdict=RECLAIM; else verdict=KEEP; fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$dir" "${bytes:-0}" "$idle" "$age_ok" "$verdict" "$RETENTION_REASON"
+    total=$((total + 1)); total_bytes=$((total_bytes + ${bytes:-0}))
+    if [ "$age_ok" = yes ] && [ "$verdict" = RECLAIM ]; then elig=$((elig + 1)); elig_bytes=$((elig_bytes + ${bytes:-0})); fi
+  done 3< <(find "$WORK_ROOT" -mindepth 1 -maxdepth 1 -name 'worktree.*' -printf '%T@ %p\n' 2>/dev/null | sort -n | cut -d' ' -f2-)
+  printf '#total\t%s\t%s\n#eligible\t%s\t%s\n' "$total" "$total_bytes" "$elig" "$elig_bytes"
 }
