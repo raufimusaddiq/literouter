@@ -12,8 +12,8 @@
 #   * no ref outside refs/heads, refs/remotes, refs/tags (stash, notes, ...); every tag
 #     and remote-tracking ref must point at a commit the host repo already reaches
 #     through one of its own refs, so a tag can never hold the only copy of a commit;
-#   * every commit named in any reflog exists in the host repo (rewritten or abandoned
-#     work that survives only in the clone keeps it);
+#   * every commit named in any reflog is reachable from a host ref (rewritten or
+#     abandoned work that survives only in the clone keeps it);
 #   * work tree identical to HEAD (content hashes, no filters): no staged, modified,
 #     deleted or untracked files (the generated reports are ignored);
 #   * garbage collection only: last activity older than RETAIN_DAYS (>= 2).
@@ -156,14 +156,15 @@ retention_host_holds() {
   [ -n "$(retention_host_git for-each-ref --contains "$commit" --count=1 --format=x 2>/dev/null)" ]
 }
 
-# Commits that only survive in reflogs (abandoned or rewritten work) must exist in the host repo.
+# Commits that only survive in reflogs (abandoned or rewritten work) must be reachable from a
+# host ref; a dangling host object could be pruned later and is not durable.
 retention_reflogs_preserved() {
-  local shas out missing
+  local shas sha
   shas=$(retention_clone_git "$1" reflog show --all --format=%H 2>/dev/null) || { RETENTION_REASON="reflogs unreadable"; return 1; }
-  [ -n "$shas" ] || return 0
-  out=$(sort -u <<< "$shas" | retention_host_git cat-file --batch-check 2>/dev/null) || { RETENTION_REASON="host object check failed"; return 1; }
-  missing=$(grep -c ' missing$' <<< "$out" || true)
-  [ "${missing:-1}" = 0 ] || { RETENTION_REASON="reflog holds $missing commit(s) absent from the host repo"; return 1; }
+  while IFS= read -r -u 4 sha; do
+    [ -n "$sha" ] || continue
+    retention_host_holds "$sha" || { RETENTION_REASON="reflog holds a commit not reachable from any host ref"; return 1; }
+  done 4< <(sort -u <<< "$shas")
 }
 
 # $1 clone, $2 enforce age (1 = GC, 0 = failed-run cleanup). 0 = reclaimable.

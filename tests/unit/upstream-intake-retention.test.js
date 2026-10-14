@@ -377,7 +377,19 @@ describe("commits that exist only outside branches", () => {
     const dir = makeClone("REFLOG");
     strayCommit(dir);
     age(dir);
-    expect(classify(dir)).toMatch(/^KEEP:reflog holds 1 commit\(s\) absent from the host repo/);
+    expect(classify(dir)).toBe("KEEP:reflog holds a commit not reachable from any host ref");
+  });
+
+  it("does not trust a reflog commit that is only a dangling object in the host repo", () => {
+    const dir = makeClone("DANGLE");
+    const sha = strayCommit(dir);
+    // Present in the host object store, but no host ref reaches it (e.g. a deleted/force-pushed branch).
+    git(dir, "push", "--quiet", host, `${sha}:refs/heads/tmp-dangling`);
+    git(host, "branch", "-D", "tmp-dangling");
+    expect(git(host, "cat-file", "-t", sha)).toBe("commit");
+    expect(git(host, "for-each-ref", "--contains", sha)).toBe("");
+    age(dir);
+    expect(classify(dir)).toBe("KEEP:reflog holds a commit not reachable from any host ref");
   });
 
   it("still reclaims a clone whose tags are the host's own", () => {
