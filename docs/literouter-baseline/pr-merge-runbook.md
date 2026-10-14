@@ -97,6 +97,30 @@ successful, healthy deployment as a separate host-side operator step. The
 production image build/push workflow and deploy controller are unchanged;
 this step is not automatically enabled by merging the PR.
 
+Required operator environment (neither variable has a default):
+
+| Variable | Value |
+| --- | --- |
+| `LITEROUTER_PRODUCTION_TAG` | Actual running tag, `production-` plus exactly 40 lowercase hexadecimal SHA characters; not a full image reference, digest, `latest`, or PR head. |
+| `LITEROUTER_PREVIOUS_PRODUCTION_TAG` | Immediately previous deployed full-SHA tag recorded before deployment, or explicit `none` when no previous release is known/available. Never guess a rollback tag or repeat the current tag to bypass a missing record. |
+
+Unset/empty variables abort with exit 1 before Docker or health calls; the error
+names the missing contract. Normal cleanup still requires both actual tags to
+exist locally. If no reliable previous tag exists, explicitly skip cleanup:
+
+```bash
+LITEROUTER_PRODUCTION_TAG=production-<actual-running-full-sha> \
+LITEROUTER_PREVIOUS_PRODUCTION_TAG=none \
+  bash scripts/post-deploy.sh
+```
+
+`none` returns exit 0 with a skip message in both dry-run and `--apply` modes;
+no Docker inspection, health request, planning, or image removal occurs. This is
+**not** a successful retention manifest or proof of an available rollback image.
+The current tag must still be valid. Record/retain the actual current tag before
+the next separately approved deployment; it then becomes the previous tag.
+Do not deploy, pull, retag, or delete anything just to satisfy this contract.
+
 Before the deployment, record the current full image reference read-only:
 
 ```bash
