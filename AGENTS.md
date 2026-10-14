@@ -47,8 +47,12 @@ Disposable upstream intake must wait for checks and current-head Hermes review.
 Repair completed CI failures and blocking findings with real code changes, push,
 then wait again. Do not finish at PR creation, bypass gates, retrigger pending
 reviews, or delete the workspace before successful deployment. Retain a failed
-workspace for retry; the host controller, not untrusted upstream code, owns
-GitHub credentials, merge, and deployment.
+workspace for retry unless it provably holds nothing unpublished. Startup GC
+(`scripts/upstream-intake-retention.sh`) removes only direct `worktree.*` clones
+idle for `UPSTREAM_INTAKE_RETAIN_DAYS` (default 14, minimum 2) whose work is merged
+or published to `origin-literouter` or is an upstream-only commit; unknown, unpushed,
+dirty, or unverifiable clones are kept. The host controller, not untrusted upstream
+code, owns GitHub credentials, merge, and deployment.
 
 ## Security and Configuration
 
