@@ -5,8 +5,8 @@ set -euo pipefail
 # See docs/literouter-baseline/pr-merge-runbook.md#production-image-retention.
 repository=ghcr.io/raufimusaddiq/literouter-production
 docker_bin=${DOCKER_BIN:-docker}
-current=${LITEROUTER_PRODUCTION_TAG:?set LITEROUTER_PRODUCTION_TAG}
-previous=${LITEROUTER_PREVIOUS_PRODUCTION_TAG:?set LITEROUTER_PREVIOUS_PRODUCTION_TAG}
+current=${LITEROUTER_PRODUCTION_TAG:?set LITEROUTER_PRODUCTION_TAG to the running production-<full-sha> tag}
+previous=${LITEROUTER_PREVIOUS_PRODUCTION_TAG:?set LITEROUTER_PREVIOUS_PRODUCTION_TAG to the recorded production-<full-sha> tag or none to skip cleanup}
 apply=false
 if [ "$#" -gt 1 ]; then
   echo 'usage: bash scripts/post-deploy.sh [--apply]' >&2
@@ -18,6 +18,11 @@ case "${1:-}" in
   *) echo 'usage: bash scripts/post-deploy.sh [--apply]' >&2; exit 2 ;;
 esac
 for tag in "$current" "$previous"; do
+  # shortcut: no rollback release means no cleanup; resume when a real previous tag is recorded.
+  if [ "$tag" = none ] && [ "$current" != none ]; then
+    echo 'no previous deployed tag; skipping image cleanup without Docker inspection or removal'
+    exit 0
+  fi
   if ! [[ "$tag" =~ ^production-[0-9a-f]{40}$ ]]; then
     echo "invalid production tag: $tag" >&2
     exit 1

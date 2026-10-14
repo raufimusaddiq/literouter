@@ -158,6 +158,32 @@ it("fails closed on missing/invalid releases, unhealthy or wrong running image, 
   }
 });
 
+it("requires both env values; explicit none skips without invoking Docker in either mode", () => {
+  for (const name of ["LITEROUTER_PRODUCTION_TAG", "LITEROUTER_PREVIOUS_PRODUCTION_TAG"]) {
+    for (const value of [undefined, ""]) {
+      const result = run({ [name]: value, DOCKER_BIN: "must-not-run-docker" }, []);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(`set ${name}`);
+      expect(result.stderr).not.toContain("command not found");
+      expect(removed(result)).toEqual([]);
+    }
+  }
+  for (const args of [[], ["--apply"]]) {
+    const result = run({ LITEROUTER_PREVIOUS_PRODUCTION_TAG: "none", DOCKER_BIN: "must-not-run-docker", TEST_FAIL: "curl" }, args);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("no previous deployed tag; skipping image cleanup");
+    expect(removed(result)).toEqual([]);
+    expect(result.stdout).not.toContain("would remove");
+    expect(result.stderr).toBe("");
+  }
+  for (const current of ["none", "latest", "production-invalid"]) {
+    const result = run({ LITEROUTER_PRODUCTION_TAG: current, LITEROUTER_PREVIOUS_PRODUCTION_TAG: "none" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("invalid production tag");
+    expect(removed(result)).toEqual([]);
+  }
+});
+
 it("skips same-tag deploys; rejects unexpected arguments; stops on removal failure", () => {
   const same = run({ LITEROUTER_PREVIOUS_PRODUCTION_TAG: tag("a") });
   expect(same.status, same.stderr).toBe(0);

@@ -1,5 +1,6 @@
 # v0.5.82 (unreleased)
 
+- **Ops**: document both required retention tag variables; explicit previous tag `none` safely skips all cleanup when no rollback release is known, while unset inputs still fail closed. Refs #104.
 - **Ops**: add a dry-run-first, documented host-side post-deploy image retention step: N=2 (running and previous release), with all container-referenced tags/IDs protected and fail-closed health/inventory checks. No automatic deployment changes or historical cleanup. Refs #104.
 - **Ops**: bound upstream-intake clone retention. Failed runs now remove clones that hold nothing unpublished, and a startup GC removes only idle (`UPSTREAM_INTAKE_RETAIN_DAYS`, default 14) clones whose work is merged/published to `origin-literouter` or upstream-only; unpushed, dirty, unknown or unverifiable clones are kept. Tags, remote-tracking refs and reflog-only commits must already exist in the host repo, and `retention_manifest` lists candidates read-only (no fetch, no removal) before any deletion. Refs #103.
 - **Claude**: when Opus rejects `thinking: disabled` and asks for adaptive thinking, retry once with `thinking: adaptive` and low `output_config.effort` so `reasoning_effort: "none"` no longer fails.
