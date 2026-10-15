@@ -191,8 +191,12 @@ The script is the manual deploy path, unchanged in behaviour, plus the prune:
   and aborts rather than guess if it cannot be determined, if the container is
   not on this repository's image, or if its tag is not a full-SHA production tag;
 - runs `LITEROUTER_PRODUCTION_TAG=production-<sha> docker compose
-  -f compose.production.yml up -d --no-build`, which replaces the single
-  `literouter` container on the `9router-data` volume, so SQLite keeps one writer;
+  -f compose.production.yml up -d --no-build --wait --wait-timeout 300`, which
+  replaces the single `literouter` container on the `9router-data` volume, so
+  SQLite keeps one writer. `--wait` is required: `up -d` alone returns while the
+  healthcheck is still `starting` (30s interval/start period), which would make a
+  healthy deploy look failed and skip the prune. Override the budget with
+  `LITEROUTER_WAIT_TIMEOUT`;
 - verifies the container reports `healthy` **and** that
   `https://ai.investdx.biz.id/api/health` answers, **before** removing anything;
 - removes exactly the tag it replaced, and only when that tag differs from the
@@ -288,9 +292,10 @@ this production host; use the PR's Test workflow per **Unit tests in CI**.
 synthetic `docker`/`curl` on `PATH`, never a real container, image or tag. It
 pins the dangerous regression: the replaced tag is **not** removed when the
 container is unhealthy, when the public endpoint does not answer, or when the
-deploy itself fails, and **is** removed on success. It also covers the same-tag
-redeploy, a missing container, a foreign repository, a non-full-SHA tag, and the
-usage error for a missing, short or malformed argument.
+deploy itself fails, and **is** removed on success. It also asserts the deploy
+waits for health before checking it, and covers the same-tag redeploy, a missing
+container, a foreign repository, a non-full-SHA tag, and the usage error for a
+missing, short or malformed argument.
 
 ### Intake workspace retention
 

@@ -47,8 +47,15 @@ esac
   || { echo "container $container is on an unexpected tag: $old; refusing to deploy" >&2; exit 1; }
 
 echo "deploying $image (replacing $old)"
+# --wait blocks until the replacement is healthy, so a successful deploy is not
+# misread as a failure while its healthcheck is still `starting`. Without it,
+# `up -d` returns as soon as the container starts and the health check below can
+# fail on a deploy that would have passed (compose.production.yml has a 30s
+# interval and start period), which would skip the prune and, on a retry, record
+# the new release as `old` and leave the replaced image behind for good.
 LITEROUTER_PRODUCTION_TAG="$tag" \
-  "$docker_bin" compose --project-directory /opt/9router -f "$compose_file" up -d --no-build
+  "$docker_bin" compose --project-directory /opt/9router -f "$compose_file" up -d --no-build \
+  --wait --wait-timeout "${LITEROUTER_WAIT_TIMEOUT:-300}"
 
 # Verify before removing anything: the container must report healthy, and the
 # public endpoint must answer.
