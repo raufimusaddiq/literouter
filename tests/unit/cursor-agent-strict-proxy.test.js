@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 
 import { CursorExecutor } from "../../open-sse/executors/cursor.js";
+import { encodeField, wrapConnectRPCFrame } from "../../open-sse/utils/cursorProtobuf.js";
 
 const credentials = {
   accessToken: "test-token",
@@ -11,12 +12,15 @@ function stubSession(executor) {
   let opened = 0;
   const connect = vi.fn(() => {
     opened += 1;
+    const text = encodeField(1, 2, encodeField(1, 2, "ok"));
+    const ended = encodeField(14, 2, new Uint8Array());
+    const frames = [text, ended].map(update => Buffer.from(wrapConnectRPCFrame(encodeField(1, 2, update))));
     return {
       responseHeaders: Promise.resolve({ ":status": 200 }),
       write() {},
       end() {},
       close() {},
-      async read() { return { value: undefined, done: true }; },
+      async read() { return frames.length ? { value: frames.shift(), done: false } : { value: undefined, done: true }; },
     };
   });
   executor.openAgentHttp2Stream = connect;
@@ -104,15 +108,14 @@ describe("Cursor AgentService strict-proxy policy guard", () => {
     expect(connect).toHaveBeenCalledTimes(1);
   });
 
-  it("a vercel-style relay is exempt: it rides fetch, not the h2 duplex", async () => {
+  it.each([
+    { strictProxy: true, proxyPoolId: "relay-1", vercelRelayUrl: "https://relay.example/" },
+    { strictProxy: true, vercelRelayUrl: "https://relay.example/" },
+  ])("fails closed for a strict relay that h2 cannot carry: %j", async (options) => {
     const executor = new CursorExecutor();
     const { connect } = stubSession(executor);
-    await expect(runAgent(executor, {
-      strictProxy: true,
-      proxyPoolId: "relay-1",
-      vercelRelayUrl: "https://relay.example/",
-    })).resolves.toBeTruthy();
-    expect(connect).toHaveBeenCalledTimes(1);
+    await expect(runAgent(executor, options)).rejects.toThrow(/strict proxy/u);
+    expect(connect).not.toHaveBeenCalled();
   });
 
   it("execute() routes the failure through its connection_error envelope", async () => {

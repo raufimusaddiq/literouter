@@ -250,7 +250,7 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
       }
 
       if (sourceFormat === FORMATS.CLAUDE) {
-        const finalResp = responsesToClaudeMessage(jsonResponse);
+        const finalResp = responsesToClaudeMessage({ ...jsonResponse, model: jsonResponse.model || model });
         return { success: true, response: new Response(JSON.stringify(finalResp), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
       }
 
@@ -305,10 +305,6 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
           choices: [{ index: 0, message, finish_reason: finishReason }],
           usage: { prompt_tokens: inTokens, completion_tokens: outTokens, total_tokens: inTokens + outTokens, ...cacheDetails }
         };
-      }
-
-      if (sourceFormat === FORMATS.CLAUDE) {
-        finalResp = openAICompletionToClaudeMessage(finalResp);
       }
 
       return { success: true, response: new Response(JSON.stringify(restoreToolNames(finalResp, toolNameMap)), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };

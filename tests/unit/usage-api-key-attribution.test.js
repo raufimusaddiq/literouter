@@ -28,9 +28,9 @@ describe("Usage stats API key attribution", () => {
       provider: "openai",
       model: "gpt-4",
       connectionId: "c1",
-      apiKey: apiKeyA,
+      apiKey: ` ${apiKeyA} `,
       timestamp,
-      tokens: { prompt_tokens: 10, completion_tokens: 5 },
+      tokens: { input_tokens: 10, output_tokens: 5 },
       endpoint: "/v1/chat",
       status: "ok",
     });

@@ -489,8 +489,8 @@ export function normalizeGeminiContents(contents, model = null) {
     const last = out.at(-1);
     if (last?.role === c.role) {
       last.parts.push(...parts);
-      if (frLast) last.parts = moveFunctionResponsesLast(last.parts);
-    } else out.push({ ...c, parts: [...parts] });
+      if (frLast && c.role === "user") last.parts = moveFunctionResponsesLast(last.parts);
+    } else out.push({ ...c, parts: frLast && c.role === "user" ? moveFunctionResponsesLast(parts) : [...parts] });
   }
   if (out.length > 0 && out[0].role !== "user") {
     out.unshift({ role: "user", parts: [{ text: "..." }] });

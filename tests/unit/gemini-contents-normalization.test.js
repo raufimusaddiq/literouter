@@ -194,3 +194,27 @@ describe("functionResponse `$ref` sanitization", () => {
   });
 });
 
+
+describe("Gemini 4 request compatibility", () => {
+  it.each([false, true])("puts function responses last, merged=%s", (merged) => {
+    const response = { functionResponse: { name: "lookup", response: { result: "ok" } } };
+    const text = { text: "Follow-up" };
+    const contents = merged
+      ? [{ role: "user", parts: [response] }, { role: "user", parts: [text] }]
+      : [{ role: "user", parts: [response, text] }];
+    const before = JSON.stringify(contents);
+    expect(normalizeGeminiContents(contents, "gemini-4-argon")[0].parts).toEqual([text, response]);
+    expect(normalizeGeminiContents(contents, "gemini-3.8-pro")[0].parts).toEqual([response, text]);
+    expect(JSON.stringify(contents)).toBe(before);
+  });
+
+  it.each(["gemini-4-argon", "publishers/google/models/gemini-4-argon"])("drops obsolete sampling parameters for %s", (model) => {
+    const body = { messages: [{ role: "user", content: "hi" }], temperature: 0.7, top_p: 0.9, top_k: 20 };
+    const current = openaiToGeminiRequest(model, body, false).generationConfig;
+    expect(current).not.toHaveProperty("temperature");
+    expect(current).not.toHaveProperty("topP");
+    expect(current).not.toHaveProperty("topK");
+    expect(openaiToGeminiRequest("gemini-3.8-pro", body, false).generationConfig)
+      .toMatchObject({ temperature: 0.7, topP: 0.9, topK: 20 });
+  });
+});

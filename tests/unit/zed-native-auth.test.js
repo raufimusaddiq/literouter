@@ -23,11 +23,13 @@ import {
 
 // Imports must be dynamic so DATA_DIR is set before the DB layer loads.
 const originalDataDir = process.env.DATA_DIR;
+let tempDir;
 let startZedProxy, stopZedProxy, registerZedSession, getZedSessionStatus, clearZedSession;
 let generateAuthData, exchangeTokens;
 
 beforeAll(async () => {
-  process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "9router-zed-auth-"));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-zed-auth-"));
+  process.env.DATA_DIR = tempDir;
   vi.resetModules();
   ({ startZedProxy, stopZedProxy, registerZedSession, getZedSessionStatus, clearZedSession } =
     await import("@/lib/oauth/utils/server.js"));
@@ -35,7 +37,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true });
+  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });

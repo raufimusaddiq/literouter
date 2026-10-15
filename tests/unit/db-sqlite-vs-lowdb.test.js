@@ -228,6 +228,19 @@ describe("DB SQLite layer — public API parity", () => {
     expect(await sqliteDb.getProviderNodeById(n.id)).toBeNull();
   });
 
+  it("providerNodes: deletion prunes only exact custom-model prefixes and invalidates cached rows", async () => {
+    const ids = ["intake_%", "intake_X", "INTAKE_%"];
+    for (const id of ids) {
+      await sqliteDb.createProviderNode({ id, type: "openai", name: id });
+      await sqliteDb.addCustomModel({ providerAlias: id, id: "custom", type: "llm" });
+    }
+    expect((await sqliteDb.getCustomModels()).filter(model => ids.includes(model.providerAlias))).toHaveLength(3);
+    await sqliteDb.deleteProviderNode(ids[0]);
+    expect((await sqliteDb.getCustomModels()).filter(model => ids.includes(model.providerAlias)).map(model => model.providerAlias).sort())
+      .toEqual(ids.slice(1).sort());
+    for (const id of ids.slice(1)) await sqliteDb.deleteProviderNode(id);
+  });
+
   it("proxyPools: CRUD with sort by updatedAt desc", async () => {
     const p1 = await sqliteDb.createProxyPool({ name: "p1", proxyUrl: "http://a", type: "http" });
     await new Promise((r) => setTimeout(r, 10));

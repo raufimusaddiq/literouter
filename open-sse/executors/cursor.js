@@ -258,13 +258,12 @@ const proxyIntentFailed = (proxyOptions) => {
   if (proxyOptions?.strictProxy !== true) return false;
   const proxyIntended = Boolean(
     proxyOptions?.proxyPoolId
+    || proxyOptions?.vercelRelayUrl
     || proxyOptions?.enabled === true
     || proxyOptions?.connectionProxyEnabled === true
     || (proxyOptions?.url || proxyOptions?.connectionProxyUrl || "").trim().length > 0,
   );
   if (!proxyIntended) return false;
-  // A vercel/cloudflare-style relay rides on plain fetch, not this h2 path.
-  if (proxyOptions?.vercelRelayUrl) return false;
   // Proxy intended and strict: the h2 transport below cannot carry it.
   return true;
 };
@@ -602,38 +601,21 @@ export class CursorExecutor extends BaseExecutor {
       signal.addEventListener("abort", () => requestController.abort(signal.reason), { once: true });
     }
 
-<<<<<<< HEAD
-=======
-    // Empty-turn recovery works on the original client history so each retry
-    // re-derives its own frame from a clean base (original vs tail-only).
-    const originalMessages = body.messages || [];
-    let workingMessages = originalMessages;
-    const tools = body.tools || [];
-    // "Auto (Server Picks)" / "default" is a picker alias, not an AgentService
-    // model id — sending it verbatim yields an empty turn. Resolve it to the
-    // account's default agent-capable model from the live catalog before Run.
     let runModel = model;
     if (model === "default" || model === "auto") {
       const catalog = await resolveCursorModels(credentials, { signal, log });
       const selection = resolveAutoModelSelection(catalog?.models);
       if (selection) {
-        log?.info?.("CURSOR", `auto model resolved: ${model} → ${selection.modelId} (${selection.matchedBy})`);
+        log?.info?.("CURSOR", `auto model resolved: ${model} to ${selection.modelId} (${selection.matchedBy})`);
         runModel = selection.modelId;
       }
     }
 
-    const openAgentSession = (frameMessages) => {
-      const session = this.openAgentHttp2Stream(url, headers, requestController.signal);
-      session.write(buildAgentRunFrame(frameMessages, runModel, tools, body.reasoning_effort || body.reasoning?.effort));
-      return session;
-    };
-
->>>>>>> f6c26d8e (feat(cursor): resolve Auto (Server Picks) to the account's default agent model (#4692))
     let session;
     const tools = body.tools || [];
     try {
       session = this.openAgentHttp2Stream(url, headers, requestController.signal);
-      session.write(buildAgentRunFrame(body.messages || [], model, tools, body.reasoning_effort || body.reasoning?.effort));
+      session.write(buildAgentRunFrame(body.messages || [], runModel, tools, body.reasoning_effort || body.reasoning?.effort));
     } catch (error) {
       throw new Error(`Cursor AgentService request failed: ${error.message}`);
     }
