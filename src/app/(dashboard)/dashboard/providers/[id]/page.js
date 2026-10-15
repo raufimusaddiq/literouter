@@ -14,6 +14,7 @@ import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { translate } from "@/i18n/runtime";
 import { fetchSuggestedModels } from "@/shared/utils/providerModelsFetcher";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
+import { recordTestResult, TEST_ERROR, TEST_OK } from "@/shared/utils/modelTestResults";
 import ModelRow from "./ModelRow";
 import CompatibleModelsSection from "./CompatibleModelsSection";
 import ConnectionRow from "./ConnectionRow";
@@ -58,7 +59,6 @@ export default function ProviderDetailPage() {
   const [customModels, setCustomModels] = useState([]);
   const [headerImgError, setHeaderImgError] = useState(false);
   const [modelTestResults, setModelTestResults] = useState({});
-  const [modelsTestError, setModelsTestError] = useState("");
   const [testingModelIds, setTestingModelIds] = useState(() => new Set());
   const [showAddCustomModel, setShowAddCustomModel] = useState(false);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState([]);
@@ -1136,11 +1136,14 @@ export default function ProviderDetailPage() {
         body: JSON.stringify({ model: `${providerStorageAlias}/${modelId}` }),
       });
       const data = await res.json();
-      setModelTestResults((prev) => ({ ...prev, [modelId]: data.ok ? "ok" : "error" }));
-      setModelsTestError(data.ok ? "" : (data.error || "Model not reachable"));
+      // Recorded against this model only. At LOG_LEVEL=WARN a passing probe emits
+      // no server log line, so this row is the only trace a successful test leaves.
+      const outcome = data.ok
+        ? { status: TEST_OK }
+        : { status: TEST_ERROR, error: data.error || "Model not reachable" };
+      setModelTestResults((prev) => recordTestResult(prev, modelId, outcome));
     } catch {
-      setModelTestResults((prev) => ({ ...prev, [modelId]: "error" }));
-      setModelsTestError("Network error");
+      setModelTestResults((prev) => recordTestResult(prev, modelId, { status: TEST_ERROR, error: "Network error" }));
     } finally {
       setTestingModelIds((prev) => { const n = new Set(prev); n.delete(modelId); return n; });
     }
@@ -1201,7 +1204,7 @@ export default function ProviderDetailPage() {
                 handleDeleteAlias(model.alias);
               }
             }}
-            testStatus={modelTestResults[model.id]}
+            testResult={modelTestResults[model.id]}
             onTest={!isSystemOne && (connections.length > 0 || isFreeNoAuth) ? () => handleTestModel(model.id) : undefined}
             isTesting={testingModelIds.has(model.id)}
             isCustom
@@ -1227,7 +1230,7 @@ export default function ProviderDetailPage() {
               onCopy={copy}
               onSetAlias={(alias) => handleSetAlias(model.id, alias, providerStorageAlias)}
               onDeleteAlias={() => handleDeleteAlias(existingAlias)}
-              testStatus={modelTestResults[model.id]}
+              testResult={modelTestResults[model.id]}
               onTest={!isSystemOne && (connections.length > 0 || isFreeNoAuth) ? () => handleTestModel(model.id) : undefined}
               isTesting={testingModelIds.has(model.id)}
               isFree={model.isFree}
@@ -1801,35 +1804,6 @@ export default function ProviderDetailPage() {
             );
           })()}
         </div>
-        {!!modelsTestError && (
-          <div className="mb-3">
-            <p className="text-xs text-red-500 break-words">{modelsTestError}</p>
-            {/RegionError|hosted in China|regionNotAllowed/i.test(modelsTestError) && (() => {
-              const str = typeof modelsTestError === "string" ? modelsTestError : JSON.stringify(modelsTestError);
-              const linkMatch = str.match(/https:\/\/opencode\.ai\/workspace\/[^\s"')]+/);
-              const wrkMatch = str.match(/wrk_[0-9A-Za-z]+/);
-              const targetUrl = linkMatch
-                ? (linkMatch[0].endsWith("/go") ? linkMatch[0] : `${linkMatch[0]}/go`)
-                : wrkMatch
-                  ? `https://opencode.ai/workspace/${wrkMatch[0]}/go`
-                  : "https://opencode.ai";
-
-              return (
-                <div className="mt-1.5">
-                  <a
-                    href={targetUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning hover:bg-warning/20 transition-colors"
-                  >
-                    <span>Allow China-hosted models</span>
-                    <span className="material-symbols-outlined text-[13px]">open_in_new</span>
-                  </a>
-                </div>
-              );
-            })()}
-          </div>
-        )}
         {providerId === "zed" && !!liveModelsError && (
           <p className="text-xs text-red-500 mb-3 break-words">{liveModelsError}</p>
         )}
