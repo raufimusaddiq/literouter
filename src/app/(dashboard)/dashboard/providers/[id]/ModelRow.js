@@ -1,8 +1,26 @@
 import PropTypes from "prop-types";
 import { CapacityBadges } from "@/shared/components";
 
-export default function ModelRow({ model, fullModel, alias, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onTest, isTesting, onDisable, caps, thinkingSuffix }) {
+// Opencode reports region blocks as RegionError; offer its workspace opt-in link.
+function regionOptInUrl(error) {
+  const str = typeof error === "string" ? error : JSON.stringify(error);
+  if (!/RegionError|hosted in China|regionNotAllowed/i.test(str)) return null;
+  const linkMatch = str.match(/https:\/\/opencode\.ai\/workspace\/[^\s"')]+/);
+  const wrkMatch = str.match(/wrk_[0-9A-Za-z]+/);
+  if (linkMatch) return linkMatch[0].endsWith("/go") ? linkMatch[0] : `${linkMatch[0]}/go`;
+  if (wrkMatch) return `https://opencode.ai/workspace/${wrkMatch[0]}/go`;
+  return "https://opencode.ai";
+}
+
+export default function ModelRow({ model, fullModel, alias, copied, onCopy, testResult, isCustom, isFree, onDeleteAlias, onTest, isTesting, onDisable, caps, thinkingSuffix }) {
   const displayModel = thinkingSuffix ? `${fullModel}(${thinkingSuffix})` : fullModel;
+  // This row's own result only — another model's error can never reach it.
+  const testStatus = testResult?.status;
+  const testError = testStatus === "error" ? (testResult.error || "Model not reachable") : null;
+  const testedAt = typeof testResult?.at === "number"
+    ? new Date(testResult.at).toLocaleTimeString("en-US", { hour12: false })
+    : null;
+  const regionOptIn = testError ? regionOptInUrl(testError) : null;
   const borderColor = testStatus === "ok"
     ? "border-green-500/40"
     : testStatus === "error"
@@ -30,6 +48,27 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
             {model.name && <span className="truncate text-[9px] italic text-text-muted/70">{model.name}</span>}
             <CapacityBadges caps={caps} colorOverride="text-text-muted/70" size={12} />
           </span>
+          {!!testedAt && (
+            <span className={`pl-1 text-[10px] ${testStatus === "ok" ? "text-green-500/80" : "text-red-500/80"}`}>
+              {testStatus === "ok" ? "passed" : "failed"} {testedAt}
+            </span>
+          )}
+          {!!testError && (
+            <span className="min-w-0 pl-1">
+              <span className="block text-xs text-red-500 break-words">{testError}</span>
+              {!!regionOptIn && (
+                <a
+                  href={regionOptIn}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-flex items-center gap-1 rounded-md bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning hover:bg-warning/20 transition-colors"
+                >
+                  <span>Allow China-hosted models</span>
+                  <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                </a>
+              )}
+            </span>
+          )}
         </div>
         {onTest && (
           <div className="relative shrink-0 group/btn">
@@ -90,7 +129,12 @@ ModelRow.propTypes = {
   alias: PropTypes.string,
   copied: PropTypes.string,
   onCopy: PropTypes.func.isRequired,
-  testStatus: PropTypes.oneOf(["ok", "error"]),
+  // This row's own test outcome; absent until the model is tested.
+  testResult: PropTypes.shape({
+    status: PropTypes.oneOf(["ok", "error"]).isRequired,
+    error: PropTypes.string,
+    at: PropTypes.number,
+  }),
   isCustom: PropTypes.bool,
   isFree: PropTypes.bool,
   onDeleteAlias: PropTypes.func,
