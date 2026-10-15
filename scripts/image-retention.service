@@ -7,15 +7,15 @@ After=network-online.target docker.service
 [Service]
 Type=oneshot
 EnvironmentFile=-/opt/9router/scripts/image-retention.env
-# /var/log is root-owned, so appending there as User=ubuntu would fail the unit
-# at start before ExecStart -- and the timer would silently never prune. Log next
-# to the state file instead. ExecStartPre creates the directory as this unit's
-# user (/var/tmp is world-writable), so no install step or root is required and
-# the append target exists before systemd opens it.
-ExecStartPre=/usr/bin/mkdir -p /var/tmp/9router-image-retention
-ExecStart=/opt/9router/scripts/image-retention.sh
+# systemd opens StandardOutput=append:/StandardError=append: BEFORE ExecStartPre
+# (and before LogsDirectory= is created), so a unit that points them at a
+# directory only the unit could have created fails at start with
+# "Failed to set up standard output: No such file or directory" (status=209/STDOUT)
+# and the timer silently never prunes. The shell therefore creates the directory
+# and opens the log itself, in this unit's own process, and no append: directive
+# targets that path. This keeps the log owned by the unit user instead of root,
+# and leaves nothing for the install steps to pre-create.
+ExecStart=/bin/sh -c 'mkdir -p /var/tmp/9router-image-retention && exec /opt/9router/scripts/image-retention.sh >>/var/tmp/9router-image-retention/retention.log 2>&1'
 WorkingDirectory=/opt/9router
-StandardOutput=append:/var/tmp/9router-image-retention/retention.log
-StandardError=append:/var/tmp/9router-image-retention/retention.log
 TimeoutStartSec=15min
 User=ubuntu
