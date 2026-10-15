@@ -41,7 +41,7 @@ Name tests `*.test.js` or `*.test.cjs`; place unit tests in `tests/unit/` and tr
 
 ## Pull Requests and Deployment
 
-PRs target `main`. Include intent, affected paths, tests run, and operational impact. Follow `docs/literouter-baseline/pr-merge-runbook.md`: merge only with green CI and no blocking Hermes review; do not retrigger queued reviews. Staging is retired. Merges publish an immutable production image; deploy only the merged SHA with `compose.production.yml`, then verify container health and `/api/health`. Before deploying, confirm `/opt/9router` is on the merged main SHA and reclaim merged worktrees and branches — the host tree is the source the systemd units and scripts are installed from, and `scripts/upstream-intake.sh` operates on that same tree. See "Host tree and worktree reclaim" in the runbook.
+PRs target `main`. Include intent, affected paths, tests run, and operational impact. Follow `docs/literouter-baseline/pr-merge-runbook.md`: merge only with green CI and no blocking Hermes review; do not retrigger queued reviews. Staging is retired. Merges publish an immutable production image; deploy only the merged SHA with `bash scripts/deploy.sh <full-sha>`, which verifies container health and `/api/health` and then removes exactly the tag it replaced. Before deploying, confirm `/opt/9router` is on the merged main SHA and reclaim merged worktrees and branches — the host tree is the source the systemd units and scripts are installed from, and `scripts/upstream-intake.sh` operates on that same tree. See "Host tree and worktree reclaim" in the runbook.
 
 Disposable upstream intake must wait for checks and current-head Hermes review.
 Repair completed CI failures and blocking findings with real code changes, push,
