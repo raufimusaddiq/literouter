@@ -127,7 +127,7 @@ it("deletes only when deletion was separately approved", () => {
   expect(removed(result)).not.toContain(image("e"));
 });
 
-it("refuses to derive tags from an unhealthy or unexpected container", () => {
+it("refuses an unhealthy or stopped container", () => {
   const unhealthy = run({ running: "a", images: ["a"], state: `${image("a")} ${id("a")} true starting` });
   expect(unhealthy.status).toBe(1);
   expect(unhealthy.stderr).toContain("not running and healthy");
@@ -135,8 +135,11 @@ it("refuses to derive tags from an unhealthy or unexpected container", () => {
 
   const stopped = run({ running: "a", images: ["a"], state: `${image("a")} ${id("a")} false healthy` });
   expect(stopped.status).toBe(1);
+  expect(stopped.stderr).toContain("not running and healthy");
   expect(removed(stopped)).toEqual([]);
+});
 
+it("refuses a container whose image is not a production tag", () => {
   // Right repository, wrong tag shape: never guessed into a retention decision.
   const wrongTag = run({ running: "a", images: ["a"], state: `${repository}:latest ${id("a")} true healthy` });
   expect(wrongTag.status).toBe(1);
@@ -148,6 +151,15 @@ it("refuses to derive tags from an unhealthy or unexpected container", () => {
   expect(foreign.status).toBe(1);
   expect(foreign.stderr).toContain("does not run");
   expect(removed(foreign)).toEqual([]);
+});
+
+it("accepts the approved flag in any case", () => {
+  // LITEROUTER_APPLY=TRUE must not silently stay read-only.
+  seedState("a", "e");
+  const result = run({ running: "a", images: ["a", "e", "c"], apply: true, LITEROUTER_APPLY: "TRUE" });
+
+  expect(result.status, result.stderr).toBe(0);
+  expect(removed(result)).toEqual([image("c")]);
 });
 
 it("ignores an unusable recorded state file instead of pruning on it", () => {

@@ -77,8 +77,11 @@ printf 'current=%s\nprevious=%s\n' "$current" "$previous" > "$tmp"
 mv -f -- "$tmp" "$state_file"
 
 # 4. Single pruning implementation; read-only unless deletion was approved.
+#    Normalized case: LITEROUTER_APPLY=TRUE must not silently stay read-only.
 apply_args=()
-if [ "${LITEROUTER_APPLY:-false}" = true ]; then apply_args=(--apply); fi
+if [ "$(printf '%s' "${LITEROUTER_APPLY:-false}" | tr '[:upper:]' '[:lower:]')" = true ]; then
+  apply_args=(--apply)
+fi
 log "retention: current=$current previous=$previous apply=${LITEROUTER_APPLY:-false}"
 LITEROUTER_PRODUCTION_TAG="$current" \
 LITEROUTER_PREVIOUS_PRODUCTION_TAG="$previous" \

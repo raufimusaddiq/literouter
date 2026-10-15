@@ -129,6 +129,13 @@ recurrence prevention** — an operator no longer has to remember it. The
 historical-cleanup boundary below is unchanged and still requires its own
 approval.
 
+The unit runs as `ubuntu`, so it logs to
+`/var/tmp/9router-image-retention/retention.log` rather than `/var/log` (which is
+root-owned and would fail the unit at start before `ExecStart`, leaving the timer
+silently pruning nothing). `ExecStartPre` creates that directory as the unit's
+own user, so the install steps above need no extra `chown` and no root-owned log
+file.
+
 Both tags come from the live container, never from image age. The wrapper reads
 the running `production-<full-sha>` tag with a read-only
 `docker container inspect literouter`, and the rollback tag is the tag the unit
