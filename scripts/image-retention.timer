@@ -1,0 +1,15 @@
+[Unit]
+Description=Hourly production image retention for LiteRouter
+
+[Timer]
+# Hourly. A deploy adds one 1.35GB tag, so an hourly reconcile bounds the dead
+# space to at most one stale image between deploys without holding a lock on
+# the deploy path. The service is a handful of docker inspect calls plus one
+# read-only manifest; deletion only happens once LITEROUTER_APPLY=true.
+OnCalendar=hourly
+Persistent=true
+AccuracySec=1min
+Unit=image-retention.service
+
+[Install]
+WantedBy=timers.target

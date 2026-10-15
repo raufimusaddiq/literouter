@@ -97,6 +97,64 @@ successful, healthy deployment as a separate host-side operator step. The
 production image build/push workflow and deploy controller are unchanged;
 this step is not automatically enabled by merging the PR.
 
+#### Automatic retention timer (recurrence prevention)
+
+`scripts/post-deploy.sh` stays the single pruning implementation; nothing else
+duplicates it. Because the production deploy path is a manual `docker compose`
+sequence with no scripted hook (and `scripts/deploy-9router.sh` is banned from
+it), retention is driven by a systemd timer instead of a CI→host channel:
+
+| File | Role |
+| --- | --- |
+| `scripts/image-retention.sh` | Derives the two tags and calls `post-deploy.sh` |
+| `scripts/image-retention.service` | `oneshot`, runs the wrapper |
+| `scripts/image-retention.timer` | `OnCalendar=hourly`, `Persistent=true` |
+| `scripts/image-retention.env` | Optional overrides; deletion is off unless uncommented |
+
+Install on the host (this repository's scripts directory is the install path,
+matching the other units):
+
+```bash
+sudo install -m 0644 /opt/9router/scripts/image-retention.service \
+                      /opt/9router/scripts/image-retention.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now image-retention.timer
+```
+
+The timer runs hourly: a deploy adds one 1.35GB tag, so an hourly reconcile
+bounds dead space to at most one stale image between deploys without holding a
+lock on the deploy path. The service is a handful of read-only `docker inspect`
+calls plus one manifest. This supersedes the manual `post-deploy.sh` step **for
+recurrence prevention** — an operator no longer has to remember it. The
+historical-cleanup boundary below is unchanged and still requires its own
+approval.
+
+The unit runs as `ubuntu`, so it logs to
+`/var/tmp/9router-image-retention/retention.log` rather than `/var/log` (which is
+root-owned and would fail the unit at start before `ExecStart`, leaving the timer
+silently pruning nothing). `ExecStartPre` creates that directory as the unit's
+own user, so the install steps above need no extra `chown` and no root-owned log
+file.
+
+Both tags come from the live container, never from image age. The wrapper reads
+the running `production-<full-sha>` tag with a read-only
+`docker container inspect literouter`, and the rollback tag is the tag the unit
+last observed running, kept in
+`/var/tmp/9router-image-retention/state` (`current=`, `previous=`). A rollback
+therefore reads as a deploy: the tag it replaces becomes the rollback tag. An
+unreadable, unhealthy, stopped, or unexpected container aborts before any
+pruning, and `post-deploy.sh`'s container-reference protections are unchanged,
+so a rollback image still referenced by a container is never removed regardless
+of what the state file records.
+
+**The scheduled run is a read-only manifest.** Deletion requires an explicit,
+separately approved change: uncomment `LITEROUTER_APPLY=true` in
+`scripts/image-retention.env` (or set it in the unit), then
+`sudo systemctl restart image-retention.timer` and confirm one manifest-only
+cycle first. First-run removal of already accumulated images is the historical
+cleanup described below and needs its own approval, independent of enabling the
+timer.
+
 Required operator environment (neither variable has a default):
 
 | Variable | Value |
@@ -169,6 +227,14 @@ Docker/curl functions only; CI verifies successive N=2 deployments, current/
 previous protection, stopped containers, aliases/digests, references added
 between removals, dry-run defaults, and fail-closed errors. Do not run it on
 this production host; use the PR's Test workflow per **Unit tests in CI**.
+
+`tests/unit/image-retention.test.js` covers the timer wrapper the same way —
+synthetic `docker`/`curl` on `PATH`, never a real container, image or tag — and
+verifies that the running tag comes from the live container rather than image
+age, that a rollback is treated as a deploy, that the rollback tag survives
+successive deploys, that the scheduled run deletes nothing, that deletion
+happens only under the approved flag, and that an unhealthy, stopped, foreign,
+wrong-tag or corrupt-state input aborts without removing anything.
 
 ### Intake workspace retention
 

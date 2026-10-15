@@ -1,0 +1,21 @@
+[Unit]
+Description=Production image retention for LiteRouter
+Documentation=file:/opt/9router/scripts/image-retention.sh
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/opt/9router/scripts/image-retention.env
+# /var/log is root-owned, so appending there as User=ubuntu would fail the unit
+# at start before ExecStart -- and the timer would silently never prune. Log next
+# to the state file instead. ExecStartPre creates the directory as this unit's
+# user (/var/tmp is world-writable), so no install step or root is required and
+# the append target exists before systemd opens it.
+ExecStartPre=/usr/bin/mkdir -p /var/tmp/9router-image-retention
+ExecStart=/opt/9router/scripts/image-retention.sh
+WorkingDirectory=/opt/9router
+StandardOutput=append:/var/tmp/9router-image-retention/retention.log
+StandardError=append:/var/tmp/9router-image-retention/retention.log
+TimeoutStartSec=15min
+User=ubuntu
