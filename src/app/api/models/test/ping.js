@@ -24,24 +24,75 @@ async function getInternalHeaders() {
 }
 
 /**
- * Pull one SSE event out of the accumulated buffer.
- * Returns the first `data:` payload with a non-empty body, or null if the
- * buffer holds no complete event yet. The remainder is returned so the caller
- * can keep parsing without re-scanning consumed bytes.
+ * Pull one complete SSE event out of the accumulated buffer.
+ *
+ * Handles LF, CRLF and lone-CR line endings. A CR sitting at the very end of the
+ * buffer is held back, because it may be the first half of a CRLF pair split
+ * across two chunks — treating it as a terminator would corrupt the boundary.
+ *
+ * Returns every non-empty `data:` payload in the event, or null while no
+ * complete event is available. Payloads are returned separately rather than
+ * joined: OpenAI-style streams put one complete JSON object on each `data:`
+ * line, and an event can carry several (an empty delta followed by one with the
+ * token), so each must be classified on its own.
+ *
+ * `rest` is only advanced past a dispatched event, so a payload that arrived
+ * without its terminating blank line is never dropped.
  */
 function takeSSEEvent(buffer) {
-  let rest = buffer;
-  for (;;) {
-    const sep = rest.indexOf("\n\n");
-    if (sep === -1) return { payload: null, rest };
-    const rawEvent = rest.slice(0, sep);
-    rest = rest.slice(sep + 2);
-    for (const line of rawEvent.split("\n")) {
-      if (!line.startsWith("data:")) continue;
-      const payload = line.slice(5).trim();
-      if (payload && payload !== "[DONE]") return { payload, rest };
+  const payloads = [];
+  let pos = 0;
+  let sawBoundary = false;
+
+  while (pos < buffer.length) {
+    // Locate this line's terminator: "\n", "\r\n" or a lone "\r".
+    let end = -1;
+    let terminatorLen = 0;
+    for (let i = pos; i < buffer.length; i++) {
+      const ch = buffer[i];
+      if (ch === "\n") { end = i; terminatorLen = 1; break; }
+      if (ch === "\r") {
+        if (i + 1 >= buffer.length) return { payloads: null, rest: buffer }; // CR may be half of a CRLF
+        end = i;
+        terminatorLen = buffer[i + 1] === "\n" ? 2 : 1;
+        break;
+      }
+    }
+    if (end === -1) return { payloads: null, rest: buffer }; // no complete line yet
+
+    const line = buffer.slice(pos, end);
+    pos = end + terminatorLen;
+
+    if (line === "") {
+      // Blank line: the event is complete.
+      sawBoundary = true;
+      break;
+    }
+
+    if (line.startsWith("data:")) {
+      const value = line.slice(5).trim();
+      // [DONE] and empty data lines carry no payload.
+      if (value && value !== "[DONE]") payloads.push(value);
     }
   }
+
+  if (!sawBoundary) {
+    // Nothing dispatched: hand the buffer back untouched so no payload is lost.
+    return { payloads: null, rest: buffer };
+  }
+  return { payloads, rest: buffer.slice(pos) };
+}
+
+/**
+ * Classify an event's payloads in order and return the first terminal verdict,
+ * or null when the event carried no usable verdict yet.
+ */
+function firstVerdict(payloads) {
+  for (const payload of payloads) {
+    const verdict = classifySSEPayload(payload);
+    if (verdict.done) return verdict;
+  }
+  return null;
 }
 
 /**
@@ -222,11 +273,11 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
       if (value) buffer += decoder.decode(value, { stream: true });
 
       for (;;) {
-        const { payload, rest } = takeSSEEvent(buffer);
+        const { payloads, rest } = takeSSEEvent(buffer);
         buffer = rest;
-        if (payload === null) break;
-        const verdict = classifySSEPayload(payload);
-        if (!verdict.done) continue;
+        if (payloads === null) break;
+        const verdict = firstVerdict(payloads);
+        if (!verdict) continue;
         return verdict.ok
           ? { ok: true, latencyMs: Date.now() - start, error: null, status: res.status, ...(verdict.note ? { note: verdict.note } : {}) }
           : { ok: false, latencyMs: Date.now() - start, status: res.status, error: verdict.error };
@@ -237,14 +288,12 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
         // and any multi-byte character split across the last chunk.
         buffer += decoder.decode();
         if (buffer.trim()) {
-          const { payload } = takeSSEEvent(`${buffer}\n\n`);
-          if (payload !== null) {
-            const verdict = classifySSEPayload(payload);
-            if (verdict.done) {
-              return verdict.ok
-                ? { ok: true, latencyMs: Date.now() - start, error: null, status: res.status, ...(verdict.note ? { note: verdict.note } : {}) }
-                : { ok: false, latencyMs: Date.now() - start, status: res.status, error: verdict.error };
-            }
+          const { payloads } = takeSSEEvent(`${buffer}\n\n`);
+          const verdict = payloads === null ? null : firstVerdict(payloads);
+          if (verdict) {
+            return verdict.ok
+              ? { ok: true, latencyMs: Date.now() - start, error: null, status: res.status, ...(verdict.note ? { note: verdict.note } : {}) }
+              : { ok: false, latencyMs: Date.now() - start, status: res.status, error: verdict.error };
           }
         }
         return {
