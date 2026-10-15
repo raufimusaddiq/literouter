@@ -51,6 +51,12 @@ export const PENDING_COMPLETION_FLUSH_MS = envMs("PENDING_COMPLETION_FLUSH_MS", 
 // Fetch connect timeout: abort if upstream doesn't return response headers within this duration
 export const FETCH_CONNECT_TIMEOUT_MS = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1000);
 
+// Dashboard model-test probe budget, measured to the FIRST token. Shares the
+// first-chunk default: the probe measures reachability through the router, so a
+// budget below the router's own first-chunk wait reports healthy-but-slow models
+// as broken. Env: MODEL_TEST_TIMEOUT_MS.
+export const MODEL_TEST_TIMEOUT_MS = envMs("MODEL_TEST_TIMEOUT_MS", 200 * 1000);
+
 // Gemini native TTS fetch timeout: abort if Google does not return response headers in time.
 export const GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS = envMs("GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS", 45 * 1000);
 
