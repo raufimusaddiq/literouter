@@ -138,18 +138,20 @@ git -C /opt/9router worktree list
 If reclaim is incomplete or ownership is uncertain, stop and report the
 remaining reclaimable usage instead of proceeding.
 
-Deploy by pulling the published image — this box only pulls, never builds:
+Deploy with the script, which pulls the published image (this box only pulls,
+never builds) and prunes the tag it replaced:
 
 ```bash
 cd /opt/9router
-LITEROUTER_PRODUCTION_TAG=production-<full-sha> \
-  docker compose -f compose.production.yml up -d --no-build
+bash scripts/deploy.sh <full-sha>
 ```
 
 Wait for the workflow (`gh run watch --repo raufimusaddiq/literouter`) to reach
-`completed success` for the merged SHA before pulling; the tag is immutable, so
-never deploy `latest`. Then require `docker inspect` healthy with the expected
-image tag and smoke `https://ai.investdx.biz.id/api/health`.
+`completed success` for the merged SHA before deploying; the tag is immutable, so
+never deploy `latest`. The script itself requires `docker inspect` healthy with
+the expected image tag and a successful `https://ai.investdx.biz.id/api/health`
+smoke before it removes the replaced tag. See **Production image retention** for
+the full behaviour and the failure path.
 
 If a pull ever fails with `denied`, the GHCR package is private: log in once with
 `gh auth token | docker login ghcr.io -u raufimusaddiq --password-stdin`, or flip
@@ -162,89 +164,58 @@ box's RAM or disk.
 
 ### Production image retention
 
-**N=2**: keep the running `production-<full-sha>` tag and the immediately
-previous deployed tag for rollback. Follow the richmod `infra/deploy/post-deploy.sh`
-pattern: record the previous release before deploying; explicitly keep both
-release tags. Do not infer the previous release from image creation time (a
-rollback may run an older build). Run `scripts/post-deploy.sh` after every
-successful, healthy deployment as a separate host-side operator step. The
-production image build/push workflow and deploy controller are unchanged;
-this step is not automatically enabled by merging the PR.
+The local image store must not grow: a deploy adds one `production-<full-sha>`
+tag (1.35GB uncompressed) and the tag it replaced is no longer needed. Keep the
+prune in the deploy itself, where the replaced tag is known —
+`scripts/deploy.sh` (below) removes exactly the tag it just replaced.
 
-#### Automatic retention timer (recurrence prevention)
+`scripts/post-deploy.sh` remains available as a manual manifest/reconcile tool
+with its own N=2 safety rules. It has no automatic caller and is not part of a
+routine deploy. The production image build/push workflow and the deploy
+controller are unchanged.
 
-`scripts/post-deploy.sh` stays the single pruning implementation; nothing else
-duplicates it. Because the production deploy path is a manual `docker compose`
-sequence with no scripted hook (and `scripts/deploy-9router.sh` is banned from
-it), retention is driven by a systemd timer instead of a CI→host channel:
-
-| File | Role |
-| --- | --- |
-| `scripts/image-retention.sh` | Derives the two tags and calls `post-deploy.sh` |
-| `scripts/image-retention.service` | `oneshot`, runs the wrapper |
-| `scripts/image-retention.timer` | `OnCalendar=hourly`, `Persistent=true` |
-| `scripts/image-retention.env` | Optional overrides; deletion is off unless uncommented |
-
-Install on the host (this repository's scripts directory is the install path,
-matching the other units):
+#### Deploy with prune: `scripts/deploy.sh <full-main-sha>`
 
 ```bash
-sudo install -m 0644 /opt/9router/scripts/image-retention.service \
-                      /opt/9router/scripts/image-retention.timer /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now image-retention.timer
+cd /opt/9router
+bash scripts/deploy.sh <full-main-sha>
 ```
 
-No directory has to be created first: the unit provisions its own log path. Verify
-one cycle is a manifest:
+The script is the manual deploy path, unchanged in behaviour, plus the prune:
 
-```bash
-sudo systemctl start image-retention.service
-cat /var/tmp/9router-image-retention/retention.log
-```
+- takes the immutable `production-<full-main-sha>` tag published by
+  `.github/workflows/production-image.yml` and rejects anything else — a short
+  sha, a branch, or `latest` — with a usage error before touching Docker;
+- never builds locally, and never touches a tag other than the one it replaced;
+- reads the tag being replaced from the live container **before** the compose up,
+  and aborts rather than guess if it cannot be determined, if the container is
+  not on this repository's image, or if its tag is not a full-SHA production tag;
+- runs `LITEROUTER_PRODUCTION_TAG=production-<sha> docker compose
+  -f compose.production.yml up -d --no-build --wait --wait-timeout 300`, which
+  replaces the single `literouter` container on the `9router-data` volume, so
+  SQLite keeps one writer. `--wait` is required: `up -d` alone returns while the
+  healthcheck is still `starting` (30s interval/start period), which would make a
+  healthy deploy look failed and skip the prune. Override the budget with
+  `LITEROUTER_WAIT_TIMEOUT`;
+- verifies the container reports `healthy` **and** that
+  `https://ai.investdx.biz.id/api/health` answers, **before** removing anything;
+- removes exactly the tag it replaced, and only when that tag differs from the
+  new one.
 
-Why the unit looks unusual: systemd opens `StandardOutput=append:` before it runs
-`ExecStartPre` and before it creates `LogsDirectory=`, so a unit whose stdout
-points into a directory only the unit could have created fails at start with
-`Failed to set up standard output: No such file or directory`
-(`status=209/STDOUT`) — and the timer then silently never prunes. Both
-`ExecStartPre=mkdir` and `LogsDirectory=` were reproduced failing this way on the
-production host. The unit therefore creates the directory and opens the log
-inside its own `ExecStart`, and no `append:` directive targets that path.
+**If any check fails the old tag stays**, so a failed deploy remains
+rollback-able. A same-tag redeploy removes nothing.
 
-The timer runs hourly: a deploy adds one 1.35GB tag, so an hourly reconcile
-bounds dead space to at most one stale image between deploys without holding a
-lock on the deploy path. The service is a handful of read-only `docker inspect`
-calls plus one manifest. This supersedes the manual `post-deploy.sh` step **for
-recurrence prevention** — an operator no longer has to remember it. The
-historical-cleanup boundary below is unchanged and still requires its own
-approval.
+Net effect: every deploy replaces one image with one image, so after N deploys
+the local store holds the running tag rather than an ever-growing stack. No
+timer, no state file, no wrapper, no env file, no `APPLY` flag, and no manual tag
+cleanup.
 
-The unit runs as `ubuntu`, and because it opens its own log the file and its
-directory are `ubuntu`-owned — nothing is created as root, and the install steps
-above need no `chown`. The state file lives beside it at
-`/var/tmp/9router-image-retention/state`.
+#### Manual manifest: `scripts/post-deploy.sh`
 
-Both tags come from the live container, never from image age. The wrapper reads
-the running `production-<full-sha>` tag with a read-only
-`docker container inspect literouter`, and the rollback tag is the tag the unit
-last observed running, kept in
-`/var/tmp/9router-image-retention/state` (`current=`, `previous=`). A rollback
-therefore reads as a deploy: the tag it replaces becomes the rollback tag. An
-unreadable, unhealthy, stopped, or unexpected container aborts before any
-pruning, and `post-deploy.sh`'s container-reference protections are unchanged,
-so a rollback image still referenced by a container is never removed regardless
-of what the state file records.
-
-**The scheduled run is a read-only manifest.** Deletion requires an explicit,
-separately approved change: uncomment `LITEROUTER_APPLY=true` in
-`scripts/image-retention.env` (or set it in the unit), then
-`sudo systemctl restart image-retention.timer` and confirm one manifest-only
-cycle first. First-run removal of already accumulated images is the historical
-cleanup described below and needs its own approval, independent of enabling the
-timer.
-
-Required operator environment (neither variable has a default):
+`post-deploy.sh` is no longer part of a routine deploy. Use it to plan or
+reconcile retention by hand, for example after an interrupted cleanup or to see
+what a stricter N=2 policy would remove. Required operator environment (neither
+variable has a default):
 
 | Variable | Value |
 | --- | --- |
@@ -317,13 +288,14 @@ previous protection, stopped containers, aliases/digests, references added
 between removals, dry-run defaults, and fail-closed errors. Do not run it on
 this production host; use the PR's Test workflow per **Unit tests in CI**.
 
-`tests/unit/image-retention.test.js` covers the timer wrapper the same way —
-synthetic `docker`/`curl` on `PATH`, never a real container, image or tag — and
-verifies that the running tag comes from the live container rather than image
-age, that a rollback is treated as a deploy, that the rollback tag survives
-successive deploys, that the scheduled run deletes nothing, that deletion
-happens only under the approved flag, and that an unhealthy, stopped, foreign,
-wrong-tag or corrupt-state input aborts without removing anything.
+`tests/unit/deploy-script.test.js` covers `scripts/deploy.sh` the same way —
+synthetic `docker`/`curl` on `PATH`, never a real container, image or tag. It
+pins the dangerous regression: the replaced tag is **not** removed when the
+container is unhealthy, when the public endpoint does not answer, or when the
+deploy itself fails, and **is** removed on success. It also asserts the deploy
+waits for health before checking it, and covers the same-tag redeploy, a missing
+container, a foreign repository, a non-full-SHA tag, and the usage error for a
+missing, short or malformed argument.
 
 ### Intake workspace retention
 
