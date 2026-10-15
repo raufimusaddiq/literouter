@@ -1,0 +1,15 @@
+[Unit]
+Description=Production image retention for LiteRouter
+Documentation=file:/opt/9router/scripts/image-retention.sh
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/opt/9router/scripts/image-retention.env
+ExecStart=/opt/9router/scripts/image-retention.sh
+WorkingDirectory=/opt/9router
+StandardOutput=append:/var/log/image-retention.log
+StandardError=append:/var/log/image-retention.log
+TimeoutStartSec=15min
+User=ubuntu
