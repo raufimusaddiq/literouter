@@ -68,7 +68,9 @@ PR/*
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
 README1.md
-deploy*.sh
+# Local scratch deploy scripts at the repo root (the production deploy lives in
+# scripts/deploy.sh, which must be tracked).
+/deploy*.sh
 ecosystem.config.*
 
 scripts/agSniffer/*
