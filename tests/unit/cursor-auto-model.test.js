@@ -124,7 +124,7 @@ describe("resolveAutoModelSelection", () => {
       { id: "composer", supportsAgent: false, defaultOn: true },
       { id: "gpt-5.2", supportsAgent: true },
     ]);
-    expect(selection.modelId).toBe("gpt-5.2");
+    expect(selection).toEqual({ modelId: "gpt-5.2", matchedBy: "fallback-first" });
   });
 
   it("returns null when no agent-capable model exists", () => {

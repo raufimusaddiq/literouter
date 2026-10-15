@@ -224,10 +224,11 @@ export function resolveAutoModelSelection(models) {
   if (!Array.isArray(models) || models.length === 0) return null;
   const usable = models.filter((model) => model.supportsAgent && !model.isChatOnly && !model.isHidden);
   if (usable.length === 0) return null;
-  const preferred = usable.find((model) => model.defaultOn) || usable[0];
+  const preferred = usable.find((model) => model.defaultOn);
+  if (preferred) return { modelId: preferred.id, matchedBy: "auto-default" };
   return {
-    modelId: preferred.id,
-    matchedBy: "auto-default",
+    modelId: usable[0].id,
+    matchedBy: "fallback-first",
   };
 }
 

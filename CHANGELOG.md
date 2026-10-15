@@ -39,6 +39,10 @@
 - **System One**: import the API-key model-access enforcement helper used by request validation.
 - **Models**: preserve provider aliases in combo seat capability lookup and carry Grok CLI proxy-pool policy through model discovery.
 - **Muse**: keep the shared Muse Spark thinking wire on OpenAI Chat while preserving the Responses transport.
+- **OpenCode**: keep translated conversation sessions deterministic across eviction, TTL expiry, and restarts.
+- **Cursor**: distinguish auto-default selection from first-agent fallback in diagnostic logs.
+- **Dashboard**: correct Codex auto-ping model documentation.
+- **Auth**: remove duplicate strict proxy metadata assignments.
 - **System One**: resolve API-key model access before request validation so restricted keys cannot probe catalog behavior.
 - **Database**: preserve restricted-key access settings in cached API-key lookups.
 - **Errors**: forward upstream rate-limit headers from provider error responses.
