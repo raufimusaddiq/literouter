@@ -833,6 +833,20 @@ case "llm7": {
         }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key", refreshed: false };
       }
+      case "kenari": {
+        // Kenari's /v1/models answers 200 for ANY key (auth-blind), so validating
+        // against transport.validateUrl would report a revoked key as valid. The
+        // quota endpoint is the one getKenariUsage trusts for auth and it answers
+        // 401 "invalid key".
+        const res = await fetchWithConnectionProxy(
+          PROVIDERS["kenari"]?.usage?.url || "https://kenari.id/v1/account/quota",
+          { headers: { Authorization: `Bearer ${connection.apiKey}`, Accept: "application/json" } },
+          effectiveProxy,
+        );
+        if (res.status === 401 || res.status === 403) return { valid: false, error: "Invalid API key" };
+        if (!res.ok) return { valid: false, error: `Kenari validation failed (HTTP ${res.status})` };
+        return { valid: true, error: null };
+      }
       default:
         return { valid: false, error: "Provider test not supported" };
     }
