@@ -64,7 +64,81 @@ Staging is sunset: there is no staging branch, no `compose.staging.yml`
 deployment, and no `ai-staging.investdx.biz.id` block. Every merge to `main`
 builds the immutable production image via `.github/workflows/production-image.yml`
 and publishes `ghcr.io/raufimusaddiq/literouter-production:production-<full-sha>`.
-This box only pulls, never builds:
+
+### Host tree and worktree reclaim (before deploy)
+
+Run this before the pull below, not after. The host tree is not a passive
+checkout: it is the source the systemd units and scripts are installed from
+(`ExecStart=/opt/9router/scripts/...`), and `scripts/upstream-intake.sh` defaults
+`REPO=/opt/9router`, so the daily intake timer operates on that same tree. A
+stale tree silently installs old unit files and runs old scripts. Reclaiming
+merged worktrees early is safe because the deploy pulls the immutable image by
+tag and does not need them.
+
+**1. The host tree must be on the merged main SHA.**
+
+```bash
+git -C /opt/9router rev-parse HEAD      # must equal the merged main SHA being deployed
+git -C /opt/9router status --short      # list every dirty and untracked path
+```
+
+If HEAD differs, the tree is stale. Clear the blockers by diffing, never by
+discarding:
+
+```bash
+git -C /opt/9router diff origin-literouter/main -- <path>   # per modified file
+```
+
+Discard a modified file only when its content is already on `main`, or the owner
+has explicitly said `main` is canonical. Untracked runtime output directories
+(for example `docs/literouter-baseline/intake/`, which `main` does not track) are
+left alone. Never `git reset --hard`, never `git clean -f`, never `git stash`
+away someone else's work. A modified file whose content already equals `main`
+still blocks checkout — `git checkout` refuses on any content difference from
+HEAD — so revert it explicitly. Then:
+
+```bash
+git -C /opt/9router fetch origin-literouter main
+git -C /opt/9router checkout <merged-main-sha>
+```
+
+**2. Reclaim merged worktrees and their branches.** LiteRouter worktrees live in
+`/home/ubuntu/worktrees`. Remove a worktree or branch only after proving it is
+fully merged:
+
+```bash
+git -C /opt/9router merge-base --is-ancestor <branch> origin-literouter/main   # must succeed
+git -C /opt/9router rev-list --count origin-literouter/main..<branch>          # must be 0
+```
+
+If either check fails, keep it and report. Then:
+
+```bash
+git -C /opt/9router worktree remove /home/ubuntu/worktrees/<short-description>
+git -C /opt/9router branch -d <feature-branch>
+git -C /opt/9router worktree prune
+```
+
+Never pass `--force` without first listing exactly what would be lost and
+reporting it.
+
+**3. Never reclaim** production containers, the running or previous
+`production-*` image tag, data volumes, any env file, or anything whose ownership
+is uncertain. Do not use broad `docker system prune`.
+
+**4. Record the result before proceeding.**
+
+```bash
+df -h /
+docker system df
+docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'
+git -C /opt/9router worktree list
+```
+
+If reclaim is incomplete or ownership is uncertain, stop and report the
+remaining reclaimable usage instead of proceeding.
+
+Deploy by pulling the published image — this box only pulls, never builds:
 
 ```bash
 cd /opt/9router
@@ -115,10 +189,23 @@ Install on the host (this repository's scripts directory is the install path,
 matching the other units):
 
 ```bash
+sudo install -d -o ubuntu -g ubuntu -m 0755 /var/tmp/9router-image-retention
 sudo install -m 0644 /opt/9router/scripts/image-retention.service \
                       /opt/9router/scripts/image-retention.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now image-retention.timer
+```
+
+The first `install -d` is **required**, not optional: systemd opens
+`StandardOutput=append:` before it runs `ExecStartPre`, so the `mkdir` in that
+directive never executes and the unit fails at start with
+`Failed to set up standard output: No such file or directory`
+(`status=209/STDOUT`). Creating the directory in the install steps is what makes
+the documented append target exist. Verify one cycle is a manifest:
+
+```bash
+sudo systemctl start image-retention.service
+cat /var/tmp/9router-image-retention/retention.log
 ```
 
 The timer runs hourly: a deploy adds one 1.35GB tag, so an hourly reconcile
@@ -132,9 +219,11 @@ approval.
 The unit runs as `ubuntu`, so it logs to
 `/var/tmp/9router-image-retention/retention.log` rather than `/var/log` (which is
 root-owned and would fail the unit at start before `ExecStart`, leaving the timer
-silently pruning nothing). `ExecStartPre` creates that directory as the unit's
-own user, so the install steps above need no extra `chown` and no root-owned log
-file.
+silently pruning nothing). The install steps above create that directory; the
+unit's `ExecStartPre` cannot be relied on for it, because systemd sets up
+`StandardOutput=` before `ExecStartPre` runs. The log file is opened by systemd as
+root before privileges drop, so it stays root-owned while the state file next to
+it is `ubuntu`-owned.
 
 Both tags come from the live container, never from image age. The wrapper reads
 the running `production-<full-sha>` tag with a read-only
