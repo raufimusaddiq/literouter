@@ -250,7 +250,7 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
       }
 
       if (sourceFormat === FORMATS.CLAUDE) {
-        const finalResp = responsesToClaudeMessage(jsonResponse);
+        const finalResp = responsesToClaudeMessage({ ...jsonResponse, model: jsonResponse.model || model });
         return { success: true, response: new Response(JSON.stringify(finalResp), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
       }
 

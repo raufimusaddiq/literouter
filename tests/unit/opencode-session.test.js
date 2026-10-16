@@ -9,6 +9,7 @@ vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
 }));
 
 import { getExecutor } from "../../open-sse/executors/index.js";
+import { injectReasoningContent } from "../../open-sse/utils/reasoningContentInjector.js";
 import {
   OPENCODE_SESSION_RE,
   OPENCODE_REQUEST_RE,
@@ -82,6 +83,24 @@ describe("OpenCode Free Session ID Format", () => {
     const valid = "ses_f534dfae8ffeCy4Ee4tLWNygDc";
     expect(translateSessionId(valid)).toBe(valid);
     expect(translateSessionId(`  ${valid}  `)).toBe(valid);
+  });
+
+  it("translates arbitrary sessions with valid inverted timestamp prefix (fixes #4780)", () => {
+    const raw = "claude:non-opencode-uuid-12345";
+    const before = BigInt(Date.now());
+    const translated = translateSessionId(raw, "claude");
+    const after = BigInt(Date.now());
+    expect(translated).toMatch(OPENCODE_SESSION_RE);
+    expect(translated).toHaveLength(30);
+
+    const timeHex = translated.slice(4, 16);
+    const timestamp = ((~BigInt(`0x${timeHex}`)) & ((1n << 48n) - 1n)) >> 12n;
+    const timestampMask = (1n << 36n) - 1n;
+    expect((timestamp - before) & timestampMask).toBeLessThanOrEqual((after - before) & timestampMask);
+
+    // Stability across repeated translations of the same input
+    const repeated = translateSessionId(raw, "claude");
+    expect(repeated).toBe(translated);
   });
 });
 
@@ -344,5 +363,20 @@ describe("OpenCode Stable Session Reuse (429 follow-up)", () => {
   it("declares forceStream on the opencode transport so chatCore serves SSE upstream", async () => {
     const { PROVIDERS } = await import("../../open-sse/config/providers.js");
     expect(PROVIDERS.opencode?.forceStream).toBe(true);
+  });
+});
+
+describe("OpenCode reasoning history", () => {
+  it("fills missing assistant reasoning without changing user messages or real reasoning", () => {
+    const body = { messages: [
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "hello" },
+      { role: "assistant", content: "answer", reasoning_content: "real reasoning" },
+    ] };
+    const result = injectReasoningContent({ provider: "opencode", model: "space-bunny-free", body });
+    expect(result.messages[0]).not.toHaveProperty("reasoning_content");
+    expect(result.messages[1].reasoning_content).toBe(" ");
+    expect(result.messages[2].reasoning_content).toBe("real reasoning");
+    expect(body.messages[1]).not.toHaveProperty("reasoning_content");
   });
 });

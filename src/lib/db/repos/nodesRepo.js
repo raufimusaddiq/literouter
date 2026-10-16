@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver.js";
+import { invalidateKvScope } from "../helpers/kvStore.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
 function rowToNode(row) {
@@ -108,7 +109,12 @@ export async function deleteProviderNode(id) {
     if (!row) return;
     removed = rowToNode(row);
     db.run(`DELETE FROM providerNodes WHERE id = ?`, [id]);
+    const prefix = `${id}|`;
+    db.run(`DELETE FROM kv WHERE scope = 'customModels' AND substr(key, 1, length(?)) = ?`, [prefix, prefix]);
   });
-  if (removed) invalidateNodeCache();
+  if (removed) {
+    invalidateNodeCache();
+    invalidateKvScope("customModels");
+  }
   return removed;
 }

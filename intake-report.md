@@ -1,12 +1,52 @@
-# Upstream Intake - 2026-10-10
+# Upstream Intake - 2026-10-15
 
-- Base: `24f9c1539d6eafede7d35615269a1eaf9278f3fb`; upstream: `ce4460ef79382bfddb4aa5fc0ff9f3cb0d5f95a8`.
-- Decision: 3 keep, 146 drop. Prior merged intake already contains many core fixes; drop means no additional cherry-pick, not removal.
-- Risk: Cursor empty responses now error; reasoning parameters depend on AgentService. DeepSeek alias changes vision routing. Deleted paths and newer limits preserved.
-- Validation: static diff/conflict review only; no local tests/builds/installs/browser, pushes, production changes, merge, or deployment. Controller owns CI and current-head Hermes gates.
+- Base: `2df83ab99d158e3beb53eb88a089fc28e6dae948` (`main`); upstream: `87a74e1bda3677193c6f71a7e2100c90311f0689`.
+- Decision: **14 keep, 173 drop** across all 187 supplied commits. Earlier retained fixes are already in base; drop means no additional cherry-pick, not removal.
+- Branch: `upstream-intake/20261015-87a74e1b`; 14 `git cherry-pick -x` commits followed by a fork-integration/regression/report commit. No upstream merge.
+- Risk: strict Cursor proxy/relay calls now fail instead of leaking a direct connection; Auto resolution adds a cached catalog lookup. OpenCode translated sessions encode a recent inverted timestamp and remain stable only within the bounded in-process cache. Gemini 4 strips sampling/reorders tool results; Codex GPT-5.5 disappears. No-auth discovery increases visible models without bypassing key-access filtering. Node cleanup remains atomic and now invalidates the custom-model cache; usage JSON retains masked, never raw, credential keys.
+- Deferred risk: OpenCode v2 endpoint migration is not imported because its coupled fingerprint changes discard explicit tool restrictions; existing free-lane compatibility may still need a separately scoped safe repair. No new provider/catalog/media/UI features, tunnel, MITM, cloud-sync, GitBook, or deleted paths are restored.
+- Validation: supplied host snapshot healthy with 5.0 GiB available memory and 32 GiB disk free. Static diff/merge/syntax inspection only; no tests, dependency installs, browser, builds, service changes, pushes, merge, staging, or deployment. GitHub CI and current-head Hermes remain controller-owned gates; this handoff is not deployment completion. Workspace and unpublished branch remain intact.
 
 ## Commit Decisions
 
+- `87a74e1b` # v0.5.104 (2026-10-15) - **drop**: Upstream release notes/version marker; retain fork release history.
+- `6ed88685` Revert "feat(keys): per-key token quotas and pattern-based model access" - **drop**: Reverts the excluded quota/pattern feature; applying it alone could undo retained key-access safeguards.
+- `3c48d275` Features: - **drop**: Package version churn and removal of upstream changelog history; no retained-core fix.
+- `2aa9307f` feat(keys): per-key token quotas and pattern-based model access - **drop**: Quota/pattern-access product expansion, immediately reverted upstream; retain existing fail-closed exact key access.
+- `fb30246c` fix(tests): isolate zed-native-auth DATA_DIR so it stops writing to the real DB - **keep**: Isolate Zed auth tests before DB imports; remove only the owned temporary directory, never the current ambient DATA_DIR.
+- `d95bb8ea` fix(dashboard): unclip proxy dropdown and tooltips via body portal - **drop**: Dashboard dropdown/tooltip presentation; outside retained-core scope.
+- `813a0121` fix(usage): token fallback for input_tokens rows and stable key masking in stats - **keep**: Count input/output-token rows and normalize key masking; preserve masked JSON bucket keys and existing UI to avoid credential disclosure.
+- `da1756a8` feat(ui): model picker regex/negation search, batch select, provider filtering - **drop**: UI model-search/filter/batch-selection expansion; outside retained-core scope.
+- `a8f63f4d` fix(models): expose no-auth free providers in /v1/models and prune custom models on node deletion - **keep**: Expose no-auth free models while respecting disabled IDs; prune deleted-node custom models transactionally with exact-prefix matching and cache invalidation.
+- `eb373017` fix(gemini): drop sampling params and order functionResponse-last for Gemini 4 (#4802) - **keep**: Support custom Gemini 4 protocol requests without expanding catalogs; drop obsolete sampling, order all user function responses last, add regressions.
+- `28d40159` feat(quota): unify auto-ping mode selection and default to local timezone - **drop**: Auto-ping scheduling/timezone feature expansion, not a routing or database correctness fix.
+- `db81a8c9` fix(headroom): avoid false compression warnings when tools dominate body (#4855) - **drop**: Compression-warning accounting only; no measured compression/performance improvement warrants importing it.
+- `7e0043de` Merge branch 'chore/codex-drop-gpt-5.5' - **drop**: Merge wrapper; cherry-pick the independently reviewed Codex fix rather than merge upstream.
+- `7878f53b` fix(codex): drop retired gpt-5.5 from registry, image and auto-ping - **keep**: Remove only retired GPT-5.5 chat entries and update existing auto-ping defaults/tests; preserve deleted media/CLI code, unrelated model entries and UI.
+- `be51142b` feat(quota): anchored auto-ping schedule at fixed local times (#4848) - **drop**: New anchored auto-ping scheduling feature; preserve minimal existing scheduler.
+- `5bdcd5e7` fix(opencode): move free tier to /inference/v1 with the v2 client fingerprint (#4842) - **drop**: Endpoint fix is coupled to broad v2 fingerprint/tool rewriting and removal of tool_choice none; defer rather than silently weaken caller tool restrictions.
+- `e964e482` fix(opencode): inject reasoning_content placeholder for Zen multi-turn chats (#4805) - **keep**: Reuse the existing reasoning injector for missing OpenCode assistant history; add a regression for preserved real reasoning and user content.
+- `165f9b90` feat(providers): add Nous Research OAuth + free-tier provider - **drop**: New Nous OAuth/free-tier provider and assets; outside minimal retained-core scope.
+- `29fc880e` feat(gemini): add Gemini 4 Argon (gemini/vertex/antigravity) - **drop**: New Gemini catalog/model rollout; protocol handling is retained separately without catalog expansion.
+- `51a1827e` fix(github): route Copilot embeddings to api.githubcopilot.com (#4793) - **drop**: Embeddings adapters/routes/tests were deliberately deleted; do not resurrect media surfaces.
+- `9c141910` fix(vertex): honor API-key project/location for Gemini 4 Argon (#4821) - **keep**: Honor explicit Vertex API-key project/location with URL-construction tests; preserve the trimmed README.
+- `1d4335d4` fix(translator): return Claude messages for forced SSE JSON responses (#4789) - **keep**: Retain forced-SSE Claude JSON regression coverage; reuse the fork's richer converter with the request model fallback, not a duplicate helper or unreachable conversion.
+- `c8644368` fix(opencode-go): route claude-haiku-5-5 to /messages with adaptive thinking (#4727) - **drop**: New Haiku model/capabilities plus UI resolver and Claude behavior expansion; not an isolated fix for the retained catalog.
+- `d6431f8b` feat(cli-tools): Hermes audio transcription via 9router (#4763) - **drop**: Hermes audio/CLI integration uses removed media surfaces; preserve deletions.
+- `8f4e3800` fix(combo): fallback when model returns HTTP 200 with zero usable content (#4750) - **drop**: General empty-success heuristic clones full JSON responses, lacks streaming coverage, and can reject valid non-text/refusal output; defer unsafe broad fallback.
+- `59e9b526` fix(opencode-zen): use attested free-tier identity for -free models on keyed lane (#4784) - **drop**: Changes only the deleted keyed Zen executor/family routing and adds attestation behavior; preserve deletion.
+- `b2aaf83b` fix(qoder): surface add-on (free-credit promo) quota in the quota tracker (#4758) - **drop**: Promotional quota reporting/dashboard expansion; outside retained-core correctness scope.
+- `4c58e7f3` fix(capabilities): add missing OpenCode Free reasoning entries (space-bunny & co) - **keep**: Preserve reasoning_effort for recognized OpenCode Free IDs; keep newer fork limits and avoid unrelated legacy test restoration.
+- `90f89471` fix(nous): add API-key attribution tags (#4770) - **drop**: Attribution for a provider absent from the fork; avoid unrelated default-executor/header surface.
+- `468aa7d9` fix(param-support): drop response_format for opencode-go deepseek models - **keep**: Strip response_format only for OpenCode Go DeepSeek models that reject it; retain focused regression coverage.
+- `f5f88039` fix(capabilities): advertise PDF input for current Claude models (#4761) - **drop**: Broad PDF capability advertising adds document-support surface, not a translator correctness fix; defer without end-to-end PDF coverage.
+- `ef4679df` fix(opencode): encode inverted timestamp in translated session IDs (#4780) - **keep**: Generate valid timestamp-prefixed OpenCode sessions with bounded reuse; preserve deletion of the separate Zen executor.
+- `cfd8c618` fix(cursor): hold strictProxy on the AgentService h2 path (#4696) - **keep**: Fail closed before direct AgentService HTTP/2 when strict proxy intent exists; also block the upstream relay exemption because h2 cannot carry relays.
+- `f7708c9d` test(cursor): lock KV ack metadata echo with round-trip tests (#4694) - **keep**: Lock Cursor KV metadata echo with round-trip regression tests; only export the existing encoder.
+- `f6c26d8e` feat(cursor): resolve Auto (Server Picks) to the account's default agent model (#4692) - **keep**: Resolve Cursor Auto to the account's agent model; adapt to retained single-attempt execution without history trimming.
+- `e7f41c13` fix(cursor): recover long sessions from empty AgentService turns (#4690) - **drop**: Automatic retries trim long-session history and can lose tool context; retain explicit empty-turn errors instead.
+- `cff2b1d9` feat(antigravity): bump IDE version to 2.22.0 - **drop**: IDE identity bump coupled to deleted MITM behavior; no isolated retained-core fix shown.
+- `3ef4d8e3` feat(usage): Cursor IDE quota via DashboardService (spend + request buckets) (#4689) - **drop**: New Cursor quota/dashboard reporting feature; no retained routing or DB fix.
 - `ce4460ef` # v0.5.99 (2026-10-08) - **drop**: Upstream release marker; preserve fork versioning.
 - `24034f69` feat(antigravity): refresh model catalog and update MITM defaults to Gemini 3.8 - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
 - `eea08215` fix(dashboard): fix mobile layouts for endpoint, provider models and cli-tools - **drop**: UI presentation/analytics expansion; outside retained-core scope.
@@ -30,8 +70,8 @@
 - `63de82b8` feat(codebuddy-cn): sync catalog with 2026-09-30 server config - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
 - `0dd4d6be` fix(codex): preserve explicit tool strict flags - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
 - `b677bfce` fix(cli): store model IDs in TUI combos - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `18ad1a89` fix(cursor): forward reasoning effort to AgentService Run - **keep**: Forward both reasoning-effort shapes into AgentService parameters; move coverage into existing tests, preserving deleted codec suite.
-- `cbd594ac` fix(cursor): reject empty AgentService turns without successful stop - **keep**: Reject empty AgentService turns and false success after read errors; regression coverage retained; error behavior changes.
+- `18ad1a89` fix(cursor): forward reasoning effort to AgentService Run - **drop**: Already retained by the previous merged intake; preserve fork resolutions rather than replay.
+- `cbd594ac` fix(cursor): reject empty AgentService turns without successful stop - **drop**: Already retained by the previous merged intake; preserve fork resolutions rather than replay.
 - `85bc33ce` feat(providers): add MiniMax Code (mcode) credits provider - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
 - `625df74d` fix(gemini): rename $ref keys in functionResponse payloads - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
 - `e10da160` fix(usage): track exact Codex image token usage - **drop**: Deleted image-generation handlers; do not resurrect media code for image accounting.
@@ -63,7 +103,7 @@
 - `aafe3002` fix(translator): strip errorMessage and other non-standard schema keywords from Gemini tool schemas - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
 - `4f274c7f` fix(translator/claude): keep a user turn whose only block is container_upload - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
 - `24664f2c` fix(proxy): hold strictProxy when no proxy resolves - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `8a4f4d9d` fix(capabilities): add deepseek-v4-1-flash vision alias; fix(modal): add zed to live catalog providers - **keep**: Keep DeepSeek hyphenated vision alias and regression coverage only; exclude Zed picker UI; preserve newer GA limits.
+- `8a4f4d9d` fix(capabilities): add deepseek-v4-1-flash vision alias; fix(modal): add zed to live catalog providers - **drop**: Already retained by the previous merged intake; preserve fork resolutions rather than replay.
 - `45d42b80` fix(test): add codebuddy-intl to OAUTH_TEST_CONFIG with tokenExists strategy - **drop**: Optional live-provider test configuration; no runtime correction.
 - `0a879c5c` feat: add v1m System One provider - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
 - `e78b766a` feat(kiro): add claude-opus-5.5 models to registry and capabilities - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.

@@ -8,10 +8,12 @@ const db = vi.hoisted(() => ({
   getModelAliases: vi.fn(async () => ({})),
 }));
 
-vi.mock("@/lib/localDb", () => db);
-vi.mock("@/lib/disabledModelsDb", () => ({
+const disabled = vi.hoisted(() => ({
   getDisabledModels: vi.fn(async () => ({})),
 }));
+
+vi.mock("@/lib/localDb", () => db);
+vi.mock("@/lib/disabledModelsDb", () => disabled);
 
 const { buildModelsList } = await import("../../src/app/api/v1/models/route.js");
 
@@ -91,5 +93,26 @@ describe("/v1/models combo limits", () => {
       context_length: 200000,
       capabilities: { contextWindow: 200000 },
     });
+  });
+});
+
+describe("/v1/models no-auth providers", () => {
+  it("publishes OpenCode Free without an account", async () => {
+    db.getProviderConnections.mockResolvedValue([]);
+    db.getCombos.mockResolvedValue([]);
+    const models = await buildModelsList(["llm"], { skipDynamicFetch: true });
+    expect(models.map(model => model.id)).toContain("oc/union-alpha");
+  });
+
+  it.each(["oc", "opencode"])("honors disabled models under %s", async (provider) => {
+    db.getProviderConnections.mockResolvedValue([]);
+    db.getCombos.mockResolvedValue([]);
+    disabled.getDisabledModels.mockResolvedValue({ [provider]: ["union-alpha"] });
+    try {
+      const models = await buildModelsList(["llm"], { skipDynamicFetch: true });
+      expect(models.map(model => model.id)).not.toContain("oc/union-alpha");
+    } finally {
+      disabled.getDisabledModels.mockResolvedValue({});
+    }
   });
 });

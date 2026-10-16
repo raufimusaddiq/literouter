@@ -12,6 +12,7 @@ import {
   decodeMcpArgs,
 } from "../utils/cursorProtobuf.js";
 import { buildCursorHeaders } from "../utils/cursorChecksum.js";
+import { resolveCursorModels, resolveAutoModelSelection } from "../services/cursorModels.js";
 import { estimateUsage } from "../utils/usageTracking.js";
 import { SSE_DONE, SSE_HEADERS } from "../utils/sseConstants.js";
 import { chatChunkSse, sseChunk } from "../utils/sse.js";
@@ -238,13 +239,34 @@ function rejectExecRequest(execRequest) {
   return wrapExecClientMessage(id, execId, resultField, rejected);
 }
 
-function encodeKvClientMessage(kvId, resultField, resultPayload, metadata) {
+export function encodeKvClientMessage(kvId, resultField, resultPayload, metadata) {
   const parts = [];
   if (kvId) parts.push(encodeField(1, PROTOBUF_VARINT, kvId));
   parts.push(encodeField(resultField, PROTOBUF_LEN, resultPayload || new Uint8Array()));
   if (metadata && metadata.length) parts.push(encodeField(4, PROTOBUF_LEN, metadata));
   return wrapConnectRPCFrame(agentMessage(3, concatBuffers(...parts)));
 }
+
+// The AgentService h2 path bypasses proxyAwareFetch (Node http2 duplex, no
+// dispatcher), so the strict-proxy guarantee that proxyFetch enforces for
+// regular fetch never applies here. Until h2 proxying lands (see #3276),
+// honor just the policy side: when a proxy is intended AND strict AND cannot
+// be resolved for this request, fail closed instead of silently opening a
+// direct socket that exposes the host's real IP — the exact leak strict mode
+// exists to prevent (#4333). Non-strict callers keep today's direct behavior.
+const proxyIntentFailed = (proxyOptions) => {
+  if (proxyOptions?.strictProxy !== true) return false;
+  const proxyIntended = Boolean(
+    proxyOptions?.proxyPoolId
+    || proxyOptions?.vercelRelayUrl
+    || proxyOptions?.enabled === true
+    || proxyOptions?.connectionProxyEnabled === true
+    || (proxyOptions?.url || proxyOptions?.connectionProxyUrl || "").trim().length > 0,
+  );
+  if (!proxyIntended) return false;
+  // Proxy intended and strict: the h2 transport below cannot carry it.
+  return true;
+};
 
 const CURSOR_STREAM_DEBUG = process.env.CURSOR_STREAM_DEBUG === "1";
 const debugLog = (...args) => {
@@ -559,9 +581,18 @@ export class CursorExecutor extends BaseExecutor {
     };
   }
 
-  async executeAgent({ model, body, stream, credentials, signal, log }) {
+  async executeAgent({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
     const agentEndpoint = PROVIDER_OAUTH.cursor?.agentEndpoint;
     if (!agentEndpoint) throw new Error("Cursor AgentService endpoint is not configured");
+
+    // Policy guard: the h2 duplex stream below cannot ride a proxy, so a
+    // strict proxy configuration must fail closed here rather than leak the
+    // real IP on a direct socket (see proxyIntentFailed above).
+    if (proxyIntentFailed(proxyOptions)) {
+      throw new Error(
+        "Cursor AgentService requires a strict proxy that this HTTP/2 transport cannot honor; refusing to open a direct connection"
+      );
+    }
 
     const url = `${agentEndpoint}${AGENT_RUN_PATH}`;
     const headers = this.buildHeaders(credentials);
@@ -570,11 +601,21 @@ export class CursorExecutor extends BaseExecutor {
       signal.addEventListener("abort", () => requestController.abort(signal.reason), { once: true });
     }
 
+    let runModel = model;
+    if (model === "default" || model === "auto") {
+      const catalog = await resolveCursorModels(credentials, { signal, log });
+      const selection = resolveAutoModelSelection(catalog?.models);
+      if (selection) {
+        log?.info?.("CURSOR", `auto model resolved: ${model} to ${selection.modelId} (${selection.matchedBy})`);
+        runModel = selection.modelId;
+      }
+    }
+
     let session;
     const tools = body.tools || [];
     try {
       session = this.openAgentHttp2Stream(url, headers, requestController.signal);
-      session.write(buildAgentRunFrame(body.messages || [], model, tools, body.reasoning_effort || body.reasoning?.effort));
+      session.write(buildAgentRunFrame(body.messages || [], runModel, tools, body.reasoning_effort || body.reasoning?.effort));
     } catch (error) {
       throw new Error(`Cursor AgentService request failed: ${error.message}`);
     }
@@ -853,7 +894,7 @@ export class CursorExecutor extends BaseExecutor {
   async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
     if (isAgentCapableRequest(body)) {
       try {
-        return await this.executeAgent({ model, body, stream, credentials, signal, log });
+        return await this.executeAgent({ model, body, stream, credentials, signal, log, proxyOptions });
       } catch (error) {
         return {
           response: new Response(JSON.stringify({
