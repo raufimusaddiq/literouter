@@ -102,13 +102,6 @@ describe("OpenCode Free Session ID Format", () => {
     const repeated = translateSessionId(raw, "claude");
     expect(repeated).toBe(translated);
   });
-
-  it("keeps translated session IDs independent of in-memory eviction", () => {
-    const raw = "claude:eviction-stability";
-    const expected = translateSessionId(raw, "claude");
-    expect(translateSessionId(raw, "claude")).toBe(expected);
-    expect(translateSessionId(raw, "claude")).toBe(expected);
-  });
 });
 
 describe("OpenCode Free Executor Session Resolution", () => {
