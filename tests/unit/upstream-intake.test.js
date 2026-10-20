@@ -197,6 +197,9 @@ refresh_host_health
     expect(script).toContain('fetch --quiet "$TARGET" "$BASE_BRANCH"');
     expect(script).toContain("--clearenv");
     expect(script).toContain("--tmpfs /tmp --dir /tmp/.codex");
+    expect(script).toContain('--ro-bind "$REPO/AGENTS.md" /tmp/.codex/AGENTS.md');
+    expect(script).toContain('--setenv CODEX_HOME /tmp/.codex');
+    expect(script).not.toContain('"$WORKTREE/AGENTS.md"');
     expect(script).toContain("--setenv PATH /opt/node:/usr/bin:/bin");
     expect(script).toContain('--ro-bind "$NODE_BIN" /opt/node/node');
     expect(script).toContain('git clone --no-hardlinks --no-checkout "$REPO" "$WORKTREE"');

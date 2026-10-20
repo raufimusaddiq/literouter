@@ -48,7 +48,7 @@ codex_sandbox() {
     --ro-bind "$CODEX_PACKAGE" /opt/codex --ro-bind "$NODE_BIN" /opt/node/node \
     --ro-bind "$REPO/scripts/upstream-intake.codex.toml" /tmp/.codex/config.toml \
     --ro-bind "$REPO/scripts/upstream-intake-proxy.cjs" /opt/intake-proxy.cjs \
-    --ro-bind "$REPO/AGENTS.md" "$WORKTREE/AGENTS.md" \
+    --ro-bind "$REPO/AGENTS.md" /tmp/.codex/AGENTS.md \
     --ro-bind "$PROXY_SOCKET" /run/intake-model.sock \
     --clearenv --setenv CODEX_HOME /tmp/.codex --setenv HOME /tmp \
     --setenv PATH /opt/node:/usr/bin:/bin /bin/bash -c '
