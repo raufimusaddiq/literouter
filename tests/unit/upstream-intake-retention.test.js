@@ -152,6 +152,8 @@ describe("retention_classify", () => {
       deleted: (d) => fs.rmSync(path.join(d, "a.txt")),
       stagedDelete: (d) => git(d, "rm", "--quiet", "a.txt"),
       untracked: (d) => fs.writeFileSync(path.join(d, "notes.js"), "x"),
+      instructions: (d) => fs.writeFileSync(path.join(d, "AGENTS.md"), "local work"),
+      emptyInstructions: (d) => fs.writeFileSync(path.join(d, "AGENTS.md"), "", { mode: 0o444 }),
       untrackedInDir: (d) => { fs.mkdirSync(path.join(d, "src")); fs.writeFileSync(path.join(d, "src", "new.js"), "x"); },
     };
     let n = 0;
@@ -247,7 +249,8 @@ describe("retention_gc", () => {
     commitIn(unpushed);
     age(old);
     age(unpushed);
-    lib("retention_gc");
+    const out = lib("retention_gc");
+    expect(out).toContain(`retention: removed ${old} (all work published or upstream)`);
     expect(exists(old)).toBe(false);
     expect(exists(recent)).toBe(true);
     expect(exists(unpushed)).toBe(true);

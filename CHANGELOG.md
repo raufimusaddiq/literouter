@@ -1,5 +1,6 @@
 # v0.5.82 (unreleased)
 
+- **Ops**: mount intake instructions in the sandbox's temporary Codex home so failed runs leave no `AGENTS.md` artifact in disposable clones. Keep retention's local-work guards unchanged. Refs #121.
 - **Upstream intake**: resolve Cursor Auto from the account catalog; fail closed before AgentService HTTP/2 when strict proxy or relay intent cannot be honored; retain empty-turn rejection and add KV metadata regression coverage.
 - **Protocol**: correct OpenCode session timestamps and missing reasoning history; preserve OpenCode Free reasoning capabilities; drop unsupported DeepSeek response formats and Gemini 4 sampling parameters; order Gemini 4 tool responses last; honor Vertex API-key project/location. Retire Codex GPT-5.5 catalog entries and auto-ping defaults without restoring media code.
 - **Database**: expose no-auth free models while honoring disabled models; atomically prune deleted-node custom models with exact prefixes and invalidate the cache; count input/output-token usage rows while retaining masked API-key buckets. Isolate Zed auth tests from the real database; preserve the requested model in forced-SSE Claude JSON and extend regressions without replacing the fork's converter.
