@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1.7
-ARG NODE_IMAGE=node:22-alpine
+# Pinned to the October 2026 Node security release. The floating node:22-alpine
+# tag would also work today, but pinning means a rebuild cannot silently drift
+# back to an older base when the tag moves or a cache is reused.
+ARG NODE_IMAGE=node:22.23.4-alpine
 FROM ${NODE_IMAGE} AS base
 WORKDIR /app
 # CN mirror for apk (used by builder and runner stages)
