@@ -69,8 +69,8 @@ and publishes `ghcr.io/raufimusaddiq/literouter-production:production-<full-sha>
 
 Run this before the pull below, not after. The host tree is not a passive
 checkout: it is the source the systemd units and scripts are installed from
-(`ExecStart=/opt/9router/scripts/...`), and `scripts/upstream-intake.sh` defaults
-`REPO=/opt/9router`, so the daily intake timer operates on that same tree. A
+(`ExecStart=/home/ubuntu/9router/scripts/...`), and `scripts/upstream-intake.sh` defaults
+`REPO=/home/ubuntu/9router`, so the daily intake timer operates on that same tree. A
 stale tree silently installs old unit files and runs old scripts. Reclaiming
 merged worktrees early is safe because the deploy pulls the immutable image by
 tag and does not need them.
@@ -78,15 +78,15 @@ tag and does not need them.
 **1. The host tree must be on the merged main SHA.**
 
 ```bash
-git -C /opt/9router rev-parse HEAD      # must equal the merged main SHA being deployed
-git -C /opt/9router status --short      # list every dirty and untracked path
+git -C /home/ubuntu/9router rev-parse HEAD      # must equal the merged main SHA being deployed
+git -C /home/ubuntu/9router status --short      # list every dirty and untracked path
 ```
 
 If HEAD differs, the tree is stale. Clear the blockers by diffing, never by
 discarding:
 
 ```bash
-git -C /opt/9router diff origin-literouter/main -- <path>   # per modified file
+git -C /home/ubuntu/9router diff origin-literouter/main -- <path>   # per modified file
 ```
 
 Discard a modified file only when its content is already on `main`, or the owner
@@ -98,8 +98,8 @@ still blocks checkout — `git checkout` refuses on any content difference from
 HEAD — so revert it explicitly. Then:
 
 ```bash
-git -C /opt/9router fetch origin-literouter main
-git -C /opt/9router checkout <merged-main-sha>
+git -C /home/ubuntu/9router fetch origin-literouter main
+git -C /home/ubuntu/9router checkout <merged-main-sha>
 ```
 
 **2. Reclaim merged worktrees and their branches.** LiteRouter worktrees live in
@@ -107,16 +107,16 @@ git -C /opt/9router checkout <merged-main-sha>
 fully merged:
 
 ```bash
-git -C /opt/9router merge-base --is-ancestor <branch> origin-literouter/main   # must succeed
-git -C /opt/9router rev-list --count origin-literouter/main..<branch>          # must be 0
+git -C /home/ubuntu/9router merge-base --is-ancestor <branch> origin-literouter/main   # must succeed
+git -C /home/ubuntu/9router rev-list --count origin-literouter/main..<branch>          # must be 0
 ```
 
 If either check fails, keep it and report. Then:
 
 ```bash
-git -C /opt/9router worktree remove /home/ubuntu/worktrees/<short-description>
-git -C /opt/9router branch -d <feature-branch>
-git -C /opt/9router worktree prune
+git -C /home/ubuntu/9router worktree remove /home/ubuntu/worktrees/<short-description>
+git -C /home/ubuntu/9router branch -d <feature-branch>
+git -C /home/ubuntu/9router worktree prune
 ```
 
 Never pass `--force` without first listing exactly what would be lost and
@@ -132,7 +132,7 @@ is uncertain. Do not use broad `docker system prune`.
 df -h /
 docker system df
 docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'
-git -C /opt/9router worktree list
+git -C /home/ubuntu/9router worktree list
 ```
 
 If reclaim is incomplete or ownership is uncertain, stop and report the
@@ -142,7 +142,7 @@ Deploy with the script, which pulls the published image (this box only pulls,
 never builds) and prunes the tag it replaced:
 
 ```bash
-cd /opt/9router
+cd /home/ubuntu/9router
 bash scripts/deploy.sh <full-sha>
 ```
 
@@ -177,7 +177,7 @@ controller are unchanged.
 #### Deploy with prune: `scripts/deploy.sh <full-main-sha>`
 
 ```bash
-cd /opt/9router
+cd /home/ubuntu/9router
 bash scripts/deploy.sh <full-main-sha>
 ```
 
@@ -324,7 +324,7 @@ host with retained clones, list candidates read-only (no fetch, no removal) and 
 deletion approved:
 
 ```bash
-( . scripts/upstream-intake-retention.sh; log() { echo "$*"; }; REPO=/opt/9router REMOTE=origin \
+( . scripts/upstream-intake-retention.sh; log() { echo "$*"; }; REPO=/home/ubuntu/9router REMOTE=origin \
   TARGET=origin-literouter BASE_BRANCH=main LOG_PREFIX=manifest \
   WORK_ROOT=/var/tmp/9router-upstream-intake retention_manifest )
 ```

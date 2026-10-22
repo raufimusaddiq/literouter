@@ -18,7 +18,7 @@ set -euo pipefail
 
 repository=ghcr.io/raufimusaddiq/literouter-production
 container=literouter
-compose_file=/opt/9router/compose.production.yml
+compose_file=/home/ubuntu/9router/compose.production.yml
 health_url=https://ai.investdx.biz.id/api/health
 docker_bin=${DOCKER_BIN:-docker}
 curl_bin=${CURL_BIN:-curl}
@@ -54,7 +54,7 @@ echo "deploying $image (replacing $old)"
 # interval and start period), which would skip the prune and, on a retry, record
 # the new release as `old` and leave the replaced image behind for good.
 LITEROUTER_PRODUCTION_TAG="$tag" \
-  "$docker_bin" compose --project-directory /opt/9router -f "$compose_file" up -d --no-build \
+  "$docker_bin" compose --project-directory /home/ubuntu/9router -f "$compose_file" up -d --no-build \
   --wait --wait-timeout "${LITEROUTER_WAIT_TIMEOUT:-300}"
 
 # Verify before removing anything: the container must report healthy, and the

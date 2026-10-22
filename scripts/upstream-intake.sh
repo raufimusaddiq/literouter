@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-REPO=/opt/9router
+REPO=/home/ubuntu/9router
 REMOTE=origin                 # decolua/9router (upstream master)
 TARGET=origin-literouter      # raufimusaddiq/literouter
 BASE_BRANCH=main
