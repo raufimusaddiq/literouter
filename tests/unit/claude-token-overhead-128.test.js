@@ -10,10 +10,9 @@ import {
   prepareClaudeRequest,
 } from "../../open-sse/translator/formats/claude.js";
 import { detectClientTool, isNativePassthrough } from "../../open-sse/utils/clientDetector.js";
+import { cloakClaudeTools } from "../../open-sse/utils/claudeCloaking.js";
 
 const MODEL = "claude-sonnet-5-5";
-const OAUTH = { accessToken: "sk-ant-oat01-test" };
-const API_KEY = { apiKey: "sk-ant-api03-test" };
 const DECOY_DESCRIPTION = "This tool is currently unavailable.";
 
 const fn = (name) => ({ type: "function", function: { name, description: "d", parameters: { type: "object", properties: {} } } });
@@ -22,8 +21,12 @@ const tool = (name) => ({ name, description: "d", input_schema: { type: "object"
 const use = (id) => ({ role: "assistant", content: [text("Reading."), { type: "tool_use", id, name: "read_file", input: { path: "a" } }] });
 const result = (id) => ({ role: "user", content: [{ type: "tool_result", tool_use_id: id, content: "file" }] });
 
-const toClaude = (source, body, credentials) =>
-  translateRequest(source, FORMATS.CLAUDE, MODEL, body, true, credentials, "claude", null, [], "conn-128", null);
+// No credential is passed anywhere here: the OAuth gate (translator/index.js) is
+// covered by claude-tool-compat.test.js. cloakOAuth() reproduces what that gate
+// runs, in the same order: prepareClaudeRequest first, then cloakClaudeTools.
+const toClaude = (source, body) =>
+  translateRequest(source, FORMATS.CLAUDE, MODEL, body, true, null, "claude", null, [], "conn-128", null);
+const cloakOAuth = (body) => cloakClaudeTools(toClaude(FORMATS.OPENAI, body)).body;
 const decoys = (body) => (body.tools || []).filter((t) => t.description === DECOY_DESCRIPTION);
 
 function markers(body) {
@@ -36,7 +39,7 @@ function markers(body) {
 
 describe("#128 candidate 1: decoy tool schemas", () => {
   it("adds 20 stubs (2417 bytes of JSON) to a translated OAuth request with tools", () => {
-    const out = toClaude(FORMATS.OPENAI, { messages: [{ role: "user", content: "hi" }], tools: [fn("get_weather")] }, OAUTH);
+    const out = cloakOAuth({ messages: [{ role: "user", content: "hi" }], tools: [fn("get_weather")] });
     const stubs = decoys(out);
     expect(stubs).toHaveLength(20);
     expect(JSON.stringify(stubs).length).toBe(2417);
@@ -44,18 +47,18 @@ describe("#128 candidate 1: decoy tool schemas", () => {
   });
 
   it("are appended after the tools-level 1h breakpoint, not before it", () => {
-    const out = toClaude(FORMATS.OPENAI, { messages: [{ role: "user", content: "hi" }], tools: [fn("get_weather")] }, OAUTH);
+    const out = cloakOAuth({ messages: [{ role: "user", content: "hi" }], tools: [fn("get_weather")] });
     expect(out.tools.findIndex((t) => t.cache_control)).toBe(0);
     expect(decoys(out).every((t) => !t.cache_control)).toBe(true);
   });
 
-  it("are not added for an API key", () => {
-    const out = toClaude(FORMATS.OPENAI, { messages: [{ role: "user", content: "hi" }], tools: [fn("get_weather")] }, API_KEY);
+  it("are not added without an OAuth token", () => {
+    const out = toClaude(FORMATS.OPENAI, { messages: [{ role: "user", content: "hi" }], tools: [fn("get_weather")] });
     expect(decoys(out)).toHaveLength(0);
   });
 
   it("are not added to a request without tools", () => {
-    const out = toClaude(FORMATS.OPENAI, { messages: [{ role: "user", content: "hi" }] }, OAUTH);
+    const out = cloakOAuth({ messages: [{ role: "user", content: "hi" }] });
     expect(out.tools).toBeUndefined();
   });
 
@@ -78,11 +81,11 @@ describe("#128 candidate 2: context-management beta", () => {
 
   it("forwards it unchanged on the translated Claude-format path", () => {
     const body = { context_management: structuredClone(contextManagement), messages: [{ role: "user", content: "hi" }] };
-    expect(toClaude(FORMATS.CLAUDE, body, OAUTH).context_management).toEqual(contextManagement);
+    expect(toClaude(FORMATS.CLAUDE, body).context_management).toEqual(contextManagement);
   });
 
   it("is never invented for a client that did not send it", () => {
-    const out = toClaude(FORMATS.OPENAI, { messages: [{ role: "user", content: "hi" }] }, OAUTH);
+    const out = toClaude(FORMATS.OPENAI, { messages: [{ role: "user", content: "hi" }] });
     expect(out.context_management).toBeUndefined();
   });
 });
