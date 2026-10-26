@@ -2,9 +2,9 @@
 
 - Ticket: #126.
 - Base: LiteRouter `main` at `264a26d0e5886a31accbed156301850943c1c6d7`; previous intake ended at upstream `87a74e1bda3677193c6f71a7e2100c90311f0689` (v0.5.104). Upstream now: `3a978a63` (v0.5.111).
-- Decision: **14 keep, 42 drop** across all 56 non-merge commits in `87a74e1b..3a978a63`.
-- Branch: `upstream-intake/20261026-3a978a63`; 14 `git cherry-pick -x` commits followed by one fork-integration commit (undici lockfile, CHANGELOG, this report, comment order). No upstream merge.
-- Risk: combos now try the next member on a request-scoped 4xx (validation, unsupported parameter), so a request every member rejects makes one upstream call per member before the first rejection is returned. Accounts still get no cooldown for it. The passthrough stream now rewrites chunks only to add missing tool-call ids or restore fingerprint-renamed tool names. OpenAI `max_tokens` is renamed only for the built-in `openai` provider.
+- Decision: **13 keep, 43 drop** across all 56 non-merge commits in `87a74e1b..3a978a63`.
+- Branch: `upstream-intake/20261026-3a978a63`; 14 `git cherry-pick -x` commits, one fork-integration commit (undici lockfile, CHANGELOG, this report, comment order), and one CI-repair commit that reverts `5cdcddf5` and adapts upstream tests to LiteRouter's config. No upstream merge.
+- Risk: the passthrough stream now rewrites chunks only to add missing tool-call ids or restore fingerprint-renamed tool names. OpenAI `max_tokens` is renamed only for the built-in `openai` provider.
 - Validation: host snapshot healthy (4.1 GiB available, 28 GiB disk free). Static review, conflict resolution and `node --check` on touched modules only. No local installs, builds or tests, per AGENTS.md. GitHub CI and current-head Hermes review are the gates.
 
 ## Commit Decisions
@@ -34,13 +34,13 @@
 - `9b4ea9eb` feat(combos): search box - **drop**: dashboard UI.
 - `32c5f30a` fix(capabilities): send reasoning_effort for OpenCode's glm-5.3-flash-free - **keep**: the zai `thinking` object currently 400s on this lane. Only the new entry was taken, not upstream's unrelated exact `glm-5.2` row.
 - `f172c3c4` fix(antigravity): hub/2.24.0 UA and Gemini 4 Argon tiers - **drop**: coupled to the deleted `src/mitm` IDE version file and to catalog expansion (same call as the earlier IDE bump).
-- `313559f4` fix(opencode): honor low|high|max for zen free deepseek-v4.1-flash - **keep**: `low` is currently unreachable. Only the OpenCode Free row was taken, not upstream's codebuddy-cn rows that LiteRouter already models differently.
+- `313559f4` fix(opencode): honor low|high|max for zen free deepseek-v4.1-flash - **keep**: `low` is currently unreachable. Only the OpenCode Free row was taken, not upstream's codebuddy-cn rows that LiteRouter already models differently. Test adapted: `/zen/v1` URL as above. The max→high clamp case was removed because its fixture (`mimo-v2.6-flash` on opencode-go) is not a deepseek-format reasoning model in LiteRouter. The clamp itself is pre-existing base code and unchanged.
 - `5a4e812e` fix(db): strip NUL bytes from bound strings - **keep**: SQLite correctness. A NUL in a bound string throws on better-sqlite3 and truncates on node:sqlite.
-- `95c9d03e` fix(stream): fill missing tool-call ids and restore renamed tool names - **keep**: strict OpenAI clients abort on id-less tool-call fragments, and the passthrough stream leaked `*_client` aliases. Kept LiteRouter's kenari Responses rewrite branch.
-- `5cdcddf5` fix(combo): advance past a request-scoped 4xx - **keep**: routing correctness. Adapted to LiteRouter's provider-less `checkFallbackError`. LiteRouter's context-overflow text rule still wins, so that existing assertion is kept.
+- `95c9d03e` fix(stream): fill missing tool-call ids and restore renamed tool names - **keep**: strict OpenAI clients abort on id-less tool-call fragments, and the passthrough stream leaked the canonical fingerprint spelling (`read` for a caller's `Read`). Kept LiteRouter's kenari Responses rewrite branch. The upstream test asserted upstream's `read_client` alias design, so it was rewritten for LiteRouter's case-canonicalising rename.
+- `5cdcddf5` fix(combo): advance past a request-scoped 4xx - **drop** (cherry-picked, then reverted in the CI-repair commit): contradicts LiteRouter's established combo contract. `unit/literouter-combo-fallback.test.js` requires that a non-retryable client 4xx does NOT advance. Context overflow already falls through via LiteRouter's own text rule.
 - `5853a88a` fix(search): reset regex state between model matches - **drop**: `modelSearchFilter.js` (UI model search) does not exist in LiteRouter.
 - `dbdbb648` fix(github): refresh Copilot fallback model catalog - **drop**: catalog churn.
-- `b8331283` fix(opencode-free): full reasoning support for oc/mimo-v2.6-flash-free - **keep**: alias-only reasoning (`reasoning`/`reasoning_details`) is currently dropped. Merged with LiteRouter's existing imports and capability table without the dropped Haiku/CommandCode rows.
+- `b8331283` fix(opencode-free): full reasoning support for oc/mimo-v2.6-flash-free - **keep**: alias-only reasoning (`reasoning`/`reasoning_details`) is currently dropped. Merged with LiteRouter's existing imports and capability table without the dropped Haiku/CommandCode rows. Test adapted: the free lane URL is LiteRouter's `/zen/v1` (upstream's `/inference/v1` move `5bdcd5e7` was deferred last intake), and the `xiaomi-mimo` assertion was removed because LiteRouter has no reasoning `*mimo*v2.6*` capability pattern.
 - `2720cd2a` fix(qoder): queued models, Sonus/Cantus, capabilities - **drop**: about 1.2k lines with a new queue state machine and model routes. Cannot be validated without Qoder accounts.
 - `b82f5c4a` fix(combos): try the next model when credits run out - **keep**: an out-of-credit 400 currently ends the combo.
 - `b0655314` fix(capabilities): give Grok 4.7 its 500k context window - **drop**: already in base (capability row and xAI entry).

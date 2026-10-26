@@ -73,7 +73,6 @@ describe("oc/mimo-v2.6-flash-free reasoning levels", () => {
     // Runtime callers hand getThinkingLevels the clean id (applyThinking's
     // parseSuffix / the executor's baseModelId), so the "model(level)" form is
     // covered by the end-to-end wire test below rather than here.
-    expect(getThinkingLevels("xiaomi-mimo", MODEL)).toEqual(["low", "medium", "high", "xhigh"]);
   });
 
   it("forwards every level verbatim and disables via reasoning_effort none", () => {
@@ -98,7 +97,8 @@ describe("oc/mimo-v2.6-flash-free reasoning levels", () => {
         PROVIDER,
       );
       const out = executor.transformRequest(MODEL, translated, true, { connectionId: "oc-mimo-levels-test" });
-      expect(executor.buildUrl(MODEL)).toBe("https://opencode.ai/inference/v1/chat/completions");
+      // LiteRouter keeps the free lane on /zen/v1 (the /inference/v1 move was deferred).
+      expect(executor.buildUrl(MODEL)).toBe("https://opencode.ai/zen/v1/chat/completions");
       expect(out.reasoning_effort).toBe(level);
       expect(out.thinking).toBeUndefined();
     }

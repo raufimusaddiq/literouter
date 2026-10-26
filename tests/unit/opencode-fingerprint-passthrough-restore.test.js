@@ -1,8 +1,9 @@
-// Regression for #4986 / #4994 — the OpenCode free-tier fingerprint pass
-// renames a colliding caller tool to an alias (read -> read_client). On the
-// openai→openai path the chunk is forwarded as-is, so the alias reached the
-// client and it answered
-//   "Model tried to call unavailable tool 'read_client'".
+// Regression for #4986 / #4994, adapted to LiteRouter's fingerprint pass.
+// LiteRouter canonicalises case variants of the free-tier quartet instead of
+// aliasing colliding tools: a caller tool `Read` goes upstream as `read`, and
+// the response side must restore `Read`. On the openai→openai path the chunk
+// is forwarded as-is, so the canonical name reached the client, which has no
+// tool by that spelling.
 //
 // The rename map has to be handed to the passthrough stream explicitly: it has
 // no format translation, so nothing else restores the caller's name.
@@ -11,14 +12,13 @@ import { describe, it, expect } from "vitest";
 import { applyFingerprintTools, restoreToolNames } from "../../open-sse/utils/opencodeFingerprint.js";
 import { createSSEStream, createPassthroughStreamWithLogger } from "../../open-sse/utils/stream.js";
 
-// A caller tool named `read` whose schema differs from OpenCode's fingerprint
-// (the fingerprint uses path/offset/limit; this one uses filePath) — exactly
-// the shape that triggers the rename.
+// A caller tool declared as `Read` (Claude Code spelling) — the case variant
+// LiteRouter canonicalises to the fingerprint's lowercase `read`.
 const CALLER_TOOLS = [
   {
     type: "function",
     function: {
-      name: "read",
+      name: "Read",
       description: "Read a file the caller declared itself.",
       parameters: { type: "object", properties: { filePath: { type: "string" } } },
     },
@@ -44,7 +44,7 @@ async function drain(stream) {
   return out;
 }
 
-async function runPassthrough({ toolNameMap, toolName = "read_client" }) {
+async function runPassthrough({ toolNameMap, toolName = "read" }) {
   const chunk = {
     id: "chatcmpl-abc12345",
     object: "chat.completion.chunk",
@@ -74,13 +74,15 @@ async function runPassthrough({ toolNameMap, toolName = "read_client" }) {
 }
 
 describe("opencode fingerprint — tool name restore on the passthrough path", () => {
-  it("renames a colliding caller tool to an alias", () => {
+  it("canonicalises a case-variant caller tool to the fingerprint name", () => {
     const body = bodyWithCallerRead();
     const map = applyFingerprintTools(body, false);
 
-    expect(map.get("read_client")).toBe("read");
-    // The upstream sees the alias, not the caller's name.
-    expect(body.tools.map((t) => t.function?.name)).toContain("read_client");
+    expect(map.get("read")).toBe("Read");
+    // The upstream sees the canonical name, not the caller's spelling.
+    const names = body.tools.map((t) => t.function?.name);
+    expect(names).toContain("read");
+    expect(names).not.toContain("Read");
   });
 
   it("restores the caller's tool name in the passthrough stream", async () => {
@@ -89,15 +91,15 @@ describe("opencode fingerprint — tool name restore on the passthrough path", (
 
     const out = await runPassthrough({ toolNameMap: map });
 
-    expect(out).not.toContain("read_client");
-    expect(out).toContain('"name":"read"');
+    expect(out).not.toContain('"name":"read"');
+    expect(out).toContain('"name":"Read"');
   });
 
   it("leaves a tool name the map does not cover alone", async () => {
-    const out = await runPassthrough({ toolNameMap: new Map(), toolName: "read_client" });
+    const out = await runPassthrough({ toolNameMap: new Map(), toolName: "read" });
 
     // No map → nothing to restore; the chunk is forwarded as-is.
-    expect(out).toContain("read_client");
+    expect(out).toContain('"name":"read"');
   });
 
   it("forwards the chunk untouched when there is no rename map", async () => {
@@ -109,7 +111,7 @@ describe("opencode fingerprint — tool name restore on the passthrough path", (
   it("still restores the name in a translated (non-passthrough) stream", async () => {
     // Guards the existing behaviour: the format-translation path restores the
     // name on its own. The passthrough path is what was missing it.
-    const map = new Map([["read_client", "read"]]);
+    const map = new Map([["read", "Read"]]);
     const chunk = {
       id: "chatcmpl-abc12345",
       object: "chat.completion.chunk",
@@ -122,7 +124,7 @@ describe("opencode fingerprint — tool name restore on the passthrough path", (
             index: 0,
             id: "call_1",
             type: "function",
-            function: { name: "read_client", arguments: "{}" },
+            function: { name: "read", arguments: "{}" },
           }],
         },
         finish_reason: null,
@@ -130,6 +132,6 @@ describe("opencode fingerprint — tool name restore on the passthrough path", (
     };
 
     const restored = restoreToolNames(chunk, map);
-    expect(restored.choices[0].delta.tool_calls[0].function.name).toBe("read");
+    expect(restored.choices[0].delta.tool_calls[0].function.name).toBe("Read");
   });
 });
