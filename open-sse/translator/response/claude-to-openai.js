@@ -6,6 +6,16 @@ import { toOpenAIUsage } from "../concerns/usage.js";
 import { reasoningDelta } from "../concerns/reasoning.js";
 import { toOpenAIFinish } from "../concerns/finishReason.js";
 
+// state.usage.prompt_tokens already includes cache read + write. cached_tokens is
+// the marker canonicalizeUsage() reads as "cache-inclusive", so the stored prompt
+// is not folded a second time (#130). prompt_tokens_details carries the split to
+// the client: the stream layer rebuilds the finish-chunk usage from state.usage.
+function markCacheInclusive(usage) {
+  usage.cached_tokens = usage.cache_read_input_tokens || 0;
+  const details = toOpenAIUsage(usage, "claude")?.prompt_tokens_details;
+  if (details) usage.prompt_tokens_details = details;
+}
+
 // Create OpenAI chunk helper
 function createChunk(state, delta, finishReason = null) {
   return buildChunk(
@@ -45,6 +55,7 @@ export function claudeToOpenAIResponse(chunk, state) {
         };
         if (cacheReadTokens > 0) state.usage.cache_read_input_tokens = cacheReadTokens;
         if (cacheCreationTokens > 0) state.usage.cache_creation_input_tokens = cacheCreationTokens;
+        markCacheInclusive(state.usage);
       }
       results.push(createChunk(state, { role: ROLE.ASSISTANT }));
       break;
@@ -147,6 +158,7 @@ export function claudeToOpenAIResponse(chunk, state) {
 
         if (cacheReadTokens > 0) state.usage.cache_read_input_tokens = cacheReadTokens;
         if (cacheCreationTokens > 0) state.usage.cache_creation_input_tokens = cacheCreationTokens;
+        markCacheInclusive(state.usage);
       }
 
       if (chunk.delta?.stop_reason) {
@@ -180,13 +192,10 @@ export function claudeToOpenAIResponse(chunk, state) {
     case "message_stop": {
       if (!state.finishReasonSent) {
         const finishReason = state.finishReason || (state.toolCalls?.size > 0 ? OPENAI_FINISH.TOOL_CALLS : OPENAI_FINISH.STOP);
-        const usageObj = (state.usage && typeof state.usage === 'object') ? {
-          usage: {
-            prompt_tokens: state.usage.input_tokens || 0,
-            completion_tokens: state.usage.output_tokens || 0,
-            total_tokens: (state.usage.input_tokens || 0) + (state.usage.output_tokens || 0)
-          }
-        } : {};
+        // Same cache-inclusive math as the message_delta finish chunk.
+        const usageObj = (state.usage && typeof state.usage === 'object')
+          ? { usage: toOpenAIUsage(state.usage, "claude") }
+          : {};
         results.push({ ...createChunk(state, {}, finishReason), ...usageObj });
         state.finishReasonSent = true;
       }
