@@ -132,6 +132,20 @@ export const MODEL_CAPABILITIES = {
   "glm-5.3-flash":     { vision: true, videoInput: true, pdf: true, reasoning: true, thinkingFormat: "zai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 131072 },
   "glm-4.6v":          { vision: true, videoInput: true, reasoning: true, thinkingFormat: "zai", contextWindow: 128000, maxOutput: 32768 },
   "glm-4.5v":          { vision: true, videoInput: true, reasoning: true, thinkingFormat: "zai", contextWindow: 64000, maxOutput: 16384 },
+  // OpenCode serves the same weights under this free id from its OWN inference
+  // service, which validates the body strictly: the zai `thinking` object the
+  // *glm-5.3* pattern emits is answered
+  //   400 [unknown_parameter] invalid request body: json: unknown field "thinking"
+  // while reasoning_effort is accepted (none/minimal/low/medium/high/xhigh/max → 200).
+  // Probed live 2026-10-18 on both lanes exposing the id: /inference/v1 (provider
+  // "opencode") and /zen/v1 (provider "opencode-zen"). Mirrors the
+  // PROVIDER_CAPABILITIES["opencode-go"] override for the paid glm-5.3-flash id;
+  // the zai shape stays correct for z.ai's own lines (glm / glm-cn). codebuddy-cn
+  // is unaffected — it already resolves glm-5.3-flash to the openai shape.
+  // Known gap, shared with the paid sibling: an intent that carries no level
+  // (Claude adaptive thinking, reasoning_effort "auto") still emits literal
+  // "auto" from the generic openai branch, which this service rejects.
+  "glm-5.3-flash-free": { vision: true, videoInput: true, pdf: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 128000 },
 
   // DeepSeek's first V4 model with image input; text limits match V4-Flash.
   "deepseek-v4-flash-vision-exp": { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
@@ -216,6 +230,26 @@ export const PROVIDER_CAPABILITIES = {
   "opencode-go": {
     "gpt-5.6-luna": { vision: true, reasoning: true, search: true, thinkingFormat: "openai-responses", contextWindow: 272000, maxOutput: 128000 },
     "glm-5.3-flash": { vision: true, videoInput: true, pdf: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 131072 },
+  },
+  // OpenCode Free (oc) — the free lane's MiMo route is OpenRouter-backed and takes
+  // the plain OpenAI reasoning_effort enum verbatim (live probe on
+  // oc/mimo-v2.6-flash-free: none|minimal|low|medium|high|xhigh|max all 200, any
+  // other value 400 "Invalid option"; "none" really drops thinking — empty
+  // reasoning_content and reasoning_tokens 0). The global *mimo*v2.6* pattern
+  // describes Xiaomi's own API (DeepSeek-shaped `thinking` object, always on),
+  // which this lane ignores: `thinking.type:disabled` still streamed reasoning.
+  // Limits repeat the family pattern deliberately: the synced catalog carries no
+  // `opencode` limit delta for this id, so 1M/131k is what the lane already
+  // published before this override — but the override short-circuits the catalog
+  // overlay, so models.dev's free-lane listing (200000/32000) has to be applied
+  // here if a probe ever pins the lane's real window (a 200k `max_tokens` is
+  // accepted, so the 32k figure is not enforced at request validation).
+  // deepseek-v4.1-flash-free: the backend rejects requests above ~330k prompt
+  // tokens (issue #5097). Cap the published context window at 330000 so clients
+  // (VS Code Copilot etc.) compact correctly instead of hard-failing mid-session.
+  "opencode": {
+    "mimo-v2.6-flash-free": { vision: true, audioInput: true, videoInput: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: true, contextWindow: 1048576, maxOutput: 131072 },
+    "deepseek-v4.1-flash-free": { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 330000, maxOutput: 128000 },
   },
   "codex": {
     "gpt-6-astra":               { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 272000, maxOutput: 128000 },
