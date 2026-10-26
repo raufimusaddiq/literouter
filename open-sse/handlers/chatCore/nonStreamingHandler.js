@@ -2,6 +2,7 @@ import { FORMATS } from "../../translator/formats.js";
 import { needsTranslation } from "../../translator/index.js";
 import { openAICompletionToClaudeMessage } from "../../translator/response/nonstream-to-claude.js";
 import { ollamaBodyToOpenAI } from "../../translator/response/ollama-to-openai.js";
+import { toOpenAIUsage } from "../../translator/concerns/usage.js";
 import { addBufferToUsage, filterUsageForFormat } from "../../utils/usageTracking.js";
 import { createErrorResult } from "../../utils/error.js";
 import { upstreamResponseHeaders } from "../../utils/upstreamHeaders.js";
@@ -301,11 +302,9 @@ function translateToClientShape(responseBody, targetFormat, sourceFormat, custom
     };
 
     if (responseBody.usage) {
-      result.usage = {
-        prompt_tokens: responseBody.usage.input_tokens || 0,
-        completion_tokens: responseBody.usage.output_tokens || 0,
-        total_tokens: (responseBody.usage.input_tokens || 0) + (responseBody.usage.output_tokens || 0)
-      };
+      // Same Claude -> OpenAI usage math as the streaming path: prompt includes
+      // cache read + write, and the split rides in prompt_tokens_details (#130).
+      result.usage = toOpenAIUsage(responseBody.usage, "claude");
     }
     return result;
   }

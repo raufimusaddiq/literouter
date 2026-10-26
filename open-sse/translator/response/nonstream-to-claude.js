@@ -22,11 +22,36 @@ function buildClaudeMessage({ id, model, content, finishReason, usage }) {
     content,
     stop_reason: fromOpenAIFinish(finishReason, FORMATS.CLAUDE),
     stop_sequence: null,
-    usage: {
-      input_tokens: usage?.prompt_tokens || usage?.input_tokens || 0,
-      output_tokens: usage?.completion_tokens || usage?.output_tokens || 0,
-    },
+    usage: toClaudeUsage(usage),
   };
+}
+
+// Claude reports input_tokens EXCLUDING cache, with cache read/write apart.
+// OpenAI Chat (prompt_tokens + prompt_tokens_details) and Responses (input_tokens
+// + input_tokens_details) report a cache-inclusive prompt, so split it the same
+// way the streaming openai-to-claude translator does (#130). Claude-shaped usage
+// (input_tokens + cache_*_input_tokens) is already split and passes through.
+function toClaudeUsage(usage) {
+  const n = (v) => (typeof v === "number" ? v : 0);
+  const output = n(usage?.completion_tokens) || n(usage?.output_tokens);
+  let input, cacheRead, cacheCreation;
+  if (usage?.prompt_tokens !== undefined) {
+    cacheRead = n(usage.prompt_tokens_details?.cached_tokens);
+    cacheCreation = n(usage.prompt_tokens_details?.cache_creation_tokens);
+    input = Math.max(0, n(usage.prompt_tokens) - cacheRead - cacheCreation);
+  } else if (usage?.input_tokens_details) {
+    cacheRead = n(usage.input_tokens_details.cached_tokens);
+    cacheCreation = 0;
+    input = Math.max(0, n(usage.input_tokens) - cacheRead);
+  } else {
+    cacheRead = n(usage?.cache_read_input_tokens);
+    cacheCreation = n(usage?.cache_creation_input_tokens);
+    input = n(usage?.input_tokens);
+  }
+  const out = { input_tokens: input, output_tokens: output };
+  if (cacheRead > 0) out.cache_read_input_tokens = cacheRead;
+  if (cacheCreation > 0) out.cache_creation_input_tokens = cacheCreation;
+  return out;
 }
 
 export function openAICompletionToClaudeMessage(responseBody) {
