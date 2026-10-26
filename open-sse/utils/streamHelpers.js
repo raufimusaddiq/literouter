@@ -1,4 +1,5 @@
 import { FORMATS } from "../translator/formats.js";
+import { fallbackToolCallId } from "../translator/concerns/toolCall.js";
 import { buildErrorBody } from "./error.js";
 import { SSE_DONE } from "./sseConstants.js";
 
@@ -63,6 +64,54 @@ export function hasValuableContent(chunk, format) {
   }
 
   return true; // Other formats: keep all chunks
+}
+
+// Ensure every streamed tool_call carries an id.
+//
+// OpenAI's streaming contract: the id and function.name arrive on the FIRST
+// fragment of a tool call; later fragments carry only `index` + argument
+// deltas. Some providers instead open a brand-new `index` in a late fragment
+// and omit the id entirely. Strict OpenAI-compatible clients
+// (@ai-sdk/openai-compatible) then throw
+// "AI_InvalidResponseDataError: Expected 'id' to be a string." and abort the
+// whole turn.
+//
+// Fix: remember which tool-call indexes the client has seen, and mint an id
+// only when a fragment opens an unseen index. Continuation fragments of a known
+// index keep the id absent: OpenAI-style accumulators concatenate string delta
+// fields, so repeating the id would turn `call_abc` into `call_abccall_abc` and
+// the client's tool result would no longer match upstream history.
+//
+// Returns true when a chunk was modified.
+export function ensureStreamToolCallIds(chunk, seenIds) {
+  if (!chunk?.choices?.length) return false;
+  let changed = false;
+
+  for (const choice of chunk.choices) {
+    const calls = choice?.delta?.tool_calls;
+    if (!Array.isArray(calls)) continue;
+
+    for (const tc of calls) {
+      if (!tc || typeof tc !== "object") continue;
+
+      if (typeof tc.id === "string" && tc.id.length > 0) {
+        if (tc.index !== undefined) seenIds.set(tc.index, tc.id);
+        continue;
+      }
+
+      // No id on this fragment. A known index is a normal continuation: leave
+      // it id-less so the client keeps the id from the opening fragment.
+      if (tc.index !== undefined && seenIds.has(tc.index)) continue;
+
+      // The index is new to the client: mint the id it must open with.
+      const id = fallbackToolCallId(tc.index);
+      tc.id = id;
+      if (tc.index !== undefined) seenIds.set(tc.index, id);
+      changed = true;
+    }
+  }
+
+  return changed;
 }
 
 // Fix invalid id (generic or too short)
