@@ -33,6 +33,25 @@ async function readAll(stream) {
   return out;
 }
 
+// OpenAI-style client accumulation: tool calls are keyed by `index`, and every
+// string delta field — `id` included — is concatenated. A gateway that repeats
+// the id on continuation fragments therefore corrupts it (call_abccall_abc).
+function accumulateToolCalls(chunks) {
+  const calls = new Map();
+  for (const c of chunks) {
+    for (const choice of c.choices || []) {
+      for (const tc of choice.delta?.tool_calls || []) {
+        const acc = calls.get(tc.index) || { id: "", name: "", arguments: "" };
+        if (typeof tc.id === "string") acc.id += tc.id;
+        if (typeof tc.function?.name === "string") acc.name += tc.function.name;
+        if (typeof tc.function?.arguments === "string") acc.arguments += tc.function.arguments;
+        calls.set(tc.index, acc);
+      }
+    }
+  }
+  return calls;
+}
+
 describe("ensureStreamToolCallIds", () => {
   it("mints an id for a fragment that opens a new index without one", () => {
     const seen = new Map();
@@ -43,14 +62,46 @@ describe("ensureStreamToolCallIds", () => {
     expect(c.choices[0].delta.tool_calls[0].id.length).toBeGreaterThan(0);
   });
 
-  it("reuses the id already seen for the same index instead of minting a new one", () => {
+  it("leaves continuation fragments of a known index id-less", () => {
     const seen = new Map();
     const first = chunk({ tool_calls: [{ index: 0, id: "call_abc", function: { name: "read" } }] });
     ensureStreamToolCallIds(first, seen);
 
     const later = chunk({ tool_calls: [{ index: 0, function: { arguments: "\"file\"" } }] });
-    expect(ensureStreamToolCallIds(later, seen)).toBe(true);
-    expect(later.choices[0].delta.tool_calls[0].id).toBe("call_abc");
+    expect(ensureStreamToolCallIds(later, seen)).toBe(false);
+    expect(later.choices[0].delta.tool_calls[0].id).toBeUndefined();
+  });
+
+  it("accumulates a multi-fragment upstream-id call to the original id", () => {
+    const seen = new Map();
+    const chunks = [
+      chunk({ tool_calls: [{ index: 0, id: "call_abc", type: "function", function: { name: "read", arguments: "" } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: "{\"path\":" } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: "\"a.txt\"}" } }] }),
+    ];
+    for (const c of chunks) ensureStreamToolCallIds(c, seen);
+
+    const call = accumulateToolCalls(chunks).get(0);
+    expect(call.id).toBe("call_abc");
+    expect(call.name).toBe("read");
+    expect(call.arguments).toBe("{\"path\":\"a.txt\"}");
+  });
+
+  it("accumulates a multi-fragment id-less call to exactly one minted id", () => {
+    const seen = new Map();
+    const chunks = [
+      chunk({ tool_calls: [{ index: 0, function: { name: "read", arguments: "" } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: "{\"path\":" } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: "\"a.txt\"}" } }] }),
+    ];
+    for (const c of chunks) ensureStreamToolCallIds(c, seen);
+
+    const minted = chunks[0].choices[0].delta.tool_calls[0].id;
+    expect(typeof minted).toBe("string");
+    expect(minted.length).toBeGreaterThan(0);
+    expect(chunks[1].choices[0].delta.tool_calls[0].id).toBeUndefined();
+    expect(chunks[2].choices[0].delta.tool_calls[0].id).toBeUndefined();
+    expect(accumulateToolCalls(chunks).get(0).id).toBe(minted);
   });
 
   it("keeps an id the provider supplied and records it for later fragments", () => {
@@ -98,7 +149,7 @@ describe("openai→openai response translation", () => {
     expect(typeof out[0].choices[0].delta.tool_calls[0].id).toBe("string");
   });
 
-  it("keeps the id stable across the fragments of one tool call", () => {
+  it("keeps one id across the fragments of one tool call", () => {
     const state = initState(FORMATS.OPENAI);
 
     const first = translateResponse(FORMATS.OPENAI, FORMATS.OPENAI,
@@ -106,8 +157,10 @@ describe("openai→openai response translation", () => {
     const second = translateResponse(FORMATS.OPENAI, FORMATS.OPENAI,
       chunk({ tool_calls: [{ index: 0, function: { arguments: "\"a.txt\"" } }] }), state);
 
-    expect(first[0].choices[0].delta.tool_calls[0].id)
-      .toBe(second[0].choices[0].delta.tool_calls[0].id);
+    const minted = first[0].choices[0].delta.tool_calls[0].id;
+    expect(typeof minted).toBe("string");
+    expect(second[0].choices[0].delta.tool_calls[0].id).toBeUndefined();
+    expect(accumulateToolCalls([first[0], second[0]]).get(0).id).toBe(minted);
   });
 });
 
@@ -140,5 +193,48 @@ describe("passthrough SSE stream", () => {
         expect(tc.id.length).toBeGreaterThan(0);
       }
     }
+  });
+
+  async function passthrough(chunks) {
+    const sse = chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("") + "data: [DONE]\n\n";
+    const stream = createSSEStream({ mode: "passthrough", provider: "opencode-go" });
+    const writer = stream.writable.getWriter();
+    const readPromise = readAll(stream.readable);
+    await writer.write(new TextEncoder().encode(sse));
+    await writer.close();
+    const out = await readPromise;
+    return out
+      .split("\n")
+      .filter((l) => l.startsWith("data: ") && l.slice(6).trim() !== "[DONE]")
+      .map((l) => JSON.parse(l.slice(6)));
+  }
+
+  it("does not duplicate an upstream id across a multi-fragment call", async () => {
+    const emitted = await passthrough([
+      chunk({ role: "assistant" }),
+      chunk({ tool_calls: [{ index: 0, id: "call_abc", type: "function", function: { name: "read", arguments: "" } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: "{\"path\":" } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: "\"a.txt\"}" } }] }),
+      chunk({}, { choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] }),
+    ]);
+
+    const call = accumulateToolCalls(emitted).get(0);
+    expect(call.id).toBe("call_abc");
+    expect(call.arguments).toBe("{\"path\":\"a.txt\"}");
+  });
+
+  it("mints exactly one id for an id-less multi-fragment call", async () => {
+    const emitted = await passthrough([
+      chunk({ role: "assistant" }),
+      chunk({ tool_calls: [{ index: 0, function: { name: "read", arguments: "" } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: "{\"path\":" } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: "\"a.txt\"}" } }] }),
+      chunk({}, { choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] }),
+    ]);
+
+    const fragments = emitted.flatMap((c) => c.choices?.[0]?.delta?.tool_calls || []);
+    const withId = fragments.filter((tc) => typeof tc.id === "string" && tc.id.length > 0);
+    expect(withId).toHaveLength(1);
+    expect(accumulateToolCalls(emitted).get(0).id).toBe(withId[0].id);
   });
 });

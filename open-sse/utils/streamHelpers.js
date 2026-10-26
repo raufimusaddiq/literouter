@@ -76,9 +76,11 @@ export function hasValuableContent(chunk, format) {
 // "AI_InvalidResponseDataError: Expected 'id' to be a string." and abort the
 // whole turn.
 //
-// Fix: remember the id per tool-call index, and mint one when a fragment
-// opens an index the client has not seen yet. The id must be stable for the
-// rest of the call, so a later fragment with the same index reuses it.
+// Fix: remember which tool-call indexes the client has seen, and mint an id
+// only when a fragment opens an unseen index. Continuation fragments of a known
+// index keep the id absent: OpenAI-style accumulators concatenate string delta
+// fields, so repeating the id would turn `call_abc` into `call_abccall_abc` and
+// the client's tool result would no longer match upstream history.
 //
 // Returns true when a chunk was modified.
 export function ensureStreamToolCallIds(chunk, seenIds) {
@@ -97,10 +99,12 @@ export function ensureStreamToolCallIds(chunk, seenIds) {
         continue;
       }
 
-      // No id on this fragment. Reuse the one already seen for this index, or
-      // mint one when the index is new to the client.
-      const known = tc.index !== undefined ? seenIds.get(tc.index) : undefined;
-      const id = known || fallbackToolCallId(tc.index);
+      // No id on this fragment. A known index is a normal continuation: leave
+      // it id-less so the client keeps the id from the opening fragment.
+      if (tc.index !== undefined && seenIds.has(tc.index)) continue;
+
+      // The index is new to the client: mint the id it must open with.
+      const id = fallbackToolCallId(tc.index);
       tc.id = id;
       if (tc.index !== undefined) seenIds.set(tc.index, id);
       changed = true;
