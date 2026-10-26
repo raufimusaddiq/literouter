@@ -1,198 +1,67 @@
-# Upstream Intake - 2026-10-15
+# Upstream Intake - 2026-10-26
 
-- Base: `2df83ab99d158e3beb53eb88a089fc28e6dae948` (`main`); upstream: `87a74e1bda3677193c6f71a7e2100c90311f0689`.
-- Decision: **14 keep, 173 drop** across all 187 supplied commits. Earlier retained fixes are already in base; drop means no additional cherry-pick, not removal.
-- Branch: `upstream-intake/20261015-87a74e1b`; 14 `git cherry-pick -x` commits followed by a fork-integration/regression/report commit. No upstream merge.
-- Risk: strict Cursor proxy/relay calls now fail instead of leaking a direct connection; Auto resolution adds a cached catalog lookup. OpenCode translated sessions encode a recent inverted timestamp and remain stable only within the bounded in-process cache. Gemini 4 strips sampling/reorders tool results; Codex GPT-5.5 disappears. No-auth discovery increases visible models without bypassing key-access filtering. Node cleanup remains atomic and now invalidates the custom-model cache; usage JSON retains masked, never raw, credential keys.
-- Deferred risk: OpenCode v2 endpoint migration is not imported because its coupled fingerprint changes discard explicit tool restrictions; existing free-lane compatibility may still need a separately scoped safe repair. No new provider/catalog/media/UI features, tunnel, MITM, cloud-sync, GitBook, or deleted paths are restored.
-- Validation: supplied host snapshot healthy with 5.0 GiB available memory and 32 GiB disk free. Static diff/merge/syntax inspection only; no tests, dependency installs, browser, builds, service changes, pushes, merge, staging, or deployment. GitHub CI and current-head Hermes remain controller-owned gates; this handoff is not deployment completion. Workspace and unpublished branch remain intact.
+- Ticket: #126.
+- Base: LiteRouter `main` at `264a26d0e5886a31accbed156301850943c1c6d7`; previous intake ended at upstream `87a74e1bda3677193c6f71a7e2100c90311f0689` (v0.5.104). Upstream now: `3a978a63` (v0.5.111).
+- Decision: **14 keep, 42 drop** across all 56 non-merge commits in `87a74e1b..3a978a63`.
+- Branch: `upstream-intake/20261026-3a978a63`; 14 `git cherry-pick -x` commits followed by one fork-integration commit (undici lockfile, CHANGELOG, this report, comment order). No upstream merge.
+- Risk: combos now try the next member on a request-scoped 4xx (validation, unsupported parameter), so a request every member rejects makes one upstream call per member before the first rejection is returned. Accounts still get no cooldown for it. The passthrough stream now rewrites chunks only to add missing tool-call ids or restore fingerprint-renamed tool names. OpenAI `max_tokens` is renamed only for the built-in `openai` provider.
+- Validation: host snapshot healthy (4.1 GiB available, 28 GiB disk free). Static review, conflict resolution and `node --check` on touched modules only. No local installs, builds or tests, per AGENTS.md. GitHub CI and current-head Hermes review are the gates.
 
 ## Commit Decisions
 
-- `87a74e1b` # v0.5.104 (2026-10-15) - **drop**: Upstream release notes/version marker; retain fork release history.
-- `6ed88685` Revert "feat(keys): per-key token quotas and pattern-based model access" - **drop**: Reverts the excluded quota/pattern feature; applying it alone could undo retained key-access safeguards.
-- `3c48d275` Features: - **drop**: Package version churn and removal of upstream changelog history; no retained-core fix.
-- `2aa9307f` feat(keys): per-key token quotas and pattern-based model access - **drop**: Quota/pattern-access product expansion, immediately reverted upstream; retain existing fail-closed exact key access.
-- `fb30246c` fix(tests): isolate zed-native-auth DATA_DIR so it stops writing to the real DB - **keep**: Isolate Zed auth tests before DB imports; remove only the owned temporary directory, never the current ambient DATA_DIR.
-- `d95bb8ea` fix(dashboard): unclip proxy dropdown and tooltips via body portal - **drop**: Dashboard dropdown/tooltip presentation; outside retained-core scope.
-- `813a0121` fix(usage): token fallback for input_tokens rows and stable key masking in stats - **keep**: Count input/output-token rows and normalize key masking; preserve masked JSON bucket keys and existing UI to avoid credential disclosure.
-- `da1756a8` feat(ui): model picker regex/negation search, batch select, provider filtering - **drop**: UI model-search/filter/batch-selection expansion; outside retained-core scope.
-- `a8f63f4d` fix(models): expose no-auth free providers in /v1/models and prune custom models on node deletion - **keep**: Expose no-auth free models while respecting disabled IDs; prune deleted-node custom models transactionally with exact-prefix matching and cache invalidation.
-- `eb373017` fix(gemini): drop sampling params and order functionResponse-last for Gemini 4 (#4802) - **keep**: Support custom Gemini 4 protocol requests without expanding catalogs; drop obsolete sampling, order all user function responses last, add regressions.
-- `28d40159` feat(quota): unify auto-ping mode selection and default to local timezone - **drop**: Auto-ping scheduling/timezone feature expansion, not a routing or database correctness fix.
-- `db81a8c9` fix(headroom): avoid false compression warnings when tools dominate body (#4855) - **drop**: Compression-warning accounting only; no measured compression/performance improvement warrants importing it.
-- `7e0043de` Merge branch 'chore/codex-drop-gpt-5.5' - **drop**: Merge wrapper; cherry-pick the independently reviewed Codex fix rather than merge upstream.
-- `7878f53b` fix(codex): drop retired gpt-5.5 from registry, image and auto-ping - **keep**: Remove only retired GPT-5.5 chat entries and update existing auto-ping defaults/tests; preserve deleted media/CLI code, unrelated model entries and UI.
-- `be51142b` feat(quota): anchored auto-ping schedule at fixed local times (#4848) - **drop**: New anchored auto-ping scheduling feature; preserve minimal existing scheduler.
-- `5bdcd5e7` fix(opencode): move free tier to /inference/v1 with the v2 client fingerprint (#4842) - **drop**: Endpoint fix is coupled to broad v2 fingerprint/tool rewriting and removal of tool_choice none; defer rather than silently weaken caller tool restrictions.
-- `e964e482` fix(opencode): inject reasoning_content placeholder for Zen multi-turn chats (#4805) - **keep**: Reuse the existing reasoning injector for missing OpenCode assistant history; add a regression for preserved real reasoning and user content.
-- `165f9b90` feat(providers): add Nous Research OAuth + free-tier provider - **drop**: New Nous OAuth/free-tier provider and assets; outside minimal retained-core scope.
-- `29fc880e` feat(gemini): add Gemini 4 Argon (gemini/vertex/antigravity) - **drop**: New Gemini catalog/model rollout; protocol handling is retained separately without catalog expansion.
-- `51a1827e` fix(github): route Copilot embeddings to api.githubcopilot.com (#4793) - **drop**: Embeddings adapters/routes/tests were deliberately deleted; do not resurrect media surfaces.
-- `9c141910` fix(vertex): honor API-key project/location for Gemini 4 Argon (#4821) - **keep**: Honor explicit Vertex API-key project/location with URL-construction tests; preserve the trimmed README.
-- `1d4335d4` fix(translator): return Claude messages for forced SSE JSON responses (#4789) - **keep**: Retain forced-SSE Claude JSON regression coverage; reuse the fork's richer converter with the request model fallback, not a duplicate helper or unreachable conversion.
-- `c8644368` fix(opencode-go): route claude-haiku-5-5 to /messages with adaptive thinking (#4727) - **drop**: New Haiku model/capabilities plus UI resolver and Claude behavior expansion; not an isolated fix for the retained catalog.
-- `d6431f8b` feat(cli-tools): Hermes audio transcription via 9router (#4763) - **drop**: Hermes audio/CLI integration uses removed media surfaces; preserve deletions.
-- `8f4e3800` fix(combo): fallback when model returns HTTP 200 with zero usable content (#4750) - **drop**: General empty-success heuristic clones full JSON responses, lacks streaming coverage, and can reject valid non-text/refusal output; defer unsafe broad fallback.
-- `59e9b526` fix(opencode-zen): use attested free-tier identity for -free models on keyed lane (#4784) - **drop**: Changes only the deleted keyed Zen executor/family routing and adds attestation behavior; preserve deletion.
-- `b2aaf83b` fix(qoder): surface add-on (free-credit promo) quota in the quota tracker (#4758) - **drop**: Promotional quota reporting/dashboard expansion; outside retained-core correctness scope.
-- `4c58e7f3` fix(capabilities): add missing OpenCode Free reasoning entries (space-bunny & co) - **keep**: Preserve reasoning_effort for recognized OpenCode Free IDs; keep newer fork limits and avoid unrelated legacy test restoration.
-- `90f89471` fix(nous): add API-key attribution tags (#4770) - **drop**: Attribution for a provider absent from the fork; avoid unrelated default-executor/header surface.
-- `468aa7d9` fix(param-support): drop response_format for opencode-go deepseek models - **keep**: Strip response_format only for OpenCode Go DeepSeek models that reject it; retain focused regression coverage.
-- `f5f88039` fix(capabilities): advertise PDF input for current Claude models (#4761) - **drop**: Broad PDF capability advertising adds document-support surface, not a translator correctness fix; defer without end-to-end PDF coverage.
-- `ef4679df` fix(opencode): encode inverted timestamp in translated session IDs (#4780) - **keep**: Generate valid timestamp-prefixed OpenCode sessions with bounded reuse; preserve deletion of the separate Zen executor.
-- `cfd8c618` fix(cursor): hold strictProxy on the AgentService h2 path (#4696) - **keep**: Fail closed before direct AgentService HTTP/2 when strict proxy intent exists; also block the upstream relay exemption because h2 cannot carry relays.
-- `f7708c9d` test(cursor): lock KV ack metadata echo with round-trip tests (#4694) - **keep**: Lock Cursor KV metadata echo with round-trip regression tests; only export the existing encoder.
-- `f6c26d8e` feat(cursor): resolve Auto (Server Picks) to the account's default agent model (#4692) - **keep**: Resolve Cursor Auto to the account's agent model; adapt to retained single-attempt execution without history trimming.
-- `e7f41c13` fix(cursor): recover long sessions from empty AgentService turns (#4690) - **drop**: Automatic retries trim long-session history and can lose tool context; retain explicit empty-turn errors instead.
-- `cff2b1d9` feat(antigravity): bump IDE version to 2.22.0 - **drop**: IDE identity bump coupled to deleted MITM behavior; no isolated retained-core fix shown.
-- `3ef4d8e3` feat(usage): Cursor IDE quota via DashboardService (spend + request buckets) (#4689) - **drop**: New Cursor quota/dashboard reporting feature; no retained routing or DB fix.
-- `ce4460ef` # v0.5.99 (2026-10-08) - **drop**: Upstream release marker; preserve fork versioning.
-- `24034f69` feat(antigravity): refresh model catalog and update MITM defaults to Gemini 3.8 - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `eea08215` fix(dashboard): fix mobile layouts for endpoint, provider models and cli-tools - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `2d94d3ab` feat(dashboard): open 9Remote sidebar item directly to website - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `a9c9f683` feat(hermes): per-profile configuration across API, Dashboard and CLI (#4660) - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `a9d0ad26` feat(bedrock): add AWS Bedrock provider with AWS SSO credential support (#4157) - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `09f6d395` fix(gemini): do not treat properties map as schema node when tool param named properties (#4620) - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `c61ee37d` fix(capabilities): GLM-5.3 cannot disable thinking (#4656) - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `6a1573eb` fix(combo): show compatible node models in picker without a connection (#4659) - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `2f827bcf` feat(elevenlabs): add Scribe speech-to-text support (#4537) - **drop**: Removed media feature/example; preserve deletions.
-- `0f7f6e72` fix(capabilities): GLM-5.2/5.3 context is 1M, not the stale 200k pin (#4544) - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `8a90d3c9` fix(cli): take `connect` models from the server; add `show`, `--save`, Pi and Oh My Pi - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `3125ac2b` fix(kimi): route Responses clients to the Kimi Code /responses endpoint - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `d8c585fb` feat(keys): per-API-key access control: restrict a key to selected combos and models - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `4fa46034` feat(proxy-pools): add Netlify relay proxy pool - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `ee323400` fix(tts): accept server model and voice in self-hosted example - **drop**: Removed media feature/example; preserve deletions.
-- `6e4f82db` fix(translator): uniquify duplicate tool_call_ids for Gemini (#4532) - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `a07ed95b` feat(antigravity): add Claude Sonnet 5.5 and Opus 5.5 support - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `46627249` fix(ollama): report prompt_eval_cached_count as cached_tokens in usage tracking - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `b00ba1aa` fix(muse): route Responses-only models to their declared transport + nest reasoning effort - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `63de82b8` feat(codebuddy-cn): sync catalog with 2026-09-30 server config - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `0dd4d6be` fix(codex): preserve explicit tool strict flags - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `b677bfce` fix(cli): store model IDs in TUI combos - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `18ad1a89` fix(cursor): forward reasoning effort to AgentService Run - **drop**: Already retained by the previous merged intake; preserve fork resolutions rather than replay.
-- `cbd594ac` fix(cursor): reject empty AgentService turns without successful stop - **drop**: Already retained by the previous merged intake; preserve fork resolutions rather than replay.
-- `85bc33ce` feat(providers): add MiniMax Code (mcode) credits provider - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `625df74d` fix(gemini): rename $ref keys in functionResponse payloads - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `e10da160` fix(usage): track exact Codex image token usage - **drop**: Deleted image-generation handlers; do not resurrect media code for image accounting.
-- `d2f90177` feat(systemone): support Cloudflare AI clef-flash endpoint - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `a99cf572` # v0.5.95 (2026-10-01) - **drop**: Upstream release marker; preserve fork versioning.
-- `fbcaa282` fix(responses): bound the deferred completion wait with a 3s watchdog - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `7111db35` fix(responses): wait for real usage before emitting response.completed - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `5e9bd464` fix(claude): preserve intentional prefill from non-messages[] source formats - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `75834e96` fix(claude): keep a trailing user turn so cleanup never yields assistant prefill - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `89ffac5a` fix(capabilities): publish real GPT-6/GPT-5.4+ context windows and combo token limits - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `49c761cd` fix(claude): cache a tool loop's final tool results with the 4th breakpoint - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `dec820b9` feat(codex): add GPT-6.1 Sol - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `31704db7` feat(cli): add connect command for remote 9router servers - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `ca6e8407` fix(codex): refresh CLI identity for GPT-6.1 Sol - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `49ba54b2` feat(claude): add Claude Sonnet 5.5 - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `ccd0677d` fix(claude): resolve Sonnet 5.x to adaptive thinking so no forged thinking placeholders are sent - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `7894f3d3` fix(thinking): add xhigh to claude-adaptive thinking levels - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `068ce87d` feat(glm): add Z.ai OAuth login to GLM Coding (dual-auth) - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `6b9dc54d` fix(grok-cli): send Grok CLI 1.0.44 so proxy stops returning HTTP 426 - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `b3cf3fde` feat(providers): per-provider custom header overrides from the registry - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `28809807` feat(muse): add Meta Muse provider with OAuth login and model catalog - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `2310ad4b` feat(agnes): seed the 2.5/3.0 model ids in the registry - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `0bc7f86e` fix(codex): stop refresh-token reuse that logs accounts out on auto-ping - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `9f41ee75` feat(codex): expose 1M context variants for GPT-6 and GPT-5.6 - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `65826d95` feat(quota): sync ?provider= URL param with provider filter for bookmarkable deep links (#4395) - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `92c7bdd5` fix(codex): add GPT-6 Sol/Luna capabilities and official pricing - **drop**: Sol/Luna overrides already present; pricing/catalog expansion outside retained-core scope.
-- `2afa8daf` feat(dashboard): drop NEW badges in sidebar, mark 9Remote as HOT - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `b58bd804` fix(proxy): auto-fallback to insecure TLS on self-signed cert errors - **drop**: Automatic insecure TLS fallback violates fail-closed transport security.
-- `aafe3002` fix(translator): strip errorMessage and other non-standard schema keywords from Gemini tool schemas - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `4f274c7f` fix(translator/claude): keep a user turn whose only block is container_upload - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `24664f2c` fix(proxy): hold strictProxy when no proxy resolves - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `8a4f4d9d` fix(capabilities): add deepseek-v4-1-flash vision alias; fix(modal): add zed to live catalog providers - **drop**: Already retained by the previous merged intake; preserve fork resolutions rather than replay.
-- `45d42b80` fix(test): add codebuddy-intl to OAUTH_TEST_CONFIG with tokenExists strategy - **drop**: Optional live-provider test configuration; no runtime correction.
-- `0a879c5c` feat: add v1m System One provider - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `e78b766a` feat(kiro): add claude-opus-5.5 models to registry and capabilities - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `1fd208e2` fix(usage): forward `recurring` for codebuddy-intl quota packs (#4422) - **drop**: Quota-pack display metadata, not retained DB/protocol/routing correction.
-- `7bf93178` fix(codex): preserve hosted web search on GPT-6 Sol/Luna - **drop**: Requires upstream Responses Lite transport absent from base; preserve existing hosted-tool pass-through without transport expansion.
-- `06eda8b0` fix(cli-tools): replace sk_9router placeholder with first active dashboard API key - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `08b21fea` fix(claude): inject unsigned thinking placeholders for opencode-go DeepSeek /messages (#4436) - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `7f5bd155` fix(tools): dedupe same-name tools for DeepSeek models (#3333) - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `8f9ff44f` fix(codex): remove ghost models, add gpt-daybreak/reserve, route gpt-5.x/6.x bare slugs to codex (#4418) - **drop**: Broad bare-GPT rerouting from OpenAI to Codex changes existing provider expectations; catalog expansion not justified.
-- `60e890d7` feat(web): add TinyFish search and fetch provider - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `dcc6a205` fix(dashboard): exclude hidden providers from usage stats provider list - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `e706e4f2` feat(codebuddy): parse 6004 rate limit error and extract resetsAtMs - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `57c04f00` test(providers): remove tests that write to the real user DB - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `f01fb909` # v0.5.91 (2026-09-26) - **drop**: Upstream release marker; preserve fork versioning.
-- `c4690307` fix(cli-tools): keep existing ANTHROPIC_AUTH_TOKEN when applying Claude settings - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `b54a3f9b` test(claude): update decloak tests for suffix-stripping fallback - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `b65d2d0a` fix(claude): decloak tool names when toolNameMap misses (#4342) - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `6aea3875` feat(claude): forward x-claude-code-session-id on OAuth requests - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `0249464d` feat(cli-tools): support multiple model profiles for Codex CLI - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `239bcfc5` perf(providers): make POST /api/providers O(1) and refuse silent key overwrite (#4350) - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `199173fe` feat(cline): expose the cline-free/* tier and price it at zero (#4334) - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `8f20daac` fix(cli-tools): refresh Codex settings after apply (#4347) - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `fdcba3e1` fix(capabilities): stop caching the catalog source per module copy (#4351) - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `dd293d3c` feat(opencode-go): add the seven models upstream serves but the registry omits (#4357) - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `7a436d20` fix(oauth): stop Zed paste-token crash and add IDE auto-import (#4359) - **drop**: New Zed credential discovery/import endpoints and UI expand filesystem credential exposure and auth surface.
-- `737b1f4d` feat(providers): add Token Harbor provider - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `37a6b7e0` fix(dashboard): resolve combo limits with the server's capabilities (#4360) - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `06112c13` feat(providers): add four OpenAI-compatible aggregator providers (dahl, atria, agnes, bai) - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `90b06934` feat(thinking): return Claude thinking text to OpenAI-format clients - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `fe347e4e` fix(stt): dispatch live-API-only Gemini models over the Live WebSocket transport (#4006) - **drop**: Deleted speech-to-text handler; preserve media deletions.
-- `273f0c32` fix(responses): carry the streamed output items in response.completed (#4307) - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `c2148179` fix(commandcode): replay raw byte chunks to preserve all NDJSON lines - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `5d2cfbf3` fix(translator): stop emitting empty <think> markers into OpenAI content - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `3e4323e2` feat(combos): display vision adapter models in an ordered table view - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `975f28a5` test(zed): isolate zed-live-models suite DB via temp DATA_DIR - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `ddfdb0df` perf(dashboard): lazy-load charts and marked, preload in background on idle - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `30464bc2` fix(gemini): guard terminal model turns and unresponded functionCalls in normalizeGeminiContents - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `249f6c2f` fix(tray): native arm64 macOS menubar binary, no Rosetta required - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `f4628375` fix(cli): filter model selector by active connections and noAuth providers - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `dc198dff` feat(claude): merge client anthropic-beta flags and forward rate-limit headers - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `4a57df8b` fix(usage): key live byApiKey stats by full api key to prevent team-key collision - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `a406381f` fix(usage): preserve API key usage attribution in live stats - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `e571a8b6` feat(usage): show and redeem free limit resets for cc accounts - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `84035760` fix(claude): update spoofed cli version to 2.1.280 to support Opus 5.5 - **drop**: Base uses newer Claude Code 2.1.295; upstream 2.1.280 regresses identity.
-- `e7c269b8` fix(tailscale): cap enable-flow health wait at 20s - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `95600db1` feat(codex): add GPT-6 Sol and Luna support - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `69cc1aa9` feat(hermes): multi-role model config (delegation + auxiliary slots) - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `001b2928` fix(dashboard): replace Hermes icon with official Nous Research logo - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `a61fc6a0` fix(antigravity): rewrite all Hermes identity variants, not just the legacy sentence - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `1b72f02e` fix(opencode-go): clamp deepseek reasoning_effort "max" to "high" for mimo backends that reject it - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `2aa99d9f` feat(opencode-go): complete Go catalog (40 models) with auto-fetch + family endpoint regex - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `39e36d3d` # v0.5.86 (2026-09-23) - **drop**: Upstream release marker; preserve fork versioning.
-- `910db749` feat(xiaomi-mimo): server-assisted desktop login, five account clusters, v2.6 models - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `6af26a9e` fix(proxy-pools): lossless header forwarding for relay pools - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `cbffeb97` feat(claude): support Claude Opus 5.5 - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `21583c03` # v0.5.85 (2026-09-22) - **drop**: Upstream release marker; preserve fork versioning.
-- `0f488c70` fix(translator): map Claude "refusal" stop_reason to content_filter and surface its explanation - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `1a027131` feat(combos): hide preset buttons and migrate legacy mimo vision adapter - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `b53260ca` feat(usage): add All Time period option and refine overview cards - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `d1de3245` perf(usage): bound lastUsed overlay scan to 2-day window; reach max thinking tier - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `ce9ac43d` style(sidebar): match NEW badge style across 9Remote, Media Providers, and System One - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `5798b308` fix(antigravity): drop requestType "agent" to avoid false 429 RESOURCE_EXHAUSTED - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `782c137b` fix(qoder): prevent signed request replay and surface upstream errors - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `0d50fe36` feat(analytics): add Requests mode and provider/model breakdown charts - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `3279d310` docs(cli): fix source README link - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `aa2bc53f` docs(readme): add temporary swap instructions for low-memory production builds - **drop**: Upstream documentation/branding; no core correction.
-- `c73bb2cd` docs(readme): add Indonesian video guide by Neptiver - **drop**: Upstream documentation/branding; no core correction.
-- `6c9fe6f7` feat(cli-tools): add dynamic configuration for Pi, OMP, Crush, ForgeCode, Smelt and CodeWhale - **drop**: CLI/desktop/integration or removed tunnel behavior; outside retained-core scope.
-- `44fd69d2` style(dashboard): match 9remote NEW badge style on System One tags - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `f84c667d` feat(providers): add OpenRouter System One lane and New badge - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `20014b31` fix(dashboard): probe System One models through /v1/systemone - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `f28e918e` feat(dashboard): add question input for System One and hide inline test - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `6431e353` feat(dashboard): add System One to sidebar and media provider detail page - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `41a1b800` feat(providers): add MiMo V2.6 Flash Free to OpenCode Zen free tier - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `b7446f8d` feat(providers): add System One (Jev) decision endpoint - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `6886915f` feat(capacity-adapter): default vision fallback to mimo-v2.6-flash-free - **drop**: Vision fallback provider-policy change, not isolated protocol correction.
-- `da004655` fix(responses): report usage on response.completed so clients can auto-compact - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `402745dc` feat(providers): add qoder-cn support for Qoder CN (qoder.com.cn) - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `f67d5a0c` fix(docker): publish verified multi-platform images - **drop**: Preserve immutable LiteRouter production image pipeline; upstream publication policy out of scope.
-- `c7df895b` build(docker): apply the apk mirror swap to the runner stage - **drop**: Upstream image mirror policy; preserve fork Docker/deployment configuration.
-- `be3bc764` fix(antigravity): separate weekly and short-window quotas and clean up redundant rows - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `2daf25ff` fix(qoder): handle code 110 billing blocks and preserve SSE error status - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `7c2b1fe3` fix(translator): drop replayed reasoning fields for Groq/Mistral/Cerebras (#4220) - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `253199f1` feat(combos): Cursor/Claude Default presets + bulk select/delete/strategy - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `c933eefc` fix(cursor): stop AgentService empty turns and silent tool hangs - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `5c217d34` feat(capabilities): model capability metadata on /v1/models, combo aggregation, pattern fixes - **drop**: Capability publishing/combo aggregation already implemented with fork repairs; replay risks older metadata and UI restoration.
-- `477b2aed` fix(opencode-go): send reasoning_effort for glm-5.3-flash - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `9f42e7ac` fix(sidebar): restore NEW badge for 9Remote menu - **drop**: UI presentation/analytics expansion; outside retained-core scope.
-- `cf663f53` fix(huggingface): complete the Inference Providers router migration - **drop**: Deleted image handler; preserve media deletions.
-- `822aa958` fix(opencode): cloak Responses requests that already have tools - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
-- `49185137` feat(opencode-zen): add OpenCode Zen (PAYG) provider with free-tier fingerprint, alias ocz - **drop**: Provider/catalog/auth or product-feature expansion; no isolated core correctness fix warrants added surface.
-- `73e021b8` fix(ollama): map free-plan monthly window and derive reset from signup date - **drop**: Already cherry-picked in base ancestry with LiteRouter resolutions and later repairs; duplicate replay risks regressions.
+- `3a978a63` # v0.5.111 - **drop**: upstream release marker; LiteRouter versions independently.
+- `483c10f5` fix(opencode): normalize colliding fingerprint tool definitions in place - **drop**: replaces the caller's own tool description and widens its schema (the commit itself says client safety text no longer reaches the model). Free-tier gate shaping.
+- `95009651` fix(translator): convert image_url parts inside tool messages to Claude images - **keep**: an OpenAI image in a tool result currently 400s on Claude.
+- `10cd6c08` feat(ollama): add embedding provider adapter - **drop**: embeddings/media surface was removed from LiteRouter.
+- `50dcaa0c` fix(cli-tools): keep a hand-set Pi model name - **drop**: CLI-tools writers are not part of the minimal profile.
+- `72cb589e` fix(cli-tools): stop resetting Pi model caps - **drop**: CLI-tools writers are not part of the minimal profile.
+- `5cd4a756` feat(opencode-go): add Kimi K3.1 Pro - **drop**: catalog expansion.
+- `b9c27225` feat(providers): add Runcrate - **drop**: new provider.
+- `31a9d262` feat(tts): add Ollama Local TTS - **drop**: TTS/media surface removed.
+- `2924e055` fix(deepseek): send the upstream model id the API actually accepts - **keep**: every `deepseek-v4.1-flash` request currently 400s.
+- `763fb687` fix(thinking): keep effort max for GPT-5.6 / GPT-6 on OpenAI Compatible nodes - **keep**: `max` is currently clamped to `xhigh` silently. Adapted to LiteRouter's `getThinkingLevels`, which has no per-model codex level table.
+- `0ad0a722` fix(claude): keep adaptive thinking for Haiku 5.5 on the passthrough - **keep**: thinking requests to Haiku 5.5 currently 400.
+- `1da5b0d7` fix(opencode): cap oc/deepseek-v4.1-flash-free context window at 330k - **keep**: the published 1M window makes long sessions fail instead of compacting.
+- `86adae35` fix(headroom): preserve native Claude PDFs and tool history - **drop**: Headroom is not deployed (no service or `HEADROOM_URL` in `compose.production.yml`). It also depends on the two dropped Headroom commits below.
+- `a3bdaf6d` feat(commandcode): add Kimi K3.1 Pro - **drop**: catalog expansion.
+- `fbac1220` fix(codex-image): drive image_generation from gpt-6-sol - **drop**: image generation is a removed media surface.
+- `ce060c79` fix(opencode): restore the free tier with the TLS client Hello it accepts - **drop**: adds a new optional native dependency (`wreq-js`) for TLS impersonation to get past the upstream free-tier gate. It changes the BaseExecutor transport hook and cannot be validated in CI.
+- `f39d8f07` # v0.5.109 - **drop**: upstream release marker.
+- `f3f86fdd` feat(combos): add Smart Router (System One) - **drop**: new routing product feature and UI.
+- `161e3493` feat(image, mitm): reference image inputs - **drop**: image/MITM surfaces removed.
+- `82aeb907` fix(antigravity): resolve tiered models from client reasoning effort - **drop**: changes `getModelUpstreamId` for every provider, so any model with a `-low/-medium/-high` sibling silently swaps to it based on body effort. Too broad for an antigravity fix.
+- `31b8439b` fix(usage): ollama cloud /api/balance quota - **drop**: quota-display expansion.
+- `9b4ea9eb` feat(combos): search box - **drop**: dashboard UI.
+- `32c5f30a` fix(capabilities): send reasoning_effort for OpenCode's glm-5.3-flash-free - **keep**: the zai `thinking` object currently 400s on this lane. Only the new entry was taken, not upstream's unrelated exact `glm-5.2` row.
+- `f172c3c4` fix(antigravity): hub/2.24.0 UA and Gemini 4 Argon tiers - **drop**: coupled to the deleted `src/mitm` IDE version file and to catalog expansion (same call as the earlier IDE bump).
+- `313559f4` fix(opencode): honor low|high|max for zen free deepseek-v4.1-flash - **keep**: `low` is currently unreachable. Only the OpenCode Free row was taken, not upstream's codebuddy-cn rows that LiteRouter already models differently.
+- `5a4e812e` fix(db): strip NUL bytes from bound strings - **keep**: SQLite correctness. A NUL in a bound string throws on better-sqlite3 and truncates on node:sqlite.
+- `95c9d03e` fix(stream): fill missing tool-call ids and restore renamed tool names - **keep**: strict OpenAI clients abort on id-less tool-call fragments, and the passthrough stream leaked `*_client` aliases. Kept LiteRouter's kenari Responses rewrite branch.
+- `5cdcddf5` fix(combo): advance past a request-scoped 4xx - **keep**: routing correctness. Adapted to LiteRouter's provider-less `checkFallbackError`. LiteRouter's context-overflow text rule still wins, so that existing assertion is kept.
+- `5853a88a` fix(search): reset regex state between model matches - **drop**: `modelSearchFilter.js` (UI model search) does not exist in LiteRouter.
+- `dbdbb648` fix(github): refresh Copilot fallback model catalog - **drop**: catalog churn.
+- `b8331283` fix(opencode-free): full reasoning support for oc/mimo-v2.6-flash-free - **keep**: alias-only reasoning (`reasoning`/`reasoning_details`) is currently dropped. Merged with LiteRouter's existing imports and capability table without the dropped Haiku/CommandCode rows.
+- `2720cd2a` fix(qoder): queued models, Sonus/Cantus, capabilities - **drop**: about 1.2k lines with a new queue state machine and model routes. Cannot be validated without Qoder accounts.
+- `b82f5c4a` fix(combos): try the next model when credits run out - **keep**: an out-of-credit 400 currently ends the combo.
+- `b0655314` fix(capabilities): give Grok 4.7 its 500k context window - **drop**: already in base (capability row and xAI entry).
+- `a3ca2f9b` fix(dashboard): API key visibility guidance - **drop**: dashboard copy/i18n.
+- `351b04cb` feat(provider): add SenseNova - **drop**: new provider plus image handler.
+- `b6a9ca43` test: triage master's failing suite - **drop**: rewrites upstream test expectations and known-fails for upstream's tree. LiteRouter keeps its own baseline.
+- `b08f12d5` fix(codex-image): skip ChatGPT Free accounts - **drop**: image generation removed.
+- `5883110b` fix(deps): upgrade Monaco - **drop**: dashboard editor dependency, outside the routing core.
+- `7c42d8f8` fix(openai): rename max_tokens to max_completion_tokens - **keep**: current OpenAI models 400 on `max_tokens`. Scoped to the `openai` provider, and an explicit `max_completion_tokens` wins.
+- `3ce2b828` fix(kiro): normalize Anthropic model ids onto Kiro aliases - **drop**: keyword remapping silently swaps in other models (any unknown `opus` becomes opus-4.6, `kimi` becomes kimi-k3, `glm` becomes glm-5). Needs an exact-id table.
+- `a440ef43` fix(headroom): compress native Gemini and Responses tool outputs - **drop**: widens Headroom scope, and Headroom is not deployed.
+- `792f4719` fix(headroom): support native CommandCode requests - **drop**: widens Headroom scope, and Headroom is not deployed.
+- `bc4a3cc7` feat(ollama): System One decision models - **drop**: System One handler is not present.
+- `08ef047f` fix(security): bump undici to 7.30.1 and bind headroom to loopback - **keep**: undici DoS/TLS advisories. The lockfile was updated by hand to 7.30.1 (registry integrity) so `npm ci` installs the patched version.
+- `8a842043` feat(rtk): user-authored custom system prompt - **drop**: new feature plus dashboard UI.
+- `ca7b5401` fix(combo): fall through on empty-content streaming responses - **drop**: holds every 2xx combo stream, reasoning frames included, for up to 45s before the first content frame. That is a time-to-first-token regression against LiteRouter's stream latency work, and the 750 lines cannot be validated without live providers. The non-stream sibling was deferred last intake.
+- `00dd3dfc` fix(media-providers): keep the connection card - **drop**: media dashboard removed.
+- `421f2262` feat(stt): Codex OAuth transcription - **drop**: STT/media surface removed.
+- `32a064e2` fix(docker): pin Node 22.23.4 - **drop**: already applied in LiteRouter #124.
+- `4a76b8de` fix(commandcode): quota display and connection test - **drop**: quota display/dashboard.
+- `3b137aa6` fix(codebuddy): back off blocked international connections - **drop**: needs provider-scoped error rules (`checkFallbackError(..., provider)`), which LiteRouter does not have. Unscoped, "request illegal" would back off every provider.
+- `d07e5bc3` fix(thinking): per-transport thinking shape - **drop**: already covered. LiteRouter's `resolveFormat` sends nested `reasoning` for every `openai-responses` target, and LiteRouter's Muse registry differs (Responses-only).
+- `342ecb0d` fix(pi-settings): declare existingProvider before use - **drop**: CLI-tools route is not present.
+- `38a0c449` feat(web-cookie): web provider executors, browser pool, login capture - **drop**: large new provider/browser surface.
