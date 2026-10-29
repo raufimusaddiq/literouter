@@ -69,11 +69,20 @@ and publishes `ghcr.io/raufimusaddiq/literouter-production:production-<full-sha>
 
 Run this before the pull below, not after. The host tree is not a passive
 checkout: it is the source the systemd units and scripts are installed from
-(`ExecStart=/home/ubuntu/9router/scripts/...`), and `scripts/upstream-intake.sh` defaults
-`REPO=/home/ubuntu/9router`, so the daily intake timer operates on that same tree. A
-stale tree silently installs old unit files and runs old scripts. Reclaiming
-merged worktrees early is safe because the deploy pulls the immutable image by
-tag and does not need them.
+(`ExecStart=/home/ubuntu/9router/scripts/...`). A stale tree silently installs
+old unit files and runs old scripts. Reclaiming merged worktrees early is safe
+because the deploy pulls the immutable image by tag and does not need them.
+
+**Retired intake leftovers (owner approval required).** The Codex intake
+controller is gone from the repo, but `/etc/systemd/system/upstream-intake.service`
+and `upstream-intake.timer` may still be installed (timer disabled; the service's
+`ExecStart` path no longer exists). Do not enable or start them. With owner
+approval, remove them with
+`sudo rm /etc/systemd/system/upstream-intake.{service,timer} && sudo systemctl daemon-reload`.
+The controller's clone directory (`/var/tmp/9router-upstream-intake`) was
+already absent when it was retired, so no intake clones need reclaiming. If one
+ever turns up, treat it as an ordinary worktree under step 2: prove its work is
+on `origin-literouter` before deleting it.
 
 **1. The host tree must be on the merged main SHA.**
 
@@ -296,35 +305,3 @@ deploy itself fails, and **is** removed on success. It also asserts the deploy
 waits for health before checking it, and covers the same-tag redeploy, a missing
 container, a foreign repository, a non-full-SHA tag, and the usage error for a
 missing, short or malformed argument.
-
-### Intake workspace retention
-
-Intake clones live in `$UPSTREAM_INTAKE_DIR/worktree.*` (default
-`/var/tmp/9router-upstream-intake`). `scripts/upstream-intake-retention.sh` decides
-what may be deleted; it never reads a clone with a work tree or its hooks/config.
-
-| Situation | Outcome |
-|---|---|
-| Failed run, clone holds nothing unpublished (detached at an upstream commit, or every branch merged/published with no open PR, clean) | removed at exit |
-| Failed run with unpushed commits, dirty/untracked edits, unknown refs, or unverifiable state | retained |
-| Successful review-only run with an open PR | retained |
-| Startup GC, clone idle >= `UPSTREAM_INTAKE_RETAIN_DAYS` (default 14, min 2) and all work merged into `origin-literouter/main`, or published on `origin-literouter` with no open PR, or upstream-only | removed |
-| Anything else (recent, open PR, unpublished, dirty, symlink, unknown ref, GitHub/Git error) | kept; reason logged |
-
-GC is bounded per run (`UPSTREAM_INTAKE_GC_SCAN_MAX` oldest candidates, default 50;
-`UPSTREAM_INTAKE_GC_DELETE_MAX` removals, default 5), takes `.gc.lock` in the work
-root, and skips the run's own clone. Never compare against `origin/main`: `origin`
-is upstream `decolua/9router`; published/merged evidence comes only from
-`origin-literouter`.
-
-Tags, remote-tracking refs, and every commit named in a reflog must already exist in
-the host repo (reachable from a host ref); otherwise the clone is kept, so a tag or
-rewritten work can never hold the only copy of a commit. Before enabling the GC on a
-host with retained clones, list candidates read-only (no fetch, no removal) and get
-deletion approved:
-
-```bash
-( . scripts/upstream-intake-retention.sh; log() { echo "$*"; }; REPO=/home/ubuntu/9router REMOTE=origin \
-  TARGET=origin-literouter BASE_BRANCH=main LOG_PREFIX=manifest \
-  WORK_ROOT=/var/tmp/9router-upstream-intake retention_manifest )
-```
