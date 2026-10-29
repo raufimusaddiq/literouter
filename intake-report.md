@@ -1,67 +1,38 @@
-# Upstream Intake - 2026-10-26
+# Upstream Intake - 2026-10-29
 
-- Ticket: #126.
-- Base: LiteRouter `main` at `264a26d0e5886a31accbed156301850943c1c6d7`; previous intake ended at upstream `87a74e1bda3677193c6f71a7e2100c90311f0689` (v0.5.104). Upstream now: `3a978a63` (v0.5.111).
-- Decision: **13 keep, 43 drop** across all 56 non-merge commits in `87a74e1b..3a978a63`.
-- Branch: `upstream-intake/20261026-3a978a63`; 14 `git cherry-pick -x` commits, one fork-integration commit (undici lockfile, CHANGELOG, this report, comment order), one CI-repair commit that reverts `5cdcddf5` and adapts upstream tests to LiteRouter's config, and one review-repair commit that narrows `95c9d03e` so continuation fragments are never given an id. No upstream merge.
-- Risk: the passthrough stream now rewrites chunks only to add missing tool-call ids or restore fingerprint-renamed tool names. OpenAI `max_tokens` is renamed only for the built-in `openai` provider.
-- Validation: host snapshot healthy (4.1 GiB available, 28 GiB disk free). Static review, conflict resolution and `node --check` on touched modules only. No local installs, builds or tests, per AGENTS.md. GitHub CI and current-head Hermes review are the gates.
+- Ticket: none (owner-requested direct intake).
+- Base: LiteRouter `main` at `9c846005ba4dce43c7b136755089e9330af165a9`; previous intake ended at upstream `3a978a631ad65529c06e48ce495092d5bba29f46` (v0.5.111). Upstream now: `1fe586bb1cf35e1ed0cb2150a8ef7d1db040b21d` (v0.5.112).
+- Decision: **3 keep, 11 drop** across all 14 commits in `3a978a63..1fe586bb`.
+- Branch: `intake/20261029-1fe586bb`. The `intake/` prefix keeps the disabled controller's `find_pending_intake` (which resumes `upstream-intake/*` heads) from adopting a manually prepared branch.
+- Method: upstream commits read as untrusted text and integrated with `git cherry-pick -x`. No upstream scripts or instructions were executed. The sandboxed intake controller and broker are unchanged.
+- Validation: `node --check` on touched modules only. No local installs, builds or tests, per AGENTS.md. GitHub CI and current-head Hermes review gate the merge.
 
 ## Commit Decisions
 
-- `3a978a63` # v0.5.111 - **drop**: upstream release marker; LiteRouter versions independently.
-- `483c10f5` fix(opencode): normalize colliding fingerprint tool definitions in place - **drop**: replaces the caller's own tool description and widens its schema (the commit itself says client safety text no longer reaches the model). Free-tier gate shaping.
-- `95009651` fix(translator): convert image_url parts inside tool messages to Claude images - **keep**: an OpenAI image in a tool result currently 400s on Claude.
-- `10cd6c08` feat(ollama): add embedding provider adapter - **drop**: embeddings/media surface was removed from LiteRouter.
-- `50dcaa0c` fix(cli-tools): keep a hand-set Pi model name - **drop**: CLI-tools writers are not part of the minimal profile.
-- `72cb589e` fix(cli-tools): stop resetting Pi model caps - **drop**: CLI-tools writers are not part of the minimal profile.
-- `5cd4a756` feat(opencode-go): add Kimi K3.1 Pro - **drop**: catalog expansion.
-- `b9c27225` feat(providers): add Runcrate - **drop**: new provider.
-- `31a9d262` feat(tts): add Ollama Local TTS - **drop**: TTS/media surface removed.
-- `2924e055` fix(deepseek): send the upstream model id the API actually accepts - **keep**: every `deepseek-v4.1-flash` request currently 400s.
-- `763fb687` fix(thinking): keep effort max for GPT-5.6 / GPT-6 on OpenAI Compatible nodes - **keep**: `max` is currently clamped to `xhigh` silently. Adapted to LiteRouter's `getThinkingLevels`, which has no per-model codex level table.
-- `0ad0a722` fix(claude): keep adaptive thinking for Haiku 5.5 on the passthrough - **keep**: thinking requests to Haiku 5.5 currently 400.
-- `1da5b0d7` fix(opencode): cap oc/deepseek-v4.1-flash-free context window at 330k - **keep**: the published 1M window makes long sessions fail instead of compacting.
-- `86adae35` fix(headroom): preserve native Claude PDFs and tool history - **drop**: Headroom is not deployed (no service or `HEADROOM_URL` in `compose.production.yml`). It also depends on the two dropped Headroom commits below.
-- `a3bdaf6d` feat(commandcode): add Kimi K3.1 Pro - **drop**: catalog expansion.
-- `fbac1220` fix(codex-image): drive image_generation from gpt-6-sol - **drop**: image generation is a removed media surface.
-- `ce060c79` fix(opencode): restore the free tier with the TLS client Hello it accepts - **drop**: adds a new optional native dependency (`wreq-js`) for TLS impersonation to get past the upstream free-tier gate. It changes the BaseExecutor transport hook and cannot be validated in CI.
-- `f39d8f07` # v0.5.109 - **drop**: upstream release marker.
-- `f3f86fdd` feat(combos): add Smart Router (System One) - **drop**: new routing product feature and UI.
-- `161e3493` feat(image, mitm): reference image inputs - **drop**: image/MITM surfaces removed.
-- `82aeb907` fix(antigravity): resolve tiered models from client reasoning effort - **drop**: changes `getModelUpstreamId` for every provider, so any model with a `-low/-medium/-high` sibling silently swaps to it based on body effort. Too broad for an antigravity fix.
-- `31b8439b` fix(usage): ollama cloud /api/balance quota - **drop**: quota-display expansion.
-- `9b4ea9eb` feat(combos): search box - **drop**: dashboard UI.
-- `32c5f30a` fix(capabilities): send reasoning_effort for OpenCode's glm-5.3-flash-free - **keep**: the zai `thinking` object currently 400s on this lane. Only the new entry was taken, not upstream's unrelated exact `glm-5.2` row.
-- `f172c3c4` fix(antigravity): hub/2.24.0 UA and Gemini 4 Argon tiers - **drop**: coupled to the deleted `src/mitm` IDE version file and to catalog expansion (same call as the earlier IDE bump).
-- `313559f4` fix(opencode): honor low|high|max for zen free deepseek-v4.1-flash - **keep**: `low` is currently unreachable. Only the OpenCode Free row was taken, not upstream's codebuddy-cn rows that LiteRouter already models differently. Test adapted: `/zen/v1` URL as above. The max→high clamp case was removed because its fixture (`mimo-v2.6-flash` on opencode-go) is not a deepseek-format reasoning model in LiteRouter. The clamp itself is pre-existing base code and unchanged.
-- `5a4e812e` fix(db): strip NUL bytes from bound strings - **keep**: SQLite correctness. A NUL in a bound string throws on better-sqlite3 and truncates on node:sqlite.
-- `95c9d03e` fix(stream): fill missing tool-call ids and restore renamed tool names - **keep**: strict OpenAI clients abort on id-less tool-call fragments, and the passthrough stream leaked the canonical fingerprint spelling (`read` for a caller's `Read`). Kept LiteRouter's kenari Responses rewrite branch. The upstream test asserted upstream's `read_client` alias design, so it was rewritten for LiteRouter's case-canonicalising rename. Narrowed in review round 2: upstream re-attached the remembered id to every continuation fragment, which OpenAI-style accumulators concatenate (`call_abccall_abc`). LiteRouter mints an id only when a fragment opens an unseen index and leaves continuations id-less, with multi-fragment accumulation regressions.
-- `5cdcddf5` fix(combo): advance past a request-scoped 4xx - **drop** (cherry-picked, then reverted in the CI-repair commit): contradicts LiteRouter's established combo contract. `unit/literouter-combo-fallback.test.js` requires that a non-retryable client 4xx does NOT advance. Context overflow already falls through via LiteRouter's own text rule.
-- `5853a88a` fix(search): reset regex state between model matches - **drop**: `modelSearchFilter.js` (UI model search) does not exist in LiteRouter.
-- `dbdbb648` fix(github): refresh Copilot fallback model catalog - **drop**: catalog churn.
-- `b8331283` fix(opencode-free): full reasoning support for oc/mimo-v2.6-flash-free - **keep**: alias-only reasoning (`reasoning`/`reasoning_details`) is currently dropped. Merged with LiteRouter's existing imports and capability table without the dropped Haiku/CommandCode rows. Test adapted: the free lane URL is LiteRouter's `/zen/v1` (upstream's `/inference/v1` move `5bdcd5e7` was deferred last intake), and the `xiaomi-mimo` assertion was removed because LiteRouter has no reasoning `*mimo*v2.6*` capability pattern.
-- `2720cd2a` fix(qoder): queued models, Sonus/Cantus, capabilities - **drop**: about 1.2k lines with a new queue state machine and model routes. Cannot be validated without Qoder accounts.
-- `b82f5c4a` fix(combos): try the next model when credits run out - **keep**: an out-of-credit 400 currently ends the combo.
-- `b0655314` fix(capabilities): give Grok 4.7 its 500k context window - **drop**: already in base (capability row and xAI entry).
-- `a3ca2f9b` fix(dashboard): API key visibility guidance - **drop**: dashboard copy/i18n.
-- `351b04cb` feat(provider): add SenseNova - **drop**: new provider plus image handler.
-- `b6a9ca43` test: triage master's failing suite - **drop**: rewrites upstream test expectations and known-fails for upstream's tree. LiteRouter keeps its own baseline.
-- `b08f12d5` fix(codex-image): skip ChatGPT Free accounts - **drop**: image generation removed.
-- `5883110b` fix(deps): upgrade Monaco - **drop**: dashboard editor dependency, outside the routing core.
-- `7c42d8f8` fix(openai): rename max_tokens to max_completion_tokens - **keep**: current OpenAI models 400 on `max_tokens`. Scoped to the `openai` provider, and an explicit `max_completion_tokens` wins.
-- `3ce2b828` fix(kiro): normalize Anthropic model ids onto Kiro aliases - **drop**: keyword remapping silently swaps in other models (any unknown `opus` becomes opus-4.6, `kimi` becomes kimi-k3, `glm` becomes glm-5). Needs an exact-id table.
-- `a440ef43` fix(headroom): compress native Gemini and Responses tool outputs - **drop**: widens Headroom scope, and Headroom is not deployed.
-- `792f4719` fix(headroom): support native CommandCode requests - **drop**: widens Headroom scope, and Headroom is not deployed.
-- `bc4a3cc7` feat(ollama): System One decision models - **drop**: System One handler is not present.
-- `08ef047f` fix(security): bump undici to 7.30.1 and bind headroom to loopback - **keep**: undici DoS/TLS advisories. The lockfile was updated by hand to 7.30.1 (registry integrity) so `npm ci` installs the patched version.
-- `8a842043` feat(rtk): user-authored custom system prompt - **drop**: new feature plus dashboard UI.
-- `ca7b5401` fix(combo): fall through on empty-content streaming responses - **drop**: holds every 2xx combo stream, reasoning frames included, for up to 45s before the first content frame. That is a time-to-first-token regression against LiteRouter's stream latency work, and the 750 lines cannot be validated without live providers. The non-stream sibling was deferred last intake.
-- `00dd3dfc` fix(media-providers): keep the connection card - **drop**: media dashboard removed.
-- `421f2262` feat(stt): Codex OAuth transcription - **drop**: STT/media surface removed.
-- `32a064e2` fix(docker): pin Node 22.23.4 - **drop**: already applied in LiteRouter #124.
-- `4a76b8de` fix(commandcode): quota display and connection test - **drop**: quota display/dashboard.
-- `3b137aa6` fix(codebuddy): back off blocked international connections - **drop**: needs provider-scoped error rules (`checkFallbackError(..., provider)`), which LiteRouter does not have. Unscoped, "request illegal" would back off every provider.
-- `d07e5bc3` fix(thinking): per-transport thinking shape - **drop**: already covered. LiteRouter's `resolveFormat` sends nested `reasoning` for every `openai-responses` target, and LiteRouter's Muse registry differs (Responses-only).
-- `342ecb0d` fix(pi-settings): declare existingProvider before use - **drop**: CLI-tools route is not present.
-- `38a0c449` feat(web-cookie): web provider executors, browser pool, login capture - **drop**: large new provider/browser surface.
+- `1fe586bb` # v0.5.112 - **drop**: upstream release marker; LiteRouter versions independently.
+- `85d73bd6` feat(minimax-code): lease auth mode via desktop app named-pipe broker - **drop**: the MiniMax Code executor is not in LiteRouter. The commit also adds an OAuth route, dashboard UI and a `dashboardGuard.js` change (auth surface).
+- `d7bb71ce` fix(deepseek): use noble-hashes port for DeepSeek PoW hash - **drop**: `open-sse/lib/deepseek-pow-hash.js` is not in LiteRouter.
+- `3b7acf72` fix(docker): bundle lazy runtime deps so OpenCode Free resolves - **drop**: depends on `open-sse/services/lazyRuntime.js`, which LiteRouter does not have. It also changes the production `Dockerfile`.
+- `56dbf466` fix(chat): reject SSE errors in non-streaming responses - **keep**: `parseSSEToOpenAIResponse` already returns `{ error }` for an error frame, but the non-streaming handler used that object as a successful body (200, usage saved, success callback fired).
+- `8db1f4ae` fix(translator): enforce Gemini protobuf type predicates on schema items and properties - **drop**: the new `enforceTypeConstraints` walks every object value, including `properties` maps. A properties map has no `type`, so it deletes tool parameters literally named `items`, `properties` or `required`. It also strips `properties` from untyped (`anyOf`-style) schemas. Needs a corrected port, not a cherry-pick.
+- `f7f6f5ed` feat: add Nace Drex provider to the System One lane - **drop**: new provider (and a hand edit of the generated registry index).
+- `ced0cf6e` fix(nvidia): normalize reasoning aliases for NIM - **keep**: NIM treats `reasoning` and `reasoning_content` as one field and rejects assistant history that carries both.
+- `a199d777` fix(providers): treat LLM|id|secret as opaque token in bulk-add - **drop**: dashboard bulk-add input convenience, outside the retained core.
+- `b1effa03` feat(commandcode): align request headers with official CLI 1.88.0 - **drop**: client-fingerprint churn with no reported failure. It touches `src/app/api/providers/validate/route.js` and the provider baseline.
+- `f3e1f716` fix(github): apply Claude 5.5 thinking rules to Copilot's dotted model ids - **drop**: built on upstream's `thinkingOffType` / `forcedToolChoice` capability flags, which LiteRouter never took. LiteRouter's 5.5 rows do not carry them, and `claudeRequestFallback.js` already retries the Sonnet 5.5 `between_tools` 400. Porting the flags is a separate change.
+- `3fd925ab` fix(codebuddy): send plugin request/conversation id headers - **keep** (adapted): without the ids, both CodeBuddy gateways reject every call with `400 / 11128 "request illegal"`. Added the missing `randomUUID` import to `executors/default.js`. Upstream's `codebuddy-block-backoff.test.js` changes are not taken: that file belongs to the dropped `3b137aa6` and asserts the request-scoped combo contract LiteRouter rejected on 2026-10-26.
+- `acb3c080` feat(codex): add GPT-6.1 Terra - **drop**: catalog expansion.
+- `e70ea24d` Fix OpenCode - **drop**: `open-sse/services/lazyRuntime.js` is not in LiteRouter.
+
+## Conflicts
+
+- `CHANGELOG.md` (`3fd925ab`, `ced0cf6e`): kept LiteRouter's side; one consolidated fork entry replaces the upstream hunks.
+- `tests/unit/codebuddy-block-backoff.test.js` (`3fd925ab`): modify/delete. The file is absent in LiteRouter and stays absent.
+- `open-sse/providers/capabilities.js`, `open-sse/translator/concerns/thinkingUnified.js` (`f3e1f716`): diverged capability table and `applyFormat` signature. The pick was aborted and the commit dropped (see above).
+- CI round 1: LiteRouter's golden header snapshot (`tests/translator/golden-url-header.test.js`) now lists the four CodeBuddy id headers. Their per-request UUID values are masked by name as `<ID>`, the same way the test already masks environment-dependent headers.
+
+## Risk
+
+- CodeBuddy requests now carry four random per-request UUID headers. No credential or auth ordering change: hooks still run before `applyAuth`.
+- Non-streaming requests whose upstream SSE carries an error frame now fail with the upstream 4xx/5xx status (502 if missing or invalid) instead of returning 200. That lets combo/account fallback see the failure.
+- The NVIDIA rule only renames assistant-history `reasoning` to `reasoning_content`, keeping a non-empty canonical value.

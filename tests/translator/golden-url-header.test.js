@@ -32,12 +32,21 @@ const ENV_DEPENDENT = new Set([
   "X-Msh-Version",     // phiên bản package, đổi mỗi lần release
   "X-PLATFORM-VERSION", // phiên bản Node runtime
 ]);
+// Fresh randomUUID per request (CodeBuddy channel-check ids): keep the key, mask the value.
+const PER_REQUEST_IDS = new Set([
+  "X-Request-ID",
+  "X-Conversation-ID",
+  "X-Conversation-Request-ID",
+  "X-Conversation-Message-ID",
+]);
 
 function sanitize(headers) {
   const out = {};
   for (const [k, v] of Object.entries(headers)) {
     out[k] = ENV_DEPENDENT.has(k)
       ? "<ENV>"
+      : PER_REQUEST_IDS.has(k)
+      ? "<ID>"
       : typeof v === "string"
       ? v.replace(/Bearer .+/, "Bearer <TOK>")
           .replace(/sk-test-APIKEY|tok-test-ACCESS/g, "<CRED>")
