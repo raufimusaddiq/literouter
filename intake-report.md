@@ -29,6 +29,7 @@
 - `CHANGELOG.md` (`3fd925ab`, `ced0cf6e`): kept LiteRouter's side; one consolidated fork entry replaces the upstream hunks.
 - `tests/unit/codebuddy-block-backoff.test.js` (`3fd925ab`): modify/delete. The file is absent in LiteRouter and stays absent.
 - `open-sse/providers/capabilities.js`, `open-sse/translator/concerns/thinkingUnified.js` (`f3e1f716`): diverged capability table and `applyFormat` signature. The pick was aborted and the commit dropped (see above).
+- CI round 1: LiteRouter's golden header snapshot (`tests/translator/golden-url-header.test.js`) now lists the four CodeBuddy id headers. Their per-request UUID values are masked by name as `<ID>`, the same way the test already masks environment-dependent headers.
 
 ## Risk
 
