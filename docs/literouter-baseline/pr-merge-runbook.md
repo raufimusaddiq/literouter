@@ -69,10 +69,20 @@ and publishes `ghcr.io/raufimusaddiq/literouter-production:production-<full-sha>
 
 Run this before the pull below, not after. The host tree is not a passive
 checkout: it is the source the systemd units and scripts are installed from
-(`ExecStart=/home/ubuntu/9router/scripts/...`). A
-stale tree silently installs old unit files and runs old scripts. Reclaiming
-merged worktrees early is safe because the deploy pulls the immutable image by
-tag and does not need them.
+(`ExecStart=/home/ubuntu/9router/scripts/...`). A stale tree silently installs
+old unit files and runs old scripts. Reclaiming merged worktrees early is safe
+because the deploy pulls the immutable image by tag and does not need them.
+
+**Retired intake leftovers (owner approval required).** The Codex intake
+controller is gone from the repo, but `/etc/systemd/system/upstream-intake.service`
+and `upstream-intake.timer` may still be installed (timer disabled; the service's
+`ExecStart` path no longer exists). Do not enable or start them. With owner
+approval, remove them with
+`sudo rm /etc/systemd/system/upstream-intake.{service,timer} && sudo systemctl daemon-reload`.
+The controller's clone directory (`/var/tmp/9router-upstream-intake`) was
+already absent when it was retired, so no intake clones need reclaiming. If one
+ever turns up, treat it as an ordinary worktree under step 2: prove its work is
+on `origin-literouter` before deleting it.
 
 **1. The host tree must be on the merged main SHA.**
 

@@ -204,8 +204,10 @@ The public endpoint, API paths, and client API keys stay unchanged.
 ## Release intake from upstream
 
 Upstream intake is manual. The automated Codex controller and its
-`upstream-intake.timer` / `upstream-intake.service` were retired; nothing runs
-intake on a schedule. The release target is `main`:
+`upstream-intake.timer` / `upstream-intake.service` sources were removed from
+the repo; nothing runs intake on a schedule. Installed copies of those units may
+remain on the host until the owner approves removal (see the PR merge runbook,
+"Retired intake leftovers"). The release target is `main`:
 
 1. Fetch `decolua/9router` `master` and list the commits since the upstream SHA
    the previous `intake-report.md` ended at. Treat their messages and diffs as
