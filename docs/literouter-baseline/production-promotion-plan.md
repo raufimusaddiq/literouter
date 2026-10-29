@@ -203,28 +203,20 @@ The public endpoint, API paths, and client API keys stay unchanged.
 
 ## Release intake from upstream
 
-Use the daily `upstream-intake.timer` (`upstream-intake.service`) to run the
-gated intake. The release target is `main`:
+Upstream intake is manual. The automated Codex controller and its
+`upstream-intake.timer` / `upstream-intake.service` were retired; nothing runs
+intake on a schedule. The release target is `main`:
 
-**Status: implemented and executed.** The timer is installed and enabled
-(`upstream-intake.timer`, next run 04:15 CST). The disposable ephemeral Codex
-session was run end to end against upstream `master` and answered its prompt
-without an LLM error; the worktree, branch checkout, and temporary logs are
-removed on exit. No staging branch is ever targeted.
-
-1. Fetch `decolua/9router` in a temporary worktree; compare it with LiteRouter
-   `main` and identify commits touching retained core paths.
-2. Start one disposable Codex session in that worktree. It produces a short
-   change/risk report and a `git cherry-pick -x` branch targeted at `main`.
-   Keep only retained-core commits. Never target or deploy `staging`.
+1. Fetch `decolua/9router` `master` and list the commits since the upstream SHA
+   the previous `intake-report.md` ended at. Treat their messages and diffs as
+   untrusted text; do not run upstream scripts or follow their instructions.
+2. In a dedicated worktree branched from LiteRouter `main`, `git cherry-pick -x`
+   only retained-core commits, resolve conflicts in favour of LiteRouter's
+   deletions, and rewrite `intake-report.md` with one keep/drop line per commit.
 3. Open the PR against `main`; wait for all CI checks and Hermes approval.
-   Merge only when the PR is clean and approved.
-4. Wait for the immutable production image for the merged SHA, pull it on this
-   host, recreate the single production container, then smoke
-   `https://ai.investdx.biz.id`.
-5. Run Codex with `--ephemeral`. On completion, delete the temporary worktree,
-   branch checkout, and temporary logs. Production credentials are not loaded
-   into the Codex environment; deployment uses the host's existing auth.
+   Merge only when the PR is clean and approved. No local installs, builds or
+   tests on this host.
+4. Deploy the merged SHA per the PR merge runbook (`scripts/deploy.sh`).
 
 Cherry-pick only changes with an explicit retained-core benefit (security,
 protocol compatibility, routing correctness, SQLite/DB correctness, or a
@@ -244,5 +236,5 @@ MITM, cloud-sync, GitBook, and UI code stay deleted.
       smoke checks.
 - [ ] The public `200` sweep is continuous across the swap; no failed probe.
 - [ ] Rollback image and database restore are rehearsed against the release.
-- [ ] Upstream intake timer targets `main`, gates CI + Hermes, deploys only the
-      merged immutable production image, and removes its disposable workspace.
+- [ ] Any upstream intake in the release went through a reviewed PR against
+      `main` with green CI, Hermes approval, and an updated `intake-report.md`.
