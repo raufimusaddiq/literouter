@@ -1,14 +1,16 @@
 import { EventEmitter } from "events";
 import { getAdapter, getAdapterSync } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { fingerprintKey } from "open-sse/utils/keyFingerprint.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
 
-function maskApiKey(key) {
-  if (!key || typeof key !== "string") return null;
-  const trimmed = key.trim();
-  if (trimmed.length <= 12) return trimmed.charAt(0) + "***";
-  // Keep the tail: keys sharing a machine-id prefix (team keys) must not collide.
-  return trimmed.slice(0, 8) + "***" + trimmed.slice(-4);
+// Client keys are never stored: usage rows and daily buckets carry a
+// non-reversible fingerprint (open-sse/utils/keyFingerprint.js).
+const maskApiKey = fingerprintKey;
+
+function sanitizeUsageEntry(entry) {
+  if (!entry || !entry.apiKey) return entry;
+  return { ...entry, apiKey: fingerprintKey(entry.apiKey) || undefined };
 }
 
 const PENDING_TIMEOUT_MS = 60 * 1000;
@@ -145,7 +147,7 @@ async function ensureRingInitialized() {
     const rows = db.all(`SELECT timestamp, provider, model, connectionId, apiKey, endpoint, cost, status, tokens FROM usageHistory ORDER BY id DESC LIMIT ?`, [RING_CAP]);
     recentRing.items = rows.reverse().map((r) => ({
       timestamp: r.timestamp, provider: r.provider, model: r.model, connectionId: r.connectionId,
-      apiKey: r.apiKey, endpoint: r.endpoint, cost: r.cost, status: r.status,
+      apiKey: fingerprintKey(r.apiKey) || undefined, endpoint: r.endpoint, cost: r.cost, status: r.status,
       tokens: parseJson(r.tokens, {}),
     }));
   } catch {}
@@ -266,7 +268,8 @@ function writeUsageBatch(db, entries) {
   let insertedCount = 0;
 
   db.transaction(() => {
-    for (const entry of entries) {
+    for (const rawEntry of entries) {
+      const entry = sanitizeUsageEntry(rawEntry);
       const tokens = entry.tokens || {};
       const promptTokens = tokens.prompt_tokens || tokens.input_tokens || 0;
       const completionTokens = tokens.completion_tokens || tokens.output_tokens || 0;
@@ -443,7 +446,7 @@ globalThis.__liteRouterUsageDrainSync = drainUsageSync;
 
 export async function saveRequestUsage(entry) {
   const prepared = {
-    ...entry,
+    ...sanitizeUsageEntry(entry),
     timestamp: entry.timestamp || new Date().toISOString(),
   };
 
@@ -536,7 +539,7 @@ export async function getUsageStats(period = "all") {
   try { allApiKeys = await getApiKeys(); } catch {}
   const apiKeyMap = {};
   for (const k of allApiKeys) {
-    if (k.key) apiKeyMap[k.key.trim()] = { name: k.name, id: k.id, createdAt: k.createdAt };
+    if (k.key) apiKeyMap[fingerprintKey(k.key)] = { name: k.name, id: k.id, createdAt: k.createdAt };
   }
 
   // recentRequests from live history (last 100 entries enough for 20 deduped)
@@ -676,9 +679,9 @@ export async function getUsageStats(period = "all") {
         const provider = ak.provider || "";
         const providerDisplayName = providerNodeNameMap[provider] || provider;
         const apiKeyVal = ak.apiKey ? ak.apiKey.trim() : null;
-        const keyInfo = apiKeyVal ? apiKeyMap[apiKeyVal] : null;
         const apiKeyMasked = maskApiKey(apiKeyVal);
-        const keyName = keyInfo?.name || (apiKeyVal ? (apiKeyMasked || apiKeyVal.slice(0, 8) + "...") : "Local (No API Key)");
+        const keyInfo = apiKeyMasked ? apiKeyMap[apiKeyMasked] : null;
+        const keyName = keyInfo?.name || (apiKeyMasked || "Local (No API Key)");
         const apiKeyKey = apiKeyMasked || "local-no-key";
         const akKey = apiKeyMasked ? `${apiKeyMasked}|${rawModel}|${provider || "unknown"}` : "local-no-key";
         if (!stats.byApiKey[akKey]) {
@@ -805,9 +808,8 @@ export async function getUsageStats(period = "all") {
       }
 
       if (r.apiKey && typeof r.apiKey === "string") {
-        const apiKeyVal = r.apiKey.trim();
-        const keyInfo = apiKeyMap[apiKeyVal];
-        const apiKeyMasked = maskApiKey(apiKeyVal);
+        const apiKeyMasked = maskApiKey(r.apiKey);
+        const keyInfo = apiKeyMap[apiKeyMasked];
         const keyName = keyInfo?.name || apiKeyMasked;
         const akKey = `${apiKeyMasked}|${r.model}|${r.provider || "unknown"}`;
         if (!stats.byApiKey[akKey]) {
