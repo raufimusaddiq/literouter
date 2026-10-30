@@ -104,6 +104,10 @@ docker rm -f 9router
 
 # 🛠 For Developers
 
+## TLS trust store
+
+The image sets `LITEROUTER_SYSTEM_CA=1`: at startup `custom-server.js` replaces Node's bundled CA roots with the container's OS bundle (`/etc/ssl/certs`, from `ca-certificates`), so a root removed from the OS bundle is no longer trusted by any outbound client. The server exits at boot if the OS bundle is empty. Rebuild the image to pick up a refreshed `ca-certificates`.
+
 ## Build image locally (test)
 
 ```bash

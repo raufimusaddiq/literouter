@@ -2,6 +2,7 @@ const http = require("http");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
+const tls = require("tls");
 const { pathToFileURL } = require("url");
 
 const origCreate = http.createServer.bind(http);
@@ -128,7 +129,35 @@ http.createServer = (...args) => {
   return server;
 };
 
+// Node verifies TLS against its bundled Mozilla store (tls.rootCertificates), not the OS
+// bundle, so patching ca-certificates in the image does not remove a distrusted root.
+// Replace the process-wide default CA list once, before any outbound connection, so every
+// client that does not pass its own `ca` (global fetch, undici Agent/ProxyAgent, https.get)
+// verifies against the OS bundle. Needs Node >= 22.19 (tls.setDefaultCACertificates).
+// Fails closed: no usable system store means refusing to start, never silently keeping
+// the bundled roots.
+function useSystemCaStore(tlsApi = tls) {
+  if (typeof tlsApi.setDefaultCACertificates !== "function" || typeof tlsApi.getCACertificates !== "function") {
+    throw new Error("CA trust: tls.setDefaultCACertificates is unavailable (Node >= 22.19 required)");
+  }
+  const system = tlsApi.getCACertificates("system");
+  if (!Array.isArray(system) || system.length === 0) {
+    throw new Error("CA trust: system CA store is empty or unreadable; refusing to fall back to Node's bundled roots");
+  }
+  tlsApi.setDefaultCACertificates(system);
+  return system.length;
+}
+
 if (require.main === module) {
+  // Opt-in (set in the Dockerfile) so CLI installs on older Node keep working.
+  if (process.env.LITEROUTER_SYSTEM_CA === "1") {
+    try {
+      console.log(`[CA trust] using ${useSystemCaStore()} system CA certificates`);
+    } catch (e) {
+      console.error(e.message);
+      process.exit(1);
+    }
+  }
   const standalone = path.join(__dirname, "server.js");
   if (fs.existsSync(standalone)) {
     require(standalone);
@@ -140,3 +169,5 @@ if (require.main === module) {
     require(nextBin);
   }
 }
+
+module.exports = { useSystemCaStore };
