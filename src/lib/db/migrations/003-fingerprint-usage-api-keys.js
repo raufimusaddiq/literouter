@@ -4,6 +4,10 @@ import { fingerprintKey, isKeyFingerprint } from "open-sse/utils/keyFingerprint.
 // plaintext. New writes are fingerprinted; this rewrites rows written before.
 // It is idempotent (fingerprints are left alone). It cannot scrub bytes SQLite
 // already freed, nor earlier backups or request-log files: see CHANGELOG.
+function hasTable(db, name) {
+  return !!db.get(`SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ?`, [name]);
+}
+
 function rewriteHistory(db) {
   const rows = db.all(`SELECT DISTINCT apiKey FROM usageHistory WHERE apiKey IS NOT NULL AND apiKey != ''`);
   for (const { apiKey } of rows) {
@@ -46,7 +50,8 @@ export default {
   version: 3,
   name: "fingerprint-usage-api-keys",
   up(db) {
-    rewriteHistory(db);
+    if (hasTable(db, "usageHistory")) rewriteHistory(db);
+    if (!hasTable(db, "usageDaily")) return;
     for (const { dateKey, data } of db.all(`SELECT dateKey, data FROM usageDaily`)) {
       let out;
       try { out = rewriteDay(data); } catch { continue; }

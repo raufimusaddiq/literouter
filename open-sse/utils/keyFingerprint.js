@@ -4,7 +4,17 @@ import crypto from "crypto";
 // distinguishable from another; keyed HMAC so the key cannot be recovered or
 // confirmed from the stored value without API_KEY_SECRET.
 const FINGERPRINT_RE = /^fp_[0-9a-f]{16}$/;
-const FINGERPRINT_SECRET = () => process.env.API_KEY_SECRET || "endpoint-proxy-api-key-secret";
+
+// Client keys are high-entropy random tokens, not passwords, so a fast keyed
+// MAC is the right primitive. The MAC key is stretched once per secret.
+let derived = { secret: null, key: null };
+function fingerprintMacKey() {
+  const secret = process.env.API_KEY_SECRET || "endpoint-proxy-api-key-secret";
+  if (derived.secret !== secret) {
+    derived = { secret, key: crypto.scryptSync(secret, "literouter-client-key-fingerprint", 32) };
+  }
+  return derived.key;
+}
 
 export const REDACTED = "[REDACTED]";
 
@@ -17,7 +27,7 @@ export function fingerprintKey(key) {
   const trimmed = key.trim();
   if (!trimmed) return null;
   if (isKeyFingerprint(trimmed)) return trimmed;
-  return "fp_" + crypto.createHmac("sha256", FINGERPRINT_SECRET()).update(trimmed).digest("hex").slice(0, 16);
+  return "fp_" + crypto.createHmac("sha256", fingerprintMacKey()).update(trimmed).digest("hex").slice(0, 16);
 }
 
 const CLIENT_KEY_HEADERS = ["authorization", "x-api-key", "api-key"];

@@ -6,7 +6,9 @@ import { getMeta, setMeta } from "../helpers/metaStore.js";
 
 // Client keys are never stored: usage rows and daily buckets carry a
 // non-reversible fingerprint (open-sse/utils/keyFingerprint.js).
-const maskApiKey = fingerprintKey;
+function maskApiKey(key) {
+  return fingerprintKey(key);
+}
 
 function sanitizeUsageEntry(entry) {
   if (!entry || !entry.apiKey) return entry;
