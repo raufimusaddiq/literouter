@@ -147,6 +147,14 @@ git -C /home/ubuntu/9router worktree list
 If reclaim is incomplete or ownership is uncertain, stop and report the
 remaining reclaimable usage instead of proceeding.
 
+**Deploy order.** Do these in sequence; each gates the next:
+
+1. The image workflow for the merged SHA is `completed success`
+   (`gh run watch --repo raufimusaddiq/literouter`). The tag does not exist before that.
+2. The host tree is on that same SHA (step 1 above).
+3. Reclaim is done and recorded (steps 2-4).
+4. Run `bash scripts/deploy.sh <full-sha>`.
+
 Deploy with the script, which pulls the published image (this box only pulls,
 never builds) and prunes the tag it replaced:
 
@@ -170,6 +178,29 @@ workflow has run once.
 
 No local build, so no `docker builder prune` needed. Builds no longer touch this
 box's RAM or disk.
+
+### Failed deploy: roll forward, never auto-rollback
+
+Nothing rolls back automatically, and nothing should. If `scripts/deploy.sh`
+fails its health checks it leaves the replaced tag in place and stops; the
+decision to go back is a human one.
+
+The migrations in `src/lib/db/migrations/` are forward-only (no down path) and
+run when the new container starts. After a release that applied a migration,
+**never restore a database backup over the `9router-data` volume** to undo it:
+that discards data written since the backup and can leave the schema and code
+out of step. Fix the problem in a new commit, merge it, and deploy that SHA
+(roll forward). Redeploying the previous image is only safe when the failed
+release applied no migration; check before choosing it.
+
+### Edge-guard log file
+
+`scripts/9router-edge-guard.service` runs as root with
+`StandardOutput=append:/var/log/9router-edge-guard.log`. Nothing in the repo
+creates that file or rotates it (no `ExecStartPre`, tmpfiles entry or logrotate
+config); systemd opens it in append mode when the unit runs, creating it if
+missing. systemd opens the log before any `ExecStartPre` would run, so a
+pre-start step could not provision it anyway. The unit is unchanged.
 
 ### Production image retention
 
