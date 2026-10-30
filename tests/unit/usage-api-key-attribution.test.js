@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fingerprintKey } from "../../open-sse/utils/keyFingerprint.js";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 let tempDir;
@@ -56,10 +57,9 @@ describe("Usage stats API key attribution", () => {
       expect(apiKeyEntries.map((entry) => entry.lastUsed)).toEqual([timestamp, timestamp]);
       expect(JSON.stringify(stats)).not.toContain(apiKeyA);
       expect(JSON.stringify(stats)).not.toContain(apiKeyB);
-      expect(Object.keys(stats.byApiKey).sort()).toEqual([
-        "sk-machi***1111|gpt-4|openai",
-        "sk-machi***2222|gpt-4|openai",
-      ]);
+      expect(Object.keys(stats.byApiKey).sort()).toEqual(
+        [`${fingerprintKey(apiKeyA)}|gpt-4|openai`, `${fingerprintKey(apiKeyB)}|gpt-4|openai`].sort()
+      );
 
       expect(
         apiKeyEntries

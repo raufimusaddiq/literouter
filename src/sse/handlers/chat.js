@@ -1,5 +1,6 @@
 // Install proxy-aware fetch without importing the full open-sse barrel/executor graph.
 import "open-sse/utils/proxyFetch.js";
+import { fingerprintKey } from "open-sse/utils/keyFingerprint.js";
 
 import {
   getProviderCredentials,
@@ -64,8 +65,7 @@ export async function handleChat(request, clientRawRequest = null) {
   const authHeader = request.headers.get("Authorization");
   const apiKey = extractApiKey(request);
   if (authHeader && apiKey) {
-    const masked = log.maskKey(apiKey);
-    log.debug("AUTH", `API Key: ${masked}`);
+    log.debug("AUTH", `API Key: ${fingerprintKey(apiKey)}`);
   } else {
     log.debug("AUTH", "No API key provided (local mode)");
   }
