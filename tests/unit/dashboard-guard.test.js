@@ -213,8 +213,8 @@ describe("dashboard guard public LLM API access", () => {
     mocks.validateApiKey.mockResolvedValue(true);
 
     const response = await proxy(request("/v1/systemone", {
-      host: "ai.investdx.biz.id",
-      origin: "https://ai.investdx.biz.id",
+      host: "ai.musaddiqr.com",
+      origin: "https://ai.musaddiqr.com",
       authorization: "Bearer sk-valid",
     }));
 

@@ -19,7 +19,7 @@ set -euo pipefail
 repository=ghcr.io/raufimusaddiq/literouter-production
 container=literouter
 compose_file=/home/ubuntu/9router/compose.production.yml
-health_url=https://ai.investdx.biz.id/api/health
+health_url=https://ai.musaddiqr.com/api/health
 docker_bin=${DOCKER_BIN:-docker}
 curl_bin=${CURL_BIN:-curl}
 

@@ -61,7 +61,7 @@ polling until a verdict lands on the current head.
 ## After merge
 
 Staging is sunset: there is no staging branch, no `compose.staging.yml`
-deployment, and no `ai-staging.investdx.biz.id` block. Every merge to `main`
+deployment, and no `ai-staging.musaddiqr.com` block. Every merge to `main`
 builds the immutable production image via `.github/workflows/production-image.yml`
 and publishes `ghcr.io/raufimusaddiq/literouter-production:production-<full-sha>`.
 
@@ -166,7 +166,7 @@ bash scripts/deploy.sh <full-sha>
 Wait for the workflow (`gh run watch --repo raufimusaddiq/literouter`) to reach
 `completed success` for the merged SHA before deploying; the tag is immutable, so
 never deploy `latest`. The script itself requires `docker inspect` healthy with
-the expected image tag and a successful `https://ai.investdx.biz.id/api/health`
+the expected image tag and a successful `https://ai.musaddiqr.com/api/health`
 smoke before it removes the replaced tag. See **Production image retention** for
 the full behaviour and the failure path.
 
@@ -238,7 +238,7 @@ The script is the manual deploy path, unchanged in behaviour, plus the prune:
   healthy deploy look failed and skip the prune. Override the budget with
   `LITEROUTER_WAIT_TIMEOUT`;
 - verifies the container reports `healthy` **and** that
-  `https://ai.investdx.biz.id/api/health` answers, **before** removing anything;
+  `https://ai.musaddiqr.com/api/health` answers, **before** removing anything;
 - removes exactly the tag it replaced, and only when that tag differs from the
   new one.
 
