@@ -1,6 +1,6 @@
 # LiteRouter production promotion plan
 
-Status: **complete**. LiteRouter runs in production on `ai.investdx.biz.id`,
+Status: **complete**. LiteRouter runs in production on `ai.musaddiqr.com`,
 built from `main`. Staging is sunset: there is no staging deployment, no
 `staging -> main` release PR, and `staging` is not a valid target for any change.
 Every change is a PR against `main`, gated by CI and Hermes, and deployed as the
@@ -17,7 +17,7 @@ instead.
 
 ## Current facts — 2026-09-20
 
-- `ai.investdx.biz.id` reaches container `9router` at `172.30.0.2:20128`.
+- `ai.musaddiqr.com` reaches container `9router` at `172.30.0.2:20128`.
 - Production state is the writable Docker volume `9router-data`; its SQLite
   database is WAL-mode and is actively accompanied by `data.sqlite-wal` and
   `data.sqlite-shm`.
@@ -72,7 +72,7 @@ instance.
 ```text
 clients
   |
-Caddy (ai.investdx.biz.id)
+Caddy (ai.musaddiqr.com)
   |
 LiteRouter
   |
@@ -91,7 +91,7 @@ SQLite on `9router-data` (single writer) + Redis cache
   every production replica through the deployment secret store. Do not share a
   writable Docker volume between replicas.
 - Public edge: Caddy keeps the existing hostname and client API contract, and
-  routes `ai.investdx.biz.id` to the single LiteRouter production container.
+  routes `ai.musaddiqr.com` to the single LiteRouter production container.
 
 ## Required PR sequence
 
@@ -186,7 +186,7 @@ Cutover procedure — one writer at a time, no overlap:
 4. Point the Caddy upstream at LiteRouter and run the public `200` sweep until
    it is clean. Keep the prior image and the verified backup retained.
 5. Staging is sunset and was removed during cutover: no `literouter-staging`
-   container and no `ai-staging.investdx.biz.id` block exist. Production is the
+   container and no `ai-staging.musaddiqr.com` block exist. Production is the
    only LiteRouter deployment.
 
 Rollback: stop LiteRouter, restore the verified backup if the new schema was

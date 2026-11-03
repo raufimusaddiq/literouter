@@ -62,7 +62,7 @@ container_images() {
 }
 
 references=$(container_images)
-curl --fail --silent --show-error --max-time 15 https://ai.investdx.biz.id/api/health >/dev/null
+curl --fail --silent --show-error --max-time 15 https://ai.musaddiqr.com/api/health >/dev/null
 images=$("$docker_bin" image ls "$repository" --no-trunc --format '{{.Repository}}:{{.Tag}} {{.ID}}')
 while read -r image image_id; do
   [[ "$image" == "$repository:"* ]] || continue
