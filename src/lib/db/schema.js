@@ -126,6 +126,11 @@ export const TABLES = {
       status: "TEXT",
       tokens: "TEXT",
       meta: "TEXT",
+      // #147: nullable, no default. Old rows stay NULL (never backfilled).
+      // Added by the additive sync as a metadata-only ALTER TABLE ADD COLUMN.
+      latencyMs: "INTEGER",
+      ttftMs: "INTEGER",
+      errorText: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_uh_ts ON usageHistory(timestamp DESC)",

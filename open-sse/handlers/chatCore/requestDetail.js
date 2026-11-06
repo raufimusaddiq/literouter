@@ -115,13 +115,18 @@ export function formatDoneLine({ usage, latency }) {
   return `DONE ${latency?.total ?? 0}ms${ttftStr} · ${inStr} · OUT ${outTok}`;
 }
 
-export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, label = "USAGE", silent = false }) {
-  if (!tokens || typeof tokens !== "object") return;
+// `error` marks a request that failed after producing no usable usage (stall,
+// reset). It is the only case that persists with zero tokens.
+const USAGE_ERROR_MAX = 500;
+
+export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, label = "USAGE", silent = false, latencyMs = null, ttftMs = null, status = "ok", error = null }) {
+  if (!error && (!tokens || typeof tokens !== "object")) return;
+  tokens = tokens && typeof tokens === "object" ? tokens : {};
 
   const inTokens = tokens.input_tokens ?? tokens.prompt_tokens ?? 0;
   const outTokens = tokens.output_tokens ?? tokens.completion_tokens ?? 0;
 
-  if (inTokens === 0 && outTokens === 0) return;
+  if (!error && inTokens === 0 && outTokens === 0) return;
 
   if (!silent) {
     const time = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -143,6 +148,10 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
     timestamp: new Date().toISOString(),
     connectionId: connectionId || undefined,
     apiKey: apiKey || undefined,
-    endpoint: endpoint || null
+    endpoint: endpoint || null,
+    status: error ? "error" : status,
+    latencyMs: Number.isFinite(latencyMs) ? Math.round(latencyMs) : null,
+    ttftMs: Number.isFinite(ttftMs) ? Math.round(ttftMs) : null,
+    errorText: error ? String(error).slice(0, USAGE_ERROR_MAX) : null
   }).catch(() => {});
 }
