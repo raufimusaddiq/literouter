@@ -28,6 +28,11 @@ services:
       REDIS_URL: redis://idx-redis:6379
       REDIS_KEY_PREFIX: "literouter:prod:"
       MINIMAL_PROFILE: "true"
+      # #147: V8 heap ceiling chosen, not inherited from the cgroup heuristic
+      # (2026-11-04T19:31:30 "Reached heap limit"). 512 MiB old space inside the
+      # 768m limit leaves ~256 MiB for buffers, SQLite, undici and the Node
+      # runtime, so V8 hits its own limit before the kernel OOM-kills the container.
+      NODE_OPTIONS: "--max-old-space-size=512"
     expose:
       - "20128"
     volumes:
@@ -45,7 +50,9 @@ services:
         aliases:
           # Keep in-network callers working while they migrate to `literouter`.
           - 9router
-    mem_limit: 512m
+    # 512m -> 768m (#147). Observed steady RSS ~124 MiB; host MemAvailable ~3.7 GiB
+    # with swap exhausted, so +256 MiB is the most this raises worst-case host load.
+    mem_limit: 768m
     mem_reservation: 128m
     healthcheck:
       test:
