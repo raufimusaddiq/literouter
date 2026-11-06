@@ -36,3 +36,20 @@
 - CodeBuddy requests now carry four random per-request UUID headers. No credential or auth ordering change: hooks still run before `applyAuth`.
 - Non-streaming requests whose upstream SSE carries an error frame now fail with the upstream 4xx/5xx status (502 if missing or invalid) instead of returning 200. That lets combo/account fallback see the failure.
 - The NVIDIA rule only renames assistant-history `reasoning` to `reasoning_content`, keeping a non-empty canonical value.
+
+# Upstream Intake - 2026-11-06
+
+- Ticket: #146.
+- Base: LiteRouter `main` at `be80c536c74c774202109567209f4ab5ff36aea3`; previous intake ended at upstream `1fe586bb1cf35e1ed0cb2150a8ef7d1db040b21d` (v0.5.112). Upstream now: `1fe586bb1cf35e1ed0cb2150a8ef7d1db040b21d` (v0.5.112, `origin/master`).
+- Decision: **0 keep, 0 drop**. The range `1fe586bb..origin/master` is empty (0 commits); upstream has not moved since the 2026-10-29 intake.
+- Branch: `intake/20261106-1fe586bb` (report only, no cherry-picks). No PR opened.
+- Method: `git fetch origin --tags` plus `git ls-remote origin refs/heads/master` both return `1fe586bb`; latest upstream tag is `v0.5.112`. Upstream's default branch is `master`, not `main`. No upstream code was read or executed.
+- Validation: none needed; no code touched. No local installs, builds or tests, per AGENTS.md.
+
+## Commit Decisions
+
+- None. No upstream commits since `1fe586bb`.
+
+## Conflicts
+
+- None.
