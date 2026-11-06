@@ -21,6 +21,8 @@ services:
       NODE_ENV: production
       LOG_LEVEL: "${LITEROUTER_LOG_LEVEL:-WARN}"
       ENABLE_REQUEST_LOGS: "true"
+      # #147: requestDetails retention (rows). ~33 h at ~11k req/day; see requestDetailsRepo.js.
+      OBSERVABILITY_MAX_RECORDS: "${LITEROUTER_OBSERVABILITY_MAX_RECORDS:-15000}"
       REQUEST_LOG_MAX_SIZE_MB: "500"
       REQUEST_LOG_MAX_SESSIONS: "1000"
       MODEL_CATALOG_SYNC: "off"

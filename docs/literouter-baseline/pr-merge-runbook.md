@@ -336,3 +336,20 @@ deploy itself fails, and **is** removed on success. It also asserts the deploy
 waits for health before checking it, and covers the same-tag redeploy, a missing
 container, a foreign repository, a non-full-SHA tag, and the usage error for a
 missing, short or malformed argument.
+
+### Request-log retention and heap ceiling (#147)
+
+- `requestDetails` keeps `OBSERVABILITY_MAX_RECORDS` rows (compose default
+  `15000`, override with `LITEROUTER_OBSERVABILITY_MAX_RECORDS`). The env value
+  wins over the dashboard setting. At ~11k requests/day that is ~33 h; worst-case
+  disk is ~21 KiB/row (4 JSON fields capped at 5 KiB) = ~315 MB. Pruning is
+  count-only, oldest `timestamp` first; there is no byte budget.
+- A stream abort logs one `[STREAM-ABORT] reason=... req=<requestDetails id>
+  provider=... model=... kind=... elapsed=... timeout=...` line; `req` is the
+  `requestDetails.id`, and that row is stored with `status: error`.
+- `usageHistory` gained nullable `latencyMs`, `ttftMs`, `errorText`. They are added
+  at boot by the additive schema sync (`ALTER TABLE ... ADD COLUMN`, no default, no
+  table rewrite). `SCHEMA_VERSION` was deliberately not bumped: that would trigger
+  the full-table pre-schema backup at boot. Old rows stay NULL.
+- Container: `NODE_OPTIONS=--max-old-space-size=512` inside `mem_limit: 768m`.
+  No CPU limit: 3.8% average is not a basis for a cap.
