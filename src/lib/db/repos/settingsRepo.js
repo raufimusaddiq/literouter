@@ -30,7 +30,7 @@ const DEFAULT_SETTINGS = {
   requireLogin: true,
   requireApiKey: true,
   enableObservability: false,
-  observabilityMaxRecords: 1000,
+  observabilityMaxRecords: 15000,
   observabilityBatchSize: 20,
   observabilityFlushIntervalMs: 5000,
   observabilityMaxJsonSize: 5,

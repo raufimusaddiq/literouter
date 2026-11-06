@@ -192,7 +192,9 @@ export function createDisconnectAwareStream(transformStream, streamController, o
  * @param {TransformStream} transformStream - Transform stream for SSE
  * @param {object} streamController - Stream controller from createStreamController
  */
-export function pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal = null, stallTimeoutMs = STREAM_STALL_TIMEOUT_MS) {
+export function pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal = null, stallTimeoutMs = STREAM_STALL_TIMEOUT_MS, options = {}) {
+  const { identity = {}, onAbort = null } = options;
+  let abortReported = false;
   let stallTimer = null;
   let chunkCount = 0;
   let totalBytes = 0;
@@ -203,11 +205,45 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
   const clearStall = () => {
     if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
   };
+  // One identity-bearing line per abnormal end, joinable to requestDetails by
+  // `req`. Carries no header, key, token or prompt text.
+  const reportAbort = (reason, detail) => {
+    if (abortReported) return;
+    abortReported = true;
+    const info = {
+      reason,
+      requestId: identity.requestId || null,
+      provider: identity.provider || null,
+      model: identity.model || null,
+      streamKind: identity.streamKind || null,
+      elapsedMs: Date.now() - t0,
+      timeoutMs: stallTimeoutMs,
+      chunks: chunkCount,
+      bytes: totalBytes,
+      sinceLastMs: Date.now() - lastChunkAt,
+      detail: String(detail || "").replace(/\s+/g, " ").slice(0, 160),
+    };
+    console.error(
+      `[STREAM-ABORT] reason=${info.reason} req=${info.requestId} provider=${info.provider} model=${info.model}` +
+      ` kind=${info.streamKind} elapsed=${info.elapsedMs}ms timeout=${info.timeoutMs}ms` +
+      ` chunks=${info.chunks} bytes=${info.bytes} sinceLast=${info.sinceLastMs}ms` +
+      (info.detail ? ` detail="${info.detail}"` : "")
+    );
+    try { onAbort?.(info); } catch { /* recording must not break teardown */ }
+  };
+  const classifyError = (e) => {
+    const msg = e?.message || "";
+    const code = e?.code || e?.cause?.code || "";
+    if (e?.name === "AbortError") return "aborted";
+    if (msg.includes("terminated") || code === "UND_ERR_SOCKET" || code === "ECONNRESET") return "upstream_terminated";
+    return "stream_error";
+  };
   const armStall = () => {
     clearStall();
     stallTimer = setTimeout(() => {
       stallTimer = null;
       abortMessage = "stream stall timeout";
+      reportAbort("stall_timeout", `no upstream bytes for ${stallTimeoutMs}ms`);
       dbg(tag, `STALL TIMEOUT ${stallTimeoutMs}ms | chunks=${chunkCount} | bytes=${totalBytes} | sinceLast=${Date.now() - lastChunkAt}ms`);
       streamController.handleError?.(new Error("stream stall timeout"));
       streamController.abort?.();
@@ -222,7 +258,7 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
     startTime: streamController.startTime,
     isConnected: () => streamController.isConnected(),
     handleComplete: () => { dbg(tag, `complete | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleComplete(); },
-    handleError: (e) => { dbg(tag, `error: ${e?.message} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleError(e); },
+    handleError: (e) => { if (streamController.isConnected()) reportAbort(classifyError(e), e?.message || e?.cause?.code); dbg(tag, `error: ${e?.message} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleError(e); },
     handleDisconnect: (r) => { dbg(tag, `disconnect: ${r} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleDisconnect(r); },
     abort: () => { clearStall(); streamController.abort(); }
   };

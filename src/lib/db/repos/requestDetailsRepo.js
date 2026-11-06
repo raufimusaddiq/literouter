@@ -1,12 +1,25 @@
 import { getAdapter, getAdapterSync } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
-const DEFAULT_MAX_RECORDS = 200;
+// #147: 15,000 rows. At ~11k requests/day that is ~33 h, so a stall is still
+// readable the next day (the 361-551 s stalls are never the oldest row).
+// Worst-case disk: 4 JSON fields x 5 KiB cap + envelope ~= 21 KiB/row -> ~315 MB.
+// Override with OBSERVABILITY_MAX_RECORDS (a positive integer, wins over the
+// dashboard setting so ops can pin it); clamped to MAX_RECORDS_CEILING.
+const DEFAULT_MAX_RECORDS = 15000;
+const MAX_RECORDS_CEILING = 100000;
 const DEFAULT_BATCH_SIZE = 20;
 const DEFAULT_FLUSH_INTERVAL_MS = 5000;
 const DEFAULT_MAX_JSON_SIZE = 5 * 1024;
 const DEFAULT_MAX_BUFFERED = 500;
 const CONFIG_CACHE_TTL_MS = 5000;
+
+export function resolveMaxRecords(settings = {}, env = process.env) {
+  const fromEnv = Number.parseInt(env.OBSERVABILITY_MAX_RECORDS, 10);
+  const fromSettings = Number(settings.observabilityMaxRecords);
+  const n = fromEnv > 0 ? fromEnv : (fromSettings > 0 ? fromSettings : DEFAULT_MAX_RECORDS);
+  return Math.min(Math.floor(n), MAX_RECORDS_CEILING);
+}
 
 let cachedConfig = null;
 let cachedConfigTs = 0;
@@ -21,7 +34,7 @@ async function getObservabilityConfig() {
       const enabled = envRequestLogs.toLowerCase() === "true";
       cachedConfig = {
         enabled,
-        maxRecords: settings.observabilityMaxRecords || parseInt(process.env.OBSERVABILITY_MAX_RECORDS || String(DEFAULT_MAX_RECORDS), 10),
+        maxRecords: resolveMaxRecords(settings),
         batchSize: settings.observabilityBatchSize || parseInt(process.env.OBSERVABILITY_BATCH_SIZE || String(DEFAULT_BATCH_SIZE), 10),
         flushIntervalMs: settings.observabilityFlushIntervalMs || parseInt(process.env.OBSERVABILITY_FLUSH_INTERVAL_MS || String(DEFAULT_FLUSH_INTERVAL_MS), 10),
         maxJsonSize: (settings.observabilityMaxJsonSize || parseInt(process.env.OBSERVABILITY_MAX_JSON_SIZE || "5", 10)) * 1024,
@@ -38,7 +51,7 @@ async function getObservabilityConfig() {
 
     cachedConfig = {
       enabled,
-      maxRecords: settings.observabilityMaxRecords || parseInt(process.env.OBSERVABILITY_MAX_RECORDS || String(DEFAULT_MAX_RECORDS), 10),
+      maxRecords: resolveMaxRecords(settings),
       batchSize: settings.observabilityBatchSize || parseInt(process.env.OBSERVABILITY_BATCH_SIZE || String(DEFAULT_BATCH_SIZE), 10),
       flushIntervalMs: settings.observabilityFlushIntervalMs || parseInt(process.env.OBSERVABILITY_FLUSH_INTERVAL_MS || String(DEFAULT_FLUSH_INTERVAL_MS), 10),
       maxJsonSize: (settings.observabilityMaxJsonSize || parseInt(process.env.OBSERVABILITY_MAX_JSON_SIZE || "5", 10)) * 1024,
@@ -66,7 +79,7 @@ const bufferState = (globalThis.__liteRouterDetailBuffer ||= {
   flushTimer: null,
   isFlushing: false,
   syncAdapter: null,
-  maxRecords: 200,
+  maxRecords: DEFAULT_MAX_RECORDS,
 });
 
 function sanitizeHeaders(headers) {
