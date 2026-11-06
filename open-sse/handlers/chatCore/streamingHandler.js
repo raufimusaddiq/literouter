@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { FORMATS } from "../../translator/formats.js";
 import { needsTranslation } from "../../translator/index.js";
 import { createSSETransformStreamWithLogger, createPassthroughStreamWithLogger, createResponsesRewriteStreamWithLogger } from "../../utils/stream.js";
@@ -142,7 +142,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
  * Build onStreamComplete callback for streaming usage tracking.
  */
 export function buildOnStreamComplete({ provider, model, connectionId, apiKey, requestStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log }) {
-  const streamDetailId = `${Date.now()}-${randomBytes(6).toString("hex")}`;
+  const streamDetailId = randomUUID();
   let aborted = false;
 
   // The stall timer (or an upstream reset) won. Replace the "success / Streaming
