@@ -5,7 +5,7 @@ import { createSSETransformStreamWithLogger, createPassthroughStreamWithLogger, 
 import { createResponsesEventRewriter } from "../../translator/concerns/responsesFunctionTools.js";
 import { pipeWithDisconnect } from "../../utils/streamHandler.js";
 import { PROVIDERS } from "../../config/providers.js";
-import { HTTP_STATUS, STREAM_STALL_TIMEOUT_MS } from "../../config/runtimeConfig.js";
+import { HTTP_STATUS, STREAM_STALL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_FLASH_MS } from "../../config/runtimeConfig.js";
 import { buildAbortedResponsesTerminalBytes } from "../../utils/responsesStreamHelpers.js";
 import { buildStreamErrorBytes } from "../../utils/streamHelpers.js";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail.js";
@@ -63,6 +63,14 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
   return createPassthroughStreamWithLogger(provider, reqLogger, model, connectionId, body, onStreamComplete, apiKey, toolNameMap);
 }
 
+const FLASH_MODEL_RE = /deepseek.*flash/i;
+// Provider-level override wins; otherwise DeepSeek Flash gets the short budget.
+export function resolveStallTimeoutMs(provider, model) {
+  const providerMs = PROVIDERS[provider]?.stallTimeoutMs;
+  if (providerMs) return providerMs;
+  return FLASH_MODEL_RE.test(String(model || "")) ? STREAM_STALL_TIMEOUT_FLASH_MS : STREAM_STALL_TIMEOUT_MS;
+}
+
 /**
  * Handle streaming response — pipe provider SSE through transform stream to client.
  */
@@ -112,7 +120,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
   const onAbortTerminal = isResponsesPassthrough
     ? buildAbortedResponsesTerminalBytes
     : (message) => buildStreamErrorBytes(HTTP_STATUS.GATEWAY_TIMEOUT, message, sourceFormat);
-  const stallTimeoutMs = PROVIDERS[provider]?.stallTimeoutMs || STREAM_STALL_TIMEOUT_MS;
+  const stallTimeoutMs = resolveStallTimeoutMs(provider, model);
   const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal, stallTimeoutMs, {
     identity: { requestId: streamDetailId, provider, model, streamKind: `${sourceFormat}->${targetFormat}` },
     onAbort: onStreamAbort,
