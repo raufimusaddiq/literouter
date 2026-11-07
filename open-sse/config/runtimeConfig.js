@@ -41,6 +41,8 @@ function envMs(name, def) {
 
 // Inter-chunk stall timeout (once tokens are flowing). Generous headroom so
 // slow reasoning models aren't aborted mid-stream. Env: STREAM_STALL_TIMEOUT_MS.
+// Min gap between liveness heartbeats re-emitted on translated streams. Env: STREAM_HEARTBEAT_MS.
+export const TRANSLATE_HEARTBEAT_MS = envMs("STREAM_HEARTBEAT_MS", 5 * 1000);
 export const STREAM_STALL_TIMEOUT_MS = envMs("STREAM_STALL_TIMEOUT_MS", 360 * 1000);
 
 // Time-to-first-token timeout (prompt prefill). Env: STREAM_FIRST_CHUNK_TIMEOUT_MS.

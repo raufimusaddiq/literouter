@@ -294,13 +294,23 @@ function flattenAnyOfOneOf(obj) {
   }
 }
 
+// Choose one type from a multi-type union: structural clues first, then string > number > integer > boolean
+function pickBestType(obj, types) {
+  if (types.length === 0) return "string";
+  if (types.length === 1) return types[0];
+  if (obj.properties && types.includes("object")) return "object";
+  if (obj.items && typeof obj.items === "object" && obj.items.type && types.includes("array")) return "array";
+  for (const t of ["string", "number", "integer", "boolean"]) if (types.includes(t)) return t;
+  return types[0];
+}
+
 // Flatten type arrays
 function flattenTypeArrays(obj) {
   if (!obj || typeof obj !== "object") return;
 
   if (obj.type && Array.isArray(obj.type)) {
     const nonNullTypes = obj.type.filter(t => t !== "null");
-    obj.type = nonNullTypes.length > 0 ? nonNullTypes[0] : "string";
+    obj.type = pickBestType(obj, nonNullTypes);
   }
 
   for (const value of Object.values(obj)) {
@@ -349,10 +359,33 @@ function convertPrefixItems(obj) {
 // Gemini requires items on every type:"array" schema — fill a permissive placeholder
 function ensureArrayItems(obj) {
   if (!obj || typeof obj !== "object") return;
-  if (obj.type === "array" && !obj.items) {
-    obj.items = { type: "string" };
+  if (obj.type === "array") {
+    if (!obj.items || typeof obj.items !== "object" || Object.keys(obj.items).length === 0) {
+      obj.items = { type: "string" };
+    } else if (!obj.items.type) {
+      obj.items.type = obj.items.properties ? "object" : obj.items.items ? "array" : "string";
+    }
   }
   for (const v of Object.values(obj)) if (v && typeof v === "object") ensureArrayItems(v);
+}
+
+// Gemini proto predicates: `items` only on type:"array"; `properties`/`required` only on type:"object".
+// Schema-aware walk: `properties` is a name->schema map, so a parameter literally named
+// "items"/"properties"/"required" is never mistaken for a keyword. Untyped schemas are left alone.
+function enforceTypeConstraints(schema) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return;
+
+  if (schema.properties && typeof schema.properties === "object") {
+    for (const child of Object.values(schema.properties)) enforceTypeConstraints(child);
+  }
+  if (schema.items && typeof schema.items === "object") enforceTypeConstraints(schema.items);
+
+  if (typeof schema.type !== "string") return;
+  if (schema.type !== "array") delete schema.items;
+  if (schema.type !== "object") {
+    delete schema.properties;
+    delete schema.required;
+  }
 }
 
 // Clean JSON Schema for Antigravity API compatibility - removes unsupported keywords recursively
@@ -442,6 +475,9 @@ export function cleanJSONSchemaForAntigravity(schema) {
   }
 
   addPlaceholders(cleaned);
+
+  // Phase 6: Enforce Gemini type predicates (items only on array, properties/required only on object)
+  enforceTypeConstraints(cleaned);
 
   return cleaned;
 }
