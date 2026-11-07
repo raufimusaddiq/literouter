@@ -1,6 +1,6 @@
 import { translateResponse, initState } from "../translator/index.js";
 import { FORMATS } from "../translator/formats.js";
-import { PENDING_COMPLETION_FLUSH_MS } from "../config/runtimeConfig.js";
+import { PENDING_COMPLETION_FLUSH_MS, TRANSLATE_HEARTBEAT_MS } from "../config/runtimeConfig.js";
 import { PROVIDERS } from "../config/providers.js";
 import { liftReasoningAliases } from "../translator/concerns/reasoning.js";
 import { trackPendingRequest, appendRequestLog } from "@/lib/usageDb.js";
@@ -102,6 +102,22 @@ export function createSSEStream(options = {}) {
   // Free's MiMo route does. Lift it on every passthrough delta so OpenAI-shaped
   // clients, the thinking accumulation below and usage accounting see the text.
   const liftAliases = mode === STREAM_MODE.PASSTHROUGH && !!PROVIDERS[provider]?.quirks?.reasoningAliasFields;
+
+  // Liveness for translated streams: upstream pings / SSE comments (Anthropic sends
+  // `ping` through long thinking or tool prep) produce no translated output, so the
+  // downstream client would see zero bytes and trip its own read timeout while the
+  // gateway's stall watchdog (reset by those same upstream bytes) stays quiet.
+  // Re-emit at most one heartbeat per interval: a Claude-format client gets a native
+  // `event: ping`, every other format gets an SSE comment (ignored per the SSE spec).
+  let lastHeartbeatAt = 0;
+  const emitHeartbeat = (controller) => {
+    const now = Date.now();
+    if (now - lastHeartbeatAt < TRANSLATE_HEARTBEAT_MS) return;
+    lastHeartbeatAt = now;
+    controller.enqueue(sharedEncoder.encode(
+      sourceFormat === FORMATS.CLAUDE ? 'event: ping\ndata: {"type":"ping"}\n\n' : ": keepalive\n\n"
+    ));
+  };
 
   // Usage/logging tail, callable from transform() as well as flush(): a client that
   // closes right after the terminal event cancels the reader, and flush() never runs.
@@ -324,8 +340,10 @@ export function createSSEStream(options = {}) {
         // Translate mode
         if (!trimmed) continue;
 
+        if (trimmed.charCodeAt(0) === 58 /* ':' */) { emitHeartbeat(controller); continue; }
         const parsed = parseSSELine(trimmed, targetFormat);
         if (!parsed) continue;
+        if (parsed.type === "ping") { emitHeartbeat(controller); continue; }
 
         // Responses API same-format passthrough: preserve event framing + track terminal state
         const isOpenAIResponsesStream = targetFormat === FORMATS.OPENAI_RESPONSES;
