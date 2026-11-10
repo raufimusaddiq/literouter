@@ -42,18 +42,20 @@ describe("direct fetch replay", () => {
   });
 
   it("does not replay a bare fetch failed", async () => {
-    globalThis.fetch = vi.fn(async () => { throw new TypeError("fetch failed"); });
+    const spy = vi.fn(async () => { throw new TypeError("fetch failed"); });
+    globalThis.fetch = spy;
     const { proxyAwareFetch } = await import("../../open-sse/utils/proxyFetch.js");
     await expect(proxyAwareFetch("https://example.invalid/v1", { method: "POST", body: "{}" })).rejects.toThrow("fetch failed");
-    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it("FETCH_FRESH_RETRY=off disables the replay", async () => {
     process.env.FETCH_FRESH_RETRY = "off";
-    globalThis.fetch = vi.fn(async () => { throw staleErr(); });
+    const spy = vi.fn(async () => { throw staleErr(); });
+    globalThis.fetch = spy;
     const { proxyAwareFetch } = await import("../../open-sse/utils/proxyFetch.js");
     await expect(proxyAwareFetch("https://example.invalid/v1", { method: "POST", body: "{}" })).rejects.toThrow();
-    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it("forceFreshSocket goes straight to the fresh dispatcher", async () => {

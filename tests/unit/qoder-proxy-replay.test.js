@@ -81,7 +81,8 @@ describe("Qoder signed inference transport", () => {
     expect(result.response.ok).toBe(true);
     await result.response.text();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(!!fetchMock.mock.calls[0][1].dispatcher).toBe(useProxy);
+    // The direct path now always carries the capped keep-alive agent; a proxy brings its own.
+    expect(!!fetchMock.mock.calls[0][1].dispatcher).toBe(true);
   });
 
   it("preserves caller cancellation without replaying the request", async () => {
