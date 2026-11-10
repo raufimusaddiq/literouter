@@ -320,16 +320,19 @@ export class KiroExecutor extends BaseExecutor {
 
     // Only a covered region reaches the hostname that receives the bearer token.
     const requestedRegion = (credentials?.providerSpecificData?.region || "us-east-1").trim();
+    const isAmazonHost = (u) => {
+      try { return new URL(u).hostname.endsWith(".amazonaws.com"); } catch { return false; }
+    };
     const regionalize = (u) => {
-      if (!u.includes("amazonaws.com")) return u;
+      if (!isAmazonHost(u)) return u;
       const service = u.match(/\/\/([a-z]+)\.[a-z0-9-]+\.amazonaws\.com/)?.[1];
       const covered = KIRO_SERVICE_REGIONS[service];
       if (!covered || !covered.has(requestedRegion)) return u;
       return u.replace(/([a-z]+)\.[a-z0-9-]+\.amazonaws\.com/, `$1.${requestedRegion}.amazonaws.com`);
     };
 
-    const amazon = baseUrls.filter((u) => u.includes("amazonaws.com")).map(regionalize);
-    const others = baseUrls.filter((u) => !u.includes("amazonaws.com"));
+    const amazon = baseUrls.filter(isAmazonHost).map(regionalize);
+    const others = baseUrls.filter((u) => !isAmazonHost(u));
     const q = amazon.filter((u) => u.includes("://q."));
     const remaining = amazon.filter((u) => !u.includes("://q."));
     return q.length > 0
