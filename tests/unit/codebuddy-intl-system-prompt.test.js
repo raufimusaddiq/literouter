@@ -68,4 +68,11 @@ describe("CodeBuddyIntlExecutor system prompt & agent sanitization", () => {
       content: "You are a helpful AI assistant that helps with software engineering tasks.",
     });
   });
+
+  it("keeps operator prompts that merely use generic template markers", () => {
+    for (const prompt of ["<Role>You review contracts.</Role>", "You are an agent that triages invoices.", "Use orchestration capabilities sparingly."]) {
+      const out = exec.transformRequest("deepseek-v4.1-flash", { messages: [{ role: "system", content: prompt }, { role: "user", content: "hi" }] }, false, {});
+      expect(out.messages[0]).toEqual({ role: "system", content: prompt });
+    }
+  });
 });

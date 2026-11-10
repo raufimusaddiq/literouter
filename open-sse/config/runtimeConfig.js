@@ -84,7 +84,6 @@ export const STALE_SOCKET_ERROR_CODES = new Set([
   "UND_ERR_SOCKET",
   "ECONNRESET",
   "EPIPE",
-  "UND_ERR_HEADERS_TIMEOUT",
 ]);
 
 export const NON_STALE_SOCKET_ERROR_CODES = new Set([
