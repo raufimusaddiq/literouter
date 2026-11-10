@@ -41,6 +41,14 @@ function flattenQuery(messages) {
   return JSON.stringify([{ type: "text", data: { content: parts.join("\n\n") } }]);
 }
 
+// Never reflect raw error text (it can carry stack/internal detail) to the client:
+// log it server-side, return a short stable message.
+function publicErrorMessage(err) {
+  const code = typeof err?.code === "string" && /^[A-Za-z0-9_.-]{1,40}$/.test(err.code) ? ` (${err.code})` : "";
+  console.error(`[trae] upstream request failed: ${err?.message || err}`);
+  return `trae upstream request failed${code}`;
+}
+
 export default class TraeExecutor extends BaseExecutor {
   constructor() {
     super("trae", PROVIDERS.trae);
@@ -189,7 +197,7 @@ export default class TraeExecutor extends BaseExecutor {
     try {
       session = await this.createSession(headers, query, model, psd, signal);
     } catch (err) {
-      return { response: errResponse(502, err?.message ? String(err.message) : String(err)), url: this.base(), headers, transformedBody: body };
+      return { response: errResponse(502, publicErrorMessage(err)), url: this.base(), headers, transformedBody: body };
     }
 
     // Shared per-turn state: plan_item thoughts (cumulative, longest wins).
@@ -303,7 +311,7 @@ export default class TraeExecutor extends BaseExecutor {
         return ev === "done";
       }, signal);
     } catch (err) {
-      return { response: errResponse(502, err?.message ? String(err.message) : String(err)), url: this.base(), headers, transformedBody: body };
+      return { response: errResponse(502, publicErrorMessage(err)), url: this.base(), headers, transformedBody: body };
     }
     if (errorEvent) {
       return { response: errResponse(502, `trae ${errorEvent.code || ""}: ${errorEvent.message || ""}`), url: this.base(), headers, transformedBody: body };
