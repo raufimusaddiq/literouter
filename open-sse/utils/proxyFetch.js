@@ -35,7 +35,9 @@ async function getOrCreateDirectAgent(key, keepAliveTimeout, keepAliveMaxTimeout
   if (cached) return cached;
   const { Agent } = await import("undici");
   if (directDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
-    directDispatchers.delete(directDispatchers.keys().next().value);
+    const oldestKey = directDispatchers.keys().next().value;
+    directDispatchers.get(oldestKey)?.close?.().catch?.(() => {});
+    directDispatchers.delete(oldestKey);
   }
   const agent = new Agent({ keepAliveTimeout, keepAliveMaxTimeout });
   directDispatchers.set(key, agent);
@@ -54,8 +56,10 @@ export function getFreshRetryDispatcher() {
   return getOrCreateDirectAgent("fresh", FRESH_RETRY_KEEPALIVE_TIMEOUT_MS, FRESH_RETRY_KEEPALIVE_TIMEOUT_MS);
 }
 
+// Fail closed: only bodies that can be sent twice are replayable. A stream is consumable
+// once, so retrying with it would send a truncated or empty request.
 function isBodyReplaySafe(body) {
-  return !(body && typeof body.getReader === "function" && body.locked);
+  return body == null || typeof body === "string" || body instanceof URLSearchParams;
 }
 
 // Direct path. When a pooled socket dies before response headers, replay once on a fresh

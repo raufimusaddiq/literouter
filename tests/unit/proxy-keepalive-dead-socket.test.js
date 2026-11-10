@@ -43,6 +43,15 @@ describe("direct fetch replay", () => {
     expect(calls[0]).not.toBe(calls[1]);
   });
 
+  it("never replays a stream body", async () => {
+    const spy = vi.fn(async () => { throw staleErr(); });
+    globalThis.fetch = spy;
+    const { proxyAwareFetch } = await import("../../open-sse/utils/proxyFetch.js");
+    const body = new ReadableStream({ start(c) { c.enqueue(new Uint8Array([1])); c.close(); } });
+    await expect(proxyAwareFetch("https://example.invalid/v1", { method: "POST", body, duplex: "half" })).rejects.toThrow();
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
   it("does not replay a bare fetch failed", async () => {
     const spy = vi.fn(async () => { throw new TypeError("fetch failed"); });
     globalThis.fetch = spy;
