@@ -98,3 +98,23 @@ describe("toolDeduper — DeepSeek same-name dedup (new)", () => {
     expect(stripped.sort()).toEqual(["Bash", "WebSearch"]);
   });
 });
+
+describe("toolDeduper — tool_reference blocks naming stripped tools", () => {
+  const messages = () => [
+    { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: [{ type: "tool_reference", tool_name: "WebSearch" }] }] },
+    { role: "user", content: [{ type: "tool_result", tool_use_id: "t2", content: [{ type: "tool_reference", tool_name: "WebSearch" }, { type: "tool_reference", tool_name: "Bash" }] }] },
+  ];
+
+  it("replaces a result left empty with a text note, keeps references to surviving tools", () => {
+    const msgs = messages();
+    dedupeTools([MCP_EXA, { name: "WebSearch", description: "web" }, BASH()], { clientTool: "claude", messages: msgs });
+    expect(msgs[0].content[0].content).toEqual([{ type: "text", text: "[Tool WebSearch is unavailable]" }]);
+    expect(msgs[1].content[0].content).toEqual([{ type: "tool_reference", tool_name: "Bash" }]);
+  });
+
+  it("leaves messages alone when nothing was stripped", () => {
+    const msgs = messages();
+    dedupeTools([BASH()], { clientTool: "claude", messages: msgs });
+    expect(msgs[0].content[0].content[0].type).toBe("tool_reference");
+  });
+});
