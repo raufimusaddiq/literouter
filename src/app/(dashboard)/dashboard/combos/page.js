@@ -202,7 +202,7 @@ export default function CombosPage() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
+    <div className="flex min-w-0 max-w-full flex-col gap-6 overflow-x-clip px-1 sm:px-0">
       <PageIntro
         eyebrow="Route composition"
         title="Name the fallback path."
@@ -322,8 +322,8 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
                 <span className="text-xs text-text-muted italic">No models</span>
               ) : (
                 combo.models.slice(0, 3).map((model, index) => (
-                  <code key={index} className="inline-flex items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5">
-                    <span>{model}</span>
+                  <code key={index} className="inline-flex min-w-0 max-w-full items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5">
+                    <span className="min-w-0 break-all">{model}</span>
                     <CapacityBadges caps={
                       comboByName[model]
                         ? aggregateComboCapabilities(comboByName[model], comboByName, getCaps)
@@ -489,7 +489,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
             <span className="material-symbols-outlined text-primary text-[18px]">{cap.icon}</span>
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-1.5">
               <code className="font-mono text-sm font-medium">{cap.label}</code>
               <span className="text-[10px] text-text-muted">— {cap.desc}</span>
             </div>
@@ -500,9 +500,9 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
                 models.slice(0, 3).map((model, index) => (
                   <code
                     key={`${model}-${index}`}
-                    className="group/chip inline-flex items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5"
+                    className="group/chip inline-flex min-w-0 max-w-full items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5"
                   >
-                    <span>{model}</span>
+                    <span className="min-w-0 break-all">{model}</span>
                     <CapacityBadges caps={getCaps?.(model)} />
                     <button onClick={() => handleMove(index, -1)} disabled={index === 0} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === 0 ? "text-text-muted/20" : "text-text-muted hover:text-primary"}`}>
                       <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
