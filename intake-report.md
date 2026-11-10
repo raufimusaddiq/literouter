@@ -12,7 +12,7 @@
 - `333d249d` fix(kiro): stop splicing unserved regions into service hostnames - **keep** (cherry-pick). An unserved region could build an NXDOMAIN host or send the bearer token to an attacker-chosen origin.
 - `7ba1d1ca` fix(gemini): send concrete MIME for remote images - **keep** (cherry-pick). `image/*` is rejected by Antigravity with 400.
 - `ef2af4de` fix(translator): preserve all Gemini tool results and follow-up parts - **keep** (cherry-pick). Parallel tool results were dropped after the first.
-- `3ca04639` fix(codebuddy-intl): preserve client system prompts - **keep** (cherry-pick).
+- `3ca04639` fix(codebuddy-intl): preserve client system prompts - **keep, modified**. Upstream replaces the whole system prompt when any marker matches; LiteRouter narrows the pattern to CLI-identity markers and replaces only the matching lines, so operator instructions survive (Hermes blocker).
 - `a3039ab1` fix(dedupe): drop tool_reference blocks naming stripped tools - **keep** (cherry-pick). Strict Claude-compatible upstreams 400 on dangling references.
 - `7ef6df56` fix(opencode-go): use current inference endpoint - **keep, hand-applied** (owner decision). Endpoint URLs only; upstream's registry also carries catalog changes from commits LiteRouter dropped (omen-alpha, claude-haiku-5-5, modelsFetcher), which are not taken. Both URL families answered on `/models` when probed, so this is a precaution against the retirement upstream describes.
 - `633c82f5` fix(opencode-go): use Claude reasoning on the Messages transport - **keep, hand-applied** (owner decision). The `claude.js` change (keep the DeepSeek thinking placeholder when thinking is `adaptive`) and its unit test. The transport-level `thinkingFormat: "claude-adaptive"` tag is recorded in the registry and baseline, but LiteRouter's `resolveFormat` does not read transport-level formats, so it is inert here. The routing tests that depend on it are not taken.
@@ -38,4 +38,5 @@
 
 - Direct upstream calls now use a shared undici Agent with a 4s keep-alive TTL (`FETCH_KEEPALIVE_TIMEOUT_MS`), so connections are reopened more often than under Node's default pool.
 - The stale-socket replay re-sends a request. It is limited to errors raised before response headers that prove the socket died; ambiguous failures are never replayed.
+- The two upstream tests that assumed upstream behaviour were adjusted: `thinking-tool-result-turns` (Opus 5.5 keeps `{type:"adaptive"}`), `qoder-proxy-replay` (direct path now always has the capped agent).
 - Rollback: revert the merge; `FETCH_FRESH_RETRY=off` disables only the replay.

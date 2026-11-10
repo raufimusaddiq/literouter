@@ -65,7 +65,9 @@ function isBodyReplaySafe(body) {
 // Direct path. When a pooled socket dies before response headers, replay once on a fresh
 // socket instead of waiting out the connect timeout. Only errors that prove the socket
 // died qualify (never a bare "fetch failed": the upstream may already hold the request
-// and a replay would bill it twice).
+// and a replay would bill it twice). Residual risk: UND_ERR_SOCKET / "other side closed"
+// can also fire after the body was written, so a replay may rarely submit a POST twice;
+// this matches the executor's own 502 retry. FETCH_FRESH_RETRY=off removes the replay.
 async function directFetch(url, options, forceFreshSocket = false) {
   const dispatcher = await (forceFreshSocket ? getFreshRetryDispatcher() : getDirectDispatcher());
   try {

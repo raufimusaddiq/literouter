@@ -1,4 +1,5 @@
 import { DefaultExecutor } from "./default.js";
+import { dbg } from "../utils/debugLog.js";
 import { parseCodeBuddyError } from "./codebuddy-error.js";
 
 /**
@@ -45,10 +46,18 @@ export class CodeBuddyIntlExecutor extends DefaultExecutor {
             : Array.isArray(m.content)
               ? m.content.map((c) => c?.text || "").join("\n")
               : "";
-        if (text && AGENT_PATTERN.test(text)) {
+        if (!text || !AGENT_PATTERN.test(text)) return text;
+        // Replace only the lines that carry a CLI identity marker and keep the rest of the
+        // operator's prompt (project rules, output contract, safety constraints).
+        let replaced = 0;
+        const kept = text.split("\n").map((line) => {
+          if (!AGENT_PATTERN.test(line)) return line;
+          replaced++;
           return NEUTRAL_PROMPT;
-        }
-        return text;
+        });
+        dbg("CODEBUDDY-INTL", `neutralized ${replaced} agent-identity line(s) in a client system prompt`);
+        // Collapse consecutive neutral lines produced by adjacent matches.
+        return kept.filter((line, i) => !(line === NEUTRAL_PROMPT && kept[i - 1] === NEUTRAL_PROMPT)).join("\n");
       })
       .filter(Boolean);
 

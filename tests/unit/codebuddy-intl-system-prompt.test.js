@@ -75,4 +75,15 @@ describe("CodeBuddyIntlExecutor system prompt & agent sanitization", () => {
       expect(out.messages[0]).toEqual({ role: "system", content: prompt });
     }
   });
+
+  it("neutralizes only the identity line and keeps the operator's other instructions", () => {
+    const prompt = "You are Claude Code, Anthropic's official CLI for coding.\nAlways answer in French.\nNever touch the billing module.";
+    const out = exec.transformRequest("deepseek-v4.1-flash", { messages: [{ role: "system", content: prompt }, { role: "user", content: "hi" }] }, false, {});
+    expect(out.messages[0].content).toBe("You are a helpful AI assistant that helps with software engineering tasks.\nAlways answer in French.\nNever touch the billing module.");
+  });
+
+  it("keeps the rest of a prompt that opens with 'you are cody'", () => {
+    const out = exec.transformRequest("deepseek-v4.1-flash", { messages: [{ role: "system", content: "You are Cody, our support bot.\nRefund limit is 50 USD." }, { role: "user", content: "hi" }] }, false, {});
+    expect(out.messages[0].content).toContain("Refund limit is 50 USD.");
+  });
 });
