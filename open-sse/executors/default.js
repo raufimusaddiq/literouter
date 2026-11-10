@@ -107,8 +107,16 @@ export class DefaultExecutor extends BaseExecutor {
     super(provider, PROVIDERS[provider] || PROVIDERS.openai);
   }
 
-  transformRequest(model, body) {
+  transformRequest(model, body, stream) {
     let transformed = this.applyJsonSchemaFallback(body);
+
+    // OpenAI-compatible upstreams (NVIDIA NIM, DeepSeek) reject `stream_options` on
+    // non-streaming requests with 400 "Stream options can only be defined when stream=True".
+    if (stream !== true && transformed && typeof transformed === "object"
+        && transformed.stream_options !== undefined && transformed.stream !== true) {
+      if (transformed === body) transformed = { ...transformed };
+      delete transformed.stream_options;
+    }
 
     if (this.config.quirks?.responsesSystemRoleUnsupported) {
       transformed = foldResponsesSystemMessages(transformed);
