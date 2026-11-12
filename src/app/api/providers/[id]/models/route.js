@@ -273,6 +273,7 @@ const PROVIDER_MODELS_CONFIG = {
   // ollama-local: url resolved dynamically below via providerSpecificData.baseUrl
   chutes: createOpenAIModelsConfig("https://llm.chutes.ai/v1/models"),
   nvidia: createOpenAIModelsConfig("https://integrate.api.nvidia.com/v1/models"),
+  synthetic: createOpenAIModelsConfig("https://api.synthetic.new/openai/v1/models"),
   "vercel-ai-gateway": createOpenAIModelsConfig("https://ai-gateway.vercel.sh/v1/models"),
   kimchi: {
     customResolver: async (connection) => {

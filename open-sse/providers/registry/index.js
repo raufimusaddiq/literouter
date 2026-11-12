@@ -85,6 +85,7 @@ import p121 from "./alitp-intl.js";
 import p124 from "./kenari.js";
 import p125 from "./typesafe.js";
 import p126 from "./muse.js";
+import p127 from "./synthetic.js";
 export default [
   p0,
   p1,
@@ -170,4 +171,5 @@ export default [
   p124,
   p125,
   p126,
+  p127,
 ];
