@@ -9,6 +9,7 @@ import {
 import { APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { AI_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isSystemOneProvider } from "@/shared/constants/providers";
 import { normalizeProviderId, normalizeProviderSpecificData } from "@/lib/providerNormalization";
+import { toProviderConnectionResponse } from "@/lib/providerConnectionResponse.js";
 
 function normalizeProxyConfig(body = {}) {
   const enabled = body?.connectionProxyEnabled === true;
@@ -61,14 +62,7 @@ export async function GET() {
       const name = isCompatible
         ? (c.name || nodeNameMap[c.provider] || c.providerSpecificData?.nodeName || c.provider)
         : c.name;
-      return {
-        ...c,
-        name,
-        apiKey: undefined,
-        accessToken: undefined,
-        refreshToken: undefined,
-        idToken: undefined,
-      };
+      return { ...toProviderConnectionResponse(c), name };
     });
 
     return json({ connections: safeConnections });
@@ -177,8 +171,7 @@ export async function POST(request) {
       allowOverwrite: body.allowOverwrite === true || body.overwrite === true,
     });
 
-    const result = { ...newConnection };
-    delete result.apiKey;
+    const result = toProviderConnectionResponse(newConnection);
 
     return json({ connection: result }, { status: 201 });
   } catch (error) {

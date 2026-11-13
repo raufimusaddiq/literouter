@@ -22,6 +22,7 @@ const ALIAS_TOKENS = [
   "bzl","bazaarlink","kgw","kilo-gateway","hunyuan","tencent","qianfan","baidu","ernie",
   "dv","devin","devin-cli","morph","morphllm","typesafe",
   "syn","synthetic","synthetic-new","sensenova-intl",
+  "odg","opendesign","opendesign-go","dr","relay","deeprelay",
 ];
 
 const sortedIdToAlias = Object.fromEntries(

@@ -21,6 +21,8 @@ import { getGlmUsage } from "./usage/glm.js";
 import { getCommandCodeUsage } from "./usage/commandcode.js";
 import { getClinepassUsage } from "./usage/clinepass.js";
 import { getSyntheticUsage } from "./usage/synthetic.js";
+import { getDeepRelayUsage } from "./usage/deeprelay.js";
+import { getOpenDesignUsage } from "./usage/opendesign.js";
 import {
   getIflowUsage,
   getOllamaUsage,
@@ -58,6 +60,8 @@ const USAGE_HANDLERS = {
   commandcode: (c) => getCommandCodeUsage(c.apiKey, c.proxyOptions),
   kenari: (c) => getKenariUsage(c.apiKey, c.proxyOptions),
   synthetic: (c) => getSyntheticUsage(c.apiKey, c.proxyOptions),
+  deeprelay: (c) => getDeepRelayUsage(c.apiKey, c.proxyOptions),
+  "opendesign-go": (c) => getOpenDesignUsage(c),
   clinepass: (c) => getClinepassUsage(c.accessToken, c.apiKey, c.proxyOptions),
 };
 

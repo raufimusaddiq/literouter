@@ -82,6 +82,8 @@ import p125 from "./typesafe.js";
 import p126 from "./muse.js";
 import p127 from "./sensenova-intl.js";
 import p128 from "./synthetic.js";
+import p129 from "./opendesign-go.js";
+import p130 from "./deeprelay.js";
 export default [
   p0,
   p1,
@@ -166,4 +168,6 @@ export default [
   p126,
   p127,
   p128,
+  p129,
+  p130,
 ];
