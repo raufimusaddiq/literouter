@@ -19,7 +19,7 @@ export function getQuotaCooldown(backoffLevel = 0) {
  * @param {string} errorText - Error message text
  * @param {number} backoffLevel - Current backoff level for exponential backoff
  * @param {string|null} provider - Provider id, for rules that only apply to one upstream
- * @returns {{ shouldFallback: boolean, cooldownMs: number, newBackoffLevel?: number, modelScoped?: boolean }}
+ * @returns {{ shouldFallback: boolean, cooldownMs: number, newBackoffLevel?: number }}
  */
 export function checkFallbackError(status, errorText, backoffLevel = 0, provider = null) {
   const lowerError = errorText
@@ -35,13 +35,7 @@ export function checkFallbackError(status, errorText, backoffLevel = 0, provider
         const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
         return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), newBackoffLevel: newLevel };
       }
-      // Only rules that ask for it carry the flag; omitting it keeps the shape
-      // existing callers and tests expect.
-      return {
-        shouldFallback: true,
-        cooldownMs: rule.cooldownMs,
-        ...(rule.modelScoped ? { modelScoped: true } : {}),
-      };
+      return { shouldFallback: true, cooldownMs: rule.cooldownMs };
     }
 
     // Status-based rule: match HTTP status code

@@ -75,9 +75,9 @@ describe("nvidia NIM hardening", () => {
     expect(transformed.messages[1].reasoning_content).toBe("secret thought");
   });
 
-  it("classifies the degraded cluster error as a model-scoped 15m cooldown", () => {
+  it("classifies the degraded cluster error as a 15m cooldown", () => {
     const result = checkFallbackError(400, "DEGRADED function cannot be invoked", 0, "nvidia");
-    expect(result).toMatchObject({ shouldFallback: true, modelScoped: true, cooldownMs: 15 * 60 * 1000 });
+    expect(result).toMatchObject({ shouldFallback: true, cooldownMs: 15 * 60 * 1000 });
   });
 
   it("does not apply the NIM rule to other providers", () => {
