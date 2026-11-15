@@ -35,10 +35,12 @@ export function checkFallbackError(status, errorText, backoffLevel = 0, provider
         const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
         return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), newBackoffLevel: newLevel };
       }
+      // Only rules that ask for it carry the flag; omitting it keeps the shape
+      // existing callers and tests expect.
       return {
         shouldFallback: true,
         cooldownMs: rule.cooldownMs,
-        modelScoped: Boolean(rule.modelScoped),
+        ...(rule.modelScoped ? { modelScoped: true } : {}),
       };
     }
 
