@@ -56,9 +56,16 @@ async function classifyRejection(response) {
 function sleep(ms, signal) {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve();
-    const onAbort = () => { clearTimeout(timer); resolve(); };
-    const timer = setTimeout(() => { signal?.removeEventListener?.("abort", onAbort); resolve(); }, ms);
-    signal?.addEventListener?.("abort", onAbort, { once: true });
+    let timer;
+    // One cleanup path for both the timeout and the abort: the listener is
+    // always removed, so retries never accumulate handlers on the signal.
+    function cleanup() {
+      clearTimeout(timer);
+      signal?.removeEventListener?.("abort", cleanup);
+      resolve();
+    }
+    timer = setTimeout(cleanup, ms);
+    signal?.addEventListener?.("abort", cleanup, { once: true });
   });
 }
 
