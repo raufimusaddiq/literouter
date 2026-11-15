@@ -63,6 +63,9 @@ export const ERROR_RULES = [
   // healthy, so rotating accounts (or locking one) would not help.
   { text: "context_length_exceeded",  cooldownMs: 0 },
   { text: "maximum context length",   cooldownMs: 0 },
+  // NVIDIA NIM returns 400 with "degraded" when a specific model cluster is unhealthy.
+  // Lock only the degraded model, not the API key (modelScoped).
+  { provider: "nvidia", text: "degraded", cooldownMs: 15 * 60 * 1000, modelScoped: true },
   { text: "no credentials",           cooldownMs: COOLDOWN.long },
   { text: "request not allowed",      cooldownMs: COOLDOWN.short },
   { text: "improperly formed request", cooldownMs: COOLDOWN.long },
