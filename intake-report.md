@@ -5,7 +5,7 @@
 - Decision: **20 keep (10 hand-applied/adapted), 19 drop** across all 39 commits in `1339107e..1855aa44`.
 - Branch: `intake/20261115-1855aa44` from `origin-literouter/main` (`bb204846`). Never based on or merged with `origin/master`.
 - Method: upstream commits read as untrusted text, trial-applied in the ticket worktree, then integrated with `git cherry-pick -x` or by hand where LiteRouter has diverged. No upstream scripts or instructions were executed.
-- Validation: `node --check` on every touched non-JSX module only, plus the baseline verifiers. No local installs, builds or tests, per AGENTS.md. GitHub CI (`test.yml`) and the current-head Hermes review gate the merge.
+- Validation: `node --check` and acorn/acorn-jsx parses on every touched JS/JSX module, a use-before-define scan of the changed dashboard/React modules, plus the baseline verifiers. No local installs, builds or tests, per AGENTS.md. GitHub CI (`test.yml`) and the current-head Hermes review gate the merge.
 - Release markers (`54a88d04`, `1855aa44`) are not taken, so `CHANGELOG.md` is untouched (also outside this ticket's scope).
 
 ## Owner decisions (2026-11-15)
@@ -51,6 +51,14 @@ The manager approved every recommendation below; entries marked **applied** are 
 - `tests/unit/xiaomi-tokenplan-catalog.test.js`: catalog, retired ids, modality kinds and shared-table wiring.
 - `tests/unit/nvidia-params.test.js`: upstream's node:test file ported to vitest, plus a guard that the NIM degraded rule does not fire for other providers.
 - `chore(intake)` baseline refresh: `providers-baseline.json` also picks up drift that was already on `main` and never snapshotted (`cloudflare-ai.systemOneTransport`, kimi's `openai-responses` transport, the `muse` provider in `alias-baseline.json`). `verify-providers` and `verify-alias` pass.
+
+## Review follow-ups
+
+Hermes requested changes on head `28eaf32e`; each finding is fixed with a code change on the same branch:
+
+- **Provider page TDZ (blocker).** `providerAlias` is now declared before the `models` expression that passes it to `applyQoderModelNames`, so the provider detail page no longer throws on render. The other changed dashboard/React modules were scanned for the same pattern (see validation note above) and are clean.
+- **Dead `modelScoped` flag removed.** `checkFallbackError` no longer returns it and the NIM "degraded" rule no longer carries it; nothing consumed it, because `auth.js` already locks per model through `buildModelLockUpdate(model, …)`. The NIM test asserts the 15 min cooldown only.
+- **`sleep()` listener cleanup.** Both the timeout and abort paths now share one `cleanup()` that clears the timer, removes the abort listener and resolves, so a retry loop cannot accumulate handlers on the signal.
 
 ## Dropped
 
