@@ -22,6 +22,7 @@ import { getKenariUsage } from "./usage/kenari.js";
 import { resolveQoderCredentials } from "./qoderModels.js";
 import { getGlmUsage } from "./usage/glm.js";
 import { getCommandCodeUsage } from "./usage/commandcode.js";
+import { getClinepassUsage } from "./usage/clinepass.js";
 import {
   getIflowUsage,
   getOllamaUsage,
@@ -66,6 +67,8 @@ const USAGE_HANDLERS = {
   "xiaomi-mimo": (c) => getXiaomiMimoUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
   commandcode: (c) => getCommandCodeUsage(c.apiKey, c.proxyOptions),
   kenari: (c) => getKenariUsage(c.apiKey, c.proxyOptions),
+  // OAuth WorkOS JWT (workos: prefix) or plain ClinePass API key — same usage-limits URL.
+  clinepass: (c) => getClinepassUsage(c.accessToken, c.apiKey, c.proxyOptions),
 };
 
 export async function getUsageForProvider(connection, proxyOptions = null, options = {}) {
