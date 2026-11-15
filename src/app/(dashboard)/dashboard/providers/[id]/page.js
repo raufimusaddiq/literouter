@@ -157,11 +157,11 @@ export default function ProviderDetailPage() {
   // and each model row links to the System One workspace instead of the chat ping.
   const isFreeNoAuth = !!FREE_PROVIDERS[providerId]?.noAuth;
   const staticModels = getModelsByProviderId(providerId);
+  const providerAlias = getProviderAlias(providerId);
   const models = (providerId === "cursor" || providerId === "zed") && liveModels.length > 0
     ? liveModels
     : applyQoderModelNames(staticModels, customModels, providerAlias);
-  const providerAlias = getProviderAlias(providerId);
-  
+
   const isOpenAICompatible = isOpenAICompatibleProvider(providerId);
   const isAnthropicCompatible = isAnthropicCompatibleProvider(providerId);
   const isCompatible = isOpenAICompatible || isAnthropicCompatible;
