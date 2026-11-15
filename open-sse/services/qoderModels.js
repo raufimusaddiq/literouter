@@ -252,9 +252,10 @@ async function fetchQoderCatalogRaw(credentials, signal, proxyOptions = null) {
     if (!key) continue;
 
     // Always cache the config — chat needs model_config even for UI-hidden
-    // models (enable:false). Upstream still accepts chat for these keys.
+    // models (enable:false). Upstream still accepts chat for these keys, and
+    // the IDE keeps them usable, so they stay advertised under their current
+    // upstream display name instead of dropping out of the catalog.
     rawConfigs.set(key, entry);
-    if (entry.enable === false) continue;
 
     const display = entry.display_name || key;
     const ctx = Number(entry.max_input_tokens) || 131_072;
@@ -270,6 +271,12 @@ async function fetchQoderCatalogRaw(credentials, signal, proxyOptions = null) {
   }
 
   return { models, rawConfigs };
+}
+
+/** Drop every cached catalog (tests and credential resets). */
+export function clearQoderCatalog() {
+  catalogCache.clear();
+  inflight.clear();
 }
 
 /**
