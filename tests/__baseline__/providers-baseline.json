@@ -151,6 +151,9 @@
     "quirks": {
       "clineEnvelope": true
     },
+    "usage": {
+      "url": "https://api.cline.bot/api/v1/users/me/plan/usage-limits"
+    },
     "auth": {
       "combined": true,
       "header": "Authorization",
@@ -165,7 +168,11 @@
   "cloudflare-ai": {
     "baseUrl": "https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1/chat/completions",
     "thinkingFormat": "openai",
-    "format": "openai"
+    "format": "openai",
+    "systemOneTransport": {
+      "baseUrl": "https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/run/{model}",
+      "responseWrapper": "result"
+    }
   },
   "codebuddy-cn": {
     "baseUrl": "https://copilot.tencent.com/v2/chat/completions",
@@ -182,7 +189,10 @@
     "auth": {
       "combined": true,
       "header": "Authorization",
-      "scheme": "bearer"
+      "scheme": "bearer",
+      "hooks": [
+        "codebuddyHeaders"
+      ]
     },
     "usage": {
       "url": "https://copilot.tencent.com/v2/billing/meter/get-user-resource"
@@ -537,6 +547,18 @@
             "kimiHeaders"
           ]
         }
+      },
+      {
+        "format": "openai-responses",
+        "baseUrl": "https://api.kimi.com/coding/v1/responses",
+        "auth": {
+          "combined": true,
+          "header": "Authorization",
+          "scheme": "bearer",
+          "hooks": [
+            "kimiHeaders"
+          ]
+        }
       }
     ]
   },
@@ -695,6 +717,10 @@
   "nvidia": {
     "baseUrl": "https://integrate.api.nvidia.com/v1/chat/completions",
     "validateUrl": "https://integrate.api.nvidia.com/v1/models",
+    "timeoutMs": 90000,
+    "quirks": {
+      "dropClientMetadata": true
+    },
     "format": "openai"
   },
   "ollama-local": {
@@ -757,10 +783,14 @@
     },
     "forceStream": true,
     "noAuth": true,
+    "reasoningInject": {
+      "scope": "all"
+    },
     "quirks": {
       "forceAutoToolChoiceModels": [
         "muse-spark-1.3-contributor-free"
-      ]
+      ],
+      "reasoningAliasFields": true
     },
     "format": "openai"
   },
@@ -932,7 +962,10 @@
     "auth": {
       "combined": true,
       "header": "Authorization",
-      "scheme": "bearer"
+      "scheme": "bearer",
+      "hooks": [
+        "codebuddyHeaders"
+      ]
     },
     "usage": {
       "url": "https://www.codebuddy.ai/v2/billing/meter/get-user-resource"
@@ -1032,6 +1065,10 @@
     "usage": {
       "url": "https://kenari.id/v1/account/quota"
     },
+    "quirks": {
+      "responsesFunctionToolsOnly": true,
+      "responsesSystemRoleUnsupported": true
+    },
     "format": "openai",
     "transports": [
       {
@@ -1067,5 +1104,20 @@
     "baseUrl": "https://api.typesafe.ai/v1/systemone",
     "format": "systemone",
     "timeoutMs": 10000
+  },
+  "muse": {
+    "baseUrl": "https://api.meta.ai/v1/responses",
+    "format": "openai-responses",
+    "transports": [
+      {
+        "format": "openai-responses",
+        "baseUrl": "https://api.meta.ai/v1/responses",
+        "auth": {
+          "combined": true,
+          "header": "Authorization",
+          "scheme": "bearer"
+        }
+      }
+    ]
   }
 }
