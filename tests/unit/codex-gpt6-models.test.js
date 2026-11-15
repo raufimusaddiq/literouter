@@ -31,8 +31,8 @@ describe("Codex gpt-6 models", () => {
 
   it.each([true, false])("uses the updated Codex CLI identity (stream=%s)", (stream) => {
     const headers = new CodexExecutor().buildHeaders({ accessToken: "test-token" }, stream);
-    expect(headers.version).toBe("0.159.0");
-    expect(headers["User-Agent"]).toBe("codex_cli_rs/0.159.0");
+    expect(headers.version).toBe("0.167.1");
+    expect(headers["User-Agent"]).toBe("codex_cli_rs/0.167.1");
   });
 
   it("does not register review variants for gpt-6", () => {
