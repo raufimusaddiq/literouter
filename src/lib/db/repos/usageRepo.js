@@ -259,7 +259,7 @@ export async function getActiveRequests() {
     .slice(0, 20);
 
   const errorProvider = (Date.now() - lastErrorProvider.ts < 10000) ? lastErrorProvider.provider : "";
-  return { activeRequests, recentRequests, errorProvider };
+  return { activeRequests, recentRequests, errorProvider, pending: pendingRequests };
 }
 
 function writeUsageBatch(db, entries) {
@@ -354,6 +354,27 @@ function onUsageBatchPersisted(insertedEntries) {
   scheduleStatsEvent("update", 250);
 }
 
+const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
+let lastPruneAt = 0;
+
+// Drop per-request usageHistory rows older than the retention setting. Runs at
+// most hourly per process and never throws: pruning must not fail a flush.
+export async function pruneUsageHistory({ force = false, now = Date.now() } = {}) {
+  if (!force && now - lastPruneAt < PRUNE_INTERVAL_MS) return 0;
+  lastPruneAt = now;
+  try {
+    const { getSettings } = await import("./settingsRepo.js");
+    const days = Number((await getSettings()).usageHistoryRetentionDays);
+    if (!Number.isFinite(days) || days <= 0) return 0;
+    const db = await getAdapter();
+    const cutoff = new Date(now - days * 86400000).toISOString();
+    const res = db.run(`DELETE FROM usageHistory WHERE timestamp < ?`, [cutoff]);
+    return res?.changes || 0;
+  } catch {
+    return 0;
+  }
+}
+
 function scheduleUsageFlush(delay = USAGE_FLUSH_INTERVAL_MS) {
   if (usageWriteBuffer.timer || usageWriteBuffer.flushing) return;
   usageWriteBuffer.timer = setTimeout(() => {
@@ -405,6 +426,7 @@ export async function flushUsageQueue({ drainAll = true } = {}) {
         const inserted = writeUsageBatch(db, entries);
         onUsageBatchPersisted(inserted);
         settlePersistedBatch(batch);
+        pruneUsageHistory();
       } catch (error) {
         handleUsageBatchFailure(batch, error);
         throw error;

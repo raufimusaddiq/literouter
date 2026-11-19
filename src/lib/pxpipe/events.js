@@ -7,19 +7,31 @@ const ROTATED_FILE = path.join(PXPIPE_DIR, "events.jsonl.1");
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+let dirReady = false;
+// Size of EVENTS_FILE: seeded by one stat(), then tracked in memory so the
+// request path does no sync fs calls after the first event.
+let fileBytes = null;
+
 function ensureDir() {
+  if (dirReady) return;
   if (!fs.existsSync(PXPIPE_DIR)) fs.mkdirSync(PXPIPE_DIR, { recursive: true });
+  dirReady = true;
 }
 
 // Fire-and-forget: stats must never break the request path.
 export function appendPxpipeEvent(event) {
   try {
     ensureDir();
-    try {
-      const stat = fs.statSync(EVENTS_FILE);
-      if (stat.size > MAX_FILE_BYTES) fs.renameSync(EVENTS_FILE, ROTATED_FILE);
-    } catch { /* no file yet */ }
-    fs.appendFile(EVENTS_FILE, JSON.stringify({ ts: Date.now(), ...event }) + "\n", () => {});
+    if (fileBytes === null) {
+      try { fileBytes = fs.statSync(EVENTS_FILE).size; } catch { fileBytes = 0; }
+    }
+    if (fileBytes > MAX_FILE_BYTES) {
+      try { fs.renameSync(EVENTS_FILE, ROTATED_FILE); } catch { /* raced */ }
+      fileBytes = 0;
+    }
+    const line = JSON.stringify({ ts: Date.now(), ...event }) + "\n";
+    fileBytes += Buffer.byteLength(line);
+    fs.appendFile(EVENTS_FILE, line, () => {});
   } catch { /* ignore */ }
 }
 
