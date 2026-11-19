@@ -464,6 +464,7 @@ export default function APIPageClient({ machineId }) {
             <Input
               value={createdKey || ""}
               readOnly
+              aria-label="Created API key"
               className="min-w-0 flex-1 basis-full font-mono text-sm sm:basis-auto"
             />
             <Button

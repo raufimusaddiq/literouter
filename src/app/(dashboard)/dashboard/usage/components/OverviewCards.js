@@ -39,7 +39,7 @@ function Metric({ label, value, exact, detail }) {
         <span className="metric-value block truncate text-xl font-semibold text-text-main" title={exact}>
           {value}
         </span>
-        {detail ? <span className="mt-1 block text-[10px] text-text-muted">{detail}</span> : null}
+        {detail ? <span className="mt-1 block text-[11px] text-text-muted">{detail}</span> : null}
       </div>
     </Card>
   );

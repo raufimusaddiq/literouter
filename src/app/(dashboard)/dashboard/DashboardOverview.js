@@ -6,6 +6,7 @@ import { Badge, Button, Card, PageIntro, Skeleton } from "@/shared/components";
 import { classifyConnection, getConnectionHealthStats, HEALTH, HEALTH_LABELS } from "@/shared/utils/connectionHealth";
 import { getRelativeTime } from "@/shared/utils";
 import { useOrigin } from "@/shared/hooks/useOrigin";
+import { getAccountLabel, getProviderLabel } from "@/shared/utils/providerLabels";
 
 const PERIODS = [
   { value: "today", label: "Today" },
@@ -129,7 +130,7 @@ function ListCard({ title, href, hrefLabel, children, empty }) {
 }
 
 export default function DashboardOverview() {
-  const [data, setData] = useState({ connections: [], keys: [], settings: {} });
+  const [data, setData] = useState({ connections: [], keys: [], settings: {}, nodes: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
@@ -146,7 +147,9 @@ export default function DashboardOverview() {
       ]);
       if (responses.some((response) => !response.ok)) throw new Error("Workspace data unavailable");
       const [providers, keys, settings] = await Promise.all(responses.map((response) => response.json()));
-      setData({ connections: providers.connections || [], keys: keys.keys || [], settings });
+      // Node names are cosmetic: a failure falls back to registry names.
+      const nodes = await fetch("/api/provider-nodes").then((r) => (r.ok ? r.json() : {})).then((d) => d.nodes || []).catch(() => []);
+      setData({ connections: providers.connections || [], keys: keys.keys || [], settings, nodes });
     } catch {
       setError("Workspace data could not be loaded.");
     } finally {
@@ -298,7 +301,7 @@ export default function DashboardOverview() {
                   <StatusDot ok={ok} label={ok ? "Succeeded" : `Failed: ${r.status}`} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-text-main">{r.model}</p>
-                    <p className="truncate text-xs text-text-muted">{r.provider || "unknown"}</p>
+                    <p className="truncate text-xs text-text-muted">{getProviderLabel(r.provider, data.nodes)}</p>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="metric-value text-xs text-text-main">{fmtCompact(r.promptTokens)} in · {fmtCompact(r.completionTokens)} out</p>
@@ -312,14 +315,15 @@ export default function DashboardOverview() {
           <ListCard title="Provider health" href="/dashboard/providers" hrefLabel="View all" empty={!loading && healthRows.length === 0 ? "No active connections." : null}>
             {healthRows.map(({ connection, status, reason }) => {
               const tone = status === HEALTH.ATTENTION ? "bg-warning" : status === HEALTH.READY ? "bg-success" : "bg-text-muted/50";
+              const providerLabel = getProviderLabel(connection.provider, data.nodes);
               const detail = status === HEALTH.ATTENTION ? reason.replace("_", " ") : HEALTH_LABELS[status].toLowerCase();
               return (
                 <li key={connection.id}>
                   <Link href={`/dashboard/providers/${connection.provider}`} className={`flex ${ROW_HEIGHT} items-center gap-3 px-4 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2`}>
                     <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${tone}`} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-text-main">{connection.name || connection.email || connection.provider}</p>
-                      <p className="truncate text-xs text-text-muted">{connection.provider}</p>
+                      <p className="truncate text-sm font-medium text-text-main">{providerLabel}</p>
+                      <p className="truncate text-xs text-text-muted">{getAccountLabel(connection, providerLabel)}</p>
                     </div>
                     <span className={`shrink-0 text-xs ${status === HEALTH.ATTENTION ? "text-warning" : "text-text-muted"}`}>{detail}</span>
                   </Link>
