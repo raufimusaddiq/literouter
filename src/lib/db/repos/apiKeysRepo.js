@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import { safeEqual } from "@/shared/utils/safeEqual.js";
 import { getAdapter } from "../driver.js";
 import { keyAccessFromColumns, keyAccessToColumns } from "@/shared/utils/keyAccess.js";
 import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
@@ -10,6 +11,15 @@ import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
 const keyCache = global.__liteRouterApiKeyCache ??= { rows: null, expiresAt: 0 };
 const CACHE_TTL_MS = 5000;
 function invalidateApiKeyCache() { keyCache.rows = null; keyCache.expiresAt = 0; }
+
+// Constant-time match: every row is compared (no early exit) via sha256 + timingSafeEqual.
+function findRowByKey(rows, key) {
+  let found = null;
+  for (const row of rows) {
+    if (safeEqual(row.key, key) && !found) found = row;
+  }
+  return found;
+}
 
 async function allKeys() {
   if (keyCache.rows && keyCache.expiresAt > Date.now()) return keyCache.rows;
@@ -47,8 +57,7 @@ export async function getApiKeyById(id) {
 // Used by the /v1 handlers to read the presented key's access settings.
 export async function getApiKeyByKey(key) {
   if (!key) return null;
-  const row = (await allKeys()).find((candidate) => candidate.key === key);
-  return rowToKey(row);
+  return rowToKey(findRowByKey(await allKeys(), key));
 }
 
 export async function createApiKey(name, machineId) {
@@ -101,7 +110,7 @@ export async function deleteApiKey(id) {
 
 export async function validateApiKey(key) {
   if (!key) return false;
-  const row = (await allKeys()).find((r) => r.key === key);
+  const row = findRowByKey(await allKeys(), key);
   if (!row) return false;
   return row.isActive === 1 || row.isActive === true;
 }
