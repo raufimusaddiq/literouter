@@ -10,6 +10,7 @@ import { getModelTargetFormat, getModelSupportedFormats, getModelForceStream, ge
 import { PROVIDERS } from "../config/providers.js";
 import { upstreamResponseHeaders } from "../utils/upstreamHeaders.js";
 import { createErrorResult, parseUpstreamError, formatProviderError } from "../utils/error.js";
+import { RequestParamError } from "../translator/concerns/requestParams.js";
 import { HTTP_STATUS, isTokenSaverEnabled } from "../config/runtimeConfig.js";
 import { handleBypassRequest } from "../utils/bypassHandler.js";
 import { isAbortError, isGatewayTimeout, throwIfAborted } from "../utils/requestTimeouts.js";
@@ -249,7 +250,14 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     // Normalize newer Cowork/CC beta shapes (adaptive thinking, mid-conversation system) the API rejects
     if (clientTool === "claude") normalizeClaudePassthrough(translatedBody, translatedBody.model);
   } else {
-    translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, stream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
+    try {
+      translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, stream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
+    } catch (error) {
+      // Unsupported request parameters (n>1, logprobs...) are the client's error, not ours.
+      if (!(error instanceof RequestParamError)) throw error;
+      trackPendingRequest(model, provider, connectionId, false, true);
+      return createErrorResult(error.status, error.message);
+    }
     if (!translatedBody) {
       trackPendingRequest(model, provider, connectionId, false, true);
       return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} → ${targetFormat}`);

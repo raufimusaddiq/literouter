@@ -4,6 +4,7 @@ import { adjustMaxTokens } from "../formats/maxTokens.js";
 import { encodeDataUri } from "../concerns/image.js";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
 import { collapseTextParts } from "../concerns/message.js";
+import { toOpenAIStop } from "../concerns/requestParams.js";
 
 function stripAnthropicBillingHeader(text) {
   if (typeof text !== "string") return "";
@@ -26,6 +27,14 @@ export function claudeToOpenAIRequest(model, body, stream) {
   // Temperature
   if (body.temperature !== undefined) {
     result.temperature = body.temperature;
+  }
+  if (body.top_p !== undefined) {
+    result.top_p = body.top_p;
+  }
+  // Claude stop_sequences -> OpenAI stop
+  const stop = toOpenAIStop(body.stop_sequences);
+  if (stop !== undefined) {
+    result.stop = stop;
   }
 
   // System message
@@ -78,6 +87,11 @@ export function claudeToOpenAIRequest(model, body, stream) {
   // Tool choice
   if (body.tool_choice) {
     result.tool_choice = convertToolChoice(body.tool_choice);
+  }
+
+  // tool_choice.disable_parallel_tool_use -> parallel_tool_calls:false
+  if (body.tool_choice?.disable_parallel_tool_use === true) {
+    result.parallel_tool_calls = false;
   }
 
   if (body.reasoning_effort !== undefined) {
@@ -277,6 +291,7 @@ function convertToolChoice(choice) {
   switch (choice.type) {
     case "auto": return "auto";
     case "any": return "required";
+    case "none": return "none";
     case "tool": return { type: OPENAI_BLOCK.FUNCTION, function: { name: choice.name } };
     default: return "auto";
   }

@@ -8,6 +8,7 @@ import { extractTextContent } from "../formats/gemini.js";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
 import { getCapabilitiesForModel } from "../../providers/capabilities.js";
 import { createToolNameSanitizer, collectChatToolNames } from "../concerns/toolNames.js";
+import { normalizeStopSequences, STOP_SEQUENCE_LIMITS } from "../concerns/requestParams.js";
 
 // Empty prefix matches real Claude Code behavior (no tool name prefix).
 // Previously "proxy_" was used but this is a detectable fingerprint difference.
@@ -32,6 +33,17 @@ export function openaiToClaudeRequest(model, body, stream) {
   // Temperature
   if (body.temperature !== undefined) {
     result.temperature = body.temperature;
+  }
+  if (body.top_p !== undefined) {
+    result.top_p = body.top_p;
+  }
+  if (body.top_k !== undefined) {
+    result.top_k = body.top_k;
+  }
+  // OpenAI `stop` (string | string[]) -> Claude stop_sequences
+  const stopSequences = normalizeStopSequences(body.stop ?? body.stop_sequences, STOP_SEQUENCE_LIMITS.claude, "Claude");
+  if (stopSequences) {
+    result.stop_sequences = stopSequences;
   }
 
   // Messages
@@ -188,6 +200,14 @@ Respond ONLY with the JSON object, no other text.`);
   // Tool choice
   if (body.tool_choice) {
     result.tool_choice = convertOpenAIToolChoice(body.tool_choice, toolNames.safe);
+  }
+
+  // parallel_tool_calls:false -> tool_choice.disable_parallel_tool_use (not valid with type "none")
+  if (body.parallel_tool_calls === false && result.tools?.length > 0) {
+    const choice = result.tool_choice || { type: "auto" };
+    if (choice.type !== "none") {
+      result.tool_choice = { ...choice, disable_parallel_tool_use: true };
+    }
   }
 
   // Thinking is normalized centrally by applyThinking (thinkingUnified.js) after translation.

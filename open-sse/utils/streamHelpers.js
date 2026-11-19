@@ -1,6 +1,6 @@
 import { FORMATS } from "../translator/formats.js";
 import { fallbackToolCallId } from "../translator/concerns/toolCall.js";
-import { buildErrorBody } from "./error.js";
+import { buildErrorBody, resolveErrorFormat } from "./error.js";
 import { SSE_DONE } from "./sseConstants.js";
 import { CLAUDE_EVENT } from "../translator/schema/index.js";
 
@@ -199,11 +199,16 @@ export function formatSSE(data, sourceFormat) {
 // NOTE: non-SSE client formats (Ollama NDJSON) get an SSE frame here — dead in
 // practice because detectFormatByEndpoint never resolves to OLLAMA.
 export function buildStreamErrorBytes(statusCode, message, clientFormat) {
-  const { error } = buildErrorBody(statusCode, message);
+  const format = resolveErrorFormat(null, clientFormat);
+  const body = buildErrorBody(statusCode, message, format);
 
-  const sse = clientFormat === FORMATS.CLAUDE
-    ? formatSSE({ type: "error", error }, FORMATS.CLAUDE)
-    : formatSSE({ error }, clientFormat) + SSE_DONE;
+  // Claude: `event: error` with the Anthropic envelope. Gemini: a bare error
+  // frame and no [DONE] sentinel (Gemini streams end by closing). OpenAI: error
+  // frame then [DONE].
+  let sse;
+  if (format === FORMATS.CLAUDE) sse = formatSSE(body, FORMATS.CLAUDE);
+  else if (format === FORMATS.GEMINI) sse = formatSSE(body, clientFormat);
+  else sse = formatSSE(body, clientFormat) + SSE_DONE;
 
   return sharedEncoder.encode(sse);
 }
