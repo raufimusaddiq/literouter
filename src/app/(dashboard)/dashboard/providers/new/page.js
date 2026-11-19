@@ -88,9 +88,8 @@ export default function NewProviderPage() {
           Back to Providers
         </Link>
         <PageIntro
-          eyebrow="Provider setup"
-          title="Add a provider connection."
-          description="Store credentials once, then let LiteRouter handle routing and fallback for clients."
+          title="Add provider"
+          description="Store credentials once; LiteRouter handles routing and fallback."
         />
       </div>
 

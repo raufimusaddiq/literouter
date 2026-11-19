@@ -436,30 +436,12 @@ export default function ProvidersPage() {
   return (
     <div className="flex min-w-0 flex-col gap-7">
       <PageIntro
-        eyebrow="Provider network"
-        title="Keep the route supply visible."
-        description="Connect accounts, test upstreams, and see which paths are ready before client traffic arrives."
+        title="Providers"
+        description={<span id="needs-attention" className="scroll-mt-24">{connections.length} {connections.length === 1 ? "connection" : "connections"} · {activeConnections} ready · {failingConnections} {failingConnections === 1 ? "needs" : "need"} attention</span>}
       />
-      <section className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-[14px] bg-primary/[0.07] p-4 ring-1 ring-primary/15">
-          <p className="page-kicker">Provider network</p>
-          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{connections.length}</p>
-          <p className="mt-1 text-xs text-text-muted">Configured connections</p>
-        </div>
-        <div className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle shadow-[var(--shadow-soft)]">
-          <p className="page-kicker text-success">Ready now</p>
-          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{activeConnections}</p>
-          <p className="mt-1 text-xs text-text-muted">Passing or active routes</p>
-        </div>
-        <div id="needs-attention" className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle shadow-[var(--shadow-soft)] scroll-mt-24">
-          <p className="page-kicker text-warning">Needs attention</p>
-          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{failingConnections}</p>
-          <p className="mt-1 text-xs text-text-muted">Connections reporting errors</p>
-        </div>
-      </section>
       <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Catalog</p>
+          <p className="text-xs font-medium text-text-muted">Catalog</p>
           <p className="text-sm text-text-main">Providers, routes, and connection health in one surface.</p>
         </div>
         <div className="flex items-center justify-end">
@@ -498,6 +480,7 @@ export default function ProvidersPage() {
           <div className="grid grid-cols-1 gap-2 sm:flex sm:w-auto">
             <Button
               size="sm"
+              variant="secondary"
               icon="add"
               onClick={() => setShowAddAnthropicCompatibleModal(true)}
               className="w-full sm:w-auto"
@@ -509,7 +492,7 @@ export default function ProvidersPage() {
               variant="secondary"
               icon="add"
               onClick={() => setShowAddCompatibleModal(true)}
-              className="w-full !bg-white !text-black hover:!bg-gray-100 sm:w-auto"
+              className="w-full sm:w-auto"
             >
               Add OpenAI Compatible
             </Button>

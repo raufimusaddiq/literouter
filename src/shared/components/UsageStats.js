@@ -46,7 +46,7 @@ function RecentRequests({ requests = [], onOpenDetails }) {
     <Card className="flex min-w-0 flex-col overflow-hidden" padding="sm">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 border-b border-border px-1 py-2 shrink-0">
-        <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Recent Requests</span>
+        <span className="text-xs font-medium text-text-muted">Recent requests</span>
         {onOpenDetails ? (
           <button
             type="button"

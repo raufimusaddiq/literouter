@@ -476,9 +476,8 @@ export default function TokenSaverClient() {
   return (
     <div className="flex flex-col gap-6">
       <PageIntro
-        eyebrow="Request efficiency"
-        title="Spend fewer tokens before the request leaves."
-        description="Enable only the compression layers that match your traffic and runtime budget."
+        title="Token saver"
+        description="Compression layers that cut tokens before a request leaves."
       >
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${rtkEnabled ? "bg-success/15 text-success" : "bg-surface-3 text-text-muted"}`}>RTK {rtkEnabled ? "on" : "off"}</span>

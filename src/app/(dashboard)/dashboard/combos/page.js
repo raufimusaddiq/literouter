@@ -204,9 +204,8 @@ export default function CombosPage() {
   return (
     <div className="flex min-w-0 max-w-full flex-col gap-6 overflow-x-clip px-1 sm:px-0">
       <PageIntro
-        eyebrow="Route composition"
-        title="Name the fallback path."
-        description="Bundle models under one client-facing name, then choose how LiteRouter moves through them."
+        title="Combos"
+        description="Bundle models under one client-facing name and choose how requests fall back."
         action={<Button icon="add" onClick={() => setShowCreateModal(true)}>Create combo</Button>}
       />
       <div className="grid gap-3 border-b border-border-subtle pb-6 sm:grid-cols-3">

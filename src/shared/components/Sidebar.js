@@ -65,24 +65,24 @@ export default function Sidebar({ onClose }) {
           </div>
           <div className="flex min-w-0 flex-col">
             <span className="text-[17px] font-semibold tracking-[-0.05em] text-text-main">{APP_CONFIG.name}</span>
-            <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">Control plane</span>
+            <span className="text-xs font-medium text-text-muted">Control plane</span>
           </div>
         </Link>
       </div>
       <div className="mx-3 h-px bg-border-subtle" />
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-1 py-5 custom-scrollbar">
-        <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">Operate</p>
+        <p className="px-3 pb-2 text-xs font-medium text-text-muted">Operate</p>
         {operateItems.map(link)}
         <div className="mt-5 space-y-0.5">
-          <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">Route</p>
+          <p className="px-3 mb-2 text-xs font-medium text-text-muted">Route</p>
           {routeItems.map(link)}
         </div>
         <div className="mt-5 space-y-0.5">
-          <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">Observe</p>
+          <p className="px-3 mb-2 text-xs font-medium text-text-muted">Observe</p>
           {observeItems.map(link)}
         </div>
         <div className="mt-5 space-y-0.5">
-          <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">System</p>
+          <p className="px-3 mb-2 text-xs font-medium text-text-muted">System</p>
           {systemItems.map(link)}
         </div>
       </nav>

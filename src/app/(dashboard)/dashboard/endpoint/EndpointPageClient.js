@@ -221,9 +221,8 @@ export default function APIPageClient({ machineId }) {
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <PageIntro
-        eyebrow="Client contract"
-        title="One endpoint. Every provider."
-        description="Keep the client contract stable while LiteRouter handles provider credentials, fallback, and quota state behind it."
+        title="Endpoint"
+        description="One OpenAI-compatible endpoint for every provider."
         action={(
           <div className="flex items-center gap-2 lg:border-l-2 lg:border-border lg:pl-3">
             <span className={`size-2 shrink-0 rounded-full ${endpointSecure ? "bg-success" : "bg-warning"}`} />
