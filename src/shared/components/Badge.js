@@ -5,8 +5,8 @@ import { cn } from "@/shared/utils/cn";
 const variants = {
   default: "bg-surface-2 text-text-muted",
   primary: "bg-brand-500/10 text-brand-600 dark:text-brand-300",
-  success: "bg-green-500/10 text-green-600 dark:text-green-400",
-  warning: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+  success: "bg-green-500/10 text-green-800 dark:text-green-400",
+  warning: "bg-yellow-500/10 text-yellow-800 dark:text-yellow-400",
   error: "bg-red-500/10 text-red-600 dark:text-red-400",
   info: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
 };
