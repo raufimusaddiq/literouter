@@ -1,7 +1,8 @@
 // Note: an explicit 0 row counts as covered (cost not tracked); the CI guard only catches
 // null/missing pricing, so the explicit-zero count is printed here to keep those visible.
 // Read-only report: which chat/llm catalog models have no pricing row (or an explicit 0/0 row).
-// Usage: bun tests/__baseline__/report-pricing-coverage.mjs [provider-regex] [all]
+// Usage: bun tests/__baseline__/report-pricing-coverage.mjs [provider-substring] [all]
+// The filter is a plain case-insensitive substring of the provider id (not a regex).
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -10,13 +11,13 @@ const { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS } = await import(join(root, "open-
 const { getPricingForModel } = await import(join(root, "open-sse/providers/pricing.js"));
 
 const aliasToId = Object.fromEntries(Object.entries(PROVIDER_ID_TO_ALIAS).map(([id, a]) => [a, id]));
-const re = new RegExp(process.argv[2] || ".", "i");
+const filter = (process.argv[2] || "").toLowerCase();
 const showAll = process.argv[3] === "all";
 
 const rows = [];
 for (const [alias, models] of Object.entries(PROVIDER_MODELS)) {
   const pid = aliasToId[alias] || alias;
-  if (!re.test(pid)) continue;
+  if (!pid.toLowerCase().includes(filter)) continue;
   for (const m of models || []) {
     const id = m.id || m;
     if (m.type && m.type !== "llm" && m.type !== "chat") continue;
