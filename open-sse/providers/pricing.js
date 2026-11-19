@@ -410,9 +410,9 @@ export const PROVIDER_PRICING = {
 // reason; none is a claim that the model is free unless its source says so. Read 2026-11-20.
 const BACKFILL_PRICING = {
   cerebras: {
-    "zai-glm-4.7": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cerebras): model deprecated and removed from the public list; no current price
-    "llama-3.3-70b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cerebras): model deprecated and removed from the public list; no current price
-    "llama-4-scout-17b-16e-instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cerebras): model deprecated and removed from the public list; no current price
+    "zai-glm-4.7": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cerebras): id absent from current public model list; no current price
+    "llama-3.3-70b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cerebras): id absent from current public model list; no current price
+    "llama-4-scout-17b-16e-instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cerebras): id absent from current public model list; no current price
   },
   "cloudflare-ai": {
     "@cf/meta/llama-3.2-1b-instruct": { input: 0.027, output: 0.201, cached: 0, reasoning: 0.201 }, // Source: https://developers.cloudflare.com/workers-ai/platform/pricing/
@@ -440,13 +440,13 @@ const BACKFILL_PRICING = {
     "meta-llama/llama-4-maverick-17b-128e-instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(groq): shut down 2026-03-09 per console.groq.com/docs/deprecations
   },
   hyperbolic: {
-    "meta-llama/Llama-3.3-70B-Instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(hyperbolic): no official price page readable; only aggregator figures found
-    "meta-llama/Llama-3.2-3B-Instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(hyperbolic): no official price page readable; only aggregator figures found
-    "NousResearch/Hermes-3-Llama-3.1-70B": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(hyperbolic): no official price page readable; only aggregator figures found
+    "meta-llama/Llama-3.3-70B-Instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(hyperbolic): official USD table at hyperbolic.ai/docs/inference/overview.md (2026-10-21) doesn't list this id
+    "meta-llama/Llama-3.2-3B-Instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(hyperbolic): official USD table at hyperbolic.ai/docs/inference/overview.md (2026-10-21) doesn't list this id
+    "NousResearch/Hermes-3-Llama-3.1-70B": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(hyperbolic): official USD table at hyperbolic.ai/docs/inference/overview.md (2026-10-21) doesn't list this id
   },
   mistral: {
     "mistral-large-latest": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(mistral): docs price Mistral Large 4 (0.70 / 2.10 / 0.07) but do not state that -latest maps to it
-    "codestral-latest": { input: 0.3, output: 0.9, cached: 0.03, reasoning: 0.9 }, // Source: https://docs.mistral.ai/inference/pricing (Codestral)
+    "codestral-latest": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(mistral): docs price "Codestral" (0.3 / 0.9 / 0.03) but do not state that -latest maps to it
     "mistral-medium-latest": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(mistral): alias target (Medium 3.5) not in the pricing table; deprecated 2026-10-31
   },
   nebius: {
@@ -530,7 +530,7 @@ const BACKFILL_PRICING = {
     "sonar-pro": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity): Sonar chat completions rerouted to the Agent API (2026-09-27); official docs carry no Sonar rate card
     "sonar-reasoning-pro": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity): Sonar chat completions rerouted to the Agent API (2026-09-27); official docs carry no Sonar rate card
     "sonar-deep-research": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity): Sonar chat completions rerouted to the Agent API (2026-09-27); official docs carry no Sonar rate card
-    "sonar": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity): Sonar chat completions rerouted to the Agent API (2026-09-27); official docs carry no Sonar rate card
+    "sonar": { input: 0.25, output: 2.50, cached: 0.0625, reasoning: 2.50 }, // Source: https://docs.perplexity.ai/docs/agent-api/models.md (same as perplexity-agent sonar; tool/search fees extra)
   },
   "perplexity-agent": {
     "perplexity/sonar": { input: 0.25, output: 2.5, cached: 0.0625, reasoning: 2.5 }, // Source: https://docs.perplexity.ai/docs/agent-api/models.md (tool/search fees extra)

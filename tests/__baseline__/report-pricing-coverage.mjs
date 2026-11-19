@@ -1,3 +1,5 @@
+// Note: an explicit 0 row counts as covered (cost not tracked); the CI guard only catches
+// null/missing pricing, so the explicit-zero count is printed here to keep those visible.
 // Read-only report: which chat/llm catalog models have no pricing row (or an explicit 0/0 row).
 // Usage: bun tests/__baseline__/report-pricing-coverage.mjs [provider-regex] [all]
 import { fileURLToPath } from "node:url";
@@ -24,5 +26,5 @@ for (const [alias, models] of Object.entries(PROVIDER_MODELS)) {
 }
 const missing = rows.filter((r) => r.price === "MISSING");
 const zero = rows.filter((r) => r.price === "0/0");
-console.log(JSON.stringify({ total: rows.length, missingPrice: missing.length, zeroPrice: zero.length }));
+console.log(JSON.stringify({ total: rows.length, missingPrice: missing.length, zeroPrice: zero.length, explicitZeroRows: zero.length }));
 for (const r of showAll ? rows : [...missing, ...zero]) console.log(`${r.pid}\t${r.id}\t${r.price}`);

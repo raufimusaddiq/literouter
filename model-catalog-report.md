@@ -86,7 +86,6 @@ After: 34 backfilled rows carry a sourced rate (plus the o3 canonical row); 132 
 | cloudflare-ai | @cf/qwen/qwq-32b | 0.66 / 1 / 0 | https://developers.cloudflare.com/workers-ai/platform/pricing/ |
 | cohere | command-r-plus-08-2024 | 2.5 / 10 / 0 | https://cohere.com/pricing (legacy pricing, existing customers) |
 | fireworks | accounts/fireworks/models/llama-v3p3-70b-instruct | 0.9 / 0.9 / 0 | https://docs.fireworks.ai/serverless/pricing (">16B parameters" tier; model not listed by name) |
-| mistral | codestral-latest | 0.3 / 0.9 / 0.03 | https://docs.mistral.ai/inference/pricing (Codestral) |
 | ollama | gpt-oss:120b | 0.15 / 0.6 / 0.014 | https://ollama.com/pricing (pay-as-you-go cloud) |
 | openai | o3 | 2 / 8 / 0.5 |  |
 | siliconflow | inclusionAI/Ling-flash-2.0 | 0.14 / 0.57 / 0 | https://siliconflow.com/models/ling-flash-2-0 |
@@ -100,6 +99,7 @@ After: 34 backfilled rows carry a sourced rate (plus the o3 canonical row); 132 
 | opencode-go | hy3 | 0.14 / 0.58 / 0.035 | https://opencode.ai/inference/go/v1/models |
 | opencode-go | muse-spark-1.2-contributor | 0.1 / 0.2 / 0.002 | https://opencode.ai/inference/go/v1/models; matches https://dev.meta.ai/docs/pricing-rate-limits (contributor mode, Meta may train on data) |
 | opencode-go | muse-spark-1.3-contributor | 0.1 / 0.2 / 0.002 | https://opencode.ai/inference/go/v1/models; matches https://dev.meta.ai/docs/pricing-rate-limits (contributor mode, Meta may train on data) |
+| perplexity | sonar | 0.25 / 2.5 / 0.0625 | https://docs.perplexity.ai/docs/agent-api/models.md |
 | perplexity-agent | perplexity/sonar | 0.25 / 2.5 / 0.0625 | https://docs.perplexity.ai/docs/agent-api/models.md (tool/search fees extra) |
 | bazaarlink | auto:free | 0 / 0 / 0 | https://bazaarlink.ai/api/v1/models (free router, prompt/completion "0") |
 | kilo-gateway | kilo-auto/free | 0 / 0 / 0 | https://api.kilo.ai/api/gateway/models (free router) |
@@ -115,18 +115,19 @@ After: 34 backfilled rows carry a sourced rate (plus the o3 canonical row); 132 
 
 | Provider | Model | Reason |
 |---|---|---|
-| cerebras | zai-glm-4.7 | model deprecated and removed from the public list; no current price |
-| cerebras | llama-3.3-70b | model deprecated and removed from the public list; no current price |
-| cerebras | llama-4-scout-17b-16e-instruct | model deprecated and removed from the public list; no current price |
+| cerebras | zai-glm-4.7 | id absent from current public model list; no current price |
+| cerebras | llama-3.3-70b | id absent from current public model list; no current price |
+| cerebras | llama-4-scout-17b-16e-instruct | id absent from current public model list; no current price |
 | cohere | command-r-08-2024 | current pricing page lists neither version |
 | cohere | command-a-03-2025 | current pricing page lists neither version |
 | gemini | gemma-4-31b-it | Gemini API lists Gemma 4 as free tier only, paid tier not available |
 | groq | llama-3.3-70b-versatile | Groq models page shows Contact Sales only |
 | groq | meta-llama/llama-4-maverick-17b-128e-instruct | shut down 2026-03-09 per console.groq.com/docs/deprecations |
-| hyperbolic | meta-llama/Llama-3.3-70B-Instruct | no official price page readable; only aggregator figures found |
-| hyperbolic | meta-llama/Llama-3.2-3B-Instruct | no official price page readable; only aggregator figures found |
-| hyperbolic | NousResearch/Hermes-3-Llama-3.1-70B | no official price page readable; only aggregator figures found |
+| hyperbolic | meta-llama/Llama-3.3-70B-Instruct | official USD table at hyperbolic.ai/docs/inference/overview.md (2026-10-21) doesn't list this id |
+| hyperbolic | meta-llama/Llama-3.2-3B-Instruct | official USD table at hyperbolic.ai/docs/inference/overview.md (2026-10-21) doesn't list this id |
+| hyperbolic | NousResearch/Hermes-3-Llama-3.1-70B | official USD table at hyperbolic.ai/docs/inference/overview.md (2026-10-21) doesn't list this id |
 | mistral | mistral-large-latest | docs price Mistral Large 4 (0.70 / 2.10 / 0.07) but do not state that -latest maps to it |
+| mistral | codestral-latest | docs price "Codestral" (0.3 / 0.9 / 0.03) but do not state that -latest maps to it |
 | mistral | mistral-medium-latest | alias target (Medium 3.5) not in the pricing table; deprecated 2026-10-31 |
 | nebius | meta-llama/Llama-3.3-70B-Instruct | tokenfactory price page unreadable; only third-party figures found |
 | nvidia | nvidia/nemotron-3.5-lightning-30b-a3b | build.nvidia.com is a free prototype endpoint, no per-token price |
@@ -163,7 +164,6 @@ After: 34 backfilled rows carry a sourced rate (plus the o3 canonical row); 132 
 | perplexity | sonar-pro | Sonar chat completions rerouted to the Agent API (2026-09-27); official docs carry no Sonar rate card |
 | perplexity | sonar-reasoning-pro | Sonar chat completions rerouted to the Agent API (2026-09-27); official docs carry no Sonar rate card |
 | perplexity | sonar-deep-research | Sonar chat completions rerouted to the Agent API (2026-09-27); official docs carry no Sonar rate card |
-| perplexity | sonar | Sonar chat completions rerouted to the Agent API (2026-09-27); official docs carry no Sonar rate card |
 | perplexity-agent | nvidia/nemotron-3-super-120b-a12b | id not in the Agent API model list; no rate published |
 | qoder | ultimate | credit-based subscription (tier multipliers, not dollars), no per-token price |
 | qoder | performance | credit-based subscription (tier multipliers, not dollars), no per-token price |
