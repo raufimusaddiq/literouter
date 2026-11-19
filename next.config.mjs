@@ -25,6 +25,12 @@ const nextConfig = {
     root: tracingRoot
   },
   outputFileTracingRoot: tracingRoot,
+  // Backstop: dirs that must never ship in the standalone output (tests, docs, tooling).
+  outputFileTracingExcludes: {
+    "*": ["./tests/**/*", "./docs/**/*", "./cli/**/*", "./.rig/**/*", "./.claude/**/*", "./images/**/*", "./Dockerfile", "./*.md"],
+    "/instrumentation": ["./tests/**/*", "./docs/**/*", "./cli/**/*", "./.rig/**/*", "./.claude/**/*", "./images/**/*", "./Dockerfile", "./*.md"],
+    "/middleware": ["./tests/**/*", "./docs/**/*", "./cli/**/*", "./.rig/**/*", "./.claude/**/*", "./images/**/*", "./Dockerfile", "./*.md"],
+  },
   images: {
     unoptimized: true
   },
