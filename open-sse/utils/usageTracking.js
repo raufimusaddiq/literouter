@@ -18,45 +18,9 @@ export const COLORS = {
   cyan: "\x1b[36m"
 };
 
-// Safety margin added to usage reported by the NON-streaming path only (see
-// nonStreamingHandler). Streamed usage is reported to clients exactly as the
-// upstream sent it. Never feed this into quota/cost accounting.
-const BUFFER_TOKENS = 2000;
-
 // Get HH:MM:SS timestamp
 function getTimeString() {
   return new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-
-/**
- * Add buffer tokens to usage to prevent context errors
- * @param {object} usage - Usage object (any format)
- * @returns {object} Usage with buffer added
- */
-export function addBufferToUsage(usage) {
-  if (!usage || typeof usage !== "object") return usage;
-
-  const result = { ...usage };
-
-  // Claude format
-  if (result.input_tokens !== undefined) {
-    result.input_tokens += BUFFER_TOKENS;
-  }
-
-  // OpenAI format
-  if (result.prompt_tokens !== undefined) {
-    result.prompt_tokens += BUFFER_TOKENS;
-  }
-
-  // Calculate or update total_tokens
-  if (result.total_tokens !== undefined) {
-    result.total_tokens += BUFFER_TOKENS;
-  } else if (result.prompt_tokens !== undefined && result.completion_tokens !== undefined) {
-    // Calculate total_tokens if not exists
-    result.total_tokens = result.prompt_tokens + result.completion_tokens;
-  }
-
-  return result;
 }
 
 export function filterUsageForFormat(usage, targetFormat) {
