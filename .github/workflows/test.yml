@@ -31,8 +31,16 @@ jobs:
       - run: npm ci
         working-directory: tests
 
-      - run: npx vitest run --reporter=dot
+      - run: npx vitest run --reporter=dot --reporter=json --outputFile.json=../test-results.json
         working-directory: tests
+
+      # Gate: no test that used to pass may fail. New tests are always allowed.
+      - run: node tests/__baseline__/verify-no-regression.mjs test-results.json
+
+      # custom-server-h2c is a plain node:test file; vitest does not collect .cjs.
+      - run: node --test tests/unit/*.test.cjs
+
+      - run: npx eslint .
 
       # Catch standalone tracing/dynamic-import regressions before merge.
       - run: npm run build
