@@ -1,6 +1,7 @@
 import { PROVIDERS, PROVIDER_OAUTH } from "../../config/providers.js";
 import { OAUTH_ENDPOINTS, GITHUB_COPILOT, buildKimiHeaders } from "../../config/appConstants.js";
 import { proxyAwareFetch } from "../../utils/proxyFetch.js";
+import { refreshSignal } from "../../utils/requestTimeouts.js";
 import { dedupRefresh } from "./dedup.js";
 import { buildExternalIdpRefreshParams } from "../../../src/lib/oauth/kiroExternalIdp.js";
 
@@ -107,7 +108,7 @@ export async function refreshAccessToken(provider, refreshToken, credentials, lo
       Accept: "application/json",
       ...(profile.extraHeaders ? (profile.extraHeaders(credentials, config) || {}) : {}),
     };
-    const response = await fetch(url, { method: "POST", headers, body });
+    const response = await fetch(url, { signal: refreshSignal(), method: "POST", headers, body });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -153,6 +154,7 @@ export async function refreshClineToken(refreshToken, log) {
   return dedupRefresh("cline", refreshToken, async () => {
     try {
       const response = await fetch(PROVIDERS.cline?.refreshUrl, {
+        signal: refreshSignal(),
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -204,6 +206,7 @@ export async function refreshGoogleToken(refreshToken, clientId, clientSecret, l
   return dedupRefresh(`google:${clientId}`, refreshToken, async () => {
   try {
     const response = await fetch(OAUTH_ENDPOINTS.google.token, {
+      signal: refreshSignal(),
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -259,6 +262,7 @@ export async function refreshCodexToken(refreshToken, log) {
   return dedupRefresh("codex", refreshToken, async () => {
     try {
       const response = await fetch(OAUTH_ENDPOINTS.openai.token, {
+        signal: refreshSignal(),
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -341,6 +345,7 @@ export async function refreshKiroToken(refreshToken, providerSpecificData, log, 
     }
 
     const response = await proxyAwareFetch(refreshRequest.tokenEndpoint, {
+      signal: refreshSignal(),
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -381,6 +386,7 @@ export async function refreshKiroToken(refreshToken, providerSpecificData, log, 
       : "https://oidc.us-east-1.amazonaws.com/token";
 
     const response = await proxyAwareFetch(endpoint, {
+      signal: refreshSignal(),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -419,6 +425,7 @@ export async function refreshKiroToken(refreshToken, providerSpecificData, log, 
   }
 
   const response = await proxyAwareFetch(PROVIDERS.kiro.tokenUrl, {
+    signal: refreshSignal(),
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -470,6 +477,7 @@ export async function refreshCopilotToken(githubAccessToken, log) {
   return dedupRefresh("copilot", githubAccessToken, async () => {
   try {
     const response = await fetch(PROVIDER_OAUTH["github"]?.copilotTokenUrl, {
+      signal: refreshSignal(),
       headers: {
         "Authorization": `token ${githubAccessToken}`,
         "User-Agent": GITHUB_COPILOT.USER_AGENT,
@@ -517,6 +525,7 @@ export async function refreshCodebuddyToken(refreshToken, log) {
   return dedupRefresh("codebuddy-cn", refreshToken, async () => {
     const oauth = PROVIDER_OAUTH["codebuddy-cn"] || {};
     const response = await fetch(oauth.refreshUrl, {
+      signal: refreshSignal(),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -568,6 +577,7 @@ export async function refreshCodebuddyIntlToken(refreshToken, log) {
   return dedupRefresh("codebuddy-intl", refreshToken, async () => {
     const oauth = PROVIDER_OAUTH["codebuddy-intl"] || {};
     const response = await fetch(oauth.refreshUrl, {
+      signal: refreshSignal(),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -628,6 +638,7 @@ export async function refreshTraeToken(refreshToken, credentials, log) {
   return dedupRefresh("trae", refreshToken, async () => {
     try {
       const response = await fetch(url, {
+        signal: refreshSignal(),
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -61,6 +61,9 @@ export const PENDING_COMPLETION_FLUSH_MS = envMs("PENDING_COMPLETION_FLUSH_MS", 
 // completion is done, so they get NON_STREAM_TOTAL_TIMEOUT_MS instead.
 export const FETCH_CONNECT_TIMEOUT_MS = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1000);
 
+// Hard cap on a single OAuth/token-refresh HTTP call. Env: REFRESH_TIMEOUT_MS.
+export const REFRESH_TIMEOUT_MS = envMs("REFRESH_TIMEOUT_MS", 30 * 1000);
+
 // Total budget for a non-stream upstream call (headers + body). Env: NON_STREAM_TOTAL_TIMEOUT_MS.
 export const NON_STREAM_TOTAL_TIMEOUT_MS = envMs("NON_STREAM_TOTAL_TIMEOUT_MS", 10 * 60 * 1000);
 

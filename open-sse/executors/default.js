@@ -6,6 +6,7 @@ import { resolveOpenAICompatibleApiType } from "../services/provider.js";
 import { OAUTH_ENDPOINTS, buildKimiHeaders } from "../config/appConstants.js";
 import { buildClineHeaders } from "../shared/clineAuth.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
+import { refreshSignal } from "../utils/requestTimeouts.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { stripUnsupportedParams } from "../translator/concerns/paramSupport.js";
 import { extractClaudeSessionIdFromUserId } from "../utils/claudeCloaking.js";
@@ -311,6 +312,7 @@ export class DefaultExecutor extends BaseExecutor {
 
   async refreshWithJSON(url, body, proxyOptions = null) {
     const response = await proxyAwareFetch(url, {
+      signal: refreshSignal(),
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify(body)
@@ -322,6 +324,7 @@ export class DefaultExecutor extends BaseExecutor {
 
   async refreshWithForm(url, params, proxyOptions = null) {
     const response = await proxyAwareFetch(url, {
+      signal: refreshSignal(),
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
       body: new URLSearchParams(params)
@@ -334,6 +337,7 @@ export class DefaultExecutor extends BaseExecutor {
   async refreshIflow(refreshToken, proxyOptions = null) {
     const basicAuth = btoa(`${PROVIDERS.iflow.clientId}:${PROVIDERS.iflow.clientSecret}`);
     const response = await proxyAwareFetch(OAUTH_ENDPOINTS.iflow.token, {
+      signal: refreshSignal(),
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json", "Authorization": `Basic ${basicAuth}` },
       body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken, client_id: PROVIDERS.iflow.clientId, client_secret: PROVIDERS.iflow.clientSecret })
@@ -345,6 +349,7 @@ export class DefaultExecutor extends BaseExecutor {
 
   async refreshKiro(refreshToken, proxyOptions = null) {
     const response = await proxyAwareFetch(PROVIDERS.kiro.tokenUrl, {
+      signal: refreshSignal(),
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json", "User-Agent": "kiro-cli/1.0.0" },
       body: JSON.stringify({ refreshToken })
@@ -356,6 +361,7 @@ export class DefaultExecutor extends BaseExecutor {
 
   async refreshCline(refreshToken, proxyOptions = null) {
     const response = await proxyAwareFetch(PROVIDERS.cline.refreshUrl, {
+      signal: refreshSignal(),
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({ refreshToken, grantType: "refresh_token", clientType: "extension" })
@@ -379,6 +385,7 @@ export class DefaultExecutor extends BaseExecutor {
     if (!cfg?.refreshUrl || !cfg?.clientId) return null;
     const kimiHeaders = buildKimiHeaders(credentials?.providerSpecificData?.deviceId);
     const response = await proxyAwareFetch(cfg.refreshUrl, {
+      signal: refreshSignal(),
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",

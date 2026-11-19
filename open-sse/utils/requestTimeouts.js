@@ -8,7 +8,7 @@
 // above these (UNDICI_BACKSTOP_MS), so these watchdogs always fire first.
 import { setTimeout as sleep } from "node:timers/promises";
 import { proxyAwareFetch } from "./proxyFetch.js";
-import { FETCH_CONNECT_TIMEOUT_MS, NON_STREAM_TOTAL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS } from "../config/runtimeConfig.js";
+import { FETCH_CONNECT_TIMEOUT_MS, NON_STREAM_TOTAL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS, REFRESH_TIMEOUT_MS } from "../config/runtimeConfig.js";
 
 export const GATEWAY_TIMEOUT_CODE = "GATEWAY_TIMEOUT";
 
@@ -80,6 +80,16 @@ export async function fetchWithTimeouts(url, init, proxyOptions, { signal, strea
     if (timeout) throw timeout;
     throw error;
   }
+}
+
+/**
+ * Signal for one token-refresh HTTP call: aborts after REFRESH_TIMEOUT_MS (so a hung OAuth
+ * endpoint cannot stall the user request), combined with the caller signal when given.
+ * The abort surfaces as a thrown error that every refresher already maps to a failed refresh (null).
+ */
+export function refreshSignal(parentSignal, ms = REFRESH_TIMEOUT_MS) {
+  const t = AbortSignal.timeout(ms);
+  return parentSignal ? AbortSignal.any([parentSignal, t]) : t;
 }
 
 /** Sleep that rejects with AbortError as soon as the signal aborts. */

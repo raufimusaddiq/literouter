@@ -1,3 +1,4 @@
+import { refreshSignal } from "../utils/requestTimeouts.js";
 import { PROVIDERS } from "../config/providers.js";
 import { OAUTH_ENDPOINTS, REFRESH_LEAD_MS } from "../config/appConstants.js";
 import {
@@ -99,6 +100,7 @@ export async function refreshVertexToken(saJson, log) {
       .sign(privateKey);
 
     const res = await fetch(OAUTH_ENDPOINTS.google.token, {
+      signal: refreshSignal(),
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({

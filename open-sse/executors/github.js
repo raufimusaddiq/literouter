@@ -8,7 +8,7 @@ import { initState, translateRequest, translateResponse } from "../translator/in
 import { FORMATS } from "../translator/formats.js";
 import { parseSSELine, formatSSE } from "../utils/streamHelpers.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
-import { fetchWithTimeouts } from "../utils/requestTimeouts.js";
+import { fetchWithTimeouts, refreshSignal } from "../utils/requestTimeouts.js";
 import { stripUnsupportedParams } from "../translator/concerns/paramSupport.js";
 import { SSE_DONE } from "../utils/sseConstants.js";
 import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
@@ -348,6 +348,7 @@ export class GithubExecutor extends BaseExecutor {
   async refreshCopilotToken(githubAccessToken, log, proxyOptions = null) {
     try {
       const response = await proxyAwareFetch("https://api.github.com/copilot_internal/v2/token", {
+        signal: refreshSignal(),
         headers: {
           "Authorization": `token ${githubAccessToken}`,
           "User-Agent": GITHUB_COPILOT.USER_AGENT,
@@ -383,6 +384,7 @@ export class GithubExecutor extends BaseExecutor {
       }
 
       const response = await proxyAwareFetch(OAUTH_ENDPOINTS.github.token, {
+        signal: refreshSignal(),
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
         body: new URLSearchParams(params)
