@@ -88,7 +88,7 @@ function getAutostartEnabled() {
  * Handle menu item click (shared logic)
  */
 function handleClick(index, options, onAutostartToggle) {
-  const { onQuit, onOpenDashboard, port } = options;
+  const { onQuit, onOpenDashboard, port, host } = options;
   if (index === MENU_INDEX.DASHBOARD) {
     if (onOpenDashboard) onOpenDashboard();
     else openBrowser(`http://localhost:${port}/dashboard`);
@@ -97,7 +97,7 @@ function handleClick(index, options, onAutostartToggle) {
     try {
       const { enableAutoStart, disableAutoStart } = require("./autostart");
       if (enabled) disableAutoStart();
-      else enableAutoStart();
+      else enableAutoStart(null, { host, port });
       onAutostartToggle(!enabled);
     } catch (e) {}
   } else if (index === MENU_INDEX.QUIT) {

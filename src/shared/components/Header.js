@@ -73,6 +73,13 @@ const getPageInfo = (pathname) => {
       icon: "data_usage",
       breadcrumbs: [],
     };
+  if (pathname.includes("/systemone"))
+    return {
+      title: "System One",
+      description: "Single-model routing control",
+      icon: "account_tree",
+      breadcrumbs: [],
+    };
   if (pathname.includes("/token-saver"))
     return {
       title: "Token Saver",
@@ -139,7 +146,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
             className="flex size-10 items-center justify-center rounded-lg text-text-main transition-colors hover:bg-surface-2 hover:text-primary"
             aria-label="Open navigation"
           >
-            <span className="material-symbols-outlined">menu</span>
+            <span aria-hidden="true" className="material-symbols-outlined">menu</span>
           </button>
         )}
       </div>
@@ -154,7 +161,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
                 className="flex items-center gap-2"
               >
                 {index > 0 && (
-                  <span className="material-symbols-outlined text-text-muted text-base">
+                  <span aria-hidden="true" className="material-symbols-outlined text-text-muted text-base">
                     chevron_right
                   </span>
                 )}
@@ -186,7 +193,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
           </div>
         ) : title ? (
           <div>
-            <p className="mb-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-text-subtle lg:block">LiteRouter / workspace</p>
+            <p className="mb-1 hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted lg:block">LiteRouter / workspace</p>
             <div className="flex items-center gap-2">
               {icon && (
                 <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">
@@ -231,7 +238,7 @@ function HeaderSearch() {
 
   return (
     <div className="relative w-[160px] sm:w-[220px]">
-      <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none">
+      <span aria-hidden="true" className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none">
         search
       </span>
       <input
@@ -249,7 +256,7 @@ function HeaderSearch() {
           className="absolute right-0.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-text-muted hover:bg-surface-2 hover:text-text-main"
           aria-label="Clear search"
         >
-          <span className="material-symbols-outlined text-[16px]">close</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
         </button>
       )}
     </div>

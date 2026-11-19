@@ -46,7 +46,7 @@ export default function Sidebar({ onClose }) {
           : "text-text-muted hover:bg-bg-alt hover:text-text-main"
       )}
     >
-      <span className={cn(
+      <span aria-hidden="true" className={cn(
         "material-symbols-outlined text-[18px]",
         isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors duration-200"
       )}>
@@ -64,25 +64,25 @@ export default function Sidebar({ onClose }) {
             <span aria-hidden="true" className="material-symbols-outlined text-[21px]">route</span>
           </div>
           <div className="flex min-w-0 flex-col">
-            <h1 className="text-[17px] font-semibold tracking-[-0.05em] text-text-main">{APP_CONFIG.name}</h1>
-            <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-text-muted">Control plane</span>
+            <span className="text-[17px] font-semibold tracking-[-0.05em] text-text-main">{APP_CONFIG.name}</span>
+            <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">Control plane</span>
           </div>
         </Link>
       </div>
       <div className="mx-3 h-px bg-border-subtle" />
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-1 py-5 custom-scrollbar">
-        <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-subtle">Operate</p>
+        <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">Operate</p>
         {operateItems.map(link)}
         <div className="mt-5 space-y-0.5">
-          <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-subtle">Route</p>
+          <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">Route</p>
           {routeItems.map(link)}
         </div>
         <div className="mt-5 space-y-0.5">
-          <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-subtle">Observe</p>
+          <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">Observe</p>
           {observeItems.map(link)}
         </div>
         <div className="mt-5 space-y-0.5">
-          <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-subtle">System</p>
+          <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">System</p>
           {systemItems.map(link)}
         </div>
       </nav>

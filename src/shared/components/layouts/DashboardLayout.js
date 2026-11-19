@@ -1,10 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { useNotificationStore } from "@/store/notificationStore";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
+
+// One <Sidebar> in the tree: it is the static column on desktop and the
+// off-canvas drawer on mobile, so nav links are not rendered twice (which
+// doubled RSC prefetches and duplicated nav/aside/h1 in the a11y tree).
+const DESKTOP_QUERY = "(min-width: 1024px)";
+const subscribeDesktop = (onChange) => {
+  const mql = window.matchMedia(DESKTOP_QUERY);
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+};
+const getDesktop = () => window.matchMedia(DESKTOP_QUERY).matches;
+const getServerDesktop = () => false;
 
 function getToastStyle(type) {
   if (type === "success") {
@@ -33,6 +45,7 @@ function getToastStyle(type) {
 
 export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isDesktop = useSyncExternalStore(subscribeDesktop, getDesktop, getServerDesktop);
   const pathname = usePathname();
   const notifications = useNotificationStore((state) => state.notifications);
   const removeNotification = useNotificationStore((state) => state.removeNotification);
@@ -54,7 +67,7 @@ export default function DashboardLayout({ children }) {
               className={`rounded-lg border px-3 py-2 shadow-lg backdrop-blur-sm ${style.wrapper}`}
             >
               <div className="flex items-start gap-2">
-                <span className="material-symbols-outlined text-[18px] leading-5">{style.icon}</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px] leading-5">{style.icon}</span>
                 <div className="min-w-0 flex-1">
                   {n.title ? <p className="text-xs font-semibold mb-0.5">{n.title}</p> : null}
                   <p className="text-xs whitespace-pre-wrap break-words">{n.message}</p>
@@ -66,7 +79,7 @@ export default function DashboardLayout({ children }) {
                     className="flex size-8 items-center justify-center rounded text-current/70 hover:bg-black/5 hover:text-current dark:hover:bg-white/5"
                     aria-label="Dismiss notification"
                   >
-                    <span className="material-symbols-outlined text-[16px]">close</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
                   </button>
                 ) : null}
               </div>
@@ -83,16 +96,16 @@ export default function DashboardLayout({ children }) {
       )}
 
       <div className="mx-auto flex h-full w-full max-w-[1920px]">
-        {/* Sidebar - Desktop */}
-        <div className="hidden h-full shrink-0 lg:flex">
-          <Sidebar />
-        </div>
-
-        {/* Sidebar - Mobile */}
+        {/* Sidebar — desktop column, mobile drawer */}
         <div
-          className={`fixed inset-y-2 left-2 z-50 transform lg:hidden transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-[calc(100%+1rem)]"
-          }`}
+          className={
+            isDesktop
+              ? "static h-full shrink-0"
+              : `fixed inset-y-2 left-2 z-50 transform transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+                  sidebarOpen ? "translate-x-0" : "-translate-x-[calc(100%+1rem)]"
+                }`
+          }
+          inert={!isDesktop && !sidebarOpen}
         >
           <Sidebar onClose={() => setSidebarOpen(false)} />
         </div>

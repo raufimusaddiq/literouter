@@ -14,7 +14,7 @@ export default function EndpointRow({ label, url, copyId, copied, onCopy, badge,
         className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
         aria-label={`Copy ${label} endpoint`}
       >
-        <span className="material-symbols-outlined text-[18px]">{copied === copyId ? "check" : "content_copy"}</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{copied === copyId ? "check" : "content_copy"}</span>
       </button>
       {actions}
     </div>
