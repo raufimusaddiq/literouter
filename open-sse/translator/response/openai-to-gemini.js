@@ -49,7 +49,6 @@ export function openaiToGeminiResponse(chunk, state) {
       return null;
     }
     return {
-      candidates: [{ content: { role: GEMINI_ROLE.MODEL, parts: [{ text: "" }] }, index: 0 }],
       usageMetadata: meta,
       modelVersion: state._modelVersion
     };

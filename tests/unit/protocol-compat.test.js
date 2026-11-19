@@ -128,6 +128,12 @@ describe("dropped params", () => {
     expect(() => tr(FORMATS.OPENAI, FORMATS.GEMINI, body)).toThrow(RequestParamError);
     expect(() => tr(FORMATS.OPENAI, FORMATS.OPENAI, body)).not.toThrow();
   });
+  it("raw Gemini candidateCount>1 / responseLogprobs is rejected for a Claude target", () => {
+    const g = (generationConfig) => ({ contents: [{ role: "user", parts: [{ text: "hi" }] }], generationConfig });
+    expect(() => tr(FORMATS.GEMINI, FORMATS.CLAUDE, g({ candidateCount: 2 }), "claude-x")).toThrow(/n>1 not supported/);
+    expect(() => tr(FORMATS.GEMINI, FORMATS.CLAUDE, g({ responseLogprobs: true, logprobs: 3 }), "claude-x")).toThrow(RequestParamError);
+    expect(() => tr(FORMATS.GEMINI, FORMATS.CLAUDE, g({ candidateCount: 1 }), "claude-x")).not.toThrow();
+  });
   it("logprobs alone is ignored; logprobs + top_logprobs is rejected", () => {
     const body = { messages: [{ role: "user", content: "hi" }], logprobs: true };
     expect(() => tr(FORMATS.OPENAI, FORMATS.CLAUDE, body)).not.toThrow();
@@ -154,6 +160,14 @@ describe("openai -> gemini response translator", () => {
     expect(fin.candidates[0].content.parts[0].functionCall).toEqual({ name: "get_weather", args: { c: "Rome" }, id: "call_9" });
     expect(fin.candidates[0].finishReason).toBe("STOP");
     expect(fin.usageMetadata.totalTokenCount).toBe(2);
+  });
+  it("usage-only trailer after finish carries no candidates", () => {
+    const state = initState(FORMATS.GEMINI);
+    const feed = (c) => translateResponse(FORMATS.OPENAI, FORMATS.GEMINI, c, state);
+    feed({ choices: [{ delta: { content: "hi" }, finish_reason: "stop" }] });
+    const [tail] = feed({ choices: [], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });
+    expect(tail.candidates).toBeUndefined();
+    expect(tail.usageMetadata.totalTokenCount).toBe(2);
   });
 });
 

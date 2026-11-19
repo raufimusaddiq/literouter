@@ -33,9 +33,10 @@ export function openaiToOllamaRequest(model, body, stream) {
   }
 
   // Max tokens (Ollama uses num_predict)
-  if (resolveMaxTokens(body) !== undefined) {
+  const maxTokens = resolveMaxTokens(body);
+  if (maxTokens !== undefined) {
     result.options = result.options || {};
-    result.options.num_predict = resolveMaxTokens(body);
+    result.options.num_predict = maxTokens;
   }
 
   const stop = normalizeStopSequences(body.stop, undefined, "Ollama");

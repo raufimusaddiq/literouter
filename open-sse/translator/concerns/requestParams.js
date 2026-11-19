@@ -68,10 +68,17 @@ export function toOpenAIStop(list) {
  * agents send it routinely and have no use for it when the model has none.
  */
 export function assertTargetSupportsParams(body, label) {
-  if (Number.isFinite(body?.n) && body.n > 1) {
+  // Source-format equivalents (Gemini generationConfig, also inside the
+  // Cloud Code `request` envelope) are checked too: the guard runs before the
+  // source->OpenAI hop, where candidateCount would otherwise become n and be
+  // silently dropped by the target translator.
+  const gen = body?.generationConfig || body?.request?.generationConfig;
+  const n = Number.isFinite(body?.n) ? body.n : gen?.candidateCount;
+  if (Number.isFinite(n) && n > 1) {
     throw new RequestParamError(`n>1 not supported for ${label}`);
   }
-  if (body?.logprobs === true && Number.isFinite(body.top_logprobs) && body.top_logprobs > 0) {
+  const geminiLogprobs = gen?.responseLogprobs === true && Number.isFinite(gen.logprobs) && gen.logprobs > 0;
+  if (geminiLogprobs || (body?.logprobs === true && Number.isFinite(body.top_logprobs) && body.top_logprobs > 0)) {
     throw new RequestParamError(`logprobs/top_logprobs not supported for ${label}`);
   }
 }
