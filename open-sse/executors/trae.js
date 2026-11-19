@@ -1,4 +1,5 @@
 import { BaseExecutor } from "./base.js";
+import { SSE_HEADERS } from "../utils/sseConstants.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { PROVIDERS } from "../config/providers.js";
 
@@ -290,11 +291,7 @@ export default class TraeExecutor extends BaseExecutor {
       return {
         response: new Response(sse, {
           status: 200,
-          headers: {
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-          },
+          headers: { ...SSE_HEADERS },
         }),
         url: this.base(),
         headers,

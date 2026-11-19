@@ -1,4 +1,5 @@
 import { handleChat } from "@/sse/handlers/chat.js";
+import { SSE_HEADERS_CORS, SSE_NO_COMPRESS_HEADERS } from "open-sse/utils/sseConstants.js";
 import {
   clearAccountError,
   getProviderCredentials,
@@ -206,6 +207,9 @@ function corsHeadersFrom(response) {
   headers.delete("content-length");
   headers.delete("transfer-encoding");
   headers.set("Access-Control-Allow-Origin", "*");
+  if ((headers.get("content-type") || "").includes("text/event-stream")) {
+    for (const [k, v] of Object.entries(SSE_NO_COMPRESS_HEADERS)) headers.set(k, v);
+  }
   return headers;
 }
 
@@ -511,11 +515,7 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
 
   return new Response(upstreamResponse.body.pipeThrough(transformStream), {
     status: 200,
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Access-Control-Allow-Origin": "*",
-    },
+    headers: { ...SSE_HEADERS_CORS },
   });
 }
 

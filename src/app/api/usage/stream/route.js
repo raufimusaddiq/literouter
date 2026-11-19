@@ -1,3 +1,4 @@
+import { SSE_HEADERS } from "open-sse/utils/sseConstants.js";
 import { statsEmitter, getActiveRequests } from "@/lib/usageDb";
 
 export const dynamic = "force-dynamic";
@@ -61,10 +62,6 @@ export async function GET(request) {
   });
 
   return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
+    headers: { ...SSE_HEADERS },
   });
 }

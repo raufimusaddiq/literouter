@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
 import { commandCodeToOpenAIResponse } from "../translator/response/commandcode-to-openai.js";
-import { SSE_DONE } from "../utils/sseConstants.js";
+import { SSE_DONE, sseResponseHeaders } from "../utils/sseConstants.js";
 
 /**
  * CommandCodeExecutor — talks to https://api.commandcode.ai/alpha/generate
@@ -313,13 +313,7 @@ function wrapNdjsonAsOpenAISse(streamBody, model, originalResponse = null) {
   return new Response(newBody, {
     status: originalResponse?.status || 200,
     statusText: originalResponse?.statusText || "OK",
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-      ...(originalResponse?.headers ? Object.fromEntries(originalResponse.headers.entries()) : {}),
-      "content-type": "text/event-stream",
-    },
+    headers: sseResponseHeaders(originalResponse?.headers),
   });
 }
 
