@@ -1136,7 +1136,7 @@ export default function ProviderDetailPage() {
               <span aria-hidden="true" className="material-symbols-outlined text-text-muted text-[18px]">lan</span>
               <span className="truncate text-sm text-text-main">{pool.name}</span>
               {pool.isActive !== true && (
-                <span className="text-[10px] text-text-muted">(inactive)</span>
+                <span className="text-[11px] text-text-muted">(inactive)</span>
               )}
             </button>
           ))}

@@ -85,13 +85,13 @@ export default function UsageChart({ period = "7d" }) {
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 10, fill: "currentColor", fillOpacity: 0.5 }}
+              tick={{ fontSize: 11, fill: "currentColor", fillOpacity: 0.5 }}
               tickLine={false}
               axisLine={false}
               interval="preserveStartEnd"
             />
             <YAxis
-              tick={{ fontSize: 10, fill: "currentColor", fillOpacity: 0.5 }}
+              tick={{ fontSize: 11, fill: "currentColor", fillOpacity: 0.5 }}
               tickLine={false}
               axisLine={false}
               tickFormatter={viewMode === "tokens" ? fmtTokens : fmtCost}

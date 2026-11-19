@@ -54,7 +54,7 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
       </button>
 
       {/* Index badge */}
-      <span className="text-[10px] font-medium text-text-muted w-3 text-center shrink-0">{index + 1}</span>
+      <span className="text-[11px] font-medium text-text-muted w-3 text-center shrink-0">{index + 1}</span>
 
       {/* Inline editable model value */}
       {editing ? (
@@ -228,7 +228,7 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
               placeholder="my-combo"
               error={nameError}
             />
-            <p className="text-[10px] text-text-muted mt-0.5">
+            <p className="text-[11px] text-text-muted mt-0.5">
               Only letters, numbers, -, _ and . allowed
             </p>
           </div>
