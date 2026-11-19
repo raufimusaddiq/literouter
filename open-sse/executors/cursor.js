@@ -1,7 +1,7 @@
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS, PROVIDER_OAUTH } from "../config/providers.js";
 import { HTTP_STATUS, FETCH_CONNECT_TIMEOUT_MS, NON_STREAM_TOTAL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS } from "../config/runtimeConfig.js";
-import { GatewayTimeoutError, isGatewayTimeout, fetchWithTimeouts } from "../utils/requestTimeouts.js";
+import { GatewayTimeoutError, isGatewayTimeout, rethrowIfGatewayAbort, fetchWithTimeouts } from "../utils/requestTimeouts.js";
 import {
   generateCursorBody,
   encodeField,
@@ -648,7 +648,7 @@ export class CursorExecutor extends BaseExecutor {
       responseHeaders = await session.responseHeaders;
     } catch (error) {
       session.close();
-      if (isGatewayTimeout(error)) throw error;
+      rethrowIfGatewayAbort(error);
       throw new Error(`Cursor AgentService request failed: ${error.message}`);
     }
 
@@ -920,6 +920,7 @@ export class CursorExecutor extends BaseExecutor {
       try {
         return await this.executeAgent({ model, body, stream, credentials, signal, log, proxyOptions });
       } catch (error) {
+        rethrowIfGatewayAbort(error);
         return {
           response: new Response(JSON.stringify({
             error: { message: error.message, type: "connection_error", code: "" },
@@ -962,6 +963,7 @@ export class CursorExecutor extends BaseExecutor {
 
       return { response: transformedResponse, url, headers, transformedBody: body };
     } catch (error) {
+      rethrowIfGatewayAbort(error);
       const errorResponse = new Response(JSON.stringify({
         error: {
           message: error.message,

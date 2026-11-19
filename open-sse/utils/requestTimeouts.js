@@ -31,6 +31,11 @@ export function isAbortError(error) {
   return error?.name === "AbortError" && !isGatewayTimeout(error);
 }
 
+/** Rethrow errors the gateway must see typed (504 / 499) instead of wrapping them in a provider error. */
+export function rethrowIfGatewayAbort(error) {
+  if (isGatewayTimeout(error) || isAbortError(error)) throw error;
+}
+
 /**
  * Derive a request signal bound to the caller's signal plus our own timer.
  * Stream: timer covers time-to-headers and is cleared by headersArrived().
