@@ -39,7 +39,6 @@ function rssMb(pid) {
 }
 
 /** Every process in the gateway's tree (custom-server may fork nothing, but be safe). */
-function treeRssMb(pid) { return rssMb(pid); }
 
 async function waitHttp(url, ms = 90000) {
   const end = Date.now() + ms;
@@ -146,14 +145,14 @@ async function main() {
       const usageOf = () => { const d = path.join(os.homedir(), ".9router"); try { return fs.readdirSync(d).map((f) => [f, fs.statSync(path.join(d, f)).size]); } catch { return []; } };
       const usageBefore = Object.fromEntries(usageOf());
       const sampler = setInterval(() => {
-        samples.push({ t: (Date.now() - t0) / 1000, rssMb: treeRssMb(gw.pid), files: Object.fromEntries(dbFile()) });
+        samples.push({ t: (Date.now() - t0) / 1000, rssMb: rssMb(gw.pid), files: Object.fromEntries(dbFile()) });
       }, 10000);
-      samples.push({ t: 0, rssMb: treeRssMb(gw.pid), files: Object.fromEntries(dbFile()) });
+      samples.push({ t: 0, rssMb: rssMb(gw.pid), files: Object.fromEntries(dbFile()) });
       const soak = await runBench({ baseUrl: gwBase, key, model: slowModel, mode: "stream", concurrency: 20, duration: SOAK_SEC, maxTokens: 200, label: "soak-c20" });
       clearInterval(sampler);
-      samples.push({ t: (Date.now() - t0) / 1000, rssMb: treeRssMb(gw.pid), files: Object.fromEntries(dbFile()) });
+      samples.push({ t: (Date.now() - t0) / 1000, rssMb: rssMb(gw.pid), files: Object.fromEntries(dbFile()) });
       await sleep(5000);
-      const settled = treeRssMb(gw.pid);
+      const settled = rssMb(gw.pid);
       const usageAfter = Object.fromEntries(usageOf());
       const valid = samples.filter((s) => Number.isFinite(s.rssMb));
       const xs = valid.map((s) => s.t / 60), ys = valid.map((s) => s.rssMb);

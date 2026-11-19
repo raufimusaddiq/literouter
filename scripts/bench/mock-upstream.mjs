@@ -21,15 +21,21 @@ function argOrEnv(argv, flag, envName, dflt) {
   return dflt;
 }
 
+function clampInt(v, min, max, dflt) {
+  const n = Math.trunc(Number(v));
+  if (!Number.isFinite(n)) return dflt;
+  return Math.min(max, Math.max(min, n));
+}
+
 export function startMock(opts = {}) {
   const cfg = {
     host: opts.host ?? "127.0.0.1",
     port: Number(opts.port ?? 9101),
     chunks: opts.chunks ?? null,
-    chunkDelayMs: Number(opts.chunkDelayMs ?? 20),
-    firstByteDelayMs: Number(opts.firstByteDelayMs ?? 0),
-    tokensPerChunk: Math.max(1, Number(opts.tokensPerChunk ?? 1)),
-    nonstreamDelayMs: Number(opts.nonstreamDelayMs ?? 0),
+    chunkDelayMs: clampInt(opts.chunkDelayMs ?? 20, 0, 60000, 20),
+    firstByteDelayMs: clampInt(opts.firstByteDelayMs ?? 0, 0, 60000, 0),
+    tokensPerChunk: clampInt(opts.tokensPerChunk ?? 1, 1, 64, 1),
+    nonstreamDelayMs: clampInt(opts.nonstreamDelayMs ?? 0, 0, 60000, 0),
   };
   const stats = { total: 0, inflight: 0, completed: 0, aborted: 0 };
   const sockets = new Set();
@@ -75,7 +81,7 @@ export function startMock(opts = {}) {
     const model = body.model || "bench";
     const id = `chatcmpl-mock-${stats.total}`;
     const created = Math.floor(Date.now() / 1000);
-    const nChunks = cfg.chunks != null ? Number(cfg.chunks) : Math.max(1, Number(body.max_tokens) || 50);
+    const nChunks = clampInt(cfg.chunks != null ? cfg.chunks : body.max_tokens, 1, 10000, 50);
     const promptTokens = Math.max(1, Math.ceil(raw.length / 4));
     const completionTokens = nChunks * cfg.tokensPerChunk;
     const word = "tok ".repeat(cfg.tokensPerChunk);

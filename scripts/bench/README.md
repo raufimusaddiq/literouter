@@ -27,7 +27,7 @@ LITEROUTER_BENCH_KEY=... node scripts/bench/run.mjs --base-url https://ai.musadd
 Flags: `--base-url`, `--key` (or `LITEROUTER_BENCH_KEY`), `--model`, `--mode stream|nonstream`,
 `--concurrency`, `--requests N` or `--duration SECONDS`, `--prompt-size` (approx tokens),
 `--max-tokens`, `--abort-after-ms`, `--timeout-ms`, `--label`, `--out-dir`, `--no-write`.
-Exit code is 1 if any request failed, 2 if no key.
+Exit code is 1 if any request failed, 2 if no key. Client-aborted requests (`--abort-after-ms`) are ignored by the exit code by design.
 
 ## MOCK mode (gateway's own overhead, free)
 
