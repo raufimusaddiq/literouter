@@ -2,7 +2,7 @@
 // Load generator for LiteRouter's /v1 path (node fetch only, no dependencies).
 //
 //   LITEROUTER_BENCH_KEY=sk-... node scripts/bench/run.mjs \
-//     --base-url https://ai.example.com/v1 --model kn/hy4-flash --mode stream \
+//     --base-url https://ai.example.com/v1 --model hy4-flash --mode stream \
 //     --concurrency 1 --requests 20 --max-tokens 128 --label real-c1
 //
 // Flags: --base-url (http://127.0.0.1:20128/v1)  --key | env LITEROUTER_BENCH_KEY (never printed or written)

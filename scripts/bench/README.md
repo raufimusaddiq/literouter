@@ -15,13 +15,13 @@ Costs real tokens; defaults are cheap (tiny prompt, `--max-tokens 128`). The key
 environment and is never printed or written to the report.
 
 ```bash
-LITEROUTER_BENCH_KEY=... node scripts/bench/run.mjs --base-url https://ai.musaddiqr.com/v1 --model kn/hy4-flash --mode stream --concurrency 1 --requests 20 --max-tokens 128 --label real-hy4flash-c1
+LITEROUTER_BENCH_KEY=... node scripts/bench/run.mjs --base-url https://ai.musaddiqr.com/v1 --model hy4-flash --mode stream --concurrency 1 --requests 20 --max-tokens 128 --label real-hy4flash-c1
 ```
 
 Concurrency 5 variant:
 
 ```bash
-LITEROUTER_BENCH_KEY=... node scripts/bench/run.mjs --base-url https://ai.musaddiqr.com/v1 --model kn/hy4-flash --mode stream --concurrency 5 --requests 30 --max-tokens 128 --label real-hy4flash-c5
+LITEROUTER_BENCH_KEY=... node scripts/bench/run.mjs --base-url https://ai.musaddiqr.com/v1 --model hy4-flash --mode stream --concurrency 5 --requests 30 --max-tokens 128 --label real-hy4flash-c5
 ```
 
 Flags: `--base-url`, `--key` (or `LITEROUTER_BENCH_KEY`), `--model`, `--mode stream|nonstream`,
