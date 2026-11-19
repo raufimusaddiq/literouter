@@ -51,9 +51,9 @@ function getHeader(port) {
  * Start Terminal UI
  * @param {number} port - Server port number
  */
-async function startTerminalUI(port) {
+async function startTerminalUI(port, host = "127.0.0.1") {
   // Configure API client
-  api.configure({ port });
+  api.configure({ host, port });
 
   const basePath = ["9Router"];
 

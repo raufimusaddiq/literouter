@@ -1,7 +1,7 @@
 // Ensure better-sqlite3 is installed in USER_DATA_DIR/runtime/node_modules
 // (user-writable, avoids Windows EBUSY locks during npm i -g updates).
 // sql.js is bundled in bin/app already; node:sqlite / bun:sqlite are built-in.
-const { execSync, spawnSync } = require("child_process");
+const { spawn } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -84,80 +84,139 @@ function isBetterSqliteBinaryValid() {
 // Extract a short, user-friendly reason from npm stderr.
 function summarizeNpmError(stderr = "") {
   const text = String(stderr);
-  if (/ENOTFOUND|ETIMEDOUT|EAI_AGAIN|network|getaddrinfo/i.test(text)) return "No internet connection or registry unreachable";
+  if (/ENOTFOUND|ETIMEDOUT|ECONNREFUSED|ECONNRESET|EAI_AGAIN|fetch failed|network|getaddrinfo/i.test(text)) return "No internet connection or registry unreachable";
   if (/EACCES|EPERM|permission denied/i.test(text)) return "Permission denied (check folder permissions)";
   if (/ENOSPC|no space/i.test(text)) return "Not enough disk space";
   if (/node-gyp|gyp ERR|python|MSBuild|Visual Studio|Xcode/i.test(text)) return "Missing build tools (Xcode CLT / Python / VS Build Tools)";
   if (/ETARGET|version.*not found/i.test(text)) return "Package version not found on registry";
-  const m = text.match(/npm ERR! (.+)/);
+  const m = text.match(/npm (?:ERR!|error) (?!A complete log)(.+)/);
   if (m) return m[1].slice(0, 200);
   const lastLine = text.trim().split(/\r?\n/).filter(Boolean).pop();
   return lastLine ? lastLine.slice(0, 200) : "Unknown error";
 }
 
-function runNpmInstall({ cwd, pkgs, extraArgs = [], timeout = 180000 }) {
-  const args = ["install", ...pkgs, "--no-audit", "--no-fund", "--prefer-online", ...extraArgs];
-  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-  const res = spawnSync(npmCmd, args, {
-    cwd,
-    stdio: ["ignore", "pipe", "pipe"],
-    timeout,
-    shell: process.platform === "win32",
-    encoding: "utf8",
+const INSTALL_TIMEOUT_MS = 180000;
+const BACKOFF_BASE_MS = 5 * 60 * 1000;
+const BACKOFF_MAX_MS = 24 * 60 * 60 * 1000;
+
+function markerPath() { return path.join(getRuntimeDir(), ".install-failed"); }
+function lockPath() { return path.join(getRuntimeDir(), ".install-lock"); }
+
+function readJson(file) {
+  try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return null; }
+}
+
+// Backoff window after failed installs: 5m, 10m, 20m ... capped at 24h.
+function backoffMs(failures) {
+  return Math.min(BACKOFF_BASE_MS * 2 ** Math.max(0, failures - 1), BACKOFF_MAX_MS);
+}
+
+function isInBackoff(now = Date.now()) {
+  const m = readJson(markerPath());
+  if (!m || !Number.isFinite(m.at)) return false;
+  return now < m.at + backoffMs(m.failures || 1);
+}
+
+function recordFailure(reason) {
+  const prev = readJson(markerPath());
+  try {
+    fs.writeFileSync(markerPath(), JSON.stringify({ at: Date.now(), failures: ((prev && prev.failures) || 0) + 1, reason }));
+  } catch {}
+}
+
+function clearFailure() {
+  try { fs.rmSync(markerPath(), { force: true }); } catch {}
+}
+
+// Async npm install: never blocks the event loop, so server start is not delayed.
+function runNpmInstall({ cwd, args, timeout = INSTALL_TIMEOUT_MS }) {
+  return new Promise((resolve) => {
+    const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+    let stderr = "";
+    let settled = false;
+    let timer = null;
+    const finish = (r) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ stderr, ...r });
+    };
+    let child;
+    try {
+      const npmArgs = ["install", ...args, "--no-audit", "--no-fund", "--prefer-online"];
+      const stdio = ["ignore", "ignore", "pipe"];
+      // Windows needs a shell for npm.cmd; pass one command string (args are
+      // static flags) rather than an args array to avoid Node's DEP0190 warning.
+      child = process.platform === "win32"
+        ? spawn(`${npmCmd} ${npmArgs.join(" ")}`, { cwd, stdio, shell: true, windowsHide: true })
+        : spawn(npmCmd, npmArgs, { cwd, stdio });
+    } catch (e) {
+      return finish({ ok: false, stderr: e.message });
+    }
+    timer = setTimeout(() => {
+      try { child.kill(); } catch {}
+      finish({ ok: false, stderr: "ETIMEDOUT: npm install timed out" });
+    }, timeout);
+    child.stderr.on("data", (d) => { stderr += d; if (stderr.length > 20000) stderr = stderr.slice(-20000); });
+    child.on("error", (e) => finish({ ok: false, stderr: e.message }));
+    child.on("close", (code) => finish({ ok: code === 0, code }));
   });
-  return { ok: res.status === 0, code: res.status, stderr: res.stderr || "", stdout: res.stdout || "" };
 }
 
-function npmInstall(pkgs, opts = {}) {
-  const cwd = ensureRuntimeDir();
-  const extra = opts.optional ? ["--no-save"] : [];
-  if (opts.ignoreScripts) extra.push("--ignore-scripts");
-  if (!opts.silent) console.log("⏳ Installing SQLite engine (first run)...");
-  const res = runNpmInstall({ cwd, pkgs, extraArgs: extra, timeout: opts.timeout || 180000 });
-  if (!res.ok && !opts.silent) {
-    const reason = summarizeNpmError(res.stderr);
-    console.warn("⚠️  SQLite engine install failed — using fallback");
-    console.warn(`   Reason: ${reason}`);
-    console.warn(`   Retry:  cd "${cwd}" && npm install ${pkgs.join(" ")}`);
-  }
-  return res.ok;
-}
-
-// Public: ensure better-sqlite3 native module is installed in user-writable
-// runtime dir. sql.js may be bundled in bin/app, but npm publish strips .wasm
-// from nested node_modules — verify and reinstall if missing. node:sqlite is
-// built-in. This is purely a *speed optimization* — app works without
-// better-sqlite3 via fallbacks.
 function isSqlJsWasmValid() {
   const bundledWasm = path.join(__dirname, "..", "app", "node_modules", "sql.js", "dist", "sql-wasm.wasm");
   if (fs.existsSync(bundledWasm)) return true;
-  const runtimeWasm = path.join(getRuntimeNodeModules(), "sql.js", "dist", "sql-wasm.wasm");
-  return fs.existsSync(runtimeWasm);
+  return fs.existsSync(path.join(getRuntimeNodeModules(), "sql.js", "dist", "sql-wasm.wasm"));
 }
 
-function ensureSqliteRuntime({ silent = false } = {}) {
-  ensureRuntimeDir();
+// One combined install: sql.js, better-sqlite3 and (non-Windows) systray2 go in
+// a single `npm install` and are written into the runtime package.json, so a
+// later install of one cannot prune the other. Native packages are saved as
+// optionalDependencies so a failed native build does not fail the whole install.
+// Returns { skipped, ok, reason? }. Never throws.
+async function installRuntime({ silent = true, extraPackages = [] } = {}) {
+  try {
+    const dir = ensureRuntimeDir();
+    const needSqlJs = !isSqlJsWasmValid();
+    const needBetter = !hasModule("better-sqlite3") || !isBetterSqliteBinaryValid();
+    const needExtra = extraPackages.filter((p) => !hasModule(p.name));
+    if (!needSqlJs && !needBetter && needExtra.length === 0) return { skipped: "ready" };
 
-  let sqlJsOk = isSqlJsWasmValid();
-  if (!sqlJsOk) {
-    sqlJsOk = npmInstall([`sql.js@${SQL_JS_VERSION}`], { silent });
-    if (sqlJsOk) sqlJsOk = isSqlJsWasmValid();
+    if (isInBackoff()) return { skipped: "backoff" };
+    const lock = readJson(lockPath());
+    if (lock && Date.now() - lock.at < INSTALL_TIMEOUT_MS + 10000) return { skipped: "locked" };
+    fs.writeFileSync(lockPath(), JSON.stringify({ at: Date.now(), pid: process.pid }));
+
+    try {
+      if (!silent) console.log("⏳ Installing runtime dependencies in background...");
+      // Declare every dep in the runtime package.json, then run one plain
+      // `npm install`: nothing can be pruned and native packages (optional)
+      // may fail without failing sql.js.
+      const pkgPath = path.join(dir, "package.json");
+      const manifest = readJson(pkgPath) || { name: "9router-runtime", version: "1.0.0", private: true };
+      manifest.dependencies = { ...manifest.dependencies, "sql.js": SQL_JS_VERSION };
+      manifest.optionalDependencies = {
+        ...manifest.optionalDependencies,
+        "better-sqlite3": BETTER_SQLITE3_VERSION,
+        ...Object.fromEntries(extraPackages.map((p) => [p.name, p.version])),
+      };
+      fs.writeFileSync(pkgPath, JSON.stringify(manifest, null, 2));
+      // 13.x bundles prebuilds; skip the implicit `node-gyp rebuild`.
+      const res = await runNpmInstall({ cwd: dir, args: USE_NAPI_BUILD ? ["--ignore-scripts"] : [] });
+      const ok = res.ok;
+      if (ok) clearFailure();
+      else {
+        const reason = summarizeNpmError(res.stderr);
+        recordFailure(reason);
+        if (!silent) console.warn(`⚠️  Runtime dependency install failed (${reason}); using fallbacks. Will retry later.`);
+      }
+      return { ok, reason: ok ? undefined : summarizeNpmError(res.stderr) };
+    } finally {
+      try { fs.rmSync(lockPath(), { force: true }); } catch {}
+    }
+  } catch (e) {
+    return { ok: false, reason: e.message };
   }
-
-  const needBetterSqlite = !hasModule("better-sqlite3") || !isBetterSqliteBinaryValid();
-  if (!needBetterSqlite) {
-    if (!silent) console.log("✅ SQLite engine ready");
-    return { betterSqlite: true, sqlJs: sqlJsOk };
-  }
-
-  // npm injects an implicit `node-gyp rebuild` for any package carrying a
-  // binding.gyp, which would demand build tools even though 13.x already bundles
-  // the binary — skip scripts so the bundled prebuild is used as-is.
-  const ok = npmInstall([`better-sqlite3@${BETTER_SQLITE3_VERSION}`], { optional: true, silent, ignoreScripts: USE_NAPI_BUILD });
-  return {
-    betterSqlite: ok && hasModule("better-sqlite3") && isBetterSqliteBinaryValid(),
-    sqlJs: sqlJsOk,
-  };
 }
 
 // Inject runtime + bundled node_modules into NODE_PATH so child Node processes
@@ -171,10 +230,10 @@ function buildEnvWithRuntime(baseEnv = process.env) {
 }
 
 module.exports = {
-  ensureSqliteRuntime,
+  installRuntime,
+  isInBackoff,
   buildEnvWithRuntime,
   getRuntimeDir,
   getRuntimeNodeModules,
-  runNpmInstall,
   summarizeNpmError,
 };
