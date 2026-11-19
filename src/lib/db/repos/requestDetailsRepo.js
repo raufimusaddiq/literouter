@@ -292,7 +292,7 @@ function drainSync() {
     try {
       writeDetailsSync(db, items);
     } catch (e) {
-      requeueFailed(items, DEFAULT_MAX_BUFFERED);
+      requeueFailed(items, cachedConfig?.maxBuffered);
       throw e;
     }
   } catch (e) {

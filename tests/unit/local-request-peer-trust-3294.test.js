@@ -228,6 +228,7 @@ describe("login limiter client IP", () => {
 
     const ip = getClientIp(request("/api/auth/login", { "x-forwarded-for": "198.51.100.7, 10.0.0.1" }));
 
-    expect(ip).toBe("198.51.100.7");
+    // Rightmost hop: the one the single trusted proxy appended; leftmost is client-controlled.
+    expect(ip).toBe("10.0.0.1");
   });
 });

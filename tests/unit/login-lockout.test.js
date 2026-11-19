@@ -55,3 +55,12 @@ describe("login limiter client IP", () => {
     expect(second).toBe("unknown");
   });
 });
+
+describe("TRUST_PROXY client ip", () => {
+  it("uses X-Real-IP, else the rightmost XFF hop, never the client-controlled leftmost", () => {
+    process.env.TRUST_PROXY = "true";
+    expect(limiter.getClientIp(request({ "x-forwarded-for": "6.6.6.6, 203.0.113.9" }))).toBe("203.0.113.9");
+    expect(limiter.getClientIp(request({ "x-forwarded-for": "6.6.6.6", "x-real-ip": "198.51.100.4" }))).toBe("198.51.100.4");
+    expect(limiter.getClientIp(request({}))).toBe("unknown");
+  });
+});
