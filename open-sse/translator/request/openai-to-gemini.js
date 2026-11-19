@@ -149,10 +149,6 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
   if (maxTokens !== undefined) {
     result.generationConfig.maxOutputTokens = maxTokens;
   }
-  // OpenAI `n` -> Gemini candidateCount (native multi-candidate support)
-  if (Number.isFinite(body.n) && body.n > 1) {
-    result.generationConfig.candidateCount = body.n;
-  }
   // OpenAI `stop` -> Gemini stopSequences (max 5)
   const stopSequences = normalizeStopSequences(body.stop ?? body.stop_sequences, STOP_SEQUENCE_LIMITS.gemini, "Gemini");
   if (stopSequences) {

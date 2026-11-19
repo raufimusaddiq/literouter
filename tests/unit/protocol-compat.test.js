@@ -125,16 +125,8 @@ describe("dropped params", () => {
     const body = { messages: [{ role: "user", content: "hi" }], n: 2 };
     expect(() => tr(FORMATS.OPENAI, FORMATS.CLAUDE, body, "claude-x")).toThrow(RequestParamError);
     expect(() => tr(FORMATS.OPENAI, FORMATS.CLAUDE, body, "claude-x")).toThrow(/n>1 not supported/);
+    expect(() => tr(FORMATS.OPENAI, FORMATS.GEMINI, body)).toThrow(RequestParamError);
     expect(() => tr(FORMATS.OPENAI, FORMATS.OPENAI, body)).not.toThrow();
-  });
-  it("Gemini-family targets accept candidateCount natively (not rejected)", () => {
-    const g = { contents: [{ role: "user", parts: [{ text: "hi" }] }], generationConfig: { candidateCount: 2 } };
-    expect(() => tr(FORMATS.GEMINI, FORMATS.GEMINI, g)).not.toThrow();
-    expect(tr(FORMATS.GEMINI, FORMATS.GEMINI, g).generationConfig.candidateCount).toBe(2);
-  });
-  it("OpenAI n=2 maps to Gemini candidateCount 2", () => {
-    const out = tr(FORMATS.OPENAI, FORMATS.GEMINI, { messages: [{ role: "user", content: "hi" }], n: 2 });
-    expect(out.generationConfig.candidateCount).toBe(2);
   });
   it("raw Gemini candidateCount>1 / responseLogprobs is rejected for a Claude target", () => {
     const g = (generationConfig) => ({ contents: [{ role: "user", parts: [{ text: "hi" }] }], generationConfig });

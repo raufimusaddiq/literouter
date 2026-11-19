@@ -63,15 +63,12 @@ function detectClientLastRole(body) {
   return role === ROLE.ASSISTANT || role === GEMINI_ROLE.MODEL ? ROLE.ASSISTANT : undefined;
 }
 
-const GEMINI_FAMILY_TARGETS = new Set([FORMATS.GEMINI, FORMATS.GEMINI_CLI, FORMATS.ANTIGRAVITY, FORMATS.VERTEX]);
-
 // Translate request: source -> openai -> target
 export function translateRequest(sourceFormat, targetFormat, model, body, stream = true, credentials = null, provider = null, reqLogger = null, stripList = [], connectionId = null, clientTool = null) {
   let result = body;
   // Only OpenAI Chat targets can honour n>1 / logprobs; reject (400) rather than
   // silently returning a single choice. Throws RequestParamError.
-  // Gemini-family targets accept candidateCount natively, so they are exempt.
-  if (targetFormat !== FORMATS.OPENAI && !GEMINI_FAMILY_TARGETS.has(targetFormat)) {
+  if (targetFormat !== FORMATS.OPENAI) {
     assertTargetSupportsParams(body, provider || targetFormat);
   }
   // Role the client actually ended on, before any translator drops an emptied turn.
