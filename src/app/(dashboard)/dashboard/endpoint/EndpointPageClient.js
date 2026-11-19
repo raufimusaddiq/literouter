@@ -236,7 +236,7 @@ export default function APIPageClient({ machineId }) {
       {/* Endpoint Card */}
       <Card className="xl:sticky xl:top-0">
         <h2 className="mb-4 flex items-center gap-2 text-base font-semibold sm:text-lg">
-          <span className="material-symbols-outlined text-primary">api</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-primary">api</span>
           API Endpoint
         </h2>
 
@@ -282,7 +282,7 @@ export default function APIPageClient({ machineId }) {
       <Card id="require-api-key">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-base font-semibold sm:text-lg">
-            <span className="material-symbols-outlined text-primary">vpn_key</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-primary">vpn_key</span>
             API Keys
           </h2>
           <Button icon="add" onClick={() => setShowAddModal(true)}>
@@ -313,7 +313,7 @@ export default function APIPageClient({ machineId }) {
         {keys.length === 0 ? (
           <div className="text-center py-12">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[32px]">vpn_key</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[32px]">vpn_key</span>
             </div>
             <p className="text-text-main font-medium mb-1">No API keys yet</p>
             <p className="text-sm text-text-muted mb-4">Create your first API key to get started</p>
@@ -340,7 +340,7 @@ export default function APIPageClient({ machineId }) {
                       title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
                       aria-label={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
                     >
-                      <span className="material-symbols-outlined text-[14px]">
+                      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">
                         {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
                       </span>
                     </button>
@@ -349,7 +349,7 @@ export default function APIPageClient({ machineId }) {
                       className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-muted hover:bg-black/5 hover:text-primary dark:hover:bg-white/5 transition-colors"
                       aria-label={copied === key.id ? "Copied" : "Copy key"}
                     >
-                      <span className="material-symbols-outlined text-[14px]">
+                      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">
                         {copied === key.id ? "check" : "content_copy"}
                       </span>
                     </button>

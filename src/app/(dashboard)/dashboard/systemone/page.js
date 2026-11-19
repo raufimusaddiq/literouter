@@ -156,7 +156,7 @@ export default function SystemOnePage() {
             ) : (
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className={`material-symbols-outlined text-[18px] ${result.ok ? "text-emerald-500" : "text-red-500"}`}>
+                  <span aria-hidden="true" className={`material-symbols-outlined text-[18px] ${result.ok ? "text-emerald-500" : "text-red-500"}`}>
                     {result.ok ? "check_circle" : "error"}
                   </span>
                   <span className="font-medium">{result.status ? `HTTP ${result.status}` : "Network error"}</span>

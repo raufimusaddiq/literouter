@@ -250,7 +250,7 @@ export default function QuotaTable({
                   title="Hide this quota row"
                   aria-label={`Hide quota ${quota.name}`}
                 >
-                  <span className="material-symbols-outlined text-[15px]">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[15px]">
                     visibility_off
                   </span>
                 </button>
