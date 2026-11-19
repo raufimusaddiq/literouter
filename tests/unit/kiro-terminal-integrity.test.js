@@ -761,6 +761,22 @@ describe("Kiro terminal integrity recovery", () => {
     await expect(reader.read()).rejects.toMatchObject({ name: "AbortError" });
   });
 
+  it("preserves a gateway timeout reason (504 path, not AbortError/499)", async () => {
+    const { GatewayTimeoutError } = await import("../../open-sse/utils/requestTimeouts.js");
+    const upstream = controlledResponse([
+      frame("assistantResponseEvent", { content: "waiting" })
+    ]);
+    fetchMock.mockResolvedValueOnce(upstream.value);
+    const abort = new AbortController();
+
+    const result = await execute(new KiroExecutor(), { signal: abort.signal });
+    const reader = result.response.body.getReader();
+    await reader.read();
+    abort.abort(new GatewayTimeoutError("upstream stalled", "headers"));
+
+    await expect(reader.read()).rejects.toMatchObject({ code: "GATEWAY_TIMEOUT", status: 504 });
+  });
+
   it("fails safely when the private gate exceeds its configured bound", async () => {
     process.env.KIRO_TOOL_CALL_REPAIR_BUFFER_MAX_BYTES = "8";
     fetchMock.mockResolvedValueOnce(response([

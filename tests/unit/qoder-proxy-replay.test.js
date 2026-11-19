@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../open-sse/services/qoderModels.js", () => ({
   getQoderModelConfig: vi.fn(async () => ({ key: "auto", max_output_tokens: 32 })),
   resolveQoderModels: vi.fn(),
-  isQoderPat: () => false,
+  isQoderPat: (t) => String(t || "").startsWith("pt-"),
   resolveQoderCredentials: vi.fn(),
 }));
 
@@ -34,6 +34,32 @@ async function loadExecutor(fetchMock, useProxy = true) {
   const { QoderExecutor } = await import("../../open-sse/executors/qoder.js");
   return new QoderExecutor();
 }
+
+const { GatewayTimeoutError } = await import("../../open-sse/utils/requestTimeouts.js");
+const qoderModels = await import("../../open-sse/services/qoderModels.js");
+
+describe("Qoder abort/timeout propagation", () => {
+  it("rethrows client abort from PAT exchange instead of a synthetic 401", async () => {
+    const abortErr = Object.assign(new Error("aborted"), { name: "AbortError" });
+    qoderModels.resolveQoderCredentials.mockRejectedValueOnce(abortErr);
+    const executor = await loadExecutor(vi.fn());
+    await expect(executor.execute({ ...request, credentials: { accessToken: "pt-abc" } })).rejects.toBe(abortErr);
+  });
+
+  it("rethrows gateway timeout from body build instead of a synthetic 400", async () => {
+    const err = new GatewayTimeoutError("slow", "total");
+    qoderModels.getQoderModelConfig.mockRejectedValueOnce(err);
+    const executor = await loadExecutor(vi.fn());
+    await expect(executor.execute(request)).rejects.toMatchObject({ code: "GATEWAY_TIMEOUT" });
+  });
+
+  it("connect timeout is a typed GatewayTimeoutError", async () => {
+    const fetchMock = vi.fn((_u, o) => new Promise((_, rej) => o.signal.addEventListener("abort", () => rej(new TypeError("fetch failed")))));
+    const executor = await loadExecutor(fetchMock, false);
+    executor.config = { ...executor.config, timeoutMs: 20 };
+    await expect(executor.execute(request)).rejects.toMatchObject({ code: "GATEWAY_TIMEOUT", phase: "headers" });
+  });
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
