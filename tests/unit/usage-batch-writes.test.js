@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => {
     transaction: vi.fn((fn) => fn()),
     get: vi.fn((sql) => {
       if (String(sql).includes("totalRequestsLifetime")) return { value: "0" };
+      if (String(sql).includes("usageRollupKey")) return { id: 1 };
       return null;
     }),
     run: vi.fn(() => ({ changes: 1 })),
@@ -42,6 +43,7 @@ beforeEach(async () => {
   mocks.db.transaction.mockImplementation((fn) => fn());
   mocks.db.get.mockImplementation((sql) => {
     if (String(sql).includes("totalRequestsLifetime")) return { value: "0" };
+    if (String(sql).includes("usageRollupKey")) return { id: 1 };
     return null;
   });
   mocks.db.run.mockReturnValue({ changes: 1 });

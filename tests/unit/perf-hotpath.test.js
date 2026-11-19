@@ -14,6 +14,7 @@ vi.mock("@/lib/db/repos/nodesRepo.js", () => ({ getProviderNodes: vi.fn(async ()
 
 const { createSqlJsAdapter } = await import("@/lib/db/adapters/sqljsAdapter.js");
 const usage = await import("@/lib/db/repos/usageRepo.js");
+const { backfillUsageRollup, ensureRollupTables } = await import("@/lib/db/usageRollup.js");
 
 let tmp;
 beforeEach(async () => {
@@ -23,6 +24,7 @@ beforeEach(async () => {
   state.db.exec(`CREATE TABLE usageHistory (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT NOT NULL, provider TEXT, model TEXT, connectionId TEXT, apiKey TEXT, endpoint TEXT, promptTokens INTEGER DEFAULT 0, completionTokens INTEGER DEFAULT 0, cost REAL DEFAULT 0, status TEXT, tokens TEXT, meta TEXT, latencyMs INTEGER, ttftMs INTEGER, errorText TEXT);
     CREATE TABLE usageDaily (dateKey TEXT PRIMARY KEY, data TEXT);
     CREATE TABLE _meta (key TEXT PRIMARY KEY, value TEXT);`);
+  ensureRollupTables(state.db);
   usage._resetLiveStatsCache();
 });
 afterEach(() => { vi.restoreAllMocks(); try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {} });
@@ -70,6 +72,8 @@ describe("getUsageStats 24h aggregates in SQL", () => {
     state.db.run(`INSERT INTO usageHistory(timestamp, provider, model, tokens) VALUES(?,?,?,?)`,
       [new Date(now - 3 * 86400000).toISOString(), "old", "old", "{}"]);
 
+    // Rollup path: rows inserted raw are folded in by the migration backfill.
+    backfillUsageRollup(state.db, new Date(now - 3 * 86400000 - 1000).toISOString());
     const ref = jsAggregate(fixture);
     const stats = await usage.getUsageStats("24h");
     expect(stats.totalPromptTokens).toBe(ref.prompt);
@@ -88,13 +92,38 @@ describe("getUsageStats 24h aggregates in SQL", () => {
     expect(stats.byProvider.old).toBeUndefined();
   });
 
-  it("caches the aggregate briefly so repeated calls do not re-query", async () => {
+  it("counts the partial cutoff bucket from raw rows exactly once", async () => {
+    const edge = new Date(Date.now() - 24 * 3600000 + 90000).toISOString(); // inside the cutoff's 10-min bucket
+    const before = new Date(Date.now() - 24 * 3600000 - 90000).toISOString(); // just outside the window
+    for (const ts of [edge, before]) {
+      state.db.run(`INSERT INTO usageHistory(timestamp, provider, model, tokens, promptTokens) VALUES(?,?,?,?,?)`, [ts, "p", "m", JSON.stringify({ prompt_tokens: 5, cached_tokens: 2 }), 5]);
+    }
+    backfillUsageRollup(state.db, new Date(Date.now() - 3 * 86400000).toISOString());
+    const stats = await usage.getUsageStats("24h");
+    expect(stats.byProvider.p.requests).toBe(1);
+    expect(stats.totalPromptTokens).toBe(5);
+    expect(stats.totalCachedTokens).toBe(2);
+  });
+
+  it("two reads inside the floor run one query set, even after a persisted batch", async () => {
     state.db.run(`INSERT INTO usageHistory(timestamp, provider, model, tokens) VALUES(?,?,?,?)`, [new Date().toISOString(), "p", "m", "{}"]);
-    await usage.getUsageStats("24h");
+    backfillUsageRollup(state.db, new Date(Date.now() - 86400000).toISOString());
     const spy = vi.spyOn(state.db, "all");
+    const isAgg = ([sql]) => /FROM usageRollup WHERE bucket/.test(sql);
+    await usage.getUsageStats("24h");
+    expect(spy.mock.calls.filter(isAgg)).toHaveLength(1);
+    // a batch persists (what the SSE feed reacts to) -> a refetch must not re-query inside the floor
+    await usage.saveRequestUsage({ provider: "p", model: "m", tokens: { prompt_tokens: 1 }, timestamp: new Date().toISOString() });
     await usage.getUsageStats("24h");
     await usage.getUsageStats("24h");
-    expect(spy.mock.calls.filter(([sql]) => /GROUP BY provider, model, connectionId/.test(sql))).toHaveLength(0);
+    expect(spy.mock.calls.filter(isAgg)).toHaveLength(1);
+    // after the floor passes, the new row shows up
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 3500 });
+    try {
+      const stats = await usage.getUsageStats("24h");
+      expect(stats.byProvider.p.requests).toBe(2);
+    } finally { vi.useRealTimers(); }
+    expect(spy.mock.calls.filter(isAgg)).toHaveLength(2);
   });
 });
 

@@ -3,6 +3,7 @@ import { getAdapter, getAdapterSync } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { fingerprintKey } from "open-sse/utils/keyFingerprint.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
+import { bucketOf, getRollupKeyId, ROLLUP_RETENTION_MS } from "../usageRollup.js";
 
 // Client keys are never stored: usage rows and daily buckets carry a
 // non-reversible fingerprint (open-sse/utils/keyFingerprint.js).
@@ -333,6 +334,7 @@ function writeUsageBatch(db, entries) {
   if (!entries.length) return [];
 
   const insertedEntries = [];
+  const rollup = new Map(); // bucket+tuple -> aggregate, upserted once per group
   let insertedCount = 0;
 
   db.transaction(() => {
@@ -381,6 +383,33 @@ function writeUsageBatch(db, entries) {
 
       insertedCount++;
       insertedEntries.push(entry);
+
+      const bucket = bucketOf(entry.timestamp);
+      const rk = [bucket, entry.provider || "", entry.model || "", entry.connectionId || "", entry.apiKey || "", entry.endpoint || ""];
+      const rkey = rk.join(" ");
+      let g = rollup.get(rkey);
+      if (!g) {
+        g = { rk, n: 0, p: 0, c: 0, k: 0, cost: 0, first: entry.timestamp, last: entry.timestamp };
+        rollup.set(rkey, g);
+      }
+      g.n++; g.p += promptTokens; g.c += completionTokens;
+      g.k += tokens.cached_tokens || tokens.cache_read_input_tokens || 0;
+      g.cost += entry.cost || 0;
+      if (entry.timestamp < g.first) g.first = entry.timestamp;
+      if (entry.timestamp > g.last) g.last = entry.timestamp;
+    }
+
+    for (const g of rollup.values()) {
+      db.run(
+        `INSERT INTO usageRollup(bucket, keyId, n, promptTokens, completionTokens, cachedTokens, cost, firstTs, lastTs)
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(bucket, keyId) DO UPDATE SET
+           n = n + excluded.n, promptTokens = promptTokens + excluded.promptTokens,
+           completionTokens = completionTokens + excluded.completionTokens,
+           cachedTokens = cachedTokens + excluded.cachedTokens, cost = cost + excluded.cost,
+           firstTs = MIN(firstTs, excluded.firstTs), lastTs = MAX(lastTs, excluded.lastTs)`,
+        [g.rk[0], getRollupKeyId(db, g.rk.slice(1)), g.n, g.p, g.c, g.k, g.cost, g.first, g.last]
+      );
     }
 
     if (insertedCount > 0) {
@@ -406,7 +435,6 @@ function writeUsageBatch(db, entries) {
 
 function onUsageBatchPersisted(insertedEntries) {
   if (!insertedEntries.length) return;
-  liveAggCache.clear(); // new rows: the next stats read must see them
   for (const entry of insertedEntries) pushToRing(entry);
   scheduleStatsEvent("update", 250);
 }
@@ -419,6 +447,10 @@ let lastPruneAt = 0;
 export async function pruneUsageHistory({ force = false, now = Date.now() } = {}) {
   if (!force && now - lastPruneAt < PRUNE_INTERVAL_MS) return 0;
   lastPruneAt = now;
+  try {
+    const rdb = await getAdapter();
+    rdb.run(`DELETE FROM usageRollup WHERE bucket < ?`, [bucketOf(new Date(now - ROLLUP_RETENTION_MS).toISOString())]);
+  } catch { /* best-effort */ }
   try {
     const { getSettings } = await import("./settingsRepo.js");
     const days = Number((await getSettings()).usageHistoryRetentionDays);
@@ -582,30 +614,57 @@ function loadDaysInRange(adapter, maxDays) {
   return adapter.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ?`, [cutoffKey]);
 }
 
-const LIVE_STATS_TTL_MS = 3000;
+// Hard floor between recomputes: reads inside it are served from the previous
+// result (stale by <= floor) even after new batches persist, so N tabs and a
+// push-per-batch SSE feed cost at most one query set per floor. The recompute is
+// synchronous, so concurrent callers can never run it twice (single flight).
+const LIVE_STATS_TTL_MS = Math.max(0, Number(process.env.LIVE_STATS_TTL_MS || 3000));
 const liveAggCache = new Map(); // period -> { at, dbRef, cutoff, rows }
 
-// Effective token value: JSON tokens field first (OpenAI or Anthropic naming),
-// falling back to the denormalized column — mirrors the previous JS `||` chain.
-const tok = (a, b, col) =>
-  `COALESCE(NULLIF(CASE WHEN json_valid(tokens) THEN COALESCE(NULLIF(json_extract(tokens,'$.${a}'),0),json_extract(tokens,'$.${b}')) END,0), NULLIF(${col},0), 0)`;
+const ROLLUP_AGG = `SELECT k.provider, k.model, k.connectionId, k.apiKey, k.endpoint, r.n, r.promptTokens, r.completionTokens, r.cachedTokens, r.cost, r.firstTs, r.lastTs
+  FROM (SELECT keyId, SUM(n) AS n, SUM(promptTokens) AS promptTokens, SUM(completionTokens) AS completionTokens,
+          SUM(cachedTokens) AS cachedTokens, SUM(cost) AS cost, MIN(firstTs) AS firstTs, MAX(lastTs) AS lastTs
+        FROM usageRollup WHERE bucket > ? GROUP BY keyId) r JOIN usageRollupKey k ON k.id = r.keyId`;
+
+// 24h/today read the 10-minute rollup for whole buckets, plus raw history for the
+// single partial bucket the (sliding) cutoff falls in. Cost is O(buckets x tuples),
+// independent of request volume.
+function computeLiveAggregate(db, cutoff) {
+  const cb = bucketOf(cutoff);
+  const upper = cb.slice(0, -1) + String.fromCharCode(cb.charCodeAt(cb.length - 1) + 1);
+  const rolled = db.all(ROLLUP_AGG, [cb]);
+  const partial = db.all(
+    `SELECT COALESCE(provider,'') AS provider, COALESCE(model,'') AS model, COALESCE(connectionId,'') AS connectionId,
+            COALESCE(apiKey,'') AS apiKey, COALESCE(endpoint,'') AS endpoint, COUNT(*) AS n,
+            COALESCE(SUM(promptTokens),0) AS promptTokens, COALESCE(SUM(completionTokens),0) AS completionTokens,
+            COALESCE(SUM(CASE WHEN json_valid(tokens) THEN COALESCE(NULLIF(json_extract(tokens,'$.cached_tokens'),0), json_extract(tokens,'$.cache_read_input_tokens'), 0) ELSE 0 END),0) AS cachedTokens, COALESCE(SUM(cost),0) AS cost, MIN(timestamp) AS firstTs, MAX(timestamp) AS lastTs
+     FROM usageHistory WHERE timestamp >= ? AND timestamp < ?
+     GROUP BY provider, model, connectionId, apiKey, endpoint`,
+    [cutoff, upper]
+  );
+  const merged = new Map();
+  for (const r of [...rolled, ...partial]) {
+    const k = `${r.provider} ${r.model} ${r.connectionId} ${r.apiKey} ${r.endpoint}`;
+    const m = merged.get(k);
+    if (!m) { merged.set(k, { ...r }); continue; }
+    m.n += r.n; m.promptTokens += r.promptTokens; m.completionTokens += r.completionTokens;
+    m.cachedTokens += r.cachedTokens; m.cost += r.cost;
+    if (r.firstTs < m.firstTs) m.firstTs = r.firstTs;
+    if (r.lastTs > m.lastTs) m.lastTs = r.lastTs;
+  }
+  // Rollup keys use '' for absent values; restore null so output matches the raw-row shape.
+  const nn = (v) => v || null;
+  return [...merged.values()]
+    .sort((a, b) => (a.firstTs < b.firstTs ? -1 : a.firstTs > b.firstTs ? 1 : 0))
+    .map((r) => ({ ...r, provider: nn(r.provider), model: nn(r.model), connectionId: nn(r.connectionId), apiKey: nn(r.apiKey), endpoint: nn(r.endpoint), lastTs: r.lastTs }));
+}
 
 function getLiveHistoryAggregate(db, period, cutoff) {
   const hit = liveAggCache.get(period);
   const now = Date.now();
   // "24h" cutoff slides every call; key the cache on period + TTL, not cutoff.
   if (hit && hit.dbRef === db && now - hit.at < LIVE_STATS_TTL_MS && (period !== "today" || hit.cutoff === cutoff)) return hit.rows;
-  const rows = db.all(
-    `SELECT provider, model, connectionId, apiKey, endpoint, COUNT(*) AS n, MAX(timestamp) AS lastTs,
-       SUM(${tok("prompt_tokens", "input_tokens", "promptTokens")}) AS promptTokens,
-       SUM(${tok("completion_tokens", "output_tokens", "completionTokens")}) AS completionTokens,
-       SUM(CASE WHEN json_valid(tokens) THEN COALESCE(NULLIF(json_extract(tokens,'$.cached_tokens'),0), json_extract(tokens,'$.cache_read_input_tokens'), 0) ELSE 0 END) AS cachedTokens,
-       SUM(COALESCE(cost,0)) AS cost
-     FROM usageHistory WHERE timestamp >= ?
-     GROUP BY provider, model, connectionId, apiKey, endpoint
-     ORDER BY MIN(id)`,
-    [cutoff]
-  );
+  const rows = computeLiveAggregate(db, cutoff);
   liveAggCache.set(period, { at: now, dbRef: db, cutoff, rows });
   return rows;
 }
