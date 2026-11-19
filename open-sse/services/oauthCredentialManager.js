@@ -8,7 +8,9 @@ import { PROVIDER_OAUTH } from "../providers/index.js";
 // Single source: codex.oauth.maxRefreshAgeMs (8 days) — proactive refresh window
 export const CODEX_MAX_REFRESH_AGE_MS = PROVIDER_OAUTH["codex"]?.maxRefreshAgeMs;
 
-const refreshLocks = new Map();
+// Shared across Next route bundles (each may instantiate this module separately)
+// so concurrent refreshes of one credential still dedupe.
+const refreshLocks = (globalThis.__9rRefreshLocks ??= new Map());
 
 function parseTimeMs(value) {
   if (value === undefined || value === null || value === "") return null;

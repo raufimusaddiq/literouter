@@ -21,6 +21,7 @@ export default {
   transport: {
     baseUrl: "https://aiplatform.googleapis.com",
     format: "vertex",
+    quirks: { noDoneSentinel: true }, // Gemini-family clients reject the OpenAI [DONE] sentinel
   },
   models: [
     { id: "gemini-3.1-pro-preview", name: "Gemini 3.1 Pro Preview" },

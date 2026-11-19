@@ -6,13 +6,13 @@ import { normalizeClaudePassthrough, anchorClaudeCache } from "../translator/for
 import { createStreamController } from "../utils/streamHandler.js";
 import { refreshWithRetry } from "../services/tokenRefresh.js";
 import { createRequestLogger } from "../utils/requestLogger.js";
-import { getModelTargetFormat, getModelSupportedFormats, getModelForceStream, getModelStrip, getModelUpstreamId, getModelType, PROVIDER_ID_TO_ALIAS } from "../config/providerModels.js";
+import { getModelTargetFormat, getModelSupportedFormats, getModelForceStream, getModelStrip, getModelUpstreamId, getModelType, getModelSamplingQuirk, PROVIDER_ID_TO_ALIAS } from "../config/providerModels.js";
 import { PROVIDERS } from "../config/providers.js";
 import { upstreamResponseHeaders } from "../utils/upstreamHeaders.js";
 import { createErrorResult, parseUpstreamError, formatProviderError } from "../utils/error.js";
 import { HTTP_STATUS, isTokenSaverEnabled } from "../config/runtimeConfig.js";
 import { handleBypassRequest } from "../utils/bypassHandler.js";
-import { trackPendingRequest, appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
+import { trackPendingRequest, saveRequestDetail } from "@/lib/usageDb.js";
 import { getExecutor } from "../executors/index.js";
 import { discardResponse } from "../executors/base.js";
 import { takeRenamedToolNames } from "../utils/opencodeFingerprint.js";
@@ -154,7 +154,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   // Image generation models require non-streaming (Google v1internal:generateContent)
   const modelType = getModelType(alias, model);
-  const isImageGenModel = modelType === "imageGen" || /image|imagen|image-generation/i.test(model);
+  const isImageGenModel = modelType === "imageGen" || /image/i.test(model);
   if (isImageGenModel && (provider === "antigravity" || provider === "gemini-cli")) {
     stream = false;
   }
@@ -353,7 +353,6 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   const executor = getExecutor(provider);
   trackPendingRequest(model, provider, connectionId, true);
-  appendRequestLog({ model, provider, connectionId, status: "PENDING" }).catch(() => { });
 
   const msgCount = translatedBody.messages?.length || translatedBody.input?.length || translatedBody.contents?.length || translatedBody.request?.contents?.length || 0;
   log?.debug?.("REQUEST", `${provider.toUpperCase()} | ${model} | ${msgCount} msgs`);
@@ -402,18 +401,22 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     log?.debug?.("PROXY", `${provider.toUpperCase()} | ${model} | conn=${connectionName} | no_proxy=${proxyOptions.connectionNoProxy}`);
   }
 
-  // OpenCode Go's GPT-5.6 Luna Responses endpoint rejects sampling controls
-  // and requires at least 16 output tokens. Chat/Responses clients commonly
-  // send temperature by default (and lightweight probes use 8 tokens), so
-  // normalize here after all request transforms and before the executor.
-  if (provider === "opencode-go" && model === "gpt-5.6-luna") {
+  // Model quirk (config/providerModels.js): some upstream models (e.g. OpenCode Go GPT-5.6 Luna
+  // Responses) reject sampling controls and require a minimum output-token budget. Clients send
+  // temperature by default and probes use tiny budgets, so normalize after all request
+  // transforms and before the executor.
+  const samplingQuirk = getModelSamplingQuirk(alias, model);
+  if (samplingQuirk.noSamplingControls) {
     delete translatedBody.temperature;
     delete translatedBody.top_p;
+  }
+  if (samplingQuirk.minOutputTokens) {
+    const min = samplingQuirk.minOutputTokens;
     if (translatedBody.max_output_tokens !== undefined) {
-      translatedBody.max_output_tokens = Math.max(16, Number(translatedBody.max_output_tokens) || 16);
+      translatedBody.max_output_tokens = Math.max(min, Number(translatedBody.max_output_tokens) || min);
     }
     if (translatedBody.max_tokens !== undefined) {
-      translatedBody.max_tokens = Math.max(16, Number(translatedBody.max_tokens) || 16);
+      translatedBody.max_tokens = Math.max(min, Number(translatedBody.max_tokens) || min);
     }
   }
 
@@ -446,7 +449,6 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     reqLogger.logTargetRequest(providerUrl, providerHeaders, finalBody);
   } catch (error) {
     trackPendingRequest(model, provider, connectionId, false, true);
-    appendRequestLog({ model, provider, connectionId, status: `FAILED ${error.name === "AbortError" ? 499 : HTTP_STATUS.BAD_GATEWAY}` }).catch(() => { });
     saveRequestDetail(buildRequestDetail({
       provider, model, connectionId,
       latency: { ttft: 0, total: Date.now() - requestStartTime },
@@ -555,7 +557,6 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (!providerResponse.ok) {
     trackPendingRequest(model, provider, connectionId, false, true);
     const { statusCode, message, resetsAtMs } = await parseUpstreamError(providerResponse, executor);
-    appendRequestLog({ model, provider, connectionId, status: `FAILED ${statusCode}` }).catch(() => { });
     saveRequestDetail(buildRequestDetail({
       provider, model, connectionId,
       latency: { ttft: 0, total: Date.now() - requestStartTime },
@@ -577,7 +578,6 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   }
 
   const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, reqTag, log };
-  const appendLog = (extra) => appendRequestLog({ model, provider, connectionId, ...extra }).catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
 
   // Provider forced streaming but client wants JSON. The Responses wire always
@@ -585,13 +585,13 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // non-stream OpenAI/native client behind a Responses upstream must also take
   // this path — handleForcedSSEToJson returns null when the body is not SSE.
   if (!clientRequestedStreaming && (providerRequiresStreaming || providerResponseFormat === FORMATS.OPENAI_RESPONSES)) {
-    const result = await handleForcedSSEToJson({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, customToolNames, toolNameMap, trackDone, appendLog });
+    const result = await handleForcedSSEToJson({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, customToolNames, toolNameMap, trackDone });
     if (result) { streamController.handleComplete(); return result; }
   }
 
   // True non-streaming response
   if (!stream) {
-    const result = await handleNonStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, reqLogger, toolNameMap, customToolNames, trackDone, appendLog });
+    const result = await handleNonStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, reqLogger, toolNameMap, customToolNames, trackDone });
     streamController.handleComplete();
     return result;
   }

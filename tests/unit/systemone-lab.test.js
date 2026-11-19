@@ -28,7 +28,7 @@ const mocks = vi.hoisted(() => ({
   trackPendingRequest: vi.fn(),
 }));
 
-vi.mock("@/lib/localDb", () => ({ getSettings: mocks.getSettings, getProviderNodes: mocks.getProviderNodes, getProviderNodeById: mocks.getProviderNodeById }));
+vi.mock("@/lib/db/index.js", () => ({ getSettings: mocks.getSettings, getProviderNodes: mocks.getProviderNodes, getProviderNodeById: mocks.getProviderNodeById }));
 vi.mock("@/sse/services/auth.js", () => ({
   getProviderCredentials: mocks.getProviderCredentials,
   markAccountUnavailable: mocks.markAccountUnavailable,

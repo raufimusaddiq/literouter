@@ -1,3 +1,4 @@
+import { CLAUDE_EVENT } from "../translator/schema/index.js";
 /**
  * Helpers for the OpenCode Zen free-tier client fingerprint.
  *
@@ -180,7 +181,7 @@ export function restoreToolNames(payload, map) {
   if (payload.type === "response.completed" && payload.response) put("response", restoreToolNames(payload.response, map));
 
   // Claude streaming content_block_start event.
-  if (payload.type === "content_block_start") {
+  if (payload.type === CLAUDE_EVENT.CONTENT_BLOCK_START) {
     const block = payload.content_block;
     if (block?.type === "tool_use" && typeof block.name === "string" && map.has(block.name)) {
       put("content_block", { ...block, name: map.get(block.name) });

@@ -1,9 +1,9 @@
 import { getCombos } from "@/lib/localDb";
+import { MAX_COMBO_DEPTH } from "open-sse/config/runtimeConfig.js";
 
 // A combo that (transitively) contains itself expands forever in chat.js, so
 // the write paths reject it up front. Depth is capped there too, for combos
 // already stored before this check existed.
-const MAX_COMBO_DEPTH = 8;
 
 /**
  * Reject a combo whose `models` field is not a string array, or that would

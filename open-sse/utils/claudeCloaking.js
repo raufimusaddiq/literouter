@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "crypto";
 import { CLAUDE_TOOL_SUFFIX, CC_DEFAULT_TOOLS } from "../config/appConstants.js";
 import { CLAUDE_CLI_VERSION } from "../providers/shared.js";
 import { CLAUDE_BLOCK } from "../translator/schema/blocks.js";
+import { CLAUDE_EVENT } from "../translator/schema/index.js";
 
 const CC_ENTRYPOINT = "sdk-cli";
 
@@ -167,7 +168,7 @@ export function decloakToolNames(body, toolNameMap) {
  */
 export function decloakStreamChunk(chunk, toolNameMap) {
   if (!chunk || typeof chunk !== "object") return chunk;
-  if (chunk.type !== "content_block_start") return chunk;
+  if (chunk.type !== CLAUDE_EVENT.CONTENT_BLOCK_START) return chunk;
   const block = chunk.content_block;
   if (block?.type !== "tool_use" || typeof block.name !== "string") return chunk;
   const original = toolNameMap?.get(block.name) || stripCloakSuffix(block.name);

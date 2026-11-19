@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   handleChatCore: vi.fn(),
 }));
 
-vi.mock("@/lib/localDb", () => ({
+vi.mock("@/lib/db/index.js", () => ({
   getSettings: async () => ({ requireApiKey: false, comboStrategy: "fallback" }),
   getModelAliases: async () => ({}),
   getComboByName: async (name) => fx.combos.find((c) => c.name === name) || null,

@@ -152,3 +152,6 @@ export function resolveRetryEntry(entry) {
 export const SKIP_PATTERNS = [
   "Please write a 5-10 word title for the following conversation:"
 ];
+
+// Hard cap on combo-in-combo nesting (chat expansion + combo write-path validation).
+export const MAX_COMBO_DEPTH = 8;

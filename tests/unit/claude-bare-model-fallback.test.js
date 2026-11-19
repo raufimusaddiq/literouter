@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const connections = vi.hoisted(() => ({ anthropic: [], claude: [] }));
 
-vi.mock("@/lib/localDb", () => ({
+vi.mock("@/lib/db/index.js", () => ({
   getModelAliases: async () => ({}),
   getComboByName: async () => null,
   getProviderNodes: async () => [],

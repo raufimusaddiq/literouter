@@ -3,7 +3,7 @@ import { FORMATS } from "../translator/formats.js";
 import { PENDING_COMPLETION_FLUSH_MS, TRANSLATE_HEARTBEAT_MS } from "../config/runtimeConfig.js";
 import { PROVIDERS } from "../config/providers.js";
 import { liftReasoningAliases } from "../translator/concerns/reasoning.js";
-import { trackPendingRequest, appendRequestLog } from "@/lib/usageDb.js";
+import { trackPendingRequest } from "@/lib/usageDb.js";
 import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, logUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking.js";
 import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE, ensureStreamToolCallIds } from "./streamHelpers.js";
 import { restoreToolNames } from "./opencodeFingerprint.js";
@@ -11,6 +11,7 @@ import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatInco
 import { dbg, isDebugEnabled } from "./debugLog.js";
 
 import { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER } from "./sseConstants.js";
+import { CLAUDE_EVENT } from "../translator/schema/index.js";
 
 export { COLORS, formatSSE };
 export { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER };
@@ -136,8 +137,6 @@ export function createSSEStream(options = {}) {
 
     if (hasValidUsage(finalUsage)) {
       logUsage(isPassthrough ? provider : (state?.provider || targetFormat), finalUsage, model, connectionId, apiKey);
-    } else {
-      appendRequestLog({ model, provider, connectionId, tokens: null, status: "200 OK" }).catch(() => { });
     }
 
     if (onStreamComplete) {
@@ -346,7 +345,7 @@ export function createSSEStream(options = {}) {
         if (trimmed.charCodeAt(0) === 58 /* ':' */) { emitHeartbeat(controller); continue; }
         const parsed = parseSSELine(trimmed, targetFormat);
         if (!parsed) continue;
-        if (parsed.type === "ping") { emitHeartbeat(controller); continue; }
+        if (parsed.type === CLAUDE_EVENT.PING) { emitHeartbeat(controller); continue; }
 
         // Responses API same-format passthrough: preserve event framing + track terminal state
         const isOpenAIResponsesStream = targetFormat === FORMATS.OPENAI_RESPONSES;
@@ -477,7 +476,7 @@ export function createSSEStream(options = {}) {
             }
 
             // Inject estimated usage if finish chunk has no valid usage
-            const isFinishChunk = item.type === "message_delta" || item.choices?.[0]?.finish_reason;
+            const isFinishChunk = item.type === CLAUDE_EVENT.MESSAGE_DELTA || item.choices?.[0]?.finish_reason;
             if (state.finishReason && isFinishChunk && !hasValidUsage(item.usage) && totalContentLength > 0) {
               const estimated = estimateUsage(body, totalContentLength, sourceFormat);
               item.usage = filterUsageForFormat(estimated, sourceFormat); // Filter + already has buffer
@@ -537,9 +536,9 @@ export function createSSEStream(options = {}) {
           // Some clients (e.g. OpenClaw) expect the OpenAI-style sentinel:
           //   data: [DONE]\n\n
           // Without it they can hang until timeout and trigger failover.
-          // Gemini-family clients (Antigravity, Vertex, Gemini) reject this sentinel with 400 syntax errors.
-          const isGeminiFamily = provider === "antigravity" || provider === "gemini" || provider === "vertex";
-          if (!streamDoneSent && !isGeminiFamily) {
+          // Providers flagged quirks.noDoneSentinel (Gemini family) reject this sentinel with 400 syntax errors.
+          const suppressDone = PROVIDERS[provider]?.quirks?.noDoneSentinel;
+          if (!streamDoneSent && !suppressDone) {
             const doneOutput = "data: [DONE]\n\n";
             reqLogger?.appendConvertedChunk?.(doneOutput);
             controller.enqueue(sharedEncoder.encode(doneOutput));

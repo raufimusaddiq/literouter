@@ -1,6 +1,6 @@
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
-import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK, OPENAI_FINISH } from "../schema/index.js";
+import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK, OPENAI_FINISH, CLAUDE_EVENT } from "../schema/index.js";
 import { buildChunk } from "../concerns/chunk.js";
 import { toOpenAIUsage } from "../concerns/usage.js";
 import { reasoningDelta } from "../concerns/reasoning.js";
@@ -33,7 +33,7 @@ export function claudeToOpenAIResponse(chunk, state) {
   const event = chunk.type;
 
   switch (event) {
-    case "message_start": {
+    case CLAUDE_EVENT.MESSAGE_START: {
       state.messageId = chunk.message?.id || `msg_${Date.now()}`;
       state.model = chunk.message?.model;
       state.toolCallIndex = 0;
@@ -61,7 +61,7 @@ export function claudeToOpenAIResponse(chunk, state) {
       break;
     }
 
-    case "content_block_start": {
+    case CLAUDE_EVENT.CONTENT_BLOCK_START: {
       const block = chunk.content_block;
       if (block?.type === "server_tool_use") {
         // Built-in tool (web search) - Claude handles internally, skip
@@ -89,7 +89,7 @@ export function claudeToOpenAIResponse(chunk, state) {
       break;
     }
 
-    case "content_block_delta": {
+    case CLAUDE_EVENT.CONTENT_BLOCK_DELTA: {
       // Skip deltas for built-in server tool blocks (web search)
       if (chunk.index === state.serverToolBlockIndex) break;
       const delta = chunk.delta;
@@ -115,7 +115,7 @@ export function claudeToOpenAIResponse(chunk, state) {
       break;
     }
 
-    case "content_block_stop": {
+    case CLAUDE_EVENT.CONTENT_BLOCK_STOP: {
       // Skip stop for built-in server tool blocks (web search)
       if (chunk.index === state.serverToolBlockIndex) {
         state.serverToolBlockIndex = -1;
@@ -134,7 +134,7 @@ export function claudeToOpenAIResponse(chunk, state) {
       break;
     }
 
-    case "message_delta": {
+    case CLAUDE_EVENT.MESSAGE_DELTA: {
       // Extract usage from message_delta event (Claude native format).
       // Anthropic sends input/cache in message_start and only output here, so
       // fall back to cache captured in message_start when the delta omits it.
@@ -189,7 +189,7 @@ export function claudeToOpenAIResponse(chunk, state) {
       break;
     }
 
-    case "message_stop": {
+    case CLAUDE_EVENT.MESSAGE_STOP: {
       if (!state.finishReasonSent) {
         const finishReason = state.finishReason || (state.toolCalls?.size > 0 ? OPENAI_FINISH.TOOL_CALLS : OPENAI_FINISH.STOP);
         // Same cache-inclusive math as the message_delta finish chunk.
