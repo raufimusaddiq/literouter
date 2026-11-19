@@ -54,6 +54,8 @@ export function getClientIp(request) {
     if (realIp) return realIp;
   }
   // Behind a trusted reverse proxy that overwrites XFF with the real client IP.
+  // Rightmost-hop selection (custom-server.js) assumes exactly one trusted loopback
+  // proxy hop; a longer chain would key on an inner proxy instead of the client.
   if (process.env.TRUST_PROXY === "true") {
     const xff = request.headers.get("x-forwarded-for");
     if (xff) return xff.split(",")[0].trim();

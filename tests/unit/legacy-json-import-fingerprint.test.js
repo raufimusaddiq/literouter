@@ -1,6 +1,6 @@
 // Legacy JSON import (one-time, fresh DB) must not carry client API keys into
 // SQLite as plaintext: usage rows and daily buckets get the same keyed HMAC
-// fingerprint migration 003 writes, and apiKeys rows keep only the fingerprint.
+// fingerprint migration 003 writes, while apiKeys.key stays the live credential.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -61,14 +61,14 @@ describe("legacy JSON import fingerprints API keys", () => {
     else process.env.DATA_DIR = originalDataDir;
   });
 
-  it("stores no plaintext client key in apiKeys, usageHistory or usageDaily", async () => {
+  it("fingerprints usage data but keeps apiKeys.key valid", async () => {
     writeLegacyJson(tempDir);
     const db = await boot();
     const expected = fingerprintKey(PLAINTEXT);
 
     const keys = db.all(`SELECT key FROM apiKeys`);
     expect(keys).toHaveLength(1);
-    expect(keys[0].key).toBe(expected);
+    expect(keys[0].key).toBe(PLAINTEXT);
 
     const history = db.all(`SELECT apiKey FROM usageHistory`);
     expect(history).toHaveLength(1);
@@ -78,5 +78,13 @@ describe("legacy JSON import fingerprints API keys", () => {
     const daily = db.all(`SELECT data FROM usageDaily`);
     expect(JSON.stringify(daily)).not.toContain(PLAINTEXT);
     expect(JSON.stringify(daily)).toContain(expected);
+  });
+
+  it("an imported legacy key still validates (apiKeys.key is the live credential)", async () => {
+    writeLegacyJson(tempDir);
+    await boot();
+    const { validateApiKey } = await import("../../src/lib/db/repos/apiKeysRepo.js");
+    expect(await validateApiKey(PLAINTEXT)).toBeTruthy();
+    expect(await validateApiKey(fingerprintKey(PLAINTEXT))).toBeFalsy();
   });
 });

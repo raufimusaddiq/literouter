@@ -76,6 +76,8 @@ http.createServer = (...args) => {
     // A proxy appends the hop it accepted to the right of XFF, so the rightmost
     // entry is the one the trusted loopback proxy observed; leftmost is whatever
     // the client sent and must never key a rate limit or lockout bucket.
+    // ASSUMPTION: exactly ONE trusted loopback proxy hop sits in front. With a
+    // longer proxy chain the rightmost entry is an inner proxy, not the client.
     const xffHops = xff ? String(xff).split(",").map((h) => h.trim()).filter(Boolean) : [];
     const proxyIp = String(xRealIp || "").trim() || (xffHops.length ? xffHops[xffHops.length - 1] : "");
     const ip = isLoopbackProxy && proxyIp ? proxyIp : socketIp;
