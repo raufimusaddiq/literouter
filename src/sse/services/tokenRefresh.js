@@ -206,16 +206,19 @@ export async function checkAndRefreshToken(provider, credentials, options = {}) 
       lastRefreshAt: creds.lastRefreshAt || null,
     });
 
-    const newCreds = await _refreshProviderCredentials(provider, creds, log);
+    // Only the refresh owner persists (inside the dedupe lock); concurrent waiters reuse
+    // the shared result instead of each writing the same credentials.
+    const newCreds = await _refreshProviderCredentials(provider, creds, log, {
+      onRefreshed: async (merged) => {
+        if (merged?.accessToken || merged?.apiKey || merged?.copilotToken) {
+          await updateProviderCredentials(creds.connectionId, {
+            ...merged,
+            existingProviderSpecificData: creds.providerSpecificData,
+          });
+        }
+      },
+    });
     if (newCreds?.accessToken || newCreds?.apiKey || newCreds?.copilotToken) {
-      const mergedCreds = {
-        ...newCreds,
-        existingProviderSpecificData: creds.providerSpecificData,
-      };
-
-      // Persist to DB (non-blocking path continues below)
-      await updateProviderCredentials(creds.connectionId, mergedCreds);
-
       creds = {
         ...creds,
         ...newCreds,
