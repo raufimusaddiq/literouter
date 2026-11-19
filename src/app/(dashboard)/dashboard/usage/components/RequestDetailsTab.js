@@ -256,9 +256,11 @@ export default function RequestDetailsTab() {
                   </div>
                   <span className={cn(
                     "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
-                    isErrorStatus(detail.status)
-                      ? "bg-danger/15 text-danger"
-                      : "bg-success/15 text-success"
+                    detail.status === "client_cancelled"
+                      ? "bg-warning/15 text-warning"
+                      : isErrorStatus(detail.status)
+                        ? "bg-danger/15 text-danger"
+                        : "bg-success/15 text-success"
                   )}>
                     {detail.status || "unknown"}
                   </span>
