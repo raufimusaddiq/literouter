@@ -15,6 +15,22 @@ import { trackPendingRequest } from "@/lib/usageDb.js";
 
 const FALLBACK_STATUSES = new Set([401, 403, 408, 429, 500, 502, 503, 504, 529]);
 
+// Only these client headers reach the provider. TypeSafe's danger-zone headers
+// switch on image assets and long context; nothing else is forwarded.
+export const FORWARDED_REQUEST_HEADERS = [
+  "TypeSafe-Danger-Zone-Images",
+  "TypeSafe-Danger-Zone-Long-Context",
+];
+
+export function pickForwardedHeaders(request) {
+  const headers = {};
+  for (const name of FORWARDED_REQUEST_HEADERS) {
+    const value = request.headers.get(name);
+    if (value) headers[name] = value;
+  }
+  return headers;
+}
+
 export function systemOneError(status, message, headers = {}) {
   return new Response(JSON.stringify({ error: { message } }), {
     status,
@@ -172,6 +188,7 @@ export async function handleSystemOne(request) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...pickForwardedHeaders(request),
           Authorization: `Bearer ${credentials.apiKey || credentials.accessToken}`,
         },
         body: JSON.stringify(body),
