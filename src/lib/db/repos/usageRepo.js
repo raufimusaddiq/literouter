@@ -99,6 +99,20 @@ function isLaterTs(candidate, current) {
   return Number.isNaN(cur) || c > cur;
 }
 
+// Synthetic lastUsed for legacy day rows: local end-of-day of the day key,
+// clamped to now. Parsed manually; Date.parse("YYYY-MM-DD") would be UTC.
+function dayKeyToFallbackTs(dateKey) {
+  const [y, m, d] = String(dateKey).split("-").map(Number);
+  const t = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+  if (Number.isNaN(t)) return null;
+  return new Date(Math.min(t, Date.now())).toISOString();
+}
+
+function noteDayFallback(store, dim, key, dateKey) {
+  const bucket = store[dim] || (store[dim] = {});
+  if (!bucket[key] || dateKey > bucket[key]) bucket[key] = dateKey;
+}
+
 function aggregateEntryToDay(day, entry) {
   const promptTokens = entry.tokens?.prompt_tokens || entry.tokens?.input_tokens || 0;
   const completionTokens = entry.tokens?.completion_tokens || entry.tokens?.output_tokens || 0;
@@ -798,6 +812,7 @@ export async function getUsageStats(period = "all") {
     const periodDays = { "7d": 7, "30d": 30, "60d": 60 };
     const maxDays = periodDays[period] || null;
     const dayRows = loadDaysInRange(db, maxDays);
+    const dayFallback = {};
 
     for (const dr of dayRows) {
       const dateKey = dr.dateKey;
@@ -830,6 +845,7 @@ export async function getUsageStats(period = "all") {
         stats.byModel[statsKey].cachedTokens += m.cachedTokens || 0;
         stats.byModel[statsKey].cost += m.cost || 0;
         if (isLaterTs(m.lastTs, stats.byModel[statsKey].lastUsed)) stats.byModel[statsKey].lastUsed = m.lastTs;
+        else if (!m.lastTs) noteDayFallback(dayFallback, "byModel", statsKey, dateKey);
       }
 
       for (const [connId, a] of Object.entries(day.byAccount || {})) {
@@ -847,6 +863,7 @@ export async function getUsageStats(period = "all") {
         stats.byAccount[accountKey].cachedTokens += a.cachedTokens || 0;
         stats.byAccount[accountKey].cost += a.cost || 0;
         if (isLaterTs(a.lastTs, stats.byAccount[accountKey].lastUsed)) stats.byAccount[accountKey].lastUsed = a.lastTs;
+        else if (!a.lastTs) noteDayFallback(dayFallback, "byAccount", accountKey, dateKey);
       }
 
       for (const ak of Object.values(day.byApiKey || {})) {
@@ -868,6 +885,7 @@ export async function getUsageStats(period = "all") {
         stats.byApiKey[akKey].cachedTokens += ak.cachedTokens || 0;
         stats.byApiKey[akKey].cost += ak.cost || 0;
         if (isLaterTs(ak.lastTs, stats.byApiKey[akKey].lastUsed)) stats.byApiKey[akKey].lastUsed = ak.lastTs;
+        else if (!ak.lastTs) noteDayFallback(dayFallback, "byApiKey", akKey, dateKey);
       }
 
       for (const [epKey, ep] of Object.entries(day.byEndpoint || {})) {
@@ -884,6 +902,7 @@ export async function getUsageStats(period = "all") {
         stats.byEndpoint[epKey].cachedTokens += ep.cachedTokens || 0;
         stats.byEndpoint[epKey].cost += ep.cost || 0;
         if (isLaterTs(ep.lastTs, stats.byEndpoint[epKey].lastUsed)) stats.byEndpoint[epKey].lastUsed = ep.lastTs;
+        else if (!ep.lastTs) noteDayFallback(dayFallback, "byEndpoint", epKey, dateKey);
       }
     }
 
@@ -921,6 +940,16 @@ export async function getUsageStats(period = "all") {
       const endpoint = e.endpoint || "Unknown";
       const endpointKey = `${endpoint}|${e.model}|${e.provider || "unknown"}`;
       if (stats.byEndpoint[endpointKey] && isLaterTs(ts, stats.byEndpoint[endpointKey].lastUsed)) stats.byEndpoint[endpointKey].lastUsed = ts;
+    }
+
+    // Legacy usageDaily rows carry no lastTs. Entries still without a real
+    // timestamp (no real lastTs on any day, no history overlay) fall back to a
+    // synthetic ISO instant at local end-of-day of the newest such day key.
+    for (const [dim, keys] of Object.entries(dayFallback)) {
+      for (const [k, dk] of Object.entries(keys)) {
+        const entry = stats[dim][k];
+        if (entry && entry.lastUsed == null) entry.lastUsed = dayKeyToFallbackTs(dk);
+      }
     }
   } else {
     // 24h / today: live history
