@@ -1,11 +1,13 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "./jsonCol.js";
+import { bumpConfigVersion } from "../configVersion.js";
 
 const kvCache = global.__liteRouterKvCache ??= new Map();
 const KV_CACHE_TTL_MS = Math.max(1000, Number(process.env.RUNTIME_CONFIG_TTL_MS || 5000));
 
 function invalidateScope(scope) {
   kvCache.delete(scope);
+  bumpConfigVersion();
 }
 
 async function getScope(scope) {

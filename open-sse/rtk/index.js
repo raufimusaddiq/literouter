@@ -28,13 +28,18 @@ function memoGet(key) {
   return entry;
 }
 
+// Count key overhead too so null-output entries are not free.
+function memoSize(key, entry) {
+  return (entry.out ? entry.out.length : 0) + String(key).length + 64;
+}
+
 function memoSet(key, entry) {
-  const size = entry.out ? entry.out.length : 0;
+  const size = memoSize(key, entry);
   memo.set(key, entry);
   memoBytes += size;
   while (memo.size > MEMO_MAX_ENTRIES || memoBytes > MEMO_MAX_BYTES) {
     const oldest = memo.keys().next().value;
-    memoBytes -= memo.get(oldest).out ? memo.get(oldest).out.length : 0;
+    memoBytes -= memoSize(oldest, memo.get(oldest));
     memo.delete(oldest);
   }
 }

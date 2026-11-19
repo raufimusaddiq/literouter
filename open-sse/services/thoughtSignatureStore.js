@@ -1,4 +1,6 @@
-import { makeKv } from "../../src/lib/db/helpers/kvStore.js";
+import { makeKv, invalidateKvScope } from "../../src/lib/db/helpers/kvStore.js";
+import { getAdapterSync } from "../../src/lib/db/driver.js";
+import { stringifyJson } from "../../src/lib/db/helpers/jsonCol.js";
 
 const MAX_SIGNATURES = 2000;
 const MAX_PERSISTED_SIGNATURES = 10_000;
@@ -70,6 +72,22 @@ export async function flushPendingSignatures() {
     // Fail-open: RAM cache still serves this process
   }
 }
+
+// Synchronous drain for shutdown: the 1s unref'd timer may never fire.
+export function flushPendingSignaturesSync() {
+  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+  if (pendingPersist.size === 0) return;
+  const batch = [...pendingPersist];
+  pendingPersist.clear();
+  const db = getAdapterSync();
+  db.transaction(() => {
+    for (const [k, v] of batch) {
+      db.run(`INSERT INTO kv(scope, key, value) VALUES(?, ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value = excluded.value`, [SCOPE, k, stringifyJson(v)]);
+    }
+  });
+  invalidateKvScope(SCOPE);
+}
+globalThis.__liteRouterSignatureDrainSync = flushPendingSignaturesSync;
 
 function ensureTimers() {
   if (!pruneTimer) {

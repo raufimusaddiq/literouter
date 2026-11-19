@@ -8,6 +8,7 @@ export function drainRuntimeBuffersSync() {
   const drains = [
     ["usage", globalThis.__liteRouterUsageDrainSync],
     ["request-details", globalThis.__liteRouterDrainSync],
+    ["thought-signatures", globalThis.__liteRouterSignatureDrainSync],
   ];
 
   let ok = true;

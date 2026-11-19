@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { bumpConfigVersion } from "../configVersion.js";
 
 function rowToCombo(row) {
   if (!row) return null;
@@ -17,7 +18,7 @@ function rowToCombo(row) {
 // ponytail: process-local cache; UI writes invalidate it, external writers wait for TTL
 const comboCache = global.__liteRouterComboCache ??= { rows: null, expiresAt: 0 };
 const COMBO_CACHE_TTL_MS = Math.max(1000, Number(process.env.RUNTIME_CONFIG_TTL_MS || 5000));
-function invalidateComboCache() { comboCache.rows = null; comboCache.expiresAt = 0; }
+function invalidateComboCache() { comboCache.rows = null; comboCache.expiresAt = 0; bumpConfigVersion(); }
 
 async function allCombosCached() {
   if (comboCache.rows && comboCache.expiresAt > Date.now()) return comboCache.rows;

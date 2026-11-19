@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import { bumpConfigVersion } from "../configVersion.js";
 import { getAdapter } from "../driver.js";
 import { keyAccessFromColumns, keyAccessToColumns } from "@/shared/utils/keyAccess.js";
 import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
@@ -9,7 +10,7 @@ import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
 // ponytail: process-local cache, Redis invalidation when multi-replica matters
 const keyCache = global.__liteRouterApiKeyCache ??= { rows: null, expiresAt: 0 };
 const CACHE_TTL_MS = 5000;
-function invalidateApiKeyCache() { keyCache.rows = null; keyCache.expiresAt = 0; }
+function invalidateApiKeyCache() { keyCache.rows = null; keyCache.expiresAt = 0; bumpConfigVersion(); }
 
 async function allKeys() {
   if (keyCache.rows && keyCache.expiresAt > Date.now()) return keyCache.rows;
