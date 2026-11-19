@@ -1049,6 +1049,7 @@ export default function ProviderDetailPage() {
               <input
                 type="checkbox"
                 checked={isSelected(conn.id)}
+                aria-label={`Select ${conn.name || "connection"}`}
                 onChange={() => toggleSelectConnection(conn.id)}
                 className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
               />
@@ -1428,7 +1429,7 @@ export default function ProviderDetailPage() {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="truncate text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">{providerInfo.name}</h2>
+              <h1 className="truncate text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">{providerInfo.name}</h1>
               {(providerInfo.notice?.apiKeyUrl || providerInfo.notice?.signupUrl || providerInfo.website) && (
                 <a
                   href={providerInfo.notice?.apiKeyUrl || providerInfo.notice?.signupUrl || providerInfo.website}

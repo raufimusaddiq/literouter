@@ -332,7 +332,7 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
                 ))
               )}
               {combo.models.length > 3 && (
-                <span className="text-[10px] text-text-muted">+{combo.models.length - 3} more</span>
+                <span className="text-[11px] text-text-muted">+{combo.models.length - 3} more</span>
               )}
             </div>
             {/* Fusion: judge picker (Auto = first model) */}
@@ -384,7 +384,7 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
               <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
                 {copied === `combo-${combo.id}` ? "check" : "content_copy"}
               </span>
-              <span className="text-[10px] leading-tight">Copy</span>
+              <span className="text-[11px] leading-tight">Copy</span>
             </button>
             <button
               onClick={onEdit}
@@ -392,7 +392,7 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
               title="Edit"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[18px]">edit</span>
-              <span className="text-[10px] leading-tight">Edit</span>
+              <span className="text-[11px] leading-tight">Edit</span>
             </button>
             <button
               onClick={onDelete}
@@ -400,7 +400,7 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
               title="Delete"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[18px]">delete</span>
-              <span className="text-[10px] leading-tight">Delete</span>
+              <span className="text-[11px] leading-tight">Delete</span>
             </button>
           </div>
         </div>
@@ -518,7 +518,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
                 ))
               )}
               {models.length > 3 && (
-                <span className="text-[10px] text-text-muted">+{models.length - 3} more</span>
+                <span className="text-[11px] text-text-muted">+{models.length - 3} more</span>
               )}
             </div>
           </div>
