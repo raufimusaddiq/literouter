@@ -7,7 +7,7 @@ export default function EndpointRow({ label, url, copyId, copied, onCopy, badge,
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
       <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 text-center ${badge === "CF" || badge === "TS" ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"}`}>{label}</span>
-      <Input value={url} readOnly className="min-w-0 flex-1 basis-full font-mono text-sm sm:basis-auto" />
+      <Input value={url} readOnly aria-label={`${label} endpoint URL`} className="min-w-0 flex-1 basis-full font-mono text-sm sm:basis-auto" />
       <button
         type="button"
         onClick={() => onCopy(url, copyId)}

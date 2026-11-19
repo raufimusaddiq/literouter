@@ -43,7 +43,7 @@ export default function Card({
             )}
             <div>
               {title && (
-                <h3 className="font-semibold tracking-[-0.02em] text-text-main">{title}</h3>
+                <h2 className="font-semibold tracking-[-0.02em] text-text-main">{title}</h2>
               )}
               {subtitle && (
                 <p className="text-sm text-text-muted">{subtitle}</p>

@@ -513,7 +513,7 @@ export default function ModelSelectModal({
             <div className="flex items-center gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5">
               <span aria-hidden="true" className="material-symbols-outlined text-primary text-[14px]">layers</span>
               <span className="text-xs font-medium text-primary">Combos</span>
-              <span className="text-[10px] text-text-muted">({filteredCombos.length})</span>
+              <span className="text-[11px] text-text-muted">({filteredCombos.length})</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {filteredCombos.map((combo) => {
@@ -558,7 +558,7 @@ export default function ModelSelectModal({
               <span className="text-xs font-medium text-primary">
                 {group.name}
               </span>
-              <span className="text-[10px] text-text-muted">
+              <span className="text-[11px] text-text-muted">
                 ({group.models.length})
               </span>
             </div>
@@ -596,7 +596,7 @@ export default function ModelSelectModal({
                       ) : model.isCustom ? (
                         <>
                           {model.name}
-                          <span className="text-[9px] opacity-60 font-normal">custom</span>
+                          <span className="text-[11px] opacity-60 font-normal">custom</span>
                           <CapacityBadges caps={getCaps(model.value)} />
                         </>
                       ) : (
