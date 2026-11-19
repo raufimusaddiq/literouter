@@ -83,6 +83,34 @@ function addToCounter(target, key, values) {
   target[key].cachedTokens += values.cachedTokens || 0;
   target[key].cost += values.cost || 0;
   if (values.meta) Object.assign(target[key], values.meta);
+  if (values.ts && isLaterTs(values.ts, target[key].lastTs)) target[key].lastTs = values.ts;
+}
+
+// Compare real ISO timestamps only. A bare date key ("YYYY-MM-DD") is never a
+// timestamp: Date-parsing it yields UTC midnight, which mis-orders it against
+// real instants whenever the local day differs from the UTC day.
+const ISO_TS_RE = /^\d{4}-\d{2}-\d{2}T/;
+function isLaterTs(candidate, current) {
+  if (typeof candidate !== "string" || !ISO_TS_RE.test(candidate)) return false;
+  const c = Date.parse(candidate);
+  if (Number.isNaN(c)) return false;
+  if (typeof current !== "string" || !ISO_TS_RE.test(current)) return true;
+  const cur = Date.parse(current);
+  return Number.isNaN(cur) || c > cur;
+}
+
+// Synthetic lastUsed for legacy day rows: local end-of-day of the day key,
+// clamped to now. Parsed manually; Date.parse("YYYY-MM-DD") would be UTC.
+function dayKeyToFallbackTs(dateKey) {
+  const [y, m, d] = String(dateKey).split("-").map(Number);
+  const t = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+  if (Number.isNaN(t)) return null;
+  return new Date(Math.min(t, Date.now())).toISOString();
+}
+
+function noteDayFallback(store, dim, key, dateKey) {
+  const bucket = store[dim] || (store[dim] = {});
+  if (!bucket[key] || dateKey > bucket[key]) bucket[key] = dateKey;
 }
 
 function aggregateEntryToDay(day, entry) {
@@ -90,7 +118,7 @@ function aggregateEntryToDay(day, entry) {
   const completionTokens = entry.tokens?.completion_tokens || entry.tokens?.output_tokens || 0;
   const cachedTokens = entry.tokens?.cached_tokens || entry.tokens?.cache_read_input_tokens || 0;
   const cost = entry.cost || 0;
-  const vals = { promptTokens, completionTokens, cachedTokens, cost };
+  const vals = { promptTokens, completionTokens, cachedTokens, cost, ts: entry.timestamp };
 
   day.requests = (day.requests || 0) + 1;
   day.promptTokens = (day.promptTokens || 0) + promptTokens;
@@ -784,6 +812,7 @@ export async function getUsageStats(period = "all") {
     const periodDays = { "7d": 7, "30d": 30, "60d": 60 };
     const maxDays = periodDays[period] || null;
     const dayRows = loadDaysInRange(db, maxDays);
+    const dayFallback = {};
 
     for (const dr of dayRows) {
       const dateKey = dr.dateKey;
@@ -808,14 +837,15 @@ export async function getUsageStats(period = "all") {
         const statsKey = provider ? `${rawModel} (${provider})` : rawModel;
         const providerDisplayName = providerNodeNameMap[provider] || provider;
         if (!stats.byModel[statsKey]) {
-          stats.byModel[statsKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel, provider: providerDisplayName, lastUsed: dateKey };
+          stats.byModel[statsKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel, provider: providerDisplayName, lastUsed: null };
         }
         stats.byModel[statsKey].requests += m.requests || 0;
         stats.byModel[statsKey].promptTokens += m.promptTokens || 0;
         stats.byModel[statsKey].completionTokens += m.completionTokens || 0;
         stats.byModel[statsKey].cachedTokens += m.cachedTokens || 0;
         stats.byModel[statsKey].cost += m.cost || 0;
-        if (dateKey > (stats.byModel[statsKey].lastUsed || "")) stats.byModel[statsKey].lastUsed = dateKey;
+        if (isLaterTs(m.lastTs, stats.byModel[statsKey].lastUsed)) stats.byModel[statsKey].lastUsed = m.lastTs;
+        else if (!m.lastTs) noteDayFallback(dayFallback, "byModel", statsKey, dateKey);
       }
 
       for (const [connId, a] of Object.entries(day.byAccount || {})) {
@@ -825,14 +855,15 @@ export async function getUsageStats(period = "all") {
         const providerDisplayName = providerNodeNameMap[provider] || provider;
         const accountKey = `${rawModel} (${provider} - ${accountName})`;
         if (!stats.byAccount[accountKey]) {
-          stats.byAccount[accountKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel, provider: providerDisplayName, connectionId: connId, accountName, lastUsed: dateKey };
+          stats.byAccount[accountKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel, provider: providerDisplayName, connectionId: connId, accountName, lastUsed: null };
         }
         stats.byAccount[accountKey].requests += a.requests || 0;
         stats.byAccount[accountKey].promptTokens += a.promptTokens || 0;
         stats.byAccount[accountKey].completionTokens += a.completionTokens || 0;
         stats.byAccount[accountKey].cachedTokens += a.cachedTokens || 0;
         stats.byAccount[accountKey].cost += a.cost || 0;
-        if (dateKey > (stats.byAccount[accountKey].lastUsed || "")) stats.byAccount[accountKey].lastUsed = dateKey;
+        if (isLaterTs(a.lastTs, stats.byAccount[accountKey].lastUsed)) stats.byAccount[accountKey].lastUsed = a.lastTs;
+        else if (!a.lastTs) noteDayFallback(dayFallback, "byAccount", accountKey, dateKey);
       }
 
       for (const ak of Object.values(day.byApiKey || {})) {
@@ -846,14 +877,15 @@ export async function getUsageStats(period = "all") {
         const apiKeyKey = apiKeyMasked || "local-no-key";
         const akKey = apiKeyMasked ? `${apiKeyMasked}|${rawModel}|${provider || "unknown"}` : "local-no-key";
         if (!stats.byApiKey[akKey]) {
-          stats.byApiKey[akKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel, provider: providerDisplayName, apiKeyMasked, keyName, apiKeyKey, lastUsed: dateKey };
+          stats.byApiKey[akKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel, provider: providerDisplayName, apiKeyMasked, keyName, apiKeyKey, lastUsed: null };
         }
         stats.byApiKey[akKey].requests += ak.requests || 0;
         stats.byApiKey[akKey].promptTokens += ak.promptTokens || 0;
         stats.byApiKey[akKey].completionTokens += ak.completionTokens || 0;
         stats.byApiKey[akKey].cachedTokens += ak.cachedTokens || 0;
         stats.byApiKey[akKey].cost += ak.cost || 0;
-        if (dateKey > (stats.byApiKey[akKey].lastUsed || "")) stats.byApiKey[akKey].lastUsed = dateKey;
+        if (isLaterTs(ak.lastTs, stats.byApiKey[akKey].lastUsed)) stats.byApiKey[akKey].lastUsed = ak.lastTs;
+        else if (!ak.lastTs) noteDayFallback(dayFallback, "byApiKey", akKey, dateKey);
       }
 
       for (const [epKey, ep] of Object.entries(day.byEndpoint || {})) {
@@ -862,14 +894,15 @@ export async function getUsageStats(period = "all") {
         const provider = ep.provider || "";
         const providerDisplayName = providerNodeNameMap[provider] || provider;
         if (!stats.byEndpoint[epKey]) {
-          stats.byEndpoint[epKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, endpoint, rawModel, provider: providerDisplayName, lastUsed: dateKey };
+          stats.byEndpoint[epKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, endpoint, rawModel, provider: providerDisplayName, lastUsed: null };
         }
         stats.byEndpoint[epKey].requests += ep.requests || 0;
         stats.byEndpoint[epKey].promptTokens += ep.promptTokens || 0;
         stats.byEndpoint[epKey].completionTokens += ep.completionTokens || 0;
         stats.byEndpoint[epKey].cachedTokens += ep.cachedTokens || 0;
         stats.byEndpoint[epKey].cost += ep.cost || 0;
-        if (dateKey > (stats.byEndpoint[epKey].lastUsed || "")) stats.byEndpoint[epKey].lastUsed = dateKey;
+        if (isLaterTs(ep.lastTs, stats.byEndpoint[epKey].lastUsed)) stats.byEndpoint[epKey].lastUsed = ep.lastTs;
+        else if (!ep.lastTs) noteDayFallback(dayFallback, "byEndpoint", epKey, dateKey);
       }
     }
 
@@ -891,22 +924,32 @@ export async function getUsageStats(period = "all") {
     for (const e of histRows) {
       const ts = e.timestamp;
       const modelKey = e.provider ? `${e.model} (${e.provider})` : e.model;
-      if (stats.byModel[modelKey] && new Date(ts) > new Date(stats.byModel[modelKey].lastUsed)) stats.byModel[modelKey].lastUsed = ts;
+      if (stats.byModel[modelKey] && isLaterTs(ts, stats.byModel[modelKey].lastUsed)) stats.byModel[modelKey].lastUsed = ts;
 
       if (e.connectionId) {
         const accountName = connectionMap[e.connectionId] || `Account ${e.connectionId.slice(0, 8)}...`;
         const accountKey = `${e.model} (${e.provider} - ${accountName})`;
-        if (stats.byAccount[accountKey] && new Date(ts) > new Date(stats.byAccount[accountKey].lastUsed)) stats.byAccount[accountKey].lastUsed = ts;
+        if (stats.byAccount[accountKey] && isLaterTs(ts, stats.byAccount[accountKey].lastUsed)) stats.byAccount[accountKey].lastUsed = ts;
       }
 
       const apiKeyKey = (e.apiKey && typeof e.apiKey === "string")
         ? `${maskApiKey(e.apiKey)}|${e.model}|${e.provider || "unknown"}`
         : "local-no-key";
-      if (stats.byApiKey[apiKeyKey] && new Date(ts) > new Date(stats.byApiKey[apiKeyKey].lastUsed)) stats.byApiKey[apiKeyKey].lastUsed = ts;
+      if (stats.byApiKey[apiKeyKey] && isLaterTs(ts, stats.byApiKey[apiKeyKey].lastUsed)) stats.byApiKey[apiKeyKey].lastUsed = ts;
 
       const endpoint = e.endpoint || "Unknown";
       const endpointKey = `${endpoint}|${e.model}|${e.provider || "unknown"}`;
-      if (stats.byEndpoint[endpointKey] && new Date(ts) > new Date(stats.byEndpoint[endpointKey].lastUsed)) stats.byEndpoint[endpointKey].lastUsed = ts;
+      if (stats.byEndpoint[endpointKey] && isLaterTs(ts, stats.byEndpoint[endpointKey].lastUsed)) stats.byEndpoint[endpointKey].lastUsed = ts;
+    }
+
+    // Legacy usageDaily rows carry no lastTs. Entries still without a real
+    // timestamp (no real lastTs on any day, no history overlay) fall back to a
+    // synthetic ISO instant at local end-of-day of the newest such day key.
+    for (const [dim, keys] of Object.entries(dayFallback)) {
+      for (const [k, dk] of Object.entries(keys)) {
+        const entry = stats[dim][k];
+        if (entry && entry.lastUsed == null) entry.lastUsed = dayKeyToFallbackTs(dk);
+      }
     }
   } else {
     // 24h / today: live history
@@ -952,7 +995,7 @@ export async function getUsageStats(period = "all") {
       stats.byModel[modelKey].completionTokens += completionTokens;
       stats.byModel[modelKey].cachedTokens += cachedTokens;
       stats.byModel[modelKey].cost += entryCost;
-      if (new Date(r.lastTs) > new Date(stats.byModel[modelKey].lastUsed)) stats.byModel[modelKey].lastUsed = r.lastTs;
+      if (isLaterTs(r.lastTs, stats.byModel[modelKey].lastUsed)) stats.byModel[modelKey].lastUsed = r.lastTs;
 
       if (r.connectionId) {
         const accountName = connectionMap[r.connectionId] || `Account ${r.connectionId.slice(0, 8)}...`;
@@ -965,7 +1008,7 @@ export async function getUsageStats(period = "all") {
         stats.byAccount[accountKey].completionTokens += completionTokens;
         stats.byAccount[accountKey].cachedTokens += cachedTokens;
         stats.byAccount[accountKey].cost += entryCost;
-        if (new Date(r.lastTs) > new Date(stats.byAccount[accountKey].lastUsed)) stats.byAccount[accountKey].lastUsed = r.lastTs;
+        if (isLaterTs(r.lastTs, stats.byAccount[accountKey].lastUsed)) stats.byAccount[accountKey].lastUsed = r.lastTs;
       }
 
       if (r.apiKey && typeof r.apiKey === "string") {
@@ -978,14 +1021,14 @@ export async function getUsageStats(period = "all") {
         }
         const ake = stats.byApiKey[akKey];
         ake.requests += n; ake.promptTokens += promptTokens; ake.completionTokens += completionTokens; ake.cachedTokens += cachedTokens; ake.cost += entryCost;
-        if (new Date(r.lastTs) > new Date(ake.lastUsed)) ake.lastUsed = r.lastTs;
+        if (isLaterTs(r.lastTs, ake.lastUsed)) ake.lastUsed = r.lastTs;
       } else {
         if (!stats.byApiKey["local-no-key"]) {
           stats.byApiKey["local-no-key"] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, apiKeyMasked: null, keyName: "Local (No API Key)", apiKeyKey: "local-no-key", lastUsed: r.lastTs };
         }
         const ake = stats.byApiKey["local-no-key"];
         ake.requests += n; ake.promptTokens += promptTokens; ake.completionTokens += completionTokens; ake.cachedTokens += cachedTokens; ake.cost += entryCost;
-        if (new Date(r.lastTs) > new Date(ake.lastUsed)) ake.lastUsed = r.lastTs;
+        if (isLaterTs(r.lastTs, ake.lastUsed)) ake.lastUsed = r.lastTs;
       }
 
       const endpoint = r.endpoint || "Unknown";
@@ -995,7 +1038,7 @@ export async function getUsageStats(period = "all") {
       }
       const epe = stats.byEndpoint[epKey];
       epe.requests += n; epe.promptTokens += promptTokens; epe.completionTokens += completionTokens; epe.cachedTokens += cachedTokens; epe.cost += entryCost;
-      if (new Date(r.lastTs) > new Date(epe.lastUsed)) epe.lastUsed = r.lastTs;
+      if (isLaterTs(r.lastTs, epe.lastUsed)) epe.lastUsed = r.lastTs;
     }
   }
 
