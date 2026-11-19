@@ -24,12 +24,33 @@ describe("Tooltip a11y", () => {
   });
 });
 
+describe("Tooltip Escape", () => {
+  const src = read("src/shared/components/Tooltip.js");
+  it("stops propagation only while the tooltip is visible", () => {
+    expect(src).toMatch(/if \(visible && !dismissed\) e\.stopPropagation\(\)/);
+  });
+});
+
 describe("CapacityBadges a11y", () => {
   const src = read("src/shared/components/CapacityBadges.js");
 
-  it("trigger is focusable with an accessible name; icon stays aria-hidden", () => {
+  it("focusable mode: focusable trigger with accessible name; icon stays aria-hidden", () => {
+    expect(src).toMatch(/focusable = false/);
+    expect(src).toMatch(/if \(focusable\)/);
     expect(src).toMatch(/tabIndex=\{0\}/);
-    expect(src).toMatch(/aria-label=\{CAPACITY_META\[k\]\.label\}/);
+    expect(src).toMatch(/aria-label=\{meta\.label\}/);
     expect(src).toMatch(/aria-hidden="true"/);
+  });
+
+  it("default mode: sr-only label, no tab stop outside the focusable branch", () => {
+    expect(src).toMatch(/<span className="sr-only">\{meta\.label\}<\/span>/);
+    const tail = src.slice(src.indexOf("// Non-focusable"));
+    expect(tail).not.toMatch(/tabIndex/);
+  });
+
+  it("only the provider-detail ModelRow opts in", () => {
+    expect(read("src/app/(dashboard)/dashboard/providers/[id]/ModelRow.js")).toMatch(/<CapacityBadges focusable/);
+    expect(read("src/shared/components/ModelSelectModal.js")).not.toMatch(/CapacityBadges[^>]*focusable/);
+    expect(read("src/app/(dashboard)/dashboard/combos/page.js")).not.toMatch(/CapacityBadges[^>]*focusable/);
   });
 });

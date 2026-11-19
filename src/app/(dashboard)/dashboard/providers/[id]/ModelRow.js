@@ -46,7 +46,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
           <code className="max-w-[72vw] truncate rounded bg-sidebar px-1.5 py-0.5 font-mono text-xs text-text-muted sm:max-w-[360px]">{displayModel}</code>
           <span className="flex min-w-0 items-center text-[11px] gap-1 pl-1">
             {model.name && <span className="truncate text-[11px] italic text-text-muted/70">{model.name}</span>}
-            <CapacityBadges caps={caps} colorOverride="text-text-muted/70" size={12} />
+            <CapacityBadges focusable caps={caps} colorOverride="text-text-muted/70" size={12} />
           </span>
           {!!testedAt && (
             <span className={`pl-1 text-[11px] ${testStatus === "ok" ? "text-green-500/80" : "text-red-500/80"}`}>

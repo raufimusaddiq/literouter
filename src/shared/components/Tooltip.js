@@ -7,6 +7,7 @@ import { Children, cloneElement, isValidElement, useId, useState } from "react";
 export default function Tooltip({ text, children, position = "top", color }) {
   const id = useId();
   const [dismissed, setDismissed] = useState(false);
+  const [visible, setVisible] = useState(false);
 
   const posClass = {
     top: "bottom-full left-1/2 -translate-x-1/2 mb-1.5",
@@ -30,10 +31,16 @@ export default function Tooltip({ text, children, position = "top", color }) {
     <div
       className="relative inline-flex group/tt"
       onKeyDown={(e) => {
-        if (e.key === "Escape") setDismissed(true);
+        if (e.key === "Escape") {
+          // Only swallow Escape while the tooltip is visible (e.g. keep a parent Modal open).
+          if (visible && !dismissed) e.stopPropagation();
+          setDismissed(true);
+        }
       }}
-      onMouseEnter={() => setDismissed(false)}
-      onFocus={() => setDismissed(false)}
+      onMouseEnter={() => { setDismissed(false); setVisible(true); }}
+      onMouseLeave={() => setVisible(false)}
+      onFocus={() => { setDismissed(false); setVisible(true); }}
+      onBlur={() => setVisible(false)}
     >
       {trigger}
       <div
