@@ -406,7 +406,7 @@ export default function ProfilePage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="size-10 sm:size-12 rounded-lg bg-green-500/10 text-green-500 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-xl sm:text-2xl">computer</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-xl sm:text-2xl">computer</span>
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-semibold">Local Mode</h2>
@@ -426,7 +426,7 @@ export default function ProfilePage() {
                       : "text-text-muted hover:text-text-main"
                   )}
                 >
-                  <span className="material-symbols-outlined text-[18px]">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
                     {option === "light" ? "light_mode" : option === "dark" ? "dark_mode" : "contrast"}
                   </span>
                   <span className="capitalize text-xs sm:text-sm">{option}</span>
@@ -480,7 +480,7 @@ export default function ProfilePage() {
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="size-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[20px]">language</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">language</span>
             </div>
             <h3 className="text-base sm:text-lg font-semibold">Language</h3>
           </div>
@@ -498,7 +498,7 @@ export default function ProfilePage() {
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-              <span className="material-symbols-outlined text-[20px]">shield</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">shield</span>
             </div>
             <h3 className="text-base sm:text-lg font-semibold">Security</h3>
           </div>
@@ -511,6 +511,7 @@ export default function ProfilePage() {
                 </p>
               </div>
               <Toggle
+                aria-label="Require login"
                 checked={settings.requireLogin === true}
                 onChange={() => updateRequireLogin(!settings.requireLogin)}
                 disabled={loading}
@@ -520,8 +521,8 @@ export default function ProfilePage() {
               <form onSubmit={handlePasswordChange} className="flex flex-col gap-4 pt-4 border-t border-border/50">
                 {settings.hasPassword && (
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs sm:text-sm font-medium">Current Password</label>
                     <Input
+                      label="Current Password"
                       type="password"
                       placeholder="Enter current password"
                       value={passwords.current}
@@ -539,8 +540,8 @@ export default function ProfilePage() {
                 )} */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs sm:text-sm font-medium">New Password</label>
                     <Input
+                      label="New Password"
                       type="password"
                       placeholder="Enter new password"
                       value={passwords.new}
@@ -549,8 +550,8 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs sm:text-sm font-medium">Confirm New Password</label>
                     <Input
+                      label="Confirm New Password"
                       type="password"
                       placeholder="Confirm new password"
                       value={passwords.confirm}
@@ -580,7 +581,7 @@ export default function ProfilePage() {
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
-              <span className="material-symbols-outlined text-[20px]">route</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">route</span>
             </div>
             <h3 className="text-base sm:text-lg font-semibold">Routing Strategy</h3>
           </div>
@@ -593,6 +594,7 @@ export default function ProfilePage() {
                 </p>
               </div>
               <Toggle
+                aria-label="Round robin"
                 checked={settings.fallbackStrategy === "round-robin"}
                 onChange={() => updateFallbackStrategy(settings.fallbackStrategy === "round-robin" ? "fill-first" : "round-robin")}
                 disabled={loading}
@@ -609,6 +611,7 @@ export default function ProfilePage() {
                   </p>
                 </div>
                 <Input
+                  aria-label="Sticky round robin limit"
                   type="number"
                   min="1"
                   max="10"
@@ -629,6 +632,7 @@ export default function ProfilePage() {
                 </p>
               </div>
               <Toggle
+                aria-label="Combo round robin"
                 checked={settings.comboStrategy === "round-robin"}
                 onChange={() => updateComboStrategy(settings.comboStrategy === "round-robin" ? "fallback" : "round-robin")}
                 disabled={loading}
@@ -645,6 +649,7 @@ export default function ProfilePage() {
                   </p>
                 </div>
                 <Input
+                  aria-label="Combo sticky round robin limit"
                   type="number"
                   min="1"
                   max="100"
@@ -671,7 +676,7 @@ export default function ProfilePage() {
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shrink-0">
-              <span className="material-symbols-outlined text-[20px]">wifi</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">wifi</span>
             </div>
             <h3 className="text-base sm:text-lg font-semibold">Network</h3>
           </div>
@@ -683,6 +688,7 @@ export default function ProfilePage() {
                 <p className="text-xs sm:text-sm text-text-muted">Enable proxy for OAuth + provider outbound requests.</p>
               </div>
               <Toggle
+                aria-label="Outbound proxy"
                 checked={settings.outboundProxyEnabled === true}
                 onChange={() => updateOutboundProxyEnabled(!(settings.outboundProxyEnabled === true))}
                 disabled={loading || proxyLoading}
@@ -692,8 +698,8 @@ export default function ProfilePage() {
             {settings.outboundProxyEnabled === true && (
               <form onSubmit={updateOutboundProxy} className="flex flex-col gap-4 pt-2 border-t border-border/50">
                 <div className="flex flex-col gap-2">
-                  <label className="font-medium text-sm sm:text-base">Proxy URL</label>
                   <Input
+                    label="Proxy URL"
                     placeholder="http://127.0.0.1:7897"
                     value={proxyForm.outboundProxyUrl}
                     onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundProxyUrl: e.target.value }))}
@@ -703,8 +709,8 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="flex flex-col gap-2 pt-2 border-t border-border/50">
-                  <label className="font-medium text-sm sm:text-base">No Proxy</label>
                   <Input
+                    label="No Proxy"
                     placeholder="localhost,127.0.0.1"
                     value={proxyForm.outboundNoProxy}
                     onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundNoProxy: e.target.value }))}
@@ -743,7 +749,7 @@ export default function ProfilePage() {
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-surface-2 text-text-muted shrink-0">
-              <span className="material-symbols-outlined text-[20px]">monitoring</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">monitoring</span>
             </div>
             <h3 className="text-base sm:text-lg font-semibold">Observability</h3>
           </div>
@@ -755,6 +761,7 @@ export default function ProfilePage() {
               </p>
             </div>
             <Toggle
+              aria-label="Enable observability"
               checked={observabilityEnabled}
               onChange={updateObservabilityEnabled}
               disabled={loading}
@@ -809,6 +816,7 @@ export default function ProfilePage() {
           Enter your current password to {dbAuth.mode === "export" ? "export" : "import"} the database.
         </p>
         <Input
+          aria-label="Current password"
           type="password"
           value={dbAuth.password}
           onChange={(e) => setDbAuth((s) => ({ ...s, password: e.target.value }))}

@@ -220,7 +220,7 @@ export default function CombosPage() {
         <Card>
           <div className="text-center py-12">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[32px]">layers</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[32px]">layers</span>
             </div>
             <p className="text-text-main font-medium mb-1">No combos yet</p>
             <p className="text-sm text-text-muted mb-4">Create model combos with fallback support</p>
@@ -313,7 +313,7 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
           <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-primary text-[18px]">layers</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-primary text-[18px]">layers</span>
           </div>
           <div className="min-w-0 flex-1">
             <code className="block truncate font-mono text-sm font-medium">{combo.name}</code>
@@ -345,16 +345,17 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
                   className="inline-flex max-w-full items-center gap-1 rounded border border-dashed border-primary/40 px-1.5 py-0.5 font-mono text-[11px] text-primary hover:border-primary hover:bg-primary/5 transition-colors"
                   title="Pick the model that fuses panel answers"
                 >
-                  <span className="material-symbols-outlined text-[13px]">gavel</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[13px]">gavel</span>
                   <span className="truncate">{judge || `Auto — ${combo.models[0] || "first model"}`}</span>
                 </button>
                 {judge && (
                   <button
                     onClick={() => onSetStrategy({ judgeModel: "" })}
+                    aria-label="Reset judge to Auto"
                     className="p-0.5 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
                     title="Reset judge to Auto"
                   >
-                    <span className="material-symbols-outlined text-[13px]">close</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[13px]">close</span>
                   </button>
                 )}
               </div>
@@ -367,6 +368,7 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
           {/* Strategy selector — always visible */}
           <div className="w-full sm:w-[200px]">
             <Select
+              aria-label="Fallback strategy"
               options={STRATEGY_OPTIONS}
               value={current}
               onChange={(e) => onSetStrategy({ fallbackStrategy: e.target.value })}
@@ -380,7 +382,7 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
               className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
               title="Copy combo name"
             >
-              <span className="material-symbols-outlined text-[18px]">
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
                 {copied === `combo-${combo.id}` ? "check" : "content_copy"}
               </span>
               <span className="text-[10px] leading-tight">Copy</span>
@@ -390,7 +392,7 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
               className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
               title="Edit"
             >
-              <span className="material-symbols-outlined text-[18px]">edit</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">edit</span>
               <span className="text-[10px] leading-tight">Edit</span>
             </button>
             <button
@@ -398,7 +400,7 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
               className="flex flex-col items-center rounded px-2 py-1 text-red-500 transition-colors hover:bg-red-500/10"
               title="Delete"
             >
-              <span className="material-symbols-outlined text-[18px]">delete</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">delete</span>
               <span className="text-[10px] leading-tight">Delete</span>
             </button>
           </div>
@@ -486,7 +488,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
             aria-label={`Enable ${cap.label} adapter`}
           />
           <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-primary text-[18px]">{cap.icon}</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-primary text-[18px]">{cap.icon}</span>
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-x-1.5">
@@ -504,14 +506,14 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
                   >
                     <span className="min-w-0 break-all">{model}</span>
                     <CapacityBadges caps={getCaps?.(model)} />
-                    <button onClick={() => handleMove(index, -1)} disabled={index === 0} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === 0 ? "text-text-muted/20" : "text-text-muted hover:text-primary"}`}>
-                      <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
+                    <button onClick={() => handleMove(index, -1)} disabled={index === 0} aria-label={`Move ${model} up`} className={`leading-none opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100 ${index === 0 ? "text-text-muted/20" : "text-text-muted hover:text-primary"}`}>
+                      <span aria-hidden="true" className="material-symbols-outlined text-[12px]">arrow_upward</span>
                     </button>
-                    <button onClick={() => handleMove(index, 1)} disabled={index === models.length - 1} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === models.length - 1 ? "text-text-muted/20" : "text-text-muted hover:text-primary"}`}>
-                      <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
+                    <button onClick={() => handleMove(index, 1)} disabled={index === models.length - 1} aria-label={`Move ${model} down`} className={`leading-none opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100 ${index === models.length - 1 ? "text-text-muted/20" : "text-text-muted hover:text-primary"}`}>
+                      <span aria-hidden="true" className="material-symbols-outlined text-[12px]">arrow_downward</span>
                     </button>
-                    <button onClick={() => handleRemove(index)} className="leading-none opacity-0 group-hover/chip:opacity-100 text-text-muted hover:text-red-500">
-                      <span className="material-symbols-outlined text-[12px]">close</span>
+                    <button onClick={() => handleRemove(index)} aria-label={`Remove ${model}`} className="leading-none opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100 text-text-muted hover:text-red-500">
+                      <span aria-hidden="true" className="material-symbols-outlined text-[12px]">close</span>
                     </button>
                   </code>
                 ))

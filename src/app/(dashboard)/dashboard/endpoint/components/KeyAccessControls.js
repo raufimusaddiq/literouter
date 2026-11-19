@@ -55,7 +55,7 @@ export default function KeyAccessControls({ apiKey, onChange, onRequestRestrict 
                 title={`Remove ${entry}`}
                 aria-label={`Remove ${entry}`}
               >
-                <span className="material-symbols-outlined leading-none" style={{ fontSize: "12px" }}>close</span>
+                <span aria-hidden="true" className="material-symbols-outlined leading-none" style={{ fontSize: "12px" }}>close</span>
               </button>
             </span>
           ))}
@@ -63,7 +63,7 @@ export default function KeyAccessControls({ apiKey, onChange, onRequestRestrict 
             onClick={openPicker}
             className="flex items-center gap-0.5 rounded-xl border border-dashed border-black/10 px-2 py-0.5 text-xs font-medium text-primary hover:border-primary/50 dark:border-white/10"
           >
-            <span className="material-symbols-outlined leading-none" style={{ fontSize: "14px" }}>add</span>
+            <span aria-hidden="true" className="material-symbols-outlined leading-none" style={{ fontSize: "14px" }}>add</span>
             Add combo or model
           </button>
         </div>
