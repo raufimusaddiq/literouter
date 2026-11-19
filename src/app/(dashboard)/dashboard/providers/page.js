@@ -23,6 +23,7 @@ import {
 } from "@/shared/constants/providers";
 import Link from "next/link";
 import { getErrorCode, getRelativeTime } from "@/shared/utils";
+import { getConnectionHealthStats, HEALTH_LABELS } from "@/shared/utils/connectionHealth";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import ModelAvailabilityBadge from "./components/ModelAvailabilityBadge";
@@ -426,19 +427,26 @@ export default function ProvidersPage() {
     compatibleProviders.length > 0 ||
     anthropicCompatibleProviders.length > 0;
 
-  const activeConnections = connections.filter((connection) =>
-    connection.isActive !== false && ["active", "success"].includes(connection.testStatus),
-  ).length;
-  const failingConnections = connections.filter((connection) =>
-    ["error", "expired", "unavailable"].includes(connection.testStatus),
-  ).length;
+  const health = getConnectionHealthStats(connections);
 
   return (
     <div className="flex min-w-0 flex-col gap-7">
       <PageIntro
         title="Providers"
-        description={<span id="needs-attention" className="scroll-mt-24">{connections.length} {connections.length === 1 ? "connection" : "connections"} · {activeConnections} ready · {failingConnections} {failingConnections === 1 ? "needs" : "need"} attention</span>}
+        description={<span id="needs-attention" className="scroll-mt-24">{health.total} {health.total === 1 ? "connection" : "connections"} · {health.ready} {HEALTH_LABELS.ready.toLowerCase()} · {health.attention} {health.attention === 1 ? "needs" : "need"} attention{health.inactive > 0 ? ` · ${health.inactive} inactive` : ""}{health.untested > 0 ? ` · ${health.untested} untested` : ""}</span>}
       />
+      {health.attentionItems.length > 0 && (
+        <ul className="flex flex-col gap-1 rounded-xl bg-surface px-4 py-3 text-sm text-text-muted ring-1 ring-border-subtle" data-testid="needs-attention-list">
+          {health.attentionItems.map(({ connection, reason }) => (
+            <li key={connection.id}>
+              <Link href={`/dashboard/providers/${connection.provider}`} className="font-medium text-text-main hover:underline">
+                {connection.name || connection.email || connection.provider}
+              </Link>{" "}
+              · {reason.replace("_", " ")}
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="flex items-center justify-end border-b border-border-subtle pb-4">
         <div className="flex items-center justify-end">
         <select

@@ -41,6 +41,13 @@ import Card from "@/shared/components/Card";
 import { ConfirmModal, EditConnectionModal } from "@/shared/components";
 import { USAGE_SUPPORTED_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { runWithConcurrency, withTimeout, TimeoutError } from "@/lib/asyncLimits";
+
+// Each account is fetched independently: at most 4 in flight, 8s per request.
+const QUOTA_FETCH_CONCURRENCY = 4;
+const QUOTA_FETCH_TIMEOUT_MS = 8000;
+// Auto-refresh only re-fetches accounts whose data is older than this.
+const QUOTA_STALE_MS = 30000;
 
 // Maps the stored providerSpecificData.authMethod to a human label for Kiro.
 // Values come from the Kiro connect flows: builder-id/idc (device code),
@@ -175,6 +182,7 @@ export default function ProviderLimits() {
   const intervalRef = useRef(null);
   const countdownRef = useRef(null);
   const tickCountRef = useRef(0);
+  const lastFetchedRef = useRef({});
 
   const fetchConnections = useCallback(
     async (targetPage = page) => {
@@ -228,7 +236,11 @@ export default function ProviderLimits() {
         `[ProviderLimits] Fetching quota for ${provider} (${connectionId})`,
       );
       const url = `/api/usage/${connectionId}${force ? "?force=1" : ""}`;
-      const response = await fetch(url);
+      const response = await withTimeout(
+        (signal) => fetch(url, { signal }),
+        QUOTA_FETCH_TIMEOUT_MS,
+        "Quota request",
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -289,9 +301,13 @@ export default function ProviderLimits() {
       );
       setErrors((prev) => ({
         ...prev,
-        [connectionId]: error.message || "Failed to fetch quota",
+        [connectionId]:
+          error instanceof TimeoutError
+            ? "Timed out"
+            : error.message || "Failed to fetch quota",
       }));
     } finally {
+      lastFetchedRef.current[connectionId] = Date.now();
       setLoading((prev) => ({ ...prev, [connectionId]: false }));
     }
   }, []);
@@ -481,7 +497,8 @@ export default function ProviderLimits() {
     try {
       const visibleConnections = await fetchConnections(page);
 
-      setLoading(buildLoadingState(visibleConnections));
+      // Background ticks keep showing the previous data; each card flips to
+      // loading only when its own fetch actually starts.
       setErrors((prev) =>
         filterQuotaStateByConnections(prev, visibleConnections),
       );
@@ -489,10 +506,13 @@ export default function ProviderLimits() {
         filterQuotaStateByConnections(prev, visibleConnections),
       );
 
-      await Promise.all(
-        visibleConnections
-          .filter(shouldFetch)
-          .map((conn) => fetchQuota(conn.id, conn.provider)),
+      const now = Date.now();
+      const isStale = (conn) =>
+        force || now - (lastFetchedRef.current[conn.id] || 0) >= QUOTA_STALE_MS;
+      await runWithConcurrency(
+        visibleConnections.filter(shouldFetch).filter(isStale),
+        QUOTA_FETCH_CONCURRENCY,
+        (conn) => fetchQuota(conn.id, conn.provider),
       );
 
       setLastUpdated(new Date());
@@ -518,8 +538,10 @@ export default function ProviderLimits() {
         filterQuotaStateByConnections(prev, visibleConnections),
       );
 
-      await Promise.all(
-        visibleConnections.map((conn) => fetchQuota(conn.id, conn.provider)),
+      await runWithConcurrency(
+        visibleConnections,
+        QUOTA_FETCH_CONCURRENCY,
+        (conn) => fetchQuota(conn.id, conn.provider),
       );
       setLastUpdated(new Date());
     };
@@ -1274,7 +1296,7 @@ export default function ProviderLimits() {
               </div>
 
               <div className="px-2 py-1.5">
-                {isLoading ? (
+                {isLoading && !quota ? (
                   <div className="text-center py-5 text-text-muted">
                     <span aria-hidden="true" className="material-symbols-outlined text-[28px] animate-spin">
                       progress_activity
@@ -1286,6 +1308,15 @@ export default function ProviderLimits() {
                       error
                     </span>
                     <p className="mt-1.5 text-xs text-text-muted">{error}</p>
+                    <button
+                      type="button"
+                      onClick={() => refreshProvider(conn.id, conn.provider)}
+                      disabled={rowBusy}
+                      className="mt-2 inline-flex h-7 items-center gap-1 rounded-lg border border-black/10 px-2.5 text-xs text-text-primary transition-colors hover:bg-black/5 disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
+                    >
+                      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">refresh</span>
+                      Retry
+                    </button>
                   </div>
                 ) : quota?.message ? (
                   <div className="text-center py-5">
@@ -1394,8 +1425,11 @@ export default function ProviderLimits() {
                 aria-label="Custom accounts per page"
                 placeholder="Custom"
               />
-              <span className="text-xs text-text-muted">Page {pagination.page} / {pagination.totalPages}</span>
+              {pagination.totalPages > 1 && (
+                <span className="text-xs text-text-muted">Page {pagination.page} / {pagination.totalPages}</span>
+              )}
             </div>
+            {pagination.totalPages > 1 && (
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -1454,6 +1488,7 @@ export default function ProviderLimits() {
                 Last Page
               </button>
             </div>
+            )}
           </div>
         </div>
 
