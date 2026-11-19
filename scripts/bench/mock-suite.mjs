@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { startMock } from "./mock-upstream.mjs";
 import { runBench } from "./run.mjs";
 import { fmt, slope } from "./stats.mjs";
+import { slimRun, writeReports } from "./report-io.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
@@ -96,6 +97,9 @@ async function main() {
     const probe = await runBench({ baseUrl: gwBase, key, model: slowModel, mode: "nonstream", requests: 1, maxTokens: 5, label: "probe" });
     if (probe.report.failed) throw new Error(`gateway probe failed: ${JSON.stringify(probe.report.errors)} (see ${dataDir}/gateway.log)`);
 
+    const base = path.join(repoRoot, "bench-results", `${new Date().toISOString().replace(/[:.]/g, "-").replace("Z", "")}-mock`);
+    fs.mkdirSync(path.dirname(base), { recursive: true });
+    const checkpoint = () => writeReports(base, md, out, { quiet: true });
     const out = { startedAt: new Date().toISOString(), node: process.version, platform: `${process.platform} ${os.cpus().length}cpu`, sections: {} };
     const md = [`# Mock-mode gateway benchmark`, "", `- ${out.startedAt}; node ${process.version}; ${out.platform}; gateway \`node custom-server.js\` (production build), mock upstream on loopback`, ""];
     const row = (r) => `| ${r.label} | ${r.total} | ${r.failed} | ${fmt(r.throughputReqPerSec, 1)} | ${fmt(r.ttfbMs.p50)} / ${fmt(r.ttfbMs.p99)} | ${fmt(r.ttftMs.p50)} / ${fmt(r.ttftMs.p99)} | ${fmt(r.totalMs.p50)} / ${fmt(r.totalMs.p99)} | ${fmt(r.maxInterChunkGapMs.max)} |`;
@@ -122,6 +126,7 @@ async function main() {
       out.sections.a.upstreamStats = fastStats;
       md.push(`Mock upstream saw ${fastStats.total} requests (expected 800: 400 direct + 400 via gateway).`, "");
       console.log("a) done");
+      checkpoint();
     }
 
     // ---- b) sweep ----
@@ -135,6 +140,7 @@ async function main() {
       out.sections.b = res;
       md.push("## b) Concurrency sweep (streams of 200 chunks x 20ms = ~4s each, through gateway)", "", ...head, ...res.map(row), "",
         "Ideal stream wall time is ~4.0s+TTFB; `max chunk gap` > ~100ms means a visible stall.", "");
+      checkpoint();
     }
 
     // ---- c) soak ----
@@ -159,7 +165,7 @@ async function main() {
       const third = Math.max(1, Math.floor(valid.length / 3));
       const avg = (a) => a.reduce((x, y) => x + y.rssMb, 0) / a.length;
       const growth = { startMb: valid[0]?.rssMb, endMb: valid.at(-1)?.rssMb, peakMb: Math.max(...ys), settledAfter5sMb: settled, slopeMbPerMin: slope(xs, ys), firstThirdAvg: avg(valid.slice(0, third)), lastThirdAvg: avg(valid.slice(-third)) };
-      out.sections.c = { soak, samples, growth, dbFiles: samples.at(-1).files, usageBefore, usageAfter };
+      out.sections.c = { soak: slimRun(soak), samples, growth, dbFiles: samples.at(-1).files, usageBefore, usageAfter };
       md.push(`## c) Soak (${SOAK_SEC}s, concurrency 20 streams, RSS sampled every 10s)`, "", ...head, row(soak.report), "",
         `- RSS: start ${fmt(growth.startMb)} MB, end ${fmt(growth.endMb)} MB, peak ${fmt(growth.peakMb)} MB, 5s after load stopped ${fmt(growth.settledAfter5sMb)} MB`,
         `- RSS trend: ${fmt(growth.slopeMbPerMin, 2)} MB/min (least squares); first-third avg ${fmt(growth.firstThirdAvg)} MB vs last-third avg ${fmt(growth.lastThirdAvg)} MB`,
@@ -167,6 +173,7 @@ async function main() {
         `- ~/.9router usage files before -> after (bytes): ${JSON.stringify(usageBefore)} -> ${JSON.stringify(usageAfter)}`,
         "", "<details><summary>RSS samples</summary>", "", "| t (s) | RSS MB |", "|---|---|", ...samples.map((s) => `| ${fmt(s.t, 0)} | ${fmt(s.rssMb)} |`), "", "</details>", "");
       console.log("c) done");
+      checkpoint();
     }
 
     // ---- d) abort ----
@@ -187,15 +194,12 @@ async function main() {
         `- **5s after: ${JSON.stringify(after)}** (in-flight must be 0; open sockets are keep-alive pool connections, not requests)`,
         `- gateway pending snapshot: ${gwPending ? "`" + gwPending.replace(/\s+/g, " ").slice(0, 300) + "`" : "n/a"}`, "");
       console.log("d) done");
+      checkpoint();
     }
 
     md.push("## Interpretation", "", "_(see section notes appended by the author below)_", "");
-    const ts = new Date().toISOString().replace(/[:.]/g, "-").replace("Z", "");
-    fs.mkdirSync(path.join(repoRoot, "bench-results"), { recursive: true });
-    const base = path.join(repoRoot, "bench-results", `${ts}-mock`);
-    fs.writeFileSync(`${base}.json`, JSON.stringify(out, null, 2));
-    fs.writeFileSync(`${base}.md`, md.join("\n"));
-    console.log(`wrote ${base}.{md,json}; gateway log ${path.join(dataDir, "gateway.log")}`);
+    writeReports(base, md, out);
+    console.log(`gateway log ${path.join(dataDir, "gateway.log")}`);
   } finally {
     await cleanup();
   }
