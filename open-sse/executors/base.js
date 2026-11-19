@@ -130,6 +130,8 @@ export class BaseExecutor {
       }
       retryAttemptsByUrl[urlIndex]++;
       log?.debug?.("RETRY", `${reason} retry ${retryAttemptsByUrl[urlIndex]}/${attempts} after ${waitMs / 1000}s`);
+      // Cancel the stale response first so an abort during the sleep can't leave it open.
+      discardResponse(response);
       await sleep(waitMs, undefined, { signal });
       return true;
     };
@@ -165,7 +167,6 @@ export class BaseExecutor {
         if (await tryRetry(urlIndex, response.status, `status ${response.status}`, response)) {
           // A 502 from an edge is typically a poisoned keep-alive socket - retry on a fresh one.
           if (response.status === HTTP_STATUS.BAD_GATEWAY) forceFreshSocketByUrl[urlIndex] = true;
-          discardResponse(response);
           urlIndex--;
           continue;
         }
