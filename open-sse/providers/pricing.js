@@ -40,6 +40,8 @@ export const MODEL_PRICING = {
   "claude-haiku-5-5":             { input: 0.10,  output: 0.50,  cached: 0.01,  reasoning: 0.50,   cache_creation: 0.125 },
 
   // === OpenAI / GPT ===
+  // Source: https://developers.openai.com/api/docs/pricing (standard tier, read 2026-11-20); kilocode openai/o3 matches https://ai-gateway.kilo.ai/api/v1/models
+  "o3":                           { input: 2.00,  output: 8.00,  cached: 0.50,  reasoning: 8.00,   cache_creation: 0     },
   "gpt-3.5-turbo":                { input: 0.50,  output: 1.50,  cached: 0.25,  reasoning: 2.25,   cache_creation: 0.50  },
   "gpt-4":                        { input: 2.50,  output: 10.00, cached: 1.25,  reasoning: 15.00,  cache_creation: 2.50  },
   "gpt-4-turbo":                  { input: 10.00, output: 30.00, cached: 5.00,  reasoning: 45.00,  cache_creation: 10.00 },
@@ -402,6 +404,266 @@ export const PROVIDER_PRICING = {
     "z-ai/glm-5.3-free": { input: 0, output: 0, cached: 0, reasoning: 0 },
   },
 };
+
+// === Pricing backfill (T-29) ===
+// Per-1M USD. Zero rows are explicit "cost not tracked" markers with a TODO(<provider>)
+// reason; none is a claim that the model is free unless its source says so. Read 2026-11-20.
+const BACKFILL_PRICING = {
+  cerebras: {
+    "zai-glm-4.7": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cerebras): id absent from current public model list; no current price
+    "llama-3.3-70b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cerebras): id absent from current public model list; no current price
+    "llama-4-scout-17b-16e-instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cerebras): id absent from current public model list; no current price
+  },
+  "cloudflare-ai": {
+    "@cf/meta/llama-3.2-1b-instruct": { input: 0.027, output: 0.201, cached: 0, reasoning: 0.201 }, // Source: https://developers.cloudflare.com/workers-ai/platform/pricing/
+    "@cf/meta/llama-3.2-3b-instruct": { input: 0.051, output: 0.335, cached: 0, reasoning: 0.335 }, // Source: https://developers.cloudflare.com/workers-ai/platform/pricing/
+    "@cf/meta/llama-3.1-8b-instruct-fp8-fast": { input: 0.045, output: 0.384, cached: 0, reasoning: 0.384 }, // Source: https://developers.cloudflare.com/workers-ai/platform/pricing/
+    "@cf/meta/llama-3.1-8b-instruct-awq": { input: 0.123, output: 0.266, cached: 0, reasoning: 0.266 }, // Source: https://developers.cloudflare.com/workers-ai/platform/pricing/
+    "@cf/mistralai/mistral-small-3.1-24b-instruct": { input: 0.351, output: 0.555, cached: 0, reasoning: 0.555 }, // Source: https://developers.cloudflare.com/workers-ai/platform/pricing/
+    "@cf/meta/llama-3.1-70b-instruct-fp8-fast": { input: 0.293, output: 2.253, cached: 0, reasoning: 2.253 }, // Source: https://developers.cloudflare.com/workers-ai/platform/pricing/
+    "@cf/meta/llama-3.3-70b-instruct-fp8-fast": { input: 0.293, output: 2.253, cached: 0, reasoning: 2.253 }, // Source: https://developers.cloudflare.com/workers-ai/platform/pricing/
+    "@cf/qwen/qwq-32b": { input: 0.66, output: 1, cached: 0, reasoning: 1 }, // Source: https://developers.cloudflare.com/workers-ai/platform/pricing/
+  },
+  cohere: {
+    "command-r-plus-08-2024": { input: 2.5, output: 10, cached: 0, reasoning: 10 }, // Source: https://cohere.com/pricing (legacy pricing, existing customers)
+    "command-r-08-2024": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cohere): current pricing page lists neither version
+    "command-a-03-2025": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cohere): current pricing page lists neither version
+  },
+  fireworks: {
+    "accounts/fireworks/models/llama-v3p3-70b-instruct": { input: 0.9, output: 0.9, cached: 0, reasoning: 0.9 }, // Source: https://docs.fireworks.ai/serverless/pricing (">16B parameters" tier; model not listed by name)
+  },
+  gemini: {
+    "gemma-4-31b-it": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(gemini): Gemini API lists Gemma 4 as free tier only, paid tier not available
+  },
+  groq: {
+    "llama-3.3-70b-versatile": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(groq): Groq models page shows Contact Sales only
+    "meta-llama/llama-4-maverick-17b-128e-instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(groq): shut down 2026-03-09 per console.groq.com/docs/deprecations
+  },
+  hyperbolic: {
+    "meta-llama/Llama-3.3-70B-Instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(hyperbolic): official USD table at hyperbolic.ai/docs/inference/overview.md (2026-10-21) doesn't list this id
+    "meta-llama/Llama-3.2-3B-Instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(hyperbolic): official USD table at hyperbolic.ai/docs/inference/overview.md (2026-10-21) doesn't list this id
+    "NousResearch/Hermes-3-Llama-3.1-70B": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(hyperbolic): official USD table at hyperbolic.ai/docs/inference/overview.md (2026-10-21) doesn't list this id
+  },
+  mistral: {
+    "mistral-large-latest": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(mistral): docs price Mistral Large 4 (0.70 / 2.10 / 0.07) but do not state that -latest maps to it
+    "codestral-latest": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(mistral): docs price "Codestral" (0.3 / 0.9 / 0.03) but do not state that -latest maps to it
+    "mistral-medium-latest": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(mistral): alias target (Medium 3.5) not in the pricing table; deprecated 2026-10-31
+  },
+  nebius: {
+    "meta-llama/Llama-3.3-70B-Instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(nebius): tokenfactory price page unreadable; only third-party figures found
+  },
+  nvidia: {
+    "nvidia/nemotron-3.5-lightning-30b-a3b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(nvidia): build.nvidia.com is a free prototype endpoint, no per-token price
+    "nvidia/nemotron-3.5-bolt-e4b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(nvidia): build.nvidia.com is a free prototype endpoint, no per-token price
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(nvidia): build.nvidia.com is a free prototype endpoint, no per-token price
+    "nvidia/nemotron-3-ultra-550b-a55b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(nvidia): build.nvidia.com is a free prototype endpoint, no per-token price
+    "poolside/laguna-xs-2.1": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(nvidia): build.nvidia.com is a free prototype endpoint, no per-token price
+    "meta/llama-guard-4-12b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(nvidia): build.nvidia.com is a free prototype endpoint, no per-token price
+    "nvidia/riva-translate-4b-instruct-v2": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(nvidia): build.nvidia.com is a free prototype endpoint, no per-token price
+    "meta/llama-3.3-70b-instruct": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(nvidia): build.nvidia.com is a free prototype endpoint, no per-token price
+  },
+  ollama: {
+    "gpt-oss:120b": { input: 0.15, output: 0.6, cached: 0.014, reasoning: 0.6 }, // Source: https://ollama.com/pricing (pay-as-you-go cloud)
+  },
+  openai: {
+    "o3": { input: 2, output: 8, cached: 0.5, reasoning: 8 },
+  },
+  siliconflow: {
+    "openai/gpt-oss-120b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(siliconflow): page lists 0.05 / 0.45 with cache read 0.075 (above input), inconsistent; not adopted
+    "inclusionAI/Ling-flash-2.0": { input: 0.14, output: 0.57, cached: 0, reasoning: 0.57 }, // Source: https://siliconflow.com/models/ling-flash-2-0
+  },
+  together: {
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(together): only an unconfirmed 1.04 / 1.04 on a page that does not tie it to the Turbo id
+    "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": { input: 0.27, output: 0.85, cached: 0, reasoning: 0.85 }, // Source: https://www.together.ai/models/llama-4-maverick
+  },
+  venice: {
+    "venice-uncensored-1-2": { input: 0.2, output: 0.9, cached: 0, reasoning: 0.9 }, // Source: https://docs.venice.ai/overview/pricing
+    "zai-org-glm-5": { input: 1, output: 3.2, cached: 0.2, reasoning: 3.2 }, // Source: https://api.venice.ai/api/v1/models (cache_input)
+    "llama-3.3-70b": { input: 0.7, output: 2.8, cached: 0, reasoning: 2.8 }, // Source: https://docs.venice.ai/overview/pricing
+    "hermes-3-llama-3.1-405b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(venice): absent from Venice catalog and pricing page (retired)
+    "mistral-small-3-2-24b-instruct": { input: 0.09375, output: 0.25, cached: 0, reasoning: 0.25 }, // Source: https://docs.venice.ai/overview/pricing
+  },
+  "api-airforce": {
+    "gpt-oss-120b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(api-airforce): api.airforce prices are subscription credits (1 credit = 1 cent), not a USD list; unit inferred
+    "gpt-oss-20b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(api-airforce): api.airforce prices are subscription credits (1 credit = 1 cent), not a USD list; unit inferred
+  },
+  cline: {
+    "kwaipilot/kat-coder-pro": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cline): not in https://api.cline.bot/api/v1/ai/cline/models; no rate published
+  },
+  clinepass: {
+    "cline-pass/mimo-v2.5": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(clinepass): flat-fee ClinePass subscription; docs give no rate for this MiMo V2.5 id
+    "cline-pass/mimo-v2.5-pro": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(clinepass): flat-fee ClinePass subscription; docs give no rate for this MiMo V2.5 id
+  },
+  cursor: {
+    "default": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(cursor): plan-based auto routing, no published per-token price
+  },
+  github: {
+    "goldeneye-free-auto": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(github): Copilot plan-based free/auto router, no per-token price
+  },
+  kimchi: {
+    "nemotron-3-ultra-fp4": { input: 0.6, output: 3.6, cached: 0, reasoning: 3.6 }, // Source: https://docs.kimchi.dev/docs/model-apis-pricing (cache rate unpublished)
+  },
+  "opencode-go": {
+    "ox-alpha-free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(opencode-go): absent from the provider live catalog (only mimo-v2.6 listed); no rate published
+    "longcat-2.0": { input: 0.3, output: 1.2, cached: 0.006, reasoning: 1.2 }, // Source: https://opencode.ai/inference/go/v1/models (provider catalog cost field)
+    "mimo-v2.5": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(opencode-go): absent from the provider live catalog (only mimo-v2.6 listed); no rate published
+    "mimo-v2.5-pro": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(opencode-go): absent from the provider live catalog (only mimo-v2.6 listed); no rate published
+    "hy3": { input: 0.14, output: 0.58, cached: 0.035, reasoning: 0.58 }, // Source: https://opencode.ai/inference/go/v1/models
+    "muse-spark-1.2-contributor": { input: 0.1, output: 0.2, cached: 0.002, reasoning: 0.2 }, // Source: https://opencode.ai/inference/go/v1/models; matches https://dev.meta.ai/docs/pricing-rate-limits (contributor mode, Meta may train on data)
+    "muse-spark-1.3-contributor": { input: 0.1, output: 0.2, cached: 0.002, reasoning: 0.2 }, // Source: https://opencode.ai/inference/go/v1/models; matches https://dev.meta.ai/docs/pricing-rate-limits (contributor mode, Meta may train on data)
+  },
+  opencode: {
+    "muse-spark-1.2-contributor-free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(opencode): id absent from the Zen/Go catalogs (-free/alpha id); no rate published
+    "muse-spark-1.3-contributor-free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(opencode): id absent from the Zen/Go catalogs (-free/alpha id); no rate published
+    "union-alpha": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(opencode): id absent from the Zen/Go catalogs (-free/alpha id); no rate published
+  },
+  "perplexity-web": {
+    "pplx-auto": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity-web): web-session/subscription provider, no per-token price
+    "pplx-sonar": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity-web): web-session/subscription provider, no per-token price
+    "pplx-gpt": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity-web): web-session/subscription provider, no per-token price
+    "pplx-gemini": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity-web): web-session/subscription provider, no per-token price
+    "pplx-sonnet": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity-web): web-session/subscription provider, no per-token price
+    "pplx-opus": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity-web): web-session/subscription provider, no per-token price
+    "pplx-nemotron": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity-web): web-session/subscription provider, no per-token price
+  },
+  perplexity: {
+    "sonar-pro": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity): Sonar chat completions rerouted to the Agent API (2026-09-27); official docs carry no Sonar rate card
+    "sonar-reasoning-pro": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity): Sonar chat completions rerouted to the Agent API (2026-09-27); official docs carry no Sonar rate card
+    "sonar-deep-research": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity): Sonar chat completions rerouted to the Agent API (2026-09-27); official docs carry no Sonar rate card
+    "sonar": { input: 0.25, output: 2.50, cached: 0.0625, reasoning: 2.50 }, // Source: https://docs.perplexity.ai/docs/agent-api/models.md (same as perplexity-agent sonar; tool/search fees extra)
+  },
+  "perplexity-agent": {
+    "perplexity/sonar": { input: 0.25, output: 2.5, cached: 0.0625, reasoning: 2.5 }, // Source: https://docs.perplexity.ai/docs/agent-api/models.md (tool/search fees extra)
+    "nvidia/nemotron-3-super-120b-a12b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(perplexity-agent): id not in the Agent API model list; no rate published
+  },
+  qoder: {
+    "ultimate": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "performance": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "efficient": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "lite": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "qmodel_38max": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "qmodel_latest": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "qmodel": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "qfmodel": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "kmodel_latest": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "kmodel": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "gmodel": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "gfmodel": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "dmodel": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "dfmodel": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+    "mmodel": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(qoder): credit-based subscription (tier multipliers, not dollars), no per-token price
+  },
+  bazaarlink: {
+    "auto:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // Source: https://bazaarlink.ai/api/v1/models (free router, prompt/completion "0")
+    "mimo-v2.5-pro": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(bazaarlink): absent from https://bazaarlink.ai/api/v1/models
+    "mimo-v2.5": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(bazaarlink): absent from https://bazaarlink.ai/api/v1/models
+    "nemotron-3-super-120b-a12b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(bazaarlink): absent from https://bazaarlink.ai/api/v1/models
+  },
+  "kilo-gateway": {
+    "kilo-auto/free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // Source: https://api.kilo.ai/api/gateway/models (free router)
+    "nvidia/nemotron-3-super-120b-a12b:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kilo-gateway): id absent from https://api.kilo.ai/api/gateway/models; no rate published
+    "nvidia/nemotron-3-ultra-550b-a55b:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // Source: https://api.kilo.ai/api/gateway/models (listed 0 / 0)
+    "kwaipilot/kat-coder-pro-v2.5:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kilo-gateway): id absent from https://api.kilo.ai/api/gateway/models; no rate published
+    "kilo-auto/frontier": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kilo-gateway): catalog lists -1/-1 (variable price of the routed model)
+    "kilo-auto/balanced": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kilo-gateway): catalog lists -1/-1 (variable price of the routed model)
+  },
+  morph: {
+    "morph-v3-large": { input: 0.9, output: 1.9, cached: 0, reasoning: 1.9 }, // Source: https://morphllm.com/pricing
+    "morph-v3-fast": { input: 0.8, output: 1.2, cached: 0, reasoning: 1.2 }, // Source: https://morphllm.com/pricing
+    "morph-qwen35-397b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(morph): id not on https://morphllm.com/pricing (only newer ids listed)
+    "morph-minimax27-230b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(morph): id not on https://morphllm.com/pricing (only newer ids listed)
+    "morph-qwen36-27b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(morph): id not on https://morphllm.com/pricing (only newer ids listed)
+    "morph-dsv4flash": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(morph): id not on https://morphllm.com/pricing (only newer ids listed)
+  },
+  poolside: {
+    "poolside/laguna-s-2.1": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(poolside): only an OpenRouter-endpoint price (0.10 / 0.20 / 0.01) was found, not a Poolside price page
+    "poolside/laguna-xs-2.1": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(poolside): Poolside docs/blog publish no rate
+    "poolside/laguna-m.1": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(poolside): Poolside docs/blog publish no rate
+  },
+  kenari: {
+    "agnes-2-0-flash:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "agnes-2-5-flash:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "agnes-3-0-flash:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "gemma-4-31b-it": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "gpt-oss-120b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): kenari.id/v1/models publishes IDR only (micro_idr_per_1m_tokens; in/out/cache-read raw ÷1e6 = 630 / 3500 / 63), no USD rate; unit unclear, not converted
+    "gpt-oss-20b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): kenari.id/v1/models publishes IDR only (micro_idr_per_1m_tokens; in/out/cache-read raw ÷1e6 = 630 / 2700 / 65), no USD rate; unit unclear, not converted
+    "hy3": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): kenari.id/v1/models publishes IDR only (micro_idr_per_1m_tokens; in/out/cache-read raw ÷1e6 = 2700 / 11000 / 270), no USD rate; unit unclear, not converted
+    "hy3:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "laguna-s-2-1:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "laguna-xs-2-1:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): kenari.id/v1/models publishes IDR only (micro_idr_per_1m_tokens; in/out/cache-read raw ÷1e6 = 1200 / 2500 / 1200 (listed free)), no USD rate; unit unclear, not converted
+    "mimo-v2-5": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "mimo-v2-5-pro": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "mimo-v2-5:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "mistral-medium-3-5:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "muse-spark-1-2": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): kenari.id/v1/models publishes IDR only (micro_idr_per_1m_tokens; in/out/cache-read raw ÷1e6 = 20000 / 80000 / 2000), no USD rate; unit unclear, not converted
+    "muse-spark-1-2-contributor": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): kenari.id/v1/models publishes IDR only (micro_idr_per_1m_tokens; in/out/cache-read raw ÷1e6 = 2000 / 4000 / 200), no USD rate; unit unclear, not converted
+    "muse-spark-1-2-contributor:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "muse-spark-1-3": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): kenari.id/v1/models publishes IDR only (micro_idr_per_1m_tokens; in/out/cache-read raw ÷1e6 = 20000 / 80000 / 2000), no USD rate; unit unclear, not converted
+    "muse-spark-1-3-contributor": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): kenari.id/v1/models publishes IDR only (micro_idr_per_1m_tokens; in/out/cache-read raw ÷1e6 = 2000 / 4000 / 200), no USD rate; unit unclear, not converted
+    "muse-spark-1-3-contributor:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "nemotron-3-super-120b-a12b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): kenari.id/v1/models publishes IDR only (micro_idr_per_1m_tokens; in/out/cache-read raw ÷1e6 = 1700 / 8400 / 170), no USD rate; unit unclear, not converted
+    "nemotron-3-super-120b-a12b:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "nemotron-3-ultra-550b-a55b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): kenari.id/v1/models publishes IDR only (micro_idr_per_1m_tokens; in/out/cache-read raw ÷1e6 = 12000 / 75000 / 1200), no USD rate; unit unclear, not converted
+    "nemotron-3-ultra-550b-a55b:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): kenari.id/v1/models publishes IDR only (micro_idr_per_1m_tokens; in/out/cache-read raw ÷1e6 = 12000 / 75000 / 4200 (listed free)), no USD rate; unit unclear, not converted
+    "nex-n2-5-pro:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+    "north-mini-code:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): listed free with null rates at kenari.id/v1/models
+    "step-3-7-flash": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): kenari.id/v1/models publishes IDR only (micro_idr_per_1m_tokens; in/out/cache-read raw ÷1e6 = 4200 / 24000 / 840), no USD rate; unit unclear, not converted
+    "step-3-7-flash:free": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(kenari): id absent from kenari.id/v1/models; no published price
+  },
+  muse: {
+    "muse-spark-1.2-contributor": { input: 0.1, output: 0.2, cached: 0.002, reasoning: 0.2 }, // Source: https://dev.meta.ai/docs/pricing-rate-limits (contributor mode, Meta may train on data)
+    "muse-spark-1.3-contributor": { input: 0.1, output: 0.2, cached: 0.002, reasoning: 0.2 }, // Source: https://dev.meta.ai/docs/pricing-rate-limits (contributor mode, Meta may train on data)
+  },
+  byteplus: {
+    "seed-2-0-pro-260328": { input: 0.5, output: 3, cached: 0.1, reasoning: 3 }, // Source: https://docs.byteplus.com/docs/en/modelark/model-pricing.md (Standard tier, 0-128K prompt; 128-256K is 1.00 / 6.00 / 0.20)
+    "seed-2-0-code-preview-260328": { input: 0.5, output: 3, cached: 0.1, reasoning: 3 }, // Source: https://docs.byteplus.com/docs/en/modelark/model-pricing.md (Standard tier, 0-128K prompt; 128-256K is 1.00 / 6.00 / 0.20)
+    "seed-2-0-mini-260215": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(byteplus): page prices only the -260428 snapshot (or no gpt-oss row); a different snapshot rate is not copied
+    "seed-2-0-lite-260228": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(byteplus): page prices only the -260428 snapshot (or no gpt-oss row); a different snapshot rate is not copied
+    "gpt-oss-120b-250805": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(byteplus): page prices only the -260428 snapshot (or no gpt-oss row); a different snapshot rate is not copied
+  },
+  "codebuddy-cn": {
+    "hy3": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(codebuddy-cn): CodeBuddy is a credit/subscription plan, no per-token price
+  },
+  iflow: {
+    "iflow-rome-30ba3b": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(iflow): no iFlow price page found (plan/free tier)
+  },
+  mmf: {
+    "mimo-auto": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(mmf): free-ai promotional endpoint; no price page found
+  },
+  "volcengine-ark": {
+    "Doubao-Seed-2.0-Code": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(volcengine-ark): https://docs.volcengine.com/docs/82379/1544106 prices in CNY only (tiered), no USD stated
+    "Doubao-Seed-2.0-pro": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(volcengine-ark): https://docs.volcengine.com/docs/82379/1544106 prices in CNY only (tiered), no USD stated
+    "Doubao-Seed-2.0-lite": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(volcengine-ark): https://docs.volcengine.com/docs/82379/1544106 prices in CNY only (tiered), no USD stated
+    "Doubao-Seed-Code": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(volcengine-ark): not on the official page; only press-quoted launch prices
+  },
+  "xiaomi-mimo": {
+    "mimo-x-pro-preview": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(xiaomi-mimo): not on https://mimo.mi.com/docs/en-US/price/pay-as-you-go (v2.5 retired 2026-10-21; only v2.6 listed)
+    "mimo-x-flash-preview": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(xiaomi-mimo): not on https://mimo.mi.com/docs/en-US/price/pay-as-you-go (v2.5 retired 2026-10-21; only v2.6 listed)
+    "mimo-v2.5-pro": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(xiaomi-mimo): not on https://mimo.mi.com/docs/en-US/price/pay-as-you-go (v2.5 retired 2026-10-21; only v2.6 listed)
+    "mimo-v2.5": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(xiaomi-mimo): not on https://mimo.mi.com/docs/en-US/price/pay-as-you-go (v2.5 retired 2026-10-21; only v2.6 listed)
+    "mimo-v2-omni": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(xiaomi-mimo): not on https://mimo.mi.com/docs/en-US/price/pay-as-you-go (v2.5 retired 2026-10-21; only v2.6 listed)
+    "mimo-v2-flash": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(xiaomi-mimo): not on https://mimo.mi.com/docs/en-US/price/pay-as-you-go (v2.5 retired 2026-10-21; only v2.6 listed)
+  },
+  "xiaomi-tokenplan": {
+    "mimo-v2.6-pro": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(xiaomi-tokenplan): Token Plan is quota-based; pay-as-you-go rates do not apply to it
+    "mimo-v2.6-flash": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(xiaomi-tokenplan): Token Plan is quota-based; pay-as-you-go rates do not apply to it
+    "mimo-v2.5-asr": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(xiaomi-tokenplan): ASR billed per audio hour / TTS free for a limited time; no per-token price
+    "mimo-v2.5-tts": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(xiaomi-tokenplan): ASR billed per audio hour / TTS free for a limited time; no per-token price
+    "mimo-v2.5-tts-voiceclone": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(xiaomi-tokenplan): ASR billed per audio hour / TTS free for a limited time; no per-token price
+    "mimo-v2.5-tts-voicedesign": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(xiaomi-tokenplan): ASR billed per audio hour / TTS free for a limited time; no per-token price
+  },
+  "codebuddy-intl": {
+    "hy3-preview": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(codebuddy-intl): CodeBuddy is a credit/subscription plan, no per-token price
+  },
+  tencent: {
+    "hunyuan-turbos-latest": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(tencent): cloud.tencent.com lists only the -vision variants (CNY); no price for this id
+    "hunyuan-t1-latest": { input: 0, output: 0, cached: 0, reasoning: 0 }, // TODO(tencent): cloud.tencent.com lists only the -vision variants (CNY); no price for this id
+  },
+};
+for (const [provider, table] of Object.entries(BACKFILL_PRICING)) {
+  // Rows already in PROVIDER_PRICING win; the backfill only fills gaps.
+  PROVIDER_PRICING[provider] = { ...table, ...PROVIDER_PRICING[provider] };
+}
 
 /**
  * Pattern-based pricing fallback — matched when no exact model entry found.
