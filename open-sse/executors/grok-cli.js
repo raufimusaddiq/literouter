@@ -333,6 +333,9 @@ function resolveEffortFromModel(modelId) {
   return null;
 }
 
+// transformed body -> per-request ids (singleton executor must not hold request state)
+const requestContexts = new WeakMap();
+
 /**
  * Grok CLI Executor — OpenAI Responses API on cli-chat-proxy.grok.com
  * Auth: OAuth device-code access token (xai-grok-cli).
@@ -340,10 +343,7 @@ function resolveEffortFromModel(modelId) {
 export class GrokCliExecutor extends BaseExecutor {
   constructor() {
     super("grok-cli", PROVIDERS["grok-cli"]);
-    this._currentSessionId = null;
-    this._currentReqId = null;
-    this._currentTurnIdx = 1;
-    this._agentId = null;
+    this._machineAgentId = null; // process-wide fallback, resolved once
   }
 
   buildUrl() {
@@ -359,8 +359,9 @@ export class GrokCliExecutor extends BaseExecutor {
     return shouldRefreshCredentials("grok-cli", credentials);
   }
 
-  buildHeaders(credentials, stream = true) {
+  buildHeaders(credentials, stream = true, url = null, model = null, transformedBody = null) {
     const headers = super.buildHeaders(credentials, stream);
+    const ctx = this._getRequestContext(transformedBody);
 
     // Static fingerprint from registry
     const staticHeaders = this.config.headers || {};
@@ -373,18 +374,19 @@ export class GrokCliExecutor extends BaseExecutor {
     headers["x-grok-client-version"] =
       this.config.clientVersion || headers["x-grok-client-version"] || GROK_CLI_VERSION;
 
-    const sessionId = this._currentSessionId || credentials?.connectionId || crypto.randomUUID();
-    const reqId = this._currentReqId || crypto.randomUUID();
+    const sessionId = ctx.sessionId || credentials?.connectionId || crypto.randomUUID();
+    const reqId = ctx.reqId || crypto.randomUUID();
     headers["x-grok-session-id"] = sessionId;
     // CLI uses the same id for conv + session on chat turns
     headers["x-grok-conv-id"] = sessionId;
     headers["x-grok-req-id"] = reqId;
-    headers["x-grok-turn-idx"] = String(this._currentTurnIdx || 1);
+    headers["x-grok-turn-idx"] = String(ctx.turnIdx || 1);
 
-    if (this._agentId) headers["x-grok-agent-id"] = this._agentId;
+    const agentId = ctx.agentId || this._machineAgentId;
+    if (agentId) headers["x-grok-agent-id"] = agentId;
 
     // Surface model override (CLI always sets this)
-    if (this._currentModel) headers["x-grok-model-override"] = this._currentModel;
+    if (ctx.model) headers["x-grok-model-override"] = ctx.model;
 
     // Identity: mapTokens stores email top-level AND in providerSpecificData;
     // fall back either way so OAuth connections always fingerprint like the CLI.
@@ -417,14 +419,33 @@ export class GrokCliExecutor extends BaseExecutor {
   }
 
   transformRequest(model, body, stream, credentials) {
-    // Session / request ids for headers — stable per client conversation when possible
+    // Per-request ids travel with the transformed body, never on the singleton.
+    const ctx = {
+      sessionId: resolveGrokCliSessionId(credentials, body),
+      reqId: crypto.randomUUID(),
+      turnIdx: 1,
+      // null when the credential has none: buildHeaders falls back to the machine id
+      agentId:
+        credentials?.providerSpecificData?.deviceId ||
+        credentials?.providerSpecificData?.agentId ||
+        null,
+      model: null,
+    };
+    const out = this._transformRequest(model, body, stream, credentials, ctx);
+    if (out && typeof out === "object") this._bindRequestContext(out, ctx);
+    return out;
+  }
+
+  _bindRequestContext(body, ctx) {
+    requestContexts.set(body, ctx);
+  }
+
+  _getRequestContext(body) {
+    return (body && requestContexts.get(body)) || {};
+  }
+
+  _transformRequest(model, body, stream, credentials, ctx) {
     const requestKey = body;
-    this._currentSessionId = resolveGrokCliSessionId(credentials, body);
-    this._currentReqId = crypto.randomUUID();
-    this._agentId =
-      credentials?.providerSpecificData?.deviceId ||
-      credentials?.providerSpecificData?.agentId ||
-      null;
 
     // Normalize Responses input
     const normalized = normalizeResponsesInput(body.input);
@@ -453,7 +474,7 @@ export class GrokCliExecutor extends BaseExecutor {
     normalizeGrokCliTools(body);
 
     // Turn index after input is finalized (user-message count, monotonic per session)
-    this._currentTurnIdx = resolveGrokCliTurnIdx(this._currentSessionId, body.input, requestKey);
+    ctx.turnIdx = resolveGrokCliTurnIdx(ctx.sessionId, body.input, requestKey);
 
     body.stream = true;
     body.store = false;
@@ -470,7 +491,7 @@ export class GrokCliExecutor extends BaseExecutor {
       resolvedModel = getModelUpstreamId("grok-cli", resolvedModel) || resolvedModel;
     }
     body.model = resolvedModel;
-    this._currentModel = resolvedModel;
+    ctx.model = resolvedModel;
 
     // Reasoning effort priority: explicit > reasoning_effort > model suffix > default high.
     // grok-build and Composer reject reasoningEffort but still accept summary/encrypted continuity.
@@ -526,12 +547,12 @@ export class GrokCliExecutor extends BaseExecutor {
   }
 
   async execute(args) {
-    // Lazy-resolve stable agent id once per process if connection has none
-    if (!this._agentId && !args.credentials?.providerSpecificData?.deviceId) {
+    // Lazy-resolve a stable process-wide agent id (used when the credential has none)
+    if (!this._machineAgentId) {
       try {
         const mid = await getConsistentMachineId("grok-cli-agent");
         // Format as UUID-ish for header aesthetics
-        this._agentId = [
+        this._machineAgentId = [
           mid.slice(0, 8),
           mid.slice(8, 12),
           "5" + mid.slice(13, 16),
@@ -539,10 +560,8 @@ export class GrokCliExecutor extends BaseExecutor {
           mid.slice(0, 12).padEnd(12, "0"),
         ].join("-");
       } catch {
-        this._agentId = crypto.randomUUID();
+        this._machineAgentId = crypto.randomUUID();
       }
-    } else if (args.credentials?.providerSpecificData?.deviceId) {
-      this._agentId = args.credentials.providerSpecificData.deviceId;
     }
 
     return super.execute(args);
