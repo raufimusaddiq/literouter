@@ -1,11 +1,13 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "./jsonCol.js";
+import { bumpConfigVersion } from "../configVersion.js";
 
 const kvCache = global.__liteRouterKvCache ??= new Map();
 const KV_CACHE_TTL_MS = Math.max(1000, Number(process.env.RUNTIME_CONFIG_TTL_MS || 5000));
 
 function invalidateScope(scope) {
   kvCache.delete(scope);
+  bumpConfigVersion();
 }
 
 async function getScope(scope) {
@@ -26,8 +28,10 @@ export function makeKv(scope) {
       const all = await getScope(scope);
       return Object.hasOwn(all, key) ? structuredClone(all[key]) : fallback;
     },
-    async getAll() {
-      return structuredClone(await getScope(scope));
+    // { clone: false } returns the shared cached snapshot: read-only, hot paths only.
+    async getAll(options = {}) {
+      const all = await getScope(scope);
+      return options.clone === false ? all : structuredClone(all);
     },
     async set(key, value) {
       const db = await getAdapter();
@@ -46,6 +50,14 @@ export function makeKv(scope) {
     async remove(key) {
       const db = await getAdapter();
       db.run(`DELETE FROM kv WHERE scope = ? AND key = ?`, [scope, key]);
+      invalidateScope(scope);
+    },
+    async removeMany(keys) {
+      if (!keys.length) return;
+      const db = await getAdapter();
+      db.transaction(() => {
+        for (const k of keys) db.run(`DELETE FROM kv WHERE scope = ? AND key = ?`, [scope, k]);
+      });
       invalidateScope(scope);
     },
     async clear() {

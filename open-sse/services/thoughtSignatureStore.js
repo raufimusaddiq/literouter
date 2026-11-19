@@ -1,4 +1,6 @@
-import { makeKv } from "../../src/lib/db/helpers/kvStore.js";
+import { makeKv, invalidateKvScope } from "../../src/lib/db/helpers/kvStore.js";
+import { getAdapterSync } from "../../src/lib/db/driver.js";
+import { stringifyJson } from "../../src/lib/db/helpers/jsonCol.js";
 
 const MAX_SIGNATURES = 2000;
 const MAX_PERSISTED_SIGNATURES = 10_000;
@@ -8,7 +10,6 @@ const SCOPE = "gemini_thought_signatures";
 
 const signatureKv = makeKv(SCOPE);
 const memorySignatures = new Map();
-let pruneCounter = 0;
 
 /**
  * Model family that produced / will consume a signature. Antigravity serves Gemini and Claude
@@ -28,6 +29,12 @@ function isCompatible(entry, family) {
   return !entry.family || !family || entry.family === family;
 }
 
+const MEMORY_PRUNE_INTERVAL_MS = 60 * 1000;
+const PERSIST_FLUSH_INTERVAL_MS = 1000;
+const PERSISTED_PRUNE_INTERVAL_MS = 10 * 60 * 1000;
+
+// Reads already check expiry themselves, so expired entries only need sweeping
+// on a timer (not a full scan on every get/store).
 function pruneMemoryExpired() {
   const now = Date.now();
   for (const [key, value] of memorySignatures.entries()) {
@@ -35,52 +42,103 @@ function pruneMemoryExpired() {
       memorySignatures.delete(key);
     }
   }
+  trimMemoryToCap();
+}
 
+// O(1) amortized size cap on the hot path (Map iterates in insertion order).
+function trimMemoryToCap() {
   while (memorySignatures.size > MAX_SIGNATURES) {
     const oldestKey = memorySignatures.keys().next().value;
-    if (!oldestKey) break;
+    if (oldestKey === undefined) break;
     memorySignatures.delete(oldestKey);
   }
 }
 
-async function maybePrunePersisted() {
-  pruneCounter++;
-  if (pruneCounter % 100 !== 0) return;
+// Batched persistence: one transaction per interval instead of two sync kv
+// writes per store.
+const pendingPersist = new Map();
+let flushTimer = null;
+let pruneTimer = null;
+let lastPersistedPruneAt = 0;
 
+export async function flushPendingSignatures() {
+  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+  if (pendingPersist.size === 0) return;
+  const batch = Object.fromEntries(pendingPersist);
+  pendingPersist.clear();
   try {
-    const all = await signatureKv.getAll();
-    const keys = Object.keys(all);
+    await signatureKv.setMany(batch);
+  } catch {
+    // Fail-open: RAM cache still serves this process
+  }
+}
+
+// Synchronous drain for shutdown: the 1s unref'd timer may never fire.
+export function flushPendingSignaturesSync() {
+  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+  if (pendingPersist.size === 0) return;
+  const batch = [...pendingPersist];
+  pendingPersist.clear();
+  const db = getAdapterSync();
+  db.transaction(() => {
+    for (const [k, v] of batch) {
+      db.run(`INSERT INTO kv(scope, key, value) VALUES(?, ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value = excluded.value`, [SCOPE, k, stringifyJson(v)]);
+    }
+  });
+  invalidateKvScope(SCOPE);
+}
+globalThis.__liteRouterSignatureDrainSync = flushPendingSignaturesSync;
+
+function ensureTimers() {
+  if (!pruneTimer) {
+    pruneTimer = setInterval(() => {
+      pruneMemoryExpired();
+      if (Date.now() - lastPersistedPruneAt >= PERSISTED_PRUNE_INTERVAL_MS) {
+        lastPersistedPruneAt = Date.now();
+        prunePersisted().catch(() => {});
+      }
+    }, MEMORY_PRUNE_INTERVAL_MS);
+    pruneTimer.unref?.();
+  }
+}
+
+function schedulePersistFlush() {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    flushPendingSignatures().catch(() => {});
+  }, PERSIST_FLUSH_INTERVAL_MS);
+  flushTimer.unref?.();
+}
+
+async function prunePersisted() {
+  try {
+    const all = await signatureKv.getAll({ clone: false });
     const now = Date.now();
-    const expiredKeys = [];
+    const toRemove = [];
     const valid = [];
 
-    for (const k of keys) {
+    for (const k of Object.keys(all)) {
       const entry = all[k];
       if (!entry || typeof entry.signature !== "string" || (entry.expiresAt && entry.expiresAt <= now)) {
-        expiredKeys.push(k);
+        toRemove.push(k);
       } else {
         valid.push({ key: k, createdAt: entry.createdAt || 0 });
       }
     }
 
-    for (const k of expiredKeys) {
-      await signatureKv.remove(k).catch(() => {});
-    }
-
     if (valid.length > MAX_PERSISTED_SIGNATURES) {
-      valid.sort((a, b) => b.createdAt - a.createdAt);
-      const toRemove = valid.slice(MAX_PERSISTED_SIGNATURES);
-      for (const item of toRemove) {
-        await signatureKv.remove(item.key).catch(() => {});
-      }
+      valid.sort((x, y) => y.createdAt - x.createdAt);
+      for (const item of valid.slice(MAX_PERSISTED_SIGNATURES)) toRemove.push(item.key);
     }
+    await signatureKv.removeMany(toRemove);
   } catch {
     // Fail-open
   }
 }
 
 /**
- * Store a thought signature for a tool_call_id with optional sessionId namespace (RAM + SQLite async).
+ * Store a thought signature for a tool_call_id with optional sessionId namespace (RAM + batched SQLite).
  * `model` is the model that produced the signature; lookups for another model family skip it.
  */
 export function storeGeminiThoughtSignature(toolCallId, signature, sessionId = null, model = null) {
@@ -89,7 +147,7 @@ export function storeGeminiThoughtSignature(toolCallId, signature, sessionId = n
 
   const now = Date.now();
   const family = signatureFamily(model);
-  pruneMemoryExpired();
+  ensureTimers();
 
   const keys = [];
   if (sessionId && typeof sessionId === "string") {
@@ -98,22 +156,22 @@ export function storeGeminiThoughtSignature(toolCallId, signature, sessionId = n
   keys.push(toolCallId);
 
   for (const k of keys) {
+    // delete first so a refreshed key moves to the newest slot
+    memorySignatures.delete(k);
     memorySignatures.set(k, {
       signature,
       family,
       expiresAt: now + MEMORY_TTL_MS,
     });
-
-    // Async persist to SQLite kv table without blocking
-    signatureKv.set(k, {
+    pendingPersist.set(k, {
       signature,
       family,
       createdAt: now,
       expiresAt: now + PERSISTED_TTL_MS,
-    }).catch(() => {});
+    });
   }
-
-  maybePrunePersisted().catch(() => {});
+  trimMemoryToCap();
+  schedulePersistFlush();
 }
 
 /**
@@ -123,7 +181,6 @@ export function storeGeminiThoughtSignature(toolCallId, signature, sessionId = n
 export function getGeminiThoughtSignatureSync(toolCallId, sessionId = null, model = null) {
   if (typeof toolCallId !== "string" || !toolCallId) return null;
   const family = signatureFamily(model);
-  pruneMemoryExpired();
 
   if (sessionId && typeof sessionId === "string") {
     const sessionKey = `${sessionId}:${toolCallId}`;

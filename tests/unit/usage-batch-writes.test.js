@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => {
     transaction: vi.fn((fn) => fn()),
     get: vi.fn((sql) => {
       if (String(sql).includes("totalRequestsLifetime")) return { value: "0" };
+      if (String(sql).includes("usageRollupKey")) return { id: 1 };
       return null;
     }),
     run: vi.fn(() => ({ changes: 1 })),
@@ -30,15 +31,19 @@ vi.mock("@/lib/db/repos/pricingRepo.js", () => ({
 const {
   saveRequestUsage,
   flushUsageQueue,
+  flushUsageDailySync,
+  _resetUsageDailyCache,
   __usageBuffer__,
 } = await import("@/lib/db/repos/usageRepo.js");
 
 beforeEach(async () => {
   await flushUsageQueue();
+  _resetUsageDailyCache();
   vi.clearAllMocks();
   mocks.db.transaction.mockImplementation((fn) => fn());
   mocks.db.get.mockImplementation((sql) => {
     if (String(sql).includes("totalRequestsLifetime")) return { value: "0" };
+    if (String(sql).includes("usageRollupKey")) return { id: 1 };
     return null;
   });
   mocks.db.run.mockReturnValue({ changes: 1 });
@@ -64,14 +69,48 @@ describe("Usage batch persistence", () => {
     );
     expect(historyInserts).toHaveLength(20);
 
-    const dailyWrites = mocks.db.run.mock.calls.filter(([sql]) =>
+    const dailyWrites = () => mocks.db.run.mock.calls.filter(([sql]) =>
       String(sql).includes("INSERT INTO usageDaily")
     );
-    expect(dailyWrites).toHaveLength(1);
+    // The daily aggregate is held in memory and written on a slower cadence.
+    expect(dailyWrites()).toHaveLength(0);
+    flushUsageDailySync(mocks.db);
+    expect(dailyWrites()).toHaveLength(1);
+    expect(JSON.parse(dailyWrites()[0][1][1]).requests).toBe(20);
 
     const lifetimeWrites = mocks.db.run.mock.calls.filter(([sql]) =>
       String(sql).includes("totalRequestsLifetime")
     );
     expect(lifetimeWrites).toHaveLength(1);
+  });
+
+  it("flushes the in-memory daily aggregate on shutdown drain", async () => {
+    await saveRequestUsage({
+      timestamp: new Date().toISOString(), provider: "codex", model: "m", connectionId: "c",
+      tokens: { prompt_tokens: 5, completion_tokens: 1 },
+    });
+    await flushUsageQueue();
+    const dailyWrites = () => mocks.db.run.mock.calls.filter(([sql]) =>
+      String(sql).includes("INSERT INTO usageDaily"));
+    expect(dailyWrites()).toHaveLength(0);
+    globalThis.__liteRouterUsageDrainSync();
+    expect(dailyWrites()).toHaveLength(1);
+    // Nothing dirty afterwards: a second drain writes nothing more.
+    globalThis.__liteRouterUsageDrainSync();
+    expect(dailyWrites()).toHaveLength(1);
+  });
+
+  it("does not fold a rolled-back batch into the daily aggregate", async () => {
+    mocks.db.transaction.mockImplementationOnce(() => { throw new Error("boom"); });
+    const p = saveRequestUsage({
+      timestamp: new Date().toISOString(), provider: "codex", model: "m", connectionId: "c",
+      tokens: { prompt_tokens: 5, completion_tokens: 1 },
+    });
+    await flushUsageQueue().catch(() => {});
+    await p.catch(() => {});
+    flushUsageDailySync(mocks.db);
+    const writes = mocks.db.run.mock.calls.filter(([sql]) => String(sql).includes("INSERT INTO usageDaily"));
+    // retry succeeded exactly once => aggregate counts 1 request, never 2
+    for (const w of writes) expect(JSON.parse(w[1][1]).requests).toBeLessThanOrEqual(1);
   });
 });

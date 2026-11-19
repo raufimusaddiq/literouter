@@ -55,14 +55,14 @@ export async function getModelInfo(modelStr) {
 
   // Check if this is a combo name before resolving as alias
   // This prevents combo names from being incorrectly routed to providers
-  const combo = await getComboByName(parsed.model);
+  const combo = await getComboByName(parsed.model, { clone: false });
   if (combo) {
     // Return null provider to signal this should be handled as combo
     // The caller (handleChat) will detect this and handle it as combo
     return { provider: null, model: parsed.model };
   }
 
-  return fallbackToClaudeOAuth(await getModelInfoCore(modelStr, getModelAliases));
+  return fallbackToClaudeOAuth(await getModelInfoCore(modelStr, () => getModelAliases({ clone: false })));
 }
 
 /**
@@ -73,7 +73,7 @@ export async function getComboModels(modelStr) {
   // Only check if it's not in provider/model format
   if (modelStr.includes("/")) return null;
 
-  const combo = await getComboByName(modelStr);
+  const combo = await getComboByName(modelStr, { clone: false });
   if (combo && combo.models && combo.models.length > 0) {
     return combo.models;
   }
@@ -87,7 +87,7 @@ export async function getComboModels(modelStr) {
 async function fallbackToClaudeOAuth(info) {
   if (info?.provider !== "anthropic") return info;
   const hasActive = async (provider) =>
-    (await getProviderConnections({ provider, isActive: true })).length > 0;
+    (await getProviderConnections({ provider, isActive: true }, { clone: false })).length > 0;
   if (await hasActive("anthropic")) return info;
   if (!(await hasActive("claude"))) return info;
   return { ...info, provider: "claude" };

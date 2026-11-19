@@ -14,6 +14,10 @@ async function loadSql() {
 export async function createSqlJsAdapter(filePath) {
   const SQLLib = await loadSql();
   const buf = fs.existsSync(filePath) ? fs.readFileSync(filePath) : null;
+  console.warn(
+    "[DB] WARNING: using the sql.js pure-JS SQLite fallback — it is slow (full-database export on every write burst). " +
+    "Install better-sqlite3 or use Node >= 22.5 (node:sqlite) for production use."
+  );
   const db = new SQLLib.Database(buf);
   db.exec(PRAGMA_SQL);
   // Schema is created/synced by migrate.js after adapter init
@@ -27,9 +31,15 @@ export async function createSqlJsAdapter(filePath) {
     ? Number(process.env.SQLJS_SAVE_MAX_WAIT_MS)
     : 5000;
 
+  // Prepared-statement cache (bounded LRU): preparing per call dominates small queries.
+  const STMT_CACHE_MAX = 200;
+  const stmtCache = new Map();
+
   // Atomic: write a sibling tmp file then rename over the target.
   function persist() {
     const data = db.export();
+    // export() frees every prepared statement; drop the (now dangling) cache.
+    stmtCache.clear();
     const tmp = `${filePath}.${process.pid}.tmp`;
     try {
       fs.writeFileSync(tmp, Buffer.from(data));
@@ -76,8 +86,27 @@ export async function createSqlJsAdapter(filePath) {
     return params;
   }
 
+  function prepared(sql) {
+    let stmt = stmtCache.get(sql);
+    if (stmt) {
+      stmtCache.delete(sql);
+    } else {
+      stmt = db.prepare(sql);
+      if (stmtCache.size >= STMT_CACHE_MAX) {
+        const oldest = stmtCache.keys().next().value;
+        try { stmtCache.get(oldest).free(); } catch {}
+        stmtCache.delete(oldest);
+      }
+    }
+    stmtCache.set(sql, stmt);
+    return stmt;
+  }
+  function release(stmt) {
+    try { stmt.reset(); } catch {}
+  }
+
   function run(sql, params = []) {
-    const stmt = db.prepare(sql);
+    const stmt = prepared(sql);
     try {
       stmt.bind(paramsObj(params));
       stmt.step();
@@ -86,30 +115,30 @@ export async function createSqlJsAdapter(filePath) {
       scheduleSave();
       return { changes, lastInsertRowid };
     } finally {
-      stmt.free();
+      release(stmt);
     }
   }
 
   function get(sql, params = []) {
-    const stmt = db.prepare(sql);
+    const stmt = prepared(sql);
     try {
       stmt.bind(paramsObj(params));
       if (stmt.step()) return stmt.getAsObject();
       return undefined;
     } finally {
-      stmt.free();
+      release(stmt);
     }
   }
 
   function all(sql, params = []) {
-    const stmt = db.prepare(sql);
+    const stmt = prepared(sql);
     try {
       stmt.bind(paramsObj(params));
       const rows = [];
       while (stmt.step()) rows.push(stmt.getAsObject());
       return rows;
     } finally {
-      stmt.free();
+      release(stmt);
     }
   }
 
@@ -136,6 +165,8 @@ export async function createSqlJsAdapter(filePath) {
     if (saveTimer) clearTimeout(saveTimer);
     drainRuntimeBuffersSync();
     if (dirty) persist();
+    for (const st of stmtCache.values()) { try { st.free(); } catch {} }
+    stmtCache.clear();
     db.close();
   }
 

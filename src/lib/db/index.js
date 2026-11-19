@@ -1,5 +1,6 @@
 // Public API barrel — all DB functions
 import { getAdapter } from "./driver.js";
+import { bumpConfigVersion } from "./configVersion.js";
 import { stringifyJson, parseJson } from "./helpers/jsonCol.js";
 import { keyAccessFromColumns, keyAccessToColumns, validateKeyAccessInput } from "@/shared/utils/keyAccess.js";
 import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
@@ -179,6 +180,7 @@ export async function importDb(payload) {
 // Caches live in repo modules; a raw SQL import bypasses their writers.
 // Drop them here so a restore is visible to routing immediately.
 function invalidateRuntimeCaches() {
+  bumpConfigVersion();
   if (global.__liteRouterSettingsCache) { global.__liteRouterSettingsCache.raw = null; global.__liteRouterSettingsCache.merged = null; }
   if (global.__liteRouterConnectionCache) { global.__liteRouterConnectionCache.rows = null; global.__liteRouterConnectionCache.expiresAt = 0; global.__liteRouterConnectionCache.versionCheckedAt = 0; }
   if (global.__liteRouterComboCache) { global.__liteRouterComboCache.rows = null; global.__liteRouterComboCache.expiresAt = 0; }

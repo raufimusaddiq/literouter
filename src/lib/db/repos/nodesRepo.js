@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import { bumpConfigVersion } from "../configVersion.js";
 import { getAdapter } from "../driver.js";
 import { invalidateKvScope } from "../helpers/kvStore.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
@@ -34,6 +35,7 @@ const NODE_CACHE_TTL_MS = Math.max(1000, Number(process.env.RUNTIME_CONFIG_TTL_M
 function invalidateNodeCache() {
   nodeCache.rows = null;
   nodeCache.expiresAt = 0;
+  bumpConfigVersion();
 }
 
 async function allNodesCached() {
