@@ -42,10 +42,23 @@ export async function createSqlJsAdapter(filePath) {
     firstDirtyAt = 0;
   }
 
+  const RETRY_BASE_MS = 1000;
+  const RETRY_MAX_MS = 30_000;
+  let failStreak = 0;
+
   function saveNow() {
     saveTimer = null;
-    if (dirty) {
-      try { persist(); } catch (e) { console.error("[sqljs] save failed:", e); }
+    if (!dirty) return;
+    try {
+      persist();
+      failStreak = 0;
+    } catch (e) {
+      console.error("[sqljs] save failed:", e);
+      // dirty stays true; without a retry the data would sit unsaved until the next write.
+      const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** failStreak);
+      failStreak += 1;
+      saveTimer = setTimeout(saveNow, delay);
+      if (typeof saveTimer.unref === "function") saveTimer.unref();
     }
   }
 

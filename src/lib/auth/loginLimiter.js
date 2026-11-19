@@ -57,8 +57,12 @@ export function getClientIp(request) {
   // Rightmost-hop selection (custom-server.js) assumes exactly one trusted loopback
   // proxy hop; a longer chain would key on an inner proxy instead of the client.
   if (process.env.TRUST_PROXY === "true") {
-    const xff = request.headers.get("x-forwarded-for");
-    if (xff) return xff.split(",")[0].trim();
+    // Same rule as custom-server.js: X-Real-IP, else the rightmost XFF hop (the one
+    // the trusted proxy appended). The leftmost entry is client-controlled.
+    const realIp = (request.headers.get("x-real-ip") || "").trim();
+    if (realIp) return realIp;
+    const hops = (request.headers.get("x-forwarded-for") || "").split(",").map((h) => h.trim()).filter(Boolean);
+    if (hops.length) return hops[hops.length - 1];
   }
   // Direct exposure without custom-server: single bucket so spoofed XFF
   // rotation cannot escape the limiter.

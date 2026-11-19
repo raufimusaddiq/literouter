@@ -31,7 +31,6 @@ needs:
 | Endpoint | Result |
 | --- | --- |
 | `/api/usage/stats` | totals, byProvider, byModel, tokens, cost |
-| `/api/usage/history?days=1\|7\|30` | same aggregate, all windows |
 | `/api/usage/chart?days=7` | HTTP 200 |
 | `/api/usage/providers` | provider list with resolved node name |
 | `/api/usage/request-details?limit=5` | detail rows with provider/model/connectionId |

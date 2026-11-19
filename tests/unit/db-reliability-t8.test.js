@@ -25,19 +25,37 @@ describe("sql.js adapter durability", () => {
 
 describe("driver init retry", () => {
   it("clears initPromise after a rejected init", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "t8-drv-"));
+    // DATA_DIR must not exist yet so ensureDirs() reaches fs.mkdirSync on the init path.
+    const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "t8-drv-")), "fresh");
     process.env.DATA_DIR = dir;
     vi.resetModules();
     const driver = await import("@/lib/db/driver.js");
-    const orig = fs.mkdirSync;
     const spy = vi.spyOn(fs, "mkdirSync").mockImplementationOnce(() => { throw new Error("boom"); });
     let first;
     try { first = await driver.getAdapter().then(() => "ok", (e) => e.message); } finally { spy.mockRestore(); }
-    // If mkdirSync isn't on the init path the first call simply succeeds; either way a second call must work.
+    expect(first).toBe("boom");
     const second = await driver.getAdapter();
     expect(second).toBeTruthy();
-    expect(first === "ok" || first === "boom").toBe(true);
-    void orig;
+  });
+});
+
+describe("sqljs save retry", () => {
+  it("reschedules a save with backoff after persist fails", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "t8-retry-"));
+    const file = path.join(dir, "r.db");
+    const { createSqlJsAdapter } = await import("@/lib/db/adapters/sqljsAdapter.js");
+    const a = await createSqlJsAdapter(file);
+    vi.useFakeTimers();
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const rename = vi.spyOn(fs, "renameSync").mockImplementation(() => { throw new Error("disk"); });
+    a.exec("CREATE TABLE t(i INTEGER)");
+    await vi.advanceTimersByTimeAsync(150); // debounce fires, persist fails
+    expect(fs.existsSync(file)).toBe(false);
+    rename.mockRestore();
+    await vi.advanceTimersByTimeAsync(1100); // backoff retry succeeds without a new write
+    expect(fs.existsSync(file)).toBe(true);
+    err.mockRestore();
+    vi.useRealTimers();
   });
 });
 

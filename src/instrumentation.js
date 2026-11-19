@@ -10,5 +10,9 @@ export async function register() {
 
     const { startModelCatalogSync } = await import("@/lib/modelCatalog/sync.js");
     startModelCatalogSync();
+
+    // API-only servers never render app/layout.js, so start bootstrap (background
+    // token refresh etc.) here. bootstrap.js guards itself with global.__appBootstrapped.
+    await import("@/shared/services/bootstrap.js");
   }
 }
