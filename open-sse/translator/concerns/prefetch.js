@@ -116,7 +116,7 @@ export async function prefetchRemoteImages(body, sourceFormat, targetFormat, opt
   }
 
   const signal = options.signal;
-  const fetchOpts = { ...options, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(options.timeoutMs ?? PREFETCH_TIMEOUT_MS)]) : undefined };
+  const fetchOpts = { ...options, signal: (() => { const t = AbortSignal.timeout(options.timeoutMs ?? PREFETCH_TIMEOUT_MS); return signal ? AbortSignal.any([signal, t]) : t; })() };
   const results = new Map();
   let next = 0;
   const worker = async () => {

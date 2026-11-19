@@ -181,7 +181,9 @@ export class BaseExecutor {
           continue;
         }
 
-        return { response, url, headers, transformedBody };
+        // Non-stream: the total timer must outlive this call (body is read by the caller),
+        // so hand dispose() back instead of clearing it here.
+        return { response, url, headers, transformedBody, dispose: reqSignal.dispose };
       } catch (error) {
         reqSignal.dispose();
         lastError = error;

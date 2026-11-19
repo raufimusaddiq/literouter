@@ -4,8 +4,8 @@
 //   - headers timeout: streaming requests, until response headers arrive
 //   - total timeout:   non-stream requests, the whole call including the body
 //   - idle timeout:    between chunks of a body we read ourselves (readWithIdleTimeout)
-// undici's own headersTimeout/bodyTimeout are disabled on the Agent (proxyFetch.js)
-// so these are the only watchdogs.
+// undici's headersTimeout/bodyTimeout on the Agent (proxyFetch.js) are a backstop sized
+// above these (UNDICI_BACKSTOP_MS), so these watchdogs always fire first.
 import { setTimeout as sleep } from "node:timers/promises";
 import { proxyAwareFetch } from "./proxyFetch.js";
 import { FETCH_CONNECT_TIMEOUT_MS, NON_STREAM_TOTAL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS } from "../config/runtimeConfig.js";
@@ -112,5 +112,34 @@ export async function readWithIdleTimeout(reader, { signal, timeoutMs = STREAM_S
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener?.("abort", onAbort);
+  }
+}
+
+/**
+ * Read a whole response body with an idle timeout between chunks, a total cap and an
+ * abort signal. Cancels the body on any failure so the socket is released.
+ * Throws GatewayTimeoutError (idle|total) or the signal's abort error. Never replays.
+ */
+export async function readBodyBounded(response, { signal, idleMs = STREAM_STALL_TIMEOUT_MS, totalMs = NON_STREAM_TOTAL_TIMEOUT_MS, message = "upstream stalled" } = {}) {
+  const body = response?.body;
+  if (!body?.getReader) return response.text();
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  const deadline = Date.now() + totalMs;
+  let text = "";
+  try {
+    while (true) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw new GatewayTimeoutError(`upstream body not finished within ${totalMs}ms`, "total");
+      const { done, value } = await readWithIdleTimeout(reader, { signal, timeoutMs: Math.min(idleMs, remaining), message });
+      if (done) break;
+      text += decoder.decode(value, { stream: true });
+    }
+    return text + decoder.decode();
+  } catch (error) {
+    try { await reader.cancel(error); } catch { /* already closed */ }
+    throw error;
+  } finally {
+    try { reader.releaseLock(); } catch { /* released */ }
   }
 }

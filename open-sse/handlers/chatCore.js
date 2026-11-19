@@ -386,6 +386,11 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     trackPendingRequest(model, provider, connectionId, false, isError);
   };
   state.release = releasePending;
+  // Non-stream calls keep their total-timeout timer until the body is consumed; each
+  // executor result hands back dispose() so it (and its abort listener) never lingers.
+  const disposers = [];
+  const trackResult = (r) => { if (typeof r?.dispose === "function") disposers.push(r.dispose); return r; };
+  const disposeUpstreamSignals = () => { for (const d of disposers.splice(0)) { try { d(); } catch { /* ignore */ } } };
 
   const msgCount = translatedBody.messages?.length || translatedBody.input?.length || translatedBody.contents?.length || translatedBody.request?.contents?.length || 0;
   log?.debug?.("REQUEST", `${provider.toUpperCase()} | ${model} | ${msgCount} msgs`);
@@ -462,7 +467,7 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
   // exception: it is decoded by the executor into OpenAI-compatible output.
   let providerResponseFormat = targetFormat;
   try {
-    const result = await executor.execute({
+    const result = trackResult(await executor.execute({
       model,
       body: translatedBody,
       stream,
@@ -472,7 +477,7 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
       signal: upstreamSignal,
       log,
       proxyOptions,
-    });
+    }));
     providerResponse = result.response;
     providerUrl = result.url;
     providerHeaders = result.headers;
@@ -537,7 +542,7 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
           try { await onCredentialsRefreshed(newCredentials); } catch (e) { log?.warn?.("TOKEN", `onCredentialsRefreshed failed: ${e.message}`); }
         }
         try {
-          const retryResult = await executor.execute({
+          const retryResult = trackResult(await executor.execute({
             model,
             body: translatedBody,
             stream,
@@ -547,7 +552,7 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
             signal: upstreamSignal,
             log,
             proxyOptions,
-          });
+          }));
           // The refreshed retry supersedes the 401/403 entirely: take its response
           // (even an error, so the failure is parsed from the retry, not the stale
           // auth error) along with its headers and transformed body.
@@ -576,7 +581,7 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     try {
       const adapted = adaptClaudeRequestAfterRejection(translatedBody, await providerResponse.clone().text());
       if (adapted) {
-        const retryResult = await executor.execute({
+        const retryResult = trackResult(await executor.execute({
           model,
           body: adapted,
           stream,
@@ -586,7 +591,7 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
           signal: upstreamSignal,
           log,
           proxyOptions,
-        });
+        }));
         if (retryResult.response.ok) {
           discardResponse(providerResponse);
           translatedBody = adapted;
@@ -610,7 +615,9 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
   // Provider returned error
   if (!providerResponse.ok) {
     releasePending(true);
-    const { statusCode, message, resetsAtMs } = await parseUpstreamError(providerResponse, executor);
+    let parsedError;
+    try { parsedError = await parseUpstreamError(providerResponse, executor); } finally { disposeUpstreamSignals(); }
+    const { statusCode, message, resetsAtMs } = parsedError;
     saveRequestDetail(buildRequestDetail({
       provider, model, connectionId,
       latency: { ttft: 0, total: Date.now() - requestStartTime },
@@ -639,13 +646,15 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
   // non-stream OpenAI/native client behind a Responses upstream must also take
   // this path — handleForcedSSEToJson returns null when the body is not SSE.
   if (!clientRequestedStreaming && (providerRequiresStreaming || providerResponseFormat === FORMATS.OPENAI_RESPONSES)) {
-    const result = await handleForcedSSEToJson({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, customToolNames, toolNameMap, trackDone });
+    let result;
+    try { result = await handleForcedSSEToJson({ ...sharedCtx, signal: upstreamSignal, providerResponse, sourceFormat, targetFormat: providerResponseFormat, customToolNames, toolNameMap, trackDone }); } finally { disposeUpstreamSignals(); }
     if (result) { streamController.handleComplete(); return result; }
   }
 
   // True non-streaming response
   if (!stream) {
-    const result = await handleNonStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, reqLogger, toolNameMap, customToolNames, trackDone });
+    let result;
+    try { result = await handleNonStreamingResponse({ ...sharedCtx, signal: upstreamSignal, providerResponse, sourceFormat, targetFormat: providerResponseFormat, reqLogger, toolNameMap, customToolNames, trackDone }); } finally { disposeUpstreamSignals(); }
     streamController.handleComplete();
     return result;
   }

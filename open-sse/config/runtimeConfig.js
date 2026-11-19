@@ -64,6 +64,17 @@ export const FETCH_CONNECT_TIMEOUT_MS = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1
 // Total budget for a non-stream upstream call (headers + body). Env: NON_STREAM_TOTAL_TIMEOUT_MS.
 export const NON_STREAM_TOTAL_TIMEOUT_MS = envMs("NON_STREAM_TOTAL_TIMEOUT_MS", 10 * 60 * 1000);
 
+// Safety net on the undici Agent for the 60+ raw proxyAwareFetch callers (token refresh,
+// vertex/qoder/trae, ...) that have no timer of their own. Sized above every gateway
+// watchdog (headers / non-stream total / inter-chunk stall) so those always fire first
+// with a proper 504; undici only ever catches a caller that has none. headersTimeout is
+// time-to-headers and bodyTimeout is idle time between chunks, so long healthy streams
+// are unaffected. Env: UNDICI_BACKSTOP_MS.
+export const UNDICI_BACKSTOP_MS = envMs(
+  "UNDICI_BACKSTOP_MS",
+  Math.max(NON_STREAM_TOTAL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS, FETCH_CONNECT_TIMEOUT_MS) + 30 * 1000,
+);
+
 // Keep-alive socket TTL. Cap it below upstream/edge idle windows (Cloudflare, AWS Global
 // Accelerator / NVIDIA NIM) that drop idle sockets without a TCP RST. keepAliveMaxTimeout is
 // clamped to the same value so an upstream `Keep-Alive` header cannot extend it to 600s.

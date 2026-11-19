@@ -5,7 +5,7 @@ import { ollamaBodyToOpenAI } from "../../translator/response/ollama-to-openai.j
 import { toOpenAIUsage } from "../../translator/concerns/usage.js";
 import { addBufferToUsage, filterUsageForFormat } from "../../utils/usageTracking.js";
 import { createErrorResult } from "../../utils/error.js";
-import { isAbortError, isGatewayTimeout } from "../../utils/requestTimeouts.js";
+import { isAbortError, isGatewayTimeout, readBodyBounded } from "../../utils/requestTimeouts.js";
 import { upstreamResponseHeaders } from "../../utils/upstreamHeaders.js";
 import { HTTP_STATUS } from "../../config/runtimeConfig.js";
 import { parseSSEToOpenAIResponse } from "./sseToJsonHandler.js";
@@ -236,7 +236,7 @@ function pivotToClientShape(pivot, clientFormat, customToolNames) {
 /**
  * Handle non-streaming response from provider.
  */
-export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, trackDone, pxpipe, reqTag, log }) {
+export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, trackDone, pxpipe, reqTag, log, signal }) {
   trackDone();
   const contentType = providerResponse.headers.get("content-type") || "";
   let responseBody;
@@ -245,7 +245,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   }
 
   if (contentType.includes("text/event-stream")) {
-    const sseText = await providerResponse.text();
+    const sseText = await readBodyBounded(providerResponse, { signal });
     const parsed = parseSSEToOpenAIResponse(sseText, model);
     if (!parsed) {
       return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Invalid SSE response for non-streaming request");
@@ -260,7 +260,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     responseBody = parsed;
   } else {
     try {
-      responseBody = await providerResponse.json();
+      responseBody = JSON.parse(await readBodyBounded(providerResponse, { signal }));
     } catch (err) {
       if (isAbortError(err) || isGatewayTimeout(err)) throw err; // body read cut by client abort / timeout
       console.error(`[ChatCore] Failed to parse JSON from ${provider}:`, err.message);
