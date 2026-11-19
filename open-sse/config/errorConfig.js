@@ -6,6 +6,7 @@ export const ERROR_TYPES = {
   403: { type: "permission_error", code: "permission_denied" },
   404: { type: "invalid_request_error", code: "model_not_found" },
   406: { type: "invalid_request_error", code: "model_not_supported" },
+  408: { type: "server_error", code: "upstream_request_timeout" },
   429: { type: "rate_limit_error", code: "rate_limit_exceeded" },
   500: { type: "server_error", code: "internal_server_error" },
   502: { type: "server_error", code: "bad_gateway" },
@@ -21,6 +22,7 @@ export const DEFAULT_ERROR_MESSAGES = {
   403: "You exceeded your current quota",
   404: "Model not found",
   406: "Model not supported",
+  408: "Upstream timed out reading the request",
   429: "Rate limit exceeded",
   500: "Internal server error",
   502: "Bad gateway - upstream provider error",
@@ -82,6 +84,9 @@ export const ERROR_RULES = [
   { status: 402, cooldownMs: COOLDOWN.long },
   { status: 403, cooldownMs: COOLDOWN.long },
   { status: 404, cooldownMs: COOLDOWN.long },
+  // Upstream could not read our request body in time: nothing was processed, so it is a
+  // transient transport fault, not a client error. Brief cooldown, then another account.
+  { status: 408, cooldownMs: COOLDOWN.short },
   { status: 429, backoff: true },
 ];
 

@@ -1,3 +1,4 @@
+import { rethrowIfGatewayAbort } from "../utils/requestTimeouts.js";
 import { BaseExecutor } from "./base.js";
 import { ACCEPT_ENCODING } from "../utils/zstdCompat.js";
 import { PROVIDERS } from "../config/providers.js";
@@ -298,6 +299,7 @@ export class GrokWebExecutor extends BaseExecutor {
         method: "POST", headers, body: JSON.stringify(grokPayload), signal,
       });
     } catch (err) {
+      rethrowIfGatewayAbort(err);
       log?.error?.("GROK-WEB", `Fetch failed: ${err.message || String(err)}`);
       const errResp = new Response(JSON.stringify({
         error: { message: `Grok connection failed: ${err.message || String(err)}`, type: "upstream_error" },

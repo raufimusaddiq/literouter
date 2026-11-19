@@ -9,6 +9,7 @@ import { getAppVersion } from "./version.js";
 import { stringifyJson } from "./helpers/jsonCol.js";
 import { fingerprintKey } from "open-sse/utils/keyFingerprint.js";
 import { rewriteUsageDay } from "./migrations/003-fingerprint-usage-api-keys.js";
+import { backfillUsageRollup, ROLLUP_RETENTION_MS } from "./usageRollup.js";
 
 // Marker file: prevents re-importing legacy JSON when user wipes data.sqlite.
 const MIGRATED_MARKER = path.join(DB_DIR, ".migrated-from-json");
@@ -288,6 +289,16 @@ export async function runMigrationOnce(adapter) {
         return;
       }
       throw err;
+    }
+
+    // Migration 005 backfilled the rollup before any usage rows existed; rebuild
+    // it now so imported legacy usage shows up in the 24h/today stats.
+    try {
+      adapter.transaction(() => {
+        backfillUsageRollup(adapter, new Date(Date.now() - ROLLUP_RETENTION_MS).toISOString());
+      });
+    } catch (e) {
+      console.warn(`[DB][migrate] usage rollup rebuild failed: ${e.message}`);
     }
 
     try { fs.writeFileSync(MIGRATED_MARKER, new Date().toISOString()); } catch {}

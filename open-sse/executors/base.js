@@ -1,8 +1,8 @@
-import { setTimeout as sleep } from "node:timers/promises";
-import { HTTP_STATUS, RETRY_CONFIG, DEFAULT_RETRY_CONFIG, resolveRetryEntry, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig.js";
+import { HTTP_STATUS, RETRY_CONFIG, DEFAULT_RETRY_CONFIG, resolveRetryEntry, FETCH_CONNECT_TIMEOUT_MS, NON_STREAM_TOTAL_TIMEOUT_MS } from "../config/runtimeConfig.js";
 import { shouldRefreshCredentials } from "../services/oauthCredentialManager.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { dbg } from "../utils/debugLog.js";
+import { createRequestSignal, abortableSleep, throwIfAborted } from "../utils/requestTimeouts.js";
 import { stringifyWellFormed } from "../utils/wellFormedJson.js";
 import { ANTHROPIC_API_VERSION, OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE } from "../providers/shared.js";
 import { resolveOpenAICompatibleApiType } from "../services/provider.js";
@@ -132,7 +132,7 @@ export class BaseExecutor {
       log?.debug?.("RETRY", `${reason} retry ${retryAttemptsByUrl[urlIndex]}/${attempts} after ${waitMs / 1000}s`);
       // Cancel the stale response first so an abort during the sleep can't leave it open.
       discardResponse(response);
-      await sleep(waitMs, undefined, { signal });
+      await abortableSleep(waitMs, signal);
       return true;
     };
 
@@ -143,30 +143,35 @@ export class BaseExecutor {
 
       if (!retryAttemptsByUrl[urlIndex]) retryAttemptsByUrl[urlIndex] = 0;
 
-      // Abort if upstream doesn't return response headers within connection timeout
-      const connectCtrl = new AbortController();
-      const timeoutMs = this.config?.timeoutMs || FETCH_CONNECT_TIMEOUT_MS;
-      const connectTimer = setTimeout(() => connectCtrl.abort(new Error("fetch connect timeout")), timeoutMs);
-      const mergedSignal = signal ? AbortSignal.any([signal, connectCtrl.signal]) : connectCtrl.signal;
+      throwIfAborted(signal);
+      // Streaming: bound time-to-headers. Non-stream: bound the whole call (upstreams
+      // send headers only once the completion is done). A timeout is never retried.
+      // A provider-specific timeoutMs bounds both: headers (stream) or the whole call (non-stream).
+      const providerTimeoutMs = this.config?.timeoutMs;
+      const timeoutMs = providerTimeoutMs || FETCH_CONNECT_TIMEOUT_MS;
+      const totalTimeoutMs = providerTimeoutMs || NON_STREAM_TOTAL_TIMEOUT_MS;
+      const reqSignal = createRequestSignal(signal, { stream, headersTimeoutMs: timeoutMs, totalTimeoutMs });
+      const mergedSignal = reqSignal.signal;
 
       try {
         const bodyStr = stringifyWellFormed(transformedBody);
         const fetchT0 = Date.now();
-        dbg("FETCH", `${this.provider.toUpperCase()} → ${url} | body=${bodyStr.length}B | connectTimeout=${timeoutMs}ms`);
+        dbg("FETCH", `${this.provider.toUpperCase()} → ${url} | body=${bodyStr.length}B | ${stream ? "headersTimeout" : "totalTimeout"}=${stream ? timeoutMs : totalTimeoutMs}ms`);
         const response = await proxyAwareFetch(url, {
           method: "POST",
           headers,
           body: bodyStr,
           signal: mergedSignal
         }, forceFreshSocketByUrl[urlIndex] ? { ...(proxyOptions || {}), forceFreshSocket: true } : proxyOptions);
-        clearTimeout(connectTimer);
+        reqSignal.headersArrived();
         const ct = response.headers?.get?.("content-type") || "";
         const cl = response.headers?.get?.("content-length") || "?";
         dbg("FETCH", `${this.provider.toUpperCase()} ← ${response.status} | ttft=${Date.now() - fetchT0}ms | ct=${ct} | cl=${cl}`);
 
         if (await tryRetry(urlIndex, response.status, `status ${response.status}`, response)) {
+          reqSignal.dispose();
           // A 502 from an edge is typically a poisoned keep-alive socket - retry on a fresh one.
-          if (response.status === HTTP_STATUS.BAD_GATEWAY) forceFreshSocketByUrl[urlIndex] = true;
+          if (response.status === HTTP_STATUS.BAD_GATEWAY || response.status === HTTP_STATUS.REQUEST_TIMEOUT) forceFreshSocketByUrl[urlIndex] = true;
           urlIndex--;
           continue;
         }
@@ -175,17 +180,22 @@ export class BaseExecutor {
           log?.debug?.("RETRY", `${response.status} on ${url}, trying fallback ${urlIndex + 1}`);
           lastStatus = response.status;
           discardResponse(response);
+          reqSignal.dispose();
           continue;
         }
 
-        return { response, url, headers, transformedBody };
+        // Non-stream: the total timer must outlive this call (body is read by the caller),
+        // so hand dispose() back instead of clearing it here.
+        return { response, url, headers, transformedBody, dispose: reqSignal.dispose };
       } catch (error) {
-        clearTimeout(connectTimer);
+        reqSignal.dispose();
         lastError = error;
-        const isConnectTimeout = connectCtrl.signal.aborted && error.name === "AbortError";
-        dbg("FETCH", `${this.provider.toUpperCase()} ✖ ${error.name}: ${error.message}${isConnectTimeout ? " (connect timeout)" : ""}`);
-        // Connect timeout is internal — convert to retryable network error, don't propagate AbortError
-        if (error.name === "AbortError" && !isConnectTimeout) throw error;
+        // A gateway timeout says nothing about account health and the request may already
+        // be billed upstream: surface it (504) instead of replaying the POST.
+        const timeout = reqSignal.timeoutError();
+        dbg("FETCH", `${this.provider.toUpperCase()} ✖ ${error.name}: ${error.message}${timeout ? ` (${timeout.phase} timeout)` : ""}`);
+        if (timeout) throw timeout;
+        if (error.name === "AbortError") throw error;
 
         // Map network/fetch exceptions to 502 retry config
         if (await tryRetry(urlIndex, HTTP_STATUS.BAD_GATEWAY, `network "${error.message}"`)) {

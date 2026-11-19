@@ -28,7 +28,12 @@ export const MEMORY_CONFIG = {
   sessionTtlMs: 2 * 60 * 60 * 1000,
   sessionCleanupIntervalMs: 30 * 60 * 1000,
   dnsCacheTtlMs: 5 * 60 * 1000,
-  proxyDispatchersMaxSize: 20,
+  // Must be >= the proxy pool size or dispatchers thrash (no keep-alive, CONNECT+TLS
+  // per request). Env: PROXY_DISPATCHERS_MAX_SIZE.
+  proxyDispatchersMaxSize: (() => {
+    const n = parseInt(process.env.PROXY_DISPATCHERS_MAX_SIZE || "", 10);
+    return Number.isFinite(n) && n > 0 ? n : 256;
+  })(),
 };
 
 // Parse a positive integer env override, falling back to a default.
@@ -57,7 +62,26 @@ export const STREAM_FIRST_CHUNK_TIMEOUT_MS = envMs("STREAM_FIRST_CHUNK_TIMEOUT_M
 export const PENDING_COMPLETION_FLUSH_MS = envMs("PENDING_COMPLETION_FLUSH_MS", 3000);
 
 // Fetch connect timeout: abort if upstream doesn't return response headers within this duration
+// Applies to streaming requests only; non-stream upstreams send headers once the whole
+// completion is done, so they get NON_STREAM_TOTAL_TIMEOUT_MS instead.
 export const FETCH_CONNECT_TIMEOUT_MS = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1000);
+
+// Hard cap on a single OAuth/token-refresh HTTP call. Env: REFRESH_TIMEOUT_MS.
+export const REFRESH_TIMEOUT_MS = envMs("REFRESH_TIMEOUT_MS", 30 * 1000);
+
+// Total budget for a non-stream upstream call (headers + body). Env: NON_STREAM_TOTAL_TIMEOUT_MS.
+export const NON_STREAM_TOTAL_TIMEOUT_MS = envMs("NON_STREAM_TOTAL_TIMEOUT_MS", 10 * 60 * 1000);
+
+// Safety net on the undici Agent for the 60+ raw proxyAwareFetch callers (token refresh,
+// vertex/qoder/trae, ...) that have no timer of their own. Sized above every gateway
+// watchdog (headers / non-stream total / inter-chunk stall) so those always fire first
+// with a proper 504; undici only ever catches a caller that has none. headersTimeout is
+// time-to-headers and bodyTimeout is idle time between chunks, so long healthy streams
+// are unaffected. Env: UNDICI_BACKSTOP_MS.
+export const UNDICI_BACKSTOP_MS = envMs(
+  "UNDICI_BACKSTOP_MS",
+  Math.max(NON_STREAM_TOTAL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS, FETCH_CONNECT_TIMEOUT_MS) + 30 * 1000,
+);
 
 // Keep-alive socket TTL. Cap it below upstream/edge idle windows (Cloudflare, AWS Global
 // Accelerator / NVIDIA NIM) that drop idle sockets without a TCP RST. keepAliveMaxTimeout is
@@ -132,6 +156,8 @@ export const RETRY_CONFIG = {
 // Default retry config by status code: { attempts, delayMs }
 // Backward compat: if value is a number, treated as attempts with RETRY_CONFIG.delayMs
 export const DEFAULT_RETRY_CONFIG = {
+  // 408 "request body timed out": upstream never processed the request, safe to resend once.
+  408: { attempts: 1, delayMs: 300 },
   429: { attempts: 0, delayMs: 0 },
   502: { attempts: 3, delayMs: 3000 },
   503: { attempts: 3, delayMs: 2000 },

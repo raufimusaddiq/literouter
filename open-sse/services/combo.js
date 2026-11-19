@@ -4,7 +4,8 @@
 
 import { checkFallbackError, formatRetryAfter } from "./accountFallback.js";
 import { parseModel } from "./model.js";
-import { unavailableResponse, buildErrorBody } from "../utils/error.js";
+import { unavailableResponse, errorResponse, buildErrorBody } from "../utils/error.js";
+import { abortableSleep, isAbortError } from "../utils/requestTimeouts.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
 import { extractTextContent } from "../translator/formats/gemini.js";
 
@@ -280,7 +281,7 @@ export function getComboModelsFromData(modelStr, combosData) {
  */
 const COMBO_GENERIC_ERROR = "All combo models failed";
 
-export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true }) {
+export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, signal = null }) {
   // Apply rotation strategy if enabled
   let rotatedModels = getRotatedModels(models, comboName, comboStrategy, comboStickyLimit);
 
@@ -300,13 +301,21 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   let earliestRetryAfter = null;
   let lastStatus = null;
 
+  const clientGone = () => errorResponse(499, "Request aborted");
+
   for (let i = 0; i < rotatedModels.length; i++) {
+    // Client left: do not start another member (each one is a billed generation).
+    if (signal?.aborted) return clientGone();
     const modelStr = rotatedModels[i];
     log.info("COMBO", `Trying model ${i + 1}/${rotatedModels.length}: ${modelStr}`);
 
     try {
       const result = await handleSingleModel(body, modelStr);
-      
+
+      // Client abort / gateway timeout end the whole combo: neither is a member failure to fall past.
+      // A 504 may already be a billed generation: never re-generate on the next member.
+      if (result.status === 499 || result.status === 504 || signal?.aborted) return result;
+
       // Success (2xx) - return response
       if (result.ok) {
         log.info("COMBO", `Model ${modelStr} succeeded`);
@@ -355,7 +364,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       if (cooldownMs && cooldownMs > 0 && cooldownMs <= 5000 &&
           (result.status === 503 || result.status === 502 || result.status === 504)) {
         log.info("COMBO", `Model ${modelStr} transient ${result.status}, waiting ${cooldownMs}ms before next`);
-        await new Promise(r => setTimeout(r, cooldownMs));
+        await abortableSleep(cooldownMs, signal);
       }
 
       // Fallback to next model
@@ -363,6 +372,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       if (!lastStatus) lastStatus = result.status;
       log.warn("COMBO", `Model ${modelStr} failed, trying next`, { status: result.status });
     } catch (error) {
+      if (isAbortError(error) || signal?.aborted) return clientGone();
       // Catch unexpected exceptions to ensure fallback continues
       // Exception text (and its stack) stays server-side; clients only ever see a
       // generic message so no stack-derived data reaches the response body.
@@ -556,7 +566,8 @@ function collectPanel(calls, { minPanel, stragglerGraceMs, panelHardTimeoutMs })
  * @param {Object} [options.tuning] - Override FUSION_DEFAULTS (minPanel, grace, timeout)
  * @returns {Promise<Response>}
  */
-export async function handleFusionChat({ body, models, handleSingleModel, log, comboName, judgeModel, tuning }) {
+export async function handleFusionChat({ body, models, handleSingleModel, log, comboName, judgeModel, tuning, signal = null }) {
+  if (signal?.aborted) return errorResponse(499, "Request aborted");
   const panel = Array.isArray(models) ? models.filter(Boolean) : [];
   if (panel.length === 0) {
     return new Response(

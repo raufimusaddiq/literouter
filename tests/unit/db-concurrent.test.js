@@ -12,6 +12,7 @@ let db;
 beforeAll(async () => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-concurrent-"));
   process.env.DATA_DIR = tempDir;
+  process.env.LIVE_STATS_TTL_MS = "0"; // this test reads stats right after writes; disable the recompute floor
   vi.resetModules();
   db = await import("@/lib/db/index.js");
   await db.initDb();
@@ -19,6 +20,7 @@ beforeAll(async () => {
 
 afterAll(() => {
   if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+  delete process.env.LIVE_STATS_TTL_MS;
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });

@@ -6,6 +6,7 @@ import {
   STALE_SOCKET_ERROR_SUBSTRINGS,
   resolveKeepAliveTimeouts,
   isFreshSocketReplayEnabled,
+  UNDICI_BACKSTOP_MS,
 } from "../config/runtimeConfig.js";
 import { dbg } from "./debugLog.js";
 
@@ -39,7 +40,7 @@ async function getOrCreateDirectAgent(key, keepAliveTimeout, keepAliveMaxTimeout
     directDispatchers.get(oldestKey)?.close?.().catch?.(() => {});
     directDispatchers.delete(oldestKey);
   }
-  const agent = new Agent({ keepAliveTimeout, keepAliveMaxTimeout });
+  const agent = new Agent({ keepAliveTimeout, keepAliveMaxTimeout, headersTimeout: UNDICI_BACKSTOP_MS, bodyTimeout: UNDICI_BACKSTOP_MS });
   directDispatchers.set(key, agent);
   return agent;
 }
@@ -159,12 +160,20 @@ function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
 /**
  * Create proxy dispatcher lazily (undici-compatible)
  */
-async function getDispatcher(proxyUrl) {
+export async function getDispatcher(proxyUrl) {
   const normalized = normalizeProxyUrl(proxyUrl);
   if (!normalized) return null;
 
-  if (!proxyDispatchers.has(normalized)) {
-    // Evict oldest entry if max size reached
+  if (proxyDispatchers.has(normalized)) {
+    // True LRU: re-insert on hit so the least-recently-used entry is evicted first
+    const hit = proxyDispatchers.get(normalized);
+    proxyDispatchers.delete(normalized);
+    proxyDispatchers.set(normalized, hit);
+    return hit;
+  }
+
+  {
+    // Evict least-recently-used entry if max size reached
     if (proxyDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
       const oldestKey = proxyDispatchers.keys().next().value;
       const evicted = proxyDispatchers.get(oldestKey);
@@ -175,7 +184,7 @@ async function getDispatcher(proxyUrl) {
     const { ProxyAgent } = await import("undici");
     // Another caller may have created it while we awaited the import
     if (!proxyDispatchers.has(normalized)) {
-      proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized }));
+      proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized, headersTimeout: UNDICI_BACKSTOP_MS, bodyTimeout: UNDICI_BACKSTOP_MS }));
     }
   }
 

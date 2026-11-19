@@ -15,10 +15,17 @@ import * as log from "../utils/logger.js";
 const selectionState = globalThis.__liteRouterSelectionState ??= new Map();
 
 function pickRoundRobinConnection(providerId, availableConnections, stickyLimit) {
-  const ordered = [...availableConnections].sort((a, b) => {
+  const compare = (a, b) => {
     const p = (a.priority || 999) - (b.priority || 999);
     return p || String(a.id).localeCompare(String(b.id));
-  });
+  };
+  // The pool arrives priority-sorted; only copy + re-sort when the id tiebreak
+  // (or an unsorted caller) actually requires it. One O(n) pass, no allocation.
+  let sorted = true;
+  for (let i = 1; i < availableConnections.length; i++) {
+    if (compare(availableConnections[i - 1], availableConnections[i]) > 0) { sorted = false; break; }
+  }
+  const ordered = sorted ? availableConnections : [...availableConnections].sort(compare);
   if (ordered.length === 0) return null;
 
   const limit = Math.max(1, Number.parseInt(stickyLimit, 10) || 1);
@@ -105,7 +112,8 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     }
 
     const connections = await getProviderConnections({ provider: providerId, isActive: true }, { clone: false });
-    log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
+    const debugOn = process.env.LOG_LEVEL?.toUpperCase?.() === "DEBUG";
+    if (debugOn) log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
 
     if (connections.length === 0) {
       log.warn("AUTH", `No credentials for ${provider}`);
@@ -132,8 +140,8 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       return true;
     });
 
-    log.debug("AUTH", `${provider} | available: ${availableConnections.length}/${connections.length}`);
-    connections.forEach(c => {
+    if (debugOn) log.debug("AUTH", `${provider} | available: ${availableConnections.length}/${connections.length}`);
+    if (debugOn) connections.forEach(c => {
       const excluded = excludeSet.has(c.id);
       const locked = isModelLockActive(c, model);
       if (excluded || locked) {

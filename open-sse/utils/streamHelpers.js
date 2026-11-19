@@ -154,6 +154,18 @@ function cleanUsagePayload(payload) {
   return cleaned;
 }
 
+// Responses same-format passthrough: when the event needs no cleanup, forward the
+// original JSON text instead of re-stringifying (response.completed can be large).
+export function formatResponsesPassthroughSSE(eventName, parsed, rawJson) {
+  if (typeof rawJson === "string" && rawJson.length > 0 && cleanUsagePayload(parsed) === parsed) {
+    return `event: ${eventName}
+data: ${rawJson}
+
+`;
+  }
+  return formatSSE({ event: eventName, data: parsed });
+}
+
 // Format output as SSE
 export function formatSSE(data, sourceFormat) {
   if (data === null || data === undefined) return "data: null\n\n";

@@ -1,3 +1,4 @@
+import { rethrowIfGatewayAbort } from "../utils/requestTimeouts.js";
 import { BaseExecutor } from "./base.js";
 import { SSE_HEADERS } from "../utils/sseConstants.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
@@ -198,6 +199,7 @@ export default class TraeExecutor extends BaseExecutor {
     try {
       session = await this.createSession(headers, query, model, psd, signal);
     } catch (err) {
+      rethrowIfGatewayAbort(err);
       return { response: errResponse(502, publicErrorMessage(err)), url: this.base(), headers, transformedBody: body };
     }
 
@@ -308,6 +310,7 @@ export default class TraeExecutor extends BaseExecutor {
         return ev === "done";
       }, signal);
     } catch (err) {
+      rethrowIfGatewayAbort(err);
       return { response: errResponse(502, publicErrorMessage(err)), url: this.base(), headers, transformedBody: body };
     }
     if (errorEvent) {
