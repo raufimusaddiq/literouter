@@ -3,7 +3,7 @@ export const ERROR_TYPES = {
   400: { type: "invalid_request_error", code: "bad_request" },
   401: { type: "authentication_error", code: "invalid_api_key" },
   402: { type: "billing_error", code: "payment_required" },
-  403: { type: "permission_error", code: "insufficient_quota" },
+  403: { type: "permission_error", code: "permission_denied" },
   404: { type: "invalid_request_error", code: "model_not_found" },
   406: { type: "invalid_request_error", code: "model_not_supported" },
   408: { type: "server_error", code: "upstream_request_timeout" },
@@ -112,4 +112,38 @@ export const COOLDOWN_MS = {
   notFound: COOLDOWN.long,
   transient: TRANSIENT_COOLDOWN_MS,
   requestNotAllowed: COOLDOWN.short,
+};
+
+// Anthropic Messages API error types, keyed by HTTP status (client-facing, /v1/messages).
+// https://docs.anthropic.com/en/api/errors
+export const CLAUDE_ERROR_TYPES = {
+  400: "invalid_request_error",
+  401: "authentication_error",
+  402: "billing_error",
+  403: "permission_error",
+  404: "not_found_error",
+  406: "invalid_request_error",
+  413: "request_too_large",
+  429: "rate_limit_error",
+  500: "api_error",
+  502: "api_error",
+  503: "overloaded_error",
+  504: "api_error",
+  529: "overloaded_error"
+};
+
+// Google Gemini API error status strings, keyed by HTTP status (client-facing, /v1beta).
+export const GEMINI_ERROR_STATUS = {
+  400: "INVALID_ARGUMENT",
+  401: "UNAUTHENTICATED",
+  402: "FAILED_PRECONDITION",
+  403: "PERMISSION_DENIED",
+  404: "NOT_FOUND",
+  406: "INVALID_ARGUMENT",
+  413: "INVALID_ARGUMENT",
+  429: "RESOURCE_EXHAUSTED",
+  500: "INTERNAL",
+  502: "UNAVAILABLE",
+  503: "UNAVAILABLE",
+  504: "DEADLINE_EXCEEDED"
 };

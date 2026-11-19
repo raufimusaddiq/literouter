@@ -11,6 +11,7 @@
  *  - tools[*]: Anthropic plain {name, description, input_schema}
  */
 import { register } from "../index.js";
+import { resolveMaxTokens } from "../concerns/requestParams.js";
 import { FORMATS } from "../formats.js";
 import { randomUUID } from "crypto";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
@@ -188,7 +189,7 @@ export function openaiToCommandCodeRequest(model, body, stream /* , credentials 
     model,
     messages,
     stream: stream !== false,
-    max_tokens: body.max_tokens ?? body.max_output_tokens ?? DEFAULT_MAX_TOKENS,
+    max_tokens: resolveMaxTokens(body) ?? body.max_output_tokens ?? DEFAULT_MAX_TOKENS,
     temperature: body.temperature ?? 0.3,
   };
 

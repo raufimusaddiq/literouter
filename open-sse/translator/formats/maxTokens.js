@@ -1,4 +1,5 @@
 import { DEFAULT_MAX_TOKENS, DEFAULT_MIN_TOKENS } from "../../config/runtimeConfig.js";
+import { resolveMaxTokens } from "../concerns/requestParams.js";
 
 /**
  * Adjust max_tokens based on request context
@@ -10,7 +11,8 @@ import { DEFAULT_MAX_TOKENS, DEFAULT_MIN_TOKENS } from "../../config/runtimeConf
  * @returns {number} Adjusted max_tokens
  */
 export function adjustMaxTokens(body, ceiling = DEFAULT_MAX_TOKENS) {
-  let maxTokens = body.max_tokens || DEFAULT_MAX_TOKENS;
+  // max_completion_tokens (modern OpenAI SDKs) wins over the deprecated max_tokens
+  let maxTokens = resolveMaxTokens(body) || DEFAULT_MAX_TOKENS;
 
   // Auto-increase for tool calling to prevent truncated arguments (min never above max)
   if (body.tools && Array.isArray(body.tools) && body.tools.length > 0) {

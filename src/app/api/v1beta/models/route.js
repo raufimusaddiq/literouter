@@ -1,5 +1,20 @@
 import { PROVIDER_MODELS } from "@/shared/constants/models";
 import { getKeyAccessContext, filterModelsListForKey } from "@/sse/services/keyAccess.js";
+import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
+import { buildErrorBody } from "open-sse/utils/error.js";
+import { FORMATS } from "open-sse/translator/formats.js";
+
+// Fallbacks when the registry has no limits for a model.
+const DEFAULT_INPUT_TOKEN_LIMIT = 128000;
+const DEFAULT_OUTPUT_TOKEN_LIMIT = 8192;
+
+function limitsFor(provider, modelId) {
+  const caps = getCapabilitiesForModel(provider, modelId) || {};
+  return {
+    inputTokenLimit: Number.isFinite(caps.contextWindow) && caps.contextWindow > 0 ? caps.contextWindow : DEFAULT_INPUT_TOKEN_LIMIT,
+    outputTokenLimit: Number.isFinite(caps.maxOutput) && caps.maxOutput > 0 ? caps.maxOutput : DEFAULT_OUTPUT_TOKEN_LIMIT,
+  };
+}
 
 /**
  * Handle CORS preflight
@@ -23,7 +38,7 @@ export async function GET(request) {
     const models = [];
     const seen = new Set();
 
-    function addModel({ name, displayName, description, methods = ["generateContent"] }) {
+    function addModel({ name, displayName, description, methods = ["generateContent"], limits }) {
       if (seen.has(name)) return;
       seen.add(name);
       models.push({
@@ -31,8 +46,7 @@ export async function GET(request) {
         displayName,
         description,
         supportedGenerationMethods: methods,
-        inputTokenLimit: 128000,
-        outputTokenLimit: 8192,
+        ...limits,
       });
     }
     
@@ -42,6 +56,7 @@ export async function GET(request) {
           name: `models/${provider}/${model.id}`,
           displayName: model.name || model.id,
           description: `${provider} model: ${model.name || model.id}`,
+          limits: limitsFor(provider, model.id),
         });
 
         if (provider === "gemini") {
@@ -50,6 +65,7 @@ export async function GET(request) {
             displayName: model.name || model.id,
             description: `Gemini model: ${model.name || model.id}`,
             methods: ["generateContent", "streamGenerateContent"],
+            limits: limitsFor(provider, model.id),
           });
         }
       }
@@ -64,6 +80,6 @@ export async function GET(request) {
     return Response.json({ models: allowed.map((e) => byId.get(e.id)) });
   } catch (error) {
     console.log("Error fetching models:", error);
-    return Response.json({ error: { message: error.message } }, { status: 500 });
+    return Response.json(buildErrorBody(500, error.message, FORMATS.GEMINI), { status: 500 });
   }
 }

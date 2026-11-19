@@ -3,6 +3,7 @@ import { getSettings, validateApiKey } from "@/lib/db/index.js";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { verifyDashboardAuthToken } from "@/lib/auth/dashboardSession";
 import { hasTrustedPeerHeaders } from "@/lib/auth/trustedPeer";
+import { buildErrorBody, resolveErrorFormat } from "open-sse/utils/error.js";
 import { hasProxyMarker, trustLoopbackAsLocal } from "@/lib/auth/proxyMarkers";
 import { checkApiKeyThrottle, recordApiKeyFailure } from "@/lib/auth/apiKeyThrottle";
 import { safeEqual } from "@/shared/utils/safeEqual";
@@ -249,15 +250,17 @@ export async function proxy(request) {
     if (await canAccessPublicLlmApi(request)) return NextResponse.next();
     // Valid keys / CLI token always pass (shared edge IPs must not be locked out);
     // only requests that failed validation are refused with 429 while the IP is blocked.
+    // Body shape follows the route protocol (Anthropic / Gemini / OpenAI).
+    const format = resolveErrorFormat(pathname);
     const ip = throttleKey(request);
     const gate = ip ? checkApiKeyThrottle(ip) : { blocked: false };
     if (gate.blocked) {
       return NextResponse.json(
-        { error: "Too many failed authentication attempts" },
+        buildErrorBody(429, "Too many failed authentication attempts", format),
         { status: 429, headers: { "Retry-After": String(gate.retryAfter) } },
       );
     }
-    return NextResponse.json({ error: "API key required for remote API access" }, { status: 401 });
+    return NextResponse.json(buildErrorBody(401, "API key required for remote API access", format), { status: 401 });
   }
 
   // Deny-by-default for /api/* — public allow-list bypasses, everything else requires auth.
