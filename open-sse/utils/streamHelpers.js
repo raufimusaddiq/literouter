@@ -2,6 +2,7 @@ import { FORMATS } from "../translator/formats.js";
 import { fallbackToolCallId } from "../translator/concerns/toolCall.js";
 import { buildErrorBody } from "./error.js";
 import { SSE_DONE } from "./sseConstants.js";
+import { CLAUDE_EVENT } from "../translator/schema/index.js";
 
 const sharedEncoder = new TextEncoder();
 
@@ -52,7 +53,7 @@ export function hasValuableContent(chunk, format) {
 
   // Claude format
   if (format === FORMATS.CLAUDE) {
-    const isContentBlockDelta = chunk.type === "content_block_delta";
+    const isContentBlockDelta = chunk.type === CLAUDE_EVENT.CONTENT_BLOCK_DELTA;
     const hasText = chunk.delta?.text && chunk.delta.text !== "";
     const hasThinking = chunk.delta?.thinking && chunk.delta.thinking !== "";
     const hasInputJson = chunk.delta?.partial_json && chunk.delta.partial_json !== "";

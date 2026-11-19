@@ -1,6 +1,6 @@
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
-import { ROLE, CLAUDE_BLOCK, MODEL_FALLBACK, OPENAI_FINISH } from "../schema/index.js";
+import { ROLE, CLAUDE_BLOCK, MODEL_FALLBACK, OPENAI_FINISH, CLAUDE_EVENT } from "../schema/index.js";
 import { fromOpenAIFinish } from "../concerns/finishReason.js";
 import { extractReasoningText } from "../concerns/reasoning.js";
 import { fallbackToolCallId } from "../concerns/toolCall.js";
@@ -51,7 +51,7 @@ function isValidPdfPagesArg(filePath, pages) {
 function stopThinkingBlock(state, results) {
   if (!state.thinkingBlockStarted) return;
   results.push({
-    type: "content_block_stop",
+    type: CLAUDE_EVENT.CONTENT_BLOCK_STOP,
     index: state.thinkingBlockIndex
   });
   state.thinkingBlockStarted = false;
@@ -62,7 +62,7 @@ function stopTextBlock(state, results) {
   if (!state.textBlockStarted || state.textBlockClosed) return;
   state.textBlockClosed = true;
   results.push({
-    type: "content_block_stop",
+    type: CLAUDE_EVENT.CONTENT_BLOCK_STOP,
     index: state.textBlockIndex
   });
   state.textBlockStarted = false;
@@ -133,7 +133,7 @@ export function openaiToClaudeResponse(chunk, state) {
     state.model = chunk.model || MODEL_FALLBACK;
     state.nextBlockIndex = 0;
     results.push({
-      type: "message_start",
+      type: CLAUDE_EVENT.MESSAGE_START,
       message: {
         id: state.messageId,
         type: "message",
@@ -156,14 +156,14 @@ export function openaiToClaudeResponse(chunk, state) {
       state.thinkingBlockIndex = state.nextBlockIndex++;
       state.thinkingBlockStarted = true;
       results.push({
-        type: "content_block_start",
+        type: CLAUDE_EVENT.CONTENT_BLOCK_START,
         index: state.thinkingBlockIndex,
         content_block: { type: CLAUDE_BLOCK.THINKING, thinking: "" }
       });
     }
 
     results.push({
-      type: "content_block_delta",
+      type: CLAUDE_EVENT.CONTENT_BLOCK_DELTA,
       index: state.thinkingBlockIndex,
       delta: { type: "thinking_delta", thinking: reasoningContent }
     });
@@ -178,14 +178,14 @@ export function openaiToClaudeResponse(chunk, state) {
       state.textBlockStarted = true;
       state.textBlockClosed = false;
       results.push({
-        type: "content_block_start",
+        type: CLAUDE_EVENT.CONTENT_BLOCK_START,
         index: state.textBlockIndex,
         content_block: { type: CLAUDE_BLOCK.TEXT, text: "" }
       });
     }
 
     results.push({
-      type: "content_block_delta",
+      type: CLAUDE_EVENT.CONTENT_BLOCK_DELTA,
       index: state.textBlockIndex,
       delta: { type: "text_delta", text: delta.content }
     });
@@ -219,7 +219,7 @@ export function openaiToClaudeResponse(chunk, state) {
         }
 
         results.push({
-          type: "content_block_start",
+          type: CLAUDE_EVENT.CONTENT_BLOCK_START,
           index: toolBlockIndex,
           content_block: {
             type: CLAUDE_BLOCK.TOOL_USE,
@@ -274,13 +274,13 @@ function closeOpenBlocks(state, results) {
     if (buffered) {
       const sanitized = sanitizeToolArgs(toolInfo.name, buffered);
       results.push({
-        type: "content_block_delta",
+        type: CLAUDE_EVENT.CONTENT_BLOCK_DELTA,
         index: toolInfo.blockIndex,
         delta: { type: "input_json_delta", partial_json: sanitized }
       });
     }
     results.push({
-      type: "content_block_stop",
+      type: CLAUDE_EVENT.CONTENT_BLOCK_STOP,
       index: toolInfo.blockIndex
     });
   }
@@ -298,12 +298,12 @@ function emitCompletion(state, results, finishReason) {
     : (state.toolCalls?.size ? convertFinishReason(OPENAI_FINISH.TOOL_CALLS) : convertFinishReason(OPENAI_FINISH.STOP));
 
   results.push({
-    type: "message_delta",
+    type: CLAUDE_EVENT.MESSAGE_DELTA,
     delta: { stop_reason: stopReason },
     // Use tracked usage (will be estimated in stream.js if not valid)
     usage: state.usage || { input_tokens: 0, output_tokens: 0 }
   });
-  results.push({ type: "message_stop" });
+  results.push({ type: CLAUDE_EVENT.MESSAGE_STOP });
 }
 
 // Terminal flush (null chunk): a stream that ended without finish_reason still

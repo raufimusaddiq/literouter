@@ -1,4 +1,4 @@
-import { getSettings, getProviderNodeById, getProviderNodes } from "@/lib/localDb";
+import { getSettings, getProviderNodeById, getProviderNodes } from "@/lib/db/index.js";
 import {
   getProviderCredentials,
   markAccountUnavailable,

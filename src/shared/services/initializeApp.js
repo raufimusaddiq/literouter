@@ -46,7 +46,7 @@ async function runHeavyStartup() {
   }
 
   // Proactive OAuth token refresh (e.g. grok-cli ~6h TTL). Module is idempotent
-  // and also started from custom-server.js when that entry is used.
+  // and started only from here (custom-server.js cannot resolve the bare open-sse specifiers outside webpack).
   import("@/sse/services/backgroundTokenRefresh.js")
     .then(({ startBackgroundTokenRefresh }) => startBackgroundTokenRefresh())
     .catch((e) => console.log("[BackgroundTokenRefresh] scheduler start failed:", e.message));

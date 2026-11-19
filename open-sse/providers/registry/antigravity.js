@@ -21,6 +21,7 @@ export default {
   transport: {
     baseUrls: [ANTIGRAVITY_IDE_BASE_URL],
     format: "antigravity",
+    quirks: { noDoneSentinel: true }, // Gemini-family clients reject the OpenAI [DONE] sentinel
     headers: {
       "User-Agent": ANTIGRAVITY_IDE_USER_AGENT,
     },

@@ -31,7 +31,7 @@ vi.mock("@/models", () => ({
   getProxyPoolById: vi.fn(),
 }));
 
-vi.mock("@/lib/localDb", () => ({
+vi.mock("@/lib/db/index.js", () => ({
   getProviderConnections: vi.fn(async () => [{
     id: "strict-connection",
     apiKey: "test-key",

@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   getAntigravityUsage: vi.fn(),
 }));
 
-vi.mock("@/lib/localDb", () => ({
+vi.mock("@/lib/db/index.js", () => ({
   getProviderConnections: mocks.getProviderConnections,
   getSettings: mocks.getSettings,
   getProxyPools: vi.fn(),

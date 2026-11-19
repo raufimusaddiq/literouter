@@ -75,6 +75,13 @@ export function getModelForceStream(aliasOrId, modelId) {
   return findModel(models, modelId, aliasOrId)?.forceStream === true;
 }
 
+// Model quirk: upstream rejects temperature/top_p and/or requires a minimum output-token budget.
+// Returns { noSamplingControls, minOutputTokens } (falsy fields when unset).
+export function getModelSamplingQuirk(aliasOrId, modelId) {
+  const found = findModel(PROVIDER_MODELS[aliasOrId], modelId, aliasOrId);
+  return { noSamplingControls: found?.noSamplingControls === true, minOutputTokens: found?.minOutputTokens || 0 };
+}
+
 export function getModelType(aliasOrId, modelId) {
   const models = PROVIDER_MODELS[aliasOrId];
   if (!models) return null;

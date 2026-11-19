@@ -3,6 +3,7 @@
  */
 
 import { FORMATS } from "../translator/formats.js";
+import { CLAUDE_EVENT } from "../translator/schema/index.js";
 
 // Legacy per-chunk usage console line; off by default (superseded by "📊 done")
 const DEBUG_USAGE = process.env.LOG_USAGE_VERBOSE === "1";
@@ -242,7 +243,7 @@ export function extractUsage(chunk) {
   // Claude format (message_start event): carries input_tokens + cache_read +
   // cache_creation. message_delta later carries only the final output_tokens,
   // so callers must MERGE (mergeUsage), not overwrite, to keep cache counts.
-  if (chunk.type === "message_start" && chunk.message?.usage && typeof chunk.message.usage === "object") {
+  if (chunk.type === CLAUDE_EVENT.MESSAGE_START && chunk.message?.usage && typeof chunk.message.usage === "object") {
     const u = chunk.message.usage;
     return normalizeUsage({
       prompt_tokens: u.input_tokens || 0,
@@ -253,7 +254,7 @@ export function extractUsage(chunk) {
   }
 
   // Claude format (message_delta event)
-  if (chunk.type === "message_delta" && chunk.usage && typeof chunk.usage === "object") {
+  if (chunk.type === CLAUDE_EVENT.MESSAGE_DELTA && chunk.usage && typeof chunk.usage === "object") {
     return normalizeUsage({
       prompt_tokens: chunk.usage.input_tokens || 0,
       completion_tokens: chunk.usage.output_tokens || 0,

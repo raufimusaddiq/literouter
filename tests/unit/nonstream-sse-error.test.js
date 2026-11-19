@@ -21,7 +21,7 @@ function context(raw, sourceFormat = FORMATS.CLAUDE, contentType = "text/event-s
     body: { model: "test-model", stream: false, messages: [] }, stream: false,
     requestStartTime: Date.now(), connectionId: "test-connection",
     clientRawRequest: { endpoint: sourceFormat === FORMATS.CLAUDE ? "/v1/messages" : "/v1/chat/completions" },
-    onRequestSuccess: vi.fn(), trackDone: vi.fn(), appendLog: vi.fn(),
+    onRequestSuccess: vi.fn(), trackDone: vi.fn(),
     reqLogger: { logProviderResponse: vi.fn(), logConvertedResponse: vi.fn() },
     log: { line: vi.fn() },
   };
@@ -32,7 +32,6 @@ function expectFailed(ctx, result, status) {
   expect(result.status).toBe(status);
   expect(result.response.status).toBe(status);
   expect(ctx.trackDone).toHaveBeenCalledOnce();
-  expect(ctx.appendLog).toHaveBeenCalledExactlyOnceWith({ status: `FAILED ${status}` });
   expect(ctx.onRequestSuccess).not.toHaveBeenCalled();
   expect(ctx.reqLogger.logConvertedResponse).not.toHaveBeenCalled();
   expect(ctx.log.line).not.toHaveBeenCalled();
@@ -97,7 +96,6 @@ describe("non-streaming SSE errors", () => {
     else if (sourceFormat === FORMATS.OPENAI_RESPONSES) expect(json.output[0].content[0].text).toBe("hello");
     else expect(json.choices[0].message.content).toBe("hello");
     expect(ctx.onRequestSuccess).toHaveBeenCalledOnce();
-    expect(ctx.appendLog).toHaveBeenCalledWith(expect.objectContaining({ status: "200 OK" }));
     expect(saveRequestDetail).toHaveBeenCalledOnce();
     expect(saveRequestUsage).toHaveBeenCalledOnce();
   });

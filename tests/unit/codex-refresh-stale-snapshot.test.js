@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../src/lib/localDb.js", () => ({
+vi.mock("../../src/lib/db/index.js", () => ({
   getProviderConnectionById: vi.fn(),
   updateProviderConnection: vi.fn(),
 }));
@@ -9,7 +9,7 @@ vi.mock("../../open-sse/services/oauthCredentialManager.js", () => ({
   refreshProviderCredentials: vi.fn(),
 }));
 
-const { getProviderConnectionById } = await import("../../src/lib/localDb.js");
+const { getProviderConnectionById } = await import("../../src/lib/db/index.js");
 const { shouldRefreshCredentials, refreshProviderCredentials } = await import("../../open-sse/services/oauthCredentialManager.js");
 const { checkAndRefreshToken } = await import("../../src/sse/services/tokenRefresh.js");
 
