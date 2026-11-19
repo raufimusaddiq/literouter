@@ -979,7 +979,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > mmf → headers (api
 }
 `;
 
-exports[`GOLDEN buildHeaders (default executor providers) > morph → headers (apiKey / oauth) 1`] = `
+exports[`GOLDEN buildHeaders (default executor providers) > muse → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
     "Accept": "text/event-stream",
@@ -998,7 +998,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > morph → headers (a
 }
 `;
 
-exports[`GOLDEN buildHeaders (default executor providers) > muse → headers (apiKey / oauth) 1`] = `
+exports[`GOLDEN buildHeaders (default executor providers) > morph → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
     "Accept": "text/event-stream",
@@ -1174,6 +1174,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > poolside → headers
   },
 }
 `;
+
 
 exports[`GOLDEN buildHeaders (default executor providers) > sambanova → headers (apiKey / oauth) 1`] = `
 {
@@ -1686,17 +1687,17 @@ exports[`GOLDEN buildUrl (default executor providers) > mmf → url (stream + no
 }
 `;
 
-exports[`GOLDEN buildUrl (default executor providers) > morph → url (stream + non-stream) 1`] = `
-{
-  "nonStream": "https://api.morphllm.com/v1/chat/completions",
-  "stream": "https://api.morphllm.com/v1/chat/completions",
-}
-`;
-
 exports[`GOLDEN buildUrl (default executor providers) > muse → url (stream + non-stream) 1`] = `
 {
   "nonStream": "https://api.meta.ai/v1/responses",
   "stream": "https://api.meta.ai/v1/responses",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > morph → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://api.morphllm.com/v1/chat/completions",
+  "stream": "https://api.morphllm.com/v1/chat/completions",
 }
 `;
 
