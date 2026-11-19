@@ -238,7 +238,7 @@ export default function SystemOnePage() {
   };
 
   return (
-    <main className="flex min-w-0 flex-col gap-7 overflow-x-hidden">
+    <main className="flex min-w-0 flex-col gap-7 overflow-x-clip">
       <PageIntro
         eyebrow="System One workspace"
         title="Build a typed decision request."
@@ -252,7 +252,7 @@ export default function SystemOnePage() {
           <p className="mt-1 text-sm text-text-muted">Add a registry entry with a `systemone` service kind and a model list.</p>
         </Card>
       ) : (
-        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="flex min-w-0 flex-col gap-5">
             <Card className="min-w-0" title="Request" subtitle="Provider-native JSON is forwarded unchanged after model normalization." icon="tune">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -405,13 +405,15 @@ export default function SystemOnePage() {
             </Card>
           </div>
 
-          <Card className="min-w-0 self-start" title="Answers" subtitle="Typed results, probability bars, and raw JSON." icon="data_object">
-            <AnswerView result={result} form={{ questionsById }} />
-            <div className="mt-5 flex flex-col gap-2 border-t border-border-subtle pt-4">
-              {runDisabledReason && <p className="text-xs text-text-muted">{runDisabledReason}</p>}
-              <Button onClick={runRequest} loading={running} disabled={Boolean(runDisabledReason)} icon="play_arrow" fullWidth>
-                Run request
-              </Button>
+          <Card className="min-w-0" title="Answers" subtitle="Typed results, probability bars, and raw JSON." icon="data_object">
+            <div className="sticky top-[128px]">
+              <AnswerView result={result} form={{ questionsById }} />
+              <div className="mt-5 flex flex-col gap-2 border-t border-border-subtle pt-4">
+                {runDisabledReason && <p className="text-xs text-text-muted">{runDisabledReason}</p>}
+                <Button onClick={runRequest} loading={running} disabled={Boolean(runDisabledReason)} icon="play_arrow" fullWidth>
+                  Run request
+                </Button>
+              </div>
             </div>
           </Card>
         </div>
