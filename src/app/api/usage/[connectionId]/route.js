@@ -7,6 +7,14 @@ import { isUnrecoverableRefreshError } from "open-sse/services/tokenRefresh.js";
 import { getExecutor } from "open-sse/executors/index.js";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { USAGE_APIKEY_PROVIDERS } from "@/shared/constants/providers";
+import { createTtlCache, withTimeout, TimeoutError } from "@/lib/asyncLimits";
+
+// Short per-connection cache so the auto-refresh tick and repeat visits don't
+// hit upstream providers every time; ?force=1 (manual refresh) bypasses it.
+const USAGE_CACHE_TTL_MS = 45_000;
+// Upstream budget: never hold the request open longer than this.
+const USAGE_UPSTREAM_TIMEOUT_MS = 12_000;
+const usageCache = createTtlCache({ ttlMs: USAGE_CACHE_TTL_MS });
 
 // Detect auth-expired messages returned by usage providers instead of throwing
 const AUTH_EXPIRED_PATTERNS = ["expired", "authentication", "unauthorized", "401", "re-authorize"];
@@ -156,48 +164,57 @@ export async function GET(request, { params }) {
       return Response.json({ message: "Usage not available for this connection" });
     }
 
-    // Resolve connection proxy config; force strictProxy=false so quota/refresh fall back to direct on failure
-    const proxyConfig = await resolveConnectionProxyConfig(connection.providerSpecificData);
-    const proxyOptions = {
-      connectionProxyEnabled: proxyConfig.connectionProxyEnabled === true,
-      connectionProxyUrl: proxyConfig.connectionProxyUrl || "",
-      connectionNoProxy: proxyConfig.connectionNoProxy || "",
-      vercelRelayUrl: proxyConfig.vercelRelayUrl || "",
-      strictProxy: false,
-    };
+    const run = () => withTimeout(async () => {
+      // Resolve connection proxy config; force strictProxy=false so quota/refresh fall back to direct on failure
+      const proxyConfig = await resolveConnectionProxyConfig(connection.providerSpecificData);
+      const proxyOptions = {
+        connectionProxyEnabled: proxyConfig.connectionProxyEnabled === true,
+        connectionProxyUrl: proxyConfig.connectionProxyUrl || "",
+        connectionNoProxy: proxyConfig.connectionNoProxy || "",
+        vercelRelayUrl: proxyConfig.vercelRelayUrl || "",
+        strictProxy: false,
+      };
 
-    // Refresh credentials only for OAuth connections (apikey has no token refresh)
-    if (isOAuth) {
-      try {
-        const result = await refreshAndUpdateCredentials(connection, false, proxyOptions);
-        connection = result.connection;
-      } catch (refreshError) {
-        console.error("[Usage API] Credential refresh failed:", refreshError);
-        return Response.json({
-          error: `Credential refresh failed: ${refreshError.message}`
-        }, { status: 401 });
+      // Refresh credentials only for OAuth connections (apikey has no token refresh)
+      if (isOAuth) {
+        try {
+          const result = await refreshAndUpdateCredentials(connection, false, proxyOptions);
+          connection = result.connection;
+        } catch (refreshError) {
+          console.error("[Usage API] Credential refresh failed:", refreshError);
+          return { status: 401, body: { error: `Credential refresh failed: ${refreshError.message}` } };
+        }
       }
-    }
 
-    // Fetch usage from provider API
-    let usage = await getUsageForProvider(connection, proxyOptions, { force });
+      // Fetch usage from provider API
+      let usage = await getUsageForProvider(connection, proxyOptions, { force });
 
-    // If provider returned an auth-expired message instead of throwing,
-    // force-refresh token and retry once (OAuth only)
-    if (isOAuth && isAuthExpiredMessage(usage) && connection.refreshToken) {
-      try {
-        const retryResult = await refreshAndUpdateCredentials(connection, true, proxyOptions);
-        connection = retryResult.connection;
-        usage = await getUsageForProvider(connection, proxyOptions, { force });
-      } catch (retryError) {
-        console.warn(`[Usage] ${connection.provider}: force refresh failed: ${retryError.message}`);
+      // If provider returned an auth-expired message instead of throwing,
+      // force-refresh token and retry once (OAuth only)
+      if (isOAuth && isAuthExpiredMessage(usage) && connection.refreshToken) {
+        try {
+          const retryResult = await refreshAndUpdateCredentials(connection, true, proxyOptions);
+          connection = retryResult.connection;
+          usage = await getUsageForProvider(connection, proxyOptions, { force });
+        } catch (retryError) {
+          console.warn(`[Usage] ${connection.provider}: force refresh failed: ${retryError.message}`);
+        }
       }
-    }
 
-    return Response.json(usage);
+      return { status: 200, body: usage };
+    }, USAGE_UPSTREAM_TIMEOUT_MS, "Provider usage request");
+
+    const result = await usageCache.get(connectionId, run, {
+      bypass: force,
+      shouldCache: (r) => r.status === 200 && !r.body?.error && !isAuthExpiredMessage(r.body),
+    });
+    return Response.json(result.body, { status: result.status });
   } catch (error) {
     const provider = connection?.provider ?? "unknown";
     console.warn(`[Usage] ${provider}: ${error.message}`);
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json(
+      { error: error.message },
+      { status: error instanceof TimeoutError ? 504 : 500 },
+    );
   }
 }
