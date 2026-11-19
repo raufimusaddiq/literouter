@@ -28,6 +28,7 @@ import { createHash } from "crypto";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
+import { GatewayTimeoutError, rethrowIfGatewayAbort } from "../utils/requestTimeouts.js";
 import { SSE_DONE, SSE_HEADERS } from "../utils/sseConstants.js";
 import { FETCH_CONNECT_TIMEOUT_MS, HTTP_STATUS } from "../config/runtimeConfig.js";
 import {
@@ -616,6 +617,7 @@ export class QoderExecutor extends BaseExecutor {
       try {
         credentials = await resolveQoderCredentials(credentials, proxyOptions, signal);
       } catch (err) {
+        rethrowIfGatewayAbort(err);
         log?.error?.("QODER", `PAT exchange failed: ${err.message}`);
         const fakeResp = new Response(
           JSON.stringify({ error: { message: `qoder PAT exchange failed: ${err.message}` } }),
@@ -651,6 +653,7 @@ export class QoderExecutor extends BaseExecutor {
     try {
       ({ qoderKey, payload } = await buildQoderRequestBody({ model, body, credentials, log, proxyOptions, signal }));
     } catch (err) {
+      rethrowIfGatewayAbort(err);
       const fakeResp = new Response(
         JSON.stringify({ error: { message: err.message } }),
         { status: 400, headers: { "Content-Type": "application/json" } },
@@ -700,7 +703,7 @@ export class QoderExecutor extends BaseExecutor {
     // Abort if upstream doesn't return response headers within connect timeout.
     const timeoutMs = this.config?.timeoutMs || FETCH_CONNECT_TIMEOUT_MS;
     const connectCtrl = new AbortController();
-    const connectTimer = setTimeout(() => connectCtrl.abort(new Error("fetch connect timeout")), timeoutMs);
+    const connectTimer = setTimeout(() => connectCtrl.abort(new GatewayTimeoutError(`upstream sent no response headers within ${timeoutMs}ms`, "headers")), timeoutMs);
     const mergedSignal = signal ? AbortSignal.any([signal, connectCtrl.signal]) : connectCtrl.signal;
 
     let response;

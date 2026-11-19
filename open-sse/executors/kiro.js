@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 import { refreshKiroToken } from "../services/tokenRefresh.js";
 import { SSE_DONE, SSE_HEADERS } from "../utils/sseConstants.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
+import { isGatewayTimeout } from "../utils/requestTimeouts.js";
 import { STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig.js";
 
 const KIRO_REPAIR_BUFFER_MAX_BYTES = 8 * 1024 * 1024;
@@ -83,6 +84,7 @@ function concatChunks(chunks, totalBytes) {
 }
 
 function makeAbortError(reason) {
+  if (isGatewayTimeout(reason)) return reason;
   const error = new Error(reason?.message || reason || "Request aborted");
   error.name = "AbortError";
   return error;
@@ -427,9 +429,9 @@ export class KiroExecutor extends BaseExecutor {
           controller.enqueue(bytes);
           controller.close();
         } catch (error) {
-          if (open && error.name === "AbortError") {
+          if (open && (error.name === "AbortError" || isGatewayTimeout(error))) {
             controller.error(error);
-          } else if (open && error.name !== "AbortError") {
+          } else if (open) {
             controller.enqueue(encodeSSEError(
               "kiro_integrity_gate_failed",
               error.message || "Kiro integrity validation failed"
@@ -493,7 +495,7 @@ export class KiroExecutor extends BaseExecutor {
           options.stallTimeoutMs
         );
       } catch (error) {
-        if (error.name === "AbortError") throw error;
+        if (error.name === "AbortError" || isGatewayTimeout(error)) throw error;
       }
       return encodeSSEError(
         "kiro_integrity_retry_upstream_error",

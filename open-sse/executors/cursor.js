@@ -1,6 +1,7 @@
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS, PROVIDER_OAUTH } from "../config/providers.js";
-import { HTTP_STATUS } from "../config/runtimeConfig.js";
+import { HTTP_STATUS, FETCH_CONNECT_TIMEOUT_MS, NON_STREAM_TOTAL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS } from "../config/runtimeConfig.js";
+import { GatewayTimeoutError, isGatewayTimeout, rethrowIfGatewayAbort, fetchWithTimeouts } from "../utils/requestTimeouts.js";
 import {
   generateCursorBody,
   encodeField,
@@ -18,7 +19,6 @@ import { SSE_DONE, SSE_HEADERS } from "../utils/sseConstants.js";
 import { chatChunkSse, sseChunk } from "../utils/sse.js";
 import { FORMATS } from "../translator/formats.js";
 import { ROLE, OPENAI_BLOCK } from "../translator/schema/index.js";
-import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import zlib from "zlib";
 import crypto from "crypto";
 
@@ -410,12 +410,12 @@ export class CursorExecutor extends BaseExecutor {
   }
 
   async makeFetchRequest(url, headers, body, signal, proxyOptions = null) {
-    const response = await proxyAwareFetch(url, {
+    // Whole body is buffered below, so the total (non-stream) budget applies.
+    const response = await fetchWithTimeouts(url, {
       method: "POST",
       headers,
       body,
-      signal
-    }, proxyOptions);
+    }, proxyOptions, { signal, stream: false });
 
     return {
       status: response.status,
@@ -487,7 +487,7 @@ export class CursorExecutor extends BaseExecutor {
    * AgentService (agent.api5.cursor.sh) is HTTP/2-only. Node's fetch/undici speaks
    * HTTP/1.1 and fails with HTTPParserError on the h2 preface — use http2 duplex.
    */
-  openAgentHttp2Stream(url, headers, signal) {
+  openAgentHttp2Stream(url, headers, signal, { stream = true } = {}) {
     if (!http2) {
       throw new Error("HTTP/2 is required for Cursor AgentService (endpoint is h2-only)");
     }
@@ -512,12 +512,27 @@ export class CursorExecutor extends BaseExecutor {
       streamError = error;
       ended = true;
       wake(null);
+      onFail?.(error);
     };
+    let onFail = null;
 
     const close = () => {
       try { req?.destroy(); } catch {}
       try { client.close(); } catch {}
     };
+
+    // Bounded: no headers within the connect/headers timeout, no chunk within the idle timeout
+    // and (non-stream) no completion within the total budget all fail the stream with a
+    // GatewayTimeoutError, which the gateway maps to 504 without touching the account.
+    const timeoutFail = (message, phase) => {
+      fail(new GatewayTimeoutError(message, phase));
+      close();
+    };
+    let headersTimer = setTimeout(() => timeoutFail(`Cursor AgentService sent no response headers within ${FETCH_CONNECT_TIMEOUT_MS}ms`, "headers"), FETCH_CONNECT_TIMEOUT_MS);
+    const totalTimer = stream ? null : setTimeout(() => timeoutFail(`Cursor AgentService did not finish within ${NON_STREAM_TOTAL_TIMEOUT_MS}ms`, "total"), NON_STREAM_TOTAL_TIMEOUT_MS);
+    headersTimer.unref?.();
+    totalTimer?.unref?.();
+    const clearHeadersTimer = () => { if (headersTimer) { clearTimeout(headersTimer); headersTimer = null; } };
 
     client.on("error", fail);
 
@@ -536,8 +551,10 @@ export class CursorExecutor extends BaseExecutor {
     });
     req.on("end", () => {
       ended = true;
+      clearTimeout(totalTimer);
       wake({ value: undefined, done: true });
     });
+    req.on("close", () => { clearHeadersTimer(); clearTimeout(totalTimer); });
 
     if (signal) {
       const onAbort = () => {
@@ -550,9 +567,11 @@ export class CursorExecutor extends BaseExecutor {
 
     const responseHeaders = new Promise((resolve, reject) => {
       const onEarlyError = (error) => reject(error);
+      onFail = (error) => reject(error);
       client.once("error", onEarlyError);
       req.once("error", onEarlyError);
       req.once("response", (hdrs) => {
+        clearHeadersTimer();
         client.off("error", onEarlyError);
         req.off("error", onEarlyError);
         resolve(hdrs);
@@ -574,7 +593,11 @@ export class CursorExecutor extends BaseExecutor {
           if (streamError) throw streamError;
           return { value: undefined, done: true };
         }
-        const result = await new Promise((resolve) => { waiting = resolve; });
+        let idleTimer;
+        const result = await new Promise((resolve) => {
+          waiting = resolve;
+          idleTimer = setTimeout(() => timeoutFail(`Cursor AgentService stalled for ${STREAM_STALL_TIMEOUT_MS}ms`, "idle"), STREAM_STALL_TIMEOUT_MS);
+        }).finally(() => clearTimeout(idleTimer));
         if (streamError) throw streamError;
         return result || { value: undefined, done: true };
       },
@@ -614,7 +637,7 @@ export class CursorExecutor extends BaseExecutor {
     let session;
     const tools = body.tools || [];
     try {
-      session = this.openAgentHttp2Stream(url, headers, requestController.signal);
+      session = this.openAgentHttp2Stream(url, headers, requestController.signal, { stream });
       session.write(buildAgentRunFrame(body.messages || [], runModel, tools, body.reasoning_effort || body.reasoning?.effort));
     } catch (error) {
       throw new Error(`Cursor AgentService request failed: ${error.message}`);
@@ -625,6 +648,7 @@ export class CursorExecutor extends BaseExecutor {
       responseHeaders = await session.responseHeaders;
     } catch (error) {
       session.close();
+      rethrowIfGatewayAbort(error);
       throw new Error(`Cursor AgentService request failed: ${error.message}`);
     }
 
@@ -896,6 +920,7 @@ export class CursorExecutor extends BaseExecutor {
       try {
         return await this.executeAgent({ model, body, stream, credentials, signal, log, proxyOptions });
       } catch (error) {
+        rethrowIfGatewayAbort(error);
         return {
           response: new Response(JSON.stringify({
             error: { message: error.message, type: "connection_error", code: "" },
@@ -938,6 +963,7 @@ export class CursorExecutor extends BaseExecutor {
 
       return { response: transformedResponse, url, headers, transformedBody: body };
     } catch (error) {
+      rethrowIfGatewayAbort(error);
       const errorResponse = new Response(JSON.stringify({
         error: {
           message: error.message,

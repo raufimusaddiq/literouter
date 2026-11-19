@@ -1,0 +1,39 @@
+// T-35: raw proxyAwareFetch callers with no signal/timer (token refresh etc.) must still be bounded.
+import { describe, it, expect, afterAll } from "vitest";
+import http from "node:http";
+
+process.env.UNDICI_BACKSTOP_MS = "300";
+const { proxyAwareFetch, resetDirectDispatchersForTests } = await import("../../open-sse/utils/proxyFetch.js");
+const { UNDICI_BACKSTOP_MS } = await import("../../open-sse/config/runtimeConfig.js");
+
+const sockets = new Set();
+const server = http.createServer((req, res) => {
+  if (req.url === "/stall") { res.writeHead(200, { "content-type": "text/event-stream" }); res.write("data: x\n\n"); }
+  // "/hang": never answers
+});
+server.on("connection", (s) => { sockets.add(s); s.on("close", () => sockets.delete(s)); });
+await new Promise((r) => server.listen(0, "127.0.0.1", r));
+const base = `http://127.0.0.1:${server.address().port}`;
+
+afterAll(async () => {
+  for (const s of sockets) s.destroy();
+  await new Promise((r) => server.close(r));
+  resetDirectDispatchersForTests();
+});
+
+describe("undici backstop", () => {
+  it("is env-configurable", () => {
+    expect(UNDICI_BACKSTOP_MS).toBe(300);
+  });
+
+  it("a refresh-style call with no signal times out instead of hanging forever", async () => {
+    const t0 = Date.now();
+    await expect(proxyAwareFetch(`${base}/hang`, { method: "POST", body: "{}" })).rejects.toBeTruthy();
+    expect(Date.now() - t0).toBeLessThan(5000);
+  });
+
+  it("a body that stalls with no signal is cut by the idle backstop", async () => {
+    const res = await proxyAwareFetch(`${base}/stall`, {});
+    await expect(res.text()).rejects.toBeTruthy();
+  });
+});

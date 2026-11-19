@@ -29,6 +29,10 @@ import { getProjectIdForConnection } from "open-sse/services/projectId.js";
 import { stripModelContextMarker } from "open-sse/utils/modelMarkers.js";
 import { getKeyAccessContext, enforceKeyAccess, filterAdapterModels } from "../services/keyAccess.js";
 import { PROVIDERS } from "open-sse/config/providers.js";
+import { isAbortError } from "open-sse/utils/requestTimeouts.js";
+
+// nginx-style "client closed request"; nothing is read by the client anyway.
+const CLIENT_CLOSED_REQUEST = 499;
 
 /**
  * Handle chat completion request
@@ -36,6 +40,16 @@ import { PROVIDERS } from "open-sse/config/providers.js";
  * Format detection and translation handled by translator
  */
 export async function handleChat(request, clientRawRequest = null) {
+  try {
+    return await handleChatImpl(request, clientRawRequest);
+  } catch (error) {
+    if (isAbortError(error) || request?.signal?.aborted) return errorResponse(CLIENT_CLOSED_REQUEST, "Request aborted");
+    log.error("CHAT", `Unhandled error: ${error?.stack || error?.message || error}`);
+    return errorResponse(HTTP_STATUS.SERVER_ERROR, "Internal gateway error");
+  }
+}
+
+async function handleChatImpl(request, clientRawRequest = null) {
   let body;
   try {
     body = await request.json();
@@ -54,6 +68,8 @@ export async function handleChat(request, clientRawRequest = null) {
       signal: request.signal
     };
   }
+  // Routes that rebuild the Request must pass signal through; make sure chatCore sees it.
+  if (!clientRawRequest.signal && request.signal) clientRawRequest = { ...clientRawRequest, signal: request.signal };
   // Claude Code marks a 1M-context request as `<model>[1m]`; the marker matches
   // no combo, alias or provider/model pair, so it must not reach resolution.
   // The capability travels in the anthropic-beta header, forwarded as-is.
@@ -136,7 +152,8 @@ export async function handleChat(request, clientRawRequest = null) {
       ),
       log,
       comboName: modelStr,
-      comboStrategy: getActiveAdapterStrategy(requiredCapabilities, settings)
+      comboStrategy: getActiveAdapterStrategy(requiredCapabilities, settings),
+      signal: request.signal
     });
   }
 
@@ -201,6 +218,7 @@ async function dispatchCombo({
       },
       log,
       comboName: modelStr,
+      signal: request?.signal,
       judgeModel: comboStrategies[modelStr]?.judgeModel,
       tuning: comboStrategies[modelStr]?.fusionTuning,
     });
@@ -219,6 +237,7 @@ async function dispatchCombo({
     comboName: modelStr,
     comboStrategy,
     comboStickyLimit,
+    signal: request?.signal,
   });
 }
 
@@ -276,6 +295,8 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   let accountAttempts = 0;
 
   while (true) {
+    // Client went away: stop before spending another credential lookup / upstream call.
+    if (request?.signal?.aborted) return errorResponse(CLIENT_CLOSED_REQUEST, "Request aborted");
     if (++accountAttempts > maxAccountAttempts) {
       log.warn("FALLBACK", `attempt cap ${maxAccountAttempts} reached for ${provider}/${model}`);
       return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable", lastHeaders);
@@ -363,6 +384,12 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     });
 
     if (result.success) return result.response;
+
+    // Client abort (499) or gateway timeout (504) says nothing about the account: never lock it,
+    // never fall through to another account (that would bill the same generation again).
+    if (result.status === CLIENT_CLOSED_REQUEST || request?.signal?.aborted || result.status === HTTP_STATUS.GATEWAY_TIMEOUT) {
+      return result.response;
+    }
 
     // Antigravity 409/429: refresh live quota to get exact resetAt before locking
     let quotaResetMs = null;
