@@ -43,8 +43,8 @@
   /* Text */
   --color-text: #202225;
   --color-text-main: #202225;
-  --color-text-muted: #6d6d68;
-  --color-text-subtle: #96968f;
+  --color-text-muted: #6a6a65;
+  --color-text-subtle: #67675f;
 
   /* Status */
   --color-danger: #cf222e;
@@ -99,7 +99,7 @@
   --color-text: #f1f0ec;
   --color-text-main: #f1f0ec;
   --color-text-muted: #a3a29c;
-  --color-text-subtle: #74746f;
+  --color-text-subtle: #8a8a84;
 
   --color-danger: #ef4444;
   --color-success: #22c55e;

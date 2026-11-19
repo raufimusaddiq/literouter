@@ -47,11 +47,9 @@ cd tests && npm install                 # then tests' own deps (vitest) → test
 npx vitest run                          # all tests; auto-discovers tests/vitest.config.js
 npx vitest run unit/capabilities.test.js   # single file (path relative to tests/)
 ```
-> The committed `tests/package.json` `test` script hardcodes Unix paths (`NODE_PATH=/tmp/node_modules …`) — a shared-install workaround from upstream. On Windows (or anywhere), ignore it and use the `npx vitest` form above; `vitest.config.js` resolves the `open-sse`/`@/` aliases from the repo root regardless of where vitest lives.
+> `tests/package.json`'s `test` script is plain `vitest run --reporter=verbose` (no `NODE_PATH` hack); `vitest.config.js` resolves the `open-sse`/`@/` aliases from the repo root.
 >
-> **The suite is NOT expected to be all-green on a plain checkout.** ~938 pass, ~64 fail. Judge regressions with `tests/__baseline__/verify-no-regression.mjs`, not a raw run. Expected red:
-> - 26 catalogued in `tests/__baseline__/known-fails.txt` (rtk, oauth-cursor-auto-import, translator-request-normalization, …).
-> - `unit/xai-oauth-service.test.js` times out (5s) when the xAI endpoint-discovery fetch isn't reachable/mocked.
+> **Linux CI is green: expected red is 0** (3255 pass on a recent run). CI runs `vitest`, then `tests/__baseline__/verify-no-regression.mjs test-results.json`, then `node --test tests/unit/*.test.cjs` (custom-server-h2c), then `npx eslint .` (blocking; the React Compiler react-hooks rules are downgraded to warnings in `eslint.config.mjs` until that debt is cleared). On a Windows checkout ~25 tests are red (bash deploy scripts, sockets, `golden-url-header` cline/clinepass); they are catalogued in `tests/__baseline__/known-fails.txt`. Judge regressions with the verify script, not a raw run.
 > - `real/*.real.test.js` make live provider calls — need credentials, skip otherwise.
 - `*.real.test.js` under `tests/translator/real/` make live provider calls — skip unless credentials are set.
 - Regression baselines: `tests/__baseline__/verify-*.mjs` compare against committed snapshots (providers, aliases, OAuth URLs). Run these after touching provider registry / alias logic.

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getComboById, updateCombo, deleteCombo, getComboByName } from "@/lib/localDb";
 import { resetComboRotation } from "open-sse/services/combo.js";
+import { validateCombo } from "../validate.js";
 
 // Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -43,6 +44,20 @@ export async function PUT(request, { params }) {
     
     // Capture previous name to invalidate rotation state on rename
     const prev = await getComboById(id);
+
+    // Validate the merged result: a rename or a models edit can each close a
+    // cycle (a -> b -> a), so check what the combo will become, not just the patch.
+    if (body.models !== undefined || body.name !== undefined) {
+      const invalid = await validateCombo({
+        id,
+        name: body.name ?? prev?.name,
+        models: body.models ?? prev?.models ?? [],
+      });
+      if (invalid) {
+        return NextResponse.json({ error: invalid }, { status: 400 });
+      }
+    }
+
     const combo = await updateCombo(id, body);
     
     if (!combo) {

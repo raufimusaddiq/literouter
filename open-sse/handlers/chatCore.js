@@ -14,6 +14,7 @@ import { HTTP_STATUS, isTokenSaverEnabled } from "../config/runtimeConfig.js";
 import { handleBypassRequest } from "../utils/bypassHandler.js";
 import { trackPendingRequest, appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { getExecutor } from "../executors/index.js";
+import { discardResponse } from "../executors/base.js";
 import { takeRenamedToolNames } from "../utils/opencodeFingerprint.js";
 import { supportsGrokCliReasoningEffort } from "../config/grokCli.js";
 import { buildRequestDetail, extractRequestConfig } from "./chatCore/requestDetail.js";
@@ -129,11 +130,16 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // on/off → extended type (body.thinking), none/low/medium/high → effort type (body.reasoning_effort)
   if (providerThinking?.mode && providerThinking.mode !== "auto") {
     const mode = providerThinking.mode;
-    if (mode === "on" && !body.thinking) {
-      console.log("Injecting provider-level thinking config override: on");
-      body = { ...body, thinking: { type: "enabled", budget_tokens: 10000 } };
-    } else if (mode === "off" && !body.thinking) {
-      body = { ...body, thinking: { type: "disabled" } };
+    if (mode === "on" || mode === "off") {
+      // Extended type only — "on"/"off" are not valid reasoning_effort values.
+      if (!body.thinking) {
+        if (mode === "on") {
+          console.log("Injecting provider-level thinking config override: on");
+          body = { ...body, thinking: { type: "enabled", budget_tokens: 10000 } };
+        } else {
+          body = { ...body, thinking: { type: "disabled" } };
+        }
+      }
     } else if (!body.reasoning_effort) {
       body = { ...body, reasoning_effort: mode };
     }
@@ -189,7 +195,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     }
     // Convert remote image URLs to base64 for targets that can't fetch URLs.
     try {
-      const n = await prefetchRemoteImages(body, sourceFormat, targetFormat, { signal: undefined });
+      const n = await prefetchRemoteImages(body, sourceFormat, targetFormat, { signal: clientRawRequest?.signal });
       if (n > 0) log?.debug?.("MODALITY", `prefetched ${n} remote image(s) for ${targetFormat}`);
     } catch (e) { log?.warn?.("MODALITY", `image prefetch failed: ${e.message}`); }
   }
@@ -496,11 +502,15 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
             log,
             proxyOptions,
           });
-          if (retryResult.response.ok) {
-            providerResponse = retryResult.response;
-            providerUrl = retryResult.url;
-            providerResponseFormat = retryResult.responseFormat || targetFormat;
-          }
+          // The refreshed retry supersedes the 401/403 entirely: take its response
+          // (even an error, so the failure is parsed from the retry, not the stale
+          // auth error) along with its headers and transformed body.
+          discardResponse(providerResponse);
+          providerResponse = retryResult.response;
+          providerUrl = retryResult.url;
+          providerHeaders = retryResult.headers;
+          finalBody = retryResult.transformedBody;
+          providerResponseFormat = retryResult.responseFormat || targetFormat;
         } catch { log?.warn?.("TOKEN", `${provider.toUpperCase()} | retry after refresh failed`); }
       } else {
         log?.warn?.("TOKEN", `${provider.toUpperCase()} | refresh failed`);
@@ -527,12 +537,15 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
           proxyOptions,
         });
         if (retryResult.response.ok) {
+          discardResponse(providerResponse);
           translatedBody = adapted;
           providerResponse = retryResult.response;
           providerUrl = retryResult.url;
           providerHeaders = retryResult.headers;
           finalBody = retryResult.transformedBody;
           providerResponseFormat = retryResult.responseFormat || targetFormat;
+        } else {
+          discardResponse(retryResult.response);
         }
       }
     } catch { log?.warn?.("CLAUDE", `${provider.toUpperCase()} | request adaptation retry failed`); }

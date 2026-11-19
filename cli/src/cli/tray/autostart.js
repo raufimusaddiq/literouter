@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const { execSync } = require("child_process");
+const { buildTrayArgs } = require("../utils/serverProc");
 
 const APP_NAME = "9router";
 const APP_LABEL = "com.9router.autostart";
@@ -42,18 +43,19 @@ function getCliJsPath(cliPath) {
 /**
  * Enable auto startup on OS boot
  * @param {string} cliPath - Optional path to cli.js (defaults to auto-detect)
+ * @param {{host?: string, port?: number}} [opts] - Bound host/port to persist
  * @returns {boolean} success
  */
-function enableAutoStart(cliPath) {
+function enableAutoStart(cliPath, opts = {}) {
   const platform = process.platform;
 
   if (!["darwin", "win32", "linux"].includes(platform)) return false;
   if (platform === "linux" && !process.env.DISPLAY) return false;
 
   try {
-    if (platform === "darwin") return enableMacOS(cliPath);
-    if (platform === "win32") return enableWindows(cliPath);
-    if (platform === "linux") return enableLinux(cliPath);
+    if (platform === "darwin") return enableMacOS(cliPath, opts);
+    if (platform === "win32") return enableWindows(cliPath, opts);
+    if (platform === "linux") return enableLinux(cliPath, opts);
   } catch (err) {
     // Silent fail — autostart is optional
   }
@@ -138,7 +140,7 @@ function isAgentSelfMacOS() {
   }
 }
 
-function enableMacOS(cliPath) {
+function enableMacOS(cliPath, opts = {}) {
   const launchAgentsDir = path.join(os.homedir(), "Library", "LaunchAgents");
   const plistPath = path.join(launchAgentsDir, `${APP_LABEL}.plist`);
 
@@ -158,6 +160,9 @@ function enableMacOS(cliPath) {
   // EnvironmentVariables.PATH explicitly includes node's bin dir so child
   // processes spawned by cli.js (npm install at runtime, etc.) resolve.
   const launchPath = `${path.dirname(nodePath)}:/usr/local/bin:/usr/bin:/bin`;
+  const argLines = buildTrayArgs(opts)
+    .map((a) => `        <string>${a}</string>`)
+    .join("\n");
 
   const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -169,8 +174,7 @@ function enableMacOS(cliPath) {
     <array>
         <string>${nodePath}</string>
         <string>${routerScript}</string>
-        <string>--tray</string>
-        <string>--skip-update</string>
+${argLines}
     </array>
     <key>EnvironmentVariables</key>
     <dict>
@@ -236,7 +240,7 @@ function disableMacOS() {
 
 // ============ Windows ============
 
-function enableWindows(cliPath) {
+function enableWindows(cliPath, opts = {}) {
   const startupDir = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
   const vbsPath = path.join(startupDir, `${APP_NAME}.vbs`);
 
@@ -248,8 +252,9 @@ function enableWindows(cliPath) {
 
   // Run node + cli.js directly, hidden window. Avoids the fragile
   // `9router.cmd` lookup that depended on the npm prefix path.
+  const vbsArgs = buildTrayArgs(opts).map((a) => `""${a}""`).join(" ");
   const vbsContent = `Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run """${nodePath}"" ""${routerScript}"" --tray --skip-update", 0, False
+WshShell.Run """${nodePath}"" ""${routerScript}"" ${vbsArgs}", 0, False
 `;
   fs.writeFileSync(vbsPath, vbsContent);
   return true;
@@ -265,7 +270,7 @@ function disableWindows() {
 
 // ============ Linux ============
 
-function enableLinux(cliPath) {
+function enableLinux(cliPath, opts = {}) {
   const autostartDir = path.join(os.homedir(), ".config", "autostart");
   const desktopPath = path.join(autostartDir, `${APP_NAME}.desktop`);
 
@@ -278,11 +283,14 @@ function enableLinux(cliPath) {
   const routerScript = getCliJsPath(cliPath);
   if (!routerScript) return false;
 
+  // Desktop Entry Exec quoting: every path/value is double-quoted so spaces
+  // in the install path (or a weird host) don't split the command line.
+  const execArgs = buildTrayArgs(opts).map((a) => `"${a}"`).join(" ");
   const desktopContent = `[Desktop Entry]
 Type=Application
 Name=9Router
 Comment=9Router API Proxy
-Exec=${nodePath} ${routerScript} --tray --skip-update
+Exec="${nodePath}" "${routerScript}" ${execArgs}
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true

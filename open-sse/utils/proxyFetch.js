@@ -166,10 +166,17 @@ async function getDispatcher(proxyUrl) {
   if (!proxyDispatchers.has(normalized)) {
     // Evict oldest entry if max size reached
     if (proxyDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
-      proxyDispatchers.delete(proxyDispatchers.keys().next().value);
+      const oldestKey = proxyDispatchers.keys().next().value;
+      const evicted = proxyDispatchers.get(oldestKey);
+      proxyDispatchers.delete(oldestKey);
+      // close() lets in-flight requests finish, then releases sockets
+      try { Promise.resolve(evicted?.close?.()).catch(() => {}); } catch { /* ignore */ }
     }
     const { ProxyAgent } = await import("undici");
-    proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized }));
+    // Another caller may have created it while we awaited the import
+    if (!proxyDispatchers.has(normalized)) {
+      proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized }));
+    }
   }
 
   return proxyDispatchers.get(normalized);

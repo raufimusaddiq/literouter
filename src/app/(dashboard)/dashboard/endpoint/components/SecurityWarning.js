@@ -4,7 +4,7 @@
 export default function SecurityWarning({ message, action }) {
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20 text-warning">
-      <span className="material-symbols-outlined text-[16px] shrink-0 mt-0.5">warning</span>
+      <span aria-hidden="true" className="material-symbols-outlined text-[16px] shrink-0 mt-0.5">warning</span>
       <p className="text-xs flex-1">{message}</p>
       {action && (
         <a

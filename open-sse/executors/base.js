@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { HTTP_STATUS, RETRY_CONFIG, DEFAULT_RETRY_CONFIG, resolveRetryEntry, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig.js";
 import { shouldRefreshCredentials } from "../services/oauthCredentialManager.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
@@ -5,6 +6,13 @@ import { dbg } from "../utils/debugLog.js";
 import { stringifyWellFormed } from "../utils/wellFormedJson.js";
 import { ANTHROPIC_API_VERSION, OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE } from "../providers/shared.js";
 import { resolveOpenAICompatibleApiType } from "../services/provider.js";
+
+/**
+ * Release a response we are throwing away so the socket is not held until GC.
+ */
+export function discardResponse(response) {
+  response?.body?.cancel?.().catch?.(() => {});
+}
 
 /**
  * BaseExecutor - Base class for provider executors
@@ -122,7 +130,9 @@ export class BaseExecutor {
       }
       retryAttemptsByUrl[urlIndex]++;
       log?.debug?.("RETRY", `${reason} retry ${retryAttemptsByUrl[urlIndex]}/${attempts} after ${waitMs / 1000}s`);
-      await new Promise(resolve => setTimeout(resolve, waitMs));
+      // Cancel the stale response first so an abort during the sleep can't leave it open.
+      discardResponse(response);
+      await sleep(waitMs, undefined, { signal });
       return true;
     };
 
@@ -164,6 +174,7 @@ export class BaseExecutor {
         if (this.shouldRetry(response.status, urlIndex)) {
           log?.debug?.("RETRY", `${response.status} on ${url}, trying fallback ${urlIndex + 1}`);
           lastStatus = response.status;
+          discardResponse(response);
           continue;
         }
 

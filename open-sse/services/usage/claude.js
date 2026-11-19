@@ -22,7 +22,31 @@ const oauthCooldown = new Map();
 // Dedup + short TTL cache per access token. Many tabs / many accounts / auto-refresh
 // all funnel through here; without this each call hits Anthropic and triggers 429.
 const USAGE_CACHE_TTL_MS = 300000;
-const usageCache = new Map(); // token -> { promise } | { result, expiresAt }
+const USAGE_CACHE_MAX = 200;
+const usageCache = new Map(); // token -> { promise, result?, expiresAt } | { result, expiresAt }
+
+// Bound the map: drop expired settled entries first, then oldest-expiring ones.
+function evictUsageCache() {
+  if (usageCache.size < USAGE_CACHE_MAX) return;
+  const now = Date.now();
+  for (const [k, v] of usageCache) {
+    if (!v.promise && v.expiresAt <= now) usageCache.delete(k);
+  }
+  while (usageCache.size >= USAGE_CACHE_MAX) {
+    let oldestKey = null;
+    let oldest = Infinity;
+    for (const [k, v] of usageCache) {
+      if (v.promise) continue; // never evict in-flight dedup entries
+      if (v.expiresAt < oldest) { oldest = v.expiresAt; oldestKey = k; }
+    }
+    if (oldestKey === null) break;
+    usageCache.delete(oldestKey);
+  }
+}
+
+export function __resetClaudeUsageCacheForTests() {
+  usageCache.clear();
+}
 
 export async function getClaudeUsage(accessToken, proxyOptions = null, options = {}) {
   const force = options?.force === true;
@@ -34,24 +58,43 @@ export async function getClaudeUsage(accessToken, proxyOptions = null, options =
     if (hit && hit.expiresAt > Date.now()) return hit.result;
   }
 
-  const stale = (!force && accessToken && usageCache.get(accessToken)?.result) || null;
+  const prev = accessToken ? usageCache.get(accessToken) : null;
+  const stale = (!force && prev?.result) || null;
+
+  const finish = (settled) => {
+    // Only replace the entry if it is still ours (a forced call may have superseded it)
+    if (usageCache.get(accessToken)?.promise !== promise) return;
+    if (settled) {
+      usageCache.set(accessToken, { result: settled, expiresAt: Date.now() + USAGE_CACHE_TTL_MS });
+    } else if (stale) {
+      // keep last good read around as an already-expired fallback
+      usageCache.set(accessToken, { result: stale, expiresAt: 0 });
+    } else {
+      usageCache.delete(accessToken);
+    }
+  };
 
   const promise = (async () => {
-    const result = await fetchClaudeUsageRaw(accessToken, proxyOptions);
-    // Only cache real quota data, not soft-failure {message: ...} payloads
-    if (accessToken && result?.quotas) {
-      usageCache.set(accessToken, {
-        result,
-        expiresAt: Date.now() + USAGE_CACHE_TTL_MS,
-      });
-      return result;
+    try {
+      const result = await fetchClaudeUsageRaw(accessToken, proxyOptions);
+      // Only cache real quota data, not soft-failure {message: ...} payloads
+      if (accessToken && result?.quotas) {
+        finish(result);
+        return result;
+      }
+      // Soft failure (429/error): prefer the last good read over a transient error; don't cache it
+      if (accessToken) finish(null);
+      return stale || result;
+    } catch (err) {
+      if (accessToken) finish(null);
+      throw err;
     }
-    // Soft failure (429/error): prefer the last good read over a transient error
-    if (stale) return stale;
-    return result;
   })();
 
-  if (accessToken) usageCache.set(accessToken, { promise });
+  if (accessToken) {
+    evictUsageCache();
+    usageCache.set(accessToken, { promise });
+  }
   return promise;
 }
 
