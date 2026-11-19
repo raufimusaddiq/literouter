@@ -406,7 +406,7 @@ export default function SystemOnePage() {
           </div>
 
           <Card className="min-w-0" title="Answers" subtitle="Typed results, probability bars, and raw JSON." icon="data_object">
-            <div className="sticky top-[128px]">
+            <div className="sticky -top-4">
               <AnswerView result={result} form={{ questionsById }} />
               <div className="mt-5 flex flex-col gap-2 border-t border-border-subtle pt-4">
                 {runDisabledReason && <p className="text-xs text-text-muted">{runDisabledReason}</p>}
