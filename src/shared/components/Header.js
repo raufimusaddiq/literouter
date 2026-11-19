@@ -172,9 +172,9 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
                         fallbackText={crumb.label.slice(0, 2).toUpperCase()}
                       />
                     )}
-              <h1 className="text-base font-semibold text-text-main lg:text-xl truncate">
+                    <p className="text-base font-semibold text-text-main lg:text-xl truncate">
                       {translate(crumb.label)}
-                    </h1>
+                    </p>
                   </div>
                 )}
               </div>

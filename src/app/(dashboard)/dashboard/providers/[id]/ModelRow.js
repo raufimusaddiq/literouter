@@ -73,9 +73,11 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
         {onTest && (
           <div className="relative shrink-0 group/btn">
             <button
+              type="button"
               onClick={onTest}
               disabled={isTesting}
-              className={`rounded p-0.5 text-text-muted transition-opacity hover:bg-sidebar hover:text-primary ${isTesting ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}`}
+              aria-label={`${isTesting ? "Testing model" : "Test model"} ${displayModel}`}
+              className={`rounded p-0.5 text-text-muted transition-opacity hover:bg-sidebar hover:text-primary ${isTesting ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"}`}
             >
               <span aria-hidden="true" className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
                 {isTesting ? "progress_activity" : "science"}
@@ -88,7 +90,9 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
         )}
         <div className="relative shrink-0 group/btn">
           <button
+            type="button"
             onClick={() => onCopy(displayModel, `model-${model.id}`)}
+            aria-label={`Copy model ID ${displayModel}`}
             className="rounded p-0.5 text-text-muted hover:bg-sidebar hover:text-primary"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-sm">
@@ -101,16 +105,20 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
         </div>
         {isCustom ? (
           <button
+            type="button"
             onClick={onDeleteAlias}
-            className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
+            aria-label={`Remove custom model ${displayModel}`}
+            className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
             title="Remove custom model"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-sm">close</span>
           </button>
         ) : onDisable ? (
           <button
+            type="button"
             onClick={onDisable}
-            className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
+            aria-label={`Disable model ${displayModel}`}
+            className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
             title="Disable this model"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-sm">close</span>
