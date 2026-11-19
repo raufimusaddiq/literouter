@@ -135,6 +135,17 @@ export const MODEL_CAPABILITIES = {
   // Gemini image-gen / OpenAI image / xai image variants
   "gpt-image-1":       { imageOutput: true, tools: false },
 
+  // GPT-6.2 (astra/sol) and GPT-6.1 Terra: https://developers.openai.com/api/docs/models/gpt-6.2-astra (and -sol),
+  // read 2026-11-20 - 1,050,000 context, 128,000 max output, text+image in, reasoning (effort "none" rejected),
+  // function calling. The gpt-6 pattern below already matched; explicit rows pin them.
+  "gpt-6.2-astra":     { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 1050000, maxOutput: 128000 },
+  "gpt-6.2-sol":       { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 1050000, maxOutput: 128000 },
+  "gpt-6.1-terra":     { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 1050000, maxOutput: 128000 }, // TODO(source): terra context/output not on its own model page; gpt-6 family window assumed from the pattern
+  // Tencent Hy4 (TokenHub model list, https://www.tencentcloud.com/document/product/1300/78934, 2026-11-16):
+  // 1M context / 64k max output, deep reasoning, function calling; image understanding on hy4 and hy4-flash only.
+  "hy4":               { vision: true, reasoning: true, thinkingFormat: "hunyuan", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 64000 },
+  "hy4-flash":         { vision: true, reasoning: true, thinkingFormat: "hunyuan", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 64000 },
+
   // GLM vision variants (text GLM has no vision) — 5.3-Flash and 5V-Turbo are
   // natively multimodal per z.ai, and 5.3-Flash carries the full 1M window.
   //
@@ -475,6 +486,10 @@ export const PATTERN_CAPABILITIES = [
 
   // ── Gemini (all 2.0+ multimodal + google_search grounding, 1M ctx) ─
   { pattern: "*gemini*image*",  caps: { vision: true, imageOutput: true, contextWindow: 1048576 } },
+  // Gemini 4 (carbon/argon/neon/hydrogen): 1,048,576 context, 65,536 default max output, text/image/video/audio/PDF in,
+  // function calling + search grounding, thinking levels low/medium/high (neon/hydrogen also xhigh), no disable stated.
+  // https://aistudio.google.com/docs/models/gemini-4-carbon (and -neon/-hydrogen/-argon), read 2026-11-20.
+  { pattern: "*gemini-4*",      caps: { vision: true, audioInput: true, videoInput: true, reasoning: true, search: true, thinkingFormat: "gemini-level", thinkingCanDisable: false, contextWindow: 1048576, maxOutput: 65536 } },
   { pattern: "*gemini-3.8*",    caps: { vision: true, audioInput: true, videoInput: true, reasoning: true, search: true, thinkingFormat: "gemini-level", thinkingCanDisable: false, contextWindow: 1048576, maxOutput: 65536 } },
   { pattern: "*gemini-3.7*",    caps: { vision: true, audioInput: true, videoInput: true, reasoning: true, search: true, thinkingFormat: "gemini-level", thinkingCanDisable: false, contextWindow: 1048576, maxOutput: 65536 } },
   { pattern: "*gemini-3*pro*",  caps: { vision: true, audioInput: true, videoInput: true, reasoning: true, search: true, thinkingFormat: "gemini-level", thinkingCanDisable: false, contextWindow: 1048576, maxOutput: 65535 } },

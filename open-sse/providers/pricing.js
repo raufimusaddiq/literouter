@@ -46,10 +46,10 @@ export const MODEL_PRICING = {
   "gpt-4o":                       { input: 2.50,  output: 10.00, cached: 1.25,  reasoning: 15.00,  cache_creation: 2.50  },
   "gpt-4o-mini":                  { input: 0.15,  output: 0.60,  cached: 0.075, reasoning: 0.90,   cache_creation: 0.15  },
   "gpt-4.1":                      { input: 2.50,  output: 10.00, cached: 1.25,  reasoning: 15.00,  cache_creation: 2.50  },
-  "gpt-5":                        { input: 1.25,  output: 10.00, cached: 0.625, reasoning: 10.00,  cache_creation: 1.25  },
-  "gpt-5-mini":                   { input: 0.25,  output: 2.00,  cached: 0.125, reasoning: 2.00,   cache_creation: 0.25  },
+  "gpt-5":                        { input: 1.25,  output: 10.00, cached: 0.125, reasoning: 10.00,  cache_creation: 1.25  },
+  "gpt-5-mini":                   { input: 0.25,  output: 2.00,  cached: 0.025, reasoning: 2.00,   cache_creation: 0.25  },
   "gpt-5-codex":                  { input: 1.25,  output: 10.00, cached: 0.625, reasoning: 10.00,  cache_creation: 1.25  },
-  "gpt-5.1":                      { input: 1.25,  output: 10.00, cached: 0.625, reasoning: 10.00,  cache_creation: 1.25  },
+  "gpt-5.1":                      { input: 1.25,  output: 10.00, cached: 0.125, reasoning: 10.00,  cache_creation: 1.25  },
   "gpt-5.1-codex":                { input: 1.25,  output: 10.00, cached: 0.625, reasoning: 10.00,  cache_creation: 1.25  },
   "gpt-5.1-codex-mini":           { input: 1.50,  output: 6.00,  cached: 0.75,  reasoning: 9.00,   cache_creation: 1.50  },
   "gpt-5.1-codex-mini-high":      { input: 2.00,  output: 8.00,  cached: 1.00,  reasoning: 12.00,  cache_creation: 2.00  },
@@ -58,23 +58,51 @@ export const MODEL_PRICING = {
   "gpt-5.2-codex":                { input: 1.75,  output: 14.00, cached: 0.175, reasoning: 14.00,  cache_creation: 1.75  },
   "gpt-5.3-codex":                { input: 1.75,  output: 14.00, cached: 0.175, reasoning: 14.00,  cache_creation: 1.75  },
   "gpt-5.3-codex-spark":         { input: 3.00,  output: 12.00, cached: 0.30,  reasoning: 12.00,  cache_creation: 3.00  },
-  // Same source/block as the gpt-6 rows below (see note there).
-  "gpt-5.6":                      { input: 1.00,  output: 6.00,  cached: 0.10,  reasoning: 6.00,   cache_creation: 1.25  },
-  "gpt-5.6-luna":                 { input: 0.10,  output: 0.60,  cached: 0.01,  reasoning: 0.60,   cache_creation: 0.125 },
-  "gpt-5.6-terra":                { input: 1.00,  output: 6.00,  cached: 0.10,  reasoning: 6.00,   cache_creation: 1.25  },
-  "gpt-5.6-sol":                  { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.50  },
+  // OpenAI Standard tier, short context (<=272K input), read 2026-11-20:
+  // https://developers.openai.com/api/docs/pricing (+ /models/gpt-6.2-astra, /models/gpt-6.2-sol).
+  // cache_creation = the 30-minute cache-write rate. Requests over 272K input bill higher
+  // (input/cache x2, output x1.5); that tier is not modelled here. Codex bills against
+  // subscription quota windows, so these are estimates there.
+  // Old->new (2026-11-20): gpt-6-astra 5/25/0.50 -> 10/50/1.00; gpt-6-sol 1/5/0.10 -> 2/10/0.20;
+  // gpt-6-luna 0.05/0.25 -> 0.10/0.50/0.01; gpt-5.6-sol 2/10/0.20 -> 4/20/0.40;
+  // gpt-5.6-terra 1/6/0.10 -> 2/12/0.20; gpt-5.6-luna 0.10/0.60 -> 0.20/1.20/0.02.
+  // TODO(source): the pricing page says a GPT-5.6 Sol promotional price runs until 2026-11-30;
+  // the page does not say whether the Standard row above it is list or promo.
+  "gpt-5.6":                      { input: 1.00,  output: 6.00,  cached: 0.10,  reasoning: 6.00,   cache_creation: 1.25  }, // TODO(source): not on the 2026-11-20 pricing page; unchanged
+  "gpt-5.6-luna":                 { input: 0.20,  output: 1.20,  cached: 0.02,  reasoning: 1.20,   cache_creation: 0.25  },
+  "gpt-5.6-terra":                { input: 2.00,  output: 12.00, cached: 0.20,  reasoning: 12.00,  cache_creation: 2.50  },
+  "gpt-5.6-sol":                  { input: 4.00,  output: 20.00, cached: 0.40,  reasoning: 20.00,  cache_creation: 5.00  },
+  "gpt-6.2-astra":                { input: 8.00,  output: 40.00, cached: 0.40,  reasoning: 40.00,  cache_creation: 10.00 },
+  "gpt-6.2-sol":                  { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 2.50  },
   "gpt-6.1-sol":                  { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 2.50  },
-  // OpenAI's published rate card (platform.openai.com/docs/pricing), Standard tier.
-  // The page lists the cheaper block second; Batch is always the discounted tier, so
-  // the cheaper block is Standard. Estimates only - Codex bills against subscription
-  // quota windows, not per token.
-  "gpt-6-astra":                  { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 25.00, cache_creation: 6.25  },
-  "gpt-6-sol":                    { input: 1.00,  output: 5.00,  cached: 0.10,  reasoning: 5.00,  cache_creation: 1.25  },
-  "gpt-6-luna":                   { input: 0.05,  output: 0.25,  cached: 0.005, reasoning: 0.25,  cache_creation: 0.0625 },
+  "gpt-6.1-terra":                { input: 1.00,  output: 5.00,  cached: 0.05,  reasoning: 5.00,   cache_creation: 1.25  },
+  "gpt-6-astra":                  { input: 10.00, output: 50.00, cached: 1.00,  reasoning: 50.00,  cache_creation: 12.50 },
+  "gpt-6-sol":                    { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.50  },
+  "gpt-6-luna":                   { input: 0.10,  output: 0.50,  cached: 0.01,  reasoning: 0.50,   cache_creation: 0.125 },
+  // Same page; the page gives no cache-write rate for these rows -> 0 until published.
+  "gpt-5.5":                      { input: 5.00,  output: 30.00, cached: 0.50,  reasoning: 30.00,  cache_creation: 0 }, // TODO(source): cache write unpublished
+  "gpt-5.5-pro":                  { input: 30.00, output: 180.00, cached: 0,    reasoning: 180.00, cache_creation: 0 }, // TODO(source): cache rates unpublished
+  "gpt-5.4":                      { input: 2.50,  output: 15.00, cached: 0.25,  reasoning: 15.00,  cache_creation: 0 }, // TODO(source): cache write unpublished
+  "gpt-5.4-pro":                  { input: 30.00, output: 180.00, cached: 0,    reasoning: 180.00, cache_creation: 0 }, // TODO(source): cache rates unpublished
+  "gpt-5.4-mini":                 { input: 0.75,  output: 4.50,  cached: 0.075, reasoning: 4.50,   cache_creation: 0 }, // TODO(source): cache write unpublished
+  "gpt-5.4-nano":                 { input: 0.20,  output: 1.25,  cached: 0.02,  reasoning: 1.25,   cache_creation: 0 }, // TODO(source): cache write unpublished
+  "gpt-5.2-pro":                  { input: 21.00, output: 168.00, cached: 0,    reasoning: 168.00, cache_creation: 0 }, // TODO(source): cache rates unpublished
   "o1":                           { input: 15.00, output: 60.00, cached: 7.50,  reasoning: 90.00,  cache_creation: 15.00 },
   "o1-mini":                      { input: 3.00,  output: 12.00, cached: 1.50,  reasoning: 18.00,  cache_creation: 3.00  },
 
   // === Gemini ===
+  // Gemini 4, Standard tier, read 2026-11-20: https://ai.google.dev/gemini-api/docs/pricing
+  // (served from aistudio.google.com/docs/pricing). carbon/argon are on an introductory
+  // price through 2026-11-30 (input 2 / output 10 / cached 0.10), then 4 / 20 / 0.20 from
+  // 2026-12-01. neon and hydrogen show no intro price. cache_creation 0: the page states
+  // only an hourly cache-storage fee, not a per-token write rate.
+  // TODO(2026-12-01): bump gemini-4-carbon and gemini-4-argon to 4.00 / 20.00 / 0.20.
+  "gemini-4-carbon":               { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 0 },
+  "gemini-4-argon":                { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 0 },
+  "gemini-4-neon":                 { input: 3.00,  output: 15.00, cached: 0.15,  reasoning: 15.00,  cache_creation: 0 },
+  "gemini-4-hydrogen":             { input: 1.50,  output: 7.50,  cached: 0.075, reasoning: 7.50,   cache_creation: 0 },
+  // gemini-3.8-flash / 3.6-flash below stay at the post-intro list rate (the page shows
+  // 0.75 / 3.75 / 0.075 through 2026-12-31, then 1.50 / 7.50 / 0.15).
   "gemini-3.8-flash":              { input: 1.50,  output: 7.50,  cached: 0.15,  reasoning: 11.25,  cache_creation: 1.875 },
   "gemini-3.8-flash-high":         { input: 1.50,  output: 7.50,  cached: 0.15,  reasoning: 11.25,  cache_creation: 1.875 },
   "gemini-3.8-flash-medium":       { input: 1.50,  output: 7.50,  cached: 0.15,  reasoning: 11.25,  cache_creation: 1.875 },
@@ -102,6 +130,15 @@ export const MODEL_PRICING = {
   "gemini-2.5-flash":             { input: 0.30,  output: 2.50,  cached: 0.03,  reasoning: 3.75,   cache_creation: 0.30  },
   "gemini-2.5-flash-lite":        { input: 0.15,  output: 1.25,  cached: 0.015, reasoning: 1.875,  cache_creation: 0.15  },
 
+  // === Tencent Hy4 ===
+  // https://www.tencentcloud.com/document/product/1300/78937 (TokenHub model pricing,
+  // last updated 2026-11-19), USD per 1M tokens. The page's region tab for these columns
+  // is not stated. Limited-time 50% discounts (hy4-flash to 2026-11-30, hy4 to 2026-12-31)
+  // are not applied. Cache write is blank on the page -> 0.
+  "hy4":                          { input: 0.834, output: 2.501, cached: 0.042, reasoning: 2.501,  cache_creation: 0 }, // TODO(source): cache write unpublished
+  "hy4-flash":                    { input: 0.07,  output: 0.281, cached: 0.003, reasoning: 0.281,  cache_creation: 0 }, // TODO(source): cache write unpublished
+  "hy4-preview":                  { input: 0.834, output: 2.501, cached: 0.042, reasoning: 2.501,  cache_creation: 0 }, // same page; marked "To Be Discontinued"
+
   // === Qwen ===
   "qwen3-coder-plus":             { input: 1.00,  output: 4.00,  cached: 0.50,  reasoning: 6.00,   cache_creation: 1.00  },
   "qwen3-coder-flash":            { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  },
@@ -127,16 +164,28 @@ export const MODEL_PRICING = {
   "deepseek-r1":                  { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
   "deepseek-v3.2-chat":           { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
   "deepseek-v3.2-reasoner":       { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
-  "deepseek-v4-flash":            { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
-  "deepseek-v4.1-flash":          { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
-  "deepseek-flash":               { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
-  "deepseek-v4-pro":              { input: 0.435, output: 0.87,  cached: 0.003625, reasoning: 0.87,  cache_creation: 0.435 },
+  // https://api-docs.deepseek.com/quick_start/pricing (read 2026-11-20), off-peak rate.
+  // Peak (01-04 and 06-10 UTC Mon-Fri) is 2x: flash 0.006/0.30/1.20, v4-pro 0.044/1.32/3.96.
+  // Old->new: deepseek-flash 0.14/0.28/0.0028 -> 0.15/0.60/0.003; deepseek-v4-pro 0.435/0.87/0.003625 -> 0.66/1.98/0.022.
+  // The page says deepseek-v4-flash is served by V4.1-Flash at the Flash price.
+  "deepseek-v4-flash":            { input: 0.15,  output: 0.60,  cached: 0.003,  reasoning: 0.60,   cache_creation: 0.15  },
+  "deepseek-v4.1-flash":          { input: 0.15,  output: 0.60,  cached: 0.003,  reasoning: 0.60,   cache_creation: 0.15  },
+  "deepseek-flash":               { input: 0.15,  output: 0.60,  cached: 0.003,  reasoning: 0.60,   cache_creation: 0.15  },
+  "deepseek-v4-pro":              { input: 0.66,  output: 1.98,  cached: 0.022,  reasoning: 1.98,   cache_creation: 0.66  },
 
   // === GLM ===
-  "glm-4.6":                      { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  },
-  "glm-4.6v":                     { input: 0.75,  output: 3.00,  cached: 0.375, reasoning: 4.50,   cache_creation: 0.75  },
-  "glm-4.7":                      { input: 0.75,  output: 3.00,  cached: 0.375, reasoning: 4.50,   cache_creation: 0.75  },
-  "glm-5":                        { input: 1.00,  output: 4.00,  cached: 0.50,  reasoning: 6.00,   cache_creation: 1.00  },
+  "glm-4.6":                      { input: 0.60,  output: 2.20,  cached: 0.11,  reasoning: 2.20,   cache_creation: 0 },
+  "glm-4.6v":                     { input: 0.30,  output: 0.90,  cached: 0.05,  reasoning: 0.90,   cache_creation: 0 },
+  "glm-4.7":                      { input: 0.60,  output: 2.20,  cached: 0.11,  reasoning: 2.20,   cache_creation: 0 },
+  // https://docs.z.ai/guides/overview/pricing (read 2026-11-20); cached input storage is
+  // "limited-time free" so cache_creation is 0. Old->new: glm-5 1/4/0.50 -> 1/3.2/0.2;
+  // glm-4.7 0.75/3/0.375 -> 0.6/2.2/0.11; glm-4.6 0.5/2/0.25 -> 0.6/2.2/0.11;
+  // glm-4.6v 0.75/3/0.375 -> 0.3/0.9/0.05.
+  "glm-5.3":                      { input: 1.40,  output: 4.40,  cached: 0.26,  reasoning: 4.40,   cache_creation: 0 },
+  "glm-5.3-flash":                { input: 0.15,  output: 0.50,  cached: 0.03,  reasoning: 0.50,   cache_creation: 0 },
+  "glm-5.2":                      { input: 1.40,  output: 4.40,  cached: 0.26,  reasoning: 4.40,   cache_creation: 0 },
+  "glm-5.1":                      { input: 1.40,  output: 4.40,  cached: 0.26,  reasoning: 4.40,   cache_creation: 0 },
+  "glm-5":                        { input: 1.00,  output: 3.20,  cached: 0.20,  reasoning: 3.20,   cache_creation: 0 },
 
   // === MiniMax ===
   "MiniMax-M3":                   { input: 0.30,  output: 1.20,  cached: 0.06,  reasoning: 1.80,   cache_creation: 0.30  },
@@ -147,6 +196,12 @@ export const MODEL_PRICING = {
   "minimax-m2.5":                 { input: 0.60,  output: 2.40,  cached: 0.30,  reasoning: 3.60,   cache_creation: 0.60  },
 
   // === Grok ===
+  // https://docs.x.ai/docs/models (read 2026-11-20), prompts <200k tokens; >=200k bills
+  // 2x input/cached/output (grok-4.7/4.6/4.5: 4/1.00/12; grok-4.3: 2.50/0.40/5), not modelled.
+  "grok-4.7":                     { input: 2.00,  output: 6.00,  cached: 0.50,  reasoning: 6.00,   cache_creation: 0 }, // TODO(source): cache write unpublished
+  "grok-4.6":                     { input: 2.00,  output: 6.00,  cached: 0.50,  reasoning: 6.00,   cache_creation: 0 }, // TODO(source): cache write unpublished
+  "grok-4.5":                     { input: 2.00,  output: 6.00,  cached: 0.30,  reasoning: 6.00,   cache_creation: 0 }, // TODO(source): cache write unpublished
+  "grok-4.3":                     { input: 1.25,  output: 2.50,  cached: 0.20,  reasoning: 2.50,   cache_creation: 0 }, // TODO(source): cache write unpublished
   "grok-code-fast-1":             { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  },
 
   // === OpenRouter fallback ===
@@ -168,6 +223,16 @@ export const PROVIDER_PRICING = {
   // TypeSafe Jev — https://typesafe.ai/ (input $0.042/MTok, output free)
   typesafe: {
     "jev-latest": { input: 0.042, output: 0 },
+  },
+  // Cerebras — https://inference-docs.cerebras.ai/models/qwen-3.8-27b.md and /models/openai-oss.md
+  // (read 2026-11-20). Cache rates are not stated -> 0.
+  cerebras: {
+    "gpt-oss-120b": { input: 0.35, output: 0.75, cached: 0, reasoning: 0.75 }, // TODO(source): cache rate unpublished
+    "qwen-3.8-27b": { input: 0.99, output: 1.49, cached: 0, reasoning: 1.49 }, // TODO(source): cache rate unpublished
+  },
+  // Groq — https://console.groq.com/docs/models (read 2026-11-20). Cache rate not stated -> 0.
+  groq: {
+    "openai/gpt-oss-120b": { input: 0.15, output: 0.60, cached: 0, reasoning: 0.60 }, // TODO(source): cache rate unpublished
   },
   // Synthetic — https://synthetic.new/pricing/models, usage-based column, converted
   // from the vendor's per-token figures in GET /openai/v1/models (cached = cache read).
