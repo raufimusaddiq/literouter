@@ -115,7 +115,7 @@ describe("failed-auth throttle", () => {
     process.env.NINEROUTER_PEER_TOKEN = PEER;
     mocks.validateApiKey.mockResolvedValue(false);
     const remote = (h = {}) => req("/v1/models", { "x-9r-peer-token": PEER, "x-9r-real-ip": "9.9.9.9", ...h });
-    for (let i = 0; i < throttle.__limits.MAX_FAILS; i++) {
+    for (let i = 0; i < throttle.__limits.MAX_FAILS - 1; i++) {
       expect((await proxy(remote({ authorization: "Bearer sk-bad" }))).status).toBe(401);
     }
     const blocked = await proxy(remote({ authorization: "Bearer sk-bad" }));
@@ -125,6 +125,26 @@ describe("failed-auth throttle", () => {
     const keyless = () => req("/v1/models", { "x-9r-peer-token": PEER, "x-9r-real-ip": "8.8.8.8" });
     for (let i = 0; i < 30; i++) await proxy(keyless());
     expect((await proxy(keyless())).status).toBe(401);
+  });
+  it("blocked IP: valid key and CLI token still pass; bad/absent key gets 429", async () => {
+    process.env.NINEROUTER_PEER_TOKEN = PEER;
+    const remote = (h = {}) => req("/v1/models", { "x-9r-peer-token": PEER, "x-9r-real-ip": "7.7.7.7", ...h });
+    for (let i = 0; i < throttle.__limits.MAX_FAILS; i++) throttle.recordApiKeyFailure("7.7.7.7");
+    expect(throttle.checkApiKeyThrottle("7.7.7.7").blocked).toBe(true);
+    mocks.validateApiKey.mockImplementation(async (k) => k === "sk-good");
+    expect(await proxy(remote({ authorization: "Bearer sk-good" }))).toBe("next");
+    expect(await proxy(remote({ "x-9r-cli-token": "cli-token" }))).toBe("next");
+    const bad = await proxy(remote({ authorization: "Bearer sk-bad" }));
+    expect(bad.status).toBe(429);
+    expect(Number(bad.headers["Retry-After"])).toBeGreaterThan(0);
+    expect((await proxy(remote())).status).toBe(429);
+  });
+  it("unknown peer IP skips the throttle (no shared bucket)", async () => {
+    process.env.NINEROUTER_PEER_TOKEN = PEER;
+    mocks.validateApiKey.mockResolvedValue(false);
+    const anon = () => req("/v1/models", { authorization: "Bearer sk-bad" });
+    for (let i = 0; i < throttle.__limits.MAX_FAILS + 5; i++) expect((await proxy(anon())).status).toBe(401);
+    expect(throttle.throttleSize()).toBe(0);
   });
 });
 

@@ -164,8 +164,8 @@ async function hasValidApiKey(request) {
 
 function throttleKey(request) {
   // x-9r-real-ip is only meaningful when custom-server stamped it (peer token proves it).
-  if (hasTrustedPeerHeaders(request)) return request.headers.get("x-9r-real-ip") || "unknown";
-  return "unknown";
+  if (hasTrustedPeerHeaders(request)) return request.headers.get("x-9r-real-ip") || null;
+  return null;
 }
 
 async function canAccessPublicLlmApi(request) {
@@ -173,7 +173,8 @@ async function canAccessPublicLlmApi(request) {
   if (await hasValidCliToken(request)) return true;
   if (await hasValidApiKey(request)) return true;
   // Only a presented-but-wrong key counts as a failed validation.
-  if (extractApiKey(request)) recordApiKeyFailure(throttleKey(request));
+  const ip = throttleKey(request);
+  if (ip && extractApiKey(request)) recordApiKeyFailure(ip);
   return false;
 }
 
@@ -245,16 +246,17 @@ export async function proxy(request) {
   }
 
   if (isPublicLlmApi(pathname)) {
-    if (!isLocalRequest(request)) {
-      const gate = checkApiKeyThrottle(throttleKey(request));
-      if (gate.blocked) {
-        return NextResponse.json(
-          { error: "Too many failed authentication attempts" },
-          { status: 429, headers: { "Retry-After": String(gate.retryAfter) } },
-        );
-      }
-    }
     if (await canAccessPublicLlmApi(request)) return NextResponse.next();
+    // Valid keys / CLI token always pass (shared edge IPs must not be locked out);
+    // only requests that failed validation are refused with 429 while the IP is blocked.
+    const ip = throttleKey(request);
+    const gate = ip ? checkApiKeyThrottle(ip) : { blocked: false };
+    if (gate.blocked) {
+      return NextResponse.json(
+        { error: "Too many failed authentication attempts" },
+        { status: 429, headers: { "Retry-After": String(gate.retryAfter) } },
+      );
+    }
     return NextResponse.json({ error: "API key required for remote API access" }, { status: 401 });
   }
 
