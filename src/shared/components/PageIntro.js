@@ -1,6 +1,7 @@
 "use client";
 
 import PropTypes from "prop-types";
+import { HeaderControls } from "@/shared/components/Header";
 import { cn } from "@/shared/utils/cn";
 
 // Compact title row: the page's single h1, an optional plain-words status line,
@@ -13,7 +14,10 @@ export default function PageIntro({ title, description, action, children, classN
         {description ? <p className="mt-0.5 max-w-3xl text-sm text-text-muted">{description}</p> : null}
         {children}
       </div>
-      {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        {action}
+        <HeaderControls className="hidden lg:flex" />
+      </div>
     </div>
   );
 }

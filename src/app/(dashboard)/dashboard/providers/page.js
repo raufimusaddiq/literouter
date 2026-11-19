@@ -439,11 +439,7 @@ export default function ProvidersPage() {
         title="Providers"
         description={<span id="needs-attention" className="scroll-mt-24">{connections.length} {connections.length === 1 ? "connection" : "connections"} · {activeConnections} ready · {failingConnections} {failingConnections === 1 ? "needs" : "need"} attention</span>}
       />
-      <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-text-muted">Catalog</p>
-          <p className="text-sm text-text-main">Providers, routes, and connection health in one surface.</p>
-        </div>
+      <div className="flex items-center justify-end border-b border-border-subtle pb-4">
         <div className="flex items-center justify-end">
         <select
           value={statusFilter}

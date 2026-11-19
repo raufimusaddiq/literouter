@@ -89,7 +89,6 @@ export default function DashboardOverview() {
     <div className="flex min-w-0 flex-col gap-6">
       <PageIntro
         title="Overview"
-        description={`${stats.total} ${stats.total === 1 ? "connection" : "connections"} · ${stats.ready} ready · ${stats.attention} ${stats.attention === 1 ? "needs" : "need"} attention`}
         action={<Button variant="secondary" icon="refresh" onClick={load} loading={loading}>Refresh</Button>}
       />
 
@@ -116,8 +115,8 @@ export default function DashboardOverview() {
         ) : (
           <>
             <Metric label="Connections" value={stats.total} detail="Configured routes" />
-            <Metric label="Ready now" value={stats.ready} detail="Passing connections" tone="positive" />
-            <Metric label="Needs attention" value={stats.attention} detail="Needs investigation" tone="warning" href={stats.attention > 0 ? "/dashboard/providers#needs-attention" : undefined} />
+            <Metric label="Ready now" value={stats.ready} detail="Passing connections" tone={stats.ready > 0 ? "positive" : "neutral"} />
+            <Metric label="Needs attention" value={stats.attention} detail="Needs investigation" tone={stats.attention > 0 ? "warning" : "neutral"} href={stats.attention > 0 ? "/dashboard/providers#needs-attention" : undefined} />
             <Metric label="Active keys" value={stats.activeKeys} detail="Client access keys" />
           </>
         )}
