@@ -963,12 +963,27 @@ export async function getRecentLogs(limit = 200) {
 }
 
 // Per-fingerprint request count for the last 24h and last-used time (all time).
+// Split in two so each part uses idx_usageHistory_apiKey_timestamp / idx_uh_ts
+// instead of scanning the whole table: a 24h range count, then a loose index
+// scan over distinct keys with an indexed MAX(timestamp) per key.
 export async function getApiKeyUsageRows(now = Date.now()) {
   const db = await getAdapter();
   const since = new Date(now - PERIOD_MS["24h"]).toISOString();
-  return db.all(
-    `SELECT apiKey, SUM(CASE WHEN timestamp >= ? THEN 1 ELSE 0 END) AS requests24h, MAX(timestamp) AS lastUsed
-     FROM usageHistory WHERE apiKey IS NOT NULL AND apiKey <> '' GROUP BY apiKey`,
+  const lastUsedRows = await db.all(
+    `WITH RECURSIVE ks(k) AS (
+       SELECT MIN(apiKey) FROM usageHistory WHERE apiKey IS NOT NULL AND apiKey <> ''
+       UNION ALL
+       SELECT (SELECT MIN(apiKey) FROM usageHistory WHERE apiKey > ks.k) FROM ks WHERE ks.k IS NOT NULL
+     )
+     SELECT k AS apiKey, (SELECT MAX(timestamp) FROM usageHistory WHERE apiKey = ks.k) AS lastUsed
+     FROM ks WHERE k IS NOT NULL`,
+  );
+  if (!lastUsedRows.length) return [];
+  const countRows = await db.all(
+    `SELECT apiKey, COUNT(*) AS requests24h FROM usageHistory
+     WHERE timestamp >= ? AND apiKey IS NOT NULL AND apiKey <> '' GROUP BY apiKey`,
     [since],
   );
+  const counts = new Map(countRows.map((r) => [r.apiKey, r.requests24h]));
+  return lastUsedRows.map((r) => ({ apiKey: r.apiKey, requests24h: counts.get(r.apiKey) || 0, lastUsed: r.lastUsed }));
 }

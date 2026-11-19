@@ -19,6 +19,7 @@ export default function APIPageClient({ machineId }) {
   const [hasPassword, setHasPassword] = useState(true);
 
   const [usage, setUsage] = useState({});
+  const [usageState, setUsageState] = useState("loading"); // loading | ready | error
 
   // Client-side local/remote detection (UI hint only, not a security gate)
   const [isRemoteHost, setIsRemoteHost] = useState(false);
@@ -100,6 +101,7 @@ export default function APIPageClient({ machineId }) {
   useEffect(() => {
     const id = window.setTimeout(() => {
       fetchData();
+      fetchUsage();
       loadSettings();
     }, 0);
     return () => window.clearTimeout(id);
@@ -251,6 +253,7 @@ It will only be able to call the combos and models you add. Until you add one, i
       <KeysTable
         keys={keys}
         usage={usage}
+        usageState={usageState}
         copied={copied}
         onCopy={copy}
         onCreate={() => setShowAddModal(true)}
