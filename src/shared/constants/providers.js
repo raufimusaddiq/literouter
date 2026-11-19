@@ -90,10 +90,18 @@ export const AI_PROVIDERS = { ...FREE_PROVIDERS, ...FREE_TIER_PROVIDERS, ...OAUT
 
 // Auth methods
 export const AUTH_METHODS = {
-  oauth: { id: "oauth" },
-  apikey: { id: "apikey" },
-  cookie: { id: "cookie" },
+  oauth: { id: "oauth", label: "OAuth", icon: "lock" },
+  apikey: { id: "apikey", label: "API key", icon: "key" },
+  cookie: { id: "cookie", label: "Cookie", icon: "cookie" },
 };
+
+// Methods the manual "Add provider" form can actually submit: POST /api/providers
+// stores a single credential string (API key, or the cookie value for web-cookie
+// providers). OAuth connects through the provider's own flow, not this form.
+export function getFormAuthMethods(providerId) {
+  const isCookie = !!WEB_COOKIE_PROVIDERS[providerId];
+  return [AUTH_METHODS[isCookie ? "cookie" : "apikey"]];
+}
 
 // Helper: Get provider by alias
 export function getProviderByAlias(alias) {
