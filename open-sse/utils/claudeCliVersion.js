@@ -48,11 +48,28 @@ export function getClaudeCliVersion() {
   return current && cmp(current, floor) > 0 ? current : floor;
 }
 
+// Lazily resolve the proxy-aware fetch. A static import would cycle through
+// proxyFetch -> claudeCliVersion; this keeps the module graph one-way.
+let defaultFetchPromise = null;
+function defaultFetch(url, options) {
+  if (!defaultFetchPromise) {
+    defaultFetchPromise = import("./proxyFetch.js")
+      .then((mod) => mod.proxyAwareFetch)
+      .catch(() => null);
+  }
+  return defaultFetchPromise.then((impl) =>
+    impl ? impl(url, options) : (globalThis.fetch?.(url, options) ?? Promise.reject(new Error("no fetch")))
+  );
+}
+
 async function lookup(fetchImpl) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    const res = await fetchImpl(NPM_URL, {
+    // Default to the patched proxy-aware fetch so the npm probe follows the same
+    // proxy/keep-alive policy as every other outbound call; tests inject their own.
+    const doFetch = fetchImpl || defaultFetch;
+    const res = await doFetch(NPM_URL, {
       signal: ctrl.signal,
       headers: { Accept: "application/json" },
     });

@@ -23,6 +23,11 @@ export const COMMANDCODE_MODELS_URL = "https://api.commandcode.ai/provider/v1/mo
 const FETCH_TIMEOUT_MS = 5000;
 const TTL_MS = 15 * 60 * 1000;
 const RETRY_MS = 60 * 1000;
+// `forceRefresh` is a dashboard button, not a licence to hammer the vendor: at
+// most one forced fetch per minute, and a failure backoff still applies.
+const FORCE_REFRESH_MIN_MS = 60 * 1000;
+// A per-1M rate above this is a unit mistake; drop the row (see pricing.js).
+const CMC_RATE_MAX = 1000;
 
 // Catalog identity: the endpoint is the one the vendor CLI polls, so it answers
 // the CLI's own headers. Merged over the registry transport headers (version,
@@ -35,6 +40,9 @@ const CATALOG_HEADERS = {
 let cache = null;
 let nextFetchAt = 0;
 let inflight = null;
+// Separate failure window so a forced refresh cannot retry through a backoff.
+let failureUntil = 0;
+let lastForcedAt = 0;
 
 /**
  * Catalog rows carry display copy plus capability flags. `hidden` entries are
@@ -64,16 +72,17 @@ export function parseCommandCodeModels(data) {
 // released id bills correctly without waiting for a LiteRouter release.
 export function parseCommandCodePricing(data) {
   const models = Array.isArray(data?.data) ? data.data : [];
-  const out = {};
+  const out = Object.create(null);
+  const sane = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= CMC_RATE_MAX;
   for (const model of models) {
     if (!model?.id || model.hidden) continue;
     const p = model.pricing;
-    if (!p || typeof p.inputCost !== "number" || typeof p.outputCost !== "number") continue;
+    if (!p || !sane(p.inputCost) || !sane(p.outputCost)) continue;
     out[model.id] = {
       input: p.inputCost,
       output: p.outputCost,
-      ...(typeof p.cacheReadCost === "number" ? { cached: p.cacheReadCost } : {}),
-      ...(typeof p.cacheWriteCost === "number" ? { cache_creation: p.cacheWriteCost } : {}),
+      ...(sane(p.cacheReadCost) ? { cached: p.cacheReadCost } : {}),
+      ...(sane(p.cacheWriteCost) ? { cache_creation: p.cacheWriteCost } : {}),
       reasoning: p.outputCost,
     };
   }
@@ -100,10 +109,12 @@ async function fetchCatalog() {
     setRuntimePricing("commandcode", parseCommandCodePricing(payload));
     cache = { models };
     nextFetchAt = Date.now() + TTL_MS;
+    failureUntil = 0;
     return cache;
   } catch {
-    // Fail open to the static registry list; retry after a short backoff.
+    // Fail open to the static registry list; back off on every trigger, forced or not.
     nextFetchAt = Date.now() + RETRY_MS;
+    failureUntil = Date.now() + RETRY_MS;
     return null;
   } finally {
     clearTimeout(timer);
@@ -114,13 +125,27 @@ async function fetchCatalog() {
 /**
  * Fetch the live catalog. Returns null when the vendor endpoint is unreachable
  * or answers non-2xx so callers can fall back to their static list.
- * `forceRefresh` bypasses the success cache (dashboard refresh button).
+ *
+ * `forceRefresh` (dashboard refresh) bypasses the success cache but still honors
+ * a failure backoff and is rate-limited to one fetch per minute, so a button
+ * cannot turn into a vendor hammer.
  */
 export async function resolveCommandCodeModels({ forceRefresh = false } = {}) {
-  if (!forceRefresh && cache && Date.now() < nextFetchAt) return cache;
-  if (!forceRefresh && Date.now() < nextFetchAt) return null;
+  const now = Date.now();
+
+  // A failure backoff applies to forced refresh too: retrying through it only
+  // burns the vendor's rate budget.
+  if (now < failureUntil) return cache ?? null;
+
+  if (forceRefresh) {
+    if (now - lastForcedAt < FORCE_REFRESH_MIN_MS) return cache ?? null;
+    lastForcedAt = now;
+  } else if (now < nextFetchAt) {
+    return cache ?? null;
+  }
+
   if (!inflight) inflight = fetchCatalog();
-  return inflight;
+  return (await inflight) ?? cache ?? null;
 }
 
 // Test seam: drop the cached catalog and any backoff window.
@@ -128,4 +153,6 @@ export function resetCommandCodeCache() {
   cache = null;
   nextFetchAt = 0;
   inflight = null;
+  failureUntil = 0;
+  lastForcedAt = 0;
 }

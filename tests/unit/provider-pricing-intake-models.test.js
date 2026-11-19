@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { getPricingForModel, setRuntimePricing, clearRuntimePricing } from "../../open-sse/providers/pricing.js";
-import { getCapabilitiesForModel, DEFAULT_CAPABILITIES } from "../../open-sse/providers/capabilities.js";
+import { getCapabilitiesForModel, DEFAULT_CAPABILITIES, PROVIDER_CAPABILITIES } from "../../open-sse/providers/capabilities.js";
 import { noteUntrackedModel, resetUntrackedModelWarnings } from "../../open-sse/providers/trackingGaps.js";
 import { parseCommandCodePricing } from "../../open-sse/services/commandcodeModels.js";
 import REGISTRY from "../../open-sse/providers/registry/index.js";
@@ -28,6 +28,15 @@ describe("synthetic pricing", () => {
     for (const id of staticIds("synthetic")) {
       expect(getPricingForModel("synthetic", id), id).not.toBeNull();
     }
+  });
+
+  it("does not carry a row for an id that is neither in the registry nor the live catalog", () => {
+    // 'hf:zai-org/GLM-5.3Beta' was dropped: unsourced (the vendor page and the
+    // live catalog list no such id). The generic glm-5 pattern may still price it,
+    // but there must be no synthetic-specific row.
+    const id = "hf:zai-org/GLM-5.3Beta";
+    expect(Object.hasOwn(PROVIDER_CAPABILITIES.synthetic, id)).toBe(false);
+    expect(staticIds("synthetic")).not.toContain(id);
   });
 });
 
@@ -91,6 +100,81 @@ describe("CommandCode live catalog pricing", () => {
 
   it("skips hidden entries and rows without a price", () => {
     expect(parseCommandCodePricing({ data: [{ id: "a", hidden: true, pricing: { inputCost: 1, outputCost: 2 } }, { id: "b" }] })).toEqual({});
+  });
+
+  it("drops negative, infinite, non-numeric and over-cap rates", () => {
+    const out = parseCommandCodePricing({
+      data: [
+        { id: "neg", pricing: { inputCost: -1, outputCost: 2 } },
+        { id: "inf", pricing: { inputCost: 1, outputCost: Infinity } },
+        { id: "nan", pricing: { inputCost: NaN, outputCost: 2 } },
+        { id: "huge", pricing: { inputCost: 1e9, outputCost: 2 } },
+        { id: "str", pricing: { inputCost: "1", outputCost: "2" } },
+        { id: "badcache", pricing: { inputCost: 1, outputCost: 2, cacheReadCost: -5 } },
+      ],
+    });
+    expect(Object.keys(out)).toEqual(["badcache"]);
+    // A bad optional field is dropped; the required rates still price the model.
+    expect(out.badcache).toEqual({ input: 1, output: 2, reasoning: 2 });
+  });
+});
+
+describe("runtime pricing overlay hardening", () => {
+  it("ignores hostile keys and cannot resolve Object.prototype members", () => {
+    setRuntimePricing("commandcode", {
+      __proto__: { input: 1, output: 2 },
+      constructor: { input: 1, output: 2 },
+      toString: { input: 1, output: 2 },
+      prototype: { input: 1, output: 2 },
+    });
+    // '__proto__' as an object-literal key sets the prototype, so it is not an own
+    // entry. The other three are legitimate catalog ids and must resolve to their
+    // own price, never to a prototype member.
+    expect(getPricingForModel("commandcode", "__proto__")).toBeNull();
+    for (const key of ["constructor", "toString", "prototype"]) {
+      expect(getPricingForModel("commandcode", key), key).toEqual({ input: 1, output: 2 });
+    }
+    // A prototype member that was never registered is a miss, not a price object.
+    expect(getPricingForModel("commandcode", "hasOwnProperty")).toBeNull();
+    expect(getPricingForModel("commandcode", "valueOf")).toBeNull();
+    clearRuntimePricing("commandcode");
+  });
+
+  it("rejects invalid overlay entries without losing the valid ones", () => {
+    setRuntimePricing("commandcode", {
+      good: { input: 1, output: 2, cached: 0.1 },
+      negative: { input: -1, output: 2 },
+      infinite: { input: 1, output: Infinity },
+      overCap: { input: 5000, output: 2 },
+      missingOutput: { input: 1 },
+      notAnObject: 42,
+    });
+    expect(getPricingForModel("commandcode", "good")).toEqual({ input: 1, output: 2, cached: 0.1 });
+    for (const key of ["negative", "infinite", "overCap", "missingOutput", "notAnObject"]) {
+      expect(getPricingForModel("commandcode", key), key).toBeNull();
+    }
+    clearRuntimePricing("commandcode");
+  });
+
+  it("never resolves a prototype member from the static tables either", () => {
+    for (const key of ["constructor", "toString", "hasOwnProperty", "__proto__", "valueOf"]) {
+      expect(getPricingForModel("claude", key), key).toBeNull();
+      expect(getPricingForModel(key, "nonexistent-model"), key).toBeNull();
+    }
+  });
+
+  it("caps a hostile but structurally valid catalog id in capabilities lookups", () => {
+    // The CommandCode branch answers with its own defaults for every id; the point
+    // is that a prototype key does not leak a non-capability object into the spread.
+    for (const key of ["constructor", "toString", "__proto__"]) {
+      const caps = getCapabilitiesForModel("commandcode", key);
+      expect(caps.tools, key).toBe(true);
+      expect(typeof caps.contextWindow, key).toBe("number");
+      expect(caps.thinkingFormat, key).toBe("commandcode");
+    }
+    expect(getCapabilitiesForModel("sensenova-intl", "constructor").contextWindow).toBe(
+      DEFAULT_CAPABILITIES.contextWindow,
+    );
   });
 });
 

@@ -116,12 +116,11 @@ catalog routes).
 
 | model id | provider | pricing source | caps source |
 | --- | --- | --- | --- |
-| `claude-sonnet-5-5` | claude (live OAuth list) | anthropic.com/pricing — $2 / $10 / $0.10 read / $2.50 write | anthropic.com/pricing + `/v1/models` (1M ctx, 128k out, adaptive thinking) |
-| `claude-sonnet-5` | claude (live OAuth list) | anthropic.com/pricing — $2 / $10 / $0.20 read | same |
-| `claude-opus-5-5` | claude (live OAuth list) | anthropic.com/pricing — $4 / $20 / $0.20 read / $5 write | same |
+| `claude-sonnet-5-5` | claude (live OAuth list) | platform.claude.com/docs/en/about-claude/pricing — $2 / $10 / $0.10 read / $2.50 write | platform.claude.com/docs/en/about-claude/pricing + `/v1/models` (1M ctx, 128k out, adaptive thinking) |
+| `claude-sonnet-5` | claude (live OAuth list) | platform.claude.com/docs/en/about-claude/pricing — $2 / $10 / $0.20 read | same |
+| `claude-opus-5-5` | claude (live OAuth list) | platform.claude.com/docs/en/about-claude/pricing — $4 / $20 / $0.20 read / $5 write | same |
 | `claude-opus-5`, `claude-opus-4-8`, `claude-haiku-5-5`, `claude-fable-5-2`, `claude-sonnet-4-6` | claude (live OAuth list) | already priced (`MODEL_PRICING`) | already capped |
 | `hf:zai-org/GLM-5.3` | synthetic | synthetic.new/pricing/models — $1.40 / $4.40 / $0.26 read | `/openai/v1/models` (524288 ctx, 65536 out, text) |
-| `hf:zai-org/GLM-5.3Beta` | synthetic | vendor charges the GLM-5.3 rate — $1.40 / $4.40 / $0.26 read | `/openai/v1/models` (text) |
 | `hf:zai-org/GLM-5.3-Flash` | synthetic | $0.15 / $0.50 / $0.04 read | `/openai/v1/models` (vision) |
 | `hf:zai-org/GLM-4.7-Flash` | synthetic | $0.10 / $0.50 / $0.02 read | `/openai/v1/models` (196608 ctx, text) |
 | `hf:moonshotai/Kimi-K3.1-Pro` | synthetic | $2.00 / $10.00 / $0.20 read | `/openai/v1/models` (524288 ctx, vision) |
@@ -129,7 +128,7 @@ catalog routes).
 | `hf:Qwen/Qwen3.8-27B` | synthetic | $0.45 / $2.20 / $0.09 read | `/openai/v1/models` (262144 ctx, vision) |
 | `hf:openai/gpt-oss-120b` | synthetic | $0.10 / $0.10 / $0.02 read | `/openai/v1/models` (131072 ctx, text) |
 | `hf:moonshotai/Kimi-K3`, `hf:deepseek-ai/DeepSeek-V4.1-Flash`, `hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4` | synthetic | **unpublished** → explicit `$0` with `TODO(synthetic)`; the vendor page lists no rate | `/openai/v1/models` (vision/text as reported) |
-| `syn:small:text`, `syn:small:vision`, `syn:large:text`, `syn:large:vision` | synthetic (plan aliases) | vendor per-token figures from `/openai/v1/models` (plan usage bills the rate limit instead) | `/openai/v1/models` |
+| `syn:small:text`, `syn:small:vision`, `syn:large:text`, `syn:large:vision` | synthetic (aliases) | vendor's published per-token API rates from `/openai/v1/models` `pricing{}` (not a rate-limit price) | `/openai/v1/models` |
 | `sensenova-6.8-flash`, `sensenova-6.8-flash-lite`, `sensenova-6.7-flash-lite` | sensenova-intl | **unpublished** → explicit `$0` with `TODO(sensenova-intl)`; the vendor pricing pages 404 and `/v1/models` needs a key | `token.sensenova.ai/v1/models` (262144 ctx, 65536 out, vision, reasoning) |
 | every static CommandCode id (13) + any live id | commandcode | static table, and the live catalog's own `pricing{}` registered via `setRuntimePricing` at fetch time | provider-level rule (1M ctx, 384k out, vision unless the text-only set matches) |
 | any other live id from the Claude OAuth or CommandCode catalogs | claude / commandcode | none — pattern fallback may still match; otherwise `noteUntrackedModel` logs once | same |

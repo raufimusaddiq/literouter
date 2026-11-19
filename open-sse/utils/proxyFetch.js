@@ -207,8 +207,9 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   // Keep the spoofed Claude Code version current (new models require a minimum CLI
   // version). The refresh is fire-and-forget: this request uses the version already
   // known, so an unreachable npm registry can never add latency to the chat path.
+  // The lookup goes through proxyAwareFetch like every other outbound call.
   if (hasClaudeCliHeader(options?.headers)) {
-    ensureClaudeCliVersion(originalFetch);
+    ensureClaudeCliVersion();
     options = { ...options, headers: applyClaudeCliVersion(options.headers) };
   }
   const targetUrl = typeof url === "string" ? url : url.toString();

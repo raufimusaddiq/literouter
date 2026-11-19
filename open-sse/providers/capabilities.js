@@ -43,6 +43,11 @@ import { looksLikeVisionModel } from "./visionPatterns.js";
  * Safe floor — every resolved result is merged over this so consumers
  * never need null-checks. Most modern LLMs meet these limits.
  */
+// Own-property test for table lookups. Catalog model ids are attacker-influenced
+// strings, so a bare `table[id]` could resolve "constructor"/"toString" instead of
+// missing. Never replace this with a truthy read.
+const own = (table, key) => !!table && Object.hasOwn(table, key);
+
 export const DEFAULT_CAPABILITIES = {
   // input modalities
   vision: false,        // read images
@@ -430,7 +435,6 @@ const SYNTHETIC_TEXT = {
 const SYNTHETIC_VISION = { ...SYNTHETIC_TEXT, vision: true };
 PROVIDER_CAPABILITIES.synthetic = {
   "hf:zai-org/GLM-5.3": SYNTHETIC_TEXT,
-  "hf:zai-org/GLM-5.3Beta": SYNTHETIC_TEXT,
   "hf:zai-org/GLM-5.3-Flash": SYNTHETIC_VISION,
   "hf:zai-org/GLM-4.7-Flash": { ...SYNTHETIC_TEXT, contextWindow: 196608 },
   "hf:moonshotai/Kimi-K3": SYNTHETIC_VISION,
@@ -806,8 +810,8 @@ export function getCapabilitiesForModel(providerInput, model) {
   // (deepseek-v4 → thinkingFormat:deepseek, vision:false) must not win here.
   if (provider === "commandcode" || provider === "cmc") {
     const providerCaps = PROVIDER_CAPABILITIES.commandcode;
-    if (providerCaps?.[model]) return { ...DEFAULT_CAPABILITIES, ...providerCaps[model] };
-    if (providerCaps?.[baseModel]) return { ...DEFAULT_CAPABILITIES, ...providerCaps[baseModel] };
+    if (own(providerCaps, model)) return { ...DEFAULT_CAPABILITIES, ...providerCaps[model] };
+    if (own(providerCaps, baseModel)) return { ...DEFAULT_CAPABILITIES, ...providerCaps[baseModel] };
     return {
       ...DEFAULT_CAPABILITIES,
       reasoning: true,
@@ -822,14 +826,15 @@ export function getCapabilitiesForModel(providerInput, model) {
   // 1. Provider-specific override
   if (provider) {
     const providerCaps = PROVIDER_CAPABILITIES[provider];
-    if (providerCaps?.[model]) return { ...DEFAULT_CAPABILITIES, ...providerCaps[model] };
-    if (providerCaps?.[baseModel]) return { ...DEFAULT_CAPABILITIES, ...providerCaps[baseModel] };
+    if (own(providerCaps, model)) return { ...DEFAULT_CAPABILITIES, ...providerCaps[model] };
+    if (own(providerCaps, baseModel)) return { ...DEFAULT_CAPABILITIES, ...providerCaps[baseModel] };
   }
 
   // 2. Canonical exact, then catalog overlay so provider-scoped models.dev
   //    deltas still apply. Step 1 above still short-circuits.
-  if (MODEL_CAPABILITIES[baseModel]) return refine(MODEL_CAPABILITIES[baseModel], provider, model);
-  if (MODEL_CAPABILITIES[model]) return refine(MODEL_CAPABILITIES[model], provider, model);
+  if (own(MODEL_CAPABILITIES, baseModel)) return refine(MODEL_CAPABILITIES[baseModel], provider, model);
+  if (own(MODEL_CAPABILITIES, model)) return refine(MODEL_CAPABILITIES[model], provider, model);
+  if (own(MODEL_CAPABILITIES, model)) return refine(MODEL_CAPABILITIES[model], provider, model);
 
   // 3. Pattern match (first match wins), refined by catalog + name heuristic
   for (const { pattern, caps } of PATTERN_CAPABILITIES) {

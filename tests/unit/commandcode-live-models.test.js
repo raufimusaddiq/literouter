@@ -182,6 +182,28 @@ describe("CommandCode catalog — failure handling", () => {
     expect(stub.calls.length).toBe(callsAfterFirst);
   });
 
+  it("throttles forceRefresh to one fetch per minute", async () => {
+    const { resolveCommandCodeModels } = await import("open-sse/services/commandcodeModels.js");
+    stub.mode = "ok";
+    await resolveCommandCodeModels({ forceRefresh: true });
+    const afterFirst = stub.calls.length;
+    // A second forced refresh inside the window is served from cache.
+    const again = await resolveCommandCodeModels({ forceRefresh: true });
+    expect(stub.calls.length).toBe(afterFirst);
+    expect(again.models.length).toBe(2);
+  });
+
+  it("honors the failure backoff even when forceRefresh is set", async () => {
+    const { resolveCommandCodeModels } = await import("open-sse/services/commandcodeModels.js");
+    stub.mode = "error";
+    expect(await resolveCommandCodeModels({ forceRefresh: true })).toBeNull();
+    const afterFailure = stub.calls.length;
+    // Forced or not, the backoff window is not a retry button.
+    expect(await resolveCommandCodeModels({ forceRefresh: true })).toBeNull();
+    expect(await resolveCommandCodeModels()).toBeNull();
+    expect(stub.calls.length).toBe(afterFailure);
+  });
+
   it("404s for an unknown connection", async () => {
     const res = await getModels("00000000-0000-0000-0000-000000000000");
     expect(res.status).toBe(404);
@@ -191,12 +213,14 @@ describe("CommandCode catalog — failure handling", () => {
 describe("CommandCode catalog — vendor rates are billed, not $0", () => {
   it("registers the catalog's own pricing for live ids", async () => {
     const { resolveCommandCodeModels } = await import("open-sse/services/commandcodeModels.js");
-    const { getPricingForModel } = await import("open-sse/providers/pricing.js");
+    const { getPricingForModel, clearRuntimePricing } = await import("open-sse/providers/pricing.js");
     stub.mode = "ok";
+    clearRuntimePricing("commandcode");
     await resolveCommandCodeModels({ forceRefresh: true });
     expect(getPricingForModel("commandcode", "deepseek/deepseek-v4.1-flash-fast")).toMatchObject({
       input: 0.15, output: 0.6, cached: 0.003,
     });
+    clearRuntimePricing("commandcode");
   });
 });
 
