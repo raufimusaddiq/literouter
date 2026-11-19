@@ -19,6 +19,7 @@ export default function APIPageClient({ machineId }) {
   const [hasPassword, setHasPassword] = useState(true);
 
   const [usage, setUsage] = useState({});
+  const [usageState, setUsageState] = useState("loading"); // loading | ready | error
 
   // Client-side local/remote detection (UI hint only, not a security gate)
   const [isRemoteHost, setIsRemoteHost] = useState(false);
@@ -86,10 +87,6 @@ export default function APIPageClient({ machineId }) {
         } catch { /* fall through to empty render */ }
       }
       setKeys(existing);
-      try {
-        const usageRes = await fetch("/api/usage/keys");
-        if (usageRes.ok) setUsage((await usageRes.json()).usage || {});
-      } catch { /* usage columns fall back to 0 / — */ }
     } catch (error) {
       console.log("Error fetching data:", error);
     } finally {
@@ -97,9 +94,22 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
+  // Usage is slow on large tables: fetched separately so it never blocks the page.
+  const fetchUsage = async () => {
+    try {
+      const res = await fetch("/api/usage/keys");
+      if (!res.ok) throw new Error(String(res.status));
+      setUsage((await res.json()).usage || {});
+      setUsageState("ready");
+    } catch {
+      setUsageState("error");
+    }
+  };
+
   useEffect(() => {
     const id = window.setTimeout(() => {
       fetchData();
+      fetchUsage();
       loadSettings();
     }, 0);
     return () => window.clearTimeout(id);
@@ -119,6 +129,7 @@ export default function APIPageClient({ machineId }) {
       if (res.ok) {
         setCreatedKey(data.key);
         await fetchData();
+        fetchUsage();
         setNewKeyName("");
         setShowAddModal(false);
       }
@@ -251,6 +262,7 @@ It will only be able to call the combos and models you add. Until you add one, i
       <KeysTable
         keys={keys}
         usage={usage}
+        usageState={usageState}
         copied={copied}
         onCopy={copy}
         onCreate={() => setShowAddModal(true)}

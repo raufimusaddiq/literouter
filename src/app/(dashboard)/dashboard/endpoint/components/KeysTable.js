@@ -16,8 +16,10 @@ function accessLabel(key) {
 }
 
 export default function KeysTable({
-  keys, usage, copied, onCopy, onCreate, onToggle, onDelete, onUpdateAccess, onRequestRestrict,
+  keys, usage, usageState = "ready", copied, onCopy, onCreate, onToggle, onDelete, onUpdateAccess, onRequestRestrict,
 }) {
+  const reqText = (u) => (usageState === "loading" ? "…" : usageState === "error" ? "—" : (u?.requests24h ?? 0).toLocaleString());
+  const lastText = (u) => (usageState === "loading" ? "…" : usageState === "error" ? "—" : relativeTime(u?.lastUsed));
   const [visible, setVisible] = useState(new Set());
   const [expanded, setExpanded] = useState(null);
   const sorted = useMemo(() => sortKeysByLastUsed(keys, usage), [keys, usage]);
@@ -95,8 +97,8 @@ export default function KeysTable({
               <div role="row" className={`hidden min-h-12 items-center gap-3 px-4 lg:grid ${COLS} ${paused ? "opacity-70" : ""}`}>
                 <span role="cell" className="truncate text-sm font-medium text-text-main" title={k.name}>{k.name}</span>
                 <span role="cell">{keyCell(k)}</span>
-                <span role="cell" className="text-right text-sm tabular-nums text-text-main">{(u?.requests24h ?? 0).toLocaleString()}</span>
-                <span role="cell" className="text-sm text-text-muted">{relativeTime(u?.lastUsed)}</span>
+                <span role="cell" className="text-right text-sm tabular-nums text-text-main">{reqText(u)}</span>
+                <span role="cell" className="text-sm text-text-muted">{lastText(u)}</span>
                 <span role="cell" className="text-sm tabular-nums text-text-muted">{new Date(k.createdAt).toLocaleDateString()}</span>
                 <span role="cell">{accessBtn(k)}</span>
                 <span role="cell">{statusToggle(k)}</span>
@@ -142,6 +144,7 @@ export default function KeysTable({
 KeysTable.propTypes = {
   keys: PropTypes.array.isRequired,
   usage: PropTypes.object,
+  usageState: PropTypes.oneOf(["loading", "ready", "error"]),
   copied: PropTypes.string,
   onCopy: PropTypes.func.isRequired,
   onCreate: PropTypes.func.isRequired,
