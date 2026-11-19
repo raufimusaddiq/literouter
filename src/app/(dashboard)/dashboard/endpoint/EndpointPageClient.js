@@ -232,7 +232,7 @@ It will only be able to call the combos and models you add. Until you add one, i
     <div className="flex min-w-0 flex-col gap-6">
       <PageIntro
         title="Endpoint & keys"
-        description={`${endpointSecure ? "Protected" : "Review security"} · ${keys.length} ${keys.length === 1 ? "key" : "keys"} · one OpenAI-compatible endpoint for every provider.`}
+        description={`${keys.length} ${keys.length === 1 ? "key" : "keys"} · ${keys.filter((k) => k.isActive !== false).length} active`}
         action={<Button icon="add" onClick={() => setShowAddModal(true)}>Create key</Button>}
       />
 
@@ -269,7 +269,10 @@ It will only be able to call the combos and models you add. Until you add one, i
           setNewKeyName("");
         }}
       >
-        <div className="flex flex-col gap-4">
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(e) => { e.preventDefault(); handleCreateKey(); }}
+        >
           <Input
             label="Key name"
             value={newKeyName}
@@ -277,7 +280,7 @@ It will only be able to call the combos and models you add. Until you add one, i
             placeholder="Production Key"
           />
           <div className="flex gap-2">
-            <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
+            <Button type="submit" fullWidth disabled={!newKeyName.trim()}>
               Create
             </Button>
             <Button
@@ -285,13 +288,14 @@ It will only be able to call the combos and models you add. Until you add one, i
                 setShowAddModal(false);
                 setNewKeyName("");
               }}
+              type="button"
               variant="ghost"
               fullWidth
             >
               Cancel
             </Button>
           </div>
-        </div>
+        </form>
       </Modal>
 
       {/* Created Key Modal */}

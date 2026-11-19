@@ -7,7 +7,7 @@ import KeyAccessControls from "./KeyAccessControls";
 import KeyRowMenu from "./KeyRowMenu";
 import { maskKey, relativeTime, sortKeysByLastUsed } from "../keyFormat";
 
-const COLS = "lg:grid-cols-[minmax(8rem,1.1fr)_minmax(10rem,1.3fr)_6rem_7rem_6.5rem_8.5rem_7.5rem_2.75rem]";
+const COLS = "lg:grid-cols-[minmax(180px,1fr)_208px_120px_120px_110px_150px_130px_48px]";
 const iconBtn = "inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5";
 
 function accessLabel(key) {
@@ -75,7 +75,7 @@ export default function KeysTable({
   return (
     <Card padding="none">
       <div role="table" aria-label="API keys" className="min-w-0">
-        <div role="row" className={`hidden items-center gap-3 border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-wide text-text-muted lg:grid ${COLS}`}>
+        <div role="row" className={`hidden items-center gap-3 border-b border-border px-4 py-2 text-[13px] font-medium text-text-muted lg:grid ${COLS}`}>
           <span role="columnheader">Name</span>
           <span role="columnheader">Key</span>
           <span role="columnheader" className="text-right">Requests 24h</span>

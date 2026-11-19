@@ -14,7 +14,7 @@ export default function EndpointStrip({
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-text-muted">Base URL</span>
+            <span className="shrink-0 text-[13px] font-medium text-text-muted">Base URL</span>
             <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-surface-2 px-3 py-2 font-mono text-sm text-text-main" title={baseUrl}>{baseUrl}</code>
             <button
               type="button"

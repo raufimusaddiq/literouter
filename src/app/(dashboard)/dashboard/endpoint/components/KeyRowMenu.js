@@ -7,11 +7,28 @@ import PropTypes from "prop-types";
 export default function KeyRowMenu({ keyName, onCopy, onDelete }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+
+  const items = () => Array.from(menuRef.current?.querySelectorAll("[role=menuitem]") || []);
+  const close = (restore) => { setOpen(false); if (restore) triggerRef.current?.focus(); };
+
+  useEffect(() => { if (open) items()[0]?.focus(); }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
     const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    const onKey = (e) => {
+      if (e.key === "Escape") { close(true); return; }
+      if (e.key === "Tab") { setOpen(false); return; }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      const list = items();
+      if (!list.length) return;
+      const i = list.indexOf(document.activeElement);
+      const next = e.key === "ArrowDown" ? (i + 1) % list.length : (i <= 0 ? list.length - 1 : i - 1);
+      list[next].focus();
+    };
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -25,6 +42,7 @@ export default function KeyRowMenu({ keyName, onCopy, onDelete }) {
   return (
     <div ref={ref} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
@@ -35,12 +53,12 @@ export default function KeyRowMenu({ keyName, onCopy, onDelete }) {
         <span aria-hidden="true" className="material-symbols-outlined text-[20px]">more_horiz</span>
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-lg">
-          <button type="button" role="menuitem" className={`${item} text-text-main`} onClick={() => { setOpen(false); onCopy(); }}>
+        <div ref={menuRef} role="menu" className="absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-lg">
+          <button type="button" role="menuitem" tabIndex={-1} className={`${item} text-text-main`} onClick={() => { close(true); onCopy(); }}>
             <span aria-hidden="true" className="material-symbols-outlined text-[16px]">content_copy</span>
             Copy key
           </button>
-          <button type="button" role="menuitem" className={`${item} text-red-500`} onClick={() => { setOpen(false); onDelete(); }}>
+          <button type="button" role="menuitem" tabIndex={-1} className={`${item} text-red-500`} onClick={() => { close(true); onDelete(); }}>
             <span aria-hidden="true" className="material-symbols-outlined text-[16px]">delete</span>
             Delete
           </button>
