@@ -50,6 +50,16 @@ describe("BaseExecutor timeouts", () => {
     expect(fx.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("non-stream honours the provider's own timeoutMs as the total bound", async () => {
+    fx.fetch.mockImplementation(slowFetch(10 * 60_000));
+    const e = new BaseExecutor("typesafe", { baseUrl: "https://example.test/v1/chat/completions", timeoutMs: 10_000 });
+    const p = e.execute({ model: "m", body: { messages: [] }, stream: false, credentials: { apiKey: "k" } });
+    const assertion = expect(p).rejects.toMatchObject({ code: "GATEWAY_TIMEOUT", status: 504, phase: "total" });
+    await vi.advanceTimersByTimeAsync(11_000);
+    await assertion;
+    expect(fx.fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("stream with no headers inside the headers timeout -> GatewayTimeout, single attempt (no replay)", async () => {
     fx.fetch.mockImplementation(slowFetch(10 * 60_000));
     const p = run(true);

@@ -1,4 +1,4 @@
-import { HTTP_STATUS, RETRY_CONFIG, DEFAULT_RETRY_CONFIG, resolveRetryEntry, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig.js";
+import { HTTP_STATUS, RETRY_CONFIG, DEFAULT_RETRY_CONFIG, resolveRetryEntry, FETCH_CONNECT_TIMEOUT_MS, NON_STREAM_TOTAL_TIMEOUT_MS } from "../config/runtimeConfig.js";
 import { shouldRefreshCredentials } from "../services/oauthCredentialManager.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { dbg } from "../utils/debugLog.js";
@@ -146,14 +146,17 @@ export class BaseExecutor {
       throwIfAborted(signal);
       // Streaming: bound time-to-headers. Non-stream: bound the whole call (upstreams
       // send headers only once the completion is done). A timeout is never retried.
-      const timeoutMs = this.config?.timeoutMs || FETCH_CONNECT_TIMEOUT_MS;
-      const reqSignal = createRequestSignal(signal, { stream, headersTimeoutMs: timeoutMs });
+      // A provider-specific timeoutMs bounds both: headers (stream) or the whole call (non-stream).
+      const providerTimeoutMs = this.config?.timeoutMs;
+      const timeoutMs = providerTimeoutMs || FETCH_CONNECT_TIMEOUT_MS;
+      const totalTimeoutMs = providerTimeoutMs || NON_STREAM_TOTAL_TIMEOUT_MS;
+      const reqSignal = createRequestSignal(signal, { stream, headersTimeoutMs: timeoutMs, totalTimeoutMs });
       const mergedSignal = reqSignal.signal;
 
       try {
         const bodyStr = stringifyWellFormed(transformedBody);
         const fetchT0 = Date.now();
-        dbg("FETCH", `${this.provider.toUpperCase()} → ${url} | body=${bodyStr.length}B | ${stream ? "headersTimeout" : "totalTimeout"}=${timeoutMs}ms`);
+        dbg("FETCH", `${this.provider.toUpperCase()} → ${url} | body=${bodyStr.length}B | ${stream ? "headersTimeout" : "totalTimeout"}=${stream ? timeoutMs : totalTimeoutMs}ms`);
         const response = await proxyAwareFetch(url, {
           method: "POST",
           headers,

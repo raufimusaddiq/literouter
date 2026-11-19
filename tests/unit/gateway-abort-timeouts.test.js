@@ -136,6 +136,19 @@ describe("combo", () => {
     expect(Date.now() - t0).toBeLessThan(1500);
   });
 
+  it("504 from the first member is returned; second member is never called", async () => {
+    const { handleComboChat } = await import("../../open-sse/services/combo.js");
+    const handleSingleModel = vi.fn(async () =>
+      new Response(JSON.stringify({ error: { message: "Upstream timeout" } }), { status: 504, headers: { "content-type": "application/json" } }));
+    const res = await handleComboChat({
+      body: { messages: [{ role: "user", content: "hi" }] },
+      models: ["openai/a", "openai/b"], handleSingleModel,
+      log: { info: vi.fn(), warn: vi.fn(), debug: vi.fn() }, comboName: "t35-504", comboStrategy: "fallback",
+    });
+    expect(res.status).toBe(504);
+    expect(handleSingleModel).toHaveBeenCalledTimes(1);
+  });
+
   it("already-aborted signal starts no member", async () => {
     const { handleComboChat } = await import("../../open-sse/services/combo.js");
     const ctrl = new AbortController();

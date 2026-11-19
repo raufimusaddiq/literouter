@@ -311,7 +311,8 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       const result = await handleSingleModel(body, modelStr);
 
       // Client abort / gateway timeout end the whole combo: neither is a member failure to fall past.
-      if (result.status === 499 || signal?.aborted) return result;
+      // A 504 may already be a billed generation: never re-generate on the next member.
+      if (result.status === 499 || result.status === 504 || signal?.aborted) return result;
 
       // Success (2xx) - return response
       if (result.ok) {
