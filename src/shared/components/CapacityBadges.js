@@ -15,11 +15,19 @@ export default function CapacityBadges({ caps, className = "", colorOverride, si
     <span className={`inline-flex items-center gap-0.5 ${className}`}>
       {active.map((k) => (
         <Tooltip key={k} text={`${CAPACITY_META[k].label} — ${CAPACITY_META[k].desc}`}>
-          <span aria-hidden="true"
-            className={`material-symbols-outlined leading-none cursor-help ${colorOverride || CAPACITY_META[k].color}`}
-            style={{ fontSize: `${size}px` }}
+          <span
+            role="img"
+            tabIndex={0}
+            aria-label={CAPACITY_META[k].label}
+            className={`rounded-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-primary leading-none cursor-help ${colorOverride || CAPACITY_META[k].color}`}
           >
-            {CAPACITY_META[k].icon}
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined leading-none"
+              style={{ fontSize: `${size}px` }}
+            >
+              {CAPACITY_META[k].icon}
+            </span>
           </span>
         </Tooltip>
       ))}
