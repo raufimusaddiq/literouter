@@ -3,7 +3,7 @@ import { needsTranslation } from "../../translator/index.js";
 import { openAICompletionToClaudeMessage } from "../../translator/response/nonstream-to-claude.js";
 import { ollamaBodyToOpenAI } from "../../translator/response/ollama-to-openai.js";
 import { toOpenAIUsage } from "../../translator/concerns/usage.js";
-import { addBufferToUsage, filterUsageForFormat } from "../../utils/usageTracking.js";
+import { filterUsageForFormat } from "../../utils/usageTracking.js";
 import { createErrorResult } from "../../utils/error.js";
 import { isAbortError, isGatewayTimeout, readBodyBounded } from "../../utils/requestTimeouts.js";
 import { upstreamResponseHeaders } from "../../utils/upstreamHeaders.js";
@@ -337,7 +337,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   }
 
   if (translatedResponse?.usage && body._compact !== true) {
-    translatedResponse.usage = filterUsageForFormat(addBufferToUsage(translatedResponse.usage), sourceFormat);
+    translatedResponse.usage = filterUsageForFormat(translatedResponse.usage, sourceFormat);
   }
 
   // Strip reasoning_content only when content is non-empty.

@@ -17,7 +17,7 @@ import { saveUsageStats } from "../../open-sse/handlers/chatCore/requestDetail.j
 import { translateNonStreamingResponse } from "../../open-sse/handlers/chatCore/nonStreamingHandler.js";
 import { openAICompletionToClaudeMessage } from "../../open-sse/translator/response/nonstream-to-claude.js";
 
-const BUFFER = 2000; // usageTracking.js BUFFER_TOKENS, added to client-visible prompt/total
+const BUFFER = 0; // streamed usage is reported to clients exactly as the upstream sent it (no safety buffer)
 
 const sse = (event, data) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 
@@ -85,7 +85,7 @@ describe("#130 path A: stream, Claude upstream -> OpenAI client", () => {
     expect(stored.total_tokens).toBe(PROMPT + OUT);
   });
 
-  it("shows the client the cache-inclusive prompt plus the buffer, once", async () => {
+  it("shows the client the cache-inclusive prompt exactly as upstream reported it, once", async () => {
     const { clientUsage } = await streamClaudeToOpenAI();
     expect(clientUsage.prompt_tokens).toBe(PROMPT + BUFFER);
   });

@@ -193,7 +193,7 @@ export function createDisconnectAwareStream(transformStream, streamController, o
  * @param {object} streamController - Stream controller from createStreamController
  */
 export function pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal = null, stallTimeoutMs = STREAM_STALL_TIMEOUT_MS, options = {}) {
-  const { identity = {}, onAbort = null } = options;
+  const { identity = {}, onAbort = null, onCancel = null } = options;
   let abortReported = false;
   let stallTimer = null;
   let chunkCount = 0;
@@ -259,7 +259,13 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
     isConnected: () => streamController.isConnected(),
     handleComplete: () => { dbg(tag, `complete | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleComplete(); },
     handleError: (e) => { if (streamController.isConnected()) reportAbort(classifyError(e), e?.message || e?.cause?.code); dbg(tag, `error: ${e?.message} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleError(e); },
-    handleDisconnect: (r) => { dbg(tag, `disconnect: ${r} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleDisconnect(r); },
+    handleDisconnect: (r) => {
+      dbg(tag, `disconnect: ${r} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`);
+      clearStall();
+      streamController.handleDisconnect(r);
+      // Client went away: flush() will never run, so let the owner finalize.
+      try { onCancel?.(r); } catch { /* recording must not break teardown */ }
+    },
     abort: () => { clearStall(); streamController.abort(); }
   };
 

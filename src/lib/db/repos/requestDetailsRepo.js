@@ -92,7 +92,7 @@ function sanitizeHeaders(headers) {
   return sanitized;
 }
 
-export const __test__ = { sanitizeHeaders };
+export const __test__ = { sanitizeHeaders, boundField };
 
 // Read-only hook for the bounded-buffer check.
 export const __buffer__ = { size: () => bufferState.writeBuffer.length };
@@ -104,18 +104,95 @@ function generateDetailId(model) {
   return `${timestamp}-${random}-${modelPart}`;
 }
 
-function truncateField(obj, maxSize) {
-  const str = JSON.stringify(obj || {});
-  if (str.length > maxSize) {
-    return { _truncated: true, _originalSize: str.length, _preview: str.substring(0, 200) };
+// ---- Bounded, single-pass field measurement -------------------------------
+// Records are bounded when they are ENQUEUED so the write buffer holds small
+// objects only (a 5 MB base64 image body must not sit in memory until a flush).
+// Strings are measured by .length; objects by one walk that never stringifies.
+const BASE64_MIN_LEN = 1024;
+// Keys that carry raw binary as base64 in provider payloads (Claude `source.data`,
+// Gemini `inlineData.data`, OpenAI `b64_json`, ...). A plain long string under any
+// other key is text and is left to the size limit.
+const BINARY_KEYS = new Set(["data", "b64_json", "base64", "bytes", "image", "audio", "file_data"]);
+const BASE64_SNIFF = /^[A-Za-z0-9+/=\r\n_-]{256}/;
+const PREVIEW_CHARS = 200;
+const MAX_WALK_DEPTH = 64;
+
+function isBulkBase64(str, key) {
+  if (str.length < BASE64_MIN_LEN) return false;
+  if (str.startsWith("data:") && str.slice(0, 100).includes(";base64,")) return true;
+  return key !== undefined && BINARY_KEYS.has(key) && BASE64_SNIFF.test(str);
+}
+
+function imageMarker(str) {
+  return `[image ${str.length} bytes]`;
+}
+
+// Estimated serialized size, counting bulk base64 at marker length. Stops early
+// once `limit` is exceeded; the caller then only needs "too big" (+ a lower bound).
+function estimateSize(value, limit, depth = 0, key) {
+  if (value === null || value === undefined) return 4;
+  const t = typeof value;
+  if (t === "string") return isBulkBase64(value, key) ? imageMarker(value).length + 2 : value.length + 2;
+  if (t === "number" || t === "boolean") return 8;
+  if (t !== "object" || depth > MAX_WALK_DEPTH) return 8;
+  let size = 2;
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      size += estimateSize(value[i], limit - size, depth + 1) + 1;
+      if (size > limit) return size;
+    }
+    return size;
   }
-  return obj || {};
+  for (const key of Object.keys(value)) {
+    size += key.length + 4 + estimateSize(value[key], limit - size, depth + 1, key);
+    if (size > limit) return size;
+  }
+  return size;
+}
+
+// Copy with bulk base64 swapped for a marker. Only called for values already
+// known to fit the limit, so the copy is small.
+function copyWithoutImages(value, depth = 0, key) {
+  if (typeof value === "string") return isBulkBase64(value, key) ? imageMarker(value) : value;
+  if (value === null || typeof value !== "object" || depth > MAX_WALK_DEPTH) return value;
+  if (Array.isArray(value)) return value.map((v) => copyWithoutImages(v, depth + 1));
+  const out = {};
+  for (const key of Object.keys(value)) out[key] = copyWithoutImages(value[key], depth + 1, key);
+  return out;
+}
+
+// Small skeleton for the truncated-marker preview (clipped strings, few items).
+function skeleton(value, depth = 0, key) {
+  if (typeof value === "string") return isBulkBase64(value, key) ? imageMarker(value) : value.slice(0, 80);
+  if (value === null || typeof value !== "object" || depth > 4) return value;
+  if (Array.isArray(value)) return value.slice(0, 3).map((v) => skeleton(v, depth + 1));
+  const out = {};
+  for (const key of Object.keys(value).slice(0, 8)) out[key] = skeleton(value[key], depth + 1, key);
+  return out;
+}
+
+// Exported for tests. Measures `obj` once; returns it (images replaced by a
+// marker) when it fits `maxSize`, else a tiny `_truncated` stub.
+export function boundField(obj, maxSize) {
+  if (obj === null || obj === undefined) return {};
+  if (typeof obj === "string") {
+    if (isBulkBase64(obj)) return imageMarker(obj);
+    if (obj.length <= maxSize) return obj;
+    return { _truncated: true, _originalSize: obj.length, _preview: obj.substring(0, PREVIEW_CHARS) };
+  }
+  if (typeof obj !== "object") return obj;
+  const size = estimateSize(obj, maxSize);
+  if (size <= maxSize) return copyWithoutImages(obj);
+  let preview = "";
+  try { preview = JSON.stringify(skeleton(obj)).substring(0, PREVIEW_CHARS); } catch { /* keep empty */ }
+  return { _truncated: true, _originalSize: size, _preview: preview };
 }
 
 function buildDetailRecord(item, maxJsonSize) {
   if (!item.id) item.id = generateDetailId(item.model);
   if (!item.timestamp) item.timestamp = new Date().toISOString();
-  if (item.request?.headers) item.request.headers = sanitizeHeaders(item.request.headers);
+  const headers = item.request?.headers ? sanitizeHeaders(item.request.headers) : null;
+  const request = headers ? { ...item.request, headers } : item.request;
   return {
     id: item.id,
     provider: item.provider || null,
@@ -125,10 +202,10 @@ function buildDetailRecord(item, maxJsonSize) {
     status: item.status || null,
     latency: item.latency || {},
     tokens: item.tokens || {},
-    request: truncateField(item.request, maxJsonSize),
-    providerRequest: truncateField(item.providerRequest, maxJsonSize),
-    providerResponse: truncateField(item.providerResponse, maxJsonSize),
-    response: truncateField(item.response, maxJsonSize),
+    request: boundField(request, maxJsonSize),
+    providerRequest: boundField(item.providerRequest, maxJsonSize),
+    providerResponse: boundField(item.providerResponse, maxJsonSize),
+    response: boundField(item.response, maxJsonSize),
     pxpipe: item.pxpipe || undefined,
   };
 }
@@ -141,41 +218,44 @@ function requeueFailed(items, maxBuffered) {
   bufferState.writeBuffer.splice(0, bufferState.writeBuffer.length, ...merged.slice(-cap));
 }
 
+const UPSERT_SQL = `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`;
+const FLUSH_CHUNK = 20;
+
+// Queue entries are already-bounded records (see saveRequestDetail).
+function writeRecords(db, records, maxRecords) {
+  db.transaction(() => {
+    for (const record of records) {
+      db.run(UPSERT_SQL, [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, stringifyJson(record)]);
+    }
+    const cnt = db.get(`SELECT COUNT(*) as c FROM requestDetails`);
+    if (cnt && cnt.c > maxRecords) {
+      db.run(
+        `DELETE FROM requestDetails WHERE id IN (SELECT id FROM requestDetails ORDER BY timestamp ASC LIMIT ?)`,
+        [cnt.c - maxRecords]
+      );
+    }
+  });
+}
+
 async function flushToDatabase() {
   if (bufferState.isFlushing) return;
   if (bufferState.writeBuffer.length === 0) return;
   bufferState.isFlushing = true;
   try {
-    // Drain entire buffer (loop in case more pushed during await)
+    // Small transactions with a macrotask yield between them, so a backlog never
+    // freezes the event loop for every live stream.
     while (bufferState.writeBuffer.length > 0) {
-      const items = bufferState.writeBuffer.splice(0, bufferState.writeBuffer.length);
+      const items = bufferState.writeBuffer.splice(0, FLUSH_CHUNK);
       let config = null;
       try {
         const db = await getAdapter();
         config = await getObservabilityConfig();
-
-      db.transaction(() => {
-        for (const item of items) {
-          const record = buildDetailRecord(item, config.maxJsonSize);
-
-          db.run(
-            `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`,
-            [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, stringifyJson(record)]
-          );
-        }
-
-        const cnt = db.get(`SELECT COUNT(*) as c FROM requestDetails`);
-        if (cnt && cnt.c > config.maxRecords) {
-          db.run(
-            `DELETE FROM requestDetails WHERE id IN (SELECT id FROM requestDetails ORDER BY timestamp ASC LIMIT ?)`,
-            [cnt.c - config.maxRecords]
-          );
-        }
-      });
+        writeRecords(db, items, config.maxRecords);
       } catch (e) {
         requeueFailed(items, config?.maxBuffered);
         throw e;
       }
+      if (bufferState.writeBuffer.length > 0) await new Promise((resolve) => setImmediate(resolve));
     }
   } catch (e) {
     console.error("[requestDetailsRepo] Batch write failed (batch re-queued):", e);
@@ -211,7 +291,12 @@ export async function saveRequestDetail(detail) {
     }
   }
 
-  bufferState.writeBuffer.push(detail);
+  // Bound once, here: the queue holds small records, never request bodies.
+  const record = buildDetailRecord(detail, config.maxJsonSize || DEFAULT_MAX_JSON_SIZE);
+  // Same id queued twice (e.g. progress row then final row): keep one entry.
+  const existing = bufferState.writeBuffer.findIndex((r) => r.id === record.id);
+  if (existing !== -1) bufferState.writeBuffer[existing] = record;
+  else bufferState.writeBuffer.push(record);
 
   // Trigger immediate flush if batch threshold reached.
   // flushToDatabase() drains entire buffer in a loop, so all pushes during await are persisted.
@@ -305,21 +390,7 @@ function drainSync() {
 globalThis.__liteRouterDrainSync = drainSync;
 
 function writeDetailsSync(db, items) {
-  const maxRecords = bufferState.maxRecords || DEFAULT_MAX_RECORDS;
-  const maxJsonSize = bufferState.maxJsonSize || DEFAULT_MAX_JSON_SIZE;
-  db.transaction(() => {
-    for (const item of items) {
-      const record = buildDetailRecord(item, maxJsonSize);
-      db.run(
-        `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`,
-        [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, stringifyJson(record)]
-      );
-    }
-    const cnt = db.get(`SELECT COUNT(*) as c FROM requestDetails`);
-    if (cnt && cnt.c > maxRecords) {
-      db.run(`DELETE FROM requestDetails WHERE id IN (SELECT id FROM requestDetails ORDER BY timestamp ASC LIMIT ?)`, [cnt.c - maxRecords]);
-    }
-  });
+  writeRecords(db, items, bufferState.maxRecords || DEFAULT_MAX_RECORDS);
 }
 
 // Exported (not just called inline) so bundlers keep the handler reachable;
