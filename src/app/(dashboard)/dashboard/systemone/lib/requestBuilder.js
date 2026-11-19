@@ -63,10 +63,23 @@ export const TEMPLATES = [
 ];
 
 let sequence = 0;
+// Random per-page-load token so ids restored from localStorage never collide
+// with ids generated after a reload (the counter restarts at 0).
+const sessionToken = Math.random().toString(36).slice(2, 8);
 
 export function makeId(prefix = "q") {
   sequence += 1;
-  return `${prefix}-${sequence}`;
+  return `${prefix}-${sessionToken}${sequence}`;
+}
+
+export function parseStoredForm(raw) {
+  try {
+    if (!raw) return blankForm();
+    const parsed = JSON.parse(raw);
+    return parsed && Array.isArray(parsed.questions) ? { ...blankForm(), ...parsed } : blankForm();
+  } catch {
+    return blankForm();
+  }
 }
 
 export function blankQuestion(type = "noul") {

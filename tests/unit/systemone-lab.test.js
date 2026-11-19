@@ -225,3 +225,23 @@ describe("System One header allowlist", () => {
     );
   });
 });
+
+describe("localStorage restore", () => {
+  it("restored ids do not collide with ids generated after a reload", async () => {
+    const first = await import("../../src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js");
+    const stored = JSON.stringify({ ...first.blankForm(), questions: [first.blankQuestion("noul"), first.blankQuestion("choice")] });
+    vi.resetModules();
+    const second = await import("../../src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js");
+    const restored = second.parseStoredForm(stored);
+    const ids = [...restored.questions.map((q) => q.id)];
+    for (let i = 0; i < 5; i += 1) ids.push(second.blankQuestion().id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("parseStoredForm falls back to a blank form on bad input", async () => {
+    const { parseStoredForm } = await import("../../src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js");
+    expect(parseStoredForm(null).questions.length).toBeGreaterThan(0);
+    expect(parseStoredForm("{nope").questions).toBeDefined();
+    expect(parseStoredForm('{"questions":"x"}').questions).toBeInstanceOf(Array);
+  });
+});

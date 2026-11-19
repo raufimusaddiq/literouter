@@ -18,6 +18,7 @@ import {
   errorText,
   formFromBody,
   insertPlaceholder,
+  parseStoredForm,
   requestHeaders,
 } from "./lib/requestBuilder";
 
@@ -32,10 +33,7 @@ function getSystemOneProviders() {
 
 function loadStoredForm() {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return blankForm();
-    const parsed = JSON.parse(raw);
-    return parsed && Array.isArray(parsed.questions) ? { ...blankForm(), ...parsed } : blankForm();
+    return parseStoredForm(window.localStorage.getItem(STORAGE_KEY));
   } catch {
     return blankForm();
   }
@@ -71,11 +69,11 @@ export default function SystemOnePage() {
   const [clientApiKey, setClientApiKey] = useState("");
   const [copyState, setCopyState] = useState("idle");
   const fileInput = useRef(null);
-  const hydrated = useRef(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     setForm(loadStoredForm());
-    hydrated.current = true;
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
@@ -93,11 +91,13 @@ export default function SystemOnePage() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated.current) return;
+    // Only save once the loaded form has been committed; otherwise strict-mode
+    // double effects would overwrite storage with the blank initial form.
+    if (!hydrated) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(form));
     } catch {}
-  }, [form]);
+  }, [form, hydrated]);
 
   // Keep the advanced JSON in step with the form. Edits typed into the JSON box
   // set the flag so they are not reformatted under the cursor.
