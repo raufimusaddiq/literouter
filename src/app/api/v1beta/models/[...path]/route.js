@@ -9,7 +9,7 @@ import { getSettings } from "@/lib/localDb";
 import { PROVIDER_MODELS } from "@/shared/constants/models";
 import { GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS } from "open-sse/config/runtimeConfig.js";
 import { initTranslators } from "open-sse/translator/index.js";
-import { getKeyAccessContext, enforceKeyAccessResolved } from "@/sse/services/keyAccess.js";
+import { getKeyAccessContext, enforceKeyAccessResolved, extractClientApiKey } from "@/sse/services/keyAccess.js";
 
 let initialized = false;
 const GEMINI_NATIVE_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -83,7 +83,15 @@ export async function POST(request, { params }) {
         .replace(":generateContent", "");
     }
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return Response.json(
+        { error: { message: "Invalid JSON body", code: 400 } },
+        { status: 400 }
+      );
+    }
 
     if (isGeminiNativeTtsRequest(model, body)) {
       return await forwardGeminiNativeRequest(request, body, model, action);
@@ -122,17 +130,6 @@ export async function POST(request, { params }) {
       { status: 500 }
     );
   }
-}
-
-function extractGeminiClientApiKey(request) {
-  const authHeader = request.headers.get("Authorization");
-  if (authHeader?.startsWith("Bearer ")) return authHeader.slice(7);
-
-  const googleApiKey = request.headers.get("x-goog-api-key");
-  if (googleApiKey) return googleApiKey;
-
-  const url = new URL(request.url);
-  return url.searchParams.get("key");
 }
 
 function normalizeGeminiNativeModel(model) {
@@ -182,7 +179,7 @@ async function validateGeminiNativeClientKey(request) {
   const settings = await getSettings();
   if (!settings.requireApiKey) return null;
 
-  const apiKey = extractGeminiClientApiKey(request);
+  const apiKey = extractClientApiKey(request);
   if (!apiKey) {
     return Response.json({ error: { message: "Missing API key" } }, { status: 401 });
   }
