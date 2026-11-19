@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { BaseExecutor } from "./base.js";
 import { CODEX_DEFAULT_INSTRUCTIONS } from "../config/codexInstructions.js";
 import { PROVIDERS } from "../config/providers.js";
@@ -322,7 +323,7 @@ export class CodexExecutor extends BaseExecutor {
       attempt++;
       args.log?.debug?.("RETRY", `CODEX | SSE "${peek.matched}" retry ${attempt}/${attempts} after ${delayMs / 1000}s`);
       dbg("CODEX", `SSE overloaded "${peek.matched}" → retry ${attempt}/${attempts} in ${delayMs}ms`);
-      await new Promise(r => setTimeout(r, delayMs));
+      await sleep(delayMs, undefined, { signal: args.signal });
     }
   }
 
