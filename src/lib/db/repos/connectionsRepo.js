@@ -70,6 +70,7 @@ function optimisticPatchCachedConnection(id, data) {
   if (i === -1) return;
   const existing = rows[i];
   rows[i] = { ...existing, ...resetHealthStateOnActivation(existing, data), updatedAt: new Date().toISOString() };
+  connectionCache.index = null; // index holds the pre-patch object; rebuild lazily
 }
 
 // Invalidate locally and tell every replica that its snapshot is stale.
