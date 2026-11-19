@@ -3,7 +3,7 @@ import { getSettings } from "@/lib/localDb";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { setDashboardAuthCookie } from "@/lib/auth/dashboardSession";
-import { checkLock, recordFail, recordSuccess, getClientIp } from "@/lib/auth/loginLimiter";
+import { checkLock, recordSuccess, getClientIp, beginAttempt } from "@/lib/auth/loginLimiter";
 import { isLocalRequest } from "@/dashboardGuard";
 
 const RESET_HINT = "Forgot password? Reset to default via LiteRouter CLI → Settings → Reset Password to Default.";
@@ -12,11 +12,13 @@ const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 export async function POST(request) {
   try {
     const ip = getClientIp(request);
-    const lock = checkLock(ip);
-    if (lock.locked) {
+    // Reserve the attempt before the bcrypt compare: parallel guesses otherwise
+    // all pass checkLock with the same pre-lockout count.
+    const attempt = beginAttempt(ip);
+    if (attempt.locked) {
       return NextResponse.json(
-        { error: `Too many failed attempts. Try again in ${lock.retryAfter}s. ${RESET_HINT}`, retryAfter: lock.retryAfter, resetHint: RESET_HINT },
-        { status: 429, headers: { "Retry-After": String(lock.retryAfter) } }
+        { error: `Too many failed attempts. Try again in ${attempt.retryAfter}s. ${RESET_HINT}`, retryAfter: attempt.retryAfter, resetHint: RESET_HINT },
+        { status: 429, headers: { "Retry-After": String(attempt.retryAfter) } }
       );
     }
 
@@ -69,7 +71,6 @@ export async function POST(request) {
       return NextResponse.json({ success: true, mustChangePassword: false }, { headers: NO_STORE_HEADERS });
     }
 
-    const { remainingBeforeLock } = recordFail(ip);
     const postLock = checkLock(ip);
     if (postLock.locked) {
       return NextResponse.json(
@@ -78,7 +79,7 @@ export async function POST(request) {
       );
     }
     return NextResponse.json(
-      { error: `Invalid password. ${remainingBeforeLock} attempt(s) left before lockout.`, remainingBeforeLock },
+      { error: `Invalid password. ${attempt.remainingBeforeLock} attempt(s) left before lockout.`, remainingBeforeLock: attempt.remainingBeforeLock },
       { status: 401 }
     );
   } catch (error) {

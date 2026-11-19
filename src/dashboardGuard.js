@@ -66,7 +66,14 @@ const LOCAL_ONLY_PATHS = [
   "/api/headroom/start",
   "/api/headroom/stop",
   "/api/headroom/proxy",
+  "/api/headroom/restart",
+  "/api/pxpipe/install",
+  "/api/pxpipe/start",
 ];
+
+// Local-only for mutating methods only: the GET side is a read the remote
+// dashboard renders (installed extras, install log tail).
+const LOCAL_ONLY_MUTATING_PATHS = ["/api/headroom/extras"];
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
@@ -121,6 +128,16 @@ export function isLocalRequest(request) {
 
 function isPublicLlmApi(pathname) {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+// Method-aware local-only gate: extras is a read from the dashboard but an
+// install/uninstall (spawns pip) on POST/DELETE.
+function isLocalOnlyRoute(request) {
+  const { pathname } = request.nextUrl;
+  if (LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p))) return true;
+  const method = (request.method || "GET").toUpperCase();
+  return method !== "GET" && method !== "HEAD" &&
+    LOCAL_ONLY_MUTATING_PATHS.some((p) => pathname.startsWith(p));
 }
 
 function extractApiKey(request) {
@@ -199,7 +216,7 @@ export async function proxy(request) {
   }
 
   // Local-only gate for spawn-capable / host-secret routes.
-  if (LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p))) {
+  if (isLocalOnlyRoute(request)) {
     if (!(await canAccessLocalOnlyRoute(request))) {
       return NextResponse.json({ error: "Local only: CLI token required" }, { status: 403 });
     }

@@ -16,6 +16,17 @@ process.env.NINEROUTER_PEER_TOKEN = PEER_TOKEN;
 
 let backgroundRefreshStarted = false;
 
+// Same ceiling as Next's proxyClientMaxBodySize (next.config.mjs) so the h2c
+// downgrade path cannot buffer more than the normal request path.
+function parseBodyLimit(raw) {
+  const m = /^\s*(\d+(?:\.\d+)?)\s*(b|kb|mb|gb)?\s*$/i.exec(String(raw ?? ""));
+  if (!m) return 128 * 1024 * 1024;
+  const mult = { b: 1, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3 }[(m[2] || "b").toLowerCase()];
+  return Math.floor(Number(m[1]) * mult);
+}
+const MAX_H2C_BODY_BYTES = parseBodyLimit(process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE || "128mb");
+const H2C_READ_TIMEOUT_MS = 120_000;
+
 function startBackgroundTokenRefreshFromCustomServer() {
   if (backgroundRefreshStarted) return;
   backgroundRefreshStarted = true;
@@ -62,7 +73,13 @@ http.createServer = (...args) => {
     const isLoopbackProxy = socketIp === "127.0.0.1" || socketIp === "::1" || socketIp === "::ffff:127.0.0.1";
     // Trust forwarding headers only when the TCP peer is a local reverse proxy.
     // Direct/public sockets remain keyed by the unspoofable peer address.
-    const proxyIp = xRealIp || (xff ? String(xff).split(",")[0].trim() : "");
+    // A proxy appends the hop it accepted to the right of XFF, so the rightmost
+    // entry is the one the trusted loopback proxy observed; leftmost is whatever
+    // the client sent and must never key a rate limit or lockout bucket.
+    // ASSUMPTION: exactly ONE trusted loopback proxy hop sits in front. With a
+    // longer proxy chain the rightmost entry is an inner proxy, not the client.
+    const xffHops = xff ? String(xff).split(",").map((h) => h.trim()).filter(Boolean) : [];
+    const proxyIp = String(xRealIp || "").trim() || (xffHops.length ? xffHops[xffHops.length - 1] : "");
     const ip = isLoopbackProxy && proxyIp ? proxyIp : socketIp;
     delete req.headers["x-9r-real-ip"];
     delete req.headers["x-forwarded-for"];
@@ -89,10 +106,24 @@ http.createServer = (...args) => {
     }
 
     const contentLength = Number(req.headers["content-length"] || 0);
+    const transferEncoding = req.headers["transfer-encoding"];
+    // Chunked framing inside an upgrade is not replayable as HTTP/1.1; before
+    // this returned the request to the HTTP/1.1 parser as a bodyless POST.
+    if (transferEncoding) {
+      socket.end("HTTP/1.1 411 Length Required\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+      return true;
+    }
     if (!Number.isSafeInteger(contentLength) || contentLength < 0) {
       socket.destroy();
       return true;
     }
+    if (contentLength > MAX_H2C_BODY_BYTES) {
+      socket.end("HTTP/1.1 413 Payload Too Large\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+      return true;
+    }
+    delete req.headers.upgrade;
+    delete req.headers["http2-settings"];
+    req.headers.connection = "close";
     const chunks = [head];
     let received = head.length;
     const serve = () => {
@@ -112,18 +143,23 @@ http.createServer = (...args) => {
     };
     if (received >= contentLength) serve();
     else {
+      // A stalled sender must not hold the socket forever.
+      socket.setTimeout(H2C_READ_TIMEOUT_MS, () => socket.destroy());
       socket.on("data", function readBody(chunk) {
+        if (received + chunk.length > MAX_H2C_BODY_BYTES) {
+          socket.off("data", readBody);
+          socket.end("HTTP/1.1 413 Payload Too Large\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+          return;
+        }
         chunks.push(chunk);
         received += chunk.length;
         if (received < contentLength) return;
         socket.off("data", readBody);
+        socket.setTimeout(0);
         serve();
       });
       socket.resume();
     }
-    delete req.headers.upgrade;
-    delete req.headers["http2-settings"];
-    req.headers.connection = "close";
     return true;
   };
   return server;

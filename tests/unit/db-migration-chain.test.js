@@ -95,6 +95,7 @@ describe("Schema migrations", () => {
 
     const keys = db.all(`SELECT * FROM apiKeys`);
     expect(keys).toHaveLength(1);
+    // apiKeys.key is the live credential, so it stays usable (plaintext).
     expect(keys[0].key).toBe("abc");
 
     const aliases = db.all(`SELECT * FROM kv WHERE scope='modelAliases'`);
