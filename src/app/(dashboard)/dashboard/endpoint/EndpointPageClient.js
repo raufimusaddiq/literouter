@@ -87,14 +87,22 @@ export default function APIPageClient({ machineId }) {
         } catch { /* fall through to empty render */ }
       }
       setKeys(existing);
-      try {
-        const usageRes = await fetch("/api/usage/keys");
-        if (usageRes.ok) setUsage((await usageRes.json()).usage || {});
-      } catch { /* usage columns fall back to 0 / — */ }
     } catch (error) {
       console.log("Error fetching data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Usage is slow on large tables: fetched separately so it never blocks the page.
+  const fetchUsage = async () => {
+    try {
+      const res = await fetch("/api/usage/keys");
+      if (!res.ok) throw new Error(String(res.status));
+      setUsage((await res.json()).usage || {});
+      setUsageState("ready");
+    } catch {
+      setUsageState("error");
     }
   };
 
@@ -121,6 +129,7 @@ export default function APIPageClient({ machineId }) {
       if (res.ok) {
         setCreatedKey(data.key);
         await fetchData();
+        fetchUsage();
         setNewKeyName("");
         setShowAddModal(false);
       }
