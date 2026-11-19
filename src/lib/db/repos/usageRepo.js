@@ -3,7 +3,7 @@ import { getAdapter, getAdapterSync } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { fingerprintKey } from "open-sse/utils/keyFingerprint.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
-import { bucketOf, getRollupKeyId, ROLLUP_RETENTION_MS } from "../usageRollup.js";
+import { bucketOf, clearRollupKeyCache, getRollupKeyId, ROLLUP_RETENTION_MS } from "../usageRollup.js";
 
 // Client keys are never stored: usage rows and daily buckets carry a
 // non-reversible fingerprint (open-sse/utils/keyFingerprint.js).
@@ -337,6 +337,7 @@ function writeUsageBatch(db, entries) {
   const rollup = new Map(); // bucket+tuple -> aggregate, upserted once per group
   let insertedCount = 0;
 
+  try {
   db.transaction(() => {
     for (const rawEntry of entries) {
       const entry = sanitizeUsageEntry(rawEntry);
@@ -386,7 +387,7 @@ function writeUsageBatch(db, entries) {
 
       const bucket = bucketOf(entry.timestamp);
       const rk = [bucket, entry.provider || "", entry.model || "", entry.connectionId || "", entry.apiKey || "", entry.endpoint || ""];
-      const rkey = rk.join(" ");
+      const rkey = rk.join("\u0000");
       let g = rollup.get(rkey);
       if (!g) {
         g = { rk, n: 0, p: 0, c: 0, k: 0, cost: 0, first: entry.timestamp, last: entry.timestamp };
@@ -421,6 +422,10 @@ function writeUsageBatch(db, entries) {
       );
     }
   });
+  } catch (err) {
+    clearRollupKeyCache(db);
+    throw err;
+  }
 
   // History rows are committed; fold them into the in-memory daily aggregate.
   for (const entry of insertedEntries) {
@@ -644,7 +649,7 @@ function computeLiveAggregate(db, cutoff) {
   );
   const merged = new Map();
   for (const r of [...rolled, ...partial]) {
-    const k = `${r.provider} ${r.model} ${r.connectionId} ${r.apiKey} ${r.endpoint}`;
+    const k = `${r.provider}\u0000${r.model}\u0000${r.connectionId}\u0000${r.apiKey}\u0000${r.endpoint}`;
     const m = merged.get(k);
     if (!m) { merged.set(k, { ...r }); continue; }
     m.n += r.n; m.promptTokens += r.promptTokens; m.completionTokens += r.completionTokens;
