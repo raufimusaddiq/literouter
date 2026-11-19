@@ -8,21 +8,36 @@
 - Validation: `node --check` and acorn/acorn-jsx parses on every touched JS/JSX module, a use-before-define scan of the changed dashboard/React modules, plus the baseline verifiers. No local installs, builds or tests, per AGENTS.md. GitHub CI (`test.yml`) and the current-head Hermes review gate the merge.
 - Release markers (`54a88d04`, `1855aa44`) are not taken, so `CHANGELOG.md` is untouched (also outside this ticket's scope).
 
+## Owner decisions (2026-11-20 — four 2026-11-15 declines reversed)
+
+The owner reversed four decisions from the list below. Entries marked **reversed** were
+dropped in the original intake and are now in this branch:
+
+- **Claude live CLI version + OAuth model list — reversed** (`43bc940e`), with LiteRouter hardening: the npm lookup is bounded (3 s abort, 6 h cache, 10 min failure backoff, one in-flight), fails open to the pinned floor, and never awaits on the chat path. `CLAUDE_CLI_VERSION` stays **2.1.295** — the live value may only raise it, never lower it, so 2.1.295 remains the advertised floor and the pinned fixture in the baseline snapshots.
+- **CommandCode live catalog — reversed** (`fa73c938`), bounded and cached (5 s timeout, 15 min success cache, 60 s failure backoff, single in-flight), returns null on any failure so both routes fall back to the static list (which still carries `google/gemini-4-carbon` + `claude-fable-5-2`). It also registers the catalog's own per-model rates as runtime pricing, so a newly released id bills correctly instead of $0.
+- **synthetic.new — reversed** (`ebe398a9`, `402230ed`). Key validation probes `/v2/quotas` because `/openai/v1/models` answers 200 for any bearer and cannot reject a revoked key.
+- **sensenova-intl — reversed** (`14b27dc7`), **scope narrowed**: chat models only. LiteRouter has no image-generation handler, so the vendor's `u1.x` image rows and `imageConfig` are not taken. See Risk — the `.cn` provider does not exist in this fork.
+
 ## Owner decisions (2026-11-15)
 
 The manager approved every recommendation below; entries marked **applied** are in this branch, **declined** are not.
 
-- **Claude catalog — applied.** Add Claude Fable 5.2 and Haiku 5.5, retire Fable 5.1 from the advertised catalog (`8aef7480`, `10b0afa4`, `12e7930e`). Capability and pricing rows for 5.1 stay so an existing config still translates and bills correctly. `CLAUDE_CLI_VERSION` stays static at the bundled 2.1.295 (above Fable 5.2's 2.1.290 floor); the live npm version tracker is declined.
+- **Claude catalog — applied.** Add Claude Fable 5.2 and Haiku 5.5, retire Fable 5.1 from the advertised catalog (`8aef7480`, `10b0afa4`, `12e7930e`). Capability and pricing rows for 5.1 stay so an existing config still translates and bills correctly. **Live CLI version — reversed 2026-11-20** (`43bc940e`), hardened as described above.
 - **Antigravity Gemini 4 Carbon — applied.** Tiers plus bare alias and quota rows (`8aef7480`).
-- **CommandCode models — applied.** Static `google/gemini-4-carbon` and `claude-fable-5-2` entries (`60a1b365`). Live catalog resolver declined (`fa73c938`): it adds a runtime public fetch to a dashboard route for no routing benefit the static list does not already give.
+- **CommandCode models — applied, and the live catalog — reversed 2026-11-20.** Static `google/gemini-4-carbon` and `claude-fable-5-2` entries (`60a1b365`), plus the bounded live resolver (`fa73c938`) added in this branch; the static list remains the fallback when the fetch fails.
 - **NVIDIA NIM catalog — applied** with the hardening (`2275bc0d`).
 - **xiaomi-tokenplan catalog — applied.** The advertised ids were retired upstream on 2026-10-21 (`5e54377b`).
-- **synthetic.new — declined.** New provider (`ebe398a9`, `402230ed`); not requested for LiteRouter and nothing routes to it today.
-- **sensenova-intl — declined.** New provider (`14b27dc7`); the `.cn` provider LiteRouter already has is untouched.
-- **Live Claude Code version + OAuth model list — declined** (`43bc940e`). Rewrites the `claude-cli/x.y.z` identity on every outgoing request from an npm lookup. LiteRouter keeps the pinned fingerprint.
+- **synthetic.new — reversed 2026-11-20.** New provider (`ebe398a9`, `402230ed`); key validation probes `/v2/quotas`.
+- **sensenova-intl — reversed 2026-11-20.** New provider (`14b27dc7`), chat models only; LiteRouter has no image handler.
+- **Live Claude Code version + OAuth model list — reversed 2026-11-20** (`43bc940e`). The npm lookup is bounded, cached and fail-open; the CLI floor stays 2.1.295.
 
 ## Kept
 
+- `43bc940e` feat(claude): live model list via OAuth + auto-updating CLI version - **keep, hardened** (2026-11-20 owner reversal). `utils/claudeCliVersion.js` resolves the npm version with a 3 s abort, 6 h cache, 10 min failure backoff and a single in-flight lookup; `getClaudeCliVersion()` never returns below the pinned floor (2.1.295) and a `CLAUDE_CLI_VERSION` env pin is clamped up to it. `proxyAwareFetch` fires the refresh without awaiting, so the chat path never waits on npm. `/api/providers/[id]/models` queries Anthropic with the OAuth bearer + `oauth-2025-04-20` beta and falls back to the static catalog on error. The `muse` model-feed hunk from upstream is not taken (LiteRouter already has its own `muse` config).
+- `fa73c938` fix(providers): resolve CommandCode models from its live catalog - **keep, hardened** (2026-11-20 owner reversal). `services/commandcodeModels.js` bounds the fetch (5 s), caches 15 min, backs off 60 s on failure and returns null on any error, so the dashboard route and `/v1/models` fall back to the static registry list. It also registers the catalog's per-model rates as runtime pricing (`setRuntimePricing`), so a model released after this build bills at the vendor's number rather than $0. Hidden catalog rows are dropped; the probe sends CLI identity headers and no connection key.
+- `ebe398a9` feat(providers): add synthetic.new - **keep, adapted** (2026-11-20 owner reversal). Static `hf:` catalog plus `/openai/v1/models` in the dashboard; `/v2/quotas` usage handler with a plain message instead of an "unlimited" bar when no subscription limit is reported.
+- `402230ed` fix(synthetic): validate keys against /v2/quotas - **keep, adapted** (2026-11-20 owner reversal). `transport.validateUrl` moves to `/v2/quotas` (a 401 for a revoked key, unlike the public models list); the validate route and the Test connection case both read it. The `CHANGELOG.md` hunk is not taken.
+- `14b27dc7` fix(sensenova): add the international site provider - **keep, narrowed** (2026-11-20 owner reversal). `sensenova-intl` on `token.sensenova.ai`, chat models only; `quirks.reasoningAliasFields` and the non-streaming `message.reasoning` fallback are kept. The image rows/`imageConfig`, the `.cn` notice edit and the CHANGELOG hunk are not taken (see Risk).
 - `cdcd09cc` fix(antigravity): strip ~optional from tool schemas - **keep** (cherry-pick). Antigravity 400s `Unknown name "~optional"`; dropped recursively at root, properties and array items.
 - `aaf9b65f` fix(codex): advertise Codex CLI 0.167.1 - **keep, modified** (hand-applied). OpenAI started rejecting `codex_cli_rs/0.159.0` with 400 on 2026-11-10; identity headers and providers baseline move to 0.167.1. LiteRouter has no `codex-gpt6-lite.test.js`; the assertions live in `codex-gpt6-models.test.js`.
 - `989b1eec` fix(opencode): retry free-lane overload 429 and drop rejected sessions - **keep, modified**. Retries only "overloaded" 429s (8 attempts, ~20 s backoff, abortable), and drops a minted `x-opencode-session` after a non-overload 429/403 so the next request re-mints (#5559). Hand-adapted: LiteRouter has no wreq-js TLS client, so the loop wraps plain `super.execute()`.
@@ -62,10 +77,6 @@ Hermes requested changes on head `28eaf32e`; each finding is fixed with a code c
 
 ## Dropped
 
-- `43bc940e` live Claude Code version + OAuth model list - owner declined (runtime npm identity rewrite).
-- `fa73c938` CommandCode live catalog resolver - owner declined (runtime public fetch; static list covers the models).
-- `ebe398a9`, `402230ed` synthetic.new provider and its key validation - owner declined (new provider).
-- `14b27dc7` sensenova-intl provider - owner declined (new provider).
 - `94f141dd` keep undici on 7.x - LiteRouter already pins `undici ^7.30.1` (the 8.x bump was never taken), and the `engines` floor is left to the packaging decision.
 - `f8fd61aa` Input `htmlFor` - already implemented in LiteRouter's `Input` (`htmlFor={inputId}`, generated id when absent).
 - `3a936d13` SearXNG in the Web Search picker - LiteRouter has no SearXNG provider, and no `selectableModels` module.
@@ -79,7 +90,56 @@ Hermes requested changes on head `28eaf32e`; each finding is fixed with a code c
 - `5bb041ed`, `85c91c4e` codex image fallback and native edits - no image-generation handler.
 - `54a88d04`, `1855aa44` upstream release markers.
 
+## Claude CLI fingerprint (advertised)
+
+`claude-cli/x.y.z` in `User-Agent` and the `cc_version=` billing header both read
+`getClaudeCliVersion()`:
+
+- **Pinned floor: `2.1.295`** (`providers/shared.js` `CLAUDE_CLI_VERSION`, also the
+  fail-open value and the pinned fixture in `providers-baseline.json` /
+  `golden-url-header.test.js.snap`).
+- **Raised live to** the latest `@anthropic-ai/claude-code` on npm, cached 6 h. Only
+  a strictly greater version is adopted; an npm error, a malformed response or a
+  timeout leaves 2.1.295 in place. `CLAUDE_CLI_VERSION=<x.y.z>` pins a version and
+  is itself clamped up to the floor, so the fingerprint can never be downgraded.
+- The rewrite happens in `proxyAwareFetch` for requests that already carry a
+  `claude-cli/` header, so no other provider's identity is touched.
+
+## Model tracking
+
+Every model this ticket introduces or exposes. Pricing rows live in
+`open-sse/providers/pricing.js` (rates are $/1M tokens), capability rows in
+`open-sse/providers/capabilities.js`. Ids without a static row still route; a
+single bounded `[model-tracking]` warning per id makes the gap visible
+(`open-sse/providers/trackingGaps.js`, called from the cost path and both live
+catalog routes).
+
+| model id | provider | pricing source | caps source |
+| --- | --- | --- | --- |
+| `claude-sonnet-5-5` | claude (live OAuth list) | platform.claude.com/docs/en/about-claude/pricing — $2 / $10 / $0.10 read / $2.50 write | platform.claude.com/docs/en/about-claude/pricing + `/v1/models` (1M ctx, 128k out, adaptive thinking) |
+| `claude-sonnet-5` | claude (live OAuth list) | platform.claude.com/docs/en/about-claude/pricing — $2 / $10 / $0.20 read | same |
+| `claude-opus-5-5` | claude (live OAuth list) | platform.claude.com/docs/en/about-claude/pricing — $4 / $20 / $0.20 read / $5 write | same |
+| `claude-opus-5`, `claude-opus-4-8`, `claude-haiku-5-5`, `claude-fable-5-2`, `claude-sonnet-4-6` | claude (live OAuth list) | already priced (`MODEL_PRICING`) | already capped |
+| `hf:zai-org/GLM-5.3` | synthetic | synthetic.new/pricing/models — $1.40 / $4.40 / $0.26 read | `/openai/v1/models` (524288 ctx, 65536 out, text) |
+| `hf:zai-org/GLM-5.3-Flash` | synthetic | $0.15 / $0.50 / $0.04 read | `/openai/v1/models` (vision) |
+| `hf:zai-org/GLM-4.7-Flash` | synthetic | $0.10 / $0.50 / $0.02 read | `/openai/v1/models` (196608 ctx, text) |
+| `hf:moonshotai/Kimi-K3.1-Pro` | synthetic | $2.00 / $10.00 / $0.20 read | `/openai/v1/models` (524288 ctx, vision) |
+| `hf:deepseek-ai/DeepSeek-V4.1-Flash-1017` | synthetic | $0.60 / $1.20 / $0.03 read | `/openai/v1/models` (vision) |
+| `hf:Qwen/Qwen3.8-27B` | synthetic | $0.45 / $2.20 / $0.09 read | `/openai/v1/models` (262144 ctx, vision) |
+| `hf:openai/gpt-oss-120b` | synthetic | $0.10 / $0.10 / $0.02 read | `/openai/v1/models` (131072 ctx, text) |
+| `hf:moonshotai/Kimi-K3`, `hf:deepseek-ai/DeepSeek-V4.1-Flash`, `hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4` | synthetic | **unpublished** → explicit `$0` with `TODO(synthetic)`; the vendor page lists no rate | `/openai/v1/models` (vision/text as reported) |
+| `syn:small:text`, `syn:small:vision`, `syn:large:text`, `syn:large:vision` | synthetic (aliases) | vendor's published per-token API rates from `/openai/v1/models` `pricing{}` (not a rate-limit price) | `/openai/v1/models` |
+| `sensenova-6.8-flash`, `sensenova-6.8-flash-lite`, `sensenova-6.7-flash-lite` | sensenova-intl | **unpublished** → explicit `$0` with `TODO(sensenova-intl)`; the vendor pricing pages 404 and `/v1/models` needs a key | `token.sensenova.ai/v1/models` (262144 ctx, 65536 out, vision, reasoning) |
+| every static CommandCode id (13) + any live id | commandcode | static table, and the live catalog's own `pricing{}` registered via `setRuntimePricing` at fetch time | provider-level rule (1M ctx, 384k out, vision unless the text-only set matches) |
+| any other live id from the Claude OAuth or CommandCode catalogs | claude / commandcode | none — pattern fallback may still match; otherwise `noteUntrackedModel` logs once | same |
+
 ## Risk
+
+- **No `.cn` SenseNova provider.** This fork never carried `351b04cb`, so `sensenova-intl` ships alone. The earlier "`.cn` is untouched" note was wrong: there is nothing to touch. An international key works; a China-site key has no provider here. Add `open-sse/providers/registry/sensenova.js` (chat models only) if that account class matters.
+- **Live lookups cost a request each.** The Claude npm probe is 3 s and every 6 h; the CommandCode catalog is 5 s and every 15 min per process. Both fail open but a slow network can still burn that time in the background (never on the chat path).
+- **Live catalog ids can outrun the static tables.** They route, and CommandCode's own rates are now registered, but a Claude id newer than `MODEL_PRICING` bills through the `claude-*` pattern until its row is added; `[model-tracking]` warns once per id so the gap is visible rather than silent.
+- **Sensenova and synthetic `$0` rows are deliberate.** They are explicit "unknown", not free models: `TODO(...)` marks each row. A dashboard cost figure for those ids understates spend until the vendor publishes rates.
+- **`getClaudeCliVersion()` can adopt an npm version Anthropic has not yet gated models on.** It only ever raises the fingerprint, and Anthropic accepts newer clients, but a future hostile publish of `@anthropic-ai/claude-code` would be adopted until the 6 h cache expires. Set `CLAUDE_CLI_VERSION` to pin it if that matters.
 
 - The NVIDIA catalogue marks `tools: false` on models (MiniMax, GLM, Nemotron Lightning/Nano/Ultra) where upstream probed no tool support. A client that needs tools on those ids now sees the capability missing rather than getting an upstream 400.
 - `checkFallbackError` gained a `provider` argument. Rules without `provider` behave exactly as before; the only provider-scoped rule is the NIM "degraded" one. Call sites that do not pass a provider (the combo path) never match it.

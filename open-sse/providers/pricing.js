@@ -29,6 +29,12 @@ export const MODEL_PRICING = {
   "claude-opus-4-5-thinking":     { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 37.50,  cache_creation: 5.00  },
   "claude-opus-4-6-thinking":     { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 37.50,  cache_creation: 5.00  },
   "claude-fable-5-2":             { input: 8.00,  output: 40.00, cached: 0.20,  reasoning: 40.00,  cache_creation: 10.00 },
+  // Source: https://platform.claude.com/docs/en/about-claude/pricing (API list,
+  // read 2026-11-20). These three differ from their family pattern, so they need
+  // exact rows the live OAuth catalog can surface the moment Anthropic ships them.
+  "claude-sonnet-5-5":            { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 2.50  },
+  "claude-sonnet-5":              { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.50  },
+  "claude-opus-5-5":              { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 5.00  },
   "claude-fable-5-1":             { input: 10.00, output: 50.00, cached: 1.00,  reasoning: 50.00,  cache_creation: 12.50 },
   "claude-fable-5":               { input: 10.00, output: 50.00, cached: 1.00,  reasoning: 50.00,  cache_creation: 12.50 },
   "claude-haiku-5-5":             { input: 0.10,  output: 0.50,  cached: 0.01,  reasoning: 0.50,   cache_creation: 0.125 },
@@ -162,6 +168,47 @@ export const PROVIDER_PRICING = {
   // TypeSafe Jev — https://typesafe.ai/ (input $0.042/MTok, output free)
   typesafe: {
     "jev-latest": { input: 0.042, output: 0 },
+  },
+  // Synthetic — https://synthetic.new/pricing/models, usage-based column, converted
+  // from the vendor's per-token figures in GET /openai/v1/models (cached = cache read).
+  // Subscription plans bill against a rate limit instead of these rates, so this is
+  // the honest pay-as-you-go number, not the discounted plan rate.
+  synthetic: {
+    "hf:zai-org/GLM-5.3":                      { input: 1.40, output: 4.40, cached: 0.26, reasoning: 4.40 },
+    "hf:zai-org/GLM-5.3-Flash":                { input: 0.15, output: 0.50, cached: 0.04, reasoning: 0.50 },
+    "hf:zai-org/GLM-4.7-Flash":                { input: 0.10, output: 0.50, cached: 0.02, reasoning: 0.50 },
+    "hf:moonshotai/Kimi-K3.1-Pro":             { input: 2.00, output: 10.00, cached: 0.20, reasoning: 10.00 },
+    "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017": { input: 0.60, output: 1.20, cached: 0.03, reasoning: 1.20 },
+    "hf:Qwen/Qwen3.8-27B":                     { input: 0.45, output: 2.20, cached: 0.09, reasoning: 2.20 },
+    "hf:openai/gpt-oss-120b":                  { input: 0.10, output: 0.10, cached: 0.02, reasoning: 0.10 },
+    // TODO(synthetic): the vendor pricing page lists no rate for these three ids —
+    // they are in the static fallback only. Zero keeps them routable and bills $0
+    // instead of silently using a lookalike model's rate; replace once published.
+    "hf:moonshotai/Kimi-K3":                   { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "hf:deepseek-ai/DeepSeek-V4.1-Flash":      { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4": { input: 0, output: 0, cached: 0, reasoning: 0 },
+    // Synthetic's aliases (syn:small|large:text|vision) are billed at the vendor's
+    // published per-token API rates, the same usage-based numbers as the hf: ids —
+    // NOT a rate-limit price. Source: GET /openai/v1/models `pricing{}`.
+    "syn:small:text":                          { input: 0.10, output: 0.50, cached: 0.02, reasoning: 0.50 },
+    "syn:small:vision":                        { input: 0.60, output: 1.20, cached: 0.03, reasoning: 1.20 },
+    "syn:large:text":                          { input: 0.60, output: 1.20, cached: 0.03, reasoning: 1.20 },
+    "syn:large:vision":                        { input: 2.00, output: 10.00, cached: 0.20, reasoning: 10.00 },
+  },
+  // CommandCode — the vendor catalog publishes per-model rates and the live
+  // resolver registers them at runtime (see services/commandcodeModels.js), so a
+  // newly released id bills correctly. This row covers the one static registry id
+  // the pattern tables miss. Source: GET .../provider/v1/models?view=client
+  commandcode: {
+    "stepfun/Step-3.5-Flash": { input: 0.09, output: 0.30, cached: 0.02, reasoning: 0.30 },
+  },
+  // SenseNova (intl) — platform.sensenova.ai publishes no machine-readable price
+  // list (the pricing pages 404 and /v1/models needs a key). TODO(sensenova-intl):
+  // fill in the vendor's per-1M rates; zeros keep cost tracking visible, not silent.
+  "sensenova-intl": {
+    "sensenova-6.8-flash":      { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "sensenova-6.8-flash-lite": { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "sensenova-6.7-flash-lite": { input: 0, output: 0, cached: 0, reasoning: 0 },
   },
   // Cloudflare Workers AI Clef (input-only pricing; output tokens billed at $0).
   "cloudflare-ai": {
@@ -372,11 +419,55 @@ export const PATTERN_PRICING = [
   { pattern: "grok-*",          pricing: { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  } },
 ];
 
+// Live-catalog rates published by a provider, keyed provider -> model -> pricing.
+// CommandCode's catalog carries inputCost/outputCost/cacheReadCost/cacheWriteCost
+// per model; registering them means a newly released id bills correctly without
+// a LiteRouter release. Bounded and process-local.
+const runtimePricing = new Map();
+const RUNTIME_PRICING_MAX_MODELS = 1000;
+// A rate above this is a unit mistake (e.g. per-token pasted as per-1M), not a
+// real price; drop the entry rather than bill 1e6x too much.
+const RUNTIME_RATE_MAX = 1000;
+const RUNTIME_RATE_FIELDS = ["input", "output", "cached", "cache_creation", "reasoning"];
+
+function isSaneRate(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= RUNTIME_RATE_MAX;
+}
+
+// Keep only finite, non-negative rates below the cap. An entry with a bad `input`
+// or `output` is dropped whole; optional fields are dropped individually so a
+// catalog that omits cache rates still prices the model.
+function sanitizePricing(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  if (!isSaneRate(entry.input) || !isSaneRate(entry.output)) return null;
+  const out = { input: entry.input, output: entry.output };
+  for (const field of RUNTIME_RATE_FIELDS.slice(2)) {
+    if (isSaneRate(entry[field])) out[field] = entry[field];
+  }
+  return out;
+}
+
+// Null-prototype store so a catalog id like "constructor" or "__proto__" cannot
+// resolve to Object.prototype members.
+export function setRuntimePricing(provider, entries) {
+  if (!provider || !entries || typeof entries !== "object") return;
+  const store = Object.create(null);
+  for (const [model, entry] of Object.entries(entries).slice(0, RUNTIME_PRICING_MAX_MODELS)) {
+    const clean = sanitizePricing(entry);
+    if (clean) store[model] = clean;
+  }
+  runtimePricing.set(provider, store);
+}
+
+export function clearRuntimePricing(provider) {
+  if (provider) runtimePricing.delete(provider);
+  else runtimePricing.clear();
+}
+
 // Compiled per pattern once: capability/pricing lookups scan the full pattern
 // tables (100+ globs, two tests each) on every request.
 const patternRegexCache = new Map();
 const PATTERN_REGEX_CACHE_MAX = 1000;
-
 /**
  * Match a model ID against a glob pattern (* = wildcard). Case-insensitive:
  * registry ids mix casing (e.g. "MiniMax-M2.5" vs "minimax-m2.5").
@@ -404,15 +495,24 @@ export function matchPattern(pattern, model) {
 export function getPricingForModel(provider, model) {
   if (!model) return null;
 
-  // 1. Provider-specific override
-  if (provider && PROVIDER_PRICING[provider]?.[model]) {
-    return PROVIDER_PRICING[provider][model];
+  // 0. Runtime overlay — catalogs that publish their own rates (CommandCode's
+  // live catalog does). Beats the static tables because the vendor is the source.
+  // Object.hasOwn, not a truthy read: the store has a null prototype but the key
+  // can still be "constructor"/"toString" from a catalog id.
+  const overlay = runtimePricing.get(provider);
+  if (overlay && Object.hasOwn(overlay, model)) return overlay[model];
+
+  // 1. Provider-specific override. hasOwn throughout: a model id can be a
+  // prototype member name ("constructor", "toString") straight from a catalog.
+  if (provider && Object.hasOwn(PROVIDER_PRICING, provider)) {
+    const providerTable = PROVIDER_PRICING[provider];
+    if (providerTable && Object.hasOwn(providerTable, model)) return providerTable[model];
   }
 
   // 2. Canonical model pricing (strip vendor prefix if needed: "deepseek/deepseek-chat" → "deepseek-chat")
   const baseModel = model.includes("/") ? model.split("/").pop() : model;
-  if (MODEL_PRICING[baseModel]) return MODEL_PRICING[baseModel];
-  if (MODEL_PRICING[model]) return MODEL_PRICING[model];
+  if (Object.hasOwn(MODEL_PRICING, baseModel)) return MODEL_PRICING[baseModel];
+  if (Object.hasOwn(MODEL_PRICING, model)) return MODEL_PRICING[model];
 
   // 3. Pattern match
   for (const { pattern, pricing } of PATTERN_PRICING) {

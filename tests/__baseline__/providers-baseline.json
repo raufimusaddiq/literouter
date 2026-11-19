@@ -28,6 +28,9 @@
       "https://daily-cloudcode-pa.googleapis.com"
     ],
     "format": "antigravity",
+    "quirks": {
+      "noDoneSentinel": true
+    },
     "headers": {
       "User-Agent": "antigravity/ide/2.11.0 darwin/arm64"
     },
@@ -308,6 +311,9 @@
   "gemini": {
     "baseUrl": "https://generativelanguage.googleapis.com/v1beta/models",
     "format": "gemini",
+    "quirks": {
+      "noDoneSentinel": true
+    },
     "clientId": "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com",
     "clientSecret": "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",
     "auth": {
@@ -862,7 +868,10 @@
   },
   "vertex": {
     "baseUrl": "https://aiplatform.googleapis.com",
-    "format": "vertex"
+    "format": "vertex",
+    "quirks": {
+      "noDoneSentinel": true
+    }
   },
   "volcengine-ark": {
     "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions",
@@ -1119,5 +1128,21 @@
         }
       }
     ]
+  },
+  "sensenova-intl": {
+    "baseUrl": "https://token.sensenova.ai/v1/chat/completions",
+    "validateUrl": "https://token.sensenova.ai/v1/models",
+    "quirks": {
+      "reasoningAliasFields": true
+    },
+    "format": "openai"
+  },
+  "synthetic": {
+    "baseUrl": "https://api.synthetic.new/openai/v1/chat/completions",
+    "validateUrl": "https://api.synthetic.new/v2/quotas",
+    "usage": {
+      "url": "https://api.synthetic.new/v2/quotas"
+    },
+    "format": "openai"
   }
 }

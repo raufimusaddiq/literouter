@@ -310,6 +310,9 @@ export async function POST(request) {
         case "ollama":
         case "ollama-local":
         case "chutes":
+        // synthetic: validateUrl is /v2/quotas, because the public /openai/v1/models
+        // answers 200 for any Bearer value and cannot reject a revoked key.
+        case "synthetic":
         case "xiaomi-mimo":
         case "xiaomi-tokenplan":
         case "nvidia": {
