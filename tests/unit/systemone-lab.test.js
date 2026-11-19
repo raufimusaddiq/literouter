@@ -3,6 +3,7 @@ import {
   TEMPLATES,
   addAsset,
   blankForm,
+  visibleKeyError,
   blankQuestion,
   buildBody,
   buildCurl,
@@ -240,8 +241,22 @@ describe("localStorage restore", () => {
 
   it("parseStoredForm falls back to a blank form on bad input", async () => {
     const { parseStoredForm } = await import("../../src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js");
-    expect(parseStoredForm(null).questions.length).toBeGreaterThan(0);
+    expect(parseStoredForm(null).questions).toEqual([]);
     expect(parseStoredForm("{nope").questions).toBeDefined();
     expect(parseStoredForm('{"questions":"x"}').questions).toBeInstanceOf(Array);
+  });
+});
+
+describe("fresh lab initial state", () => {
+  it("starts with no questions and no key error", () => {
+    const form = blankForm();
+    expect(form.questions).toEqual([]);
+    expect(buildBody(form, "m").errors).toEqual(["Add at least one question."]);
+  });
+
+  it("hides a blank-key error until the question is touched", () => {
+    const question = blankQuestion("noul");
+    expect(visibleKeyError(question, [question], new Set())).toBe("");
+    expect(visibleKeyError(question, [question], new Set([question.id]))).toBe("Key is required.");
   });
 });

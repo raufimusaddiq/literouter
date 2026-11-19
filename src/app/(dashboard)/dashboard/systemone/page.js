@@ -121,7 +121,21 @@ export default function SystemOnePage() {
     ? "Choose a provider and model."
     : !clientApiKey
       ? "Create an active LiteRouter API key first."
-      : blockingErrors[0] || "";
+      : form.questions.length === 0
+        ? "Add a state and a question to run."
+        : blockingErrors[0] || "";
+  const templateButtons = TEMPLATES.map((template) => (
+    <Button
+      key={template.id}
+      type="button"
+      size="sm"
+      variant="secondary"
+      icon="bolt"
+      onClick={() => setForm((current) => ({ ...template.build(), longContext: current.longContext }))}
+    >
+      {template.label}
+    </Button>
+  ));
   const hasBoxQuestion = form.questions.some((question) => question.type === "box");
   const showAssets = assetsOpen || hasBoxQuestion || form.assets.length > 0;
   const questionsById = Object.fromEntries(form.questions.map((question) => [question.key.trim(), question]));
@@ -265,20 +279,11 @@ export default function SystemOnePage() {
                 </Badge>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Templates">
-                {TEMPLATES.map((template) => (
-                  <Button
-                    key={template.id}
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    icon="bolt"
-                    onClick={() => setForm((current) => ({ ...template.build(), longContext: current.longContext }))}
-                  >
-                    {template.label}
-                  </Button>
-                ))}
-              </div>
+              {form.questions.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Templates">
+                  {templateButtons}
+                </div>
+              )}
 
               <div className="mt-5 border-t border-border-subtle pt-4">
                 <StateEditor form={form} onChange={setForm} error={form.stateMode === "json" ? blockJsonError(form.stateJson) : ""} />
@@ -286,7 +291,12 @@ export default function SystemOnePage() {
 
               <div className="mt-5 border-t border-border-subtle pt-4">
                 <h3 className="mb-3 text-sm font-semibold text-text-main">Questions</h3>
-                <QuestionBuilder form={form} onChange={setForm} errors={fieldErrors} />
+                <QuestionBuilder
+                  form={form}
+                  onChange={setForm}
+                  errors={fieldErrors}
+                  emptyActions={<div className="flex flex-wrap gap-2" role="group" aria-label="Templates">{templateButtons}</div>}
+                />
               </div>
             </Card>
 

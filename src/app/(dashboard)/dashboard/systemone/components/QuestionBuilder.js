@@ -8,7 +8,7 @@ import {
   blankQuestion,
   makeId,
   questionTypeLabel,
-  validateKey,
+  visibleKeyError,
 } from "../lib/requestBuilder";
 
 function IconButton({ label, icon, onClick, disabled }) {
@@ -26,8 +26,10 @@ function IconButton({ label, icon, onClick, disabled }) {
   );
 }
 
-export default function QuestionBuilder({ form, onChange, errors = {} }) {
+export default function QuestionBuilder({ form, onChange, errors = {}, emptyActions = null }) {
   const [pendingType, setPendingType] = useState("noul");
+  const [touched, setTouched] = useState(() => new Set());
+  const markTouched = (id) => setTouched((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
   const questions = form.questions;
 
   const update = (id, values) => {
@@ -70,6 +72,21 @@ export default function QuestionBuilder({ form, onChange, errors = {} }) {
     onChange({ ...form, questions: next });
   };
 
+  if (questions.length === 0) {
+    return (
+      <div className="flex flex-col items-start gap-3">
+        <p className="text-sm text-text-muted">No questions yet.</p>
+        <Button type="button" size="sm" icon="add" onClick={add}>Add question</Button>
+        {emptyActions && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-text-muted">or start from:</span>
+            {emptyActions}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -87,7 +104,7 @@ export default function QuestionBuilder({ form, onChange, errors = {} }) {
 
       <div className="mt-4 flex flex-col gap-4">
         {questions.map((question, index) => {
-          const keyError = validateKey(question.key, questions, question.id);
+          const keyError = visibleKeyError(question, questions, touched);
           const fieldError = errors[question.key.trim()] || keyError;
           return (
             <fieldset
@@ -115,7 +132,8 @@ export default function QuestionBuilder({ form, onChange, errors = {} }) {
                   <input
                     id={`key-${question.id}`}
                     value={question.key}
-                    onChange={(event) => update(question.id, { key: event.target.value })}
+                    onChange={(event) => { markTouched(question.id); update(question.id, { key: event.target.value }); }}
+                    onBlur={() => markTouched(question.id)}
                     placeholder="refund_requested"
                     spellCheck="false"
                     aria-invalid={fieldError ? "true" : undefined}
