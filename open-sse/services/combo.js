@@ -356,11 +356,12 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
         return result;
       }
 
-      // For transient errors (503/502/504), wait for cooldown before falling through
+      // For transient errors (503/502), wait for cooldown before falling through
       // so a briefly-overloaded provider gets a chance to recover rather than being
-      // skipped immediately (fixes: combo falls through on transient 503)
+      // skipped immediately (fixes: combo falls through on transient 503). 504 never
+      // reaches here: it returns above, since it may already be a billed generation.
       if (cooldownMs && cooldownMs > 0 && cooldownMs <= 5000 &&
-          (result.status === 503 || result.status === 502 || result.status === 504)) {
+          (result.status === 503 || result.status === 502)) {
         log.info("COMBO", `Model ${modelStr} transient ${result.status}, waiting ${cooldownMs}ms before next`);
         await abortableSleep(cooldownMs, signal);
       }

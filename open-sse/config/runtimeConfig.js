@@ -160,8 +160,9 @@ export const DEFAULT_RETRY_CONFIG = {
   408: { attempts: 1, delayMs: 300 },
   429: { attempts: 0, delayMs: 0 },
   502: { attempts: 3, delayMs: 3000 },
-  503: { attempts: 3, delayMs: 2000 },
-  504: { attempts: 2, delayMs: 3000 }
+  503: { attempts: 3, delayMs: 2000 }
+  // No 504 entry on purpose: an upstream 504 may already be a billed generation, so it is
+  // surfaced once, never replayed. Pre-send/connect failures retry under the 502 entry.
 };
 
 // Normalize a retry entry to { attempts, delayMs }

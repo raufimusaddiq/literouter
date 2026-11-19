@@ -69,7 +69,7 @@ function optimisticPatchCachedConnection(id, data) {
   const i = rows.findIndex((c) => c.id === id);
   if (i === -1) return;
   const existing = rows[i];
-  rows[i] = { ...existing, ...resetHealthStateOnActivation(existing, data), updatedAt: new Date().toISOString() };
+  rows[i] = pruneClearedLocks({ ...existing, ...resetHealthStateOnActivation(existing, data), updatedAt: new Date().toISOString() });
   connectionCache.index = null; // index holds the pre-patch object; rebuild lazily
 }
 
@@ -86,6 +86,15 @@ async function invalidateConnectionCacheEverywhere({ localDone = false } = {}) {
   } catch {
     /* fail open: a local-only invalidation still covers this process */
   }
+}
+
+// A cleared lock is DELETED, not stored as null: a null key still looks "present"
+// to readers that enumerate modelLock_* keys. Mutates and returns `conn`.
+function pruneClearedLocks(conn) {
+  for (const key of Object.keys(conn)) {
+    if (key.startsWith(MODEL_LOCK_PREFIX) && (conn[key] === null || conn[key] === undefined)) delete conn[key];
+  }
+  return conn;
 }
 
 function resetHealthStateOnActivation(existing, patch) {
@@ -110,7 +119,8 @@ function resetHealthStateOnActivation(existing, patch) {
 
 function rowToConn(row) {
   if (!row) return null;
-  const extra = parseJson(row.data, {});
+  // Lazy cleanup: rows written before locks were deleted still carry modelLock_*: null.
+  const extra = pruneClearedLocks(parseJson(row.data, {}));
   return {
     ...extra,
     id: row.id,
@@ -426,7 +436,7 @@ export async function updateProviderConnection(id, data) {
       if (!row) { result = null; return; }
       const existing = rowToConn(row);
       const normalized = resetHealthStateOnActivation(existing, data);
-      const merged = { ...existing, ...normalized, updatedAt: new Date().toISOString() };
+      const merged = pruneClearedLocks({ ...existing, ...normalized, updatedAt: new Date().toISOString() });
       upsert(db, merged);
       if (reorders) reorderInTx(db, existing.provider);
       result = merged;
@@ -439,6 +449,38 @@ export async function updateProviderConnection(id, data) {
   }
   if (!result) invalidateConnectionCache();
   if (result) await invalidateConnectionCacheEverywhere({ localDone: !reorders });
+  return result;
+}
+
+/**
+ * Atomic read-modify-write: `mutate(existing)` runs inside the write transaction
+ * against the stored row and returns the patch to merge (or null/undefined to skip
+ * the write). Counters such as backoffLevel must be derived here, not from a
+ * snapshot read earlier, or concurrent failures compute the same level.
+ * Resolves to the merged connection, or null when the row is missing or the patch
+ * was skipped.
+ */
+export async function mutateProviderConnection(id, mutate) {
+  const db = await getAdapter();
+  let result = null;
+  try {
+    db.transaction(() => {
+      const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
+      if (!row) return;
+      const existing = rowToConn(row);
+      const patch = mutate(existing);
+      if (!patch) return;
+      const normalized = resetHealthStateOnActivation(existing, patch);
+      const merged = pruneClearedLocks({ ...existing, ...normalized, updatedAt: new Date().toISOString() });
+      upsert(db, merged);
+      result = merged;
+      patchCachedConnection(rowToConn(db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id])));
+    });
+  } catch (e) {
+    invalidateConnectionCache();
+    throw e;
+  }
+  if (result) await invalidateConnectionCacheEverywhere({ localDone: true });
   return result;
 }
 

@@ -129,9 +129,10 @@ describe("DB SQLite layer — public API parity", () => {
       errorCode: null,
       backoffLevel: 0,
       rateLimitedUntil: null,
-      modelLock_modelA: null,
-      modelLock_modelB: null,
     });
+    // Cleared locks are deleted, not stored as null.
+    expect(back).not.toHaveProperty("modelLock_modelA");
+    expect(back).not.toHaveProperty("modelLock_modelB");
   });
 
   it("providerConnections: re-saving valid OAuth credentials clears stale routing locks", async () => {
@@ -165,8 +166,8 @@ describe("DB SQLite layer — public API parity", () => {
       lastError: null,
       errorCode: null,
       backoffLevel: 0,
-      modelLock_modelA: null,
     });
+    expect(back).not.toHaveProperty("modelLock_modelA");
   });
 
   it("providerConnections: active soft warnings survive the health reset", async () => {
@@ -195,8 +196,8 @@ describe("DB SQLite layer — public API parity", () => {
       lastErrorAt: warningAt,
       errorCode: null,
       backoffLevel: 0,
-      modelLock_modelA: null,
     });
+    expect(back).not.toHaveProperty("modelLock_modelA");
   });
 
   it("providerConnections: GitHub OAuth uses account identity as fallback name", async () => {

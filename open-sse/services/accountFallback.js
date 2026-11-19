@@ -1,4 +1,4 @@
-import { ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig.js";
+import { SCOPE, ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig.js";
 
 /**
  * Calculate exponential backoff cooldown for rate limits (429)
@@ -19,7 +19,9 @@ export function getQuotaCooldown(backoffLevel = 0) {
  * @param {string} errorText - Error message text
  * @param {number} backoffLevel - Current backoff level for exponential backoff
  * @param {string|null} provider - Provider id, for rules that only apply to one upstream
- * @returns {{ shouldFallback: boolean, cooldownMs: number, newBackoffLevel?: number }}
+ * @returns {{ shouldFallback: boolean, cooldownMs: number, scope: string, newBackoffLevel?: number }}
+ *   shouldFallback = a combo may try the next model; account rotation/locking additionally
+ *   requires scope === "account" (see shouldRotateAccount).
  */
 export function checkFallbackError(status, errorText, backoffLevel = 0, provider = null) {
   const lowerError = errorText
@@ -31,20 +33,12 @@ export function checkFallbackError(status, errorText, backoffLevel = 0, provider
     if (rule.provider && rule.provider !== provider) continue;
     // Text-based rule: match substring in error message
     if (rule.text && lowerError && lowerError.includes(rule.text)) {
-      if (rule.backoff) {
-        const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
-        return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), newBackoffLevel: newLevel };
-      }
-      return { shouldFallback: true, cooldownMs: rule.cooldownMs };
+      return ruleResult(rule, backoffLevel);
     }
 
     // Status-based rule: match HTTP status code
     if (rule.status && rule.status === status) {
-      if (rule.backoff) {
-        const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
-        return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), newBackoffLevel: newLevel };
-      }
-      return { shouldFallback: true, cooldownMs: rule.cooldownMs };
+      return ruleResult(rule, backoffLevel);
     }
   }
 
@@ -59,11 +53,26 @@ export function checkFallbackError(status, errorText, backoffLevel = 0, provider
   // Account-scoped statuses keep their rules above (401/402/403/404/429), and the
   // text rules still win for rate-limit / quota / capacity wording.
   if (status >= 400 && status < 500 && status !== 401 && status !== 402 && status !== 403 && status !== 429) {
-    return { shouldFallback: false, cooldownMs: 0 };
+    return { shouldFallback: false, cooldownMs: 0, scope: SCOPE.request };
   }
 
   // Default: transient cooldown for any unmatched error
-  return { shouldFallback: true, cooldownMs: TRANSIENT_COOLDOWN_MS };
+  return { shouldFallback: true, cooldownMs: TRANSIENT_COOLDOWN_MS, scope: SCOPE.account };
+}
+
+function ruleResult(rule, backoffLevel) {
+  const scope = rule.scope || SCOPE.account;
+  if (rule.backoff) {
+    const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
+    return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), scope, newBackoffLevel: newLevel };
+  }
+  // Request-scoped failures stop everywhere; model-scoped ones only let a combo move on.
+  return { shouldFallback: scope !== SCOPE.request, cooldownMs: rule.cooldownMs, scope };
+}
+
+/** Account rotation + lock only make sense for account-scoped failures. */
+export function shouldRotateAccount(result) {
+  return !!result?.shouldFallback && (result.scope || SCOPE.account) === SCOPE.account;
 }
 
 /**
