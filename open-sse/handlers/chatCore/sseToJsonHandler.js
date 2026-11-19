@@ -6,9 +6,10 @@ import { FORMATS } from "../../translator/formats.js";
 import { openAICompletionToClaudeMessage, responsesToClaudeMessage } from "../../translator/response/nonstream-to-claude.js";
 import { PROVIDERS } from "../../config/providers.js";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail.js";
-import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index.js";
+import { OPENAI_FINISH } from "../../translator/schema/index.js";
 import { rewriteResponsesCustomToolOutput } from "../../translator/concerns/responsesFunctionTools.js";
 import { extractReasoningText } from "../../translator/concerns/reasoning.js";
+import { chatCompletionToResponses, openAICompletionToGemini } from "../../translator/concerns/nonstreamShapes.js";
 
 // Responses-API providers (e.g. codex) may emit SSE without content-type + use Responses output shape
 const isResponsesProvider = (p) => PROVIDERS[p]?.format === FORMATS.OPENAI_RESPONSES;
@@ -41,73 +42,9 @@ function pickAssistantMessageForChatCompletion(output) {
 
 /**
  * Convert an OpenAI Chat Completions JSON body into the Responses API shape.
- * Inlined here (not imported from nonStreamingHandler.js) to avoid a circular
- * import. Mirrors openAICompletionToResponses in nonStreamingHandler.js.
+ * Shared with nonStreamingHandler.js (concerns/nonstreamShapes.js) so the two
+ * paths cannot drift.
  */
-function extractCustomToolInput(argumentsValue) {
-  const argumentsText = typeof argumentsValue === "string" ? argumentsValue : JSON.stringify(argumentsValue || {});
-  try {
-    const parsed = JSON.parse(argumentsText);
-    if (parsed && typeof parsed === "object" && typeof parsed.input === "string") return parsed.input;
-  } catch { /* raw freeform input */ }
-  return argumentsText;
-}
-
-function chatCompletionToResponses(responseBody, customToolNames = null) {
-  const choice = responseBody?.choices?.[0];
-  if (!choice) return responseBody;
-
-  const message = choice.message || {};
-  const output = [];
-
-  const reasoning = message.reasoning_content || message.reasoning;
-  if (typeof reasoning === "string" && reasoning.length > 0) {
-    output.push({
-      type: RESPONSES_ITEM.REASONING,
-      summary: [{ type: RESPONSES_ITEM.SUMMARY_TEXT, text: reasoning }],
-    });
-  }
-
-  const text = typeof message.content === "string" ? message.content : "";
-  if (text.length > 0) {
-    output.push({
-      type: RESPONSES_ITEM.MESSAGE,
-      role: ROLE.ASSISTANT,
-      content: [{ type: RESPONSES_ITEM.OUTPUT_TEXT, text, annotations: [] }],
-    });
-  }
-
-  for (const tc of message.tool_calls || []) {
-    const fn = tc.function || {};
-    const custom = customToolNames?.has(fn.name);
-    output.push({
-      type: custom ? RESPONSES_ITEM.CUSTOM_TOOL_CALL : RESPONSES_ITEM.FUNCTION_CALL,
-      id: `${custom ? "ctc" : "fc"}_${tc.id || ""}`,
-      call_id: tc.id || "",
-      name: fn.name || "",
-      ...(custom
-        ? { input: extractCustomToolInput(fn.arguments) }
-        : { arguments: typeof fn.arguments === "string" ? fn.arguments : JSON.stringify(fn.arguments || {}) }),
-    });
-  }
-
-  const usage = responseBody.usage || {};
-  return {
-    id: `resp_${responseBody.id || ""}`.replace(/^resp_chatcmpl-/, "resp_"),
-    object: "response",
-    created_at: responseBody.created || Math.floor(Date.now() / 1000),
-    model: responseBody.model || "unknown",
-    status: "completed",
-    background: false,
-    error: null,
-    output,
-    usage: {
-      input_tokens: usage.prompt_tokens || usage.input_tokens || 0,
-      output_tokens: usage.completion_tokens || usage.output_tokens || 0,
-      total_tokens: usage.total_tokens || (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
-    },
-  };
-}
 
 /**
  * Parse OpenAI-style SSE text into a single chat completion JSON.
@@ -276,41 +213,49 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
         : {};
       let finalResp;
 
-      // Extract tool calls from Responses API output (function_call items)
-      const funcCallItems = (jsonResponse.output || []).filter(item => item.type === "function_call");
-      const toolCalls = funcCallItems.map((item, idx) => ({
-        id: item.call_id || `call_${item.name}_${Date.now()}_${idx}`,
-        type: "function",
-        function: {
-          name: item.name,
-          arguments: typeof item.arguments === "string" ? item.arguments : JSON.stringify(item.arguments || {})
-        }
-      }));
+      // Build the Chat Completions pivot from the Responses `output`, including
+      // custom_tool_call items (freeform `input`), then convert it to the client
+      // shape. Without the custom branch those tool calls vanished entirely.
+      const toolCalls = (jsonResponse.output || [])
+        .filter(item => item.type === "function_call" || item.type === "custom_tool_call")
+        .map((item, idx) => ({
+          id: item.call_id || `call_${item.name}_${Date.now()}_${idx}`,
+          type: "function",
+          function: {
+            name: item.name,
+            arguments: item.type === "custom_tool_call"
+              ? JSON.stringify({ input: item.input || "" })
+              : (typeof item.arguments === "string" ? item.arguments : JSON.stringify(item.arguments || {}))
+          }
+        }));
       const hasToolCalls = toolCalls.length > 0;
 
-      if (sourceFormat === FORMATS.ANTIGRAVITY || sourceFormat === FORMATS.GEMINI || sourceFormat === FORMATS.GEMINI_CLI) {
-        finalResp = {
-          response: {
-            candidates: [{ content: { role: "model", parts: [{ text: textContent || "" }] }, finishReason: "STOP", index: 0 }],
-            usageMetadata: { promptTokenCount: inTokens, candidatesTokenCount: outTokens, totalTokenCount: inTokens + outTokens },
-            modelVersion: model,
-            responseId: jsonResponse.id || `resp_${Date.now()}`
-          }
-        };
-      } else {
-        const message = { role: "assistant", content: textContent || (hasToolCalls ? null : "") };
-        if (hasToolCalls) message.tool_calls = toolCalls;
-        const responseDone = jsonResponse.status === "completed" || jsonResponse.status === "done";
-        const finishReason = hasToolCalls ? "tool_calls" : (responseDone ? "stop" : (jsonResponse.status || "stop"));
-        finalResp = {
-          id: jsonResponse.id || `chatcmpl-${Date.now()}`,
-          object: "chat.completion",
-          created: jsonResponse.created_at || Math.floor(Date.now() / 1000),
-          model: jsonResponse.model || model,
-          choices: [{ index: 0, message, finish_reason: finishReason }],
-          usage: { prompt_tokens: inTokens, completion_tokens: outTokens, total_tokens: inTokens + outTokens, ...cacheDetails }
-        };
-      }
+      const responseDone = jsonResponse.status === "completed" || jsonResponse.status === "done";
+      const finishReason = hasToolCalls
+        ? OPENAI_FINISH.TOOL_CALLS
+        : (responseDone ? OPENAI_FINISH.STOP : (jsonResponse.status === "incomplete" ? OPENAI_FINISH.LENGTH : (jsonResponse.status || OPENAI_FINISH.STOP)));
+      const pivot = {
+        id: jsonResponse.id || `chatcmpl-${Date.now()}`,
+        object: "chat.completion",
+        created: jsonResponse.created_at || Math.floor(Date.now() / 1000),
+        model: jsonResponse.model || model,
+        choices: [{
+          index: 0,
+          message: {
+            role: "assistant",
+            content: textContent || (hasToolCalls ? null : ""),
+            ...(hasToolCalls ? { tool_calls: toolCalls } : {})
+          },
+          finish_reason: finishReason
+        }],
+        usage: { prompt_tokens: inTokens, completion_tokens: outTokens, total_tokens: inTokens + outTokens, ...cacheDetails }
+      };
+
+      // Gemini/Antigravity clients need candidates + functionCall parts and a
+      // mapped finishReason, not a chat.completion body.
+      finalResp = (sourceFormat === FORMATS.ANTIGRAVITY || sourceFormat === FORMATS.GEMINI || sourceFormat === FORMATS.GEMINI_CLI)
+        ? openAICompletionToGemini({ ...pivot, model: pivot.model || model })
+        : pivot;
 
       return { success: true, response: new Response(JSON.stringify(restoreToolNames(finalResp, toolNameMap)), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
     } catch (err) {
