@@ -19,6 +19,8 @@ import dynamic from "next/dynamic";
 const ProviderTopology = dynamic(() => import("@/app/(dashboard)/dashboard/usage/components/ProviderTopology"), { ssr: false });
 const UsageChart = dynamic(() => import("@/app/(dashboard)/dashboard/usage/components/UsageChart"), { ssr: false });
 
+const STATS_REFETCH_DEBOUNCE_MS = 2000;
+
 function timeAgo(timestamp) {
   const diff = Math.floor((Date.now() - new Date(timestamp)) / 1000);
   if (diff < 60) return `${diff}s ago`;
@@ -227,6 +229,8 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
   const hasLoadedStats = useRef(false);
   const period = periodProp ?? periodLocal;
   const setPeriod = setPeriodProp ?? setPeriodLocal;
+  const periodRef = useRef(period);
+  periodRef.current = period;
 
   // Fetch connected providers once, deduplicate by provider type
   // Always include noAuth free providers (e.g. opencode) regardless of connections
@@ -285,9 +289,22 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       });
   }, [period]);
 
-  // SSE connection - real-time updates for activeRequests + recentRequests only
+  // SSE connection - real-time updates for activeRequests + recentRequests only.
+  // The stream is lightweight; when it flags a persisted-usage update, period
+  // totals are refreshed via a debounced REST refetch (not recomputed per event).
   useEffect(() => {
     const es = new EventSource("/api/usage/stream");
+    let refetchTimer = null;
+    const scheduleRefetch = () => {
+      if (refetchTimer) return;
+      refetchTimer = setTimeout(() => {
+        refetchTimer = null;
+        fetch(`/api/usage/stats?period=${periodRef.current}`)
+          .then((r) => r.ok ? r.json() : null)
+          .then((data) => { if (data) setStats((prev) => ({ ...prev, ...data })); })
+          .catch(() => {});
+      }, STATS_REFETCH_DEBOUNCE_MS);
+    };
 
     es.onmessage = (e) => {
       try {
@@ -295,14 +312,18 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         // Always merge only real-time fields, never overwrite full stats from REST
         setStats((prev) => {
           if (!prev) return prev;
+          // Keep the previous pending object when unchanged so memoized
+          // tables that depend on it are not rebuilt on every push.
+          const pending = JSON.stringify(prev.pending) === JSON.stringify(data.pending) ? prev.pending : data.pending;
           return {
             ...prev,
             activeRequests: data.activeRequests,
             recentRequests: data.recentRequests,
             errorProvider: data.errorProvider,
-            pending: data.pending,
+            pending,
           };
         });
+        if (data.refresh) scheduleRefetch();
         if (hasLoadedStats.current) setLoading(false);
       } catch (err) {
         console.error("[SSE CLIENT] parse error:", err);
@@ -311,7 +332,10 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
 
     es.onerror = () => setLoading(false);
 
-    return () => es.close();
+    return () => {
+      clearTimeout(refetchTimer);
+      es.close();
+    };
   }, []);
 
   const toggleSort = useCallback((tableType, field) => {
@@ -326,14 +350,18 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
   }, [searchParams, router]);
 
   // Compute active table data
+  // Memoize on the slices each table reads, not the whole stats object: SSE
+  // pushes replace `stats` every event but leave these slices untouched.
+  const hasStats = Boolean(stats);
+  const { byModel, byAccount, byApiKey, byEndpoint, pending } = stats || {};
   const activeTableConfig = useMemo(() => {
-    if (!stats) return null;
+    if (!hasStats) return null;
     switch (tableView) {
       case "model": {
-        const pendingMap = stats.pending?.byModel || {};
+        const pendingMap = pending?.byModel || {};
         return {
           columns: MODEL_COLUMNS,
-          groupedData: groupDataByKey(sortData(stats.byModel, pendingMap, sortBy, sortOrder), "rawModel"),
+          groupedData: groupDataByKey(sortData(byModel, pendingMap, sortBy, sortOrder), "rawModel"),
           storageKey: "usage-stats:expanded-models",
           emptyMessage: "No usage recorded yet.",
           renderSummaryCells: (group) => (
@@ -355,9 +383,9 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       }
       case "account": {
         const pendingMap = {};
-        if (stats?.pending?.byAccount) {
-          Object.entries(stats.byAccount || {}).forEach(([accountKey, data]) => {
-            const connPending = stats.pending.byAccount[data.connectionId];
+        if (pending?.byAccount) {
+          Object.entries(byAccount || {}).forEach(([accountKey, data]) => {
+            const connPending = pending.byAccount[data.connectionId];
             if (connPending) {
               const modelKey = data.provider ? `${data.rawModel} (${data.provider})` : data.rawModel;
               pendingMap[accountKey] = connPending[modelKey] || 0;
@@ -366,7 +394,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         }
         return {
           columns: ACCOUNT_COLUMNS,
-          groupedData: groupDataByKey(sortData(stats.byAccount, pendingMap, sortBy, sortOrder), "accountName"),
+          groupedData: groupDataByKey(sortData(byAccount, pendingMap, sortBy, sortOrder), "accountName"),
           storageKey: "usage-stats:expanded-accounts",
           emptyMessage: "No account-specific usage recorded yet.",
           renderSummaryCells: (group) => (
@@ -391,7 +419,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       case "apiKey": {
         return {
           columns: API_KEY_COLUMNS,
-          groupedData: groupDataByKey(sortData(stats.byApiKey, {}, sortBy, sortOrder), "keyName"),
+          groupedData: groupDataByKey(sortData(byApiKey, {}, sortBy, sortOrder), "keyName"),
           storageKey: "usage-stats:expanded-apikeys",
           emptyMessage: "No API key usage recorded yet.",
           renderSummaryCells: (group) => (
@@ -417,7 +445,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       default: {
         return {
           columns: ENDPOINT_COLUMNS,
-          groupedData: groupDataByKey(sortData(stats.byEndpoint, {}, sortBy, sortOrder), "endpoint"),
+          groupedData: groupDataByKey(sortData(byEndpoint, {}, sortBy, sortOrder), "endpoint"),
           storageKey: "usage-stats:expanded-endpoints",
           emptyMessage: "No endpoint usage recorded yet.",
           renderSummaryCells: (group) => (
@@ -440,7 +468,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         };
       }
     }
-  }, [stats, tableView, sortBy, sortOrder]);
+  }, [hasStats, byModel, byAccount, byApiKey, byEndpoint, pending, tableView, sortBy, sortOrder]);
 
   if (!stats && !loading) return <div className="text-text-muted">Failed to load usage statistics.</div>;
 

@@ -1,10 +1,15 @@
-import { getUsageStats, statsEmitter, getActiveRequests } from "@/lib/usageDb";
+import { statsEmitter, getActiveRequests } from "@/lib/usageDb";
 
 export const dynamic = "force-dynamic";
 
+// Lightweight live feed: only the fields the dashboard merges in real time
+// (activeRequests, recentRequests, errorProvider, pending). Period totals are
+// NOT computed here — getUsageStats() per client per event was O(history). On a
+// persisted-usage "update" the event carries `refresh: true` and the client
+// refetches /api/usage/stats on a debounce.
 export async function GET(request) {
   const encoder = new TextEncoder();
-  const state = { closed: false, keepalive: null, send: null, sendPending: null, cachedStats: null };
+  const state = { closed: false, keepalive: null, send: null, sendPending: null };
 
   // Idempotent: safe to call from request.signal abort, cancel(), or enqueue failure.
   const cleanup = () => {
@@ -16,44 +21,24 @@ export async function GET(request) {
   };
 
   // request.signal fires reliably on client disconnect; ReadableStream.cancel()
-  // is not always invoked in Next.js, so a closed tab kept its listeners and
-  // recomputed full usage stats into a dead stream on every update.
+  // is not always invoked in Next.js, so a closed tab kept its listeners.
   request.signal.addEventListener("abort", cleanup, { once: true });
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Full stats refresh (heavy) + immediate lightweight push
-      state.send = async () => {
+      const push = async (refresh) => {
         if (state.closed) return;
         try {
-          // Push lightweight update immediately so UI reflects changes fast
-          if (state.cachedStats) {
-            const { activeRequests, recentRequests, errorProvider } = await getActiveRequests();
-            const quickStats = { ...state.cachedStats, activeRequests, recentRequests, errorProvider };
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(quickStats)}\n\n`));
-          }
-          // Then do full recalc and update cache
-          const stats = await getUsageStats();
-          state.cachedStats = stats;
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(stats)}\n\n`));
+          const live = await getActiveRequests();
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ ...live, refresh })}\n\n`));
         } catch {
           cleanup();
         }
       };
+      state.send = () => push(true);
+      state.sendPending = () => push(false);
 
-      // Lightweight push: only refresh activeRequests + recentRequests on pending changes
-      state.sendPending = async () => {
-        if (state.closed || !state.cachedStats) return;
-        try {
-          const { activeRequests, recentRequests, errorProvider } = await getActiveRequests();
-          const stats = { ...state.cachedStats, activeRequests, recentRequests, errorProvider };
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(stats)}\n\n`));
-        } catch {
-          cleanup();
-        }
-      };
-
-      await state.send();
+      await push(false);
       // Disconnected (or failed) during the initial send: never register.
       if (state.closed) return;
 

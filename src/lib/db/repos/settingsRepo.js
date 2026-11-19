@@ -51,6 +51,9 @@ const DEFAULT_SETTINGS = {
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,
   pxpipeTimeoutMs: 15000,
+  // Days of per-request usageHistory rows to keep (0 = forever). usageDaily
+  // aggregates are never pruned, so all-time totals stay correct.
+  usageHistoryRetentionDays: 90,
 };
 
 async function readRaw() {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const dbMocks = vi.hoisted(() => ({
   getProviderConnections: vi.fn(),
+  getProviderConnectionById: vi.fn(),
   updateProviderConnection: vi.fn(),
 }));
 
@@ -20,12 +21,12 @@ const { markAccountUnavailable } = await import("../../src/sse/services/auth.js"
 
 beforeEach(() => {
   vi.clearAllMocks();
-  dbMocks.getProviderConnections.mockResolvedValue([{
+  dbMocks.getProviderConnectionById.mockResolvedValue({
     id: "github-a",
     provider: "github",
     name: "github-a",
     backoffLevel: 4,
-  }]);
+  });
 });
 
 describe("GitHub monthly usage exhaustion", () => {
