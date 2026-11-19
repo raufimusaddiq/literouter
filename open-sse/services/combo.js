@@ -278,6 +278,8 @@ export function getComboModelsFromData(modelStr, combosData) {
  * @param {number|string} [options.comboStickyLimit=1] - Requests per combo model before switching
  * @returns {Promise<Response>}
  */
+const COMBO_GENERIC_ERROR = "All combo models failed";
+
 export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true }) {
   // Apply rotation strategy if enabled
   let rotatedModels = getRotatedModels(models, comboName, comboStrategy, comboStickyLimit);
@@ -362,9 +364,11 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       log.warn("COMBO", `Model ${modelStr} failed, trying next`, { status: result.status });
     } catch (error) {
       // Catch unexpected exceptions to ensure fallback continues
-      lastError = error.message || String(error);
+      // Exception text (and its stack) stays server-side; clients only ever see a
+      // generic message so no stack-derived data reaches the response body.
+      lastError = COMBO_GENERIC_ERROR;
       if (!lastStatus) lastStatus = 500;
-      log.warn("COMBO", `Model ${modelStr} threw error, trying next`, { error: lastError });
+      log.warn("COMBO", `Model ${modelStr} threw error, trying next`, { error: error?.message || String(error), stack: error?.stack });
     }
   }
 
