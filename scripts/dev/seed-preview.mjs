@@ -6,6 +6,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { TABLES, buildCreateTableSql } from "../../src/lib/db/schema.js";
+import { fingerprintKey } from "../../open-sse/utils/keyFingerprint.js";
 
 const dataDir = process.argv[2];
 if (!dataDir) {
@@ -58,10 +59,24 @@ for (const c of connections) {
   insConn.run(c.id, c.provider, "apikey", c.name, c.email || null, c.priority, c.isActive === false ? 0 : 1, JSON.stringify(data), iso(now - 20 * 86400000), iso(now));
 }
 
-const apiKey = `sk-preview-${crypto.randomBytes(12).toString("hex")}`;
-db.prepare(`INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt) VALUES(?,?,?,?,?,?)`).run(
-  uuid(), apiKey, "Preview key", "preview", 1, iso(now - 10 * 86400000),
+// API keys: varied usage, one paused, one restricted, one never used.
+// Usage rows carry the key fingerprint (same API_KEY_SECRET as the server).
+const HOUR = 3600000;
+const apiKeys = [
+  { name: "Production", lastUsedAgo: 2 * 60000, req24h: 1284, ageDays: 40 },
+  { name: "Cursor (laptop)", lastUsedAgo: 3 * HOUR, req24h: 312, ageDays: 22 },
+  { name: "CI pipeline", lastUsedAgo: 20 * HOUR, req24h: 47, ageDays: 15, restricted: ["openai/gpt-4o-mini", "groq/llama-3.3-70b-versatile"] },
+  { name: "Staging", lastUsedAgo: 5 * 86400000, req24h: 0, ageDays: 12 },
+  { name: "Old script", lastUsedAgo: 31 * 86400000, req24h: 0, ageDays: 90, paused: true },
+  { name: "New teammate", lastUsedAgo: null, req24h: 0, ageDays: 1 },
+].map((k) => ({ ...k, id: uuid(), key: `sk-${crypto.randomBytes(12).toString("hex")}` }));
+const insKey = db.prepare(
+  `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, accessRestricted, accessAllow) VALUES(?,?,?,?,?,?,?,?)`,
 );
+for (const k of apiKeys) {
+  insKey.run(k.id, k.key, k.name, "preview", k.paused ? 0 : 1, iso(now - k.ageDays * 86400000),
+    k.restricted ? 1 : 0, JSON.stringify(k.restricted || []));
+}
 
 // Usage: ~2.5k rows across 7 days, heavier on recent days and working hours.
 const models = [
@@ -126,7 +141,18 @@ for (const r of rows) {
 }
 const insDay = db.prepare(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?)`);
 for (const [k, d] of Object.entries(days)) insDay.run(k, JSON.stringify(d));
+// Per-key usage rows (history only; the dashboard reads usageHistory for per-key stats).
+for (const k of apiKeys) {
+  if (k.lastUsedAgo == null) continue;
+  const fp = fingerprintKey(k.key);
+  const n = Math.max(k.req24h, 1);
+  for (let i = 0; i < n; i++) {
+    const t = k.req24h > 0 ? now - k.lastUsedAgo - (i / n) * (24 * HOUR - k.lastUsedAgo) : now - k.lastUsedAgo - i * 60000;
+    const m = models[i % models.length];
+    insUsage.run(iso(t), m.provider, m.model, connByProvider[m.provider], fp, "/v1/chat/completions", 300, 120, 0.001, "ok", "{}");
+  }
+}
 db.exec("COMMIT");
 db.close();
 
-console.log(`Seeded ${dbFile}: ${connections.length} connections, ${rows.length} usage rows over ${Object.keys(days).length} days, 1 API key.`);
+console.log(`Seeded ${dbFile}: ${connections.length} connections, ${rows.length} usage rows over ${Object.keys(days).length} days, ${apiKeys.length} API keys.`);

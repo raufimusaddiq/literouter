@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useId, useRef } from "react";
+import { getFocusable, nextTrapTarget } from "@/shared/utils/focusTrap";
 import { cn } from "@/shared/utils/cn";
 import Button from "./Button";
 import Tooltip from "./Tooltip";
@@ -33,12 +34,34 @@ export default function Modal({
     return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
+  const titleId = useId();
+  const dialogRef = useRef(null);
+
+  // Initial focus + restore focus to the trigger on close.
   useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === "Escape" && isOpen) onClose();
+    if (!isOpen) return undefined;
+    const trigger = document.activeElement;
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.contains(document.activeElement)) {
+      const body = dialog.querySelector("[data-modal-body]");
+      const target = getFocusable(body)[0] || getFocusable(dialog).find((el) => el.getAttribute("aria-label") !== "Close") || dialog;
+      target.focus();
+    }
+    return () => {
+      if (trigger && trigger.isConnected && typeof trigger.focus === "function") trigger.focus();
     };
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (!isOpen) return;
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const target = nextTrapTarget(getFocusable(dialogRef.current), document.activeElement, e.shiftKey);
+      if (target) { e.preventDefault(); target.focus(); }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -53,8 +76,14 @@ export default function Modal({
 
       {/* Modal content */}
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : "Dialog"}
+        tabIndex={-1}
         className={cn(
-          "relative w-full bg-surface",
+          "relative w-full bg-surface outline-none",
           "border border-border-subtle",
           "rounded-[14px] shadow-[var(--shadow-elev)]",
           "fade-in",
@@ -84,7 +113,7 @@ export default function Modal({
                 </div>
               )}
               {title && (
-                <h2 className="text-lg font-semibold text-text-main">{title}</h2>
+                <h2 id={titleId} className="text-lg font-semibold text-text-main">{title}</h2>
               )}
             </div>
             {/* X button — mobile only */}
@@ -99,7 +128,7 @@ export default function Modal({
         )}
 
         {/* Body */}
-        <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">{children}</div>
+        <div data-modal-body className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">{children}</div>
 
         {/* Footer */}
         {footer && (
