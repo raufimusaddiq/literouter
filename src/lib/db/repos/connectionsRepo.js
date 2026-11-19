@@ -46,13 +46,34 @@ function invalidateConnectionCache() {
   connectionCache.versionCheckedAt = 0;
 }
 
+// Replace one row of the live snapshot. No snapshot or uncached row means
+// nothing is stale: the next load reads it from SQLite.
+function patchCachedConnection(conn) {
+  const rows = connectionCache.rows;
+  if (!rows) return;
+  const i = rows.findIndex((c) => c.id === conn.id);
+  if (i !== -1) rows[i] = conn;
+}
+
+// Apply the patch to the cached row before the first await, so a selection that
+// interleaves with the async write already sees fresh state (round-robin cursor).
+// The post-commit patch then replaces it with the stored row.
+function optimisticPatchCachedConnection(id, data) {
+  const rows = connectionCache.rows;
+  if (!rows) return;
+  const i = rows.findIndex((c) => c.id === id);
+  if (i === -1) return;
+  const existing = rows[i];
+  rows[i] = { ...existing, ...resetHealthStateOnActivation(existing, data), updatedAt: new Date().toISOString() };
+}
+
 // Invalidate locally and tell every replica that its snapshot is stale.
 // Awaited by callers so the Redis version bump lands after the SQLite commit:
 // bumping from inside the transaction could expose the new version before the
 // rows are visible, letting another replica reload the old snapshot and then
 // cache the new version, serving stale data until the TTL expires.
-async function invalidateConnectionCacheEverywhere() {
-  invalidateConnectionCache();
+async function invalidateConnectionCacheEverywhere({ localDone = false } = {}) {
+  if (!localDone) invalidateConnectionCache();
   if (!MULTI_REPLICA) return;
   try {
     await bumpCacheVersion();
@@ -170,12 +191,13 @@ async function refreshConnectionCache() {
   connectionCache.versionCheckedAt = Date.now() + VERSION_TTL_MS;
 }
 
-export async function getProviderConnectionById(id) {
+export async function getProviderConnectionById(id, options = {}) {
   if (!connectionCache.rows || connectionCache.expiresAt <= Date.now()) {
     await refreshConnectionCache();
   }
   const row = connectionCache.rows.find((connection) => connection.id === id);
-  return row ? structuredClone(row) : null;
+  if (!row) return null;
+  return options.clone === false ? row : structuredClone(row);
 }
 
 // Internal sync reorder — must be called INSIDE a transaction.
@@ -332,25 +354,35 @@ export async function createProviderConnection(data) {
 
 // Critical: OAuth refresh token race — atomic merge inside transaction
 export async function updateProviderConnection(id, data) {
-  // Clear the local snapshot before the first await. getAdapter() is async, so
-  // clearing later happens a microtask after the call, and a selection that
-  // interleaves in that window would read the stale row — which is exactly what
-  // round-robin depends on being fresh. The Redis bump still lands after the
-  // commit, so replicas never see the new version before the rows.
-  invalidateConnectionCache();
+  // A priority change renumbers sibling rows (reorderInTx), so only that case
+  // drops the whole snapshot, before the first await (a selection interleaving
+  // there would read stale rows, which round-robin depends on being fresh).
+  // Otherwise the cached row is patched in place below: O(1), not O(pool).
+  // The Redis bump still lands after the commit.
+  const reorders = data.priority !== undefined;
+  if (reorders) invalidateConnectionCache();
+  else optimisticPatchCachedConnection(id, data);
   const db = await getAdapter();
   let result;
-  db.transaction(() => {
-    const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
-    if (!row) { result = null; return; }
-    const existing = rowToConn(row);
-    const normalized = resetHealthStateOnActivation(existing, data);
-    const merged = { ...existing, ...normalized, updatedAt: new Date().toISOString() };
-    upsert(db, merged);
-    if (data.priority !== undefined) reorderInTx(db, existing.provider);
-    result = merged;
-  });
-  if (result) await invalidateConnectionCacheEverywhere();
+  try {
+    db.transaction(() => {
+      const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
+      if (!row) { result = null; return; }
+      const existing = rowToConn(row);
+      const normalized = resetHealthStateOnActivation(existing, data);
+      const merged = { ...existing, ...normalized, updatedAt: new Date().toISOString() };
+      upsert(db, merged);
+      if (reorders) reorderInTx(db, existing.provider);
+      result = merged;
+      // Re-read the stored row so the cache matches what a reload would produce.
+      if (!reorders) patchCachedConnection(rowToConn(db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id])));
+    });
+  } catch (e) {
+    invalidateConnectionCache(); // optimistic patch may not match what was stored
+    throw e;
+  }
+  if (!result) invalidateConnectionCache();
+  if (result) await invalidateConnectionCacheEverywhere({ localDone: !reorders });
   return result;
 }
 
