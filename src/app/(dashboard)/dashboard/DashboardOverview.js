@@ -3,19 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge, Button, Card, Skeleton } from "@/shared/components";
+import { getConnectionHealthStats, HEALTH_LABELS } from "@/shared/utils/connectionHealth";
 
 const actions = [
   { href: "/dashboard/endpoint", icon: "api", title: "Endpoint & keys", text: "Copy the stable client endpoint or rotate access." },
   { href: "/dashboard/providers", icon: "dns", title: "Provider network", text: "Connect providers and inspect route health." },
   { href: "/dashboard/usage", icon: "bar_chart", title: "Usage & analytics", text: "Trace requests, tokens, and fallback behavior." },
 ];
-
-function getStatus(connection) {
-  if (connection.isActive === false) return "paused";
-  if (["active", "success"].includes(connection.testStatus)) return "ready";
-  if (["error", "expired", "unavailable"].includes(connection.testStatus)) return "attention";
-  return "unknown";
-}
 
 function Metric({ label, value, detail, tone = "neutral", href }) {
   const body = (
@@ -62,11 +56,13 @@ export default function DashboardOverview() {
   }, [load]);
 
   const stats = useMemo(() => {
-    const statuses = data.connections.map(getStatus);
+    const health = getConnectionHealthStats(data.connections);
     return {
-      total: data.connections.length,
-      ready: statuses.filter((status) => status === "ready").length,
-      attention: statuses.filter((status) => status === "attention").length,
+      total: health.total,
+      ready: health.ready,
+      attention: health.attention,
+      inactive: health.inactive,
+      untested: health.untested,
       activeKeys: data.keys.filter((key) => key.isActive !== false).length,
     };
   }, [data]);
@@ -119,9 +115,9 @@ export default function DashboardOverview() {
             [1, 2, 3, 4].map((item) => <Skeleton key={item} className="min-h-32 rounded-[14px]" />)
           ) : (
             <>
-              <Metric label="Connections" value={stats.total} detail="Configured routes" />
-              <Metric label="Ready now" value={stats.ready} detail="Passing connections" tone="positive" />
-              <Metric label="Attention" value={stats.attention} detail="Needs investigation" tone="warning" href={stats.attention > 0 ? "/dashboard/providers#needs-attention" : undefined} />
+              <Metric label="Connections" value={stats.total} detail={`Configured routes · ${stats.inactive} inactive · ${stats.untested} untested`} />
+              <Metric label={HEALTH_LABELS.ready} value={stats.ready} detail="Verified passing" tone="positive" />
+              <Metric label={HEALTH_LABELS.attention} value={stats.attention} detail="Errors, cooldown or rate limits" tone="warning" href={stats.attention > 0 ? "/dashboard/providers#needs-attention" : undefined} />
               <Metric label="Active keys" value={stats.activeKeys} detail="Client access keys" />
             </>
           )}

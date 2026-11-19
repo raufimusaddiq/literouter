@@ -23,6 +23,7 @@ import {
 } from "@/shared/constants/providers";
 import Link from "next/link";
 import { getErrorCode, getRelativeTime } from "@/shared/utils";
+import { getConnectionHealthStats, HEALTH_LABELS } from "@/shared/utils/connectionHealth";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import ModelAvailabilityBadge from "./components/ModelAvailabilityBadge";
@@ -426,12 +427,7 @@ export default function ProvidersPage() {
     compatibleProviders.length > 0 ||
     anthropicCompatibleProviders.length > 0;
 
-  const activeConnections = connections.filter((connection) =>
-    connection.isActive !== false && ["active", "success"].includes(connection.testStatus),
-  ).length;
-  const failingConnections = connections.filter((connection) =>
-    ["error", "expired", "unavailable"].includes(connection.testStatus),
-  ).length;
+  const health = getConnectionHealthStats(connections);
 
   return (
     <div className="flex min-w-0 flex-col gap-7">
@@ -443,18 +439,30 @@ export default function ProvidersPage() {
       <section className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-[14px] bg-primary/[0.07] p-4 ring-1 ring-primary/15">
           <p className="page-kicker">Provider network</p>
-          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{connections.length}</p>
-          <p className="mt-1 text-xs text-text-muted">Configured connections</p>
+          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{health.total}</p>
+          <p className="mt-1 text-xs text-text-muted">Configured connections · {health.inactive} inactive · {health.untested} untested</p>
         </div>
         <div className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle shadow-[var(--shadow-soft)]">
-          <p className="page-kicker text-success">Ready now</p>
-          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{activeConnections}</p>
-          <p className="mt-1 text-xs text-text-muted">Passing or active routes</p>
+          <p className="page-kicker text-success">{HEALTH_LABELS.ready}</p>
+          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{health.ready}</p>
+          <p className="mt-1 text-xs text-text-muted">Verified passing</p>
         </div>
         <div id="needs-attention" className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle shadow-[var(--shadow-soft)] scroll-mt-24">
-          <p className="page-kicker text-warning">Needs attention</p>
-          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{failingConnections}</p>
-          <p className="mt-1 text-xs text-text-muted">Connections reporting errors</p>
+          <p className="page-kicker text-warning">{HEALTH_LABELS.attention}</p>
+          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{health.attention}</p>
+          <p className="mt-1 text-xs text-text-muted">Errors, cooldown or rate limits</p>
+          {health.attentionItems.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-1 text-xs text-text-muted" data-testid="needs-attention-list">
+              {health.attentionItems.map(({ connection, reason }) => (
+                <li key={connection.id}>
+                  <Link href={`/dashboard/providers/${connection.provider}`} className="font-medium text-text-main hover:underline">
+                    {connection.name || connection.email || connection.provider}
+                  </Link>{" "}
+                  · {reason.replace("_", " ")}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
       <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
