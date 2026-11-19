@@ -41,7 +41,7 @@ node scripts/bench/mock-suite.mjs --soak-seconds 60     # shorter soak
 Sections: **a)** direct-to-mock vs through-gateway at c=1 (added latency); **b)** concurrency
 sweep 1/10/50/100 streams of 200 chunks x 20ms; **c)** soak at c=20 with RSS sampled every 10s
 (OS-level RSS of the gateway PID via `tasklist` / `/proc`); **d)** 50 streams aborted after 1s,
-then the mock's in-flight count is checked 5s later. Output: `bench-results/<ts>-mock.{md,json}`. A committed baseline: `baseline-mock-report.md`.
+then the mock's in-flight count is checked 5s later. Output: `bench-results/<ts>-mock.{md,json}`. Committed baselines: `baseline-mock-report.md` (before the gateway audit) and `after-gateway-audit-report.md` (after T-33..T-41, with a before/after comparison).
 
 Ports (override with flags `--gw-port`, `--mock-fast-port`, `--mock-slow-port`): gateway 20190,
 mocks 9101 / 9102. The suite logs into the dashboard with a throwaway password over loopback
