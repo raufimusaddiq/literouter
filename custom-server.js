@@ -109,7 +109,6 @@ http.createServer = (...args) => {
     // this returned the request to the HTTP/1.1 parser as a bodyless POST.
     if (transferEncoding) {
       socket.end("HTTP/1.1 411 Length Required\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
-      socket.destroy();
       return true;
     }
     if (!Number.isSafeInteger(contentLength) || contentLength < 0) {
@@ -118,7 +117,6 @@ http.createServer = (...args) => {
     }
     if (contentLength > MAX_H2C_BODY_BYTES) {
       socket.end("HTTP/1.1 413 Payload Too Large\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
-      socket.destroy();
       return true;
     }
     delete req.headers.upgrade;
@@ -148,7 +146,7 @@ http.createServer = (...args) => {
       socket.on("data", function readBody(chunk) {
         if (received + chunk.length > MAX_H2C_BODY_BYTES) {
           socket.off("data", readBody);
-          socket.destroy();
+          socket.end("HTTP/1.1 413 Payload Too Large\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
           return;
         }
         chunks.push(chunk);
