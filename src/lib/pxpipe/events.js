@@ -14,7 +14,7 @@ let fileBytes = null;
 
 function ensureDir() {
   if (dirReady) return;
-  if (!fs.existsSync(PXPIPE_DIR)) fs.mkdirSync(PXPIPE_DIR, { recursive: true });
+  if (!fs.existsSync(/* turbopackIgnore: true */ PXPIPE_DIR)) fs.mkdirSync(/* turbopackIgnore: true */ PXPIPE_DIR, { recursive: true });
   dirReady = true;
 }
 
@@ -23,15 +23,15 @@ export function appendPxpipeEvent(event) {
   try {
     ensureDir();
     if (fileBytes === null) {
-      try { fileBytes = fs.statSync(EVENTS_FILE).size; } catch { fileBytes = 0; }
+      try { fileBytes = fs.statSync(/* turbopackIgnore: true */ EVENTS_FILE).size; } catch { fileBytes = 0; }
     }
     if (fileBytes > MAX_FILE_BYTES) {
-      try { fs.renameSync(EVENTS_FILE, ROTATED_FILE); } catch { /* raced */ }
+      try { fs.renameSync(/* turbopackIgnore: true */ EVENTS_FILE, ROTATED_FILE); } catch { /* raced */ }
       fileBytes = 0;
     }
     const line = JSON.stringify({ ts: Date.now(), ...event }) + "\n";
     fileBytes += Buffer.byteLength(line);
-    fs.appendFile(EVENTS_FILE, line, () => {});
+    fs.appendFile(/* turbopackIgnore: true */ EVENTS_FILE, line, () => {});
   } catch { /* ignore */ }
 }
 
@@ -39,8 +39,8 @@ export function readPxpipeEvents({ sinceMs = null, limit = null } = {}) {
   const events = [];
   for (const file of [ROTATED_FILE, EVENTS_FILE]) {
     try {
-      if (!fs.existsSync(file)) continue;
-      for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+      if (!fs.existsSync(/* turbopackIgnore: true */ file)) continue;
+      for (const line of fs.readFileSync(/* turbopackIgnore: true */ file, "utf8").split("\n")) {
         if (!line) continue;
         try {
           const ev = JSON.parse(line);

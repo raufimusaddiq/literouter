@@ -28,9 +28,9 @@ async function ensureNodeModules() {
 }
 
 function getDirectorySize(directory) {
-  return fs.readdirSync(directory, { withFileTypes: true }).reduce((total, entry) => {
+  return fs.readdirSync(/* turbopackIgnore: true */ directory, { withFileTypes: true }).reduce((total, entry) => {
     const entryPath = path.join(directory, entry.name);
-    return total + (entry.isDirectory() ? getDirectorySize(entryPath) : fs.statSync(entryPath).size);
+    return total + (entry.isDirectory() ? getDirectorySize(entryPath) : fs.statSync(/* turbopackIgnore: true */ entryPath).size);
   }, 0);
 }
 
@@ -39,15 +39,15 @@ function pruneLogSessions(force = false) {
   lastPruneAt = Date.now();
 
   try {
-    if (!fs.existsSync(LOGS_DIR)) {
+    if (!fs.existsSync(/* turbopackIgnore: true */ LOGS_DIR)) {
       sessionCount = 0;
       return;
     }
-    const sessions = fs.readdirSync(LOGS_DIR, { withFileTypes: true })
+    const sessions = fs.readdirSync(/* turbopackIgnore: true */ LOGS_DIR, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => {
-        const sessionPath = path.join(LOGS_DIR, entry.name);
-        const stats = fs.statSync(sessionPath);
+        const sessionPath = path.join(/* turbopackIgnore: true */ LOGS_DIR, entry.name);
+        const stats = fs.statSync(/* turbopackIgnore: true */ sessionPath);
         return { sessionPath, mtime: stats.mtimeMs, size: getDirectorySize(sessionPath) };
       })
       .sort((a, b) => a.mtime - b.mtime);
@@ -55,7 +55,7 @@ function pruneLogSessions(force = false) {
 
     while (sessions.length > LOG_MAX_SESSIONS || totalBytes > LOG_MAX_BYTES) {
       const oldest = sessions.shift();
-      fs.rmSync(oldest.sessionPath, { recursive: true, force: true });
+      fs.rmSync(/* turbopackIgnore: true */ oldest.sessionPath, { recursive: true, force: true });
       totalBytes -= oldest.size;
     }
     sessionCount = sessions.length;
@@ -83,8 +83,8 @@ async function createLogSession(sourceFormat, targetFormat, model) {
   if (!fs || !LOGS_DIR) return null;
   
   try {
-    if (!fs.existsSync(LOGS_DIR)) {
-      fs.mkdirSync(LOGS_DIR, { recursive: true });
+    if (!fs.existsSync(/* turbopackIgnore: true */ LOGS_DIR)) {
+      fs.mkdirSync(/* turbopackIgnore: true */ LOGS_DIR, { recursive: true });
     }
     
     const timestamp = formatTimestamp();
@@ -92,7 +92,7 @@ async function createLogSession(sourceFormat, targetFormat, model) {
     const folderName = `${sourceFormat}_${targetFormat}_${safeModel}_${timestamp}`;
     const sessionPath = path.join(LOGS_DIR, folderName);
     
-    fs.mkdirSync(sessionPath, { recursive: true });
+    fs.mkdirSync(/* turbopackIgnore: true */ sessionPath, { recursive: true });
     sessionCount += 1;
     // Session cap is enforced on the next write; the size cap waits for the interval.
     pruneLogSessions(sessionCount > LOG_MAX_SESSIONS);
@@ -110,7 +110,7 @@ function writeJsonFile(sessionPath, filename, data) {
   
   try {
     const filePath = path.join(sessionPath, filename);
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    fs.writeFileSync(/* turbopackIgnore: true */ filePath, JSON.stringify(data, null, 2));
   } catch (err) {
     console.log(`[LOG] Failed to write ${filename}:`, err.message);
   }
@@ -212,7 +212,7 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
       if (!fs || !sessionPath) return;
       try {
         const filePath = path.join(sessionPath, "5_res_provider.txt");
-        fs.appendFileSync(filePath, chunk);
+        fs.appendFileSync(/* turbopackIgnore: true */ filePath, chunk);
       } catch (err) {
         // Ignore append errors
       }
@@ -223,7 +223,7 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
       if (!fs || !sessionPath) return;
       try {
         const filePath = path.join(sessionPath, "6_res_openai.txt");
-        fs.appendFileSync(filePath, chunk);
+        fs.appendFileSync(/* turbopackIgnore: true */ filePath, chunk);
       } catch (err) {
         // Ignore append errors
       }
@@ -242,7 +242,7 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
       if (!fs || !sessionPath) return;
       try {
         const filePath = path.join(sessionPath, "7_res_client.txt");
-        fs.appendFileSync(filePath, chunk);
+        fs.appendFileSync(/* turbopackIgnore: true */ filePath, chunk);
       } catch (err) {
         // Ignore append errors
       }
