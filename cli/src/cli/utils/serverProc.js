@@ -9,21 +9,41 @@ function getPidFile() {
   return path.join(path.dirname(getRuntimeDir()), "server.pid");
 }
 
-function writeServerPid(pid) {
+// The record carries the port too, so ownership is checked against "the
+// listener on the port we recorded", not just a bare PID that the OS may have
+// recycled to an unrelated process after a reboot.
+function writeServerPid(pid, port) {
   try {
     const file = getPidFile();
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, String(pid));
+    fs.writeFileSync(file, JSON.stringify({ pid, port, startedAt: Date.now() }));
   } catch (e) {}
 }
 
+// Returns {pid, port} or null. Accepts the legacy bare-integer format.
 function readServerPid() {
   try {
-    const pid = parseInt(fs.readFileSync(getPidFile(), "utf8").trim(), 10);
-    return Number.isInteger(pid) && pid > 0 ? pid : null;
+    const raw = fs.readFileSync(getPidFile(), "utf8").trim();
+    if (/^\d+$/.test(raw)) {
+      const pid = parseInt(raw, 10);
+      return pid > 0 ? { pid, port: null } : null;
+    }
+    const rec = JSON.parse(raw);
+    const pid = parseInt(rec && rec.pid, 10);
+    if (!Number.isInteger(pid) || pid <= 0) return null;
+    const port = parseInt(rec.port, 10);
+    return { pid, port: Number.isInteger(port) ? port : null };
   } catch (e) {
     return null;
   }
+}
+
+// Is this PID still OUR server? Only if it is the process listening on the
+// port we recorded — a recycled PID that merely exists is not ours to kill.
+function isTrackedServerAlive(trackedPid, listenerPid) {
+  const tracked = parseInt(trackedPid, 10);
+  const listener = parseInt(listenerPid, 10);
+  return Number.isInteger(tracked) && tracked > 0 && tracked === listener;
 }
 
 function clearServerPid() {
@@ -66,6 +86,7 @@ module.exports = {
   writeServerPid,
   readServerPid,
   clearServerPid,
+  isTrackedServerAlive,
   parseNetstatListeners,
   findListenerPid,
   buildTrayArgs,

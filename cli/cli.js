@@ -69,6 +69,7 @@ const {
   writeServerPid,
   readServerPid,
   clearServerPid,
+  isTrackedServerAlive,
   findListenerPid,
   buildTrayArgs,
 } = require("./src/cli/utils/serverProc");
@@ -232,9 +233,14 @@ function getListenerPid(p) {
 async function claimPort() {
   // A hide-to-tray child is handed its predecessor's PID via env; otherwise
   // only the pidfile counts as ours.
-  const tracked = parseInt(process.env.NINEROUTER_REUSE_PID, 10) || readServerPid();
+  const record = readServerPid();
+  const tracked = parseInt(process.env.NINEROUTER_REUSE_PID, 10) || (record && record.pid);
+  const trackedPort = (record && record.port) || port;
   clearServerPid();
-  if (tracked && tracked !== process.pid) {
+  // Stale pidfile? After a reboot or crash the PID may now belong to an
+  // unrelated process. Confirm it is still the listener on the recorded port
+  // before killing; otherwise just drop the record.
+  if (tracked && tracked !== process.pid && isTrackedServerAlive(tracked, getListenerPid(trackedPort))) {
     killPid(tracked);
     // Wait for the socket to be released before scanning for a free port.
     const deadline = Date.now() + 2000;
@@ -437,7 +443,7 @@ function startServer(updatePromise) {
       });
     }
     // Record our own server so a later launch kills exactly this process.
-    if (child.pid) writeServerPid(child.pid);
+    if (child.pid) writeServerPid(child.pid, port);
     return child;
   }
 
