@@ -222,7 +222,10 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     try {
       const n = await prefetchRemoteImages(body, sourceFormat, targetFormat, { signal: clientRawRequest?.signal });
       if (n > 0) log?.debug?.("MODALITY", `prefetched ${n} remote image(s) for ${targetFormat}`);
-    } catch (e) { log?.warn?.("MODALITY", `image prefetch failed: ${e.message}`); }
+    } catch (e) {
+      if (e?.code === "IMAGE_LIMIT_EXCEEDED") return createErrorResult(HTTP_STATUS.BAD_REQUEST, e.message);
+      log?.warn?.("MODALITY", `image prefetch failed: ${e.message}`);
+    }
   }
 
   let translatedBody;
@@ -511,6 +514,7 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
       log?.errorLine?.(reqTag, "⏱", `TIMEOUT 504 · ${provider}/${model} · ${Date.now() - requestStartTime}ms · ${error.message}`);
       return createErrorResult(HTTP_STATUS.GATEWAY_TIMEOUT, `Upstream timeout: ${error.message}`);
     }
+    if (error.code === "IMAGE_LIMIT_EXCEEDED") return createErrorResult(HTTP_STATUS.BAD_REQUEST, error.message);
     const errMsg = formatProviderError(error, provider, model, HTTP_STATUS.BAD_GATEWAY);
     if (log?.errorLine) {
       log.errorLine(reqTag, "✗", `ERROR 502 · ${provider}/${model} · ${Date.now() - requestStartTime}ms\n    ${errMsg}${error.stack ? `\n    ${error.stack}` : ""}`);
