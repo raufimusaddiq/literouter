@@ -28,7 +28,10 @@ export default {
     forceStream: true,
   },
   models: [
+    { id: "gpt-6.2-astra", name: "GPT-6.2 Astra" },
+    { id: "gpt-6.2-sol", name: "GPT-6.2 Sol" },
     { id: "gpt-6.1-sol", name: "GPT-6.1 Sol" },
+    { id: "gpt-6.1-terra", name: "GPT-6.1 Terra" },
     { id: "gpt-6-sol", name: "GPT-6 Sol" },
     { id: "gpt-6-luna", name: "GPT-6 Luna" },
     { id: "gpt-6-astra", name: "GPT-6 Astra" },
