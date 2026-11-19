@@ -14,6 +14,7 @@
 // shape (thread envelope, LLM-token exchange, NDJSON status frames) doesn't
 // fit the generic transformRequest/buildUrl contract.
 
+import { SSE_HEADERS } from "../utils/sseConstants.js";
 import { BaseExecutor } from "./base.js";
 import { FORMATS } from "../translator/formats.js";
 import { initState } from "../translator/index.js";
@@ -211,10 +212,7 @@ function wrapZedCompletionStream(response, provider, model) {
   return new Response(transformed, {
     status: response.status,
     statusText: response.statusText,
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-    },
+    headers: { ...SSE_HEADERS },
   });
 }
 

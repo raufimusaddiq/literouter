@@ -19,6 +19,7 @@
  * Binary discovery: CLI_DEVIN_BIN env → PATH lookup → platform installer paths.
  */
 
+import { SSE_HEADERS } from "../utils/sseConstants.js";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
@@ -798,11 +799,7 @@ export class DevinCliExecutor extends BaseExecutor {
     return {
       response: new Response(sseStream, {
         status: 200,
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
+        headers: { ...SSE_HEADERS },
       }),
       url: "devin://acp/stdio",
       headers: {},

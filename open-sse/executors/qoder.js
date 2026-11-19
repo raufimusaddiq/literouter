@@ -28,7 +28,7 @@ import { createHash } from "crypto";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
-import { SSE_DONE } from "../utils/sseConstants.js";
+import { SSE_DONE, SSE_HEADERS } from "../utils/sseConstants.js";
 import { FETCH_CONNECT_TIMEOUT_MS, HTTP_STATUS } from "../config/runtimeConfig.js";
 import {
   QODER_CHAT_SIG_PATH,
@@ -589,10 +589,7 @@ async function wrapQoderSSE(response, model, log = null) {
   return new Response(stream, {
     status: response.status,
     statusText: response.statusText,
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-    },
+    headers: { ...SSE_HEADERS },
   });
 }
 

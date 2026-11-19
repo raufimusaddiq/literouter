@@ -1,4 +1,5 @@
 import { detectFormat } from "../services/provider.js";
+import { SSE_HEADERS_CORS } from "./sseConstants.js";
 import { translateResponse, initState } from "../translator/index.js";
 import { FORMATS } from "../translator/formats.js";
 import { SKIP_PATTERNS } from "../config/runtimeConfig.js";
@@ -214,12 +215,7 @@ function createStreamingResponse(sourceFormat, model, text) {
   return {
     success: true,
     response: new Response(translatedChunks.join(""), {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        "Access-Control-Allow-Origin": "*"
-      }
+      headers: { ...SSE_HEADERS_CORS }
     })
   };
 }

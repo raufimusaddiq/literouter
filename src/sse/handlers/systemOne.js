@@ -1,4 +1,5 @@
 import { getSettings, getProviderNodeById, getProviderNodes } from "@/lib/db/index.js";
+import { SSE_NO_COMPRESS_HEADERS } from "open-sse/utils/sseConstants.js";
 import {
   getProviderCredentials,
   markAccountUnavailable,
@@ -91,6 +92,9 @@ function copyHeaders(response) {
   response.headers.forEach((value, name) => {
     if (!excluded.has(name.toLowerCase())) headers[name.toLowerCase()] = value;
   });
+  if ((headers["content-type"] || "").includes("text/event-stream")) {
+    for (const [k, v] of Object.entries(SSE_NO_COMPRESS_HEADERS)) headers[k.toLowerCase()] = v;
+  }
   return headers;
 }
 
