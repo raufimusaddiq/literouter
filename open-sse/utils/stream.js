@@ -537,7 +537,9 @@ export function createSSEStream(options = {}) {
           //   data: [DONE]\n\n
           // Without it they can hang until timeout and trigger failover.
           // Providers flagged quirks.noDoneSentinel (Gemini family) reject this sentinel with 400 syntax errors.
-          const suppressDone = PROVIDERS[provider]?.quirks?.noDoneSentinel;
+          // Gemini clients end a stream by closing it; a [DONE] frame is not valid Gemini SSE.
+          const suppressDone = PROVIDERS[provider]?.quirks?.noDoneSentinel
+            || sourceFormat === FORMATS.GEMINI || sourceFormat === FORMATS.GEMINI_CLI;
           if (!streamDoneSent && !suppressDone) {
             const doneOutput = "data: [DONE]\n\n";
             reqLogger?.appendConvertedChunk?.(doneOutput);

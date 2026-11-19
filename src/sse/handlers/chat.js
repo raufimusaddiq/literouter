@@ -16,7 +16,7 @@ import { handleChatCore } from "open-sse/handlers/chatCore.js";
 import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
 import { getTransform as getPxpipeTransform } from "@/lib/pxpipe/loader.js";
 import { appendPxpipeEvent } from "@/lib/pxpipe/events.js";
-import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
+import { errorResponse, unavailableResponse, reshapeErrorResponse, resolveErrorFormat } from "open-sse/utils/error.js";
 import { upstreamResponseHeaders } from "open-sse/utils/upstreamHeaders.js";
 import { handleComboChat, handleFusionChat, detectRequiredCapabilities } from "open-sse/services/combo.js";
 import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActiveAdapterStrategy } from "open-sse/services/capacityAdapter.js";
@@ -36,6 +36,15 @@ import { PROVIDERS } from "open-sse/config/providers.js";
  * Format detection and translation handled by translator
  */
 export async function handleChat(request, clientRawRequest = null) {
+  const response = await handleChatInner(request, clientRawRequest);
+  // Every error path below builds OpenAI-shaped bodies; re-shape once here so
+  // /v1/messages clients get Anthropic errors and /v1beta clients get Gemini errors.
+  if (!response || response.ok || !request?.url) return response;
+  const format = resolveErrorFormat(new URL(request.url).pathname);
+  return reshapeErrorResponse(response, format);
+}
+
+async function handleChatInner(request, clientRawRequest = null) {
   let body;
   try {
     body = await request.json();

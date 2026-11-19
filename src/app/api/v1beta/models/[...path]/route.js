@@ -9,7 +9,11 @@ import {
 import { getSettings } from "@/lib/localDb";
 import { PROVIDER_MODELS } from "@/shared/constants/models";
 import { GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS } from "open-sse/config/runtimeConfig.js";
-import { initTranslators } from "open-sse/translator/index.js";
+import { initTranslators, translateResponse, initState } from "open-sse/translator/index.js";
+import { geminiToOpenAIRequest } from "open-sse/translator/request/gemini-to-openai.js";
+import { openaiCompletionToGemini } from "open-sse/translator/response/openai-to-gemini.js";
+import { FORMATS } from "open-sse/translator/formats.js";
+import { buildErrorBody } from "open-sse/utils/error.js";
 import { getKeyAccessContext, enforceKeyAccessResolved, extractClientApiKey } from "@/sse/services/keyAccess.js";
 
 let initialized = false;
@@ -88,10 +92,7 @@ export async function POST(request, { params }) {
     try {
       body = await request.json();
     } catch {
-      return Response.json(
-        { error: { message: "Invalid JSON body", code: 400 } },
-        { status: 400 }
-      );
+      return geminiErrorResponse(400, "Invalid JSON body");
     }
 
     if (isGeminiNativeTtsRequest(model, body)) {
@@ -126,11 +127,16 @@ export async function POST(request, { params }) {
     }
   } catch (error) {
     console.log("Error handling Gemini request:", error);
-    return Response.json(
-      { error: { message: error.message, code: 500 } },
-      { status: 500 }
-    );
+    return geminiErrorResponse(500, error.message);
   }
+}
+
+/** Gemini-shaped {error:{code,message,status}} JSON error with CORS. */
+function geminiErrorResponse(status, message) {
+  return Response.json(buildErrorBody(status, message, FORMATS.GEMINI), {
+    status,
+    headers: { "Access-Control-Allow-Origin": "*" },
+  });
 }
 
 function normalizeGeminiNativeModel(model) {
@@ -182,12 +188,12 @@ async function validateGeminiNativeClientKey(request) {
 
   const apiKey = extractClientApiKey(request);
   if (!apiKey) {
-    return Response.json({ error: { message: "Missing API key" } }, { status: 401 });
+    return geminiErrorResponse(401, "Missing API key");
   }
 
   const valid = await isValidApiKey(apiKey);
   if (!valid) {
-    return Response.json({ error: { message: "Invalid API key" } }, { status: 401 });
+    return geminiErrorResponse(401, "Invalid API key");
   }
 
   return null;
@@ -243,7 +249,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
 
   const modelId = normalizeGeminiNativeModel(model);
   if (!GEMINI_NATIVE_MODEL_PATTERN.test(modelId)) {
-    return Response.json({ error: { message: "Invalid model" } }, { status: 400 });
+    return geminiErrorResponse(400, "Invalid model");
   }
 
   // Per-key access control: this path calls Gemini directly (not via handleChat),
@@ -259,18 +265,15 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
     const credentials = await getProviderCredentials("gemini", excludeConnectionIds, modelId);
     if (!credentials || credentials.allRateLimited) {
       console.log(`[GEMINI_NATIVE] exhausted model=${modelId} status=${lastStatus || Number(credentials?.lastErrorCode) || 503} error=${lastError || credentials?.lastError || "No active credentials for provider: gemini"}`);
-      return Response.json(
-        { error: { message: lastError || credentials?.lastError || "No active credentials for provider: gemini" } },
-        { status: lastStatus || Number(credentials?.lastErrorCode) || 503 }
+      return geminiErrorResponse(
+        lastStatus || Number(credentials?.lastErrorCode) || 503,
+        lastError || credentials?.lastError || "No active credentials for provider: gemini"
       );
     }
 
     const authHeaders = buildGeminiNativeAuthHeaders(credentials);
     if (!authHeaders) {
-      return Response.json(
-        { error: { message: "No Gemini API key configured" } },
-        { status: 404 }
-      );
+      return geminiErrorResponse(404, "No Gemini API key configured");
     }
 
     const safeConnection = getSafeGeminiConnectionLabel(credentials);
@@ -286,7 +289,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
 
     if (request.signal?.aborted) {
       console.log(`[GEMINI_NATIVE] client aborted model=${modelId} ms=0 conn=${safeConnection}`);
-      return Response.json({ error: { message: "Client closed request" } }, { status: 499 });
+      return geminiErrorResponse(499, "Client closed request");
     }
 
     request.signal?.addEventListener("abort", abortAttempt, { once: true });
@@ -307,7 +310,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
       const durationMs = Date.now() - startedAt;
       if (request.signal?.aborted && !timedOut) {
         console.log(`[GEMINI_NATIVE] client aborted model=${modelId} ms=${durationMs} conn=${safeConnection}`);
-        return Response.json({ error: { message: "Client closed request" } }, { status: 499 });
+        return geminiErrorResponse(499, "Client closed request");
       }
 
       const status = isGeminiNativeTimeoutError(error, timedOut) ? 504 : 502;
@@ -330,7 +333,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
         continue;
       }
 
-      return Response.json({ error: { message: errorText } }, { status });
+      return geminiErrorResponse(status, errorText);
     } finally {
       clearTimeout(timeout);
       request.signal?.removeEventListener("abort", abortAttempt);
@@ -372,51 +375,32 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
 }
 
 /**
- * Convert Gemini request format to OpenAI/internal format.
+ * Convert a Gemini generateContent request into the internal OpenAI Chat shape
+ * by reusing the registered gemini→openai request translator, so tools,
+ * function call/response parts, inlineData images, stopSequences, response
+ * schema and toolConfig all survive.
  *
  * @param {object} geminiBody  - parsed Gemini request body
  * @param {string} model       - resolved model string (e.g. "gemini-pro-high")
  * @param {boolean} stream     - whether to stream (from URL action)
  */
 function convertGeminiToInternal(geminiBody, model, stream) {
-  const messages = [];
-
-  // Convert system instruction
-  if (geminiBody.systemInstruction) {
-    const systemText = geminiBody.systemInstruction.parts
-      ?.map(p => p.text)
-      .join("\n") || "";
-    if (systemText) {
-      messages.push({ role: "system", content: systemText });
-    }
-  }
-
-  // Convert contents to messages
-  if (geminiBody.contents) {
-    for (const content of geminiBody.contents) {
-      const role = content.role === "model" ? "assistant" : "user";
-      const text = content.parts?.map(p => p.text).join("\n") || "";
-      messages.push({ role, content: text });
-    }
-  }
-
-  return {
-    model,
-    messages,
-    stream,
-    max_tokens: geminiBody.generationConfig?.maxOutputTokens,
-    temperature: geminiBody.generationConfig?.temperature,
-    top_p: geminiBody.generationConfig?.topP,
-  };
+  return geminiToOpenAIRequest(model, geminiBody, stream);
 }
 
-/** Map OpenAI finish_reason => Gemini finishReason */
-const FINISH_REASON_MAP = {
-  stop: "STOP",
-  length: "MAX_TOKENS",
-  tool_calls: "STOP",
-  content_filter: "SAFETY",
+// HTTP status for an in-stream OpenAI error frame (frames carry type/code, not a status).
+const STREAM_ERROR_STATUS_BY_TYPE = {
+  invalid_request_error: 400,
+  authentication_error: 401,
+  permission_error: 403,
+  billing_error: 402,
+  rate_limit_error: 429,
 };
+
+function streamErrorStatus(error) {
+  if (Number.isInteger(error?.code) && error.code >= 400 && error.code <= 599) return error.code;
+  return STREAM_ERROR_STATUS_BY_TYPE[error?.type] || 500;
+}
 
 /**
  * Transform an OpenAI SSE stream into a Gemini SSE stream.
@@ -428,8 +412,11 @@ const FINISH_REASON_MAP = {
  *
  * Gemini SSE format (what @google/genai SDK expects):
  *   data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Hi"}]},"index":0}]}
- *   data: {"candidates":[{"content":{"role":"model","parts":[{"text":""}]},"finishReason":"STOP","index":0}],"usageMetadata":{...}}
+ *   data: {"candidates":[{"content":{"role":"model","parts":[{"functionCall":{...}}]},"finishReason":"STOP","index":0}],"usageMetadata":{...}}
  *   (stream closes — no [DONE])
+ *
+ * Chunk boundaries are arbitrary, so bytes are buffered until a full line is
+ * available; a trailing partial line is carried over to the next chunk.
  */
 function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
   if (!upstreamResponse.ok || !upstreamResponse.body) {
@@ -438,79 +425,55 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
 
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
+  const state = initState(FORMATS.GEMINI);
+  state.model = model;
+  let buffer = "";
+
+  const emit = (controller, payload) => {
+    controller.enqueue(encoder.encode("data: " + JSON.stringify(payload) + "\r\n\r\n"));
+  };
+
+  const processLine = (line, controller) => {
+    const trimmed = line.replace(/\r$/, "");
+    if (!trimmed.startsWith("data:")) return;
+    const data = trimmed.slice(5).trim();
+
+    // Drop empty lines and the OpenAI [DONE] sentinel.
+    // Gemini SSE ends by stream close, no sentinel needed.
+    if (!data || data === "[DONE]") return;
+
+    let parsed;
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      return;
+    }
+
+    // Mid-stream error frame from the pipeline: re-emit in Gemini's error shape.
+    if (parsed.error) {
+      const status = streamErrorStatus(parsed.error);
+      emit(controller, buildErrorBody(status, parsed.error.message, FORMATS.GEMINI));
+      return;
+    }
+
+    for (const out of translateResponse(FORMATS.OPENAI, FORMATS.GEMINI, parsed, state)) {
+      if (!out.modelVersion) out.modelVersion = model;
+      emit(controller, out);
+    }
+  };
 
   const transformStream = new TransformStream({
     transform(chunk, controller) {
-      const text = decoder.decode(chunk, { stream: true });
-      const lines = text.split("\n");
-
-      for (const line of lines) {
-        if (!line.startsWith("data:")) continue;
-
-        const data = line.slice(5).trim();
-
-        // Drop empty lines and the OpenAI [DONE] sentinel.
-        // Gemini SSE ends by stream close, no sentinel needed.
-        if (!data || data === "[DONE]") continue;
-
-        let parsed;
-        try {
-          parsed = JSON.parse(data);
-        } catch {
-          continue;
-        }
-
-        const choice = parsed.choices?.[0];
-        if (!choice) continue;
-
-        const delta = choice.delta || {};
-
-        const parts = [];
-        if (delta.reasoning_content) {
-          parts.push({ text: delta.reasoning_content, thought: true });
-        }
-        if (delta.content) {
-          parts.push({ text: delta.content });
-        }
-
-        // Skip pure role-only deltas with no content and no finish signal
-        if (parts.length === 0 && !choice.finish_reason) continue;
-
-        const candidate = {
-          content: {
-            role: "model",
-            parts: parts.length > 0 ? parts : [{ text: "" }],
-          },
-          index: 0,
-        };
-
-        if (choice.finish_reason) {
-          candidate.finishReason = FINISH_REASON_MAP[choice.finish_reason] || "STOP";
-        }
-
-        const geminiChunk = { candidates: [candidate] };
-
-        // Attach usage + modelVersion on the final chunk (when finish_reason is set)
-        if (choice.finish_reason && parsed.usage) {
-          geminiChunk.usageMetadata = {
-            promptTokenCount: parsed.usage.prompt_tokens || 0,
-            candidatesTokenCount: parsed.usage.completion_tokens || 0,
-            totalTokenCount: parsed.usage.total_tokens || 0,
-          };
-          const reasoningTokens =
-            parsed.usage.completion_tokens_details?.reasoning_tokens;
-          if (reasoningTokens) {
-            geminiChunk.usageMetadata.thoughtsTokenCount = reasoningTokens;
-          }
-          geminiChunk.modelVersion = parsed.model || model;
-        }
-
-        controller.enqueue(
-          encoder.encode("data: " + JSON.stringify(geminiChunk) + "\r\n\r\n")
-        );
-      }
+      buffer += decoder.decode(chunk, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+      for (const line of lines) processLine(line, controller);
     },
-    // No flush() needed: Gemini SSE ends by stream close, not a sentinel
+    flush(controller) {
+      buffer += decoder.decode();
+      if (buffer) processLine(buffer, controller);
+      buffer = "";
+    },
   });
 
   return new Response(upstreamResponse.body.pipeThrough(transformStream), {
@@ -533,56 +496,18 @@ async function convertOpenAIResponseToGemini(response, model) {
     return response;
   }
 
-  if (body.candidates) return Response.json(body, {
-    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-  });
+  const headers = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
 
-  if (body.error) return Response.json(body, {
-    status: response.status,
-    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-  });
+  if (body.candidates) return Response.json(body, { headers });
 
-  const choice = body.choices?.[0];
-  if (!choice) {
-    return Response.json(body, {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-    });
+  if (body.error) {
+    return Response.json(
+      buildErrorBody(response.status, body.error.message, FORMATS.GEMINI),
+      { status: response.status, headers }
+    );
   }
 
-  const { message, finish_reason } = choice;
+  if (!body.choices?.length) return Response.json(body, { headers });
 
-  const parts = [];
-  if (message.reasoning_content) {
-    parts.push({ text: message.reasoning_content, thought: true });
-  }
-  parts.push({ text: message.content || "" });
-
-  const finishReason = FINISH_REASON_MAP[finish_reason] || "STOP";
-
-  const geminiResponse = {
-    candidates: [
-      {
-        content: { role: "model", parts },
-        finishReason,
-        index: 0,
-      },
-    ],
-    modelVersion: body.model || model,
-  };
-
-  if (body.usage) {
-    geminiResponse.usageMetadata = {
-      promptTokenCount: body.usage.prompt_tokens || 0,
-      candidatesTokenCount: body.usage.completion_tokens || 0,
-      totalTokenCount: body.usage.total_tokens || 0,
-    };
-    const reasoningTokens = body.usage.completion_tokens_details?.reasoning_tokens;
-    if (reasoningTokens) {
-      geminiResponse.usageMetadata.thoughtsTokenCount = reasoningTokens;
-    }
-  }
-
-  return Response.json(geminiResponse, {
-    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-  });
+  return Response.json(openaiCompletionToGemini(body, model), { headers });
 }

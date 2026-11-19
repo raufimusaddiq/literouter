@@ -21,6 +21,58 @@ import {
 import { deriveSessionId, toNumericSessionId } from "../../utils/sessionManager.js";
 import { ROLE, GEMINI_ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
 import { isGemini4Model } from "../../providers/capabilities.js";
+import { resolveMaxTokens, normalizeStopSequences, STOP_SEQUENCE_LIMITS } from "../concerns/requestParams.js";
+
+// OpenAI tool_choice -> Gemini toolConfig.functionCallingConfig.
+// auto -> AUTO, none -> NONE, required -> ANY, named function -> ANY + allowedFunctionNames.
+const GEMINI_FUNCTION_CALLING_MODE = { AUTO: "AUTO", NONE: "NONE", ANY: "ANY" };
+
+export function openAIToolChoiceToGeminiConfig(choice) {
+  if (!choice) return undefined;
+  if (typeof choice === "string") {
+    if (choice === "none") return { functionCallingConfig: { mode: GEMINI_FUNCTION_CALLING_MODE.NONE } };
+    if (choice === "required") return { functionCallingConfig: { mode: GEMINI_FUNCTION_CALLING_MODE.ANY } };
+    if (choice === "auto") return { functionCallingConfig: { mode: GEMINI_FUNCTION_CALLING_MODE.AUTO } };
+    return undefined;
+  }
+  const name = choice.function?.name ?? (choice.type === "tool" ? choice.name : undefined);
+  if (name) {
+    return {
+      functionCallingConfig: {
+        mode: GEMINI_FUNCTION_CALLING_MODE.ANY,
+        allowedFunctionNames: [sanitizeGeminiFunctionName(name)]
+      }
+    };
+  }
+  // Claude-native tool_choice shapes (hybrid requests)
+  if (choice.type === "any") return { functionCallingConfig: { mode: GEMINI_FUNCTION_CALLING_MODE.ANY } };
+  if (choice.type === "none") return { functionCallingConfig: { mode: GEMINI_FUNCTION_CALLING_MODE.NONE } };
+  if (choice.type === "auto") return { functionCallingConfig: { mode: GEMINI_FUNCTION_CALLING_MODE.AUTO } };
+  return undefined;
+}
+
+// Cloud Code envelopes (gemini-cli / antigravity) default to VALIDATED function
+// calling. A client's plain "auto" carries no extra intent, so keep the default
+// there; none / required / named-function are explicit and are honoured.
+function explicitToolConfig(toolConfig) {
+  return toolConfig?.functionCallingConfig?.mode === GEMINI_FUNCTION_CALLING_MODE.AUTO ? undefined : toolConfig;
+}
+
+// OpenAI response_format -> Gemini generationConfig.responseMimeType / responseSchema
+const JSON_MIME_TYPE = "application/json";
+
+function applyResponseFormat(generationConfig, responseFormat) {
+  if (!responseFormat) return;
+  if (responseFormat.type === "json_object") {
+    generationConfig.responseMimeType = JSON_MIME_TYPE;
+  } else if (responseFormat.type === "json_schema") {
+    generationConfig.responseMimeType = JSON_MIME_TYPE;
+    const schema = responseFormat.json_schema?.schema;
+    if (schema && typeof schema === "object") {
+      generationConfig.responseSchema = cleanJSONSchemaForAntigravity(structuredClone(schema));
+    }
+  }
+}
 
 // Sanitize function names for Gemini API.
 // Gemini requires: starts with [a-zA-Z_], followed by [a-zA-Z0-9_.:\-], max 64 chars.
@@ -93,9 +145,16 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
   if (allowSampling && body.top_k !== undefined) {
     result.generationConfig.topK = body.top_k;
   }
-  if (body.max_tokens !== undefined) {
-    result.generationConfig.maxOutputTokens = body.max_tokens;
+  const maxTokens = resolveMaxTokens(body);
+  if (maxTokens !== undefined) {
+    result.generationConfig.maxOutputTokens = maxTokens;
   }
+  // OpenAI `stop` -> Gemini stopSequences (max 5)
+  const stopSequences = normalizeStopSequences(body.stop ?? body.stop_sequences, STOP_SEQUENCE_LIMITS.gemini, "Gemini");
+  if (stopSequences) {
+    result.generationConfig.stopSequences = stopSequences;
+  }
+  applyResponseFormat(result.generationConfig, body.response_format);
 
   // Build tool_call_id -> name map
   const tcID2Name = {};
@@ -303,6 +362,8 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
 
     if (functionDeclarations.length > 0) {
       result.tools = [{ functionDeclarations }];
+      const toolConfig = openAIToolChoiceToGeminiConfig(body.tool_choice);
+      if (toolConfig) result.toolConfig = toolConfig;
     }
   }
 
@@ -366,7 +427,12 @@ function wrapInCloudCodeEnvelope(model, geminiCLI, credentials = null, isAntigra
     envelope.request.safetySettings = geminiCLI.safetySettings;
   }
 
-  if (geminiCLI.tools?.length > 0) {
+  // An explicit client tool_choice wins; VALIDATED stays only as the default
+  // when the client expressed no preference.
+  const explicitConfig = explicitToolConfig(geminiCLI.toolConfig);
+  if (explicitConfig) {
+    envelope.request.toolConfig = explicitConfig;
+  } else if (geminiCLI.tools?.length > 0) {
     envelope.request.toolConfig = {
       functionCallingConfig: { mode: "VALIDATED" }
     };
@@ -395,6 +461,11 @@ function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = nu
       }
     }
   };
+
+  if (claudeRequest.top_p !== undefined) envelope.request.generationConfig.topP = claudeRequest.top_p;
+  if (Array.isArray(claudeRequest.stop_sequences) && claudeRequest.stop_sequences.length > 0) {
+    envelope.request.generationConfig.stopSequences = normalizeStopSequences(claudeRequest.stop_sequences, STOP_SEQUENCE_LIMITS.gemini, "Gemini");
+  }
 
   // Build tool_use id -> name map so functionResponse can use the correct name
   const toolUseIdToName = {};
@@ -482,7 +553,7 @@ function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = nu
     }
     if (functionDeclarations.length > 0) {
       envelope.request.tools = [{ functionDeclarations }];
-      envelope.request.toolConfig = {
+      envelope.request.toolConfig = explicitToolConfig(openAIToolChoiceToGeminiConfig(claudeRequest.tool_choice)) || {
         functionCallingConfig: { mode: "VALIDATED" }
       };
     }

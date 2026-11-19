@@ -28,6 +28,9 @@ import {
   getCapabilitiesForModel,
 } from "open-sse/providers/capabilities.js";
 import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
+import { toAnthropicModelList } from "open-sse/utils/anthropicModels.js";
+import { buildErrorBody, resolveErrorFormat } from "open-sse/utils/error.js";
+import { FORMATS } from "open-sse/translator/formats.js";
 
 // Combo seats use UI aliases; the model registry also has transport aliases.
 // Capability overrides and catalog limits are keyed by provider id.
@@ -683,14 +686,24 @@ export async function GET(request) {
       await getKeyAccessContext(request),
       await buildModelsList(kindFilter, { skipDynamicFetch })
     );
+    // Anthropic SDKs send anthropic-version; give them the Anthropic list shape.
+    if (request.headers.get("anthropic-version")) {
+      const params = request.nextUrl?.searchParams;
+      return Response.json(
+        toAnthropicModelList(data, {
+          limit: params?.get("limit"),
+          afterId: params?.get("after_id"),
+          beforeId: params?.get("before_id"),
+        }),
+        { headers: { "Access-Control-Allow-Origin": "*" } }
+      );
+    }
     return Response.json({ object: "list", data }, {
       headers: { "Access-Control-Allow-Origin": "*" },
     });
   } catch (error) {
     console.log("Error fetching models:", error);
-    return Response.json(
-      { error: { message: error.message, type: "server_error" } },
-      { status: 500 }
-    );
+    const format = request.headers.get("anthropic-version") ? FORMATS.CLAUDE : resolveErrorFormat(null);
+    return Response.json(buildErrorBody(500, error.message, format), { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
 import { parseDataUri } from "../concerns/image.js";
 import { safeParseJSON } from "../concerns/json.js";
+import { resolveMaxTokens, normalizeStopSequences } from "../concerns/requestParams.js";
 import { ROLE, OPENAI_BLOCK } from "../schema/index.js";
 
 /**
@@ -32,9 +33,15 @@ export function openaiToOllamaRequest(model, body, stream) {
   }
 
   // Max tokens (Ollama uses num_predict)
-  if (body.max_tokens !== undefined) {
+  if (resolveMaxTokens(body) !== undefined) {
     result.options = result.options || {};
-    result.options.num_predict = body.max_tokens;
+    result.options.num_predict = resolveMaxTokens(body);
+  }
+
+  const stop = normalizeStopSequences(body.stop, undefined, "Ollama");
+  if (stop) {
+    result.options = result.options || {};
+    result.options.stop = stop;
   }
 
   // Top_p

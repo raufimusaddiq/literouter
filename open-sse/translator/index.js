@@ -11,6 +11,7 @@ import { captureSessionId } from "../utils/sessionManager.js";
 import { ensureStreamToolCallIds } from "../utils/streamHelpers.js";
 import { PROVIDERS } from "../providers/index.js";
 import { ROLE, GEMINI_ROLE } from "./schema/roles.js";
+import { assertTargetSupportsParams } from "./concerns/requestParams.js";
 
 // Registry for translators. Lazy-init guards against circular-import order:
 // translator modules call register() (side-effect) before this module's body runs.
@@ -65,6 +66,11 @@ function detectClientLastRole(body) {
 // Translate request: source -> openai -> target
 export function translateRequest(sourceFormat, targetFormat, model, body, stream = true, credentials = null, provider = null, reqLogger = null, stripList = [], connectionId = null, clientTool = null) {
   let result = body;
+  // Only OpenAI Chat targets can honour n>1 / logprobs; reject (400) rather than
+  // silently returning a single choice. Throws RequestParamError.
+  if (targetFormat !== FORMATS.OPENAI) {
+    assertTargetSupportsParams(body, provider || targetFormat);
+  }
   // Role the client actually ended on, before any translator drops an emptied turn.
   const clientLastRole = detectClientLastRole(body);
 
@@ -336,6 +342,7 @@ import "./response/claude-to-openai.js";
 import "./response/openai-to-claude.js";
 import "./response/gemini-to-openai.js";
 import "./response/openai-to-antigravity.js";
+import "./response/openai-to-gemini.js";
 import "./response/openai-responses.js";
 import "./response/kiro-to-openai.js";
 import "./response/cursor-to-openai.js";
