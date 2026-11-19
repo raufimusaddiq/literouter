@@ -71,3 +71,18 @@ describe("thought signature shutdown drain", () => {
     expect(after.map((r) => r.key)).toContain("call-1");
   });
 });
+
+describe("allow-set cache vs provider node edits", () => {
+  it("a node prefix change is reflected immediately in allow-sets", async () => {
+    const db = await import("@/lib/db/index.js");
+    await db.initDb();
+    const { createProviderNode, updateProviderNode } = await import("@/lib/db/repos/nodesRepo.js");
+    const { enforceKeyAccess } = await import("@/sse/services/keyAccess.js");
+    const node = await createProviderNode({ type: "openai-compatible", name: "N", prefix: "mynode", apiType: "chat", baseUrl: "http://example.invalid/v1" });
+    const mk = () => ({ keyId: "k2", keyName: "k2", allow: ["mynode/gpt-4"], _sets: null });
+    expect(await enforceKeyAccess(mk(), "mynode/gpt-4")).toBeNull();
+    await updateProviderNode(node.id, { prefix: "other" });
+    // "other/gpt-4" now resolves to the node, but the allow entry "mynode/gpt-4" no longer does.
+    expect(await enforceKeyAccess(mk(), "other/gpt-4")).not.toBeNull();
+  });
+});
