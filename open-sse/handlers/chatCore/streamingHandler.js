@@ -139,12 +139,8 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
   const stallTimeoutMs = resolveStallTimeoutMs(provider, model);
   const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal, stallTimeoutMs, {
     identity: { requestId: streamDetailId, provider, model, streamKind: `${sourceFormat}->${targetFormat}` },
-<<<<<<< HEAD
-    onAbort: onStreamAbort,
-    onCancel: () => transformStream.finalizeOnCancel?.(),
-=======
     onAbort: onStreamAbortWrapped,
->>>>>>> origin/main
+    onCancel: () => transformStream.finalizeOnCancel?.(),
   });
 
   // No placeholder row: each streamed request writes exactly once, when it ends
