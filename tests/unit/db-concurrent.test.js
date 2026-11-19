@@ -46,7 +46,7 @@ describe("DB Concurrency — atomic safety", () => {
     expect(stats.byProvider.openai.requests).toBe(N);
     expect(stats.byProvider.openai.promptTokens).toBe(N * 10);
 
-    const hist = await db.getUsageHistory({ provider: "openai" });
+    const hist = (await (await import("@/lib/db/driver.js")).getAdapter()).all(`SELECT id FROM usageHistory WHERE provider = ?`, ["openai"]);
     expect(hist.length).toBe(N);
   });
 

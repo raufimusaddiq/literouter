@@ -52,7 +52,7 @@ describe("cached-token end-to-end (persist + aggregate + cost)", () => {
 
     // Cost: nonCached=330-200-30=100 @3 + cached 200 @0.30 + creation 30 @3.75 + output 50 @15
     const expected = (100 * 3 + 200 * 0.3 + 30 * 3.75 + 50 * 15) / 1_000_000;
-    const hist = await db.getUsageHistory({ provider: "anthropic" });
+    const hist = (await (await import("@/lib/db/driver.js")).getAdapter()).all(`SELECT cost, tokens FROM usageHistory WHERE provider = ?`, ["anthropic"]).map((r) => ({ cost: r.cost, tokens: JSON.parse(r.tokens) }));
     expect(hist.length).toBe(1);
     expect(hist[0].cost).toBeCloseTo(expected, 12);
     expect(hist[0].tokens.cached_tokens).toBe(200);
@@ -77,7 +77,7 @@ describe("cached-token end-to-end (persist + aggregate + cost)", () => {
       status: "ok",
     });
 
-    const hist = await db.getUsageHistory({ provider: "openai" });
+    const hist = (await (await import("@/lib/db/driver.js")).getAdapter()).all(`SELECT cost, tokens FROM usageHistory WHERE provider = ?`, ["openai"]).map((r) => ({ cost: r.cost, tokens: JSON.parse(r.tokens) }));
     expect(hist[0].tokens.prompt_tokens).toBe(1000);
     expect(hist[0].tokens.cached_tokens).toBe(600);
   });

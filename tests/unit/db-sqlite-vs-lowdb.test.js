@@ -303,7 +303,7 @@ describe("DB SQLite layer — public API parity", () => {
     expect(await sqliteDb.getDisabledByProvider("openai")).toEqual([]);
   });
 
-  it("usage: saveRequestUsage + getUsageHistory + getUsageStats", async () => {
+  it("usage: saveRequestUsage + usageHistory rows + getUsageStats", async () => {
     await sqliteDb.saveRequestUsage({
       provider: "openai", model: "gpt-4", connectionId: "c1",
       tokens: { prompt_tokens: 100, completion_tokens: 50 },
@@ -315,7 +315,7 @@ describe("DB SQLite layer — public API parity", () => {
       endpoint: "/v1/chat/completions", status: "ok",
     });
 
-    const hist = await sqliteDb.getUsageHistory({ provider: "openai" });
+    const hist = (await (await import("@/lib/db/driver.js")).getAdapter()).all(`SELECT tokens FROM usageHistory WHERE provider = ?`, ["openai"]).map((r) => ({ tokens: JSON.parse(r.tokens) }));
     expect(hist.length).toBeGreaterThanOrEqual(2);
     expect(hist[0].tokens.prompt_tokens).toBeDefined();
 

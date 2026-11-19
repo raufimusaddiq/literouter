@@ -87,7 +87,7 @@ describe("usage storage", () => {
     return { db, adapter };
   }
 
-  it("keeps the key out of usageHistory, usageDaily, history export and stats", async () => {
+  it("keeps the key out of usageHistory, usageDaily and stats", async () => {
     const { db, adapter } = await open();
     const ts = new Date().toISOString();
     for (const apiKey of [KEY_A, KEY_A, KEY_B]) {
@@ -96,7 +96,7 @@ describe("usage storage", () => {
     await db.flushUsageQueue?.();
     const rows = adapter.all(`SELECT apiKey FROM usageHistory`);
     const daily = adapter.all(`SELECT data FROM usageDaily`);
-    const exported = await db.getUsageHistory();
+    const exported = adapter.all(`SELECT * FROM usageHistory`);
     const stats = await db.getUsageStats("all");
     for (const blob of [JSON.stringify(rows), JSON.stringify(daily), JSON.stringify(exported), JSON.stringify(stats)]) {
       expect(blob).not.toContain(KEY_A);

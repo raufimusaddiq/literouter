@@ -20,23 +20,42 @@ export async function createSqlJsAdapter(filePath) {
 
   let dirty = false;
   let saveTimer = null;
+  let firstDirtyAt = 0;
   const SAVE_DEBOUNCE_MS = 100;
+  // Under steady writes the debounce alone would postpone the save forever.
+  const SAVE_MAX_WAIT_MS = Number(process.env.SQLJS_SAVE_MAX_WAIT_MS) > 0
+    ? Number(process.env.SQLJS_SAVE_MAX_WAIT_MS)
+    : 5000;
 
+  // Atomic: write a sibling tmp file then rename over the target.
   function persist() {
     const data = db.export();
-    fs.writeFileSync(filePath, Buffer.from(data));
+    const tmp = `${filePath}.${process.pid}.tmp`;
+    try {
+      fs.writeFileSync(tmp, Buffer.from(data));
+      fs.renameSync(tmp, filePath);
+    } catch (e) {
+      try { fs.rmSync(tmp, { force: true }); } catch {}
+      throw e;
+    }
     dirty = false;
+    firstDirtyAt = 0;
+  }
+
+  function saveNow() {
+    saveTimer = null;
+    if (dirty) {
+      try { persist(); } catch (e) { console.error("[sqljs] save failed:", e); }
+    }
   }
 
   function scheduleSave() {
+    const now = Date.now();
+    if (!dirty || !firstDirtyAt) firstDirtyAt = now;
     dirty = true;
     if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      saveTimer = null;
-      if (dirty) {
-        try { persist(); } catch (e) { console.error("[sqljs] save failed:", e); }
-      }
-    }, SAVE_DEBOUNCE_MS);
+    const untilMax = Math.max(0, firstDirtyAt + SAVE_MAX_WAIT_MS - now);
+    saveTimer = setTimeout(saveNow, Math.min(SAVE_DEBOUNCE_MS, untilMax));
   }
 
   function paramsObj(params) {
