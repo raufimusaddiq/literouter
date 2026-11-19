@@ -183,6 +183,10 @@ async function getDispatcher(proxyUrl) {
 }
 
 export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
+  // A caller-supplied dispatcher (e.g. the SSRF-pinned image fetch) must win:
+  // overriding it would drop the DNS pin and re-open rebinding. Bypass proxy/relay.
+  if (options?.dispatcher) return originalFetch(url, options);
+
   const targetUrl = typeof url === "string" ? url : url.toString();
 
   // Vercel relay: forward request via relay headers

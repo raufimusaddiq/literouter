@@ -1,3 +1,4 @@
+import { redactUrlSecrets } from "./redactUrl.js";
 import { redactClientHeaders, redactUpstreamHeaders } from "./keyFingerprint.js";
 
 // Check if running in Node.js environment (has fs module)
@@ -189,7 +190,7 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
     logTargetRequest(url, headers, body) {
       writeJsonFile(sessionPath, "4_req_target.json", {
         timestamp: new Date().toISOString(),
-        url,
+        url: redactUrlSecrets(url),
         headers: redactUpstreamHeaders(headers),
         body
       });

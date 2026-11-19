@@ -23,7 +23,8 @@ describe("Vertex API-key locations", () => {
     }));
     expect(url.hostname).toBe("aiplatform.googleapis.com");
     expect(url.pathname).toBe(`/v1/projects/test-project/locations/global/publishers/google/models/gemini-4-argon:${stream ? "streamGenerateContent" : "generateContent"}`);
-    expect(url.searchParams.get("key")).toBe("test-key");
+    expect(url.searchParams.has("key")).toBe(false);
+    expect(executor.buildHeaders({ apiKey: "test-key" }, stream)["x-goog-api-key"]).toBe("test-key");
     expect(url.searchParams.get("alt")).toBe(stream ? "sse" : null);
   });
 
@@ -43,7 +44,7 @@ describe("Vertex API-key locations", () => {
 
   it("preserves the projectless endpoint for existing API-key connections", () => {
     expect(new VertexExecutor().buildUrl("gemini-2.5-flash", false, 0, { apiKey: "test-key" }))
-      .toBe("https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=test-key");
+      .toBe("https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent");
   });
 
   it("preserves OAuth regional routing and bearer authentication", () => {
@@ -58,6 +59,6 @@ describe("Vertex API-key locations", () => {
   it("preserves the partner endpoint", () => {
     expect(new VertexExecutor("vertex-partner").buildUrl("partner-model", false, 0, {
       apiKey: "test-key", providerSpecificData: { projectId: "test-project", location: "eu" },
-    })).toBe("https://aiplatform.googleapis.com/v1/projects/test-project/locations/global/endpoints/openapi/chat/completions?key=test-key");
+    })).toBe("https://aiplatform.googleapis.com/v1/projects/test-project/locations/global/endpoints/openapi/chat/completions");
   });
 });
