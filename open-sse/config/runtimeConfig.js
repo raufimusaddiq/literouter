@@ -57,7 +57,12 @@ export const STREAM_FIRST_CHUNK_TIMEOUT_MS = envMs("STREAM_FIRST_CHUNK_TIMEOUT_M
 export const PENDING_COMPLETION_FLUSH_MS = envMs("PENDING_COMPLETION_FLUSH_MS", 3000);
 
 // Fetch connect timeout: abort if upstream doesn't return response headers within this duration
+// Applies to streaming requests only; non-stream upstreams send headers once the whole
+// completion is done, so they get NON_STREAM_TOTAL_TIMEOUT_MS instead.
 export const FETCH_CONNECT_TIMEOUT_MS = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1000);
+
+// Total budget for a non-stream upstream call (headers + body). Env: NON_STREAM_TOTAL_TIMEOUT_MS.
+export const NON_STREAM_TOTAL_TIMEOUT_MS = envMs("NON_STREAM_TOTAL_TIMEOUT_MS", 10 * 60 * 1000);
 
 // Keep-alive socket TTL. Cap it below upstream/edge idle windows (Cloudflare, AWS Global
 // Accelerator / NVIDIA NIM) that drop idle sockets without a TCP RST. keepAliveMaxTimeout is
@@ -132,6 +137,8 @@ export const RETRY_CONFIG = {
 // Default retry config by status code: { attempts, delayMs }
 // Backward compat: if value is a number, treated as attempts with RETRY_CONFIG.delayMs
 export const DEFAULT_RETRY_CONFIG = {
+  // 408 "request body timed out": upstream never processed the request, safe to resend once.
+  408: { attempts: 1, delayMs: 300 },
   429: { attempts: 0, delayMs: 0 },
   502: { attempts: 3, delayMs: 3000 },
   503: { attempts: 3, delayMs: 2000 },

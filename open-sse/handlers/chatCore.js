@@ -12,6 +12,7 @@ import { upstreamResponseHeaders } from "../utils/upstreamHeaders.js";
 import { createErrorResult, parseUpstreamError, formatProviderError } from "../utils/error.js";
 import { HTTP_STATUS, isTokenSaverEnabled } from "../config/runtimeConfig.js";
 import { handleBypassRequest } from "../utils/bypassHandler.js";
+import { isAbortError, isGatewayTimeout, throwIfAborted } from "../utils/requestTimeouts.js";
 import { trackPendingRequest, saveRequestDetail } from "@/lib/usageDb.js";
 import { getExecutor } from "../executors/index.js";
 import { discardResponse } from "../executors/base.js";
@@ -63,8 +64,32 @@ export function stripContinuityFields(body) {
   return body;
 }
 
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }) {
+/**
+ * Entry point. Guarantees the pending-request counter is released on any throw and that a
+ * client abort / gateway timeout surfaces as a typed result (499 / 504) instead of a throw.
+ * Callers must not lock the account for either (neither says anything about its health).
+ */
+export async function handleChatCore(opts) {
+  const state = { release: null };
+  try {
+    return await handleChatCoreInner(opts, state);
+  } catch (error) {
+    state.release?.(true);
+    if (isAbortError(error) || opts.clientRawRequest?.signal?.aborted) {
+      opts.log?.debug?.("ABORT", `client aborted ${opts.modelInfo?.provider}/${opts.modelInfo?.model}`);
+      return createErrorResult(499, "Request aborted");
+    }
+    if (isGatewayTimeout(error)) {
+      opts.log?.warn?.("TIMEOUT", `${opts.modelInfo?.provider}/${opts.modelInfo?.model}: ${error.message}`);
+      return createErrorResult(HTTP_STATUS.GATEWAY_TIMEOUT, `Upstream timeout: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+async function handleChatCoreInner({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }, state) {
   const { provider, model } = modelInfo;
+  const clientSignal = clientRawRequest?.signal || null;
   const requestStartTime = Date.now();
   // Stable per-session color so all lines of one CLI conversation share a tag
   const sessionSeed = (() => {
@@ -353,6 +378,14 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   const executor = getExecutor(provider);
   trackPendingRequest(model, provider, connectionId, true);
+  // Idempotent release: every exit path (and the wrapper on a throw) funnels through here.
+  let pendingOpen = true;
+  const releasePending = (isError = false) => {
+    if (!pendingOpen) return;
+    pendingOpen = false;
+    trackPendingRequest(model, provider, connectionId, false, isError);
+  };
+  state.release = releasePending;
 
   const msgCount = translatedBody.messages?.length || translatedBody.input?.length || translatedBody.contents?.length || translatedBody.request?.contents?.length || 0;
   log?.debug?.("REQUEST", `${provider.toUpperCase()} | ${model} | ${msgCount} msgs`);
@@ -365,6 +398,9 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     onError: () => trackPendingRequest(model, provider, connectionId, false),
     log, provider, model, reqTag
   });
+
+  // Upstream work stops when either the client goes away or the stream is cancelled/stalled.
+  const upstreamSignal = clientSignal ? AbortSignal.any([clientSignal, streamController.signal]) : streamController.signal;
 
   const proxyOptions = {
     proxyPoolId: credentials?.providerSpecificData?.connectionProxyPoolId || null,
@@ -433,7 +469,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       credentials,
       providerSessionId: sessionSeed,
       clientTool,
-      signal: streamController.signal,
+      signal: upstreamSignal,
       log,
       proxyOptions,
     });
@@ -448,21 +484,27 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     }
     reqLogger.logTargetRequest(providerUrl, providerHeaders, finalBody);
   } catch (error) {
-    trackPendingRequest(model, provider, connectionId, false, true);
+    releasePending(true);
+    const timedOut = isGatewayTimeout(error);
+    const clientGone = isAbortError(error) || clientSignal?.aborted;
     saveRequestDetail(buildRequestDetail({
       provider, model, connectionId,
       latency: { ttft: 0, total: Date.now() - requestStartTime },
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       request: extractRequestConfig(body, stream),
       providerRequest: translatedBody || null,
-      response: { error: error.message || String(error), status: error.name === "AbortError" ? 499 : 502, thinking: null },
+      response: { error: error.message || String(error), status: clientGone ? 499 : (timedOut ? 504 : 502), thinking: null },
       pxpipe: pxpipeSummary,
       status: "error"
     })).catch(() => { });
 
-    if (error.name === "AbortError") {
-      streamController.handleError(error);
+    if (clientGone) {
+      streamController.handleError(error.name === "AbortError" ? error : Object.assign(new Error("aborted"), { name: "AbortError" }));
       return createErrorResult(499, "Request aborted");
+    }
+    if (timedOut) {
+      log?.errorLine?.(reqTag, "⏱", `TIMEOUT 504 · ${provider}/${model} · ${Date.now() - requestStartTime}ms · ${error.message}`);
+      return createErrorResult(HTTP_STATUS.GATEWAY_TIMEOUT, `Upstream timeout: ${error.message}`);
     }
     const errMsg = formatProviderError(error, provider, model, HTTP_STATUS.BAD_GATEWAY);
     if (log?.errorLine) {
@@ -470,6 +512,8 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     }
     return createErrorResult(HTTP_STATUS.BAD_GATEWAY, errMsg);
   }
+
+  throwIfAborted(clientSignal);
 
   // Handle 401/403 - try token refresh (skip for noAuth providers)
   if (!executor.noAuth && (providerResponse.status === HTTP_STATUS.UNAUTHORIZED || providerResponse.status === HTTP_STATUS.FORBIDDEN)) {
@@ -500,7 +544,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
             credentials,
             providerSessionId: sessionSeed,
             clientTool,
-            signal: streamController.signal,
+            signal: upstreamSignal,
             log,
             proxyOptions,
           });
@@ -513,11 +557,16 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
           providerHeaders = retryResult.headers;
           finalBody = retryResult.transformedBody;
           providerResponseFormat = retryResult.responseFormat || targetFormat;
-        } catch { log?.warn?.("TOKEN", `${provider.toUpperCase()} | retry after refresh failed`); }
+        } catch (e) {
+          // Client gone / timeout: stop here instead of surfacing the stale 401 (which would lock the account).
+          if (isAbortError(e) || isGatewayTimeout(e) || clientSignal?.aborted) throw e;
+          log?.warn?.("TOKEN", `${provider.toUpperCase()} | retry after refresh failed`);
+        }
       } else {
         log?.warn?.("TOKEN", `${provider.toUpperCase()} | refresh failed`);
       }
     } catch (e) {
+      if (isAbortError(e) || isGatewayTimeout(e) || clientSignal?.aborted) throw e;
       log?.warn?.("TOKEN", `${provider.toUpperCase()} | refresh threw: ${e.message}`);
     }
   }
@@ -534,7 +583,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
           credentials,
           providerSessionId: sessionSeed,
           clientTool,
-          signal: streamController.signal,
+          signal: upstreamSignal,
           log,
           proxyOptions,
         });
@@ -550,12 +599,17 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
           discardResponse(retryResult.response);
         }
       }
-    } catch { log?.warn?.("CLAUDE", `${provider.toUpperCase()} | request adaptation retry failed`); }
+    } catch (e) {
+      if (isAbortError(e) || isGatewayTimeout(e) || clientSignal?.aborted) throw e;
+      log?.warn?.("CLAUDE", `${provider.toUpperCase()} | request adaptation retry failed`);
+    }
   }
+
+  throwIfAborted(clientSignal);
 
   // Provider returned error
   if (!providerResponse.ok) {
-    trackPendingRequest(model, provider, connectionId, false, true);
+    releasePending(true);
     const { statusCode, message, resetsAtMs } = await parseUpstreamError(providerResponse, executor);
     saveRequestDetail(buildRequestDetail({
       provider, model, connectionId,
@@ -578,7 +632,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   }
 
   const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, reqTag, log };
-  const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
+  const trackDone = () => releasePending();
 
   // Provider forced streaming but client wants JSON. The Responses wire always
   // streams upstream (openaiToOpenAIResponsesRequest pins stream:true), so a
@@ -596,7 +650,8 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     return result;
   }
 
-  // Streaming response
+  // Streaming response: the stream path (stream.js) owns the counter from here.
+  pendingOpen = false;
   const { onStreamComplete, onStreamAbort, streamDetailId } = buildOnStreamComplete({ ...sharedCtx });
   return handleStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, userAgent, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, onStreamAbort, streamDetailId, credentials });
 }

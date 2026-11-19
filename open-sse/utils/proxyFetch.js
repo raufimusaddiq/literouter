@@ -39,7 +39,7 @@ async function getOrCreateDirectAgent(key, keepAliveTimeout, keepAliveMaxTimeout
     directDispatchers.get(oldestKey)?.close?.().catch?.(() => {});
     directDispatchers.delete(oldestKey);
   }
-  const agent = new Agent({ keepAliveTimeout, keepAliveMaxTimeout });
+  const agent = new Agent({ keepAliveTimeout, keepAliveMaxTimeout, headersTimeout: 0, bodyTimeout: 0 });
   directDispatchers.set(key, agent);
   return agent;
 }
@@ -175,7 +175,7 @@ async function getDispatcher(proxyUrl) {
     const { ProxyAgent } = await import("undici");
     // Another caller may have created it while we awaited the import
     if (!proxyDispatchers.has(normalized)) {
-      proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized }));
+      proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized, headersTimeout: 0, bodyTimeout: 0 }));
     }
   }
 

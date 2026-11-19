@@ -110,6 +110,7 @@ export async function POST(request, { params }) {
     const newRequest = new Request(request.url, {
       method: "POST",
       headers: request.headers,
+      signal: request.signal,
       body: JSON.stringify(convertedBody),
     });
 
