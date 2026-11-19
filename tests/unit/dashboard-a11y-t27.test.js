@@ -26,3 +26,20 @@ describe("T-27 dashboard leftovers", () => {
     expect(src).not.toMatch(/<h3 className="text-sm font-semibold text-text-primary truncate">/);
   });
 });
+
+describe("T-30 provider detail a11y", () => {
+  it("Header breadcrumb title is not an h1", () => {
+    const src = read("src/shared/components/Header.js");
+    expect(src).not.toMatch(/<h1/);
+    expect(src).toMatch(/<p className="text-base font-semibold text-text-main lg:text-xl truncate">/);
+  });
+
+  it("ModelRow icon buttons are labelled and focus-visible", () => {
+    const src = read("src/app/(dashboard)/dashboard/providers/[id]/ModelRow.js");
+    expect(src).toContain("aria-label={`Copy model ID ${displayModel}`}");
+    expect(src).toContain("aria-label={`Disable model ${displayModel}`}");
+    expect(src).toContain("aria-label={`Remove custom model ${displayModel}`}");
+    expect(src).toMatch(/aria-label=\{`\$\{isTesting \? "Testing model" : "Test model"\} \$\{displayModel\}`\}/);
+    expect(src).not.toMatch(/sm:group-hover:opacity-100(?! sm:group-focus-within)/);
+  });
+});
