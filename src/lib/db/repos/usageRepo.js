@@ -961,3 +961,14 @@ export async function getRecentLogs(limit = 200) {
     return [];
   }
 }
+
+// Per-fingerprint request count for the last 24h and last-used time (all time).
+export async function getApiKeyUsageRows(now = Date.now()) {
+  const db = await getAdapter();
+  const since = new Date(now - PERIOD_MS["24h"]).toISOString();
+  return db.all(
+    `SELECT apiKey, SUM(CASE WHEN timestamp >= ? THEN 1 ELSE 0 END) AS requests24h, MAX(timestamp) AS lastUsed
+     FROM usageHistory WHERE apiKey IS NOT NULL AND apiKey <> '' GROUP BY apiKey`,
+    [since],
+  );
+}

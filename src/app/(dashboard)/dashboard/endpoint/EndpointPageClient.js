@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal, PageIntro } from "@/shared/components";
+import { Button, Input, Modal, CardSkeleton, ConfirmModal, PageIntro } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import EndpointRow from "./components/EndpointRow";
-import SecurityWarning from "./components/SecurityWarning";
-import KeyAccessControls from "./components/KeyAccessControls";
+import EndpointStrip from "./components/EndpointStrip";
+import KeysTable from "./components/KeysTable";
 export default function APIPageClient({ machineId }) {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,8 +18,7 @@ export default function APIPageClient({ machineId }) {
   const [requireLogin, setRequireLogin] = useState(true);
   const [hasPassword, setHasPassword] = useState(true);
 
-  // API key visibility toggle state
-  const [visibleKeys, setVisibleKeys] = useState(new Set());
+  const [usage, setUsage] = useState({});
 
   // Client-side local/remote detection (UI hint only, not a security gate)
   const [isRemoteHost, setIsRemoteHost] = useState(false);
@@ -88,6 +86,10 @@ export default function APIPageClient({ machineId }) {
         } catch { /* fall through to empty render */ }
       }
       setKeys(existing);
+      try {
+        const usageRes = await fetch("/api/usage/keys");
+        if (usageRes.ok) setUsage((await usageRes.json()).usage || {});
+      } catch { /* usage columns fall back to 0 / — */ }
     } catch (error) {
       console.log("Error fetching data:", error);
     } finally {
@@ -125,21 +127,16 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
-  const handleDeleteKey = async (id) => {
+  const handleDeleteKey = async ({ id, name }) => {
     setConfirmState({
-      title: "Delete API Key",
-      message: "Delete this API key?",
+      title: "Delete API key",
+      message: `Delete API key "${name}"? Clients using it will stop working immediately.`,
       onConfirm: async () => {
         setConfirmState(null);
         try {
           const res = await fetch(`/api/keys/${id}`, { method: "DELETE" });
           if (res.ok) {
-            setKeys(keys.filter((k) => k.id !== id));
-            setVisibleKeys(prev => {
-              const next = new Set(prev);
-              next.delete(id);
-              return next;
-            });
+            setKeys((prev) => prev.filter((k) => k.id !== id));
           }
         } catch (error) {
           console.log("Error deleting key:", error);
@@ -182,19 +179,33 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
-  const maskKey = (fullKey) => {
-    if (!fullKey || fullKey.length <= 10) return fullKey || "";
-    return fullKey.slice(0, 6) + "•".repeat(fullKey.length - 10) + fullKey.slice(-4);
+  const handleToggleRequest = (key, checked) => {
+    if (key.isActive !== false && !checked) {
+      setConfirmState({
+        title: "Pause API key",
+        message: `Pause API key "${key.name}"?
+
+This key will stop working immediately but can be resumed later.`,
+        onConfirm: async () => {
+          setConfirmState(null);
+          handleToggleKey(key.id, checked);
+        },
+      });
+    } else {
+      handleToggleKey(key.id, checked);
+    }
   };
 
-  const toggleKeyVisibility = (keyId) => {
-    setVisibleKeys(prev => {
-      const next = new Set(prev);
-      if (next.has(keyId)) next.delete(keyId);
-      else next.add(keyId);
-      return next;
-    });
-  };
+  const handleRequestRestrict = (key) => setConfirmState({
+    title: "Restrict API key",
+    message: `Restrict API key "${key.name}"?
+
+It will only be able to call the combos and models you add. Until you add one, it can call nothing.`,
+    onConfirm: async () => {
+      setConfirmState(null);
+      handleUpdateKeyAccess(key.id, { restricted: true, allow: key.access?.allow || [] });
+    },
+  });
 
   const [baseUrl, setBaseUrl] = useState("/v1");
 
@@ -215,205 +226,44 @@ export default function APIPageClient({ machineId }) {
     );
   }
 
-  const currentEndpoint = baseUrl;
   const endpointSecure = requireApiKey && !isLoginUnsafe;
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <PageIntro
-        title="Endpoint"
-        description="One OpenAI-compatible endpoint for every provider."
-        action={(
-          <div className="flex items-center gap-2 lg:border-l-2 lg:border-border lg:pl-3">
-            <span className={`size-2 shrink-0 rounded-full ${endpointSecure ? "bg-success" : "bg-warning"}`} />
-            <span className="text-xs font-semibold text-text-main">{endpointSecure ? "Protected endpoint" : "Review endpoint security"}</span>
-          </div>
-        )}
+        title="Endpoint & keys"
+        description={`${endpointSecure ? "Protected" : "Review security"} · ${keys.length} ${keys.length === 1 ? "key" : "keys"} · one OpenAI-compatible endpoint for every provider.`}
+        action={<Button icon="add" onClick={() => setShowAddModal(true)}>Create key</Button>}
       />
 
-      <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-[minmax(20rem,0.78fr)_minmax(0,1.22fr)] xl:items-start">
-      {/* Endpoint Card */}
-      <Card className="xl:sticky xl:top-0">
-        <h2 className="mb-4 flex items-center gap-2 text-base font-semibold sm:text-lg">
-          <span aria-hidden="true" className="material-symbols-outlined text-primary">api</span>
-          API Endpoint
-        </h2>
+      <EndpointStrip
+        baseUrl={baseUrl}
+        copied={copied}
+        onCopy={copy}
+        requireApiKey={requireApiKey}
+        onRequireApiKey={handleRequireApiKey}
+        isLoginUnsafe={isLoginUnsafe}
+        requireLogin={requireLogin}
+        isRemoteHost={isRemoteHost}
+        secure={endpointSecure}
+      />
 
-        {/* Endpoint rows */}
-        <div className="flex flex-col gap-2">
-          {/* Local */}
-          <EndpointRow
-            label="Local"
-            url={currentEndpoint}
-            copyId="local_url"
-            copied={copied}
-            onCopy={copy}
-          />
-        </div>
-
-        {/* Security warnings for an unauthenticated public endpoint */}
-        {isLoginUnsafe && (
-          <div className="mt-4 flex flex-col gap-2">
-            {!requireApiKey && (
-              <SecurityWarning
-                message="Require API key is disabled — your endpoint is publicly accessible without authentication."
-                action={{ label: "Enable", href: "#require-api-key" }}
-              />
-            )}
-            {(!requireLogin || !hasPassword) && (
-              <SecurityWarning
-                message={
-                  !requireLogin
-                    ? "Require login is disabled — anyone can reach your dashboard through the public endpoint."
-                    : "Dashboard uses the default password — change it in Profile settings."
-                }
-                action={{
-                  label: !requireLogin ? "Enable" : "Change password",
-                  href: "/dashboard/profile",
-                }}
-              />
-            )}
-          </div>
-        )}
-      </Card>
-
-      {/* API Keys */}
-      <Card id="require-api-key">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-base font-semibold sm:text-lg">
-            <span aria-hidden="true" className="material-symbols-outlined text-primary">vpn_key</span>
-            API Keys
-          </h2>
-          <Button icon="add" onClick={() => setShowAddModal(true)}>
-            Create Key
-          </Button>
-        </div>
-
-        <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-4">
-          <div>
-            <p className="font-medium">Require API key</p>
-            <p className="text-sm text-text-muted">
-              Requests without a valid key will be rejected
-            </p>
-          </div>
-          <Toggle
-            checked={requireApiKey}
-            onChange={() => handleRequireApiKey(!requireApiKey)}
-            aria-label="Require API key"
-          />
-        </div>
-
-        {isRemoteHost && !requireApiKey && (
-          <div className="mb-4 -mt-2">
-            <SecurityWarning message="Endpoint is exposed without an API key." />
-          </div>
-        )}
-
-        {keys.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span aria-hidden="true" className="material-symbols-outlined text-[32px]">vpn_key</span>
-            </div>
-            <p className="text-text-main font-medium mb-1">No API keys yet</p>
-            <p className="text-sm text-text-muted mb-4">Create your first API key to get started</p>
-            <Button icon="add" onClick={() => setShowAddModal(true)}>
-              Create Key
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            {keys.map((key) => (
-              <div
-                key={key.id}
-                className={`group flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.03] py-3 last:border-b-0 dark:border-white/[0.03] ${key.isActive === false ? "opacity-60" : ""}`}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{key.name}</p>
-                  <div className="mt-1 flex min-w-0 items-center gap-1">
-                    <code className="min-w-0 truncate font-mono text-xs text-text-muted">
-                      {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
-                    </code>
-                    <button
-                      onClick={() => toggleKeyVisibility(key.id)}
-                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-muted hover:bg-black/5 hover:text-primary dark:hover:bg-white/5 transition-colors"
-                      title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
-                      aria-label={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
-                    >
-                      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">
-                        {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => copy(key.key, key.id)}
-                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-muted hover:bg-black/5 hover:text-primary dark:hover:bg-white/5 transition-colors"
-                      aria-label={copied === key.id ? "Copied" : "Copy key"}
-                    >
-                      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">
-                        {copied === key.id ? "check" : "content_copy"}
-                      </span>
-                    </button>
-                  </div>
-                  <p className="text-xs text-text-muted mt-1">
-                    Created {new Date(key.createdAt).toLocaleDateString()}
-                  </p>
-                  {key.isActive === false && (
-                    <p className="text-xs text-warning mt-1">Paused</p>
-                  )}
-                  <KeyAccessControls
-                    apiKey={key}
-                    onChange={(access) => handleUpdateKeyAccess(key.id, access)}
-                    onRequestRestrict={() => setConfirmState({
-                      title: "Restrict API Key",
-                      message: `Restrict API key "${key.name}"?\n\nIt will only be able to call the combos and models you add. Until you add one, it can call nothing.`,
-                      onConfirm: async () => {
-                        setConfirmState(null);
-                        handleUpdateKeyAccess(key.id, { restricted: true, allow: key.access?.allow || [] });
-                      }
-                    })}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Toggle
-                    size="sm"
-                    checked={key.isActive ?? true}
-                    onChange={(checked) => {
-                      if (key.isActive && !checked) {
-                        setConfirmState({
-                          title: "Pause API Key",
-                          message: `Pause API key "${key.name}"?\n\nThis key will stop working immediately but can be resumed later.`,
-                          onConfirm: async () => {
-                            setConfirmState(null);
-                            handleToggleKey(key.id, checked);
-                          }
-                        });
-                      } else {
-                        handleToggleKey(key.id, checked);
-                      }
-                    }}
-                    title={key.isActive ? "Pause key" : "Resume key"}
-                    aria-label={`${key.isActive === false ? "Resume" : "Pause"} key ${key.name}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteKey(key.id)}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
-                    title={`Delete ${key.name}`}
-                    aria-label={`Delete ${key.name}`}
-                  >
-                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">delete</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-      </div>
+      <KeysTable
+        keys={keys}
+        usage={usage}
+        copied={copied}
+        onCopy={copy}
+        onCreate={() => setShowAddModal(true)}
+        onToggle={handleToggleRequest}
+        onDelete={handleDeleteKey}
+        onUpdateAccess={handleUpdateKeyAccess}
+        onRequestRestrict={handleRequestRestrict}
+      />
 
       {/* Add Key Modal */}
       <Modal
         isOpen={showAddModal}
-        title="Create API Key"
+        title="Create API key"
         onClose={() => {
           setShowAddModal(false);
           setNewKeyName("");
@@ -421,7 +271,7 @@ export default function APIPageClient({ machineId }) {
       >
         <div className="flex flex-col gap-4">
           <Input
-            label="Key Name"
+            label="Key name"
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
             placeholder="Production Key"
