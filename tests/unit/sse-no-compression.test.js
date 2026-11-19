@@ -62,7 +62,7 @@ describe("SSE responses survive Next's response compression", () => {
     async (_n, headers) => {
       const port = await serve(() => slowSse(headers));
       const { res, chunks, times, text } = await fetchChunks(port);
-      expect(res.headers["content-encoding"]).not.toMatch(/gzip|br|deflate/);
+      expect(res.headers["content-encoding"] ?? "").not.toMatch(/gzip|br|deflate/);
       expect(text.match(/^data: /gm)).toHaveLength(4); // plain, parseable SSE
       expect(chunks.length).toBeGreaterThan(1);
       expect(times.at(-1) - times[0]).toBeGreaterThan(60); // spread over time, not one buffered write
@@ -77,7 +77,7 @@ describe("SSE responses survive Next's response compression", () => {
 
   it("sseResponseHeaders drops stale upstream encoding and forces the guards", () => {
     const h = sseResponseHeaders({ "content-encoding": "gzip", "content-length": "99", "content-type": "application/x-ndjson", "x-keep": "1" });
-    expect(h.get("content-encoding")).toBe("identity");
+    expect(h.get("content-encoding")).toBeNull();
     expect(h.get("content-length")).toBeNull();
     expect(h.get("content-type")).toBe("text/event-stream");
     expect(h.get("cache-control")).toBe("no-cache, no-transform");
@@ -90,7 +90,6 @@ describe("SSE responses survive Next's response compression", () => {
     const ac = new AbortController();
     const res = await GET({ signal: ac.signal });
     expect(res.headers.get("cache-control")).toContain("no-transform");
-    expect(res.headers.get("content-encoding")).toBe("identity");
     expect(res.headers.get("x-accel-buffering")).toBe("no");
     ac.abort();
     await res.body.cancel();

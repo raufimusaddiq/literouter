@@ -3,11 +3,10 @@ export const SSE_DONE = "data: [DONE]\n\n";
 
 // Compression/buffering guards for every streamed response.
 // Next's route-handler compression (the `compression` middleware) skips a response when
-// Cache-Control has `no-transform` or Content-Encoding is already set (even `identity`);
+// Cache-Control has `no-transform` (`Content-Encoding: identity` does NOT block it);
 // X-Accel-Buffering stops nginx-style proxies from buffering the stream.
 export const SSE_NO_COMPRESS_HEADERS = {
   "Cache-Control": "no-cache, no-transform",
-  "Content-Encoding": "identity",
   "X-Accel-Buffering": "no"
 };
 
