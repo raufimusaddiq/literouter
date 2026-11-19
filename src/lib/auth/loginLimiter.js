@@ -62,3 +62,14 @@ export function getClientIp(request) {
   // rotation cannot escape the limiter.
   return "unknown";
 }
+
+// Count the attempt as a failure BEFORE the caller runs the (slow) password
+// compare. Parallel guesses would otherwise all read the same pre-lockout
+// count, pass checkLock together, and land several tries inside one budget.
+// A success deletes the entry, so a correct password still resets the window.
+export function beginAttempt(ip) {
+  const lock = checkLock(ip);
+  if (lock.locked) return { locked: true, retryAfter: lock.retryAfter };
+  const { remainingBeforeLock } = recordFail(ip);
+  return { locked: false, remainingBeforeLock };
+}

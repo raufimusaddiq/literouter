@@ -16,7 +16,9 @@ function rewriteHistory(db) {
   }
 }
 
-function rewriteDay(data) {
+// Day-bucket rewrite shared with migration 003: imported legacy JSON bypasses the
+// versioned chain (it runs before the import), so the same fingerprinting is applied here.
+export function rewriteUsageDay(data) {
   const day = JSON.parse(data);
   const buckets = day.byApiKey;
   if (!buckets || typeof buckets !== "object") return null;
@@ -54,7 +56,7 @@ export default {
     if (!hasTable(db, "usageDaily")) return;
     for (const { dateKey, data } of db.all(`SELECT dateKey, data FROM usageDaily`)) {
       let out;
-      try { out = rewriteDay(data); } catch { continue; }
+      try { out = rewriteUsageDay(data); } catch { continue; }
       if (out) db.run(`UPDATE usageDaily SET data = ? WHERE dateKey = ?`, [out, dateKey]);
     }
   },

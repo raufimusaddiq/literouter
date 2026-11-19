@@ -95,7 +95,9 @@ describe("Schema migrations", () => {
 
     const keys = db.all(`SELECT * FROM apiKeys`);
     expect(keys).toHaveLength(1);
-    expect(keys[0].key).toBe("abc");
+    // Legacy keys are imported fingerprinted, never as plaintext.
+    expect(keys[0].key).toMatch(/^fp_[0-9a-f]{16}$/);
+    expect(keys[0].key).not.toBe("abc");
 
     const aliases = db.all(`SELECT * FROM kv WHERE scope='modelAliases'`);
     expect(aliases).toHaveLength(1);
