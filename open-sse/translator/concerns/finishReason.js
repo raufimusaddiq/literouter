@@ -62,6 +62,12 @@ export function fromOpenAIFinish(reason, format) {
         case OPENAI_FINISH.CONTENT_FILTER: return CLAUDE_STOP.REFUSAL;
         default: return CLAUDE_STOP.END_TURN;
       }
+    case "gemini":
+      switch (reason) {
+        case OPENAI_FINISH.LENGTH: return GEMINI_FINISH.MAX_TOKENS;
+        case OPENAI_FINISH.CONTENT_FILTER: return GEMINI_FINISH.SAFETY;
+        default: return GEMINI_FINISH.STOP;
+      }
     default:
       return reason;
   }
