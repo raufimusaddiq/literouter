@@ -440,12 +440,12 @@ export default function ProvidersPage() {
         <div className="rounded-[14px] bg-primary/[0.07] p-4 ring-1 ring-primary/15">
           <p className="page-kicker">Provider network</p>
           <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{health.total}</p>
-          <p className="mt-1 text-xs text-text-muted">Configured connections · {health.inactive} inactive</p>
+          <p className="mt-1 text-xs text-text-muted">Configured connections · {health.inactive} inactive · {health.untested} untested</p>
         </div>
         <div className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle shadow-[var(--shadow-soft)]">
           <p className="page-kicker text-success">{HEALTH_LABELS.ready}</p>
           <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{health.ready}</p>
-          <p className="mt-1 text-xs text-text-muted">Active and routable</p>
+          <p className="mt-1 text-xs text-text-muted">Verified passing</p>
         </div>
         <div id="needs-attention" className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle shadow-[var(--shadow-soft)] scroll-mt-24">
           <p className="page-kicker text-warning">{HEALTH_LABELS.attention}</p>

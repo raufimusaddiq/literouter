@@ -22,8 +22,8 @@ describe("classifyConnection", () => {
   it("disabled is inactive even when erroring", () => {
     expect(classifyConnection({ isActive: false, testStatus: "error" }, NOW).status).toBe("inactive");
   });
-  it("never tested is ready (untested)", () => {
-    expect(classifyConnection({}, NOW)).toEqual({ status: "ready", reason: "untested" });
+  it("never tested is untested, not ready", () => {
+    expect(classifyConnection({}, NOW)).toEqual({ status: "untested", reason: "untested" });
   });
 });
 
@@ -33,8 +33,8 @@ describe("getConnectionHealthStats", () => {
       [{ testStatus: "success" }, { testStatus: "error" }, { isActive: false, testStatus: "error" }, {}],
       NOW,
     );
-    expect(s).toMatchObject({ total: 4, ready: 2, attention: 1, inactive: 1 });
-    expect(s.ready + s.attention + s.inactive).toBe(s.total);
+    expect(s).toMatchObject({ total: 4, ready: 1, attention: 1, inactive: 1, untested: 1 });
+    expect(s.ready + s.attention + s.inactive + s.untested).toBe(s.total);
     expect(s.attentionItems).toHaveLength(1);
   });
   it("both pages use the shared function", () => {

@@ -62,6 +62,7 @@ export default function DashboardOverview() {
       ready: health.ready,
       attention: health.attention,
       inactive: health.inactive,
+      untested: health.untested,
       activeKeys: data.keys.filter((key) => key.isActive !== false).length,
     };
   }, [data]);
@@ -114,8 +115,8 @@ export default function DashboardOverview() {
             [1, 2, 3, 4].map((item) => <Skeleton key={item} className="min-h-32 rounded-[14px]" />)
           ) : (
             <>
-              <Metric label="Connections" value={stats.total} detail={`Configured routes · ${stats.inactive} inactive`} />
-              <Metric label={HEALTH_LABELS.ready} value={stats.ready} detail="Active and routable" tone="positive" />
+              <Metric label="Connections" value={stats.total} detail={`Configured routes · ${stats.inactive} inactive · ${stats.untested} untested`} />
+              <Metric label={HEALTH_LABELS.ready} value={stats.ready} detail="Verified passing" tone="positive" />
               <Metric label={HEALTH_LABELS.attention} value={stats.attention} detail="Errors, cooldown or rate limits" tone="warning" href={stats.attention > 0 ? "/dashboard/providers#needs-attention" : undefined} />
               <Metric label="Active keys" value={stats.activeKeys} detail="Client access keys" />
             </>

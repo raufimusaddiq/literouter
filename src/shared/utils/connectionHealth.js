@@ -1,25 +1,28 @@
 // Single source of truth for connection health, shared by Overview and Providers.
 //
-// Every connection lands in exactly one bucket, so ready + attention + inactive === total:
+// Every connection lands in exactly one bucket, so ready + attention + inactive + untested === total:
 //   inactive  - isActive === false (disabled by the operator). Always wins, even if the
 //               last test failed: a disabled connection is not routing, so it is not
 //               "needing attention" either.
 //   attention - active, and one of: rate-limited (rateLimitedUntil in the future),
 //               cooldown (testStatus "unavailable" with a live modelLock_* in the future),
 //               expired credentials, or error. `reason` says which.
-//   ready     - everything else: passing (active/success), a stale "unavailable" whose
-//               cooldown has ended, or never tested yet (reason "untested").
+//   ready     - verified passing (active/success), or a stale "unavailable" whose
+//               cooldown has ended.
+//   untested  - active but never tested (no testStatus); not counted as ready.
 
 export const HEALTH = Object.freeze({
   READY: "ready",
   ATTENTION: "attention",
   INACTIVE: "inactive",
+  UNTESTED: "untested",
 });
 
 export const HEALTH_LABELS = Object.freeze({
   ready: "Ready",
   attention: "Needs attention",
   inactive: "Inactive",
+  untested: "Untested",
 });
 
 export const ATTENTION_REASONS = Object.freeze({
@@ -57,12 +60,12 @@ export function classifyConnection(connection, now = Date.now()) {
   if (c.testStatus === "active" || c.testStatus === "success") {
     return { status: HEALTH.READY, reason: "passing" };
   }
-  return { status: HEALTH.READY, reason: "untested" };
+  return { status: HEALTH.UNTESTED, reason: "untested" };
 }
 
 export function getConnectionHealthStats(connections, now = Date.now()) {
   const list = Array.isArray(connections) ? connections : [];
-  const stats = { total: list.length, ready: 0, attention: 0, inactive: 0, attentionItems: [] };
+  const stats = { total: list.length, ready: 0, attention: 0, inactive: 0, untested: 0, attentionItems: [] };
   for (const connection of list) {
     const { status, reason } = classifyConnection(connection, now);
     stats[status] += 1;
