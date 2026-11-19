@@ -124,8 +124,6 @@ export class AntigravityExecutor extends BaseExecutor {
     return `${baseUrl}/v1internal:${action}`;
   }
 
-  // sessionId comes from transformRequest output; base.execute runs transformRequest before
-  // buildHeaders, so we read it from instance state cached there (fallback: explicit arg).
   buildHeaders(credentials, stream = true, sessionId = null) {
     return {
       "Content-Type": "application/json",
@@ -164,7 +162,6 @@ export class AntigravityExecutor extends BaseExecutor {
         scope: "antigravity",
       });
 
-      this._lastSessionId = sessionId;
       const request = {
         contents,
         generationConfig: {
@@ -290,8 +287,6 @@ export class AntigravityExecutor extends BaseExecutor {
 
     // Strip blacklisted thinking fields from top-level body (set by thinkingUnified.js at root, not body.request)
     stripBlacklisted(body);
-
-    this._lastSessionId = transformedRequest.sessionId; // cached for buildHeaders (base.execute order)
 
     // Official Antigravity client omits `requestType` entirely on the agent
     // (chat) path. Sending `requestType: "agent"` here (or leaking it through

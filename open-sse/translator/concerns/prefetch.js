@@ -11,6 +11,29 @@ const TARGETS_NEED_BASE64 = new Set([
   FORMATS.COMMANDCODE,
 ]);
 
+export const PREFETCH_CONCURRENCY = 4;
+const PREFETCH_TIMEOUT_MS = 15000;
+const CACHE_TTL_MS = 60000;
+const CACHE_MAX_ENTRIES = 16;
+const imageCache = new Map(); // url -> { value, expiresAt } (insertion order = LRU order)
+
+export function clearPrefetchCacheForTests() { imageCache.clear(); }
+
+async function cachedFetch(url, options) {
+  const now = Date.now();
+  const hit = imageCache.get(url);
+  if (hit) {
+    imageCache.delete(url);
+    if (hit.expiresAt > now) { imageCache.set(url, hit); return hit.value; } // refresh LRU position
+  }
+  const value = await fetchImageAsBase64(url, options);
+  if (value && !options.signal?.aborted) {
+    while (imageCache.size >= CACHE_MAX_ENTRIES) imageCache.delete(imageCache.keys().next().value);
+    imageCache.set(url, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  }
+  return value;
+}
+
 function isRemoteUrl(url) {
   return typeof url === "string" && (url.startsWith("http://") || url.startsWith("https://"));
 }
@@ -82,16 +105,39 @@ export async function prefetchRemoteImages(body, sourceFormat, targetFormat, opt
   const refs = collectImageRefs(body, sourceFormat);
   if (!refs.length) return 0;
 
-  let converted = 0;
+  // Dedupe URLs within this request, then fetch with bounded concurrency.
+  const pending = [];
+  const byUrl = new Map(); // url -> refs[]
   for (const ref of refs) {
     const url = ref.get();
     if (parseDataUri(url)) continue; // already inline
-    const fetched = await fetchImageAsBase64(url, options);
+    if (!byUrl.has(url)) { byUrl.set(url, []); pending.push(url); }
+    byUrl.get(url).push(ref);
+  }
+
+  const signal = options.signal;
+  const fetchOpts = { ...options, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(options.timeoutMs ?? PREFETCH_TIMEOUT_MS)]) : undefined };
+  const results = new Map();
+  let next = 0;
+  const worker = async () => {
+    while (next < pending.length) {
+      if (signal?.aborted) return;
+      const url = pending[next++];
+      results.set(url, await cachedFetch(url, fetchOpts));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(PREFETCH_CONCURRENCY, pending.length) }, worker));
+
+  let converted = 0;
+  for (const [url, urlRefs] of byUrl) {
+    const fetched = results.get(url);
     if (!fetched) continue;
-    if (ref.set) ref.set(fetched.url);
-    else if (ref.part) { delete ref.part.fileData; ref.part.inlineData = { mimeType: fetched.mimeType, data: fetched.url.split(",")[1] }; }
-    else if (ref.claudeBlock) ref.claudeBlock.source = { type: "base64", media_type: fetched.mimeType, data: fetched.url.split(",")[1] };
-    converted++;
+    for (const ref of urlRefs) {
+      if (ref.set) ref.set(fetched.url);
+      else if (ref.part) { delete ref.part.fileData; ref.part.inlineData = { mimeType: fetched.mimeType, data: fetched.url.split(",")[1] }; }
+      else if (ref.claudeBlock) ref.claudeBlock.source = { type: "base64", media_type: fetched.mimeType, data: fetched.url.split(",")[1] };
+      converted++;
+    }
   }
   return converted;
 }

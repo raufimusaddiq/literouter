@@ -176,6 +176,6 @@ describe("GrokCliExecutor multi-turn input", () => {
     }
     expect(out.include).toContain("reasoning.encrypted_content");
     expect(out.store).toBe(false);
-    expect(executor._currentTurnIdx).toBe(2);
+    expect(executor._getRequestContext(out).turnIdx).toBe(2);
   });
 });
