@@ -4,8 +4,10 @@
   "description": "Lean multi-provider AI routing gateway",
   "private": true,
   "scripts": {
+    "predev": "node scripts/gen-provider-icon-manifest.mjs",
     "dev": "next dev --port 20127",
     "dev:webpack": "next dev --webpack --port 20127",
+    "prebuild": "node scripts/gen-provider-icon-manifest.mjs",
     "build": "next build",
     "build:webpack": "next build --webpack",
     "postbuild": "node scripts/copy-standalone-assets.mjs",

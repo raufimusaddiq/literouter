@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PROVIDERS_WITHOUT_ICON } from "@/shared/utils/providerIcon.js";
+import { getProviderIconSrc } from "@/shared/utils/providerIcon.js";
+import { PROVIDER_ICON_IDS } from "@/shared/constants/providerIconManifest.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -23,10 +24,17 @@ describe("dashboard client requests", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("every registry provider has a logo or is listed as icon-less", () => {
-    const dir = path.join(root, "open-sse/providers/registry");
-    const ids = fs.readdirSync(dir).filter((f) => f.endsWith(".js") && f !== "index.js").map((f) => f.slice(0, -3));
-    const missing = ids.filter((id) => !fs.existsSync(path.join(root, "public/providers", `${id}.png`)));
-    expect(new Set(missing)).toEqual(PROVIDERS_WITHOUT_ICON);
+  it("icon manifest matches public/providers/*.png", () => {
+    const files = fs.readdirSync(path.join(root, "public/providers")).filter((f) => f.endsWith(".png")).map((f) => f.slice(0, -4));
+    expect([...PROVIDER_ICON_IDS].sort()).toEqual(files.sort());
+  });
+
+  it("resolves icons: known, alias, missing, custom node", () => {
+    expect(getProviderIconSrc("openai")).toBe("/providers/openai.png");
+    expect(getProviderIconSrc("gitlab-duo")).toBe("/providers/gitlab.png");
+    expect(getProviderIconSrc("typesafe")).toBeNull();
+    expect(getProviderIconSrc("kenari")).toBeNull();
+    expect(getProviderIconSrc("openai-compatible-chat-6d0ab93c-cc80-4278-b1dc-f2da26f80fc6")).toBeNull();
+    expect(getProviderIconSrc("anthropic-compatible-x-6d0ab93c-cc80-4278-b1dc-f2da26f80fc6")).toBeNull();
   });
 });
