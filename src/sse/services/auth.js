@@ -4,6 +4,7 @@ import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLock
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers.js";
 import { getAntigravityQuotaCache } from "./antigravityQuota.js";
+import { extractClientApiKey } from "./keyAccess.js";
 import * as log from "../utils/logger.js";
 
 // Runtime-only round-robin cursor. Account rotation is request-serving state,
@@ -334,22 +335,16 @@ export async function clearAccountError(connectionId, currentConnection, model =
 }
 
 /**
- * Extract API key from request headers
+ * Extract API key from the request.
+ *
+ * Delegates to the key-access extractor so auth and attribution read the key
+ * from exactly the same places (Bearer, x-api-key, x-goog-api-key, ?key=).
+ * A Gemini client that sends only `x-goog-api-key` must not look like "no key"
+ * here while the middleware authorized it — that produced a 401 on /v1beta and
+ * lost usage attribution.
  */
 export function extractApiKey(request) {
-  // Check Authorization header first
-  const authHeader = request.headers.get("Authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice(7);
-  }
-
-  // Check Anthropic x-api-key header
-  const xApiKey = request.headers.get("x-api-key");
-  if (xApiKey) {
-    return xApiKey;
-  }
-
-  return null;
+  return extractClientApiKey(request);
 }
 
 /**
