@@ -41,6 +41,8 @@ async function bumpCacheVersion() {
 }
 
 function invalidateConnectionCache() {
+  connectionCache.gen = (connectionCache.gen || 0) + 1; // orphans any in-flight reload
+  connectionCache.index = null;
   connectionCache.rows = null;
   connectionCache.expiresAt = 0;
   connectionCache.versionCheckedAt = 0;
@@ -52,7 +54,10 @@ function patchCachedConnection(conn) {
   const rows = connectionCache.rows;
   if (!rows) return;
   const i = rows.findIndex((c) => c.id === conn.id);
-  if (i !== -1) rows[i] = conn;
+  if (i !== -1) {
+    rows[i] = conn;
+    connectionCache.index = null; // rebuilt lazily on next read
+  }
 }
 
 // Apply the patch to the cached row before the first await, so a selection that
@@ -162,7 +167,7 @@ function deriveConnectionName(data, fallbackName) {
 export async function getProviderConnections(filter = {}, options = {}) {
   const now = Date.now();
   if (!connectionCache.rows || connectionCache.expiresAt <= now) {
-    await refreshConnectionCache();
+    await ensureConnectionCache();
   } else if (MULTI_REPLICA && connectionCache.versionCheckedAt <= now) {
     // Multi-replica mode only: confirm no peer mutated configuration. A
     // single-instance deployment has local write-through invalidation and does
@@ -170,19 +175,69 @@ export async function getProviderConnections(filter = {}, options = {}) {
     const version = await cacheVersion();
     connectionCache.versionCheckedAt = Date.now() + VERSION_TTL_MS;
     if (version !== null && version !== connectionCache.version) {
-      await refreshConnectionCache();
+      await ensureConnectionCache();
     }
   }
-  const list = connectionCache.rows.filter((c) =>
-    (!filter.provider || c.provider === filter.provider)
-    && (filter.isActive === undefined || c.isActive === Boolean(filter.isActive))
-  );
-  list.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+  const index = getConnectionIndex();
+  // Per-provider arrays are pre-sorted by priority (stable, same as the old
+  // filter-then-sort), so selection only filters isActive and copies.
+  const source = filter.provider ? (index.byProvider.get(filter.provider) || []) : index.all;
+  const list = filter.isActive === undefined
+    ? source.slice()
+    : source.filter((c) => c.isActive === Boolean(filter.isActive));
   return options.clone === false ? list : list.map((c) => structuredClone(c));
 }
 
-async function refreshConnectionCache() {
+const byPriority = (a, b) => (a.priority || 999) - (b.priority || 999);
+
+// Index over the snapshot: Map by id + per-provider priority-sorted arrays.
+// Rebuilt when the snapshot is replaced or a row is patched.
+function getConnectionIndex() {
+  const rows = connectionCache.rows;
+  const cached = connectionCache.index;
+  if (cached && cached.rows === rows) return cached;
+  const byId = new Map();
+  const byProvider = new Map();
+  for (const c of rows) {
+    byId.set(c.id, c);
+    let arr = byProvider.get(c.provider);
+    if (!arr) byProvider.set(c.provider, arr = []);
+    arr.push(c);
+  }
+  for (const arr of byProvider.values()) arr.sort(byPriority);
+  const all = rows.slice().sort(byPriority);
+  return (connectionCache.index = { rows, byId, byProvider, all });
+}
+
+let refreshInFlight = null;
+// Single-flight: concurrent expiries share one SELECT * + parse. A reload that
+// was started before an invalidation is never joined or committed (gen check).
+function refreshConnectionCache() {
+  const gen = connectionCache.gen || 0;
+  if (!refreshInFlight || refreshInFlight.gen !== gen) {
+    const entry = { gen, promise: null };
+    entry.promise = doRefreshConnectionCache(gen).finally(() => {
+      if (refreshInFlight === entry) refreshInFlight = null;
+    });
+    refreshInFlight = entry;
+  }
+  return refreshInFlight.promise;
+}
+
+// Reload until a snapshot is present (an invalidation can land between a
+// joined reload finishing and this caller resuming).
+async function ensureConnectionCache() {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await refreshConnectionCache();
+    if (connectionCache.rows) return;
+  }
+  throw new Error("connection cache reload kept being invalidated");
+}
+
+async function doRefreshConnectionCache(gen) {
   const db = await getAdapter();
+  if ((connectionCache.gen || 0) !== gen) return; // invalidated meanwhile; caller retries
+  connectionCache.index = null;
   connectionCache.rows = db.all("SELECT * FROM providerConnections").map(rowToConn);
   // Redis versioning is coordination for explicit multi-replica mode, not a
   // required dependency for a normal single-instance read.
@@ -193,9 +248,9 @@ async function refreshConnectionCache() {
 
 export async function getProviderConnectionById(id, options = {}) {
   if (!connectionCache.rows || connectionCache.expiresAt <= Date.now()) {
-    await refreshConnectionCache();
+    await ensureConnectionCache();
   }
-  const row = connectionCache.rows.find((connection) => connection.id === id);
+  const row = getConnectionIndex().byId.get(id);
   if (!row) return null;
   return options.clone === false ? row : structuredClone(row);
 }

@@ -28,7 +28,12 @@ export const MEMORY_CONFIG = {
   sessionTtlMs: 2 * 60 * 60 * 1000,
   sessionCleanupIntervalMs: 30 * 60 * 1000,
   dnsCacheTtlMs: 5 * 60 * 1000,
-  proxyDispatchersMaxSize: 20,
+  // Must be >= the proxy pool size or dispatchers thrash (no keep-alive, CONNECT+TLS
+  // per request). Env: PROXY_DISPATCHERS_MAX_SIZE.
+  proxyDispatchersMaxSize: (() => {
+    const n = parseInt(process.env.PROXY_DISPATCHERS_MAX_SIZE || "", 10);
+    return Number.isFinite(n) && n > 0 ? n : 256;
+  })(),
 };
 
 // Parse a positive integer env override, falling back to a default.

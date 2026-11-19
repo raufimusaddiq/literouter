@@ -36,9 +36,10 @@ export async function getComboById(id) {
   return row ? structuredClone(row) : null;
 }
 
-export async function getComboByName(name) {
+export async function getComboByName(name, options = {}) {
   const row = (await allCombosCached()).find((combo) => combo.name === name);
-  return row ? structuredClone(row) : null;
+  if (!row) return null;
+  return options.clone === false ? row : structuredClone(row);
 }
 
 export async function createCombo(data) {

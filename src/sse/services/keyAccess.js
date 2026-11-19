@@ -82,8 +82,21 @@ export async function getKeyAccessContext(request) {
 
 // Resolve the allow list once per request: combo names, resolved model ids,
 // and resolved provider ids (for provider-as-model kinds).
+const ALLOW_SETS_TTL_MS = 5000;
+const allowSetsCache = new Map(); // keyId -> { allowSig, expiresAt, sets }
+
+export function clearAllowSetsCache() { allowSetsCache.clear(); }
+
 async function getAllowSets(ctx) {
   if (ctx._sets) return ctx._sets;
+  // Per key id with a short TTL: the sets only change when the key's allow list
+  // (part of the signature), combos, or aliases change.
+  const allowSig = JSON.stringify(ctx.allow);
+  const cached = ctx.keyId ? allowSetsCache.get(ctx.keyId) : null;
+  if (cached && cached.allowSig === allowSig && cached.expiresAt > Date.now()) {
+    ctx._sets = cached.sets;
+    return ctx._sets;
+  }
   const comboNames = new Set((await getCombos()).map((c) => lower(c.name)));
   const combos = new Set();
   const models = new Set();
@@ -99,6 +112,7 @@ async function getAllowSets(ctx) {
     if (!entry.includes("/")) providers.add(lower(resolveProviderId(entry)));
   }
   ctx._sets = { combos, models, providers };
+  if (ctx.keyId) allowSetsCache.set(ctx.keyId, { allowSig, expiresAt: Date.now() + ALLOW_SETS_TTL_MS, sets: ctx._sets });
   return ctx._sets;
 }
 

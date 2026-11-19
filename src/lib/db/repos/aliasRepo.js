@@ -5,8 +5,8 @@ import { makeKv, invalidateKvScope } from "../helpers/kvStore.js";
 const aliasKv = makeKv("modelAliases");
 const customKv = makeKv("customModels");
 // modelAliases: key=alias, value=modelString
-export async function getModelAliases() {
-  return await aliasKv.getAll();
+export async function getModelAliases(options = {}) {
+  return await aliasKv.getAll(options);
 }
 
 export async function setModelAlias(alias, model) {
