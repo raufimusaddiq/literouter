@@ -13,25 +13,40 @@ export function parseDataUri(url) {
 }
 
 import { lookup } from "node:dns/promises";
+import { BlockList, isIP } from "node:net";
 import { Agent } from "undici";
-import { MAX_IMAGE_BYTES, FETCH_TIMEOUT_MS, IMAGE_SIGNATURES, BLOCKED_HOSTS } from "../../config/mediaConfig.js";
+import { MAX_IMAGE_BYTES, MAX_REMOTE_IMAGES_PER_REQUEST, MAX_TOTAL_IMAGE_BYTES, FETCH_TIMEOUT_MS, IMAGE_SIGNATURES, BLOCKED_HOSTS } from "../../config/mediaConfig.js";
 
-// True if an IPv4/IPv6 address is private/reserved (SSRF target).
-function isPrivateIp(ip) {
-  if (!ip) return true;
-  // IPv6 loopback / unique-local / link-local
-  if (ip === "::1" || ip.startsWith("fc") || ip.startsWith("fd") || ip.startsWith("fe80")) return true;
-  // IPv4-mapped IPv6 (::ffff:a.b.c.d) -> extract tail
-  const v4 = ip.includes(".") ? ip.split(":").pop() : ip;
-  const parts = v4.split(".").map((n) => Number.parseInt(n, 10));
-  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return ip.includes(":") ? false : true;
-  const [a, b] = parts;
-  if (a === 10 || a === 127 || a === 0) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 169 && b === 254) return true; // link-local + cloud metadata
-  if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
-  return false;
+// Reserved / special-purpose ranges that must never be fetched (SSRF targets).
+const blockList = new BlockList();
+for (const [net, prefix] of [
+  ["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8],
+  ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.0.2.0", 24],
+  ["192.168.0.0", 16], ["198.18.0.0", 15], ["198.51.100.0", 24], ["203.0.113.0", 24],
+  ["224.0.0.0", 4], ["240.0.0.0", 4], ["255.255.255.255", 32],
+]) blockList.addSubnet(net, prefix, "ipv4");
+for (const [net, prefix] of [
+  ["::", 128], ["::1", 128], ["64:ff9b::", 96], ["64:ff9b:1::", 48],
+  ["100::", 64], ["2001::", 32], ["2001:db8::", 32], ["2002::", 16],
+  ["fc00::", 7], ["fe80::", 10], ["fec0::", 10], ["ff00::", 8],
+]) blockList.addSubnet(net, prefix, "ipv6");
+
+// True if an IPv4/IPv6 address is private/reserved (SSRF target). Fails closed.
+export function isPrivateIp(ip) {
+  if (!ip || typeof ip !== "string") return true;
+  const addr = ip.split("%")[0]; // strip IPv6 zone id
+  const family = isIP(addr);
+  if (!family) return true;
+  // IPv4-mapped IPv6 (::ffff:a.b.c.d / ::ffff:xxxx:xxxx): judge by the embedded IPv4.
+  // (An ::ffff:0:0/96 rule can't be used: BlockList maps every IPv4 into that range.)
+  if (family === 6) {
+    const m = addr.toLowerCase().match(/^(?:0{0,4}:){0,5}ffff:(?:(\d+\.\d+\.\d+\.\d+)|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/);
+    if (m) {
+      const v4 = m[1] || `${parseInt(m[2], 16) >> 8}.${parseInt(m[2], 16) & 255}.${parseInt(m[3], 16) >> 8}.${parseInt(m[3], 16) & 255}`;
+      return isPrivateIp(v4);
+    }
+  }
+  return blockList.check(addr, family === 4 ? "ipv4" : "ipv6");
 }
 
 // Resolve host once and return only public IPs (SSRF guard).
@@ -121,4 +136,49 @@ export async function fetchImageAsBase64(imageUrl, options = {}) {
     if (timeout) clearTimeout(timeout);
     dispatcher.close().catch(() => {});
   }
+}
+
+/** Thrown when a request exceeds the remote-image count / total-bytes caps (maps to HTTP 400). */
+export class ImageLimitError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ImageLimitError";
+    this.code = "IMAGE_LIMIT_EXCEEDED";
+    this.status = 400;
+  }
+}
+
+export function assertImageCount(count, max = MAX_REMOTE_IMAGES_PER_REQUEST) {
+  if (count > max) throw new ImageLimitError(`Image limit exceeded: ${count} remote images in one request (max ${max})`);
+}
+
+// Decoded byte size of a base64 data URI produced by fetchImageAsBase64.
+export function dataUriBytes(dataUri) {
+  const b64 = typeof dataUri === "string" ? dataUri.slice(dataUri.indexOf(",") + 1) : "";
+  return Math.floor((b64.length * 3) / 4);
+}
+
+/** Running total of fetched image bytes for one request; throws ImageLimitError when over cap. */
+export function createImageByteBudget(max = MAX_TOTAL_IMAGE_BYTES) {
+  let total = 0;
+  return {
+    add(bytes) {
+      total += bytes;
+      if (total > max) throw new ImageLimitError(`Image limit exceeded: remote images exceed ${Math.floor(max / 1024 / 1024)}MB total per request`);
+    },
+  };
+}
+
+/** Run fn over items with at most `limit` in flight; results keep input order. Rejects on first error. */
+export async function mapWithConcurrency(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i], i);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
 }

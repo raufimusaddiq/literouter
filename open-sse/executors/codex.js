@@ -7,10 +7,11 @@ import {
   shouldRefreshCredentials,
 } from "../services/oauthCredentialManager.js";
 import { normalizeResponsesInput } from "../translator/formats/responsesApi.js";
-import { fetchImageAsBase64 } from "../translator/concerns/image.js";
+import { fetchImageAsBase64, assertImageCount, createImageByteBudget, dataUriBytes, mapWithConcurrency } from "../translator/concerns/image.js";
 import { getModelUpstreamId } from "../config/providerModels.js";
 import { getThinkingLevels } from "../providers/thinkingLevels.js";
 import { DEFAULT_RETRY_CONFIG, HTTP_STATUS, resolveRetryEntry } from "../config/runtimeConfig.js";
+import { PREFETCH_CONCURRENCY } from "../translator/concerns/prefetch.js";
 import { dbg } from "../utils/debugLog.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
 import { stripCodexUnsupportedPatterns } from "../utils/codexToolSchema.js";
@@ -267,18 +268,33 @@ export class CodexExecutor extends BaseExecutor {
    */
   async prefetchImages(body) {
     if (!Array.isArray(body?.input)) return;
+    const remote = new Set();
     for (const item of body.input) {
       if (!Array.isArray(item.content)) continue;
-      const pending = item.content.map(async (c) => {
+      for (const c of item.content) {
+        if (c.type !== "image_url") continue;
+        const url = typeof c.image_url === "string" ? c.image_url : c.image_url?.url;
+        if (url && !url.startsWith("data:")) remote.add(url);
+      }
+    }
+    assertImageCount(remote.size);
+    const budget = createImageByteBudget();
+    const fetched = new Map();
+    await mapWithConcurrency([...remote], PREFETCH_CONCURRENCY, async (url) => {
+      const r = await fetchImageAsBase64(url, { timeoutMs: 15000 });
+      if (r) budget.add(dataUriBytes(r.url));
+      fetched.set(url, r);
+    });
+    for (const item of body.input) {
+      if (!Array.isArray(item.content)) continue;
+      item.content = item.content.map((c) => {
         if (c.type !== "image_url") return c;
         const url = typeof c.image_url === "string" ? c.image_url : c.image_url?.url;
         const detail = c.image_url?.detail || "auto";
         if (!url) return c;
         if (url.startsWith("data:")) return { type: "input_image", image_url: url, detail };
-        const fetched = await fetchImageAsBase64(url, { timeoutMs: 15000 });
-        return { type: "input_image", image_url: fetched?.url || url, detail };
+        return { type: "input_image", image_url: fetched.get(url)?.url || url, detail };
       });
-      item.content = await Promise.all(pending);
     }
   }
 

@@ -67,7 +67,6 @@ export class VertexExecutor extends BaseExecutor {
     const saJson = parseVertexSaJson(credentials?.apiKey);
     const adcJson = parseVertexAdcJson(credentials?.apiKey);
     const usesOAuth = !!saJson || !!adcJson || !!credentials?.accessToken;
-    const rawKey = !usesOAuth ? credentials?.apiKey : null;
     const projectId =
       saJson?.project_id ||
       adcJson?.quota_project_id ||
@@ -77,7 +76,7 @@ export class VertexExecutor extends BaseExecutor {
       // Partner models require project_id in path regardless of auth method
       if (!projectId) throw new Error("Vertex partner models require a project_id. Add it in providerSpecificData or use Service Account JSON.");
       const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/endpoints/openapi/chat/completions`;
-      return rawKey ? `${url}?key=${rawKey}` : url;
+      return url;
     }
 
     // Gemini on Vertex
@@ -105,16 +104,18 @@ export class VertexExecutor extends BaseExecutor {
       ? `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:${action}`
       : `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:${action}`;
     if (stream) url += "?alt=sse";
-    if (rawKey) url += stream ? `&key=${rawKey}` : `?key=${rawKey}`;
     return url;
   }
 
   buildHeaders(credentials, stream = true) {
     const headers = { "Content-Type": "application/json" };
 
-    // Only set Bearer token if using SA JSON flow (raw key goes in URL ?key=)
+    // SA JSON / ADC flows use a Bearer token; a raw API key goes in the
+    // x-goog-api-key header (never the URL, which gets logged).
     if (credentials.accessToken) {
       headers["Authorization"] = `Bearer ${credentials.accessToken}`;
+    } else if (credentials.apiKey && !parseVertexSaJson(credentials.apiKey) && !parseVertexAdcJson(credentials.apiKey)) {
+      headers["x-goog-api-key"] = credentials.apiKey;
     }
 
     if (stream) headers["Accept"] = "text/event-stream";
