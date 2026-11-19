@@ -121,7 +121,21 @@ export default function SystemOnePage() {
     ? "Choose a provider and model."
     : !clientApiKey
       ? "Create an active LiteRouter API key first."
-      : blockingErrors[0] || "";
+      : form.questions.length === 0
+        ? "Add a state and a question to run."
+        : blockingErrors[0] || "";
+  const templateButtons = TEMPLATES.map((template) => (
+    <Button
+      key={template.id}
+      type="button"
+      size="sm"
+      variant="secondary"
+      icon="bolt"
+      onClick={() => setForm((current) => ({ ...template.build(), longContext: current.longContext }))}
+    >
+      {template.label}
+    </Button>
+  ));
   const hasBoxQuestion = form.questions.some((question) => question.type === "box");
   const showAssets = assetsOpen || hasBoxQuestion || form.assets.length > 0;
   const questionsById = Object.fromEntries(form.questions.map((question) => [question.key.trim(), question]));
@@ -224,7 +238,7 @@ export default function SystemOnePage() {
   };
 
   return (
-    <main className="flex min-w-0 flex-col gap-7 overflow-x-hidden">
+    <main className="flex min-w-0 flex-col gap-7 overflow-x-clip">
       <PageIntro
         eyebrow="System One workspace"
         title="Build a typed decision request."
@@ -238,7 +252,7 @@ export default function SystemOnePage() {
           <p className="mt-1 text-sm text-text-muted">Add a registry entry with a `systemone` service kind and a model list.</p>
         </Card>
       ) : (
-        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="flex min-w-0 flex-col gap-5">
             <Card className="min-w-0" title="Request" subtitle="Provider-native JSON is forwarded unchanged after model normalization." icon="tune">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -265,20 +279,11 @@ export default function SystemOnePage() {
                 </Badge>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Templates">
-                {TEMPLATES.map((template) => (
-                  <Button
-                    key={template.id}
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    icon="bolt"
-                    onClick={() => setForm((current) => ({ ...template.build(), longContext: current.longContext }))}
-                  >
-                    {template.label}
-                  </Button>
-                ))}
-              </div>
+              {form.questions.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Templates">
+                  {templateButtons}
+                </div>
+              )}
 
               <div className="mt-5 border-t border-border-subtle pt-4">
                 <StateEditor form={form} onChange={setForm} error={form.stateMode === "json" ? blockJsonError(form.stateJson) : ""} />
@@ -286,7 +291,12 @@ export default function SystemOnePage() {
 
               <div className="mt-5 border-t border-border-subtle pt-4">
                 <h3 className="mb-3 text-sm font-semibold text-text-main">Questions</h3>
-                <QuestionBuilder form={form} onChange={setForm} errors={fieldErrors} />
+                <QuestionBuilder
+                  form={form}
+                  onChange={setForm}
+                  errors={fieldErrors}
+                  emptyActions={<div className="flex flex-wrap gap-2" role="group" aria-label="Templates">{templateButtons}</div>}
+                />
               </div>
             </Card>
 
@@ -395,13 +405,15 @@ export default function SystemOnePage() {
             </Card>
           </div>
 
-          <Card className="min-w-0 self-start" title="Answers" subtitle="Typed results, probability bars, and raw JSON." icon="data_object">
-            <AnswerView result={result} form={{ questionsById }} />
-            <div className="mt-5 flex flex-col gap-2 border-t border-border-subtle pt-4">
-              {runDisabledReason && <p className="text-xs text-text-muted">{runDisabledReason}</p>}
-              <Button onClick={runRequest} loading={running} disabled={Boolean(runDisabledReason)} icon="play_arrow" fullWidth>
-                Run request
-              </Button>
+          <Card className="min-w-0" title="Answers" subtitle="Typed results, probability bars, and raw JSON." icon="data_object">
+            <div className="sticky -top-4">
+              <AnswerView result={result} form={{ questionsById }} />
+              <div className="mt-5 flex flex-col gap-2 border-t border-border-subtle pt-4">
+                {runDisabledReason && <p className="text-xs text-text-muted">{runDisabledReason}</p>}
+                <Button onClick={runRequest} loading={running} disabled={Boolean(runDisabledReason)} icon="play_arrow" fullWidth>
+                  Run request
+                </Button>
+              </div>
             </div>
           </Card>
         </div>

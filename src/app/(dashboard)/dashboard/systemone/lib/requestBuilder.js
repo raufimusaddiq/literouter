@@ -101,7 +101,7 @@ export function blankForm() {
     stateText: "",
     stateFields: [{ id: makeId("f"), key: "", value: "" }],
     stateJson: "{\n  \"message\": \"\"\n}",
-    questions: [blankQuestion("noul")],
+    questions: [],
     assets: [],
     longContext: false,
   };
@@ -141,6 +141,12 @@ export function validateKey(key, questions, ignoreId) {
   if (!KEY_PATTERN.test(trimmed)) return "Use a letter first, then letters, numbers, _ or -.";
   const duplicate = questions.some((entry) => entry.id !== ignoreId && entry.key.trim() === trimmed);
   return duplicate ? "Key must be unique." : "";
+}
+
+// Field-level key errors stay hidden until the user has touched that question
+// (or the server flagged it), so a fresh lab never opens with red text.
+export function visibleKeyError(question, questions, touchedIds) {
+  return touchedIds && touchedIds.has(question.id) ? validateKey(question.key, questions, question.id) : "";
 }
 
 export function buildBody(form, model) {

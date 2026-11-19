@@ -5,15 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, Button, Input, Select, Toggle, PageIntro } from "@/shared/components";
 import { AI_PROVIDERS, AUTH_METHODS } from "@/shared/constants/config";
+import { getFormAuthMethods } from "@/shared/constants/providers";
 
 const providerOptions = Object.values(AI_PROVIDERS).map((p) => ({
   value: p.id,
   label: p.name,
-}));
-
-const authMethodOptions = Object.values(AUTH_METHODS).map((m) => ({
-  value: m.id,
-  label: m.name,
 }));
 
 export default function NewProviderPage() {
@@ -21,7 +17,7 @@ export default function NewProviderPage() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     provider: "",
-    authMethod: "api_key",
+    authMethod: AUTH_METHODS.apikey.id,
     apiKey: "",
     displayName: "",
     isActive: true,
@@ -29,17 +25,25 @@ export default function NewProviderPage() {
   const [errors, setErrors] = useState({});
 
   const handleChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value };
+      // Keep the auth method valid for the chosen provider (cookie vs API key).
+      if (field === "provider") next.authMethod = getFormAuthMethods(value)[0].id;
+      return next;
+    });
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: null }));
     }
   };
 
+  const authMethods = getFormAuthMethods(formData.provider);
+  const credentialLabel = formData.authMethod === AUTH_METHODS.cookie.id ? "Cookie value" : "API Key";
+
   const validate = () => {
     const newErrors = {};
     if (!formData.provider) newErrors.provider = "Please select a provider";
-    if (formData.authMethod === "api_key" && !formData.apiKey) {
-      newErrors.apiKey = "API Key is required";
+    if (!formData.apiKey) {
+      newErrors.apiKey = `${credentialLabel} is required`;
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -128,55 +132,46 @@ export default function NewProviderPage() {
 
           {/* Auth Method */}
           <div className="flex flex-col gap-3">
-            <label className="text-sm font-medium">
+            <span id="auth-method-label" className="text-sm font-medium">
               Authentication Method <span className="text-red-500">*</span>
-            </label>
-            <div className="flex gap-3">
-              {authMethodOptions.map((method) => (
-                <button
-                  key={method.value}
-                  type="button"
-                  onClick={() => handleChange("authMethod", method.value)}
-                  className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border transition-colors ${
-                    formData.authMethod === method.value
-                      ? "border-primary bg-primary/5 text-primary"
-                      : "border-border hover:border-primary/50"
-                  }`}
-                >
-                  <span aria-hidden="true" className="material-symbols-outlined">
-                    {method.value === "api_key" ? "key" : "lock"}
-                  </span>
-                  <span className="font-medium">{method.label}</span>
-                </button>
-              ))}
+            </span>
+            <div role="radiogroup" aria-labelledby="auth-method-label" className="flex gap-3">
+              {authMethods.map((method) => {
+                const selected = formData.authMethod === method.id;
+                return (
+                  <button
+                    key={method.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => handleChange("authMethod", method.id)}
+                    className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border transition-colors ${
+                      selected
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined">
+                      {method.icon}
+                    </span>
+                    <span className="font-medium">{method.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* API Key Input */}
-          {formData.authMethod === "api_key" && (
-            <Input
-              label="API Key"
-              type="password"
-              placeholder="Enter your API key"
-              value={formData.apiKey}
-              onChange={(e) => handleChange("apiKey", e.target.value)}
-              error={errors.apiKey}
-              hint="Your API key will be encrypted and stored securely."
-              required
-            />
-          )}
-
-          {/* OAuth2 Button */}
-          {formData.authMethod === "oauth2" && (
-            <Card.Section>
-              <p className="text-sm text-text-muted mb-4">
-                Connect your account using OAuth2 authentication.
-              </p>
-              <Button type="button" variant="secondary" icon="link">
-                Connect with OAuth2
-              </Button>
-            </Card.Section>
-          )}
+          {/* Credential Input */}
+          <Input
+            label={credentialLabel}
+            type="password"
+            placeholder={`Enter your ${credentialLabel.toLowerCase()}`}
+            value={formData.apiKey}
+            onChange={(e) => handleChange("apiKey", e.target.value)}
+            error={errors.apiKey}
+            hint="Your credential will be encrypted and stored securely."
+            required
+          />
 
           {/* Display Name */}
           <Input
