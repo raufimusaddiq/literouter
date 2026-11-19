@@ -117,7 +117,11 @@
     "devin-cli": "devin-cli",
     "morph": "morph",
     "morphllm": "morph",
-    "typesafe": "typesafe"
+    "typesafe": "typesafe",
+    "syn": "synthetic",
+    "synthetic": "synthetic",
+    "synthetic-new": "synthetic",
+    "sensenova-intl": "sensenova-intl"
   },
   "idToAlias": {
     "alicode": "alicode",
@@ -187,6 +191,7 @@
     "poolside": "poolside",
     "qoder": "qd",
     "sambanova": "samba",
+    "sensenova-intl": "sensenova-intl",
     "siliconflow": "siliconflow",
     "synthetic": "synthetic",
     "tencent": "hunyuan",
@@ -269,6 +274,7 @@
     "qd",
     "qianfan",
     "samba",
+    "sensenova-intl",
     "siliconflow",
     "synthetic",
     "together",

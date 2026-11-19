@@ -117,6 +117,7 @@ export const PROVIDER_ICON_IDS = new Set([
   "selfhosted-embedding",
   "selfhosted-stt",
   "selfhosted-tts",
+  "sensenova-intl",
   "serper",
   "siliconflow",
   "stability-ai",

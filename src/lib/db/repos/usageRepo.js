@@ -189,7 +189,13 @@ async function calculateCost(provider, model, tokens) {
   try {
     const { getPricingForModel } = await import("./pricingRepo.js");
     const pricing = await getPricingForModel(provider, model);
-    if (!pricing) return 0;
+    if (!pricing) {
+      // Routes fine, but no row: surface the gap once instead of billing a
+      // silent $0 (see open-sse/providers/trackingGaps.js).
+      const { noteUntrackedModel } = await import("open-sse/providers/trackingGaps.js");
+      noteUntrackedModel(provider, model, "cost");
+      return 0;
+    }
 
     // Delegate the actual math to the single source of truth (avoids the two
     // copies drifting apart — see open-sse/providers/pricing.js for the

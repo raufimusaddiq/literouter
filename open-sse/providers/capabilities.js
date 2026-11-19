@@ -90,6 +90,11 @@ export const MODEL_CAPABILITIES = {
   // Claude Fable 5.1, Opus 5, 4.6/4.7/4.8, and Kiro Sonnet 5 have 1M context + adaptive thinking (override generic claude pattern)
   "claude-fable-5-1": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 128000 },
   "claude-fable-5-2": { vision: true, pdf: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 128000 },
+  // Sonnet 5.5 / Sonnet 5 / Opus 5.5 — 1M window on the API, per anthropic.com/pricing
+  // and the ids the live OAuth /v1/models list returns.
+  "claude-sonnet-5-5": { vision: true, pdf: true, reasoning: true, tools: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
+  "claude-sonnet-5": { vision: true, pdf: true, reasoning: true, tools: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
+  "claude-opus-5-5": { vision: true, pdf: true, reasoning: true, tools: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
   // Haiku 5.5 is adaptive-only, like the rest of the 5.x line; the *claude*haiku-5*
   // pattern below still describes the extended-thinking shape and would 400 on the
   // Claude API ("thinking.type.enabled" is not supported for this model).
@@ -398,6 +403,48 @@ PROVIDER_CAPABILITIES["qoder-cn"] = PROVIDER_CAPABILITIES["qoder"];
 PROVIDER_CAPABILITIES.cx = PROVIDER_CAPABILITIES.codex;
 PROVIDER_CAPABILITIES.dv = PROVIDER_CAPABILITIES["devin-cli"];
 PROVIDER_CAPABILITIES.devin = PROVIDER_CAPABILITIES["devin-cli"];
+
+// SenseNova intl: limits from token.sensenova.ai/v1/models (context_length 262144,
+// max_output_length 65536, text+image in, reasoning), which is below the CN 1M
+// window — scoped to this provider so a same-id CN entry would keep its own values.
+const SENSENOVA_INTL_CHAT = {
+  vision: true,
+  reasoning: true,
+  tools: true,
+  thinkingFormat: "openai",
+  contextWindow: 262144,
+  maxOutput: 65536,
+};
+PROVIDER_CAPABILITIES["sensenova-intl"] = {
+  "sensenova-6.8-flash": SENSENOVA_INTL_CHAT,
+  "sensenova-6.8-flash-lite": SENSENOVA_INTL_CHAT,
+  "sensenova-6.7-flash-lite": SENSENOVA_INTL_CHAT,
+};
+
+// Synthetic — limits and modalities from GET https://api.synthetic.new/openai/v1/models.
+// Every entry is OpenAI-wire with reasoning + tools; vision is per model.
+const SYNTHETIC_TEXT = {
+  vision: false, reasoning: true, tools: true, thinkingFormat: "openai",
+  contextWindow: 524288, maxOutput: 65536,
+};
+const SYNTHETIC_VISION = { ...SYNTHETIC_TEXT, vision: true };
+PROVIDER_CAPABILITIES.synthetic = {
+  "hf:zai-org/GLM-5.3": SYNTHETIC_TEXT,
+  "hf:zai-org/GLM-5.3Beta": SYNTHETIC_TEXT,
+  "hf:zai-org/GLM-5.3-Flash": SYNTHETIC_VISION,
+  "hf:zai-org/GLM-4.7-Flash": { ...SYNTHETIC_TEXT, contextWindow: 196608 },
+  "hf:moonshotai/Kimi-K3": SYNTHETIC_VISION,
+  "hf:moonshotai/Kimi-K3.1-Pro": SYNTHETIC_VISION,
+  "hf:deepseek-ai/DeepSeek-V4.1-Flash": SYNTHETIC_VISION,
+  "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017": SYNTHETIC_VISION,
+  "hf:Qwen/Qwen3.8-27B": { ...SYNTHETIC_VISION, contextWindow: 262144 },
+  "hf:openai/gpt-oss-120b": { ...SYNTHETIC_TEXT, contextWindow: 131072 },
+  "hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4": SYNTHETIC_TEXT,
+  "syn:small:text": { ...SYNTHETIC_TEXT, contextWindow: 196608 },
+  "syn:small:vision": SYNTHETIC_VISION,
+  "syn:large:text": SYNTHETIC_VISION,
+  "syn:large:vision": SYNTHETIC_VISION,
+};
 
 /**
  * Pattern fallback — glob (* = wildcard), matched case-insensitively and

@@ -29,6 +29,12 @@ export const MODEL_PRICING = {
   "claude-opus-4-5-thinking":     { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 37.50,  cache_creation: 5.00  },
   "claude-opus-4-6-thinking":     { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 37.50,  cache_creation: 5.00  },
   "claude-fable-5-2":             { input: 8.00,  output: 40.00, cached: 0.20,  reasoning: 40.00,  cache_creation: 10.00 },
+  // Source: https://www.anthropic.com/pricing (API list, 2026-11-20). These three
+  // differ from their family pattern, so they need exact rows the live OAuth
+  // catalog can surface the moment Anthropic ships them.
+  "claude-sonnet-5-5":            { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 2.50  },
+  "claude-sonnet-5":              { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.50  },
+  "claude-opus-5-5":              { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 5.00  },
   "claude-fable-5-1":             { input: 10.00, output: 50.00, cached: 1.00,  reasoning: 50.00,  cache_creation: 12.50 },
   "claude-fable-5":               { input: 10.00, output: 50.00, cached: 1.00,  reasoning: 50.00,  cache_creation: 12.50 },
   "claude-haiku-5-5":             { input: 0.10,  output: 0.50,  cached: 0.01,  reasoning: 0.50,   cache_creation: 0.125 },
@@ -162,6 +168,48 @@ export const PROVIDER_PRICING = {
   // TypeSafe Jev — https://typesafe.ai/ (input $0.042/MTok, output free)
   typesafe: {
     "jev-latest": { input: 0.042, output: 0 },
+  },
+  // Synthetic — https://synthetic.new/pricing/models, usage-based column, converted
+  // from the vendor's per-token figures in GET /openai/v1/models (cached = cache read).
+  // Subscription plans bill against a rate limit instead of these rates, so this is
+  // the honest pay-as-you-go number, not the discounted plan rate.
+  synthetic: {
+    "hf:zai-org/GLM-5.3":                      { input: 1.40, output: 4.40, cached: 0.26, reasoning: 4.40 },
+    "hf:zai-org/GLM-5.3-Flash":                { input: 0.15, output: 0.50, cached: 0.04, reasoning: 0.50 },
+    "hf:zai-org/GLM-4.7-Flash":                { input: 0.10, output: 0.50, cached: 0.02, reasoning: 0.50 },
+    "hf:moonshotai/Kimi-K3.1-Pro":             { input: 2.00, output: 10.00, cached: 0.20, reasoning: 10.00 },
+    "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017": { input: 0.60, output: 1.20, cached: 0.03, reasoning: 1.20 },
+    "hf:Qwen/Qwen3.8-27B":                     { input: 0.45, output: 2.20, cached: 0.09, reasoning: 2.20 },
+    "hf:openai/gpt-oss-120b":                  { input: 0.10, output: 0.10, cached: 0.02, reasoning: 0.10 },
+    // GLM-5.3 Beta (the pre-release id) bills at the GLM-5.3 rate on the vendor page.
+    "hf:zai-org/GLM-5.3Beta":                  { input: 1.40, output: 4.40, cached: 0.26, reasoning: 4.40 },
+    // TODO(synthetic): the vendor pricing page lists no rate for these three ids —
+    // they are in the static fallback only. Zero keeps them routable and bills $0
+    // instead of silently using a lookalike model's rate; replace once published.
+    "hf:moonshotai/Kimi-K3":                   { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "hf:deepseek-ai/DeepSeek-V4.1-Flash":      { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4": { input: 0, output: 0, cached: 0, reasoning: 0 },
+    // Synthetic's aliases (syn:small|large:text|vision) are plan-backed and priced
+    // by rate limit, not by token.
+    "syn:small:text":                          { input: 0.10, output: 0.50, cached: 0.02, reasoning: 0.50 },
+    "syn:small:vision":                        { input: 0.60, output: 1.20, cached: 0.03, reasoning: 1.20 },
+    "syn:large:text":                          { input: 0.60, output: 1.20, cached: 0.03, reasoning: 1.20 },
+    "syn:large:vision":                        { input: 2.00, output: 10.00, cached: 0.20, reasoning: 10.00 },
+  },
+  // CommandCode — the vendor catalog publishes per-model rates and the live
+  // resolver registers them at runtime (see services/commandcodeModels.js), so a
+  // newly released id bills correctly. This row covers the one static registry id
+  // the pattern tables miss. Source: GET .../provider/v1/models?view=client
+  commandcode: {
+    "stepfun/Step-3.5-Flash": { input: 0.09, output: 0.30, cached: 0.02, reasoning: 0.30 },
+  },
+  // SenseNova (intl) — platform.sensenova.ai publishes no machine-readable price
+  // list (the pricing pages 404 and /v1/models needs a key). TODO(sensenova-intl):
+  // fill in the vendor's per-1M rates; zeros keep cost tracking visible, not silent.
+  "sensenova-intl": {
+    "sensenova-6.8-flash":      { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "sensenova-6.8-flash-lite": { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "sensenova-6.7-flash-lite": { input: 0, output: 0, cached: 0, reasoning: 0 },
   },
   // Cloudflare Workers AI Clef (input-only pricing; output tokens billed at $0).
   "cloudflare-ai": {
@@ -372,11 +420,28 @@ export const PATTERN_PRICING = [
   { pattern: "grok-*",          pricing: { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  } },
 ];
 
+// Live-catalog rates published by a provider, keyed provider -> model -> pricing.
+// CommandCode's catalog carries inputCost/outputCost/cacheReadCost/cacheWriteCost
+// per model; registering them means a newly released id bills correctly without
+// a LiteRouter release. Bounded and process-local.
+const runtimePricing = new Map();
+const RUNTIME_PRICING_MAX_MODELS = 1000;
+
+export function setRuntimePricing(provider, entries) {
+  if (!provider || !entries || typeof entries !== "object") return;
+  const capped = Object.fromEntries(Object.entries(entries).slice(0, RUNTIME_PRICING_MAX_MODELS));
+  runtimePricing.set(provider, capped);
+}
+
+export function clearRuntimePricing(provider) {
+  if (provider) runtimePricing.delete(provider);
+  else runtimePricing.clear();
+}
+
 // Compiled per pattern once: capability/pricing lookups scan the full pattern
 // tables (100+ globs, two tests each) on every request.
 const patternRegexCache = new Map();
 const PATTERN_REGEX_CACHE_MAX = 1000;
-
 /**
  * Match a model ID against a glob pattern (* = wildcard). Case-insensitive:
  * registry ids mix casing (e.g. "MiniMax-M2.5" vs "minimax-m2.5").
@@ -403,6 +468,11 @@ export function matchPattern(pattern, model) {
  */
 export function getPricingForModel(provider, model) {
   if (!model) return null;
+
+  // 0. Runtime overlay — catalogs that publish their own rates (CommandCode's
+  // live catalog does). Beats the static tables because the vendor is the source.
+  const overlay = runtimePricing.get(provider);
+  if (overlay?.[model]) return overlay[model];
 
   // 1. Provider-specific override
   if (provider && PROVIDER_PRICING[provider]?.[model]) {

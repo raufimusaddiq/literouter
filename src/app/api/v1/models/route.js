@@ -21,6 +21,7 @@ import { resolveGrokCliModels } from "open-sse/services/grokCliModels.js";
 import { resolveCursorModels } from "open-sse/services/cursorModels.js";
 import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { resolveCommandCodeModels } from "open-sse/services/commandcodeModels.js";
+import { noteUntrackedModel } from "open-sse/providers/trackingGaps.js";
 import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import {
@@ -529,6 +530,9 @@ export async function buildModelsList(kindFilter, options = {}) {
           const live = await liveResolver(conn);
           if (live?.models?.length) {
             rawModelIds = live.models.map((m) => m.id);
+            // Live ids can outrun the static pricing/caps tables; one silent
+            // warn per id keeps the cost blind spot discoverable.
+            for (const model of live.models) noteUntrackedModel(providerId, model.id, "v1-models");
             liveModelKindById = new Map(
               live.models
                 .filter((m) => m?.id)

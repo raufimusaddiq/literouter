@@ -14,6 +14,7 @@ import { resolveCursorModels } from "open-sse/services/cursorModels.js";
 import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { resolveClineModels, resolveClinepassModels } from "open-sse/services/clinepassModels.js";
 import { resolveCommandCodeModels } from "open-sse/services/commandcodeModels.js";
+import { noteUntrackedModel } from "open-sse/providers/trackingGaps.js";
 
 const GEMINI_CLI_MODELS_URL = "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
 
@@ -210,7 +211,12 @@ const PROVIDER_MODELS_CONFIG = {
   commandcode: {
     customResolver: async () => {
       const result = await resolveCommandCodeModels({ forceRefresh: true });
-      if (result?.models?.length) return { models: result.models };
+      if (result?.models?.length) {
+        // Live ids may be newer than the static pricing/caps tables; note the gap
+        // once per id so the cost blind spot is visible in the logs.
+        for (const model of result.models) noteUntrackedModel("commandcode", model.id, "live-catalog");
+        return { models: result.models };
+      }
       return {
         models: getStaticProviderModels("commandcode"),
         warning: "CommandCode returned no live models; falling back to static catalog.",

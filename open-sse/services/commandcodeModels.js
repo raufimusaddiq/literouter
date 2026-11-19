@@ -11,12 +11,12 @@
  *   - bounded: 5s abort, 15min success cache, 60s failure backoff,
  *   - at most one fetch in flight; concurrent callers share it,
  *   - never throws: any error yields null so callers fall back to static rows,
- *   - the fetch goes through proxyAwareFetch (proxy/keep-alive aware) and sends
- *     the CLI identity headers only — never a connection key.
+ *   - the fetch goes through the patched global fetch (proxy/keep-alive aware)
+ *     and sends the CLI identity headers only — never a connection key.
  */
 
 import commandcodeProvider from "../providers/registry/commandcode.js";
-import { proxyAwareFetch } from "../utils/proxyFetch.js";
+import { setRuntimePricing } from "../providers/pricing.js";
 
 export const COMMANDCODE_MODELS_URL = "https://api.commandcode.ai/provider/v1/models?view=client";
 
@@ -59,18 +59,45 @@ export function parseCommandCodeModels(data) {
     });
 }
 
+// The catalog publishes per-model rates (inputCost/outputCost/cacheReadCost/
+// cacheWriteCost in $/1M tokens). Map them to the pricing shape so a newly
+// released id bills correctly without waiting for a LiteRouter release.
+export function parseCommandCodePricing(data) {
+  const models = Array.isArray(data?.data) ? data.data : [];
+  const out = {};
+  for (const model of models) {
+    if (!model?.id || model.hidden) continue;
+    const p = model.pricing;
+    if (!p || typeof p.inputCost !== "number" || typeof p.outputCost !== "number") continue;
+    out[model.id] = {
+      input: p.inputCost,
+      output: p.outputCost,
+      ...(typeof p.cacheReadCost === "number" ? { cached: p.cacheReadCost } : {}),
+      ...(typeof p.cacheWriteCost === "number" ? { cache_creation: p.cacheWriteCost } : {}),
+      reasoning: p.outputCost,
+    };
+  }
+  return out;
+}
+
 async function fetchCatalog() {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await proxyAwareFetch(COMMANDCODE_MODELS_URL, {
+    // Use the patched global fetch so the same proxy/keep-alive policy the chat
+    // path uses also covers the catalog probe; no credentials are sent.
+    const response = await fetch(COMMANDCODE_MODELS_URL, {
       method: "GET",
       signal: ctrl.signal,
       headers: { ...commandcodeProvider.transport.headers, ...CATALOG_HEADERS },
     });
     if (!response?.ok) throw new Error(`catalog ${response?.status}`);
-    const models = parseCommandCodeModels(await response.json());
+    const payload = await response.json();
+    const models = parseCommandCodeModels(payload);
     if (!models.length) throw new Error("empty catalog");
+    // The vendor publishes its own rates; register them so a model released after
+    // this build still bills at the real price instead of $0.
+    setRuntimePricing("commandcode", parseCommandCodePricing(payload));
     cache = { models };
     nextFetchAt = Date.now() + TTL_MS;
     return cache;
@@ -94,4 +121,11 @@ export async function resolveCommandCodeModels({ forceRefresh = false } = {}) {
   if (!forceRefresh && Date.now() < nextFetchAt) return null;
   if (!inflight) inflight = fetchCatalog();
   return inflight;
+}
+
+// Test seam: drop the cached catalog and any backoff window.
+export function resetCommandCodeCache() {
+  cache = null;
+  nextFetchAt = 0;
+  inflight = null;
 }

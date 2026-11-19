@@ -59,7 +59,11 @@ export function openAICompletionToClaudeMessage(responseBody) {
   const choice = responseBody.choices[0];
   const message = choice.message || {};
   const content = [];
-  const reasoning = message.reasoning_content || message.provider_specific_fields?.reasoning_content || "";
+  const reasoning = message.reasoning_content
+    || message.provider_specific_fields?.reasoning_content
+    // `reasoning` (string) is the vendor alias some OpenAI-compatible upstreams
+    // use (SenseNova, OpenRouter) instead of reasoning_content.
+    || (typeof message.reasoning === "string" ? message.reasoning : "");
 
   if (reasoning) content.push({ type: "thinking", thinking: reasoning });
   if (typeof message.content === "string" && message.content.length > 0) content.push({ type: "text", text: message.content });

@@ -1129,6 +1129,14 @@
       }
     ]
   },
+  "sensenova-intl": {
+    "baseUrl": "https://token.sensenova.ai/v1/chat/completions",
+    "validateUrl": "https://token.sensenova.ai/v1/models",
+    "quirks": {
+      "reasoningAliasFields": true
+    },
+    "format": "openai"
+  },
   "synthetic": {
     "baseUrl": "https://api.synthetic.new/openai/v1/chat/completions",
     "validateUrl": "https://api.synthetic.new/v2/quotas",

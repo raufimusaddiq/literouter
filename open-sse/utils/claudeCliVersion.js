@@ -77,6 +77,13 @@ export function ensureClaudeCliVersion(fetchImpl) {
   return getClaudeCliVersion();
 }
 
+// Test seam: forget the live value and any backoff window.
+export function resetClaudeCliVersion() {
+  current = null;
+  nextCheckAt = 0;
+  inflight = null;
+}
+
 const UA_RE = /claude-cli\/\d+\.\d+\.\d+/g;
 
 // Rewrite claude-cli/x.y.z in header values to the live version (object, array or Headers).

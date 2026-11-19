@@ -31,6 +31,7 @@ stub.catalog = {
       maxOutputTokens: 262144,
       inputModalities: ["text"],
       reasoningEfforts: null,
+      pricing: { inputCost: 0.15, outputCost: 0.6, cacheReadCost: 0.003 },
       display: { label: "DeepSeek V4.1 Flash Fast (latest)", description: "High throughput V4.1 Flash" },
     },
     {
@@ -44,16 +45,19 @@ stub.catalog = {
   ],
 };
 
-beforeEach(() => {
+beforeEach(async () => {
   stub.mode = "ok";
   stub.calls.length = 0;
-  // Install AFTER the route import: open-sse/utils/proxyFetch.js assigns
-  // globalThis.fetch at import time, so a stub installed before would be replaced.
+  // The resolver keeps a success cache/backoff window; clear it per test so the
+  // stub's mode (ok / error / empty) actually reaches fetch.
+  const { resetCommandCodeCache } = await import("open-sse/services/commandcodeModels.js");
+  resetCommandCodeCache();
   vi.stubGlobal("fetch", async (url, options) => {
     const href = String(url);
     stub.calls.push({ url: href, headers: options?.headers || {} });
     if (href !== CATALOG_URL) return new Response("unexpected url", { status: 404 });
     if (stub.mode === "error") return new Response("boom", { status: 500 });
+    if (stub.mode === "empty") return Response.json({ data: [] });
     return Response.json(stub.catalog);
   });
 });
@@ -159,9 +163,40 @@ describe("CommandCode catalog — failure handling", () => {
     expect(data.models.length).toBeGreaterThan(0);
   });
 
+  it("rejects a 500 or an empty catalog without throwing out of the route", async () => {
+    const { resolveCommandCodeModels } = await import("open-sse/services/commandcodeModels.js");
+    stub.mode = "error";
+    expect(await resolveCommandCodeModels({ forceRefresh: true })).toBeNull();
+    stub.mode = "empty";
+    expect(await resolveCommandCodeModels({ forceRefresh: true })).toBeNull();
+  });
+
+  it("caches a successful catalog between calls", async () => {
+    const { resolveCommandCodeModels } = await import("open-sse/services/commandcodeModels.js");
+    stub.mode = "ok";
+    const first = await resolveCommandCodeModels({ forceRefresh: true });
+    expect(first.models.length).toBe(2);
+    const callsAfterFirst = stub.calls.length;
+    const second = await resolveCommandCodeModels();
+    expect(second.models.length).toBe(2);
+    expect(stub.calls.length).toBe(callsAfterFirst);
+  });
+
   it("404s for an unknown connection", async () => {
     const res = await getModels("00000000-0000-0000-0000-000000000000");
     expect(res.status).toBe(404);
+  });
+});
+
+describe("CommandCode catalog — vendor rates are billed, not $0", () => {
+  it("registers the catalog's own pricing for live ids", async () => {
+    const { resolveCommandCodeModels } = await import("open-sse/services/commandcodeModels.js");
+    const { getPricingForModel } = await import("open-sse/providers/pricing.js");
+    stub.mode = "ok";
+    await resolveCommandCodeModels({ forceRefresh: true });
+    expect(getPricingForModel("commandcode", "deepseek/deepseek-v4.1-flash-fast")).toMatchObject({
+      input: 0.15, output: 0.6, cached: 0.003,
+    });
   });
 });
 
