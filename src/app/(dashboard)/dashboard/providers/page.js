@@ -464,7 +464,6 @@ export default function ProvidersPage() {
         </div>
         <div className="flex items-center justify-end">
         <select
-          aria-label="Filter providers by status"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className="h-8 rounded-lg border border-black/10 bg-black/[0.02] px-2 text-xs text-text-primary outline-none transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/10"
