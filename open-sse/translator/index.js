@@ -209,6 +209,15 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
   let results = [chunk];
   let openaiResults = null; // Store OpenAI intermediate results
 
+  // Cross-format: the intermediate OpenAI shape is the upstream contract, so a
+  // fragment that opens a tool-call index with no id must get one before any
+  // translator sees it (Anthropic tool_use requires an id; OpenAI clients expect
+  // one). Without this, openai-to-claude dropped such a call and its arguments.
+  if (state && chunk && typeof chunk === "object") {
+    if (!state.streamToolCallIds) state.streamToolCallIds = new Map();
+    ensureStreamToolCallIds(chunk, state.streamToolCallIds);
+  }
+
   // Direct route: if a response translator is registered for this exact
   // target:source pair, use it instead of pivoting through OpenAI. Mirrors the
   // request-side direct route (e.g. kiro:claude — KiroExecutor already emits

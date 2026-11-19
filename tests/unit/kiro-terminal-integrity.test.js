@@ -718,7 +718,7 @@ describe("Kiro terminal integrity recovery", () => {
       .mockResolvedValueOnce(response([]))
       // Every later call (retries + fallback hosts) must be a real 401; a
       // drained mock hands back `undefined` and the executor loops on it.
-      .mockResolvedValue(new Response("unauthorized", {
+      .mockImplementation(async () => new Response("unauthorized", {
         status: 401,
         statusText: "Unauthorized"
       }));
@@ -734,7 +734,7 @@ describe("Kiro terminal integrity recovery", () => {
   it("bounds the retry HTTP error body", async () => {
     fetchMock
       .mockResolvedValueOnce(response([]))
-      .mockResolvedValue(new Response(`error-start-${"x".repeat(10_000)}-error-tail`, {
+      .mockImplementation(async () => new Response(`error-start-${"x".repeat(10_000)}-error-tail`, {
         status: 401,
         statusText: "Unauthorized"
       }));
