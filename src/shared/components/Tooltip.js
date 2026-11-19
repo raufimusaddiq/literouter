@@ -1,6 +1,14 @@
 "use client";
 
+import { Children, cloneElement, isValidElement, useId, useState } from "react";
+
+// Hover/focus tooltip. The tooltip text is linked to the (single) child trigger via
+// aria-describedby, shown on hover AND keyboard focus (focus-within), and Escape dismisses it.
 export default function Tooltip({ text, children, position = "top", color }) {
+  const id = useId();
+  const [dismissed, setDismissed] = useState(false);
+  const [visible, setVisible] = useState(false);
+
   const posClass = {
     top: "bottom-full left-1/2 -translate-x-1/2 mb-1.5",
     bottom: "top-full left-1/2 -translate-x-1/2 mt-1.5",
@@ -11,11 +19,34 @@ export default function Tooltip({ text, children, position = "top", color }) {
   const bgStyle = color ? { backgroundColor: color } : {};
   const bgClass = color ? "" : "bg-gray-900";
 
+  const only = Children.count(children) === 1 ? Children.only(children) : null;
+  const trigger =
+    only && isValidElement(only) && typeof only.type === "string"
+      ? cloneElement(only, {
+          "aria-describedby": [only.props["aria-describedby"], id].filter(Boolean).join(" "),
+        })
+      : children;
+
   return (
-    <div className="relative inline-flex group/tt">
-      {children}
+    <div
+      className="relative inline-flex group/tt"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          // Only swallow Escape while the tooltip is visible (e.g. keep a parent Modal open).
+          if (visible && !dismissed) e.stopPropagation();
+          setDismissed(true);
+        }
+      }}
+      onMouseEnter={() => { setDismissed(false); setVisible(true); }}
+      onMouseLeave={() => setVisible(false)}
+      onFocus={() => { setDismissed(false); setVisible(true); }}
+      onBlur={() => setVisible(false)}
+    >
+      {trigger}
       <div
-        className={`pointer-events-none absolute ${posClass} z-50 w-max max-w-56 rounded px-2 py-1 text-[11px] leading-snug ${bgClass} text-white opacity-0 group-hover/tt:opacity-100 transition-opacity duration-150 whitespace-normal`}
+        id={id}
+        role="tooltip"
+        className={`pointer-events-none absolute ${posClass} z-50 w-max max-w-56 rounded px-2 py-1 text-[11px] leading-snug ${bgClass} text-white ${dismissed ? "opacity-0" : "opacity-0 group-hover/tt:opacity-100 group-focus-within/tt:opacity-100"} transition-opacity duration-150 whitespace-normal`}
         style={bgStyle}
       >
         {text}
