@@ -155,9 +155,11 @@ export default function UsageTable({
 
   return (
     <Card className="overflow-hidden">
-      <div className="p-4 border-b border-border bg-bg-subtle/50">
-        <h3 className="font-semibold">{title}</h3>
-      </div>
+      {title ? (
+        <div className="p-4 border-b border-border bg-bg-subtle/50">
+          <h3 className="font-semibold">{title}</h3>
+        </div>
+      ) : null}
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
           <thead className="bg-bg-subtle/30 text-text-muted uppercase text-xs">
