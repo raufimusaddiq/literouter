@@ -1,25 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { APIKEY_PROVIDERS, supportsServiceKind } from "@/shared/constants/providers";
 import { getModelsByProviderId } from "@/shared/constants/models";
-import { Badge, Button, Card, Select, PageIntro } from "@/shared/components";
+import { Badge, Button, Card, Select, PageIntro, Toggle } from "@/shared/components";
+import StateEditor from "./components/StateEditor";
+import QuestionBuilder from "./components/QuestionBuilder";
+import AnswerView from "./components/AnswerView";
+import {
+  TEMPLATES,
+  addAsset,
+  blankForm,
+  buildBody,
+  buildCurl,
+  errorFieldsFromResponse,
+  errorText,
+  formFromBody,
+  insertPlaceholder,
+  parseStoredForm,
+  requestHeaders,
+} from "./lib/requestBuilder";
 
-const SAMPLE = {
-  state: { message: "My card was charged twice." },
-  questions: {
-    refund_requested: {
-      type: "noul",
-      instructions: "Does the customer request a refund?",
-    },
-  },
-};
+const STORAGE_KEY = "literouter.systemone.lab";
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 function getSystemOneProviders() {
   return Object.values(APIKEY_PROVIDERS)
     .filter((provider) => supportsServiceKind(provider, "systemone"))
     .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+}
+
+function loadStoredForm() {
+  try {
+    return parseStoredForm(window.localStorage.getItem(STORAGE_KEY));
+  } catch {
+    return blankForm();
+  }
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = () => reject(reader.error || new Error("Could not read the image."));
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function SystemOnePage() {
@@ -29,11 +55,26 @@ export default function SystemOnePage() {
   const models = getModelsByProviderId(provider?.id || "");
   const [model, setModel] = useState(providers[0] ? getModelsByProviderId(providers[0].id)[0]?.id || "" : "");
   const selectedModel = models.some((entry) => entry.id === model) ? model : models[0]?.id || "";
-  const [requestText, setRequestText] = useState(() => JSON.stringify(SAMPLE, null, 2));
+  const [form, setForm] = useState(blankForm);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [requestText, setRequestText] = useState("");
+  const [jsonError, setJsonError] = useState("");
+  const advancedSource = useRef("form");
+  const [assetError, setAssetError] = useState("");
+  const [assetsOpen, setAssetsOpen] = useState(false);
   const [result, setResult] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [running, setRunning] = useState(false);
   const [connections, setConnections] = useState([]);
   const [clientApiKey, setClientApiKey] = useState("");
+  const [copyState, setCopyState] = useState("idle");
+  const fileInput = useRef(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setForm(loadStoredForm());
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     Promise.all([fetch("/api/providers"), fetch("/api/keys")])
@@ -49,41 +90,136 @@ export default function SystemOnePage() {
       });
   }, []);
 
+  useEffect(() => {
+    // Only save once the loaded form has been committed; otherwise strict-mode
+    // double effects would overwrite storage with the blank initial form.
+    if (!hydrated) return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(form));
+    } catch {}
+  }, [form, hydrated]);
+
+  // Keep the advanced JSON in step with the form. Edits typed into the JSON box
+  // set the flag so they are not reformatted under the cursor.
+  useEffect(() => {
+    if (!advancedOpen) return;
+    if (advancedSource.current === "json") {
+      advancedSource.current = "form";
+      return;
+    }
+    setRequestText(JSON.stringify(buildBody(form, `${providerId}/${selectedModel}`).body, null, 2));
+  }, [advancedOpen, form, providerId, selectedModel]);
+
+  const endpoint = typeof window === "undefined" ? "/v1/systemone" : `${window.location.origin}/v1/systemone`;
   const connectionCount = connections.filter(
     (connection) => connection.provider === provider?.id && connection.isActive !== false,
   ).length;
-  const endpoint = typeof window === "undefined" ? "/v1/systemone" : `${window.location.origin}/v1/systemone`;
 
-  const runRequest = async () => {
-    setResult(null);
-    let body;
+  const preview = buildBody(form, `${providerId}/${selectedModel}`);
+  const blockingErrors = preview.errors;
+  const runDisabledReason = !providerId || !selectedModel
+    ? "Choose a provider and model."
+    : !clientApiKey
+      ? "Create an active LiteRouter API key first."
+      : blockingErrors[0] || "";
+  const hasBoxQuestion = form.questions.some((question) => question.type === "box");
+  const showAssets = assetsOpen || hasBoxQuestion || form.assets.length > 0;
+  const questionsById = Object.fromEntries(form.questions.map((question) => [question.key.trim(), question]));
+
+  const openAdvanced = () => {
+    setRequestText(JSON.stringify(preview.body, null, 2));
+    setJsonError("");
+    setAdvancedOpen(true);
+  };
+
+  const applyAdvanced = (text) => {
+    setRequestText(text);
+    let parsed;
     try {
-      body = JSON.parse(requestText);
+      parsed = JSON.parse(text);
     } catch {
-      setResult({ status: 400, ok: false, text: "Request body is not valid JSON." });
+      setJsonError("Request is not valid JSON. The form keeps its last good state.");
       return;
     }
-    body.model = `${providerId}/${selectedModel}`;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      setJsonError("Request must be a JSON object. The form keeps its last good state.");
+      return;
+    }
+    setJsonError("");
+    advancedSource.current = "json";
+    const next = formFromBody(parsed);
+    setForm({ ...next, longContext: form.longContext });
+  };
+
+  const runRequest = async () => {
+    const checked = buildBody(form, `${providerId}/${selectedModel}`);
+    if (checked.errors.length) {
+      setResult(null);
+      setFieldErrors({});
+      setResult({ status: 0, ok: false, errorText: checked.errors.join("\n"), text: "" });
+      return;
+    }
+    setResult(null);
+    setFieldErrors({});
     setRunning(true);
     try {
       const response = await fetch("/v1/systemone", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          ...requestHeaders(form),
           ...(clientApiKey ? { Authorization: `Bearer ${clientApiKey}` } : {}),
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(checked.body),
       });
       const text = await response.text();
-      let formatted = text;
+      let payload = null;
       try {
-        formatted = JSON.stringify(JSON.parse(text), null, 2);
+        payload = JSON.parse(text);
       } catch {}
-      setResult({ status: response.status, ok: response.ok, text: formatted });
+      const pretty = payload ? JSON.stringify(payload, null, 2) : text;
+      setResult({
+        status: response.status,
+        ok: response.ok,
+        text: pretty,
+        payload,
+        assets: form.assets,
+        errorText: response.ok ? "" : errorText(payload, `Upstream error: ${response.status}`),
+      });
+      if (response.status === 422) setFieldErrors(errorFieldsFromResponse(payload));
     } catch (error) {
-      setResult({ status: 0, ok: false, text: error.message || "Request failed." });
+      setResult({ status: 0, ok: false, text: "", payload: null, errorText: error.message || "Request failed." });
     } finally {
       setRunning(false);
+    }
+  };
+
+  const copyCurl = async () => {
+    try {
+      await navigator.clipboard.writeText(buildCurl(endpoint, preview.body, requestHeaders(form)));
+      setCopyState("copied");
+      window.setTimeout(() => setCopyState("idle"), 2000);
+    } catch {
+      setCopyState("failed");
+    }
+  };
+
+  const uploadImage = async (file) => {
+    if (!file) return;
+    const format = file.type === "image/jpeg" || file.type === "image/jpg" ? "jpg" : file.type === "image/png" ? "png" : "";
+    if (!format) {
+      setAssetError("Only PNG and JPG images are supported.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setAssetError("Image is too large. Use one under 4 MB.");
+      return;
+    }
+    try {
+      const data_base64 = await readFileAsBase64(file);
+      setAssetError("");
+      setForm((current) => addAsset(current, { name: file.name, format, data_base64 }));
+    } catch (error) {
+      setAssetError(error.message);
     }
   };
 
@@ -91,8 +227,8 @@ export default function SystemOnePage() {
     <main className="flex min-w-0 flex-col gap-7 overflow-x-hidden">
       <PageIntro
         eyebrow="System One workspace"
-        title="Run a typed decision request."
-        description="Choose a registered provider, edit the native request, and inspect the upstream response without leaving LiteRouter."
+        title="Build a typed decision request."
+        description="Compose state and questions with a form, run them against your registered provider, and read the typed answers. The raw JSON stays one toggle away."
         action={<Link href="/dashboard/providers" className="shrink-0"><Button variant="secondary" icon="settings">Configure providers</Button></Link>}
       />
 
@@ -102,68 +238,171 @@ export default function SystemOnePage() {
           <p className="mt-1 text-sm text-text-muted">Add a registry entry with a `systemone` service kind and a model list.</p>
         </Card>
       ) : (
-        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-          <Card className="min-w-0" title="Request" subtitle="Provider-native JSON is forwarded unchanged after model normalization." icon="tune">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Select
-                label="Provider"
-                value={providerId}
-                onChange={(event) => setProviderId(event.target.value)}
-                options={providers.map((entry) => ({ value: entry.id, label: entry.name }))}
-              />
-              <Select
-                label="Model"
-                value={selectedModel}
-                onChange={(event) => setModel(event.target.value)}
-                options={models.map((entry) => ({ value: entry.id, label: entry.name || entry.id }))}
-              />
-            </div>
+        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+          <div className="flex min-w-0 flex-col gap-5">
+            <Card className="min-w-0" title="Request" subtitle="Provider-native JSON is forwarded unchanged after model normalization." icon="tune">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Select
+                  label="Provider"
+                  value={providerId}
+                  onChange={(event) => setProviderId(event.target.value)}
+                  options={providers.map((entry) => ({ value: entry.id, label: entry.name }))}
+                />
+                <Select
+                  label="Model"
+                  value={selectedModel}
+                  onChange={(event) => setModel(event.target.value)}
+                  options={models.map((entry) => ({ value: entry.id, label: entry.name || entry.id }))}
+                />
+              </div>
 
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-xs ring-1 ring-border-subtle">
-              <span className="min-w-0 truncate font-mono text-text-muted">POST {endpoint}</span>
-              <Badge variant={connectionCount && clientApiKey ? "success" : "default"} size="sm" dot>
-                {connectionCount && clientApiKey
-                  ? `${connectionCount} connection${connectionCount === 1 ? "" : "s"}`
-                  : !clientApiKey ? "LiteRouter key needed" : "No connection"}
-              </Badge>
-            </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-xs ring-1 ring-border-subtle">
+                <span className="min-w-0 truncate font-mono text-text-muted">POST {endpoint}</span>
+                <Badge variant={connectionCount && clientApiKey ? "success" : "default"} size="sm" dot>
+                  {connectionCount && clientApiKey
+                    ? `${connectionCount} connection${connectionCount === 1 ? "" : "s"}`
+                    : !clientApiKey ? "LiteRouter key needed" : "No connection"}
+                </Badge>
+              </div>
 
-            <label className="mt-4 block text-sm font-medium text-text-main" htmlFor="systemone-request">Request JSON</label>
-            <textarea
-              id="systemone-request"
-              value={requestText}
-              onChange={(event) => setRequestText(event.target.value)}
-              spellCheck="false"
-              className="mt-1.5 min-h-[330px] w-full resize-y rounded-xl bg-surface-2 p-3 font-mono text-xs leading-5 text-text-main ring-1 ring-transparent focus:outline-none focus:ring-2 focus:ring-brand-500/30"
-            />
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-text-muted">
-                {clientApiKey
-                  ? "Uses your active LiteRouter API key and provider connection."
-                  : <>Create an active LiteRouter key in <Link href="/dashboard/endpoint" className="text-primary hover:underline">Endpoint &amp; Key</Link>.</>}
-              </p>
-              <Button onClick={runRequest} loading={running} disabled={!providerId || !selectedModel} icon="play_arrow">
+              <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Templates">
+                {TEMPLATES.map((template) => (
+                  <Button
+                    key={template.id}
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    icon="bolt"
+                    onClick={() => setForm((current) => ({ ...template.build(), longContext: current.longContext }))}
+                  >
+                    {template.label}
+                  </Button>
+                ))}
+              </div>
+
+              <div className="mt-5 border-t border-border-subtle pt-4">
+                <StateEditor form={form} onChange={setForm} error={form.stateMode === "json" ? blockJsonError(form.stateJson) : ""} />
+              </div>
+
+              <div className="mt-5 border-t border-border-subtle pt-4">
+                <h3 className="mb-3 text-sm font-semibold text-text-main">Questions</h3>
+                <QuestionBuilder form={form} onChange={setForm} errors={fieldErrors} />
+              </div>
+            </Card>
+
+            <Card className="min-w-0" title="Images" subtitle="PNG or JPG, sent as base64 assets." icon="image">
+              {showAssets ? (
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      ref={fileInput}
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      aria-label="Upload image"
+                      className="sr-only"
+                      id="systemone-image-input"
+                      onChange={(event) => uploadImage(event.target.files?.[0])}
+                    />
+                    <Button type="button" size="sm" variant="secondary" icon="upload" onClick={() => fileInput.current?.click()}>Upload image</Button>
+                    <label htmlFor="systemone-paste-zone" className="sr-only">Paste an image</label>
+                    <div
+                      id="systemone-paste-zone"
+                      tabIndex={0}
+                      onPaste={(event) => uploadImage(event.clipboardData?.files?.[0])}
+                      className="min-h-10 flex-1 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    >
+                      Or focus here and paste an image.
+                    </div>
+                  </div>
+
+                  {assetError && <p role="alert" className="mt-2 text-xs text-red-500">{assetError}</p>}
+
+                  {form.assets.length > 0 && (
+                    <ul className="mt-3 flex flex-col gap-2">
+                      {form.assets.map((asset) => (
+                        <li key={asset.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-2 p-2 ring-1 ring-border-subtle">
+                          <span className="min-w-0 truncate font-mono text-xs text-text-main">{asset.placeholder}</span>
+                          <span className="text-xs text-text-muted">{asset.name || asset.format}</span>
+                          <span className="flex flex-1 justify-end gap-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              icon="input"
+                              onClick={() => setForm((current) => insertPlaceholder(current, asset.placeholder))}
+                            >
+                              Insert
+                            </Button>
+                            <button
+                              type="button"
+                              aria-label={`Remove image ${asset.placeholder}`}
+                              onClick={() => setForm((current) => ({ ...current, assets: current.assets.filter((entry) => entry.id !== asset.id) }))}
+                              className="flex size-9 items-center justify-center rounded-lg text-text-muted hover:bg-surface hover:text-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                            >
+                              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setAssetsOpen(true)}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-primary hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[16px]">add</span>
+                  Add images
+                </button>
+              )}
+            </Card>
+
+            <Card className="min-w-0" title="Advanced" subtitle="Edit the exact request JSON when the form is not enough." icon="data_object">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Toggle
+                  checked={advancedOpen}
+                  onChange={(value) => (value ? openAdvanced() : setAdvancedOpen(false))}
+                  label="Edit request JSON"
+                />
+                <Toggle
+                  checked={form.longContext}
+                  onChange={(longContext) => setForm((current) => ({ ...current, longContext }))}
+                  label="Long context"
+                />
+              </div>
+              {advancedOpen && (
+                <div className="mt-3">
+                  <label htmlFor="systemone-advanced-json" className="text-xs font-medium text-text-main">Request JSON</label>
+                  <textarea
+                    id="systemone-advanced-json"
+                    value={requestText}
+                    onChange={(event) => applyAdvanced(event.target.value)}
+                    spellCheck="false"
+                    className={`mt-1 min-h-[240px] w-full resize-y rounded-xl bg-surface-2 p-3 font-mono text-xs leading-5 text-text-main ring-1 focus:outline-none focus:ring-2 ${jsonError ? "ring-red-500/50 focus:ring-red-500/40" : "ring-transparent focus:ring-brand-500/30"}`}
+                  />
+                  {jsonError && <p role="alert" className="mt-1 text-xs text-red-500">{jsonError}</p>}
+                </div>
+              )}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button type="button" size="sm" variant="secondary" icon="content_copy" onClick={copyCurl}>Copy as curl</Button>
+                <span aria-live="polite" className="text-xs text-text-muted">
+                  {copyState === "copied" ? "Copied." : copyState === "failed" ? "Copy failed." : "Uses a placeholder key, never your real one."}
+                </span>
+              </div>
+              <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-sidebar p-3 font-mono text-[11px] leading-5 text-text-muted">{JSON.stringify(preview.body, null, 2)}</pre>
+            </Card>
+          </div>
+
+          <Card className="min-w-0 self-start" title="Answers" subtitle="Typed results, probability bars, and raw JSON." icon="data_object">
+            <AnswerView result={result} form={{ questionsById }} />
+            <div className="mt-5 flex flex-col gap-2 border-t border-border-subtle pt-4">
+              {runDisabledReason && <p className="text-xs text-text-muted">{runDisabledReason}</p>}
+              <Button onClick={runRequest} loading={running} disabled={Boolean(runDisabledReason)} icon="play_arrow" fullWidth>
                 Run request
               </Button>
             </div>
-          </Card>
-
-          <Card className="min-w-0" title="Response" subtitle="Status and body returned by the System One upstream." icon="data_object">
-            {!result ? (
-              <div className="flex min-h-[420px] items-center justify-center rounded-xl border border-dashed border-border px-6 text-center text-sm text-text-muted">
-                Run a request to see the typed answer and usage payload.
-              </div>
-            ) : (
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-sm">
-                  <span aria-hidden="true" className={`material-symbols-outlined text-[18px] ${result.ok ? "text-emerald-500" : "text-red-500"}`}>
-                    {result.ok ? "check_circle" : "error"}
-                  </span>
-                  <span className="font-medium">{result.status ? `HTTP ${result.status}` : "Network error"}</span>
-                </div>
-                <pre className="mt-4 min-h-[380px] max-h-[65vh] overflow-auto whitespace-pre-wrap break-words rounded-xl bg-sidebar p-4 font-mono text-xs leading-5 text-text-main">{result.text}</pre>
-              </div>
-            )}
           </Card>
         </div>
       )}
@@ -176,4 +415,13 @@ export default function SystemOnePage() {
       </div>
     </main>
   );
+}
+
+function blockJsonError(text) {
+  try {
+    const parsed = JSON.parse(text || "null");
+    return Array.isArray(parsed) || (parsed !== null && typeof parsed === "object") ? "" : "State must be an array or object in JSON mode.";
+  } catch {
+    return "State is not valid JSON.";
+  }
 }

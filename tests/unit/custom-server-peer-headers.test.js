@@ -64,7 +64,9 @@ describe("custom-server peer header sanitizing", () => {
     const headers = await get({ "x-forwarded-for": "203.0.113.9, 10.0.0.1" });
 
     expect(headers["x-9r-via-proxy"]).toBe("1");
-    expect(headers["x-9r-real-ip"]).toBe("203.0.113.9");
+    // Rightmost hop: the entry the trusted loopback proxy appended for the peer it
+    // accepted. The leftmost entry is client-supplied and spoofable.
+    expect(headers["x-9r-real-ip"]).toBe("10.0.0.1");
     expect(headers["x-forwarded-for"]).toBeUndefined();
   });
 

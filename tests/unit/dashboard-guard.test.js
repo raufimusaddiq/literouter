@@ -257,7 +257,54 @@ describe("dashboard guard public LLM API access", () => {
   });
 });
 
+describe("dashboard guard local-only routes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.NINEROUTER_PEER_TOKEN = PEER_TOKEN;
+    mocks.getSettings.mockResolvedValue({ requireLogin: false });
+    mocks.getConsistentMachineId.mockResolvedValue("cli-token");
+    mocks.verifyDashboardAuthToken.mockResolvedValue(false);
+    mocks.validateApiKey.mockResolvedValue(false);
+  });
+
+  // These routes spawn npm/pip or read host secrets; requireLogin=false must not
+  // expose them to a remote caller.
+  it.each([
+    ["get", "/api/pxpipe/install"],
+    ["post", "/api/pxpipe/start"],
+    ["post", "/api/headroom/extras"],
+    ["delete", "/api/headroom/extras"],
+    ["post", "/api/headroom/restart"],
+    ["post", "/api/headroom/start"],
+  ])("returns 403 for a remote %s %s even with requireLogin=false", async (method, pathname) => {
+    const response = await proxy({ ...request(pathname, { host: "router.example.com" }), method: method.toUpperCase() });
+
+    expect(response.status).toBe(403);
+  });
+
+  it("keeps the extras read available to an authenticated remote dashboard", async () => {
+    mocks.verifyDashboardAuthToken.mockResolvedValue(true);
+
+    for (const method of ["GET", "HEAD"]) {
+      const response = await proxy({ ...request("/api/headroom/extras", { host: "router.example.com" }), method });
+      expect(response).toBe(mocks.nextResponse);
+    }
+  });
+
+  it("allows a local caller with dashboard auth", async () => {
+    mocks.verifyDashboardAuthToken.mockResolvedValue(true);
+
+    const response = await proxy({ ...localRequest("/api/pxpipe/install"), method: "POST" });
+
+    expect(response).toBe(mocks.nextResponse);
+  });
+});
+
 describe("dashboard guard helpers", () => {
+  beforeEach(() => {
+    mocks.verifyDashboardAuthToken.mockResolvedValue(false);
+  });
+
   it("always protects API key management when dashboard login is disabled", async () => {
     mocks.getSettings.mockResolvedValue({ requireLogin: false });
 
