@@ -35,7 +35,12 @@ http.createServer = (...args) => {
     const socketIp = req.socket && req.socket.remoteAddress ? req.socket.remoteAddress : "";
     const xff = req.headers["x-forwarded-for"];
     const xRealIp = req.headers["x-real-ip"];
-    const viaProxy = !!(xff || xRealIp);
+    // Any of these on a loopback peer means a reverse proxy/CDN hop, not a local operator.
+    // Keep in sync with src/lib/auth/proxyMarkers.js. Caddy sends X-Forwarded-*; nginx's
+    // bare proxy_pass sends none, hence the TRUST_LOOPBACK_AS_LOCAL=false opt-out.
+    const PROXY_MARKERS = ["x-forwarded-for", "x-real-ip", "forwarded", "x-forwarded-proto", "x-forwarded-host", "via", "cf-connecting-ip", "true-client-ip"];
+    const trustLoopback = String(process.env.TRUST_LOOPBACK_AS_LOCAL ?? "true").trim().toLowerCase() !== "false";
+    const viaProxy = !trustLoopback || PROXY_MARKERS.some((h) => !!req.headers[h]);
     const isLoopbackProxy = socketIp === "127.0.0.1" || socketIp === "::1" || socketIp === "::ffff:127.0.0.1";
     // Trust forwarding headers only when the TCP peer is a local reverse proxy.
     // Direct/public sockets remain keyed by the unspoofable peer address.
