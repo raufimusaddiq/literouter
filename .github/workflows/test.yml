@@ -40,9 +40,7 @@ jobs:
       # custom-server-h2c is a plain node:test file; vitest does not collect .cjs.
       - run: node --test tests/unit/*.test.cjs
 
-      # Non-blocking until the existing react-hooks errors are cleaned up.
       - run: npx eslint .
-        continue-on-error: true
 
       # Catch standalone tracing/dynamic-import regressions before merge.
       - run: npm run build
