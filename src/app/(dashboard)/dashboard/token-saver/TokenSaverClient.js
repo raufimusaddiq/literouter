@@ -41,6 +41,7 @@ export default function TokenSaverClient() {
   const [kompress, setKompress] = useState(true);
   const [restartingProxy, setRestartingProxy] = useState(false);
   const logPollRef = useRef(null);
+  const headroomHiddenRef = useRef(false);
   const [cavemanEnabled, setCavemanEnabled] = useState(false);
   const [cavemanLevel, setCavemanLevel] = useState("full");
   const [ponytailEnabled, setPonytailEnabled] = useState(false);
@@ -125,6 +126,18 @@ export default function TokenSaverClient() {
   };
 
   const refreshHeadroomStatus = useCallback(async () => {
+    if (headroomHiddenRef.current) {
+      // Minimal profile hides /api/headroom (404); don't request it, show "not available".
+      setHeadroomStatus({ installed: false, running: false, python: null, loading: false });
+      setHeadroomExtras({
+        version: null,
+        extras: { code: false, ml: false },
+        available: ["code", "ml"],
+        loading: false,
+      });
+      setPendingExtras([]);
+      return;
+    }
     setHeadroomStatus((s) => ({ ...s, loading: true }));
     try {
       const res = await fetch("/api/headroom/status", {
@@ -432,6 +445,7 @@ export default function TokenSaverClient() {
           setPonytailLevel(data.ponytailLevel || "full");
           setPxpipeEnabled(!!data.pxpipeEnabled);
           if (typeof data.pxpipeMinChars === "number") setPxpipeMinChars(data.pxpipeMinChars);
+          headroomHiddenRef.current = data.minimalProfile === true;
           refreshHeadroomStatus();
           // PRD: run the PXPIPE health check automatically when the page opens
           refreshPxpipeStatus().then(runPxpipeHealth);

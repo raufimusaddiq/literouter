@@ -819,9 +819,9 @@ export default function ProviderLimits() {
           <span aria-hidden="true" className="material-symbols-outlined text-[64px] text-text-muted opacity-20">
             cloud_off
           </span>
-          <h3 className="mt-4 text-lg font-semibold text-text-primary">
+          <h2 className="mt-4 text-lg font-semibold text-text-primary">
             No Providers Connected
-          </h3>
+          </h2>
           <p className="mt-2 text-sm text-text-muted max-w-md mx-auto">
             Connect to providers with OAuth to track your API quota limits and
             usage.
@@ -838,9 +838,9 @@ export default function ProviderLimits() {
           <span aria-hidden="true" className="material-symbols-outlined text-[64px] text-text-muted opacity-20">
             {emptyState.icon}
           </span>
-          <h3 className="mt-4 text-lg font-semibold text-text-primary">
+          <h2 className="mt-4 text-lg font-semibold text-text-primary">
             {emptyState.title}
-          </h3>
+          </h2>
           <p className="mt-2 text-sm text-text-muted max-w-md mx-auto">
             {emptyState.description}
           </p>
@@ -1115,9 +1115,9 @@ export default function ProviderLimits() {
                       />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-sm font-semibold text-text-primary truncate">
+                      <h2 className="text-sm font-semibold text-text-primary truncate">
                         {providerLabel(conn.provider)}
-                      </h3>
+                      </h2>
                       {getConnectionLabel(conn) ? (
                         <p className="text-xs text-text-muted truncate">
                           {getConnectionLabel(conn)}
