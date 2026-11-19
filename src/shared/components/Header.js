@@ -76,7 +76,7 @@ const getPageInfo = (pathname) => {
   if (pathname.includes("/systemone"))
     return {
       title: "System One",
-      description: "Single-model routing control",
+      description: "Typed decision requests",
       icon: "account_tree",
       breadcrumbs: [],
     };
@@ -124,19 +124,8 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
   const { title, description, icon, breadcrumbs } = pageInfo;
 
-  const handleLogout = async () => {
-    try {
-      const res = await fetch("/api/auth/logout", { method: "POST" });
-      if (res.ok) {
-        window.location.assign("/login");
-      }
-    } catch (err) {
-      console.error("Failed to logout:", err);
-    }
-  };
-
   return (
-    <header className="flex min-h-[5.5rem] shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-bg px-4 py-3 lg:px-12">
+    <header className={`flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-bg px-4 py-2 lg:px-12 ${breadcrumbs.length > 0 ? "" : "lg:hidden"}`}>
       {/* Mobile menu button */}
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
@@ -183,7 +172,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
                         fallbackText={crumb.label.slice(0, 2).toUpperCase()}
                       />
                     )}
-              <h1 className="text-base font-semibold tracking-[-0.04em] text-text-main lg:text-[1.65rem] truncate">
+              <h1 className="text-base font-semibold text-text-main lg:text-xl truncate">
                       {translate(crumb.label)}
                     </h1>
                   </div>
@@ -191,42 +180,38 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
               </div>
             ))}
           </div>
-        ) : title ? (
-          <div>
-            <p className="mb-1 hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted lg:block">LiteRouter / workspace</p>
-            <div className="flex items-center gap-2">
-              {icon && (
-                <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">
-                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{icon}</span>
-                </span>
-              )}
-              <h1 className="truncate text-lg font-semibold tracking-[-0.05em] lg:text-[1.9rem]">
-                {translate(title)}
-              </h1>
-            </div>
-            {description && (
-              <p className="hidden max-w-2xl text-sm text-text-muted lg:block truncate">
-                {translate(description)}
-              </p>
-            )}
-          </div>
         ) : null}
       </div>
 
-      {/* Right actions */}
-      <div className="flex items-center gap-1 shrink-0">
-        <div className="mr-2 hidden items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-[11px] font-semibold text-text-muted ring-1 ring-border-subtle sm:flex">
-          <span className="size-1.5 rounded-full bg-success" />
-          Live plane
-        </div>
-        <HeaderSearch />
-        <ThemeToggle />
-        <HeaderLanguage />
-        <HeaderMenu onLogout={handleLogout} />
-      </div>
+      {/* Right actions: on lg+ without breadcrumbs the controls live in the page title row */}
+      <HeaderControls className={breadcrumbs.length > 0 ? "" : "lg:hidden"} />
     </header>
   );
 }
+
+export function HeaderControls({ className = "" }) {
+  const handleLogout = async () => {
+    try {
+      const res = await fetch("/api/auth/logout", { method: "POST" });
+      if (res.ok) {
+        window.location.assign("/login");
+      }
+    } catch (err) {
+      console.error("Failed to logout:", err);
+    }
+  };
+
+  return (
+    <div className={`flex shrink-0 items-center gap-1 ${className}`}>
+      <HeaderSearch />
+      <ThemeToggle />
+      <HeaderLanguage />
+      <HeaderMenu onLogout={handleLogout} />
+    </div>
+  );
+}
+
+HeaderControls.propTypes = { className: PropTypes.string };
 
 function HeaderSearch() {
   const visible = useHeaderSearchStore((s) => s.visible);

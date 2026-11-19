@@ -41,7 +41,7 @@ function UsageContent() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <PageIntro eyebrow="Observability" title="See what moved through the router." description="Trace requests, tokens, cost, and provider behavior across the selected window." />
+      <PageIntro title="Usage" description="Requests, tokens, cost, and provider behavior across the selected window." />
       <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
         <SegmentedControl
           options={[

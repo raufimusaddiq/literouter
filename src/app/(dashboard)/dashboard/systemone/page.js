@@ -240,9 +240,8 @@ export default function SystemOnePage() {
   return (
     <main className="flex min-w-0 flex-col gap-7 overflow-x-clip">
       <PageIntro
-        eyebrow="System One workspace"
-        title="Build a typed decision request."
-        description="Compose state and questions with a form, run them against your registered provider, and read the typed answers. The raw JSON stays one toggle away."
+        title="System One"
+        description="Typed decision requests: compose state and questions, run them against a provider, read the answers."
         action={<Link href="/dashboard/providers" className="shrink-0"><Button variant="secondary" icon="settings">Configure providers</Button></Link>}
       />
 

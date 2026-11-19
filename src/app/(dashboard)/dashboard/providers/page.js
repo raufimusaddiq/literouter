@@ -432,44 +432,22 @@ export default function ProvidersPage() {
   return (
     <div className="flex min-w-0 flex-col gap-7">
       <PageIntro
-        eyebrow="Provider network"
-        title="Keep the route supply visible."
-        description="Connect accounts, test upstreams, and see which paths are ready before client traffic arrives."
+        title="Providers"
+        description={<span id="needs-attention" className="scroll-mt-24">{health.total} {health.total === 1 ? "connection" : "connections"} · {health.ready} {HEALTH_LABELS.ready.toLowerCase()} · {health.attention} {health.attention === 1 ? "needs" : "need"} attention{health.inactive > 0 ? ` · ${health.inactive} inactive` : ""}{health.untested > 0 ? ` · ${health.untested} untested` : ""}</span>}
       />
-      <section className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-[14px] bg-primary/[0.07] p-4 ring-1 ring-primary/15">
-          <p className="page-kicker">Provider network</p>
-          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{health.total}</p>
-          <p className="mt-1 text-xs text-text-muted">Configured connections · {health.inactive} inactive · {health.untested} untested</p>
-        </div>
-        <div className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle shadow-[var(--shadow-soft)]">
-          <p className="page-kicker text-success">{HEALTH_LABELS.ready}</p>
-          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{health.ready}</p>
-          <p className="mt-1 text-xs text-text-muted">Verified passing</p>
-        </div>
-        <div id="needs-attention" className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle shadow-[var(--shadow-soft)] scroll-mt-24">
-          <p className="page-kicker text-warning">{HEALTH_LABELS.attention}</p>
-          <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{health.attention}</p>
-          <p className="mt-1 text-xs text-text-muted">Errors, cooldown or rate limits</p>
-          {health.attentionItems.length > 0 && (
-            <ul className="mt-3 flex flex-col gap-1 text-xs text-text-muted" data-testid="needs-attention-list">
-              {health.attentionItems.map(({ connection, reason }) => (
-                <li key={connection.id}>
-                  <Link href={`/dashboard/providers/${connection.provider}`} className="font-medium text-text-main hover:underline">
-                    {connection.name || connection.email || connection.provider}
-                  </Link>{" "}
-                  · {reason.replace("_", " ")}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
-      <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Catalog</p>
-          <p className="text-sm text-text-main">Providers, routes, and connection health in one surface.</p>
-        </div>
+      {health.attentionItems.length > 0 && (
+        <ul className="flex flex-col gap-1 rounded-xl bg-surface px-4 py-3 text-sm text-text-muted ring-1 ring-border-subtle" data-testid="needs-attention-list">
+          {health.attentionItems.map(({ connection, reason }) => (
+            <li key={connection.id}>
+              <Link href={`/dashboard/providers/${connection.provider}`} className="font-medium text-text-main hover:underline">
+                {connection.name || connection.email || connection.provider}
+              </Link>{" "}
+              · {reason.replace("_", " ")}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex items-center justify-end border-b border-border-subtle pb-4">
         <div className="flex items-center justify-end">
         <select
           value={statusFilter}
@@ -506,6 +484,7 @@ export default function ProvidersPage() {
           <div className="grid grid-cols-1 gap-2 sm:flex sm:w-auto">
             <Button
               size="sm"
+              variant="secondary"
               icon="add"
               onClick={() => setShowAddAnthropicCompatibleModal(true)}
               className="w-full sm:w-auto"
@@ -517,7 +496,7 @@ export default function ProvidersPage() {
               variant="secondary"
               icon="add"
               onClick={() => setShowAddCompatibleModal(true)}
-              className="w-full !bg-white !text-black hover:!bg-gray-100 sm:w-auto"
+              className="w-full sm:w-auto"
             >
               Add OpenAI Compatible
             </Button>

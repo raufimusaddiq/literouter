@@ -70,11 +70,11 @@ export default function ConsoleLogClient() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageIntro eyebrow="Diagnostics" title="Watch the router speak." description="Live server events and route diagnostics from the local process." action={<Button size="sm" variant="outline" icon="delete" onClick={handleClear}>Clear log</Button>} />
+      <PageIntro title="Console log" description="Live server events and route diagnostics from the local process." action={<Button size="sm" variant="outline" icon="delete" onClick={handleClear}>Clear log</Button>} />
       <Card padding="none" className="overflow-hidden">
         <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Live output</p>
+            <p className="text-xs font-medium text-text-muted">Live output</p>
             <p className="mt-1 text-sm text-text-main">Server events and route diagnostics.</p>
           </div>
           <span className={`text-xs font-medium ${connected ? "text-success" : "text-warning"}`}>{connected ? "Streaming" : "Disconnected"}</span>

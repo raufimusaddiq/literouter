@@ -400,7 +400,7 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto max-w-5xl px-0">
       <div className="flex flex-col gap-6">
-        <PageIntro eyebrow="Workspace settings" title="Keep the local control plane safe." description="Manage appearance, access, routing defaults, network behavior, and database backups." />
+        <PageIntro title="Settings" description="Manage appearance, access, routing defaults, network behavior, and database backups." />
         {/* Local Mode Info */}
         <Card>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
@@ -463,6 +463,7 @@ export default function ProfilePage() {
               <input
                 ref={importFileRef}
                 type="file"
+                aria-label="Import database backup file"
                 accept="application/json,.json"
                 className="hidden"
                 onChange={handleImportDatabase}
