@@ -84,7 +84,8 @@ export function startMock(opts = {}) {
     const nChunks = clampInt(cfg.chunks != null ? cfg.chunks : body.max_tokens, 1, 10000, 50);
     const promptTokens = Math.max(1, Math.ceil(raw.length / 4));
     const completionTokens = nChunks * cfg.tokensPerChunk;
-    const word = "tok ".repeat(cfg.tokensPerChunk);
+    const wordCount = Math.min(Math.max(cfg.tokensPerChunk, 1), 64);
+    const word = "tok ".repeat(wordCount);
     const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens };
 
     // `close` fires on the response when the peer went away before we ended it.
@@ -98,7 +99,7 @@ export function startMock(opts = {}) {
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify({
           id, object: "chat.completion", created, model,
-          choices: [{ index: 0, message: { role: "assistant", content: word.repeat(nChunks).trim() }, finish_reason: "stop" }],
+          choices: [{ index: 0, message: { role: "assistant", content: word.repeat(Math.min(Math.max(nChunks, 1), 10000)).trim() }, finish_reason: "stop" }],
           usage,
         }));
         done(false);
