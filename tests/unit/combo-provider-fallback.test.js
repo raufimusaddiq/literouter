@@ -67,6 +67,7 @@ describe("combo fallback passes the seat provider id to checkFallbackError", () 
     expect(vi.mocked(checkFallbackError).mock.results.at(-1).value).toEqual({
       shouldFallback: true,
       cooldownMs: 15 * 60 * 1000,
+      scope: "account",
     });
   });
 
@@ -96,6 +97,7 @@ describe("combo fallback passes the seat provider id to checkFallbackError", () 
     expect(vi.mocked(checkFallbackError).mock.results.at(-1).value).toEqual({
       shouldFallback: false,
       cooldownMs: 0,
+      scope: "request",
     });
   });
 });

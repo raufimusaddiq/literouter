@@ -7,6 +7,7 @@ import { pipeWithDisconnect } from "../../utils/streamHandler.js";
 import { PROVIDERS } from "../../config/providers.js";
 import { HTTP_STATUS, STREAM_STALL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_FLASH_MS } from "../../config/runtimeConfig.js";
 import { buildAbortedResponsesTerminalBytes } from "../../utils/responsesStreamHelpers.js";
+import { createErrorResult } from "../../utils/error.js";
 import { buildStreamErrorBytes } from "../../utils/streamHelpers.js";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail.js";
 import { saveRequestDetail } from "@/lib/usageDb.js";
@@ -75,14 +76,6 @@ export function resolveStallTimeoutMs(provider, model) {
  * Handle streaming response — pipe provider SSE through transform stream to client.
  */
 export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, onStreamAbort, streamDetailId, pxpipe, reqTag, log, credentials }) {
-  if (onRequestSuccess) {
-    Promise.resolve()
-      .then(onRequestSuccess)
-      .catch(err => {
-        console.error("[ChatCore] onRequestSuccess failed:", err?.message || err);
-      });
-  }
-
   // When upstream returns HTML/text instead of SSE (e.g. Cloudflare 5xx error
   // page), piping it through the SSE transform stream causes Next.js
   // "failed to pipe response" and crashes the chat router. Read the body,
@@ -97,20 +90,43 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     const sanitizedTitle = (titleMatch?.[1] || '').replace(/<[^>]*>/g, '').replace(/[\r\n]+/g, ' ').trim().slice(0, 160);
     const shortMsg = sanitizedTitle
       || (bodyText.length < 200 ? bodyText.replace(/<[^>]*>/g, '').trim().slice(0, 160) : `Upstream returned non-SSE response (${upstreamContentType})`);
-    const status = providerResponse.status || 502;
-    if (log?.errorLine) log.errorLine(reqTag, "✗", `BLOCKED ${status} · ${provider}/${model} · non-SSE (${upstreamContentType})\n    ${shortMsg}`);
+    // A 2xx that is not SSE is a broken upstream, never a success: surface a real 502
+    // (kept if the upstream already said 4xx/5xx) so the caller treats it as an upstream
+    // error. A login/auth page means the credential is bad (401 = account scope); anything
+    // else takes the short transient lock via the 502 default.
+    const upstreamStatus = providerResponse.status;
+    const looksLikeAuthPage = /log\s?in|sign\s?in|unauthori[sz]ed|authenticat/i.test(`${sanitizedTitle} ${bodyText.slice(0, 2000).replace(/<[^>]*>/g, ' ')}`);
+    const status = upstreamStatus >= 400 ? upstreamStatus : (looksLikeAuthPage ? HTTP_STATUS.UNAUTHORIZED : HTTP_STATUS.BAD_GATEWAY);
+    const message = `Upstream returned non-SSE response (content-type: ${upstreamContentType}, HTTP ${upstreamStatus}): ${shortMsg}`;
+    if (log?.errorLine) log.errorLine(reqTag, "✗", `BLOCKED ${status} · ${provider}/${model} · non-SSE (${upstreamContentType})
+    ${shortMsg}`);
     else console.warn(`[STREAM] ${provider} | ${model} | blocked pipe: ${shortMsg} [${status}]`);
-    streamController?.handleError?.(new Error(`upstream non-SSE: ${status}`));
-    return {
-      success: false,
-      response: new Response(JSON.stringify({ error: { message: `[${status}]: ${shortMsg}` } }), {
-        status,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      }),
-    };
+    streamController?.handleError?.(new Error(`upstream non-SSE: ${upstreamStatus}`));
+    return createErrorResult(status, message);
   }
 
-  const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey, credentials });
+  // Health bookkeeping (clear locks, reset backoff) is earned by finishing the stream,
+  // not by starting it: a stream that stalls or breaks mid-way must not reset backoff.
+  // A flush that races a prior abort stays a failure.
+  let streamAborted = false;
+  let successReported = false;
+  const onStreamCompleteWrapped = (...args) => {
+    try { onStreamComplete?.(...args); } finally {
+      // A client-cancelled finalize records usage but is not an upstream health success.
+      if (onRequestSuccess && !streamAborted && !successReported && args[3]?.cancelled !== true) {
+        successReported = true;
+        Promise.resolve()
+          .then(onRequestSuccess)
+          .catch(err => console.error("[ChatCore] onRequestSuccess failed:", err?.message || err));
+      }
+    }
+  };
+  const onStreamAbortWrapped = (info) => {
+    streamAborted = true;
+    return onStreamAbort?.(info);
+  };
+
+  const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete: onStreamCompleteWrapped, apiKey, credentials });
 
   // Terminal bytes when the stream aborts after HTTP 200 was already sent, so the
   // client sees a real error instead of a silently truncated stream.
@@ -123,8 +139,12 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
   const stallTimeoutMs = resolveStallTimeoutMs(provider, model);
   const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal, stallTimeoutMs, {
     identity: { requestId: streamDetailId, provider, model, streamKind: `${sourceFormat}->${targetFormat}` },
+<<<<<<< HEAD
     onAbort: onStreamAbort,
     onCancel: () => transformStream.finalizeOnCancel?.(),
+=======
+    onAbort: onStreamAbortWrapped,
+>>>>>>> origin/main
   });
 
   // No placeholder row: each streamed request writes exactly once, when it ends

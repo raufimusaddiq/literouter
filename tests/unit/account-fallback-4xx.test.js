@@ -27,7 +27,7 @@ describe("checkFallbackError — request-scoped vs account-scoped failures", () 
       },
     }));
 
-    expect(result).toEqual({ shouldFallback: true, cooldownMs: 0 });
+    expect(result).toEqual({ shouldFallback: true, cooldownMs: 0, scope: "model" });
   });
 
   it("still falls back for account-scoped statuses", () => {
@@ -49,16 +49,16 @@ describe("checkFallbackError — request-scoped vs account-scoped failures", () 
     "CREDIT BALANCE IS TOO LOW",
   ])("falls back with backoff for a 400 credit error: %s", (message) => {
     expect(checkFallbackError(400, message)).toEqual({
-      shouldFallback: true, cooldownMs: 2000, newBackoffLevel: 1,
+      shouldFallback: true, cooldownMs: 2000, scope: "account", newBackoffLevel: 1,
     });
     expect(checkFallbackError(400, message, 1)).toEqual({
-      shouldFallback: true, cooldownMs: 4000, newBackoffLevel: 2,
+      shouldFallback: true, cooldownMs: 4000, scope: "account", newBackoffLevel: 2,
     });
   });
 
   it("does not fall back for an ordinary bad request", () => {
     expect(checkFallbackError(400, "Bad request")).toEqual({
-      shouldFallback: false, cooldownMs: 0,
+      shouldFallback: false, cooldownMs: 0, scope: "request",
     });
   });
 

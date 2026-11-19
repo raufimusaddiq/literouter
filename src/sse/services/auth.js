@@ -1,6 +1,6 @@
-import { getProviderConnections, getProviderConnectionById, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/db/index.js";
+import { getProviderConnections, getProviderConnectionById, validateApiKey, updateProviderConnection, mutateProviderConnection, getSettings, getProxyPools } from "@/lib/db/index.js";
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
-import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
+import { formatRetryAfter, checkFallbackError, shouldRotateAccount, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers.js";
 import { getAntigravityQuotaCache } from "./antigravityQuota.js";
@@ -243,42 +243,55 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
  */
 export async function markAccountUnavailable(connectionId, status, errorText, provider = null, model = null, resetsAtMs = null) {
   if (!connectionId || connectionId === "noauth") return { shouldFallback: false, cooldownMs: 0 };
-  // Read-only lookup (backoffLevel/name); no need to clone the provider's pool.
+  // Read-only lookup (display name only); the backoff level itself is read inside
+  // the write transaction below so concurrent failures cannot compute the same level.
   const conn = await getProviderConnectionById(connectionId, { clone: false });
-  const backoffLevel = conn?.backoffLevel || 0;
 
   // GitHub premium-request exhaustion is account-wide until the next UTC month.
   const githubResetAtMs = githubMonthlyResetMs(status, errorText, provider);
-
-  // Provider-specific precise cooldown (e.g. codex usage_limit_reached resets_at) overrides backoff
-  let shouldFallback, cooldownMs, newBackoffLevel;
-  if (githubResetAtMs) {
-    shouldFallback = true;
-    cooldownMs = githubResetAtMs - Date.now();
-    newBackoffLevel = 0;
-  } else if (resetsAtMs && resetsAtMs > Date.now()) {
-    shouldFallback = true;
-    // Antigravity quota API provides exact per-model resetAt. Do not truncate it.
-    cooldownMs = resolveProviderId(provider) === "antigravity"
-      ? resetsAtMs - Date.now()
-      : Math.min(resetsAtMs - Date.now(), MAX_RATE_LIMIT_COOLDOWN_MS);
-    newBackoffLevel = 0;
-  } else {
-    ({ shouldFallback, cooldownMs, newBackoffLevel } = checkFallbackError(status, errorText, backoffLevel, provider));
-  }
-  if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
-
   const reason = typeof errorText === "string" ? errorText.slice(0, 200) : "Provider error";
-  const lockUpdate = buildModelLockUpdate(githubResetAtMs ? null : model, cooldownMs);
 
-  await updateProviderConnection(connectionId, {
-    ...lockUpdate,
-    testStatus: "unavailable",
-    lastError: reason,
-    errorCode: status,
-    lastErrorAt: new Date().toISOString(),
-    backoffLevel: newBackoffLevel ?? backoffLevel
+  let decision = { shouldFallback: false, cooldownMs: 0 };
+  let lockUpdate = null;
+  const stored = await mutateProviderConnection(connectionId, (existing) => {
+    const backoffLevel = existing.backoffLevel || 0;
+    // Provider-specific precise cooldown (e.g. codex usage_limit_reached resets_at) overrides backoff
+    let shouldFallback, cooldownMs, newBackoffLevel;
+    if (githubResetAtMs) {
+      shouldFallback = true;
+      cooldownMs = githubResetAtMs - Date.now();
+      newBackoffLevel = 0;
+    } else if (resetsAtMs && resetsAtMs > Date.now()) {
+      shouldFallback = true;
+      // Antigravity quota API provides exact per-model resetAt. Do not truncate it.
+      cooldownMs = resolveProviderId(provider) === "antigravity"
+        ? resetsAtMs - Date.now()
+        : Math.min(resetsAtMs - Date.now(), MAX_RATE_LIMIT_COOLDOWN_MS);
+      newBackoffLevel = 0;
+    } else {
+      const result = checkFallbackError(status, errorText, backoffLevel, provider);
+      // Request/model-scoped failures say nothing about the credential: no lock, no
+      // health write, and the caller must not rotate accounts for them.
+      shouldFallback = shouldRotateAccount(result);
+      cooldownMs = result.cooldownMs;
+      newBackoffLevel = result.newBackoffLevel;
+    }
+    if (!shouldFallback) return null;
+    decision = { shouldFallback: true, cooldownMs };
+    lockUpdate = buildModelLockUpdate(githubResetAtMs ? null : model, cooldownMs);
+    return {
+      ...lockUpdate,
+      testStatus: "unavailable",
+      lastError: reason,
+      errorCode: status,
+      lastErrorAt: new Date().toISOString(),
+      backoffLevel: newBackoffLevel ?? backoffLevel
+    };
   });
+  if (!decision.shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
+  // Connection vanished mid-flight: nothing to lock, but still rotate to another account.
+  if (!stored || !lockUpdate) return decision;
+  const cooldownMs = decision.cooldownMs;
 
   const lockKey = Object.keys(lockUpdate)[0];
   const connName = conn?.displayName || conn?.name || conn?.email || connectionId.slice(0, 8);
@@ -304,7 +317,8 @@ export async function clearAccountError(connectionId, currentConnection, model =
   if (!connectionId || connectionId === "noauth") return;
   const conn = currentConnection._connection || currentConnection;
   const now = Date.now();
-  const allLockKeys = Object.keys(conn).filter(k => k.startsWith("modelLock_"));
+  // Only locks with a value count: a null/empty key is a cleared lock, not a present one.
+  const allLockKeys = Object.keys(conn).filter(k => k.startsWith("modelLock_") && conn[k]);
 
   if (!conn.testStatus && !conn.lastError && allLockKeys.length === 0) return;
 
@@ -312,19 +326,19 @@ export async function clearAccountError(connectionId, currentConnection, model =
   const keysToClear = allLockKeys.filter(k => {
     if (model && k === `modelLock_${model}`) return true; // succeeded model
     if (model && k === "modelLock___all") return true;    // account-level lock
-    const expiry = conn[k];
-    return expiry && new Date(expiry).getTime() <= now;   // expired
+    return new Date(conn[k]).getTime() <= now;            // expired
   });
 
+  // Healthy and nothing to clear: zero writes on the hot path.
   if (keysToClear.length === 0 && conn.testStatus !== "unavailable" && !conn.lastError) return;
 
   // Check if any active locks remain after clearing
   const remainingActiveLocks = allLockKeys.filter(k => {
     if (keysToClear.includes(k)) return false;
-    const expiry = conn[k];
-    return expiry && new Date(expiry).getTime() > now;
+    return new Date(conn[k]).getTime() > now;
   });
 
+  // null here means "delete the key": the repo prunes cleared modelLock_* entries.
   const clearObj = Object.fromEntries(keysToClear.map(k => [k, null]));
 
   // Only reset error state if no active locks remain
