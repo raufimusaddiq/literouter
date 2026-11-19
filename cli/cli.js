@@ -8,11 +8,11 @@ const net = require("net");
 const os = require("os");
 
 // Poll until the server accepts TCP connections on port, or timeout — avoids blind fixed waits.
-function waitServerReady(port, { timeoutMs = 15000, intervalMs = 150 } = {}) {
+function waitServerReady(port, { host = "127.0.0.1", timeoutMs = 30000, intervalMs = 150 } = {}) {
   const deadline = Date.now() + timeoutMs;
   return new Promise((resolve) => {
     const tryConnect = () => {
-      const socket = net.connect({ host: "127.0.0.1", port }, () => {
+      const socket = net.connect({ host, port }, () => {
         socket.destroy();
         resolve(true);
       });
@@ -63,8 +63,8 @@ function createSpinner(text) {
 }
 
 const pkg = require("./package.json");
-const { ensureSqliteRuntime, buildEnvWithRuntime } = require("./hooks/sqliteRuntime");
-const { ensureTrayRuntime } = require("./hooks/trayRuntime");
+const { buildEnvWithRuntime } = require("./hooks/sqliteRuntime");
+const { ensureRuntime } = require("./hooks/runtime");
 const {
   writeServerPid,
   readServerPid,
@@ -88,20 +88,27 @@ if (args[0] === "xai" && args[1] === "video") {
   return;
 }
 
-// Self-heal SQLite runtime deps (sql.js + better-sqlite3) into ~/.9router/runtime
-// so the server can resolve them via NODE_PATH. Best-effort — sql.js is required,
-// better-sqlite3 is optional. Logs to stderr only on failure.
-try { ensureSqliteRuntime({ silent: true }); } catch {}
-
-// Self-heal tray runtime (systray for macOS/Linux only). Windows skipped.
-try { ensureTrayRuntime({ silent: true }); } catch {}
+// Self-heal runtime deps (sql.js, better-sqlite3, systray2) into ~/.9router/runtime
+// with ONE background npm install. It never blocks server start: the server
+// falls back to bundled sql.js meanwhile, and a failed install leaves a marker
+// so offline launches back off instead of retrying (and hanging) every time.
+ensureRuntime({ silent: true }).catch(() => {});
 
 // Configuration constants
 const APP_NAME = pkg.name; // Use from package.json
-const INSTALL_CMD_LATEST = `npm i -g ${APP_NAME}@latest --prefer-online`;
+// Update channel: this fork has no published package of its own, and the
+// upstream "9router" package is a different product, so the check is OFF unless
+// NINEROUTER_UPDATE_PACKAGE names the package to track.
+const UPDATE_PACKAGE = (process.env.NINEROUTER_UPDATE_PACKAGE || "").trim();
+const INSTALL_CMD_LATEST = `npm i -g ${UPDATE_PACKAGE}@latest --prefer-online`;
 
 const DEFAULT_PORT = 20128;
 const DEFAULT_HOST = "0.0.0.0";
+
+// Address to probe/connect to: wildcard binds are reachable via loopback.
+function getProbeHost() {
+  return host === "0.0.0.0" || host === "::" || host === "" ? "127.0.0.1" : host;
+}
 
 // First non-internal IPv4 — the address remote peers actually reach when bound to 0.0.0.0.
 function getLanIp() {
@@ -154,6 +161,7 @@ Options:
   -l, --log           Show server logs (default: hidden)
   -t, --tray          Run in system tray mode (background)
   --skip-update       Skip auto-update check
+                      (update check is off unless NINEROUTER_UPDATE_PACKAGE is set)
   -h, --help          Show this help message
   -v, --version       Show version
 
@@ -178,13 +186,38 @@ if (skipUpdate && !trayMode && !process.stdin.isTTY) {
 // Always use Node.js runtime with absolute path
 const RUNTIME = process.execPath;
 
-// Compare semver versions: returns 1 if a > b, -1 if a < b, 0 if equal
+// Compare semver versions: returns 1 if a > b, -1 if a < b, 0 if equal.
+// Prerelease (1.2.3-beta.1) sorts below its release; identifiers compare per semver.
 function compareVersions(a, b) {
-  const partsA = a.split(".").map(Number);
-  const partsB = b.split(".").map(Number);
+  const parse = (v) => {
+    const [core, ...pre] = String(v).trim().replace(/^v/, "").split("+")[0].split("-");
+    const nums = core.split(".").map((n) => parseInt(n, 10) || 0);
+    while (nums.length < 3) nums.push(0);
+    return { nums, pre: pre.length ? pre.join("-").split(".") : [] };
+  };
+  const A = parse(a);
+  const B = parse(b);
   for (let i = 0; i < 3; i++) {
-    if (partsA[i] > partsB[i]) return 1;
-    if (partsA[i] < partsB[i]) return -1;
+    if (A.nums[i] > B.nums[i]) return 1;
+    if (A.nums[i] < B.nums[i]) return -1;
+  }
+  if (!A.pre.length && !B.pre.length) return 0;
+  if (!A.pre.length) return 1;
+  if (!B.pre.length) return -1;
+  for (let i = 0; i < Math.max(A.pre.length, B.pre.length); i++) {
+    const x = A.pre[i];
+    const y = B.pre[i];
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    const xn = /^\d+$/.test(x);
+    const yn = /^\d+$/.test(y);
+    if (xn && yn) {
+      if (+x !== +y) return +x > +y ? 1 : -1;
+    } else if (xn !== yn) {
+      return xn ? -1 : 1;
+    } else if (x !== y) {
+      return x > y ? 1 : -1;
+    }
   }
   return 0;
 }
@@ -278,7 +311,7 @@ function isRestrictedEnvironment() {
 // Check if new version available, return latest version or null
 function checkForUpdate() {
   return new Promise((resolve) => {
-    if (skipUpdate) {
+    if (skipUpdate || !UPDATE_PACKAGE) {
       resolve(null);
       return;
     }
@@ -302,7 +335,7 @@ function checkForUpdate() {
       resolve(version);
     };
 
-    const req = https.get(`https://registry.npmjs.org/${pkg.name}/latest`, { timeout: 3000 }, (res) => {
+    const req = https.get(`https://registry.npmjs.org/${encodeURIComponent(UPDATE_PACKAGE)}/latest`, { timeout: 3000 }, (res) => {
       let data = "";
       res.on("data", chunk => data += chunk);
       res.on("end", () => {
@@ -354,7 +387,7 @@ const serverPath = fs.existsSync(customServerPath)
 
 if (!fs.existsSync(serverPath)) {
   console.error("Error: Standalone build not found.");
-  console.error("Please run 'npm run build:cli' first.");
+  console.error("Please run 'npm run build' in cli/ first.");
   process.exit(1);
 }
 
@@ -474,7 +507,10 @@ function startServer(updatePromise) {
   let isShuttingDown = false;
   process.on("uncaughtException", (err) => {
     if (isShuttingDown) return;
-    console.error("Error:", err.message);
+    console.error("Fatal error:", err && err.stack ? err.stack : err);
+    isShuttingDown = true;
+    cleanup();
+    process.exit(1);
   });
 
   // Handle all exit scenarios
@@ -497,6 +533,17 @@ function startServer(updatePromise) {
     cleanup();
     setTimeout(() => process.exit(0), 100);
   });
+
+  // Server never accepted connections: stop instead of showing a dead menu.
+  // (A crash-restart loop that gave up has already exited the process.)
+  function failNotReady() {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.error(`\n❌ Server did not become ready on ${getProbeHost()}:${port}.`);
+    if (crashLog.length) crashLog.forEach((l) => console.error(l));
+    cleanup();
+    process.exit(1);
+  }
 
   // Initialize tray icon (runs alongside TUI)
   const initTrayIcon = () => {
@@ -527,7 +574,8 @@ function startServer(updatePromise) {
     console.log(`\n🚀 ${pkg.name} v${pkg.version}`);
     console.log(`Server: http://${displayHost}:${port}`);
 
-    waitServerReady(port).then(() => {
+    waitServerReady(port, { host: getProbeHost() }).then((ready) => {
+      if (!ready) return failNotReady();
       initTrayIcon();
       console.log("\n💡 Router is now running in system tray. Close this terminal if you want.");
       console.log("   Right-click tray icon to open dashboard or quit.\n");
@@ -537,7 +585,8 @@ function startServer(updatePromise) {
   }
 
   // Wait for server to be ready, then show interface menu loop + tray
-  waitServerReady(port).then(async () => {
+  waitServerReady(port, { host: getProbeHost() }).then(async (ready) => {
+    if (!ready) return failNotReady();
     // Resolve parallel update check (already running); don't block server start on it.
     const latestVersion = await latestVersionPromise;
     // Start tray icon alongside TUI
@@ -566,7 +615,7 @@ function startServer(updatePromise) {
         } else if (choice === "terminal") {
           // Start Terminal UI - it will return when user selects Back
           const { startTerminalUI } = require("./src/cli/terminalUI");
-          await startTerminalUI(port);
+          await startTerminalUI(port, getProbeHost());
           // Loop continues, show menu again
         } else if (choice === "hide") {
           const { clearScreen } = require("./src/cli/utils/display");
@@ -650,16 +699,17 @@ function startServer(updatePromise) {
     // Reset counter if last run was stable
     if (aliveMs >= RESTART_RESET_MS) restartCount = 0;
 
-    if (restartCount >= MAX_RESTARTS) {
-      console.error(`\n⚠️  Server crashed ${MAX_RESTARTS} times. Restarting...`);
-      restartCount = 0;
-      server = spawnServer();
-      attachServerEvents();
+    restartCount++;
+    if (restartCount > MAX_RESTARTS) {
+      console.error(`\n❌ Server crashed ${restartCount} times in a row (code=${code ?? "unknown"}). Giving up.`);
+      if (crashLog.length) crashLog.forEach((l) => console.error(l));
+      isShuttingDown = true;
+      cleanup();
+      process.exit(typeof code === "number" && code !== 0 ? code : 1);
       return;
     }
-
-    restartCount++;
-    const delay = Math.min(1000 * restartCount, 10000);
+    // Exponential backoff: 1s, 2s, 4s ... capped at 10s.
+    const delay = Math.min(1000 * 2 ** (restartCount - 1), 10000);
     console.error(`\n⚠️  Server exited (code=${code ?? "unknown"}). Restarting in ${delay / 1000}s... (${restartCount}/${MAX_RESTARTS})`);
     if (crashLog.length) {
       console.error("\n--- Server crash log ---");

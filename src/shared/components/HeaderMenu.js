@@ -14,7 +14,7 @@ function MenuItem({ icon, label, onClick, trailing, danger }) {
           : "text-text-main hover:bg-black/5 dark:hover:bg-white/5"
       }`}
     >
-      <span className={`material-symbols-outlined text-[20px] ${danger ? "" : "text-text-muted"}`}>
+      <span aria-hidden="true" className={`material-symbols-outlined text-[20px] ${danger ? "" : "text-text-muted"}`}>
         {icon}
       </span>
       <span className="flex-1 text-left">{label}</span>
@@ -55,10 +55,13 @@ export default function HeaderMenu({ onLogout }) {
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setIsOpen((v) => !v)}
+          aria-label="Open menu"
+          aria-expanded={isOpen}
+          aria-haspopup="menu"
           className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
           title="Menu"
         >
-          <span className="material-symbols-outlined">grid_view</span>
+          <span aria-hidden="true" className="material-symbols-outlined">grid_view</span>
         </button>
 
         {isOpen && (

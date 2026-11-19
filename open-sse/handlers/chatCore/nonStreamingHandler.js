@@ -13,98 +13,16 @@ import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, sav
 import { appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { decloakToolNames } from "../../utils/claudeCloaking.js";
 import { restoreToolNames } from "../../utils/opencodeFingerprint.js";
-import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index.js";
+import { ROLE, RESPONSES_ITEM, OPENAI_FINISH } from "../../translator/schema/index.js";
+import { toOpenAIFinish } from "../../translator/concerns/finishReason.js";
+import { chatCompletionToResponses, openAICompletionToGemini } from "../../translator/concerns/nonstreamShapes.js";
 import { rewriteResponsesCustomToolOutput } from "../../translator/concerns/responsesFunctionTools.js";
 import { PROVIDERS } from "../../config/providers.js";
 
 /**
- * Convert an OpenAI Chat Completions non-streaming response body into the
- * OpenAI Responses API shape. Used when a Responses-format client (e.g. Codex)
- * is routed to a Chat Completions upstream and `stream:false` — the streaming
- * path already emits Responses events, but the JSON path returned a raw
- * `chat.completion` body, so tool_calls were invisible to Responses clients.
+ * Convert an OpenAI Responses non-streaming response body into the OpenAI
+ * Chat Completions shape. Streaming already emits Chat chunks for Chat clients.
  */
-function extractCustomToolInput(argumentsValue) {
-  const argumentsText = typeof argumentsValue === "string" ? argumentsValue : JSON.stringify(argumentsValue || {});
-  try {
-    const parsed = JSON.parse(argumentsText);
-    if (parsed && typeof parsed === "object" && typeof parsed.input === "string") return parsed.input;
-  } catch { /* raw freeform input */ }
-  return argumentsText;
-}
-
-function openAICompletionToResponses(responseBody, customToolNames = null) {
-  const choice = responseBody?.choices?.[0];
-  if (!choice) return responseBody;
-
-  const message = choice.message || {};
-  const output = [];
-
-  // Reasoning → a reasoning item (summary text), mirroring the streaming path.
-  const reasoning = message.reasoning_content || message.reasoning;
-  if (typeof reasoning === "string" && reasoning.length > 0) {
-    output.push({
-      type: RESPONSES_ITEM.REASONING,
-      summary: [{ type: RESPONSES_ITEM.SUMMARY_TEXT, text: reasoning }],
-    });
-  }
-
-  // Assistant text → a message item with output_text content.
-  const text = typeof message.content === "string" ? message.content : "";
-  if (text.length > 0) {
-    output.push({
-      type: RESPONSES_ITEM.MESSAGE,
-      role: ROLE.ASSISTANT,
-      content: [{ type: RESPONSES_ITEM.OUTPUT_TEXT, text, annotations: [] }],
-    });
-  }
-
-  // tool_calls → function_call/custom_tool_call items (Responses-native tool shape).
-  for (const tc of message.tool_calls || []) {
-    const fn = tc.function || {};
-    const custom = customToolNames?.has(fn.name);
-    output.push({
-      type: custom ? RESPONSES_ITEM.CUSTOM_TOOL_CALL : RESPONSES_ITEM.FUNCTION_CALL,
-      id: `${custom ? "ctc" : "fc"}_${tc.id || ""}`,
-      call_id: tc.id || "",
-      name: fn.name || "",
-      ...(custom
-        ? { input: extractCustomToolInput(fn.arguments) }
-        : { arguments: typeof fn.arguments === "string" ? fn.arguments : JSON.stringify(fn.arguments || {}) }),
-    });
-  }
-
-  const usage = responseBody.usage || {};
-  // Responses `status` is completed|incomplete|failed; provider stop reasons must not leak into it.
-  const finishReason = String(choice.finish_reason || "").toLowerCase();
-  let status = "completed";
-  let incompleteReason = null;
-  if (["length", "max_tokens", "max_output_tokens"].includes(finishReason)) {
-    status = "incomplete";
-    incompleteReason = "max_output_tokens";
-  } else if (["content_filter", "safety", "recitation", "blocklist", "prohibited_content", "spii", "refusal"].includes(finishReason)) {
-    status = "incomplete";
-    incompleteReason = "content_filter";
-  }
-
-  return {
-    id: `resp_${responseBody.id || ""}`.replace(/^resp_chatcmpl-/, "resp_"),
-    object: "response",
-    created_at: responseBody.created || Math.floor(Date.now() / 1000),
-    model: responseBody.model || "unknown",
-    status,
-    background: false,
-    error: null,
-    ...(incompleteReason ? { incomplete_details: { reason: incompleteReason } } : {}),
-    output,
-    usage: {
-      input_tokens: usage.prompt_tokens || usage.input_tokens || 0,
-      output_tokens: usage.completion_tokens || usage.output_tokens || 0,
-      total_tokens: usage.total_tokens || (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
-    },
-  };
-}
-
 function responsesToOpenAICompletion(responseBody) {
   if (!Array.isArray(responseBody?.output)) return responseBody;
 
@@ -158,44 +76,28 @@ function responsesToOpenAICompletion(responseBody) {
   };
 }
 
+const GEMINI_FORMATS = new Set([FORMATS.GEMINI, FORMATS.ANTIGRAVITY, FORMATS.GEMINI_CLI, FORMATS.VERTEX]);
+
 /**
- * Translate non-streaming response body from provider format → OpenAI format.
+ * Translate non-streaming response body from provider format → client format.
+ * Provider bodies pivot through OpenAI Chat Completions, then one final
+ * OpenAI → client step runs, so Claude and Gemini clients get their own body
+ * shape instead of a chat.completion they cannot parse.
  */
 export function translateNonStreamingResponse(responseBody, targetFormat, sourceFormat, customToolNames = null) {
-  const translated = translateToClientShape(responseBody, targetFormat, sourceFormat, customToolNames);
-  // Claude/Gemini/Ollama upstreams are normalized to chat.completion above; a
-  // Responses client needs the Responses `output` shape instead.
-  if (
-    sourceFormat === FORMATS.OPENAI_RESPONSES
-    && targetFormat !== FORMATS.OPENAI
-    && targetFormat !== FORMATS.OPENAI_RESPONSES
-    && translated?.object === "chat.completion"
-    && Array.isArray(translated.choices)
-  ) {
-    return openAICompletionToResponses(translated, customToolNames);
-  }
-  return translated;
+  if (targetFormat === sourceFormat) return responseBody;
+  return pivotToClientShape(translateToPivot(responseBody, targetFormat), sourceFormat, customToolNames);
 }
 
-function translateToClientShape(responseBody, targetFormat, sourceFormat, customToolNames = null) {
-  if (targetFormat === sourceFormat) return responseBody;
-  // Responses-native upstream serving a Chat Completions client (for example
-  // OpenCode Go Luna selected directly or as the primary Combo model).
-  if (targetFormat === FORMATS.OPENAI_RESPONSES && sourceFormat === FORMATS.OPENAI) {
-    return responsesToOpenAICompletion(responseBody);
-  }
-  // Provider responded in OpenAI Chat Completions shape but the client speaks
-  // Responses API — convert so tool_calls/text surface as Responses `output`.
-  if (targetFormat === FORMATS.OPENAI && sourceFormat === FORMATS.OPENAI_RESPONSES) {
-    return openAICompletionToResponses(responseBody, customToolNames);
-  }
-  if (targetFormat === FORMATS.OPENAI && sourceFormat === FORMATS.CLAUDE) {
-    return openAICompletionToClaudeMessage(responseBody);
-  }
-  if (targetFormat === FORMATS.OPENAI) return responseBody;
+// Provider body → OpenAI Chat Completions (the hub format).
+function translateToPivot(responseBody, providerFormat) {
+  // Responses-native upstream: its `output` items carry everything the pivot needs.
+  if (providerFormat === FORMATS.OPENAI_RESPONSES) return responsesToOpenAICompletion(responseBody);
+  // OpenAI-native upstream: already the pivot.
+  if (providerFormat === FORMATS.OPENAI) return responseBody;
 
   // Gemini / Antigravity
-  if (targetFormat === FORMATS.GEMINI || targetFormat === FORMATS.ANTIGRAVITY || targetFormat === FORMATS.GEMINI_CLI || targetFormat === FORMATS.VERTEX) {
+  if (GEMINI_FORMATS.has(providerFormat)) {
     const response = responseBody.response || responseBody;
     if (!response?.candidates?.[0]) return responseBody;
 
@@ -231,8 +133,10 @@ function translateToClientShape(responseBody, targetFormat, sourceFormat, custom
     if (toolCalls.length > 0) message.tool_calls = toolCalls;
     if (!message.content && !message.tool_calls) message.content = "";
 
-    let finishReason = (candidate.finishReason || "stop").toLowerCase();
-    if (finishReason === "stop" && toolCalls.length > 0) finishReason = "tool_calls";
+    // Shared mapping, so MAX_TOKENS→length and SAFETY→content_filter match the
+    // streaming path instead of leaking "max_tokens"/"safety" to the client.
+    let finishReason = toOpenAIFinish(candidate.finishReason || "stop", FORMATS.GEMINI);
+    if (finishReason === OPENAI_FINISH.STOP && toolCalls.length > 0) finishReason = OPENAI_FINISH.TOOL_CALLS;
 
     const result = {
       id: `chatcmpl-${response.responseId || Date.now()}`,
@@ -256,16 +160,16 @@ function translateToClientShape(responseBody, targetFormat, sourceFormat, custom
   }
 
   // Claude
-  if (targetFormat === FORMATS.CLAUDE) {
+  if (providerFormat === FORMATS.CLAUDE) {
     // Always translate a Claude-format body to OpenAI, even if `content` is
     // missing/null (e.g. M3 with max_tokens:1 spends the budget on thinking
     // and returns `content: null`). Returning the raw body would leave the
-    // OpenAI client without a `choices` array and surface as a UI test error.
+    // client without a `choices` array and surface as a UI test error.
     // Early return if the response is already in OpenAI format (has choices array)
     // or if it has content as a non-array value (likely a different non-Claude format).
     // Some providers (e.g. xiaomi-tokenplan) return OpenAI-format responses even when
-    // the request was translated to Claude format — the targetFormat is Claude but the
-    // actual response is OpenAI-native and needs no further translation.
+    // the request was translated to Claude format — the provider format is Claude but
+    // the actual body is OpenAI-native and needs no further translation.
     if (responseBody.choices || (responseBody.content && !Array.isArray(responseBody.content))) return responseBody;
 
     let textContent = "", thinkingContent = "";
@@ -273,10 +177,14 @@ function translateToClientShape(responseBody, targetFormat, sourceFormat, custom
 
     for (const block of (responseBody.content || [])) {
       if (block.type === "text") {
-        // Strip markdown code block markers (e.g. kimi wraps JSON in ```json...```)
+        // Strip markdown code block markers only when the provider wrapped the
+        // whole answer in a ```json fence (e.g. kimi). An unrelated trailing
+        // fence (a python snippet ending a normal answer) must survive.
         const raw = block.text ?? "";
-        const text = raw.replace(/^\s*```\s*json\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "");
-        textContent += text;
+        const leadingFence = /^\s*```\s*json\s*\n?/i;
+        textContent += leadingFence.test(raw)
+          ? raw.replace(leadingFence, "").replace(/\n?\s*```\s*$/i, "")
+          : raw;
       } else if (block.type === "thinking") thinkingContent += block.thinking || "";
       else if (block.type === "tool_use") {
         toolCalls.push({ id: block.id, type: "function", function: { name: block.name, arguments: JSON.stringify(block.input || {}) } });
@@ -289,9 +197,9 @@ function translateToClientShape(responseBody, targetFormat, sourceFormat, custom
     if (toolCalls.length > 0) message.tool_calls = toolCalls;
     if (!message.content && !message.tool_calls) message.content = "";
 
-    let finishReason = responseBody.stop_reason || "stop";
-    if (finishReason === "end_turn") finishReason = "stop";
-    if (finishReason === "tool_use") finishReason = "tool_calls";
+    // max_tokens→length and refusal→content_filter: same mapping as streaming.
+    let finishReason = toOpenAIFinish(responseBody.stop_reason || "stop", FORMATS.CLAUDE);
+    if (finishReason === OPENAI_FINISH.STOP && toolCalls.length > 0) finishReason = OPENAI_FINISH.TOOL_CALLS;
 
     const result = {
       id: `chatcmpl-${responseBody.id || Date.now()}`,
@@ -310,11 +218,18 @@ function translateToClientShape(responseBody, targetFormat, sourceFormat, custom
   }
 
   // Ollama
-  if (targetFormat === FORMATS.OLLAMA) {
-    return ollamaBodyToOpenAI(responseBody);
-  }
+  if (providerFormat === FORMATS.OLLAMA) return ollamaBodyToOpenAI(responseBody);
 
   return responseBody;
+}
+
+// OpenAI Chat Completions → the body shape the client asked for.
+function pivotToClientShape(pivot, clientFormat, customToolNames) {
+  if (clientFormat === FORMATS.OPENAI) return pivot;
+  if (clientFormat === FORMATS.OPENAI_RESPONSES) return chatCompletionToResponses(pivot, customToolNames);
+  if (clientFormat === FORMATS.CLAUDE) return openAICompletionToClaudeMessage(pivot);
+  if (GEMINI_FORMATS.has(clientFormat)) return openAICompletionToGemini(pivot);
+  return pivot;
 }
 
 /**

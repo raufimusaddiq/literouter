@@ -36,7 +36,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
   return (
     <div className={`group min-w-0 max-w-full rounded-lg border px-3 py-2 ${borderColor} hover:bg-sidebar/50`}>
       <div className="flex min-w-0 items-start gap-2 sm:items-center">
-        <span
+        <span aria-hidden="true"
           className="material-symbols-outlined shrink-0 text-base"
           style={iconColor ? { color: iconColor } : undefined}
         >
@@ -64,7 +64,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
                   className="mt-1 inline-flex items-center gap-1 rounded-md bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning hover:bg-warning/20 transition-colors"
                 >
                   <span>Allow China-hosted models</span>
-                  <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[13px]">open_in_new</span>
                 </a>
               )}
             </span>
@@ -77,7 +77,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
               disabled={isTesting}
               className={`rounded p-0.5 text-text-muted transition-opacity hover:bg-sidebar hover:text-primary ${isTesting ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}`}
             >
-              <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
+              <span aria-hidden="true" className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
                 {isTesting ? "progress_activity" : "science"}
               </span>
             </button>
@@ -91,7 +91,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
             onClick={() => onCopy(displayModel, `model-${model.id}`)}
             className="rounded p-0.5 text-text-muted hover:bg-sidebar hover:text-primary"
           >
-            <span className="material-symbols-outlined text-sm">
+            <span aria-hidden="true" className="material-symbols-outlined text-sm">
               {copied === `model-${model.id}` ? "check" : "content_copy"}
             </span>
           </button>
@@ -105,7 +105,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
             className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
             title="Remove custom model"
           >
-            <span className="material-symbols-outlined text-sm">close</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-sm">close</span>
           </button>
         ) : onDisable ? (
           <button
@@ -113,7 +113,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
             className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
             title="Disable this model"
           >
-            <span className="material-symbols-outlined text-sm">close</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-sm">close</span>
           </button>
         ) : null}
       </div>

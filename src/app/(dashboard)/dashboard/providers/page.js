@@ -451,7 +451,7 @@ export default function ProvidersPage() {
           <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{activeConnections}</p>
           <p className="mt-1 text-xs text-text-muted">Passing or active routes</p>
         </div>
-        <div className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle shadow-[var(--shadow-soft)]">
+        <div id="needs-attention" className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle shadow-[var(--shadow-soft)] scroll-mt-24">
           <p className="page-kicker text-warning">Needs attention</p>
           <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{failingConnections}</p>
           <p className="mt-1 text-xs text-text-muted">Connections reporting errors</p>
@@ -480,7 +480,7 @@ export default function ProvidersPage() {
 
       {!hasAnyResult && (
         <div className="text-center py-8 border border-dashed border-border rounded-xl">
-          <span className="material-symbols-outlined text-[32px] text-text-muted mb-2">
+          <span aria-hidden="true" className="material-symbols-outlined text-[32px] text-text-muted mb-2">
             search_off
           </span>
           <p className="text-text-muted text-sm">
@@ -518,7 +518,7 @@ export default function ProvidersPage() {
         {compatibleProviders.length === 0 &&
         anthropicCompatibleProviders.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-2 border border-dashed border-border rounded-xl text-text-muted text-sm">
-            <span className="material-symbols-outlined text-[18px]">extension</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">extension</span>
             <span>No custom providers — use buttons above to add OpenAI/Anthropic compatible endpoints</span>
           </div>
         ) : (
@@ -569,7 +569,7 @@ export default function ProvidersPage() {
               title="Test all System One connections"
               aria-label="Test all System One connections"
             >
-              <span className={`material-symbols-outlined text-[14px]${testingMode === "systemone" ? " animate-spin" : ""}`}>play_arrow</span>
+              <span aria-hidden="true" className={`material-symbols-outlined text-[14px]${testingMode === "systemone" ? " animate-spin" : ""}`}>play_arrow</span>
               {testingMode === "systemone" ? "Testing..." : "Test All"}
             </button>
           </div>
@@ -609,7 +609,7 @@ export default function ProvidersPage() {
               title="Test all OAuth connections"
               aria-label="Test all OAuth connections"
             >
-              <span
+              <span aria-hidden="true"
                 className={`material-symbols-outlined text-[14px]${testingMode === "oauth" ? " animate-spin" : ""}`}
               >
                 play_arrow
@@ -654,7 +654,7 @@ export default function ProvidersPage() {
             title="Test all Free connections"
             aria-label="Test all Free provider connections"
           >
-            <span
+            <span aria-hidden="true"
               className={`material-symbols-outlined text-[14px]${testingMode === "free" ? " animate-spin" : ""}`}
             >
               play_arrow
@@ -715,7 +715,7 @@ export default function ProvidersPage() {
             title="Test all API Key connections"
             aria-label="Test all API Key connections"
           >
-            <span
+            <span aria-hidden="true"
               className={`material-symbols-outlined text-[14px]${testingMode === "apikey" ? " animate-spin" : ""}`}
             >
               play_arrow
@@ -740,7 +740,7 @@ export default function ProvidersPage() {
             onClick={() => setShowAllApikey(true)}
             className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary/5"
           >
-            <span className="material-symbols-outlined text-[16px]">expand_more</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">expand_more</span>
             Show all {apikeyEntries.length} providers
           </button>
         )}
@@ -814,7 +814,7 @@ export default function ProvidersPage() {
                 className="p-1 rounded-lg hover:bg-bg text-text-muted hover:text-text-main transition-colors"
                 aria-label="Close test results"
               >
-                <span className="material-symbols-outlined text-lg">close</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-lg">close</span>
               </button>
             </div>
             <div className="p-5">
@@ -862,7 +862,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
                 {allDisabled ? (
                   <Badge variant="default" size="sm">
                     <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[12px]">
+                      <span aria-hidden="true" className="material-symbols-outlined text-[12px]">
                         pause_circle
                       </span>
                       Disabled
@@ -978,7 +978,7 @@ function ApiKeyProviderCard({
                 {allDisabled ? (
                   <Badge variant="default" size="sm">
                     <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[12px]">
+                      <span aria-hidden="true" className="material-symbols-outlined text-[12px]">
                         pause_circle
                       </span>
                       Disabled
@@ -1056,7 +1056,7 @@ function ProviderTestResultsView({ results }) {
   if (results.error && !results.results) {
     return (
       <div className="text-center py-6">
-        <span className="material-symbols-outlined text-red-500 text-[32px] mb-2 block">
+        <span aria-hidden="true" className="material-symbols-outlined text-red-500 text-[32px] mb-2 block">
           error
         </span>
         <p className="text-sm text-red-400">{results.error}</p>
@@ -1099,7 +1099,7 @@ function ProviderTestResultsView({ results }) {
           key={r.connectionId || i}
           className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg bg-black/[0.03] px-3 py-2 text-xs dark:bg-white/[0.03] sm:flex-nowrap"
         >
-          <span
+          <span aria-hidden="true"
             className={`material-symbols-outlined text-[16px] ${r.valid ? "text-emerald-500" : "text-red-500"}`}
           >
             {r.valid ? "check_circle" : "error"}

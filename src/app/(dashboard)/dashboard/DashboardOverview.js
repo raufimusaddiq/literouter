@@ -17,13 +17,19 @@ function getStatus(connection) {
   return "unknown";
 }
 
-function Metric({ label, value, detail, tone = "neutral" }) {
-  return (
-    <div className="rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle">
+function Metric({ label, value, detail, tone = "neutral", href }) {
+  const body = (
+    <>
       <p className={`page-kicker ${tone === "positive" ? "text-success" : tone === "warning" ? "text-warning" : ""}`}>{label}</p>
       <p className="metric-value mt-3 text-3xl font-semibold text-text-main">{value}</p>
       <p className="mt-1 text-xs text-text-muted">{detail}</p>
-    </div>
+    </>
+  );
+  const className = "rounded-[14px] bg-surface p-4 ring-1 ring-border-subtle";
+  return href ? (
+    <Link href={href} className={`${className} transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-primary`}>{body}</Link>
+  ) : (
+    <div className={className}>{body}</div>
   );
 }
 
@@ -115,7 +121,7 @@ export default function DashboardOverview() {
             <>
               <Metric label="Connections" value={stats.total} detail="Configured routes" />
               <Metric label="Ready now" value={stats.ready} detail="Passing connections" tone="positive" />
-              <Metric label="Attention" value={stats.attention} detail="Needs investigation" tone="warning" />
+              <Metric label="Attention" value={stats.attention} detail="Needs investigation" tone="warning" href={stats.attention > 0 ? "/dashboard/providers#needs-attention" : undefined} />
               <Metric label="Active keys" value={stats.activeKeys} detail="Client access keys" />
             </>
           )}

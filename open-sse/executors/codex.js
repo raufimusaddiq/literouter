@@ -203,6 +203,9 @@ function codexSseErrorResponse(status, message) {
   });
 }
 
+// transformed body -> per-request ids (singleton executor must not hold request state)
+const requestContexts = new WeakMap();
+
 /**
  * Codex Executor - handles OpenAI Codex API (Responses API format)
  * Automatically injects default instructions if missing
@@ -210,21 +213,22 @@ function codexSseErrorResponse(status, message) {
 export class CodexExecutor extends BaseExecutor {
   constructor() {
     super("codex", PROVIDERS.codex);
-    this._currentSessionId = null;
   }
 
   /**
    * Override headers to add codex-specific identity headers.
-   * transformRequest runs BEFORE buildHeaders, sets this._currentSessionId.
+   * transformRequest runs BEFORE buildHeaders, stashes the session id per request (WeakMap keyed by the transformed body).
    */
-  buildHeaders(credentials, stream = true) {
+  buildHeaders(credentials, stream = true, url = null, model = null, transformedBody = null) {
     const headers = super.buildHeaders(credentials, stream);
     // Native remote compaction needs the client's beta opt-in on /responses.
     const betaFeatures = credentials?.rawHeaders?.["x-codex-beta-features"];
     if (typeof betaFeatures === "string" && betaFeatures.trim()) {
       headers["x-codex-beta-features"] = betaFeatures;
     }
-    headers["session_id"] = this._currentSessionId || credentials?.connectionId || "default";
+    // Per-request session id travels with the transformed body (not instance state).
+    const reqCtx = transformedBody ? requestContexts.get(transformedBody) : null;
+    headers["session_id"] = reqCtx?.sessionId || credentials?.connectionId || "default";
     // Identify client type to Codex backend (matches official codex CLI)
     if (!headers["originator"]) headers["originator"] = "codex_cli_rs";
     // Account/workspace binding header — required when multiple Codex accounts
@@ -282,7 +286,7 @@ export class CodexExecutor extends BaseExecutor {
     if (args.body?._compact === true) return super.execute({ ...args, stream: false });
     const imgCount = Array.isArray(args.body?.input) ? args.body.input.reduce((n, it) => n + (Array.isArray(it.content) ? it.content.filter(c => c.type === "image_url").length : 0), 0) : 0;
     const inputLen = Array.isArray(args.body?.input) ? args.body.input.length : 0;
-    dbg("CODEX", `execute start | inputItems=${inputLen} | images=${imgCount} | sessionId=${this._currentSessionId || "pending"}`);
+    dbg("CODEX", `execute start | inputItems=${inputLen} | images=${imgCount} | sessionId=${resolveCacheSessionId(args.body, args.credentials)}`);
     if (imgCount > 0) {
       const t0 = Date.now();
       await this.prefetchImages(args.body);
@@ -416,8 +420,14 @@ export class CodexExecutor extends BaseExecutor {
    * Image fetching is handled separately in prefetchImages() so this stays sync.
    */
   transformRequest(model, body, stream, credentials) {
-    // Resolve identity before either endpoint builds its headers.
-    this._currentSessionId = resolveCacheSessionId(body, credentials);
+    // Resolve identity before either endpoint builds its headers; carry it per-request.
+    const sessionId = resolveCacheSessionId(body, credentials);
+    const out = this._transformRequest(model, body, stream, credentials, sessionId);
+    if (out && typeof out === "object") requestContexts.set(out, { sessionId });
+    return out;
+  }
+
+  _transformRequest(model, body, stream, credentials, sessionId) {
     if (body._compact === true) {
       return {
         model: getModelUpstreamId("cx", body.model || model),
@@ -454,8 +464,8 @@ export class CodexExecutor extends BaseExecutor {
     body.store = false;
 
     // Inject prompt_cache_key for stable Codex prompt caching
-    if (!body.prompt_cache_key && this._currentSessionId) {
-      body.prompt_cache_key = this._currentSessionId;
+    if (!body.prompt_cache_key && sessionId) {
+      body.prompt_cache_key = sessionId;
     }
 
     // Map virtual Codex review models to the upstream Codex model before suffix parsing.

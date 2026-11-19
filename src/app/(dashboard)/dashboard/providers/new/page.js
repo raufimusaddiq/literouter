@@ -80,7 +80,7 @@ export default function NewProviderPage() {
           href="/dashboard/providers"
           className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary transition-colors mb-4"
         >
-          <span className="material-symbols-outlined text-lg">arrow_back</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-lg">arrow_back</span>
           Back to Providers
         </Link>
         <PageIntro
@@ -110,7 +110,7 @@ export default function NewProviderPage() {
               <div
                 className="size-10 rounded-lg flex items-center justify-center bg-bg border border-border"
               >
-                <span
+                <span aria-hidden="true"
                   className="material-symbols-outlined text-xl"
                   style={{ color: selectedProvider.color }}
                 >
@@ -143,7 +143,7 @@ export default function NewProviderPage() {
                       : "border-border hover:border-primary/50"
                   }`}
                 >
-                  <span className="material-symbols-outlined">
+                  <span aria-hidden="true" className="material-symbols-outlined">
                     {method.value === "api_key" ? "key" : "lock"}
                   </span>
                   <span className="font-medium">{method.label}</span>

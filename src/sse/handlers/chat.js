@@ -54,7 +54,8 @@ export async function handleChat(request, clientRawRequest = null) {
     clientRawRequest = {
       endpoint: url.pathname,
       body,
-      headers: Object.fromEntries(request.headers.entries())
+      headers: Object.fromEntries(request.headers.entries()),
+      signal: request.signal
     };
   }
   // Claude Code marks a 1M-context request as `<model>[1m]`; the marker matches
