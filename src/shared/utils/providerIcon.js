@@ -7,6 +7,11 @@ const ICON_ALIASES = {
   "vercel-ai-gateway": "vercel",
 };
 
+// Providers that ship no logo in /public/providers. Listed so the UI goes
+// straight to its text fallback instead of requesting a guaranteed 404.
+// tests/unit/providerIconAssets.test.js fails if this drifts from the files.
+export const PROVIDERS_WITHOUT_ICON = new Set(["kenari", "muse", "typesafe"]);
+
 // Runtime only — first 404 remembers id for the whole session
 const failedIds = new Set();
 
@@ -19,7 +24,7 @@ function normalizeId(providerId) {
 export function resolveProviderIconId(providerId) {
   const id = normalizeId(providerId);
   if (!id) return "";
-  if (failedIds.has(id)) return "";
+  if (failedIds.has(id) || PROVIDERS_WITHOUT_ICON.has(id)) return "";
   const aliased = ICON_ALIASES[id] || id;
   if (failedIds.has(aliased)) return "";
   return aliased;

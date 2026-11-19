@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge, Button, Card, PageIntro, Skeleton } from "@/shared/components";
 import { classifyConnection, getConnectionHealthStats, HEALTH, HEALTH_LABELS } from "@/shared/utils/connectionHealth";
 import { getRelativeTime } from "@/shared/utils";
+import { useOrigin } from "@/shared/hooks/useOrigin";
 
 const PERIODS = [
   { value: "today", label: "Today" },
@@ -194,7 +195,8 @@ export default function DashboardOverview() {
       .slice(0, LIST_ROWS);
   }, [data.connections]);
 
-  const endpoint = typeof window === "undefined" ? "/v1" : `${window.location.origin}/v1`;
+  const origin = useOrigin();
+  const endpoint = `${origin}/v1`;
   const protectedEndpoint = data.settings.requireApiKey === true && data.settings.requireLogin !== false && data.settings.hasPassword === true;
 
   const copyEndpoint = async () => {

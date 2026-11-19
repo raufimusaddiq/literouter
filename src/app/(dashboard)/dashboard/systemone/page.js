@@ -5,6 +5,7 @@ import Link from "next/link";
 import { APIKEY_PROVIDERS, supportsServiceKind } from "@/shared/constants/providers";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { Badge, Button, Card, Select, PageIntro, Toggle } from "@/shared/components";
+import { useOrigin } from "@/shared/hooks/useOrigin";
 import StateEditor from "./components/StateEditor";
 import QuestionBuilder from "./components/QuestionBuilder";
 import AnswerView from "./components/AnswerView";
@@ -110,7 +111,8 @@ export default function SystemOnePage() {
     setRequestText(JSON.stringify(buildBody(form, `${providerId}/${selectedModel}`).body, null, 2));
   }, [advancedOpen, form, providerId, selectedModel]);
 
-  const endpoint = typeof window === "undefined" ? "/v1/systemone" : `${window.location.origin}/v1/systemone`;
+  const origin = useOrigin();
+  const endpoint = `${origin}/v1/systemone`;
   const connectionCount = connections.filter(
     (connection) => connection.provider === provider?.id && connection.isActive !== false,
   ).length;
