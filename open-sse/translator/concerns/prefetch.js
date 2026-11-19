@@ -2,7 +2,7 @@
 // formats whose upstream providers cannot fetch remote URLs themselves
 // (they require inline base64). Runs on the source-format body.
 import { FORMATS } from "../formats.js";
-import { fetchImageAsBase64, parseDataUri } from "./image.js";
+import { fetchImageAsBase64, parseDataUri, assertImageCount, createImageByteBudget, dataUriBytes } from "./image.js";
 
 // Targets that require inline base64 images (cannot accept remote URLs).
 const TARGETS_NEED_BASE64 = new Set([
@@ -115,6 +115,9 @@ export async function prefetchRemoteImages(body, sourceFormat, targetFormat, opt
     byUrl.get(url).push(ref);
   }
 
+  assertImageCount(pending.length);
+  const budget = createImageByteBudget();
+
   const signal = options.signal;
   const fetchOpts = { ...options, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(options.timeoutMs ?? PREFETCH_TIMEOUT_MS)]) : undefined };
   const results = new Map();
@@ -123,7 +126,9 @@ export async function prefetchRemoteImages(body, sourceFormat, targetFormat, opt
     while (next < pending.length) {
       if (signal?.aborted) return;
       const url = pending[next++];
-      results.set(url, await cachedFetch(url, fetchOpts));
+      const value = await cachedFetch(url, fetchOpts);
+      if (value) budget.add(dataUriBytes(value.url));
+      results.set(url, value);
     }
   };
   await Promise.all(Array.from({ length: Math.min(PREFETCH_CONCURRENCY, pending.length) }, worker));

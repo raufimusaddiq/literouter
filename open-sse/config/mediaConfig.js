@@ -25,3 +25,8 @@ export const BLOCKED_HOSTS = new Set([
   "169.254.169.254", // AWS/GCP/Azure IMDS
   "metadata.google.internal",
 ]);
+
+// Per-request caps on remote images (bounds memory + outbound fetch fan-out).
+// Over-cap requests are rejected with a 400 rather than silently dropping images.
+export const MAX_REMOTE_IMAGES_PER_REQUEST = 20;
+export const MAX_TOTAL_IMAGE_BYTES = 50 * 1024 * 1024; // 50MB of decoded image data per request
