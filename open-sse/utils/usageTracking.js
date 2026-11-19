@@ -18,7 +18,9 @@ export const COLORS = {
   cyan: "\x1b[36m"
 };
 
-// Buffer tokens to prevent context errors
+// Safety margin added to usage reported by the NON-streaming path only (see
+// nonStreamingHandler). Streamed usage is reported to clients exactly as the
+// upstream sent it. Never feed this into quota/cost accounting.
 const BUFFER_TOKENS = 2000;
 
 // Get HH:MM:SS timestamp
@@ -74,7 +76,7 @@ export function filterUsageForFormat(usage, targetFormat) {
   // Define allowed fields for each format
   const formatFields = {
     [FORMATS.CLAUDE]: [
-      'input_tokens', 'output_tokens', 
+      'input_tokens', 'output_tokens',
       'cache_read_input_tokens', 'cache_creation_input_tokens',
       'estimated'
     ],
@@ -99,7 +101,7 @@ export function filterUsageForFormat(usage, targetFormat) {
 
   // Get fields for target format
   let fields = formatFields[targetFormat];
-  
+
   // Use same fields for similar formats
   if (targetFormat === FORMATS.GEMINI_CLI || targetFormat === FORMATS.ANTIGRAVITY) {
     fields = formatFields[FORMATS.GEMINI];
@@ -373,21 +375,23 @@ export function estimateOutputTokens(contentLength) {
  */
 export function formatUsage(inputTokens, outputTokens, targetFormat) {
   // Claude format uses input_tokens/output_tokens
+  // Estimates carry no safety buffer: they are flagged `estimated` and must
+  // never overstate what the request actually used.
   if (targetFormat === FORMATS.CLAUDE) {
-    return addBufferToUsage({ 
-      input_tokens: inputTokens, 
-      output_tokens: outputTokens, 
-      estimated: true 
-    });
+    return {
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      estimated: true
+    };
   }
 
   // Default: OpenAI format (works for openai, gemini, responses, etc.)
-  return addBufferToUsage({
+  return {
     prompt_tokens: inputTokens,
     completion_tokens: outputTokens,
     total_tokens: inputTokens + outputTokens,
     estimated: true
-  });
+  };
 }
 
 /**

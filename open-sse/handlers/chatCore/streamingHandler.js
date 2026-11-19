@@ -124,21 +124,11 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
   const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal, stallTimeoutMs, {
     identity: { requestId: streamDetailId, provider, model, streamKind: `${sourceFormat}->${targetFormat}` },
     onAbort: onStreamAbort,
+    onCancel: () => transformStream.finalizeOnCancel?.(),
   });
 
-  saveRequestDetail(buildRequestDetail({
-    provider, model, connectionId,
-    latency: { ttft: 0, total: Date.now() - requestStartTime },
-    tokens: { prompt_tokens: 0, completion_tokens: 0 },
-    request: extractRequestConfig(body, stream),
-    providerRequest: finalBody || translatedBody || null,
-    providerResponse: "[Streaming - raw response not captured]",
-    response: { content: "[Streaming in progress...]", thinking: null, type: "streaming" },
-    pxpipe,
-    status: "success"
-  }, { id: streamDetailId })).catch(err => {
-    console.error("[RequestDetail] Failed to save streaming request:", err.message);
-  });
+  // No placeholder row: each streamed request writes exactly once, when it ends
+  // (completed, aborted, or cancelled by the client).
 
   return {
     success: true,
@@ -151,13 +141,14 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
  */
 export function buildOnStreamComplete({ provider, model, connectionId, apiKey, requestStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log }) {
   const streamDetailId = randomUUID();
-  let aborted = false;
+  let settled = false;
 
-  // The stall timer (or an upstream reset) won. Replace the "success / Streaming
-  // in progress" placeholder row with an error, and keep a late flush from the
+  // The stall timer (or an upstream reset) won. Record the error row (the only
+  // write for this request) and keep a late flush from the
   // transform from turning it back into a success.
   const onStreamAbort = (info) => {
-    aborted = true;
+    if (settled) return;
+    settled = true;
     const total = Date.now() - requestStartTime;
     const errorText = `stream aborted: ${info.reason}${info.detail ? ` (${info.detail})` : ""} after ${info.elapsedMs}ms, ${info.chunks} chunks, ${info.bytes} bytes`;
     saveRequestDetail(buildRequestDetail({
@@ -176,13 +167,15 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
     saveUsageStats({ provider, model, tokens: null, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true, status: "error", error: errorText, latencyMs: total });
   };
 
-  const onStreamComplete = (contentObj, usage, ttftAt) => {
-    if (aborted) return;
+  const onStreamComplete = (contentObj, usage, ttftAt, extra) => {
+    if (settled) return;
+    settled = true;
+    const cancelled = extra?.cancelled === true;
     const latency = {
       ttft: ttftAt ? ttftAt - requestStartTime : Date.now() - requestStartTime,
       total: Date.now() - requestStartTime
     };
-    const safeContent = contentObj?.content || "[Empty streaming response]";
+    const safeContent = contentObj?.content || (cancelled ? "[Cancelled by client before any output]" : "[Empty streaming response]");
     const safeThinking = contentObj?.thinking || null;
 
     saveRequestDetail(buildRequestDetail({
@@ -192,16 +185,16 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
       request: extractRequestConfig(body, stream),
       providerRequest: finalBody || translatedBody || null,
       providerResponse: safeContent,
-      response: { content: safeContent, thinking: safeThinking, type: "streaming" },
+      response: { content: safeContent, thinking: safeThinking, type: "streaming", ...(cancelled ? { cancelled: true } : {}) },
       pxpipe,
-      status: "success"
+      status: cancelled ? "client_cancelled" : "success"
     }, { id: streamDetailId })).catch(err => {
-      console.error("[RequestDetail] Failed to update streaming content:", err.message);
+      console.error("[RequestDetail] Failed to save streaming request:", err.message);
     });
 
     // Persist stream usage to DB (no console line; the "📊 done" line below is authoritative)
     saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, label: "STREAM USAGE", silent: true, latencyMs: latency.total, ttftMs: ttftAt ? latency.ttft : null });
-    if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency }));
+    if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency }) + (cancelled ? " · CLIENT CANCELLED" : ""));
   };
 
   return { onStreamComplete, onStreamAbort, streamDetailId };

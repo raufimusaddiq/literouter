@@ -60,6 +60,7 @@ describe("request log files", () => {
       log.logRawRequest({ model: "m" }, { authorization: `Bearer ${KEY_A}` });
       log.logTargetRequest("https://up.example/v1", { Authorization: `Bearer ${UPSTREAM}`, "x-api-key": KEY_A }, { model: "m" });
       log.logProviderResponse(502, "Bad Gateway", { "x-request-id": "r1" }, { error: "x" });
+      await log.flush();
       const text = readTree(path.join(dir, "logs"));
       expect(text).not.toContain(KEY_A);
       expect(text).not.toContain(UPSTREAM);
