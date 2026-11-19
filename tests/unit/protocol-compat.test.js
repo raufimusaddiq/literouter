@@ -134,6 +134,12 @@ describe("dropped params", () => {
     expect(() => tr(FORMATS.GEMINI, FORMATS.CLAUDE, g({ responseLogprobs: true, logprobs: 3 }), "claude-x")).toThrow(RequestParamError);
     expect(() => tr(FORMATS.GEMINI, FORMATS.CLAUDE, g({ candidateCount: 1 }), "claude-x")).not.toThrow();
   });
+  it("same-format passthrough keeps candidateCount>1 / n>1 / logprobs (no translation, response intact)", () => {
+    const g = { contents: [{ role: "user", parts: [{ text: "hi" }] }], generationConfig: { candidateCount: 2, responseLogprobs: true, logprobs: 3 } };
+    expect(() => tr(FORMATS.GEMINI, FORMATS.GEMINI, g)).not.toThrow();
+    const o = { messages: [{ role: "user", content: "hi" }], n: 2, logprobs: true, top_logprobs: 3 };
+    expect(() => tr(FORMATS.OPENAI, FORMATS.OPENAI, o)).not.toThrow();
+  });
   it("logprobs alone is ignored; logprobs + top_logprobs is rejected", () => {
     const body = { messages: [{ role: "user", content: "hi" }], logprobs: true };
     expect(() => tr(FORMATS.OPENAI, FORMATS.CLAUDE, body)).not.toThrow();

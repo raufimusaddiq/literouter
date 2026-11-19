@@ -66,9 +66,13 @@ function detectClientLastRole(body) {
 // Translate request: source -> openai -> target
 export function translateRequest(sourceFormat, targetFormat, model, body, stream = true, credentials = null, provider = null, reqLogger = null, stripList = [], connectionId = null, clientTool = null) {
   let result = body;
-  // Only OpenAI Chat targets can honour n>1 / logprobs; reject (400) rather than
-  // silently returning a single choice. Throws RequestParamError.
-  if (targetFormat !== FORMATS.OPENAI) {
+  // Reject (400) n>1 / logprobs only when the request is actually TRANSLATED to a
+  // non-OpenAI target (the response translator would keep only choice/candidate 0).
+  // Same-format requests (Gemini->Gemini, OpenAI->OpenAI, ...) skip translation
+  // entirely (see the `sourceFormat !== targetFormat` branch below), so the
+  // upstream response reaches the client intact and multi-candidate is allowed.
+  // Gemini->Gemini does NOT pivot through OpenAI. Throws RequestParamError.
+  if (sourceFormat !== targetFormat && targetFormat !== FORMATS.OPENAI) {
     assertTargetSupportsParams(body, provider || targetFormat);
   }
   // Role the client actually ended on, before any translator drops an emptied turn.
