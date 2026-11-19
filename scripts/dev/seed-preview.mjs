@@ -32,6 +32,7 @@ const now = Date.now();
 const iso = (t) => new Date(t).toISOString();
 const future = (ms) => iso(now + ms);
 
+const NODE_PROVIDER = "openai-compatible-chat-6d0ab93c-cc80-4278-b1dc-f2da26f80fc6";
 const connections = [
   { provider: "openai", name: "OpenAI · prod", testStatus: "success" },
   { provider: "anthropic", name: "Anthropic · main", testStatus: "success" },
@@ -39,14 +40,22 @@ const connections = [
   { provider: "groq", name: "Groq · fast", testStatus: "success" },
   { provider: "openrouter", name: "OpenRouter · fallback", testStatus: undefined },
   { provider: "deepseek", name: "DeepSeek · batch", testStatus: "success", isActive: false },
+  // Email-named connection on a built-in provider, and a custom OpenAI-compatible node.
+  { provider: "mistral", name: "raufimusaddiq@gmail.com", email: "raufimusaddiq@gmail.com", testStatus: "success" },
+  { provider: NODE_PROVIDER, name: "Sumopod", testStatus: "success" },
 ].map((c, i) => ({ ...c, id: uuid(), priority: i + 1 }));
+
+db.prepare(`INSERT INTO providerNodes(id, type, name, data, createdAt, updatedAt) VALUES(?,?,?,?,?,?)`).run(
+  NODE_PROVIDER, "openai-compatible", "Sumopod",
+  JSON.stringify({ prefix: "sumopod", apiType: "chat", baseUrl: "https://ai.sumopod.example/v1" }), iso(now - 20 * 86400000), iso(now),
+);
 
 const insConn = db.prepare(
   `INSERT INTO providerConnections(id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt) VALUES(?,?,?,?,?,?,?,?,?,?)`,
 );
 for (const c of connections) {
   const data = { apiKey: `sk-preview-${c.provider}`, ...(c.testStatus ? { testStatus: c.testStatus } : {}), ...(c.extra || {}) };
-  insConn.run(c.id, c.provider, "apikey", c.name, null, c.priority, c.isActive === false ? 0 : 1, JSON.stringify(data), iso(now - 20 * 86400000), iso(now));
+  insConn.run(c.id, c.provider, "apikey", c.name, c.email || null, c.priority, c.isActive === false ? 0 : 1, JSON.stringify(data), iso(now - 20 * 86400000), iso(now));
 }
 
 const apiKey = `sk-preview-${crypto.randomBytes(12).toString("hex")}`;
@@ -61,6 +70,8 @@ const models = [
   { provider: "anthropic", model: "claude-sonnet-4-5", inp: [600, 6000], out: [100, 1500], rate: [3, 15] },
   { provider: "gemini", model: "gemini-2.5-pro", inp: [500, 4000], out: [100, 1200], rate: [1.25, 10] },
   { provider: "groq", model: "llama-3.3-70b-versatile", inp: [150, 1500], out: [40, 600], rate: [0.59, 0.79] },
+  { provider: "mistral", model: "mistral-large-latest", inp: [300, 2500], out: [60, 700], rate: [2, 6] },
+  { provider: NODE_PROVIDER, model: "sumo-chat", inp: [200, 2000], out: [50, 600], rate: [0.5, 1.5] },
   { provider: "openrouter", model: "mistral-large", inp: [300, 2500], out: [60, 700], rate: [2, 6] },
 ];
 const connByProvider = Object.fromEntries(connections.map((c) => [c.provider, c.id]));
