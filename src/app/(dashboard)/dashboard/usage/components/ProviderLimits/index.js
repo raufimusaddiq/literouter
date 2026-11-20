@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/shared/utils/dateTime";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import QuotaTable from "./QuotaTable";
@@ -114,7 +115,7 @@ function formatCreditDate(value) {
   if (!value) return "N/A";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "N/A";
-  return date.toLocaleString(undefined, {
+  return formatDateTime(date, undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",

@@ -1,3 +1,4 @@
+import { formatTime } from "@/shared/utils/dateTime";
 import PropTypes from "prop-types";
 import { CapacityBadges } from "@/shared/components";
 
@@ -18,7 +19,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
   const testStatus = testResult?.status;
   const testError = testStatus === "error" ? (testResult.error || "Model not reachable") : null;
   const testedAt = typeof testResult?.at === "number"
-    ? new Date(testResult.at).toLocaleTimeString("en-US", { hour12: false })
+    ? formatTime(testResult.at)
     : null;
   const regionOptIn = testError ? regionOptInUrl(testError) : null;
   const borderColor = testStatus === "ok"

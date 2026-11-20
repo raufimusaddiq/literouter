@@ -19,6 +19,9 @@ services:
       PORT: "20128"
       HOSTNAME: "0.0.0.0"
       NODE_ENV: production
+      # App timezone for day keys, "today" boundaries, chart hours and log times;
+      # the dashboard shows the same zone. Override with LITEROUTER_TZ.
+      TZ: "${LITEROUTER_TZ:-Asia/Jakarta}"
       LOG_LEVEL: "${LITEROUTER_LOG_LEVEL:-WARN}"
       ENABLE_REQUEST_LOGS: "true"
       # #147: requestDetails retention (rows). ~33 h at ~11k req/day; see requestDetailsRepo.js.
