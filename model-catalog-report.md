@@ -9,10 +9,10 @@ Ticket T-28. Facts come from official vendor pages only (read 2026-11-20; page t
 | OpenAI | gpt-6.2-astra | no | openai | 8 / 40 / 0.40 / 10 | https://developers.openai.com/api/docs/models/gpt-6.2-astra , https://developers.openai.com/api/docs/pricing | 2026-11-20 |
 | OpenAI | gpt-6.2-sol | no | openai | 2 / 10 / 0.10 / 2.50 | https://developers.openai.com/api/docs/models/gpt-6.2-sol | 2026-11-20 |
 | OpenAI | gpt-6.1-terra | no | openai | 1 / 5 / 0.05 / 1.25 | https://developers.openai.com/api/docs/pricing | 2026-11-20 |
-| Google | gemini-4-carbon | antigravity tiers, commandcode only | gemini (API key) | 2 / 10 / 0.10 / 0* (intro to 2026-11-30; 4 / 20 / 0.20 from 2026-12-01) | https://ai.google.dev/gemini-api/docs/pricing , https://aistudio.google.com/docs/models/gemini-4-carbon | 2026-11-20 |
-| Google | gemini-4-argon | no | gemini | 2 / 10 / 0.10 / 0* (same intro schedule) | https://aistudio.google.com/docs/models/gemini-4-argon | 2026-11-20 |
-| Google | gemini-4-neon | no | gemini | 3 / 15 / 0.15 / 0* | https://aistudio.google.com/docs/models/gemini-4-neon | 2026-11-20 |
-| Google | gemini-4-hydrogen | no | gemini | 1.50 / 7.50 / 0.075 / 0* | https://aistudio.google.com/docs/models/gemini-4-hydrogen | 2026-11-20 |
+| Google | gemini-4-carbon | antigravity tiers, commandcode only | gemini (API key) | 4 / 20 / 0.20 / 0* (was intro 2 / 10 / 0.10; standard rate per owner 2026-11-20, TODO(2026-12-01) removed) | https://ai.google.dev/gemini-api/docs/pricing (redirects to https://aistudio.google.com/docs/pricing) , https://aistudio.google.com/docs/models/gemini-4-carbon | 2026-11-20 |
+| Google | gemini-4-argon | no | gemini | 4 / 20 / 0.20 / 0* (was intro 2 / 10 / 0.10; standard rate) | https://aistudio.google.com/docs/models/gemini-4-argon | 2026-11-20 |
+| Google | gemini-4-neon | no | gemini | 3 / 15 / 0.15 / 0* (single standard rate, no intro; unchanged) | https://aistudio.google.com/docs/models/gemini-4-neon | 2026-11-20 |
+| Google | gemini-4-hydrogen | no | gemini | 1.50 / 7.50 / 0.075 / 0* (single standard rate, no intro; unchanged) | https://aistudio.google.com/docs/models/gemini-4-hydrogen | 2026-11-20 |
 | Tencent | hy4-preview | yes (codebuddy-cn, kenari, opencode-go), unpriced | none new | 0.834 / 2.501 / 0.042 / 0* ("To Be Discontinued") | https://www.tencentcloud.com/document/product/1300/78937 | 2026-11-20 |
 | Tencent | hy4, hy4-flash | no | none (see unconfirmed) | hy4 0.834 / 2.501 / 0.042 / 0*; hy4-flash 0.07 / 0.281 / 0.003 / 0* | https://www.tencentcloud.com/document/product/1300/78937 , /78934 | 2026-11-20 |
 | Cerebras | qwen-3.8-27b, gpt-oss-120b | yes, unpriced | none new | 0.99 / 1.49 and 0.35 / 0.75; cache 0* | https://inference-docs.cerebras.ai/models/qwen-3.8-27b.md , /models/openai-oss.md | 2026-11-20 |
@@ -249,3 +249,7 @@ After: 34 backfilled rows carry a sourced rate (plus the o3 canonical row); 132 
 | tencent | hunyuan-t1-latest | cloud.tencent.com lists only the -vision variants (CNY); no price for this id |
 
 Notes for review: Poolside laguna-s-2.1 (0.10 / 0.20 / 0.01 OpenRouter endpoint), Mistral large-latest (Large 4 0.70 / 2.10 / 0.07 alias unconfirmed), Volcengine (CNY tiers), BytePlus mini/lite (only -260428 priced) and kenari (IDR) were deliberately left at 0 rather than guessed.
+
+## kenari USD check (2026-11-20)
+
+Checked https://kenari.id/en (language switch en -> /en) and https://kenari.id/v1/models: every price is `"currency":"IDR"` (micro_idr_per_1m_tokens); no USD figure appears anywhere (/en/pricing and /en/models are 404). Per the no-IDR-conversion rule, all kenari rows stay 0 + TODO; no rows were priced.

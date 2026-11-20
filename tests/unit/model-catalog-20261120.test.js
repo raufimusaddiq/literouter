@@ -19,8 +19,8 @@ describe("2026-11-20 model catalog pricing", () => {
   });
 
   it.each([
-    ["gemini-4-carbon", 2, 10, 0.1],
-    ["gemini-4-argon", 2, 10, 0.1],
+    ["gemini-4-carbon", 4, 20, 0.2],
+    ["gemini-4-argon", 4, 20, 0.2],
     ["gemini-4-neon", 3, 15, 0.15],
     ["gemini-4-hydrogen", 1.5, 7.5, 0.075],
   ])("%s", (model, input, output, cached) => {

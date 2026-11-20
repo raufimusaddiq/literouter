@@ -11,14 +11,14 @@ describe("gemini-4 pricing", () => {
       "gemini-4-argon",
     ]) {
       expect(getPricingForModel("antigravity", model)).toMatchObject({
-        input: 2.00,
-        output: 10.00,
-        cached: 0.10,
+        input: 4.00,
+        output: 20.00,
+        cached: 0.20,
       });
     }
   });
 
   it("strips the vendor prefix before matching", () => {
-    expect(getPricingForModel("commandcode", "google/gemini-4-carbon").output).toBe(10.00);
+    expect(getPricingForModel("commandcode", "google/gemini-4-carbon").output).toBe(20.00);
   });
 });
