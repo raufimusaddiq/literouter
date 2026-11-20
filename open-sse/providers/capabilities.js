@@ -124,7 +124,7 @@ export const PROVIDER_CAPABILITIES = {
     "nvidia/nemotron-3.5-bolt-e4b": { tools: true, contextWindow: 128000, maxOutput: 8192 },
     "nvidia/nemotron-3.5-lightning-30b-a3b": { tools: false, reasoning: true, thinkingFormat: "openai", contextWindow: 128000, maxOutput: 8192 },
     "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": { tools: false, reasoning: true, thinkingFormat: "openai", contextWindow: 128000, maxOutput: 8192 },
-    "nvidia/nemotron-3-ultra-550b-a55b": { tools: false, reasoning: true, thinkingFormat: "openai", contextWindow: 128000, maxOutput: 8192 },
+    "nvidia/nemotron-3-ultra-550b-a55b": { tools: true, reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 8192 },
     "poolside/laguna-xs-2.1": { tools: true, contextWindow: 200000, maxOutput: 32000 },
     "meta/llama-guard-4-12b": { tools: false, contextWindow: 128000, maxOutput: 4096 },
     "nvidia/riva-translate-4b-instruct-v2": { tools: false, contextWindow: 128000, maxOutput: 4096 },
@@ -453,7 +453,6 @@ export const PATTERN_CAPABILITIES = [
   { pattern: "*laguna-s-2.1*",  caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 32000 } },
   { pattern: "*laguna-m.1*",    caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 262144, maxOutput: 32000 } },
   { pattern: "*laguna*",        caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 32000 } },
-
 
   { pattern: "*muse*spark*",    caps: { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 1048576, maxOutput: 131072 } },
   { pattern: "*hunyuan*",       caps: { reasoning: true, thinkingFormat: "hunyuan", contextWindow: 262144, maxOutput: 262144 } },
