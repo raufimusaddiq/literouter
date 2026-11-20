@@ -94,13 +94,12 @@ export const MODEL_PRICING = {
 
   // === Gemini ===
   // Gemini 4, Standard tier, read 2026-11-20: https://ai.google.dev/gemini-api/docs/pricing
-  // (served from aistudio.google.com/docs/pricing). carbon/argon are on an introductory
-  // price through 2026-11-30 (input 2 / output 10 / cached 0.10), then 4 / 20 / 0.20 from
-  // 2026-12-01. neon and hydrogen show no intro price. cache_creation 0: the page states
-  // only an hourly cache-storage fee, not a per-token write rate.
-  // TODO(2026-12-01): bump gemini-4-carbon and gemini-4-argon to 4.00 / 20.00 / 0.20.
-  "gemini-4-carbon":               { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 0 },
-  "gemini-4-argon":                { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 0 },
+  // (301 to aistudio.google.com/docs/pricing). carbon/argon use the standard (base) rate
+  // 4 / 20 / 0.20, not the introductory 2 / 10 / 0.10 shown through 2026-11-30. neon and
+  // hydrogen show a single standard rate. cache_creation 0: the page states only an
+  // hourly cache-storage fee, not a per-token write rate.
+  "gemini-4-carbon":               { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 0 },
+  "gemini-4-argon":                { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 0 },
   "gemini-4-neon":                 { input: 3.00,  output: 15.00, cached: 0.15,  reasoning: 15.00,  cache_creation: 0 },
   "gemini-4-hydrogen":             { input: 1.50,  output: 7.50,  cached: 0.075, reasoning: 7.50,   cache_creation: 0 },
   // gemini-3.8-flash / 3.6-flash below stay at the post-intro list rate (the page shows
@@ -693,7 +692,7 @@ export const PATTERN_PRICING = [
   { pattern: "gemini-*-flash-lite", pricing: { input: 0.15, output: 1.25, cached: 0.015, reasoning: 1.875, cache_creation: 0.15 } },
   { pattern: "gemini-*-flash",  pricing: { input: 0.30,  output: 2.50,  cached: 0.03,  reasoning: 3.75,   cache_creation: 0.30  } },
   { pattern: "gemini-*-pro",    pricing: { input: 2.00,  output: 12.00, cached: 0.25,  reasoning: 18.00,  cache_creation: 2.00  } },
-  { pattern: "gemini-4-*",      pricing: { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 0.1875 } },
+  { pattern: "gemini-4-*",      pricing: { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 0.1875 } },
   { pattern: "gemini-3-*",      pricing: { input: 0.50,  output: 3.00,  cached: 0.03,  reasoning: 4.50,   cache_creation: 0.50  } },
   { pattern: "gemini-2.5-*",    pricing: { input: 0.30,  output: 2.50,  cached: 0.03,  reasoning: 3.75,   cache_creation: 0.30  } },
   { pattern: "gemini-*",        pricing: { input: 0.50,  output: 3.00,  cached: 0.03,  reasoning: 4.50,   cache_creation: 0.50  } },
