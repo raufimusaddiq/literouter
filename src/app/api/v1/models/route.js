@@ -21,6 +21,8 @@ import { resolveGrokCliModels } from "open-sse/services/grokCliModels.js";
 import { resolveCursorModels } from "open-sse/services/cursorModels.js";
 import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { resolveCommandCodeModels } from "open-sse/services/commandcodeModels.js";
+import { resolveOpencodeFreeModels } from "open-sse/services/opencodeFreeModels.js";
+import { getModelsByProviderId } from "open-sse/config/providerModels.js";
 import { noteUntrackedModel } from "open-sse/providers/trackingGaps.js";
 import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
@@ -54,12 +56,20 @@ function makeComboSeatResolver(nestedComboModels) {
       return aggregateComboCapabilities(nested, nestedComboModels, comboSeatCapabilities);
     }
     const alias = seat.slice(0, slash);
-    return getCapabilitiesForModel(resolveProviderId(alias), seat.slice(slash + 1));
+    const model = seat.slice(slash + 1).replace(/\([^()]+\)\s*$/, "").trim();
+    return getCapabilitiesForModel(resolveProviderId(alias), model);
   };
   return comboSeatCapabilities;
 }
 
 const LIVE_MODEL_RESOLVERS = {
+  opencode: async (_conn, { skipDynamicFetch } = {}) => {
+    if (skipDynamicFetch) return null;
+    const live = await resolveOpencodeFreeModels();
+    if (!live?.models?.length) return null;
+    const liveIds = new Set(live.models.map((m) => m.id));
+    return { models: [...live.models, ...getModelsByProviderId("opencode").filter((m) => !liveIds.has(m.id))] };
+  },
   kiro: async (conn) => {
     const result = await resolveKiroModels({
       accessToken: conn.accessToken,
@@ -481,7 +491,7 @@ export async function buildModelsList(kindFilter, options = {}) {
       const liveResolver = LIVE_MODEL_RESOLVERS[providerId];
       if (liveResolver && !hasExplicitEnabledModels) {
         try {
-          const live = await liveResolver(conn);
+          const live = await liveResolver(conn, { skipDynamicFetch });
           if (live?.models?.length) {
             rawModelIds = live.models.map((m) => m.id);
             for (const model of live.models) noteUntrackedModel(providerId, model.id, "v1-models");

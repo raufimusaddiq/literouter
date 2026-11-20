@@ -1,6 +1,4 @@
-const KNOWN_FREE_OPENCODE_MODELS = ["big-pickle"];
-
-const DEAD_FREE_OPENCODE_MODELS = new Set(["deepseek-v4-flash-free"]);
+import { isOpencodeFreeModelId } from "open-sse/services/opencodeFreeModels.js";
 
 export const FILTERS = {
   kenari: (models) =>
@@ -21,7 +19,7 @@ export const FILTERS = {
 
   "opencode-free": (models) =>
     models
-      .filter((m) => (m.id?.endsWith("-free") || KNOWN_FREE_OPENCODE_MODELS.includes(m.id)) && !DEAD_FREE_OPENCODE_MODELS.has(m.id))
+      .filter((m) => isOpencodeFreeModelId(m.id))
       .map((m) => ({ id: m.id, name: m.id })),
 
   "mimo-free": (models) =>

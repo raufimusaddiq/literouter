@@ -70,6 +70,15 @@ describe("/v1/models combo limits", () => {
     });
   });
 
+  it("ignores a trailing thinking-level override on a combo seat", async () => {
+    const combo = { name: "level-combo", models: ["ocg/mimo-v2.5(max)"] };
+    const models = await modelsWithCombo("opencode-go", "mimo-v2.5", [combo]);
+    expect(models.find((model) => model.id === combo.name)).toMatchObject({
+      context_length: 180000,
+      capabilities: { contextWindow: 180000, maxOutput: 16000 },
+    });
+  });
+
   it("carries provider-scoped limits through a nested combo", async () => {
     const models = await modelsWithCombo("opencode-go", "mimo-v2.5", [
       { name: "inner-combo", models: ["ocg/mimo-v2.5"] },
