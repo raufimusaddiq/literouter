@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/shared/utils/dateTime";
 import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import PropTypes from "prop-types";
 import Card from "@/shared/components/Card";
@@ -13,7 +14,7 @@ function fmtTime(iso) {
   if (diffMins < 1) return "Just now";
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
-  return new Date(iso).toLocaleDateString();
+  return formatDate(iso);
 }
 
 function SortIcon({ field, currentSort, currentOrder }) {

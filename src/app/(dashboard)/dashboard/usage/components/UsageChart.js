@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
+import { formatZoneLabel } from "@/shared/utils/dateTime";
 import {
   AreaChart,
   Area,
@@ -132,6 +133,7 @@ export default function UsageChart({ period = "7d" }) {
           </AreaChart>
         </ResponsiveContainer>
       )}
+      {(period === "today" || period === "24h") && (<p className="text-right text-xs text-text-muted">Times in {formatZoneLabel()}</p>)}
     </Card>
   );
 }

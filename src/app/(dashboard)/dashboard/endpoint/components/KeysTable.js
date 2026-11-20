@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/shared/utils/dateTime";
 import { useState, useMemo } from "react";
 import PropTypes from "prop-types";
 import { Card, Button, Toggle } from "@/shared/components";
@@ -99,7 +100,7 @@ export default function KeysTable({
                 <span role="cell">{keyCell(k)}</span>
                 <span role="cell" className="text-right text-sm tabular-nums text-text-main">{reqText(u)}</span>
                 <span role="cell" className="text-sm text-text-muted">{lastText(u)}</span>
-                <span role="cell" className="text-sm tabular-nums text-text-muted">{new Date(k.createdAt).toLocaleDateString()}</span>
+                <span role="cell" className="text-sm tabular-nums text-text-muted">{formatDate(k.createdAt)}</span>
                 <span role="cell">{accessBtn(k)}</span>
                 <span role="cell">{statusToggle(k)}</span>
                 <span role="cell">{menu}</span>
@@ -121,7 +122,7 @@ export default function KeysTable({
                 </div>
                 <div className="flex items-center justify-between gap-2 text-xs text-text-muted">
                   {accessBtn(k)}
-                  <span>Created {new Date(k.createdAt).toLocaleDateString()}</span>
+                  <span>Created {formatDate(k.createdAt)}</span>
                 </div>
               </div>
               {expanded === k.id && (

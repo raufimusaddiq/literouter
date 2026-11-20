@@ -15,6 +15,7 @@ services:
       HOSTNAME: "0.0.0.0"
       NODE_ENV: production
       HEADROOM_URL: http://headroom:8787
+      # TZ: "Asia/Jakarta"  # optional app timezone (default: container zone, UTC)
     depends_on:
       - headroom
 

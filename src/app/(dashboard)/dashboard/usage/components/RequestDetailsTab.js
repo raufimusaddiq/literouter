@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/shared/utils/dateTime";
 import { useState, useEffect, useCallback } from "react";
 import Card from "@/shared/components/Card";
 import Button from "@/shared/components/Button";
@@ -268,7 +269,7 @@ export default function RequestDetailsTab() {
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
                   <div>
                     <dt className="text-text-muted">Timestamp</dt>
-                    <dd className="mt-0.5 text-text-main">{new Date(detail.timestamp).toLocaleString()}</dd>
+                    <dd className="mt-0.5 text-text-main">{formatDateTime(detail.timestamp)}</dd>
                   </div>
                   <div>
                     <dt className="text-text-muted">Latency</dt>
@@ -343,7 +344,7 @@ export default function RequestDetailsTab() {
                     className="border-b border-black/5 dark:border-white/5 last:border-b-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
                   >
                     <td className="whitespace-nowrap p-4 text-sm text-text-main">
-                      {new Date(detail.timestamp).toLocaleString()}
+                      {formatDateTime(detail.timestamp)}
                     </td>
                     <td className="max-w-[260px] truncate p-4 font-mono text-sm text-text-main">
                       {detail.model}
@@ -415,7 +416,7 @@ export default function RequestDetailsTab() {
               </div>
               <div>
                 <span className="text-text-muted">Timestamp:</span>{" "}
-                <span className="text-text-main">{new Date(selectedDetail.timestamp).toLocaleString()}</span>
+                <span className="text-text-main">{formatDateTime(selectedDetail.timestamp)}</span>
               </div>
               <div>
                  <span className="text-text-muted">Provider:</span>{" "}

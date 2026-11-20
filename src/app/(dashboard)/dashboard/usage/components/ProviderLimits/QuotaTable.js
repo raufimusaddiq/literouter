@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate, formatTime } from "@/shared/utils/dateTime";
 import { useEffect, useMemo, useState } from "react";
 import { formatResetTime, getRemainingPercentage } from "./utils";
 
@@ -13,21 +14,19 @@ function formatResetTimeDisplay(resetTime) {
 
   try {
     const date = new Date(resetTime);
+    // Compare calendar days in the app timezone, not the browser's.
+    const dayKey = (d) => formatDate(d, undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
     let dayStr = "";
-    if (date >= today && date < tomorrow) {
+    if (dayKey(date) === dayKey(now)) {
       dayStr = "Today";
-    } else if (date >= tomorrow && date < new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)) {
+    } else if (dayKey(date) === dayKey(new Date(now.getTime() + 24 * 60 * 60 * 1000))) {
       dayStr = "Tomorrow";
     } else {
-      dayStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      dayStr = formatDate(date, undefined, { month: "short", day: "numeric" });
     }
 
-    const timeStr = date.toLocaleTimeString("en-US", {
+    const timeStr = formatTime(date, undefined, {
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
