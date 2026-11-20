@@ -82,6 +82,8 @@ async function defaultUploadImage({ buffer, mediaType, credentials, proxyOptions
     name: credentials.displayName || "",
     email: credentials.email || "",
     machineId: psd.machineId || "",
+  }, {
+    signatureBody: Buffer.from(String(body.length), "ascii"),
   });
   const headers = {
     ...cosyHeaders,
