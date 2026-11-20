@@ -123,6 +123,11 @@ const CODEX_GPT_56_DEFAULT_CAPS = { vision: true, reasoning: true, search: true,
 const DEVIN_CLI_GPT_CAPS = { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 128000 };
 
 export const PROVIDER_CAPABILITIES = {
+  "mistral": {
+    "mistral-large-latest": { vision: true, contextWindow: 1048576 },
+    "mistral-large-4": { vision: true, contextWindow: 1048576 },
+    "mistral-large-4-0": { vision: true, contextWindow: 1048576 },
+  },
   "nvidia": {
     "nvidia/nemotron-3.5-bolt-e4b": { tools: true, contextWindow: 128000, maxOutput: 8192 },
     "nvidia/nemotron-3.5-lightning-30b-a3b": { tools: false, reasoning: true, thinkingFormat: "openai", contextWindow: 128000, maxOutput: 8192 },
