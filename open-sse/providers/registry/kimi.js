@@ -56,6 +56,8 @@ export default {
   models: [
     { id: "kimi-k3", name: "Kimi K3" },
     { id: "k3", name: "Kimi K3 (Code)" },
+    { id: "k3.1-pro", name: "Kimi K3.1 Pro (Code)" },
+    { id: "k3.1-pro-highspeed", name: "Kimi K3.1 Pro Highspeed (Code)" },
     { id: "kimi-for-coding", name: "Kimi for Coding" },
     { id: "kimi-for-coding-highspeed", name: "Kimi for Coding Highspeed" },
     { id: "kimi-k2.7-code", name: "Kimi K2.7 Code" },

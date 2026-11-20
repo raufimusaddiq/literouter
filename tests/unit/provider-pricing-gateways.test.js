@@ -41,4 +41,17 @@ describe("gateway pricing", () => {
   it("bills unpublished cache reads at the input rate", () => {
     expect(getPricingForModel("deeprelay", "qwen3.8-flash").cached).toBeUndefined();
   });
+
+  it("carries no cache-write rate on DeepRelay, which publishes none", () => {
+    for (const [id, rate] of Object.entries(PROVIDER_PRICING.deeprelay)) {
+      expect(rate.cache_creation, id).toBeUndefined();
+    }
+  });
+
+  it.each([
+    ["k3.1-pro", { input: 2, output: 10, cached: 0.2 }],
+    ["k3.1-pro-highspeed", { input: 0, output: 0 }],
+  ])("kimi/%s has an explicit pricing row", (model, rate) => {
+    expect(getPricingForModel("kimi", model)).toMatchObject(rate);
+  });
 });
