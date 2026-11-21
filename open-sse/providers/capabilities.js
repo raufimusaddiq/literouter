@@ -346,6 +346,16 @@ PROVIDER_CAPABILITIES.deeprelay = {
   "gpt-oss-120b":                 { reasoning: true, thinkingFormat: "openai", contextWindow: 131072, maxOutput: 8192 },
 };
 
+PROVIDER_CAPABILITIES["cloudflare-ai"] = {
+  "@cf/meta/llama-4-scout-17b-16e-instruct": { vision: true, contextWindow: 131000 },
+  "@cf/deepseek-ai/deepseek-v4.1-flash-1017": { vision: true, reasoning: true, thinkingFormat: "deepseek", thinkingEffortSupported: true, contextWindow: 1048576, maxOutput: 128000 },
+  "@cf/google/gemma-4-26b-a4b-it": { vision: true, contextWindow: 256000 },
+  "@cf/zai-org/glm-5.3": { reasoning: true, thinkingFormat: "zai", thinkingCanDisable: false, thinkingEffortSupported: true, contextWindow: 1048576, maxOutput: 131072 },
+  "@cf/openai/gpt-oss-120b": { reasoning: true, thinkingFormat: "openai", contextWindow: 128000 },
+  "@cf/openai/gpt-oss-20b": { reasoning: true, thinkingFormat: "openai", contextWindow: 128000 },
+  "@cf/qwen/qwen3.8-27b": { reasoning: true, thinkingFormat: "qwen", contextWindow: 262144 },
+};
+
 export const PATTERN_CAPABILITIES = [
   { pattern: "*claude*opus-5*",     caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 } },
   { pattern: "*claude*opus-4.6*",   caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive" } },

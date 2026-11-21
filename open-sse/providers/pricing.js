@@ -257,7 +257,14 @@ export const PROVIDER_PRICING = {
   },
   "cloudflare-ai": {
     "@cf/cloudflare/clef": { input: 0.24, output: 0 },
-    "@cf/cloudflare/clef-flash": { input: 0.09, output: 0 },
+    "@cf/cloudflare/clef-flash": { input: 0.038, output: 0 },
+    "@cf/meta/llama-4-scout-17b-16e-instruct": { input: 0.27, output: 0.85, reasoning: 0.85 },
+    "@cf/deepseek-ai/deepseek-v4.1-flash-1017": { input: 0.30, output: 1.20, cached: 0.006, reasoning: 1.20 },
+    "@cf/google/gemma-4-26b-a4b-it": { input: 0.10, output: 0.30, reasoning: 0.30 },
+    "@cf/zai-org/glm-5.3": { input: 1.40, output: 4.40, cached: 0.26, reasoning: 4.40 },
+    "@cf/openai/gpt-oss-120b": { input: 0.35, output: 0.75, reasoning: 0.75 },
+    "@cf/openai/gpt-oss-20b": { input: 0.20, output: 0.30, reasoning: 0.30 },
+    "@cf/qwen/qwen3.8-27b": { input: 0.45, output: 3.20, cached: 0.05, reasoning: 3.20 },
   },
   gh: {
     "gpt-5.3-codex": { input: 1.75, output: 14.00, cached: 0.175, reasoning: 14.00, cache_creation: 1.75 },
