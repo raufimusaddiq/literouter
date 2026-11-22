@@ -3,9 +3,10 @@ export const ERROR_TYPES = {
   400: { type: "invalid_request_error", code: "bad_request" },
   401: { type: "authentication_error", code: "invalid_api_key" },
   402: { type: "billing_error", code: "payment_required" },
-  403: { type: "permission_error", code: "insufficient_quota" },
+  403: { type: "permission_error", code: "permission_denied" },
   404: { type: "invalid_request_error", code: "model_not_found" },
   406: { type: "invalid_request_error", code: "model_not_supported" },
+  408: { type: "server_error", code: "upstream_request_timeout" },
   429: { type: "rate_limit_error", code: "rate_limit_exceeded" },
   500: { type: "server_error", code: "internal_server_error" },
   502: { type: "server_error", code: "bad_gateway" },
@@ -21,6 +22,7 @@ export const DEFAULT_ERROR_MESSAGES = {
   403: "You exceeded your current quota",
   404: "Model not found",
   406: "Model not supported",
+  408: "Upstream timed out reading the request",
   429: "Rate limit exceeded",
   500: "Internal server error",
   502: "Bad gateway - upstream provider error",
@@ -48,9 +50,19 @@ const COOLDOWN = {
 };
 
 /**
+ * Failure scope — who the failure is about, which decides what may react to it:
+ *   request: the request itself is bad. No account fallback, no lock, no combo fallback.
+ *   model:   this model cannot serve the request (e.g. context overflow). No account
+ *            fallback and no lock, but a combo may try another model.
+ *   account: the credential/provider is unhealthy (default). Lock + account/combo fallback.
+ */
+export const SCOPE = { request: "request", model: "model", account: "account" };
+
+/**
  * Unified error classification rules.
  * Checked top-to-bottom: text rules first (by order), then status rules.
- * Each rule: { text?, status?, cooldownMs?, backoff? }
+ * Each rule: { text?, status?, scope?, cooldownMs?, backoff? }
+ *   - scope: SCOPE.* (default account)
  *   - text: substring match (case-insensitive) on error message
  *   - status: HTTP status code match
  *   - cooldownMs: fixed cooldown duration
@@ -58,12 +70,27 @@ const COOLDOWN = {
  */
 export const ERROR_RULES = [
   // --- Text-based rules (checked first, order = priority) ---
+  // Model-scoped overflow: this request can never fit this model but may fit a
+  // larger-context combo seat. The account is healthy, so rotating accounts (or
+  // locking one) would not help: a combo may try another model, nothing else moves.
+  { text: "context_length_exceeded",  scope: SCOPE.model, cooldownMs: 0 },
+  { text: "maximum context length",   scope: SCOPE.model, cooldownMs: 0 },
+  // Request-scoped: the request itself is at fault, no model/account will accept it.
+  { text: "content_policy_violation", scope: SCOPE.request, cooldownMs: 0 },
+  { text: "content management policy", scope: SCOPE.request, cooldownMs: 0 },
+  { text: "invalid_prompt",           scope: SCOPE.request, cooldownMs: 0 },
+  // NVIDIA NIM returns 400 with "degraded" when a specific model cluster is unhealthy.
+  // The 15m cooldown lands on the model lock, not the whole API key.
+  { provider: "nvidia", text: "degraded", cooldownMs: 15 * 60 * 1000 },
   { text: "no credentials",           cooldownMs: COOLDOWN.long },
   { text: "request not allowed",      cooldownMs: COOLDOWN.short },
-  { text: "improperly formed request", cooldownMs: COOLDOWN.long },
+  // Kiro 400 for a malformed body: caused by this request, not the credential.
+  { text: "improperly formed request", scope: SCOPE.request, cooldownMs: 0 },
   { text: "rate limit",               backoff: true },
   { text: "too many requests",        backoff: true },
   { text: "quota exceeded",           backoff: true },
+  { text: "insufficient credit",      backoff: true },
+  { text: "credit balance is too low", backoff: true },
   { text: "capacity",                 backoff: true },
   { text: "overloaded",               backoff: true },
 
@@ -72,6 +99,9 @@ export const ERROR_RULES = [
   { status: 402, cooldownMs: COOLDOWN.long },
   { status: 403, cooldownMs: COOLDOWN.long },
   { status: 404, cooldownMs: COOLDOWN.long },
+  // Upstream could not read our request body in time: nothing was processed, so it is a
+  // transient transport fault, not a client error. Brief cooldown, then another account.
+  { status: 408, cooldownMs: COOLDOWN.short },
   { status: 429, backoff: true },
 ];
 
@@ -82,4 +112,38 @@ export const COOLDOWN_MS = {
   notFound: COOLDOWN.long,
   transient: TRANSIENT_COOLDOWN_MS,
   requestNotAllowed: COOLDOWN.short,
+};
+
+// Anthropic Messages API error types, keyed by HTTP status (client-facing, /v1/messages).
+// https://docs.anthropic.com/en/api/errors
+export const CLAUDE_ERROR_TYPES = {
+  400: "invalid_request_error",
+  401: "authentication_error",
+  402: "billing_error",
+  403: "permission_error",
+  404: "not_found_error",
+  406: "invalid_request_error",
+  413: "request_too_large",
+  429: "rate_limit_error",
+  500: "api_error",
+  502: "api_error",
+  503: "overloaded_error",
+  504: "api_error",
+  529: "overloaded_error"
+};
+
+// Google Gemini API error status strings, keyed by HTTP status (client-facing, /v1beta).
+export const GEMINI_ERROR_STATUS = {
+  400: "INVALID_ARGUMENT",
+  401: "UNAUTHENTICATED",
+  402: "FAILED_PRECONDITION",
+  403: "PERMISSION_DENIED",
+  404: "NOT_FOUND",
+  406: "INVALID_ARGUMENT",
+  413: "INVALID_ARGUMENT",
+  429: "RESOURCE_EXHAUSTED",
+  500: "INTERNAL",
+  502: "UNAVAILABLE",
+  503: "UNAVAILABLE",
+  504: "DEADLINE_EXCEEDED"
 };

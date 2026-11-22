@@ -39,6 +39,10 @@ const byCategory = (cat) => Object.fromEntries(
   REGISTRY.filter(r => r.category === cat).map(r => [r.id, buildProviderEntry(r)])
 );
 
+export function supportsServiceKind(info, kind) {
+  return (info?.serviceKinds ?? ["llm"]).includes(kind);
+}
+
 export const FREE_PROVIDERS = byCategory("free");
 export const FREE_TIER_PROVIDERS = byCategory("freeTier");
 
@@ -67,6 +71,7 @@ export const WEB_COOKIE_PROVIDERS = byCategory("webCookie");
 
 export const OPENAI_COMPATIBLE_PREFIX = "openai-compatible-";
 export const ANTHROPIC_COMPATIBLE_PREFIX = "anthropic-compatible-";
+export const SYSTEM_ONE_PREFIX = "systemone-";
 
 export function isOpenAICompatibleProvider(providerId) {
   return typeof providerId === "string" && providerId.startsWith(OPENAI_COMPATIBLE_PREFIX);
@@ -76,15 +81,27 @@ export function isAnthropicCompatibleProvider(providerId) {
   return typeof providerId === "string" && providerId.startsWith(ANTHROPIC_COMPATIBLE_PREFIX);
 }
 
+export function isSystemOneProvider(providerId) {
+  return typeof providerId === "string" && providerId.startsWith(SYSTEM_ONE_PREFIX);
+}
+
 // All providers (combined)
 export const AI_PROVIDERS = { ...FREE_PROVIDERS, ...FREE_TIER_PROVIDERS, ...OAUTH_PROVIDERS, ...APIKEY_PROVIDERS, ...WEB_COOKIE_PROVIDERS };
 
 // Auth methods
 export const AUTH_METHODS = {
-  oauth: { id: "oauth" },
-  apikey: { id: "apikey" },
-  cookie: { id: "cookie" },
+  oauth: { id: "oauth", label: "OAuth", icon: "lock" },
+  apikey: { id: "apikey", label: "API key", icon: "key" },
+  cookie: { id: "cookie", label: "Cookie", icon: "cookie" },
 };
+
+// Methods the manual "Add provider" form can actually submit: POST /api/providers
+// stores a single credential string (API key, or the cookie value for web-cookie
+// providers). OAuth connects through the provider's own flow, not this form.
+export function getFormAuthMethods(providerId) {
+  const isCookie = !!WEB_COOKIE_PROVIDERS[providerId];
+  return [AUTH_METHODS[isCookie ? "cookie" : "apikey"]];
+}
 
 // Helper: Get provider by alias
 export function getProviderByAlias(alias) {

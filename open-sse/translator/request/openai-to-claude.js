@@ -7,6 +7,8 @@ import { parseDataUri } from "../concerns/image.js";
 import { extractTextContent } from "../formats/gemini.js";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
 import { getCapabilitiesForModel } from "../../providers/capabilities.js";
+import { createToolNameSanitizer, collectChatToolNames } from "../concerns/toolNames.js";
+import { normalizeStopSequences, STOP_SEQUENCE_LIMITS } from "../concerns/requestParams.js";
 
 // Empty prefix matches real Claude Code behavior (no tool name prefix).
 // Previously "proxy_" was used but this is a detectable fingerprint difference.
@@ -16,6 +18,8 @@ const CLAUDE_OAUTH_TOOL_PREFIX = "";
 export function openaiToClaudeRequest(model, body, stream) {
   // Tool name mapping for Claude OAuth (capitalizedName → originalName)
   const toolNameMap = new Map();
+  // Anthropic only accepts tool names matching ^[a-zA-Z0-9_-]{1,128}$ (MCP "server.tool" does not).
+  const toolNames = createToolNameSanitizer(collectChatToolNames(body));
   // Cap max_tokens at the model's real output ceiling (e.g. Opus 4.8 = 128000),
   // not the conservative 64000 default — otherwise a high-output model is
   // pre-clamped here before prepareClaudeRequest's model-aware step runs.
@@ -29,6 +33,17 @@ export function openaiToClaudeRequest(model, body, stream) {
   // Temperature
   if (body.temperature !== undefined) {
     result.temperature = body.temperature;
+  }
+  if (body.top_p !== undefined) {
+    result.top_p = body.top_p;
+  }
+  if (body.top_k !== undefined) {
+    result.top_k = body.top_k;
+  }
+  // OpenAI `stop` (string | string[]) -> Claude stop_sequences
+  const stopSequences = normalizeStopSequences(body.stop ?? body.stop_sequences, STOP_SEQUENCE_LIMITS.claude, "Claude");
+  if (stopSequences) {
+    result.stop_sequences = stopSequences;
   }
 
   // Messages
@@ -60,7 +75,7 @@ export function openaiToClaudeRequest(model, body, stream) {
 
     for (const msg of nonSystemMessages) {
       const newRole = (msg.role === ROLE.USER || msg.role === ROLE.TOOL) ? ROLE.USER : ROLE.ASSISTANT;
-      const blocks = getContentBlocksFromMessage(msg, toolNameMap);
+      const blocks = getContentBlocksFromMessage(msg, toolNameMap, toolNames.safe);
       const hasToolUse = blocks.some(b => b.type === CLAUDE_BLOCK.TOOL_USE);
       const hasToolResult = blocks.some(b => b.type === CLAUDE_BLOCK.TOOL_RESULT);
 
@@ -165,9 +180,9 @@ Respond ONLY with the JSON object, no other text.`);
       const originalName = toolData.name;
 
       // Claude OAuth requires prefixed tool names to avoid conflicts
-      const toolName = CLAUDE_OAUTH_TOOL_PREFIX + originalName;
+      const toolName = CLAUDE_OAUTH_TOOL_PREFIX + (typeof originalName === "string" ? toolNames.safe(originalName.trim()) : originalName);
 
-      // Store mapping for response translation (prefixed → original)
+      // Store mapping for response translation (prefixed/sanitized → original)
       toolNameMap.set(toolName, originalName);
 
       result.tools.push({
@@ -184,7 +199,15 @@ Respond ONLY with the JSON object, no other text.`);
 
   // Tool choice
   if (body.tool_choice) {
-    result.tool_choice = convertOpenAIToolChoice(body.tool_choice);
+    result.tool_choice = convertOpenAIToolChoice(body.tool_choice, toolNames.safe);
+  }
+
+  // parallel_tool_calls:false -> tool_choice.disable_parallel_tool_use (not valid with type "none")
+  if (body.parallel_tool_calls === false && result.tools?.length > 0) {
+    const choice = result.tool_choice || { type: "auto" };
+    if (choice.type !== "none") {
+      result.tool_choice = { ...choice, disable_parallel_tool_use: true };
+    }
   }
 
   // Thinking is normalized centrally by applyThinking (thinkingUnified.js) after translation.
@@ -197,16 +220,61 @@ Respond ONLY with the JSON object, no other text.`);
   return result;
 }
 
+// A tool message may carry an OpenAI content array (text + image_url parts).
+// Claude tool_result content accepts image blocks, but not OpenAI image_url parts.
+// Strings are passed through untouched.
+function convertToolResultContent(content) {
+  if (!Array.isArray(content)) return content;
+
+  const parts = [];
+  for (const part of content) {
+    if (part.type === OPENAI_BLOCK.TEXT && part.text) {
+      parts.push({ type: CLAUDE_BLOCK.TEXT, text: part.text });
+    } else if (part.type === OPENAI_BLOCK.IMAGE_URL && part.image_url && part.image_url.url) {
+      const url = part.image_url.url;
+      const parsed = parseDataUri(url);
+      if (parsed) {
+        parts.push({
+          type: CLAUDE_BLOCK.IMAGE,
+          source: { type: "base64", media_type: parsed.mimeType, data: parsed.base64 }
+        });
+      } else if (url.startsWith("http://") || url.startsWith("https://")) {
+        parts.push({ type: CLAUDE_BLOCK.IMAGE, source: { type: "url", url } });
+      }
+    } else if (part.type === CLAUDE_BLOCK.IMAGE && part.source) {
+      parts.push({ type: CLAUDE_BLOCK.IMAGE, source: part.source });
+    }
+  }
+
+  // Nothing convertible: keep the original payload rather than sending an empty result.
+  return parts.length > 0 ? parts : content;
+}
+
+// Zed's Anthropic wire types (and other strict serde parsers) require `is_error`
+// as a non-optional bool on every tool_result. Anthropic's public API treats it
+// as optional (default false), so always emitting is safe for all Claude targets.
+function resolveToolResultIsError(source) {
+  if (!source || typeof source !== "object") return false;
+  if (source.is_error === true) return true;
+  if (source.status === "error") return true;
+  return false;
+}
+
+function buildToolResultBlock(toolUseId, content, source) {
+  return {
+    type: CLAUDE_BLOCK.TOOL_RESULT,
+    tool_use_id: toolUseId,
+    content,
+    is_error: resolveToolResultIsError(source),
+  };
+}
+
 // Get content blocks from single message
-function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
+function getContentBlocksFromMessage(msg, toolNameMap = new Map(), safeName = (name) => name) {
   const blocks = [];
 
   if (msg.role === ROLE.TOOL) {
-    blocks.push({
-      type: CLAUDE_BLOCK.TOOL_RESULT,
-      tool_use_id: msg.tool_call_id,
-      content: msg.content
-    });
+    blocks.push(buildToolResultBlock(msg.tool_call_id, convertToolResultContent(msg.content), msg));
   } else if (msg.role === ROLE.USER) {
     if (typeof msg.content === "string") {
       if (msg.content) {
@@ -217,12 +285,7 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
         if (part.type === OPENAI_BLOCK.TEXT && part.text) {
           blocks.push({ type: CLAUDE_BLOCK.TEXT, text: part.text });
         } else if (part.type === CLAUDE_BLOCK.TOOL_RESULT) {
-          blocks.push({
-            type: CLAUDE_BLOCK.TOOL_RESULT,
-            tool_use_id: part.tool_use_id,
-            content: part.content,
-            ...(part.is_error && { is_error: part.is_error })
-          });
+          blocks.push(buildToolResultBlock(part.tool_use_id, part.content, part));
         } else if (part.type === OPENAI_BLOCK.IMAGE_URL) {
           const url = part.image_url.url;
           const parsed = parseDataUri(url);
@@ -283,7 +346,7 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
       for (const tc of msg.tool_calls) {
         if (tc.type === OPENAI_BLOCK.FUNCTION) {
           // Apply prefix to tool name
-          const toolName = CLAUDE_OAUTH_TOOL_PREFIX + tc.function.name;
+          const toolName = CLAUDE_OAUTH_TOOL_PREFIX + safeName(tc.function.name);
           blocks.push({
             type: CLAUDE_BLOCK.TOOL_USE,
             id: tc.id,
@@ -304,13 +367,14 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
 // unrecognized type through.
 const CLAUDE_TOOL_CHOICE_TYPES = new Set(["auto", "any", "tool", "none"]);
 
-function convertOpenAIToolChoice(choice) {
+function convertOpenAIToolChoice(choice, safeName = (name) => name) {
   if (!choice) return { type: "auto" };
 
   // OpenAI string forms: "auto" | "none" | "required"
   if (typeof choice === "string") {
     if (choice === "required") return { type: "any" };
-    return { type: "auto" }; // "auto", "none", or anything unexpected
+    if (choice === "none") return { type: "none" };
+    return { type: "auto" }; // "auto" or anything unexpected
   }
 
   if (typeof choice === "object") {
@@ -318,11 +382,14 @@ function convertOpenAIToolChoice(choice) {
     // Checked before the native pass-through below, because the OpenAI shape
     // also carries a `.type` ("function") that Claude rejects.
     if (choice.function?.name) {
-      return { type: "tool", name: choice.function.name };
+      return { type: "tool", name: safeName(String(choice.function.name).trim()) };
     }
     // Already Claude-native — only pass through types Claude actually accepts,
     // so a malformed or unknown type can never leak into the upstream request.
     if (CLAUDE_TOOL_CHOICE_TYPES.has(choice.type)) {
+      if (choice.type === "tool" && typeof choice.name === "string") {
+        return { ...choice, name: safeName(choice.name.trim()) };
+      }
       return choice;
     }
   }

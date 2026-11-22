@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
 import { commandCodeToOpenAIResponse } from "../translator/response/commandcode-to-openai.js";
-import { SSE_DONE } from "../utils/sseConstants.js";
+import { SSE_DONE, sseResponseHeaders } from "../utils/sseConstants.js";
 
 /**
  * CommandCodeExecutor — talks to https://api.commandcode.ai/alpha/generate
@@ -141,7 +141,7 @@ export async function inspectAndWrapCommandCodeResponse(originalResponse, model)
   const reader = originalResponse.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  const bufferedLines = [];
+  const rawChunks = [];
   let detectedError = null;
 
   try {
@@ -155,17 +155,19 @@ export async function inspectAndWrapCommandCodeResponse(originalResponse, model)
             const parsed = JSON.parse(jsonStr);
             if (parsed?.type === "error") {
               detectedError = parsed;
-            } else {
-              bufferedLines.push(trimmed);
             }
           } catch {
-            bufferedLines.push(trimmed);
+            /* ignore */
           }
         }
         break;
       }
 
-      buffer += decoder.decode(value, { stream: true });
+      rawChunks.push(value);
+      const text = decoder.decode(value, { stream: true });
+      buffer += text;
+      // buffer holds no "\n" after the previous split; skip re-splitting it until one arrives.
+      if (!text.includes("\n")) continue;
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
 
@@ -175,7 +177,6 @@ export async function inspectAndWrapCommandCodeResponse(originalResponse, model)
         if (!trimmed) continue;
         const jsonStr = trimmed.startsWith("data:") ? trimmed.slice(5).trim() : trimmed;
         if (!jsonStr || jsonStr === "[DONE]") {
-          bufferedLines.push(trimmed);
           stopLoop = true;
           break;
         }
@@ -184,7 +185,6 @@ export async function inspectAndWrapCommandCodeResponse(originalResponse, model)
         try {
           event = JSON.parse(jsonStr);
         } catch {
-          bufferedLines.push(trimmed);
           continue;
         }
 
@@ -193,8 +193,6 @@ export async function inspectAndWrapCommandCodeResponse(originalResponse, model)
           stopLoop = true;
           break;
         }
-
-        bufferedLines.push(trimmed);
 
         if (
           event?.type === "text-delta" ||
@@ -238,29 +236,18 @@ export async function inspectAndWrapCommandCodeResponse(originalResponse, model)
     );
   }
 
-  const combinedStream = createReplayedStream(bufferedLines, buffer, reader);
+  const combinedStream = createRawReplayedStream(rawChunks, reader);
   return wrapNdjsonAsOpenAISse(combinedStream, model, originalResponse);
 }
 
-function createReplayedStream(bufferedLines, remainingBuffer, reader) {
-  const encoder = new TextEncoder();
-  let replayed = false;
+function createRawReplayedStream(rawChunks, reader) {
+  let chunkIndex = 0;
 
   return new ReadableStream({
     async pull(controller) {
-      if (!replayed) {
-        replayed = true;
-        let prefix = bufferedLines.join("\n");
-        if (prefix && remainingBuffer) {
-          prefix += "\n" + remainingBuffer;
-        } else if (remainingBuffer) {
-          prefix = remainingBuffer;
-        } else if (prefix) {
-          prefix += "\n";
-        }
-        if (prefix) {
-          controller.enqueue(encoder.encode(prefix));
-        }
+      if (chunkIndex < rawChunks.length) {
+        controller.enqueue(rawChunks[chunkIndex++]);
+        return;
       }
 
       try {
@@ -301,7 +288,10 @@ function wrapNdjsonAsOpenAISse(streamBody, model, originalResponse = null) {
 
   const transform = new TransformStream({
     transform(chunk, controller) {
-      buffer += decoder.decode(chunk, { stream: true });
+      const text = decoder.decode(chunk, { stream: true });
+      buffer += text;
+      // buffer holds no "\n" after the previous split; skip re-splitting it until one arrives.
+      if (!text.includes("\n")) return;
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
       for (const line of lines) {
@@ -323,13 +313,7 @@ function wrapNdjsonAsOpenAISse(streamBody, model, originalResponse = null) {
   return new Response(newBody, {
     status: originalResponse?.status || 200,
     statusText: originalResponse?.statusText || "OK",
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-      ...(originalResponse?.headers ? Object.fromEntries(originalResponse.headers.entries()) : {}),
-      "content-type": "text/event-stream",
-    },
+    headers: sseResponseHeaders(originalResponse?.headers),
   });
 }
 

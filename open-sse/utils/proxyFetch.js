@@ -1,7 +1,100 @@
-import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
+import {
+  MEMORY_CONFIG,
+  FRESH_RETRY_KEEPALIVE_TIMEOUT_MS,
+  STALE_SOCKET_ERROR_CODES,
+  NON_STALE_SOCKET_ERROR_CODES,
+  STALE_SOCKET_ERROR_SUBSTRINGS,
+  resolveKeepAliveTimeouts,
+  isFreshSocketReplayEnabled,
+  UNDICI_BACKSTOP_MS,
+} from "../config/runtimeConfig.js";
+import { dbg } from "./debugLog.js";
+import { ensureClaudeCliVersion, applyClaudeCliVersion } from "./claudeCliVersion.js";
+
+const CLAUDE_UA_PROBE = /claude-cli\/\d/;
+function hasClaudeCliHeader(headers) {
+  if (!headers) return false;
+  const values = headers instanceof Headers ? [...headers.values()] : Array.isArray(headers) ? headers.map((h) => h[1]) : Object.values(headers);
+  return values.some((v) => typeof v === "string" && CLAUDE_UA_PROBE.test(v));
+}
 
 const originalFetch = globalThis.fetch;
 const proxyDispatchers = new Map();
+const directDispatchers = new Map();
+
+export function resetDirectDispatchersForTests() {
+  directDispatchers.clear();
+  proxyDispatchers.clear();
+}
+
+// A dead keep-alive socket (edge dropped it without a RST) surfaces as one of these;
+// DNS, refused-connect and TLS failures are excluded so a really unreachable host is
+// never mistaken for a stale socket.
+export function isStaleSocketError(error) {
+  if (!error || error.name === "AbortError") return false;
+  const code = error?.cause?.code || error?.code || "";
+  if (NON_STALE_SOCKET_ERROR_CODES.has(code)) return false;
+  if (STALE_SOCKET_ERROR_CODES.has(code)) return true;
+  const msg = `${error?.message || ""} ${error?.cause?.message || ""}`.toLowerCase();
+  return STALE_SOCKET_ERROR_SUBSTRINGS.some((sub) => msg.includes(sub));
+}
+
+async function getOrCreateDirectAgent(key, keepAliveTimeout, keepAliveMaxTimeout) {
+  const cached = directDispatchers.get(key);
+  if (cached) return cached;
+  const { Agent } = await import("undici");
+  if (directDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
+    const oldestKey = directDispatchers.keys().next().value;
+    directDispatchers.get(oldestKey)?.close?.().catch?.(() => {});
+    directDispatchers.delete(oldestKey);
+  }
+  const agent = new Agent({ keepAliveTimeout, keepAliveMaxTimeout, headersTimeout: UNDICI_BACKSTOP_MS, bodyTimeout: UNDICI_BACKSTOP_MS });
+  directDispatchers.set(key, agent);
+  return agent;
+}
+
+// Shared direct dispatcher with a capped keep-alive TTL, so undici never reuses an idle
+// socket that an upstream edge (Cloudflare, AWS Global Accelerator) already dropped.
+export function getDirectDispatcher() {
+  const { keepAliveTimeout, keepAliveMaxTimeout } = resolveKeepAliveTimeouts();
+  return getOrCreateDirectAgent(`direct::${keepAliveTimeout}::${keepAliveMaxTimeout}`, keepAliveTimeout, keepAliveMaxTimeout);
+}
+
+// No-keep-alive dispatcher: guarantees a fresh TCP/TLS connection.
+export function getFreshRetryDispatcher() {
+  return getOrCreateDirectAgent("fresh", FRESH_RETRY_KEEPALIVE_TIMEOUT_MS, FRESH_RETRY_KEEPALIVE_TIMEOUT_MS);
+}
+
+// Fail closed: only bodies that can be sent twice are replayable. A stream is consumable
+// once, so retrying with it would send a truncated or empty request.
+function isBodyReplaySafe(body) {
+  return body == null || typeof body === "string" || body instanceof URLSearchParams;
+}
+
+// Direct path. When a pooled socket dies before response headers, replay once on a fresh
+// socket instead of waiting out the connect timeout. Only errors that prove the socket
+// died qualify (never a bare "fetch failed": the upstream may already hold the request
+// and a replay would bill it twice). Residual risk: UND_ERR_SOCKET / "other side closed"
+// can also fire after the body was written, so a replay may rarely submit a POST twice;
+// this matches the executor's own 502 retry. FETCH_FRESH_RETRY=off removes the replay.
+async function directFetch(url, options, forceFreshSocket = false) {
+  const dispatcher = await (forceFreshSocket ? getFreshRetryDispatcher() : getDirectDispatcher());
+  try {
+    return await originalFetch(url, { ...options, dispatcher });
+  } catch (err) {
+    if (
+      !forceFreshSocket
+      && !options?.signal?.aborted
+      && isBodyReplaySafe(options?.body)
+      && isFreshSocketReplayEnabled()
+      && isStaleSocketError(err)
+    ) {
+      dbg("FETCH", `stale keep-alive socket (${err.cause?.code || err.code || err.message}), retrying on fresh socket: ${url}`);
+      return directFetch(url, options, true);
+    }
+    throw err;
+  }
+}
 
 function normalizeString(value) {
   if (value === undefined || value === null) return "";
@@ -75,31 +168,61 @@ function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
 /**
  * Create proxy dispatcher lazily (undici-compatible)
  */
-async function getDispatcher(proxyUrl) {
+export async function getDispatcher(proxyUrl) {
   const normalized = normalizeProxyUrl(proxyUrl);
   if (!normalized) return null;
 
-  if (!proxyDispatchers.has(normalized)) {
-    // Evict oldest entry if max size reached
+  if (proxyDispatchers.has(normalized)) {
+    // True LRU: re-insert on hit so the least-recently-used entry is evicted first
+    const hit = proxyDispatchers.get(normalized);
+    proxyDispatchers.delete(normalized);
+    proxyDispatchers.set(normalized, hit);
+    return hit;
+  }
+
+  {
+    // Evict least-recently-used entry if max size reached
     if (proxyDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
-      proxyDispatchers.delete(proxyDispatchers.keys().next().value);
+      const oldestKey = proxyDispatchers.keys().next().value;
+      const evicted = proxyDispatchers.get(oldestKey);
+      proxyDispatchers.delete(oldestKey);
+      // close() lets in-flight requests finish, then releases sockets
+      try { Promise.resolve(evicted?.close?.()).catch(() => {}); } catch { /* ignore */ }
     }
     const { ProxyAgent } = await import("undici");
-    proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized }));
+    // Another caller may have created it while we awaited the import
+    if (!proxyDispatchers.has(normalized)) {
+      proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized, headersTimeout: UNDICI_BACKSTOP_MS, bodyTimeout: UNDICI_BACKSTOP_MS }));
+    }
   }
 
   return proxyDispatchers.get(normalized);
 }
 
 export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
+  // A caller-supplied dispatcher (e.g. the SSRF-pinned image fetch) must win:
+  // overriding it would drop the DNS pin and re-open rebinding. Bypass proxy/relay.
+  if (options?.dispatcher) return originalFetch(url, options);
+
+  // Keep the spoofed Claude Code version current (new models require a minimum CLI
+  // version). The refresh is fire-and-forget: this request uses the version already
+  // known, so an unreachable npm registry can never add latency to the chat path.
+  // The lookup goes through proxyAwareFetch like every other outbound call.
+  if (hasClaudeCliHeader(options?.headers)) {
+    ensureClaudeCliVersion();
+    options = { ...options, headers: applyClaudeCliVersion(options.headers) };
+  }
   const targetUrl = typeof url === "string" ? url : url.toString();
 
   // Vercel relay: forward request via relay headers
   const vercelRelayUrl = normalizeString(proxyOptions?.vercelRelayUrl);
   if (vercelRelayUrl) {
     const parsed = new URL(targetUrl);
+    const baseHeaders = options.headers instanceof Headers
+      ? Object.fromEntries(options.headers.entries())
+      : { ...(options.headers || {}) };
     const relayHeaders = {
-      ...options.headers,
+      ...baseHeaders,
       "x-relay-target": `${parsed.protocol}//${parsed.host}`,
       "x-relay-path": `${parsed.pathname}${parsed.search}`,
     };
@@ -120,11 +243,30 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
         throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyError.message}`);
       }
       console.warn(`[ProxyFetch] Proxy failed, falling back to direct: ${proxyError.message}`);
-      return originalFetch(url, options);
+      return directFetch(url, options, proxyOptions?.forceFreshSocket === true);
     }
   }
 
-  return originalFetch(url, options);
+  // Strict mode means "never leave over the direct IP". Reaching here with a
+  // proxy configured but unresolved is exactly that case — an inactive or
+  // empty pool, or every proxy removed — so refuse instead of silently
+  // exposing the real address (#4333). The catch blocks above only cover a
+  // proxy that was actually tried.
+  //
+  // Gate on a proxy being *intended*: callers like the Qoder executor set
+  // strictProxy to mean "do not replay this request directly if the proxy
+  // fails" (a replayed COSY signature returns 403), not "a proxy is required".
+  // With nothing configured they must keep working.
+  const proxyIntended = proxyOptions?.proxyPoolId
+    || proxyOptions?.enabled === true
+    || proxyOptions?.connectionProxyEnabled === true
+    || !!normalizeString(proxyOptions?.url ?? proxyOptions?.connectionProxyUrl);
+  if (proxyOptions?.strictProxy === true && proxyIntended) {
+    throw new Error("[ProxyFetch] Proxy required but none resolved (strictProxy=true)");
+  }
+
+  const forceFreshSocket = proxyOptions?.forceFreshSocket === true;
+  return directFetch(url, options, forceFreshSocket);
 }
 
 /**

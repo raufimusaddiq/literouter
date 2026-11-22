@@ -1,18 +1,52 @@
 import { translateResponse, initState } from "../translator/index.js";
 import { FORMATS } from "../translator/formats.js";
-import { trackPendingRequest, appendRequestLog } from "@/lib/usageDb.js";
-import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, logUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking.js";
-import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE } from "./streamHelpers.js";
+import { PENDING_COMPLETION_FLUSH_MS, TRANSLATE_HEARTBEAT_MS } from "../config/runtimeConfig.js";
+import { PROVIDERS } from "../config/providers.js";
+import { liftReasoningAliases } from "../translator/concerns/reasoning.js";
+import { trackPendingRequest } from "@/lib/usageDb.js";
+import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, estimateInputTokens, estimateOutputTokens, formatUsage, logUsage, filterUsageForFormat, COLORS } from "./usageTracking.js";
+import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE, formatResponsesPassthroughSSE, ensureStreamToolCallIds } from "./streamHelpers.js";
+import { restoreToolNames } from "./opencodeFingerprint.js";
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers.js";
 import { dbg, isDebugEnabled } from "./debugLog.js";
 
 import { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER } from "./sseConstants.js";
+import { CLAUDE_EVENT } from "../translator/schema/index.js";
 
 export { COLORS, formatSSE };
 export { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER };
 
 // sharedEncoder is stateless — safe to share across streams
 const sharedEncoder = new TextEncoder();
+
+// Per-response cap for the content/thinking kept for the request-detail row.
+// Matches the default observability maxJsonSize (5 KB); head + tail are kept.
+const MAX_ACCUMULATED_CHARS = 5 * 1024;
+
+function createAccumulator(cap = MAX_ACCUMULATED_CHARS) {
+  const half = Math.floor(cap / 2);
+  let head = "";
+  let tail = "";
+  let omitted = 0;
+  return {
+    add(text) {
+      if (head.length < half) {
+        const room = half - head.length;
+        head += text.slice(0, room);
+        text = text.slice(room);
+      }
+      if (!text) return;
+      tail += text;
+      if (tail.length > half) {
+        omitted += tail.length - half;
+        tail = tail.slice(-half);
+      }
+    },
+    toString() {
+      return omitted ? `${head}\n...[${omitted} chars omitted]...\n${tail}` : head + tail;
+    }
+  };
+}
 
 /**
  * Stream modes
@@ -57,16 +91,42 @@ export function createSSEStream(options = {}) {
   let buffer = "";
   let usage = null;
 
+  // Tool-call ids already sent to the client, keyed by the tool-call index.
+  // A late fragment that opens a NEW index without an id must not reach the
+  // client as-is: strict OpenAI-compatible SDKs abort the turn on a
+  // tool_call without a string id (#4992).
+  const seenToolCallIds = new Map();
+
   // Per-stream decoder with stream:true to correctly handle multi-byte chars split across chunks
   const decoder = new TextDecoder("utf-8", { fatal: false });
 
   const state = mode === STREAM_MODE.TRANSLATE
-    ? { ...initState(sourceFormat), provider, toolNameMap, customToolNames: new Set(customToolNames || []), model, sessionId: credentials?._clientSessionId || null }
+    ? { ...initState(sourceFormat), provider, toolNameMap, customToolNames: new Set(customToolNames || []), model, sessionId: credentials?._clientSessionId || null,
+        // Which upstream format this stream came from. A response translator can be
+        // reached either directly (target === its registered source) or as the second
+        // hop of a pivot, and on the terminal null chunk the pivot drops it — so a
+        // translator that defers closing events until flush needs to know which case
+        // it is in. Absent/undefined means "unknown", i.e. do not defer.
+        targetFormat }
     : null;
 
   let totalContentLength = 0;
-  let accumulatedContent = "";
-  let accumulatedThinking = "";
+  const accumulatedContent = createAccumulator();
+  const accumulatedThinking = createAccumulator();
+  // Lazily computed, at most once per request: stringifying the request body is
+  // not free and OpenAI-compatible upstreams normally send real usage later.
+  let inputEstimate = null;
+  const getInputEstimate = () => (inputEstimate ??= estimateInputTokens(body));
+  const estimateStreamUsage = (format) => {
+    const usageFormat = format === FORMATS.CLAUDE ? FORMATS.CLAUDE : FORMATS.OPENAI;
+    return formatUsage(getInputEstimate(), estimateOutputTokens(totalContentLength), usageFormat);
+  };
+  // OpenAI spec: a usage chunk is sent only when the client asked for it.
+  const includeUsage = body?.stream_options?.include_usage === true;
+  let clientUsageSent = false;   // a usage object already reached the client
+  let sawTerminal = false;       // finish_reason / [DONE] / terminal event seen
+  let pendingReleased = false;
+  let responseMeta = { id: null, model: null, created: null };
   let ttftAt = null;
   let sseLineCount = 0;
   let sseEmittedCount = 0;
@@ -77,42 +137,122 @@ export function createSSEStream(options = {}) {
   let openAIResponsesTerminalSeen = false;
   let openAIResponsesDoneSent = false;
   let streamDoneSent = false;  // track duplicate [DONE] across transform + flush
+  let translatedDoneEmitted = false;  // a translator already produced the chat [DONE] frame
   let finalized = false;
+  let completionFlushTimer = null;
+
+  // Lane quirk: upstream streams thinking under the OpenRouter aliases
+  // (`reasoning` / `reasoning_details[]`) instead of reasoning_content — OpenCode
+  // Free's MiMo route does. Lift it on every passthrough delta so OpenAI-shaped
+  // clients, the thinking accumulation below and usage accounting see the text.
+  const liftAliases = mode === STREAM_MODE.PASSTHROUGH && !!PROVIDERS[provider]?.quirks?.reasoningAliasFields;
+
+  // Liveness for translated streams: upstream pings / SSE comments (Anthropic sends
+  // `ping` through long thinking or tool prep) produce no translated output, so the
+  // downstream client would see zero bytes and trip its own read timeout while the
+  // gateway's stall watchdog (reset by those same upstream bytes) stays quiet.
+  // Re-emit at most one heartbeat per interval: a Claude-format client gets a native
+  // `event: ping`, every other format gets an SSE comment (ignored per the SSE spec).
+  let lastHeartbeatAt = 0;
+  const emitHeartbeat = (controller) => {
+    const now = Date.now();
+    if (now - lastHeartbeatAt < TRANSLATE_HEARTBEAT_MS) return;
+    lastHeartbeatAt = now;
+    controller.enqueue(sharedEncoder.encode(
+      sourceFormat === FORMATS.CLAUDE ? 'event: ping\ndata: {"type":"ping"}\n\n' : ": keepalive\n\n"
+    ));
+  };
 
   // Usage/logging tail, callable from transform() as well as flush(): a client that
   // closes right after the terminal event cancels the reader, and flush() never runs.
-  const finalizeStream = () => {
+  const finalizeStream = (extra) => {
+    if (completionFlushTimer) { clearTimeout(completionFlushTimer); completionFlushTimer = null; }
     if (finalized) return;
     finalized = true;
 
     const isPassthrough = mode === STREAM_MODE.PASSTHROUGH;
     let finalUsage = isPassthrough ? usage : state?.usage;
 
+    // Internal accounting only: the estimate is flagged `estimated` and is not
+    // re-sent to the client here.
     if (!hasValidUsage(finalUsage) && totalContentLength > 0) {
-      finalUsage = estimateUsage(body, totalContentLength, isPassthrough ? FORMATS.OPENAI : sourceFormat);
+      finalUsage = estimateStreamUsage(isPassthrough ? FORMATS.OPENAI : sourceFormat);
       if (isPassthrough) usage = finalUsage; else state.usage = finalUsage;
     }
 
     if (hasValidUsage(finalUsage)) {
       logUsage(isPassthrough ? provider : (state?.provider || targetFormat), finalUsage, model, connectionId, apiKey);
-    } else {
-      appendRequestLog({ model, provider, connectionId, tokens: null, status: "200 OK" }).catch(() => { });
     }
 
     if (onStreamComplete) {
       onStreamComplete({
-        content: accumulatedContent,
-        thinking: accumulatedThinking
-      }, finalUsage, ttftAt);
+        content: accumulatedContent.toString(),
+        thinking: accumulatedThinking.toString()
+      }, finalUsage, ttftAt, extra);
     }
   };
 
-  return new TransformStream({
+  const releasePending = () => {
+    if (pendingReleased) return;
+    pendingReleased = true;
+    trackPendingRequest(model, provider, connectionId, false);
+  };
+
+  // Client cancelled the response (reader.cancel): flush() never runs, so finalize
+  // here. A cancel that arrives after the stream already reached its terminal event
+  // (clients that hang up right after [DONE]) is a normal completion.
+  const finalizeOnCancel = () => {
+    if (finalized) return;
+    releasePending();
+    const completed = sawTerminal || openAIResponsesTerminalSeen || !!state?.finishReason;
+    finalizeStream(completed ? undefined : { cancelled: true });
+  };
+
+  // Spec-shaped trailing usage chunk (choices: []) for OpenAI clients that set
+  // stream_options.include_usage and whose upstream never sent usage.
+  const emitIncludeUsageChunk = (controller) => {
+    if (!includeUsage || clientUsageSent || totalContentLength <= 0) return;
+    if (sourceFormat !== FORMATS.OPENAI && mode !== STREAM_MODE.PASSTHROUGH) return;
+    const estimated = estimateStreamUsage(FORMATS.OPENAI);
+    if (mode === STREAM_MODE.PASSTHROUGH) usage = estimated; else if (state && !hasValidUsage(state.usage)) state.usage = estimated;
+    const chunk = {
+      id: responseMeta.id || `chatcmpl-${Date.now()}`,
+      object: "chat.completion.chunk",
+      created: responseMeta.created || Math.floor(Date.now() / 1000),
+      model: responseMeta.model || model,
+      choices: [],
+      usage: filterUsageForFormat(estimated, FORMATS.OPENAI)
+    };
+    const output = `data: ${JSON.stringify(chunk)}\n\n`;
+    reqLogger?.appendConvertedChunk?.(output);
+    controller.enqueue(sharedEncoder.encode(output));
+    clientUsageSent = true;
+  };
+
+  // Emit the deferred response.completed now — at [DONE], or when the watchdog
+  // below gives up on a usage trailer that never arrives.
+  const flushPendingCompletion = (controller) => {
+    const completed = translateResponse(targetFormat, sourceFormat, null, state);
+    for (const item of completed || []) {
+      if (item === null || item === undefined) continue;
+      const output = formatSSE(item, sourceFormat);
+      reqLogger?.appendConvertedChunk?.(output);
+      controller.enqueue(sharedEncoder.encode(output));
+      sseEmittedCount++;
+    }
+    finalizeStream();
+  };
+
+  const transformStream = new TransformStream({
     transform(chunk, controller) {
       if (!ttftAt) ttftAt = Date.now();
       const text = decoder.decode(chunk, { stream: true });
       buffer += text;
       reqLogger?.appendProviderChunk?.(text);
+
+      // buffer holds no "\n" after the previous split; without one in `text` the
+      // split below would just rebuild the same partial line (O(n^2) on long lines).
+      if (!text.includes("\n")) return;
 
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
@@ -137,17 +277,38 @@ export function createSSEStream(options = {}) {
           // The upstream sentinel is never forwarded verbatim: it is synthesized
           // exactly once at stream end below, so forwarding it here would emit
           // two `data: [DONE]` frames.
-          if (trimmed === "data: [DONE]" || trimmed === "data:[DONE]") continue;
+          if (trimmed === "data: [DONE]" || trimmed === "data:[DONE]") { sawTerminal = true; continue; }
 
           let output;
           let injectedUsage = false;
           let responsesTerminal = false;
 
+          // Upstream already sent the sentinel; flush() must not append a second one.
+          if (trimmed.startsWith("data:") && trimmed.slice(5).trim() === "[DONE]") streamDoneSent = true;
+
           if (trimmed.startsWith("data:") && trimmed.slice(5).trim() !== "[DONE]") {
             try {
-              const parsed = JSON.parse(trimmed.slice(5).trim());
+              let parsed = JSON.parse(trimmed.slice(5).trim());
 
               const idFixed = fixInvalidId(parsed);
+
+              // A fragment that opens a new tool-call index without an id breaks
+              // strict OpenAI-compatible clients. Mint/reuse one before the
+              // chunk reaches the client.
+              const toolCallIdFixed = ensureStreamToolCallIds(parsed, seenToolCallIds);
+
+              // The fingerprint pass renames a colliding caller tool to an alias
+              // (read -> read_client). On this path nothing restored it, so the
+              // client received a call to a tool it never declared and answered
+              // "Model tried to call unavailable tool 'read_client'" (#4986).
+              let toolNameRestored = false;
+              if (toolNameMap?.size) {
+                const restored = restoreToolNames(parsed, toolNameMap);
+                if (restored !== parsed) {
+                  parsed = restored;
+                  toolNameRestored = true;
+                }
+              }
 
               // Ensure OpenAI-required fields are present on streaming chunks (Letta compat)
               let fieldsInjected = false;
@@ -166,6 +327,20 @@ export function createSSEStream(options = {}) {
                   if (choice.content_filter_results !== undefined) {
                     delete choice.content_filter_results;
                     fieldsInjected = true;
+                  }
+                }
+              }
+
+              // Alias lanes: expose thinking as reasoning_content (additive) before
+              // the valuable-content check, so reasoning-only chunks survive.
+              if (liftAliases && parsed?.choices) {
+                for (const choice of parsed.choices) {
+                  if (choice?.delta) {
+                    const lifted = liftReasoningAliases(choice.delta);
+                    if (lifted !== choice.delta) {
+                      choice.delta = lifted;
+                      fieldsInjected = true;
+                    }
                   }
                 }
               }
@@ -193,33 +368,27 @@ export function createSSEStream(options = {}) {
               const reasoning = delta?.reasoning_content;
               if (content && typeof content === "string") {
                 totalContentLength += content.length;
-                accumulatedContent += content;
+                accumulatedContent.add(content);
               }
               if (reasoning && typeof reasoning === "string") {
                 totalContentLength += reasoning.length;
-                accumulatedThinking += reasoning;
+                accumulatedThinking.add(reasoning);
               }
+              if (!responseMeta.id && parsed.id) responseMeta = { id: parsed.id, model: parsed.model, created: parsed.created };
 
               const extracted = extractUsage(parsed);
               if (extracted) {
                 usage = mergeUsage(usage, extracted);
               }
+              if (hasValidUsage(parsed.usage)) clientUsageSent = true;
 
               responsesTerminal = isOpenAIResponsesTerminalEvent(currentOpenAIResponsesEvent, parsed);
 
-              const isFinishChunk = parsed.choices?.[0]?.finish_reason;
-              if (isFinishChunk && !hasValidUsage(parsed.usage)) {
-                const estimated = estimateUsage(body, totalContentLength, FORMATS.OPENAI);
-                parsed.usage = filterUsageForFormat(estimated, FORMATS.OPENAI);
-                output = `data: ${JSON.stringify(parsed)}\n`;
-                usage = estimated;
-                injectedUsage = true;
-              } else if (isFinishChunk && usage) {
-                const buffered = addBufferToUsage(usage);
-                parsed.usage = filterUsageForFormat(buffered, FORMATS.OPENAI);
-                output = `data: ${JSON.stringify(parsed)}\n`;
-                injectedUsage = true;
-              } else if (idFixed || fieldsInjected) {
+              // Usage is forwarded exactly as the upstream sent it: no buffer, no
+              // fabricated finish-chunk usage. A missing usage is estimated at
+              // stream end (flush) and only sent when include_usage asked for it.
+              if (parsed.choices?.[0]?.finish_reason) sawTerminal = true;
+              if (idFixed || fieldsInjected || toolCallIdFixed || toolNameRestored) {
                 output = `data: ${JSON.stringify(parsed)}\n`;
                 injectedUsage = true;
               }
@@ -249,8 +418,10 @@ export function createSSEStream(options = {}) {
         // Translate mode
         if (!trimmed) continue;
 
+        if (trimmed.charCodeAt(0) === 58 /* ':' */) { emitHeartbeat(controller); continue; }
         const parsed = parseSSELine(trimmed, targetFormat);
         if (!parsed) continue;
+        if (parsed.type === CLAUDE_EVENT.PING) { emitHeartbeat(controller); continue; }
 
         // Responses API same-format passthrough: preserve event framing + track terminal state
         const isOpenAIResponsesStream = targetFormat === FORMATS.OPENAI_RESPONSES;
@@ -266,6 +437,14 @@ export function createSSEStream(options = {}) {
         // For Ollama: done=true is the final chunk with finish_reason/usage, must translate
         // For other formats: done=true is the [DONE] sentinel, skip
         if (parsed && parsed.done && targetFormat !== FORMATS.OLLAMA) {
+          // A direct Chat-to-Responses translation can defer response.completed
+          // while waiting for a usage trailer. [DONE] ends that opportunity even
+          // if the upstream keeps the HTTP connection open, so finish now.
+          if (targetFormat === FORMATS.OPENAI && sourceFormat === FORMATS.OPENAI_RESPONSES &&
+              state.completionPending && !state.completedSent) {
+            flushPendingCompletion(controller);
+          }
+
           // Synthesize response.failed if the Responses stream never sent a terminal event
           if (keepsOpenAIResponsesFormat && !openAIResponsesTerminalSeen) {
             const failedOutput = formatIncompleteOpenAIResponsesStreamFailure();
@@ -288,23 +467,23 @@ export function createSSEStream(options = {}) {
         // Claude format - content
         if (parsed.delta?.text) {
           totalContentLength += parsed.delta.text.length;
-          accumulatedContent += parsed.delta.text;
+          accumulatedContent.add(parsed.delta.text);
         }
         // Claude format - thinking
         if (parsed.delta?.thinking) {
           totalContentLength += parsed.delta.thinking.length;
-          accumulatedThinking += parsed.delta.thinking;
+          accumulatedThinking.add(parsed.delta.thinking);
         }
         
         // OpenAI format - content
         if (parsed.choices?.[0]?.delta?.content) {
           totalContentLength += parsed.choices[0].delta.content.length;
-          accumulatedContent += parsed.choices[0].delta.content;
+          accumulatedContent.add(parsed.choices[0].delta.content);
         }
         // OpenAI format - reasoning
         if (parsed.choices?.[0]?.delta?.reasoning_content) {
           totalContentLength += parsed.choices[0].delta.reasoning_content.length;
-          accumulatedThinking += parsed.choices[0].delta.reasoning_content;
+          accumulatedThinking.add(parsed.choices[0].delta.reasoning_content);
         }
         
         // Gemini format
@@ -314,9 +493,9 @@ export function createSSEStream(options = {}) {
               totalContentLength += part.text.length;
               // Check if this is thinking content
               if (part.thought === true) {
-                accumulatedThinking += part.text;
+                accumulatedThinking.add(part.text);
               } else {
-                accumulatedContent += part.text;
+                accumulatedContent.add(part.text);
               }
             }
           }
@@ -341,7 +520,9 @@ export function createSSEStream(options = {}) {
             emitEvent = rewritten.event;
             emitData = rewritten.data;
           }
-          const output = formatSSE({ event: emitEvent, data: emitData }, sourceFormat);
+          const output = emitData === parsed
+            ? formatResponsesPassthroughSSE(emitEvent, parsed, trimmed.slice(5).trim())
+            : formatSSE({ event: emitEvent, data: emitData }, sourceFormat);
           reqLogger?.appendConvertedChunk?.(output);
           controller.enqueue(sharedEncoder.encode(output));
           currentOpenAIResponsesEvent = null;
@@ -372,23 +553,42 @@ export function createSSEStream(options = {}) {
               continue; // Skip this empty chunk
             }
 
-            // Inject estimated usage if finish chunk has no valid usage
-            const isFinishChunk = item.type === "message_delta" || item.choices?.[0]?.finish_reason;
-            if (state.finishReason && isFinishChunk && !hasValidUsage(item.usage) && totalContentLength > 0) {
-              const estimated = estimateUsage(body, totalContentLength, sourceFormat);
-              item.usage = filterUsageForFormat(estimated, sourceFormat); // Filter + already has buffer
-              state.usage = estimated;
-            } else if (state.finishReason && isFinishChunk && state.usage) {
-              // Add buffer and filter usage for client (but keep original in state.usage for logging)
-              const buffered = addBufferToUsage(state.usage);
-              item.usage = filterUsageForFormat(buffered, sourceFormat);
+            // Usage reaches the client exactly as the upstream reported it (no
+            // buffer). Claude/Responses/Gemini wire formats need usage on the
+            // terminal event, so for those a missing usage is estimated (flagged
+            // `estimated`, memoized). OpenAI clients get no fabricated usage here;
+            // see emitIncludeUsageChunk.
+            const isFinishChunk = item.type === CLAUDE_EVENT.MESSAGE_DELTA || item.choices?.[0]?.finish_reason;
+            if (isFinishChunk) sawTerminal = true;
+            if (state.finishReason && isFinishChunk) {
+              if (state.usage && hasValidUsage(state.usage)) {
+                item.usage = filterUsageForFormat(state.usage, sourceFormat);
+              } else if (sourceFormat !== FORMATS.OPENAI && totalContentLength > 0 && !hasValidUsage(item.usage)) {
+                const estimated = estimateStreamUsage(sourceFormat);
+                item.usage = filterUsageForFormat(estimated, sourceFormat);
+                state.usage = estimated;
+              }
             }
+            if (hasValidUsage(item.usage)) clientUsageSent = true;
 
             const output = formatSSE(item, sourceFormat);
             reqLogger?.appendConvertedChunk?.(output);
             controller.enqueue(sharedEncoder.encode(output));
+            if (output.startsWith("data: [DONE]")) translatedDoneEmitted = true;
             sseEmittedCount++;
           }
+        }
+
+        // The completion deferral can outlive the upstream: a broken chat upstream
+        // may stall after finish_reason with no usage trailer and no [DONE], holding
+        // the connection open. Bound the wait so the client still gets a terminal event.
+        if (targetFormat === FORMATS.OPENAI && sourceFormat === FORMATS.OPENAI_RESPONSES &&
+            state?.completionPending && !state?.completedSent && !completionFlushTimer) {
+          completionFlushTimer = setTimeout(() => {
+            completionFlushTimer = null;
+            if (state?.completedSent) return;
+            try { flushPendingCompletion(controller); } catch { /* controller already closed */ }
+          }, PENDING_COMPLETION_FLUSH_MS);
         }
       }
     },
@@ -396,13 +596,18 @@ export function createSSEStream(options = {}) {
     flush(controller) {
       const evtSummary = Object.entries(eventTypeCounts).map(([k, v]) => `${k}=${v}`).join(",") || "none";
       dbg("SSE", `flush | provider=${provider} | model=${model} | recvLines=${sseLineCount} | emitted=${sseEmittedCount} | events=[${evtSummary}]`);
-      trackPendingRequest(model, provider, connectionId, false);
+      releasePending();
       try {
         const remaining = decoder.decode();
         if (remaining) buffer += remaining;
 
         if (mode === STREAM_MODE.PASSTHROUGH) {
-          if (buffer) {
+          // An unterminated trailing "data: [DONE]" is the upstream sentinel: don't
+          // forward it raw (it would glue onto the properly framed one appended
+          // below, #5592).
+          const tail = buffer.trim();
+          const tailIsDone = tail.startsWith("data:") && tail.slice(5).trim() === "[DONE]";
+          if (!tailIsDone && buffer) {
             let output = buffer;
             if (buffer.startsWith("data:") && !buffer.startsWith("data: ")) {
               output = "data: " + buffer.slice(5);
@@ -415,9 +620,13 @@ export function createSSEStream(options = {}) {
           // Some clients (e.g. OpenClaw) expect the OpenAI-style sentinel:
           //   data: [DONE]\n\n
           // Without it they can hang until timeout and trigger failover.
-          // Gemini-family clients (Antigravity, Vertex, Gemini) reject this sentinel with 400 syntax errors.
-          const isGeminiFamily = provider === "antigravity" || provider === "gemini" || provider === "vertex";
-          if (!streamDoneSent && !isGeminiFamily) {
+          // Providers flagged quirks.noDoneSentinel (Gemini family) reject this sentinel with 400 syntax errors.
+          // Gemini clients end a stream by closing it; a [DONE] frame is not valid Gemini SSE.
+          const suppressDone = PROVIDERS[provider]?.quirks?.noDoneSentinel
+            || sourceFormat === FORMATS.GEMINI || sourceFormat === FORMATS.GEMINI_CLI;
+          emitIncludeUsageChunk(controller);
+
+          if (!streamDoneSent && !suppressDone) {
             const doneOutput = "data: [DONE]\n\n";
             reqLogger?.appendConvertedChunk?.(doneOutput);
             controller.enqueue(sharedEncoder.encode(doneOutput));
@@ -459,6 +668,7 @@ export function createSSEStream(options = {}) {
                 const output = formatSSE(item, sourceFormat);
                 reqLogger?.appendConvertedChunk?.(output);
                 controller.enqueue(sharedEncoder.encode(output));
+                if (output.startsWith("data: [DONE]")) translatedDoneEmitted = true;
               }
             }
           }
@@ -479,7 +689,19 @@ export function createSSEStream(options = {}) {
             const output = formatSSE(item, sourceFormat);
             reqLogger?.appendConvertedChunk?.(output);
             controller.enqueue(sharedEncoder.encode(output));
+            if (output.startsWith("data: [DONE]")) translatedDoneEmitted = true;
           }
+        }
+
+        // Chat Completions clients behind a translated upstream (Responses, Claude, ...)
+        // never receive the sentinel from the upstream; strict clients wait for it.
+        if (sourceFormat === FORMATS.OPENAI && !translatedDoneEmitted) {
+          emitIncludeUsageChunk(controller);
+          const doneOutput = "data: [DONE]\n\n";
+          reqLogger?.appendConvertedChunk?.(doneOutput);
+          controller.enqueue(sharedEncoder.encode(doneOutput));
+          translatedDoneEmitted = true;
+          streamDoneSent = true;
         }
 
         // Synthesize response.failed if a Responses passthrough stream never reached a terminal event
@@ -506,6 +728,9 @@ export function createSSEStream(options = {}) {
       }
     }
   });
+  // Lets the pipe layer finalize a stream the client cancelled (flush() never runs then).
+  transformStream.finalizeOnCancel = finalizeOnCancel;
+  return transformStream;
 }
 
 export function createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider = null, reqLogger = null, toolNameMap = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null, customToolNames = null, credentials = null) {
@@ -526,11 +751,12 @@ export function createSSETransformStreamWithLogger(targetFormat, sourceFormat, p
   });
 }
 
-export function createPassthroughStreamWithLogger(provider = null, reqLogger = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null) {
+export function createPassthroughStreamWithLogger(provider = null, reqLogger = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null, toolNameMap = null) {
   return createSSEStream({
     mode: STREAM_MODE.PASSTHROUGH,
     provider,
     reqLogger,
+    toolNameMap,
     model,
     connectionId,
     body,

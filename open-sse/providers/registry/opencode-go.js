@@ -19,26 +19,27 @@ export default {
   },
   category: "apikey",
   transport: {
-    baseUrl: "https://opencode.ai/zen/go/v1/chat/completions",
+    baseUrl: "https://opencode.ai/inference/go/openai/v1/chat/completions",
     headers: {},
     usage: {
-      url: "https://opencode.ai/zen/go/v1/usage",
+      url: "https://opencode.ai/inference/go/v1/usage",
     },
   },
   // Multi-endpoint: pick the transport matching the client sourceFormat to skip
   // translation. Guarded per-model by `supportedFormats` (see chatCore) because
   // opencode-go models differ in endpoint support.
   transports: [
-    { format: "openai", baseUrl: "https://opencode.ai/zen/go/v1/chat/completions", auth: { combined: true, header: "Authorization", scheme: "bearer" } },
-    { format: "claude", baseUrl: "https://opencode.ai/zen/go/v1/messages", auth: { combined: true, header: "x-api-key", scheme: "raw", anthropicVersion: true } },
-    { format: "openai-responses", baseUrl: "https://opencode.ai/zen/go/v1/responses", auth: { combined: true, header: "Authorization", scheme: "bearer" } },
+    { format: "openai", baseUrl: "https://opencode.ai/inference/go/openai/v1/chat/completions", auth: { combined: true, header: "Authorization", scheme: "bearer" } },
+    // /messages uses adaptive thinking and output_config.effort for DeepSeek.
+    { format: "claude", baseUrl: "https://opencode.ai/inference/go/anthropic/v1/messages", auth: { combined: true, header: "x-api-key", scheme: "raw", anthropicVersion: true }, thinkingFormat: "claude-adaptive" },
+    { format: "openai-responses", baseUrl: "https://opencode.ai/inference/go/openai/v1/responses", auth: { combined: true, header: "Authorization", scheme: "bearer" } },
   ],
   // supportedFormats follow the endpoint table in https://opencode.ai/docs/go/
   models: [
     // Luna is exposed only through OpenCode Go's Responses API.  Pin both the
     // target format and supported transport so chat-format clients (including
     // combos) are translated instead of being sent to /chat/completions.
-    { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", targetFormat: "openai-responses", supportedFormats: ["openai-responses"], forceStream: true },
+    { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", targetFormat: "openai-responses", supportedFormats: ["openai-responses"], forceStream: true, noSamplingControls: true, minOutputTokens: 16 },
     // Dynamically advertised by /models, but the OpenCode Go Responses endpoint
     // returns HTTP 500 for it. Route Responses/Claude clients through Chat and
     // let 9Router translate the request and response formats.
@@ -67,7 +68,7 @@ export default {
     { id: "qwen3.6-plus", name: "Qwen 3.6 Plus", supportedFormats: ["openai", "claude"] },
     { id: "hy4-preview", name: "Hy4 Preview", supportedFormats: ["openai"] },
     { id: "hy3", name: "Hy3", supportedFormats: ["openai"] },
-    // Served by /zen/go/v1/responses only — the responses-only entry forces chatCore
+    // Served by /inference/go/openai/v1/responses only — the responses-only entry forces chatCore
     // past the sourceFormat-matched transports into translation (see chatCore guard).
     { id: "grok-4.6", name: "Grok 4.6", targetFormat: "openai-responses", supportedFormats: ["openai-responses"] },
     { id: "muse-spark-1.2-contributor", name: "Muse Spark 1.2 Contributor", targetFormat: "openai-responses", supportedFormats: ["openai-responses"] },

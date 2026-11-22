@@ -1,3 +1,6 @@
+import { redactUrlSecrets } from "./redactUrl.js";
+import { redactClientHeaders, redactUpstreamHeaders } from "./keyFingerprint.js";
+
 // Check if running in Node.js environment (has fs module)
 const isNode = typeof process !== "undefined" && process.versions?.node && typeof window === "undefined";
 
@@ -25,35 +28,53 @@ async function ensureNodeModules() {
   }
 }
 
-function getDirectorySize(directory) {
-  return fs.readdirSync(directory, { withFileTypes: true }).reduce((total, entry) => {
+// All fs work below is async: request logging must never block the event loop
+// (and with it every live stream). Only the lazy module load stays sync.
+async function getDirectorySize(directory) {
+  const entries = await fs.promises.readdir(/* turbopackIgnore: true */ directory, { withFileTypes: true });
+  const sizes = await Promise.all(entries.map(async (entry) => {
     const entryPath = path.join(directory, entry.name);
-    return total + (entry.isDirectory() ? getDirectorySize(entryPath) : fs.statSync(entryPath).size);
-  }, 0);
+    if (entry.isDirectory()) return getDirectorySize(entryPath);
+    try { return (await fs.promises.stat(/* turbopackIgnore: true */ entryPath)).size; } catch { return 0; }
+  }));
+  return sizes.reduce((total, n) => total + n, 0);
 }
 
-function pruneLogSessions(force = false) {
-  if (!fs || !LOGS_DIR || (!force && Date.now() - lastPruneAt < LOG_PRUNE_INTERVAL_MS)) return;
-  lastPruneAt = Date.now();
+let pruning = null;
 
+function pruneLogSessions(force = false) {
+  if (!fs || !LOGS_DIR || (!force && Date.now() - lastPruneAt < LOG_PRUNE_INTERVAL_MS)) return Promise.resolve();
+  if (pruning) return pruning;
+  lastPruneAt = Date.now();
+  pruning = doPrune().finally(() => { pruning = null; });
+  return pruning;
+}
+
+async function doPrune() {
   try {
-    if (!fs.existsSync(LOGS_DIR)) {
-      sessionCount = 0;
-      return;
+    let dirents;
+    try {
+      dirents = await fs.promises.readdir(/* turbopackIgnore: true */ LOGS_DIR, { withFileTypes: true });
+    } catch (err) {
+      if (err.code === "ENOENT") { sessionCount = 0; return; }
+      throw err;
     }
-    const sessions = fs.readdirSync(LOGS_DIR, { withFileTypes: true })
+    const sessions = (await Promise.all(dirents
       .filter((entry) => entry.isDirectory())
-      .map((entry) => {
-        const sessionPath = path.join(LOGS_DIR, entry.name);
-        const stats = fs.statSync(sessionPath);
-        return { sessionPath, mtime: stats.mtimeMs, size: getDirectorySize(sessionPath) };
-      })
+      .map(async (entry) => {
+        const sessionPath = path.join(/* turbopackIgnore: true */ LOGS_DIR, entry.name);
+        try {
+          const stats = await fs.promises.stat(/* turbopackIgnore: true */ sessionPath);
+          return { sessionPath, mtime: stats.mtimeMs, size: await getDirectorySize(sessionPath) };
+        } catch { return null; }
+      })))
+      .filter(Boolean)
       .sort((a, b) => a.mtime - b.mtime);
     let totalBytes = sessions.reduce((total, session) => total + session.size, 0);
 
     while (sessions.length > LOG_MAX_SESSIONS || totalBytes > LOG_MAX_BYTES) {
       const oldest = sessions.shift();
-      fs.rmSync(oldest.sessionPath, { recursive: true, force: true });
+      await fs.promises.rm(/* turbopackIgnore: true */ oldest.sessionPath, { recursive: true, force: true });
       totalBytes -= oldest.size;
     }
     sessionCount = sessions.length;
@@ -79,21 +100,17 @@ function formatTimestamp(date = new Date()) {
 async function createLogSession(sourceFormat, targetFormat, model) {
   await ensureNodeModules();
   if (!fs || !LOGS_DIR) return null;
-  
+
   try {
-    if (!fs.existsSync(LOGS_DIR)) {
-      fs.mkdirSync(LOGS_DIR, { recursive: true });
-    }
-    
     const timestamp = formatTimestamp();
     const safeModel = (model || "unknown").replace(/[/:]/g, "-");
     const folderName = `${sourceFormat}_${targetFormat}_${safeModel}_${timestamp}`;
     const sessionPath = path.join(LOGS_DIR, folderName);
-    
-    fs.mkdirSync(sessionPath, { recursive: true });
+
+    await fs.promises.mkdir(/* turbopackIgnore: true */ sessionPath, { recursive: true });
     sessionCount += 1;
     // Session cap is enforced on the next write; the size cap waits for the interval.
-    pruneLogSessions(sessionCount > LOG_MAX_SESSIONS);
+    await pruneLogSessions(sessionCount > LOG_MAX_SESSIONS);
 
     return sessionPath;
   } catch (err) {
@@ -102,37 +119,63 @@ async function createLogSession(sourceFormat, targetFormat, model) {
   }
 }
 
-// Write JSON file
-function writeJsonFile(sessionPath, filename, data) {
-  if (!fs || !sessionPath) return;
-  
-  try {
-    const filePath = path.join(sessionPath, filename);
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.log(`[LOG] Failed to write ${filename}:`, err.message);
-  }
+// One long-lived append stream per (session, file) instead of an
+// appendFileSync per chunk. Streams close themselves after a quiet spell so a
+// finished request never holds a file descriptor.
+const STREAM_IDLE_CLOSE_MS = 2000;
+
+function createSessionWriter(sessionPath) {
+  const streams = new Map();   // filename -> { stream, timer }
+  const pending = new Set();   // in-flight JSON writes
+
+  const closeEntry = (filename) => {
+    const entry = streams.get(filename);
+    if (!entry) return Promise.resolve();
+    streams.delete(filename);
+    clearTimeout(entry.timer);
+    return new Promise((resolve) => {
+      entry.stream.once("close", resolve);
+      entry.stream.end();
+    });
+  };
+
+  return {
+    appendChunk(filename, chunk) {
+      if (!fs || !sessionPath) return;
+      let entry = streams.get(filename);
+      if (!entry) {
+        const stream = fs.createWriteStream(/* turbopackIgnore: true */ path.join(sessionPath, filename), { flags: "a" });
+        stream.on("error", () => { streams.delete(filename); });  // ignore append errors
+        entry = { stream, timer: null };
+        streams.set(filename, entry);
+      }
+      entry.stream.write(chunk);
+      clearTimeout(entry.timer);
+      entry.timer = setTimeout(() => { closeEntry(filename); }, STREAM_IDLE_CLOSE_MS);
+      entry.timer.unref?.();
+    },
+    writeJson(filename, data) {
+      if (!fs || !sessionPath) return;
+      let text;
+      try { text = JSON.stringify(data, null, 2); } catch (err) {
+        console.log(`[LOG] Failed to write ${filename}:`, err.message);
+        return;
+      }
+      const p = fs.promises.writeFile(/* turbopackIgnore: true */ path.join(sessionPath, filename), text)
+        .catch((err) => { console.log(`[LOG] Failed to write ${filename}:`, err.message); })
+        .finally(() => pending.delete(p));
+      pending.add(p);
+    },
+    async flush() {
+      await Promise.all([...pending, ...[...streams.keys()].map(closeEntry)]);
+    }
+  };
 }
 
-// Mask sensitive data in headers (DISABLED - keep full token for testing)
+// Client keys are fingerprinted and other credentials redacted before any
+// header reaches a log file (see keyFingerprint.js).
 function maskSensitiveHeaders(headers) {
-  if (!headers) return {};
-  return { ...headers };
-  
-  // Old masking code (disabled):
-  // const masked = { ...headers };
-  // const sensitiveKeys = ["authorization", "x-api-key", "cookie", "token"];
-  // 
-  // for (const key of Object.keys(masked)) {
-  //   const lowerKey = key.toLowerCase();
-  //   if (sensitiveKeys.some(sk => lowerKey.includes(sk))) {
-  //     const value = masked[key];
-  //     if (value && value.length > 20) {
-  //       masked[key] = value.slice(0, 10) + "..." + value.slice(-5);
-  //     }
-  //   }
-  // }
-  // return masked;
+  return redactClientHeaders(headers);
 }
 
 // No-op logger when logging is disabled
@@ -148,7 +191,8 @@ function createNoOpLogger() {
     appendOpenAIChunk() {},
     logConvertedResponse() {},
     appendConvertedChunk() {},
-    logError() {}
+    logError() {},
+    async flush() {}
   };
 }
 
@@ -167,8 +211,12 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
   
   // Wait for session to be created before returning logger
   const sessionPath = await createLogSession(sourceFormat, targetFormat, model);
-  
+  const writer = createSessionWriter(sessionPath);
+  const writeJsonFile = (_sessionPath, filename, data) => writer.writeJson(filename, data);
+
   return {
+    // Resolves once every queued write has hit disk (tests, shutdown).
+    flush: () => writer.flush(),
     get sessionPath() { return sessionPath; },
     
     // 1. Log client raw request (before any conversion)
@@ -202,8 +250,8 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
     logTargetRequest(url, headers, body) {
       writeJsonFile(sessionPath, "4_req_target.json", {
         timestamp: new Date().toISOString(),
-        url,
-        headers: maskSensitiveHeaders(headers),
+        url: redactUrlSecrets(url),
+        headers: redactUpstreamHeaders(headers),
         body
       });
     },
@@ -222,24 +270,12 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
     
     // 5. Append streaming chunk to provider response
     appendProviderChunk(chunk) {
-      if (!fs || !sessionPath) return;
-      try {
-        const filePath = path.join(sessionPath, "5_res_provider.txt");
-        fs.appendFileSync(filePath, chunk);
-      } catch (err) {
-        // Ignore append errors
-      }
+      writer.appendChunk("5_res_provider.txt", chunk);
     },
     
     // 6. Append OpenAI intermediate chunks (target → openai)
     appendOpenAIChunk(chunk) {
-      if (!fs || !sessionPath) return;
-      try {
-        const filePath = path.join(sessionPath, "6_res_openai.txt");
-        fs.appendFileSync(filePath, chunk);
-      } catch (err) {
-        // Ignore append errors
-      }
+      writer.appendChunk("6_res_openai.txt", chunk);
     },
     
     // 7. Log converted response to client (for non-streaming)
@@ -252,13 +288,7 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
     
     // 7. Append streaming chunk to converted response
     appendConvertedChunk(chunk) {
-      if (!fs || !sessionPath) return;
-      try {
-        const filePath = path.join(sessionPath, "7_res_client.txt");
-        fs.appendFileSync(filePath, chunk);
-      } catch (err) {
-        // Ignore append errors
-      }
+      writer.appendChunk("7_res_client.txt", chunk);
     },
     
     // 6. Log error
@@ -271,35 +301,4 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
       });
     }
   };
-}
-
-// Legacy functions for backward compatibility
-export function logRequest() {}
-export function logResponse() {}
-export function logError(provider, { error, url, model, requestBody }) {
-  if (!fs || !LOGS_DIR) return;
-  
-  try {
-    if (!fs.existsSync(LOGS_DIR)) {
-      fs.mkdirSync(LOGS_DIR, { recursive: true });
-    }
-    
-    const date = new Date().toISOString().split("T")[0];
-    const logPath = path.join(LOGS_DIR, `${provider}-${date}.log`);
-    
-    const logEntry = {
-      timestamp: new Date().toISOString(),
-      type: "error",
-      provider,
-      model,
-      url,
-      error: error?.message || String(error),
-      stack: error?.stack,
-      requestBody
-    };
-    
-    fs.appendFileSync(logPath, JSON.stringify(logEntry) + "\n");
-  } catch (err) {
-    console.log("[LOG] Failed to write error log:", err.message);
-  }
 }

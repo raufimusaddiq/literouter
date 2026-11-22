@@ -107,7 +107,7 @@ export default function LoginPage() {
 
   if (hasPassword === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg p-4">
+      <div className="min-h-dvh flex items-center justify-center bg-bg p-4">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           <p className="text-text-muted mt-4">Loading...</p>
@@ -117,19 +117,46 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg p-4 relative overflow-hidden">
-      <div className="landing-grid absolute inset-0 pointer-events-none" aria-hidden="true" />
-      <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-8">
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Routing control plane</p>
-          <h1 className="text-4xl font-semibold tracking-[-0.06em] text-text-main mb-2">LiteRouter</h1>
-          <p className="text-text-muted">Enter your password to access the dashboard.</p>
-        </div>
+    <div className="dashboard-backdrop flex min-h-dvh items-center justify-center overflow-hidden p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
+      <div className="grid w-full max-w-6xl overflow-hidden border-y border-border-subtle bg-surface lg:grid-cols-[1.05fr_0.95fr] lg:border-x">
+        <section className="relative hidden min-h-[34rem] overflow-hidden bg-surface-2 p-10 lg:flex lg:flex-col lg:justify-between">
+          <div className="relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="flex size-11 items-center justify-center rounded-[10px] bg-primary text-primary-foreground shadow-[0_14px_30px_-16px_var(--color-primary)]">
+                <span aria-hidden="true" className="material-symbols-outlined">route</span>
+              </div>
+              <div>
+                <p className="text-base font-semibold tracking-[-0.04em] text-text-main">LiteRouter</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">Control plane</p>
+              </div>
+            </div>
+            <p className="page-kicker mt-20">Local routing control plane</p>
+            <h1 className="mt-3 max-w-md text-4xl font-semibold leading-[1.05] tracking-[-0.06em] text-text-main">One endpoint. Clear operational state.</h1>
+            <p className="mt-5 max-w-sm text-sm leading-6 text-text-muted">Manage keys, providers, usage, and quota without changing the client contract.</p>
+          </div>
+          <div className="relative z-10 grid grid-cols-3 gap-2 text-xs text-text-muted">
+            <div className="rounded-[8px] bg-surface p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-success" />Provider health</div>
+            <div className="rounded-[8px] bg-surface p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-primary" />Fallback routes</div>
+            <div className="rounded-[8px] bg-surface p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-warning" />Quota signals</div>
+          </div>
+          <div className="landing-grid absolute inset-0 opacity-10" aria-hidden="true" />
+        </section>
 
-        <Card>
+        <section className="flex items-center p-6 sm:p-10">
+          <div className="w-full max-w-md">
+            <div className="mb-8 lg:hidden">
+              <p className="page-kicker">Routing control plane</p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-text-main">LiteRouter</h1>
+            </div>
+            <div className="mb-7">
+              <h2 className="text-2xl font-semibold tracking-[-0.04em] text-text-main">Welcome back</h2>
+              <p className="mt-2 text-sm text-text-muted">Enter your password to access the dashboard.</p>
+            </div>
+
+        <Card className="shadow-none">
           {mustChange ? (
             <form onSubmit={handleSetNewPassword} className="flex flex-col gap-4">
-              <p className="text-sm text-amber-600 dark:text-amber-400 text-center">
+              <p className="text-sm text-warning text-center">
                 Set a new password before accessing the dashboard remotely.
               </p>
               <div className="flex flex-col gap-2">
@@ -137,6 +164,7 @@ export default function LoginPage() {
                 <Input
                   type="password"
                   placeholder="Enter new password"
+                  autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -155,6 +183,7 @@ export default function LoginPage() {
                 <Input
                   type="password"
                   placeholder="Enter password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -162,7 +191,7 @@ export default function LoginPage() {
                 />
                 {error && <p className="text-xs text-red-500">{error}</p>}
                 {retryAfter > 0 && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                  <p className="text-xs text-warning">
                     Locked. Retry in <span className="font-mono">{retryAfter}s</span>.
                   </p>
                 )}
@@ -181,13 +210,15 @@ export default function LoginPage() {
                 Default password is <code className="bg-sidebar px-1 rounded">123456</code>
               </p>
               {hasPassword === false && (
-                <p className="text-xs text-center text-amber-600 dark:text-amber-400">
+                <p className="text-xs text-center text-warning">
                   Security risk: no password set. You will be asked to set one when logging in remotely.
                 </p>
               )}
             </form>
           )}
         </Card>
+          </div>
+        </section>
       </div>
     </div>
   );

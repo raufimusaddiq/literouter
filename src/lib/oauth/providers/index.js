@@ -9,7 +9,7 @@ import codex from "./codex.js";
 import xai from "./xai.js";
 import grokCli from "./grok-cli.js";
 import geminiCli from "./gemini-cli.js";
-import antigravity from "./antigravity.js";
+import antigravity, { resolveAntigravityRedirectUri } from "./antigravity.js";
 import iflow from "./iflow.js";
 import qoder from "./qoder.js";
 import github from "./github.js";
@@ -72,18 +72,12 @@ export function getProvider(name) {
 }
 
 /**
- * Get all provider names
- */
-export function getProviderNames() {
-  return Object.keys(PROVIDERS);
-}
-
-/**
  * Generate auth data for a provider
  * @param {object} [meta] - Provider-specific metadata (e.g. gitlab clientId/baseUrl)
  */
 export async function generateAuthData(providerName, redirectUri, meta) {
   const provider = getProvider(providerName);
+  if (providerName === "antigravity") redirectUri = resolveAntigravityRedirectUri(redirectUri);
   const config = provider.prepareConfig
     ? await provider.prepareConfig(provider.config, meta || {})
     : provider.config;
@@ -126,6 +120,9 @@ export async function generateAuthData(providerName, redirectUri, meta) {
  */
 export async function exchangeTokens(providerName, code, redirectUri, codeVerifier, state, meta) {
   const provider = getProvider(providerName);
+  if (providerName === "antigravity" && resolveAntigravityRedirectUri(redirectUri) !== redirectUri) {
+    throw new Error("Antigravity callback URL changed; restart the login flow");
+  }
   const config = provider.prepareConfig
     ? await provider.prepareConfig(provider.config, meta || {})
     : provider.config;

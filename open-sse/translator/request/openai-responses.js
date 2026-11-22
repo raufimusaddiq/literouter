@@ -13,6 +13,7 @@ import {
   coerceResponsesOutput,
 } from "../formats/responsesApi.js";
 import { ROLE, OPENAI_BLOCK, RESPONSES_ITEM } from "../schema/index.js";
+import { createToolNameSanitizer, collectChatToolNames } from "../concerns/toolNames.js";
 
 const MAX_TOOL_NAME_LEN = 128;
 
@@ -315,6 +316,15 @@ function buildReasoningInputItem(msg) {
   return item;
 }
 
+// Chat Completions tool_choice -> Responses tool_choice.
+function convertToolChoice(choice, safeName) {
+  if (choice && typeof choice === "object" && !Array.isArray(choice) && choice.type === OPENAI_BLOCK.FUNCTION) {
+    const name = typeof choice.function?.name === "string" ? choice.function.name : choice.name;
+    return typeof name === "string" && name.trim() ? { type: OPENAI_BLOCK.FUNCTION, name: safeName(name.trim()) } : undefined;
+  }
+  return choice;
+}
+
 /**
  * Convert OpenAI Chat Completions to OpenAI Responses API format
  */
@@ -337,6 +347,7 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
     stream: stream !== false,
     store: false
   };
+  const toolNames = createToolNameSanitizer(collectChatToolNames(body));
 
   // Extract system message as instructions
   let hasSystemMessage = false;
@@ -404,7 +415,7 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
         result.input.push({
           type: RESPONSES_ITEM.FUNCTION_CALL,
           call_id: clampResponsesCallId(tc.id),
-          name: name.slice(0, MAX_TOOL_NAME_LEN),
+          name: toolNames.safe(name),
           arguments: coerceResponsesArguments(tc.function?.arguments)
         });
       }
@@ -434,7 +445,7 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
         if (!name) return null;
         return {
           type: OPENAI_BLOCK.FUNCTION,
-          name: name.slice(0, MAX_TOOL_NAME_LEN),
+          name: toolNames.safe(name),
           description: String(tool.function.description || ""),
           parameters: normalizeToolParameters(tool.function.parameters),
           strict: tool.function.strict
@@ -458,6 +469,13 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
   if (body.reasoning_effort !== undefined) result.reasoning = { effort: body.reasoning_effort, summary: "auto" };
   if (body.service_tier !== undefined) result.service_tier = body.service_tier;
   if (body.prompt_cache_key !== undefined) result.prompt_cache_key = body.prompt_cache_key;
+
+  if (body.tool_choice !== undefined) {
+    const toolChoice = convertToolChoice(body.tool_choice, toolNames.safe);
+    if (toolChoice !== undefined) result.tool_choice = toolChoice;
+  }
+  if (body.parallel_tool_calls !== undefined) result.parallel_tool_calls = body.parallel_tool_calls;
+  if (toolNames.toOriginal.size > 0) result._toolNameMap = toolNames.toOriginal;
 
   return result;
 }

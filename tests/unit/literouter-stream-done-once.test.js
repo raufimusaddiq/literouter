@@ -25,6 +25,6 @@ describe("stream [DONE] sentinel", () => {
   });
 
   it("guards the passthrough termination on streamDoneSent", () => {
-    expect(source).toContain("if (!streamDoneSent && !isGeminiFamily)");
+    expect(source).toContain("if (!streamDoneSent && !suppressDone)");
   });
 });

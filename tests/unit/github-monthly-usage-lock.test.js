@@ -2,10 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const dbMocks = vi.hoisted(() => ({
   getProviderConnections: vi.fn(),
+  getProviderConnectionById: vi.fn(),
   updateProviderConnection: vi.fn(),
+  // Run the mutator against the stored row like the real transactional repo call,
+  // and record the resulting patch through updateProviderConnection.
+  mutateProviderConnection: vi.fn(async (id, mutate) => {
+    const existing = await dbMocks.getProviderConnectionById(id);
+    const patch = mutate(existing);
+    if (!patch) return null;
+    await dbMocks.updateProviderConnection(id, patch);
+    return { ...existing, ...patch };
+  }),
 }));
 
-vi.mock("@/lib/localDb", () => dbMocks);
+vi.mock("@/lib/db/index.js", () => dbMocks);
 vi.mock("@/lib/network/connectionProxy", () => ({
   pickProxyPoolId: vi.fn(),
   resolveConnectionProxyConfig: vi.fn(),
@@ -20,12 +30,12 @@ const { markAccountUnavailable } = await import("../../src/sse/services/auth.js"
 
 beforeEach(() => {
   vi.clearAllMocks();
-  dbMocks.getProviderConnections.mockResolvedValue([{
+  dbMocks.getProviderConnectionById.mockResolvedValue({
     id: "github-a",
     provider: "github",
     name: "github-a",
     backoffLevel: 4,
-  }]);
+  });
 });
 
 describe("GitHub monthly usage exhaustion", () => {

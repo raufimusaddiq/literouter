@@ -2,7 +2,7 @@ const http = require("http");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
-const { pathToFileURL } = require("url");
+const tls = require("tls");
 
 const origCreate = http.createServer.bind(http);
 
@@ -13,38 +13,16 @@ const origCreate = http.createServer.bind(http);
 const PEER_TOKEN = crypto.randomBytes(24).toString("hex");
 process.env.NINEROUTER_PEER_TOKEN = PEER_TOKEN;
 
-let backgroundRefreshStarted = false;
-
-function startBackgroundTokenRefreshFromCustomServer() {
-  if (backgroundRefreshStarted) return;
-  backgroundRefreshStarted = true;
-  // Prefer source path (repo / standalone that still has src). Fail-open if missing
-  // — initializeApp also starts the same scheduler when the Next app boots.
-  const modPath = path.join(__dirname, "src", "sse", "services", "backgroundTokenRefresh.js");
-  import(pathToFileURL(modPath).href)
-    .then((m) => {
-      try {
-        m.startBackgroundTokenRefresh();
-      } catch (e) {
-        console.error("[BackgroundTokenRefresh] start failed:", e && e.message ? e.message : e);
-      }
-      const stop = () => {
-        try {
-          m.stopBackgroundTokenRefresh();
-        } catch {
-          /* ignore */
-        }
-      };
-      process.once("SIGINT", stop);
-      process.once("SIGTERM", stop);
-    })
-    .catch((e) => {
-      // Expected in published CLI standalone (src/ not on disk). App bootstrap covers it.
-      if (process.env.DEBUG_BACKGROUND_TOKEN_REFRESH) {
-        console.error("[BackgroundTokenRefresh] import failed:", e && e.message ? e.message : e);
-      }
-    });
+// Same ceiling as Next's proxyClientMaxBodySize (next.config.mjs) so the h2c
+// downgrade path cannot buffer more than the normal request path.
+function parseBodyLimit(raw) {
+  const m = /^\s*(\d+(?:\.\d+)?)\s*(b|kb|mb|gb)?\s*$/i.exec(String(raw ?? ""));
+  if (!m) return 128 * 1024 * 1024;
+  const mult = { b: 1, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3 }[(m[2] || "b").toLowerCase()];
+  return Math.floor(Number(m[1]) * mult);
 }
+const MAX_H2C_BODY_BYTES = parseBodyLimit(process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE || "128mb");
+const H2C_READ_TIMEOUT_MS = 120_000;
 
 // Wrap Next standalone HTTP server: derive client IP from the TCP socket
 // (unspoofable) and strip client-supplied forwarding headers so downstream
@@ -57,11 +35,22 @@ http.createServer = (...args) => {
     const socketIp = req.socket && req.socket.remoteAddress ? req.socket.remoteAddress : "";
     const xff = req.headers["x-forwarded-for"];
     const xRealIp = req.headers["x-real-ip"];
-    const viaProxy = !!(xff || xRealIp);
+    // Any of these on a loopback peer means a reverse proxy/CDN hop, not a local operator.
+    // Keep in sync with src/lib/auth/proxyMarkers.js. Caddy sends X-Forwarded-*; nginx's
+    // bare proxy_pass sends none, hence the TRUST_LOOPBACK_AS_LOCAL=false opt-out.
+    const PROXY_MARKERS = ["x-forwarded-for", "x-real-ip", "forwarded", "x-forwarded-proto", "x-forwarded-host", "via", "cf-connecting-ip", "true-client-ip"];
+    const trustLoopback = String(process.env.TRUST_LOOPBACK_AS_LOCAL ?? "true").trim().toLowerCase() !== "false";
+    const viaProxy = !trustLoopback || PROXY_MARKERS.some((h) => !!req.headers[h]);
     const isLoopbackProxy = socketIp === "127.0.0.1" || socketIp === "::1" || socketIp === "::ffff:127.0.0.1";
     // Trust forwarding headers only when the TCP peer is a local reverse proxy.
     // Direct/public sockets remain keyed by the unspoofable peer address.
-    const proxyIp = xRealIp || (xff ? String(xff).split(",")[0].trim() : "");
+    // A proxy appends the hop it accepted to the right of XFF, so the rightmost
+    // entry is the one the trusted loopback proxy observed; leftmost is whatever
+    // the client sent and must never key a rate limit or lockout bucket.
+    // ASSUMPTION: exactly ONE trusted loopback proxy hop sits in front. With a
+    // longer proxy chain the rightmost entry is an inner proxy, not the client.
+    const xffHops = xff ? String(xff).split(",").map((h) => h.trim()).filter(Boolean) : [];
+    const proxyIp = String(xRealIp || "").trim() || (xffHops.length ? xffHops[xffHops.length - 1] : "");
     const ip = isLoopbackProxy && proxyIp ? proxyIp : socketIp;
     delete req.headers["x-9r-real-ip"];
     delete req.headers["x-forwarded-for"];
@@ -76,9 +65,6 @@ http.createServer = (...args) => {
     return handler(req, res);
   };
   const server = origCreate(...rest, wrapped);
-  server.once("listening", () => {
-    startBackgroundTokenRefreshFromCustomServer();
-  });
   const origEmit = server.emit;
   // JBR 25 sends h2c upgrades that the HTTP/1.1 server would otherwise close.
   server.emit = function (event, ...eventArgs) {
@@ -88,10 +74,24 @@ http.createServer = (...args) => {
     }
 
     const contentLength = Number(req.headers["content-length"] || 0);
+    const transferEncoding = req.headers["transfer-encoding"];
+    // Chunked framing inside an upgrade is not replayable as HTTP/1.1; before
+    // this returned the request to the HTTP/1.1 parser as a bodyless POST.
+    if (transferEncoding) {
+      socket.end("HTTP/1.1 411 Length Required\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+      return true;
+    }
     if (!Number.isSafeInteger(contentLength) || contentLength < 0) {
       socket.destroy();
       return true;
     }
+    if (contentLength > MAX_H2C_BODY_BYTES) {
+      socket.end("HTTP/1.1 413 Payload Too Large\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+      return true;
+    }
+    delete req.headers.upgrade;
+    delete req.headers["http2-settings"];
+    req.headers.connection = "close";
     const chunks = [head];
     let received = head.length;
     const serve = () => {
@@ -111,24 +111,57 @@ http.createServer = (...args) => {
     };
     if (received >= contentLength) serve();
     else {
+      // A stalled sender must not hold the socket forever.
+      socket.setTimeout(H2C_READ_TIMEOUT_MS, () => socket.destroy());
       socket.on("data", function readBody(chunk) {
+        if (received + chunk.length > MAX_H2C_BODY_BYTES) {
+          socket.off("data", readBody);
+          socket.end("HTTP/1.1 413 Payload Too Large\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+          return;
+        }
         chunks.push(chunk);
         received += chunk.length;
         if (received < contentLength) return;
         socket.off("data", readBody);
+        socket.setTimeout(0);
         serve();
       });
       socket.resume();
     }
-    delete req.headers.upgrade;
-    delete req.headers["http2-settings"];
-    req.headers.connection = "close";
     return true;
   };
   return server;
 };
 
+// Node verifies TLS against its bundled Mozilla store (tls.rootCertificates), not the OS
+// bundle, so patching ca-certificates in the image does not remove a distrusted root.
+// Replace the process-wide default CA list once, before any outbound connection, so every
+// client that does not pass its own `ca` (global fetch, undici Agent/ProxyAgent, https.get)
+// verifies against the OS bundle. Needs Node >= 22.19 (tls.setDefaultCACertificates).
+// Fails closed: no usable system store means refusing to start, never silently keeping
+// the bundled roots.
+function useSystemCaStore(tlsApi = tls) {
+  if (typeof tlsApi.setDefaultCACertificates !== "function" || typeof tlsApi.getCACertificates !== "function") {
+    throw new Error("CA trust: tls.setDefaultCACertificates is unavailable (Node >= 22.19 required)");
+  }
+  const system = tlsApi.getCACertificates("system");
+  if (!Array.isArray(system) || system.length === 0) {
+    throw new Error("CA trust: system CA store is empty or unreadable; refusing to fall back to Node's bundled roots");
+  }
+  tlsApi.setDefaultCACertificates(system);
+  return system.length;
+}
+
 if (require.main === module) {
+  // Opt-in (set in the Dockerfile) so CLI installs on older Node keep working.
+  if (process.env.LITEROUTER_SYSTEM_CA === "1") {
+    try {
+      console.log(`[CA trust] using ${useSystemCaStore()} system CA certificates`);
+    } catch (e) {
+      console.error(e.message);
+      process.exit(1);
+    }
+  }
   const standalone = path.join(__dirname, "server.js");
   if (fs.existsSync(standalone)) {
     require(standalone);
@@ -140,3 +173,5 @@ if (require.main === module) {
     require(nextBin);
   }
 }
+
+module.exports = { useSystemCaStore };

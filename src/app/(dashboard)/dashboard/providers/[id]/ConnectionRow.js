@@ -24,7 +24,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
         ? `Legacy: ${connection.providerSpecificData?.connectionProxyUrl}`
         : "";
   const autoPingTooltip = autoPing?.provider === "codex"
-    ? "Auto-starts the next 5h Codex window after reset by sending a tiny gpt-5.5 request. Consumes a small amount of quota."
+    ? "Auto-starts the next 5h Codex window after reset by sending a tiny gpt-5.6-terra request. Consumes a small amount of quota."
     : "When your 5h quota runs out, auto-sends a request the moment it resets so a new window starts right away.";
 
   let maskedProxyUrl = "";
@@ -143,19 +143,21 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
           <button
             onClick={onMoveUp}
             disabled={isFirst}
+            aria-label="Move connection up"
             className={`p-0.5 rounded ${isFirst ? "text-text-muted/30 cursor-not-allowed" : "hover:bg-sidebar text-text-muted hover:text-primary"}`}
           >
-            <span className="material-symbols-outlined text-sm">keyboard_arrow_up</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-sm">keyboard_arrow_up</span>
           </button>
           <button
             onClick={onMoveDown}
             disabled={isLast}
+            aria-label="Move connection down"
             className={`p-0.5 rounded ${isLast ? "text-text-muted/30 cursor-not-allowed" : "hover:bg-sidebar text-text-muted hover:text-primary"}`}
           >
-            <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
           </button>
         </div>
-        <span className="material-symbols-outlined shrink-0 text-base text-text-muted">
+        <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-base text-text-muted">
           {authIcon}
         </span>
         <div className="flex-1 min-w-0">
@@ -197,7 +199,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
                 {proxyDisplayText}
               </span>
               {maskedProxyUrl && (
-                <code className="max-w-full truncate rounded bg-black/5 px-1 py-0.5 font-mono text-[10px] text-text-muted dark:bg-white/5 sm:max-w-[260px]">
+                <code className="max-w-full truncate rounded bg-black/5 px-1 py-0.5 font-mono text-[11px] text-text-muted dark:bg-white/5 sm:max-w-[260px]">
                   {maskedProxyUrl}
                 </code>
               )}
@@ -220,10 +222,10 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
                 className={`flex w-full flex-col items-center rounded px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${hasAnyProxy ? "text-primary" : "text-text-muted hover:text-primary"}`}
                 disabled={updatingProxy}
               >
-                <span className="material-symbols-outlined text-[18px]">
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
                   {updatingProxy ? "progress_activity" : "lan"}
                 </span>
-                <span className="text-[10px] leading-tight">Proxy</span>
+                <span className="text-[11px] leading-tight">Proxy</span>
               </button>
               {showProxyDropdown && (
                 <div className="absolute right-0 top-full z-50 mt-1 max-w-[78vw] min-w-[160px] rounded-lg border border-border bg-bg py-1 shadow-lg">
@@ -252,18 +254,18 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
                 onClick={() => autoPing.onToggle(!autoPing.on)}
                 className={`flex w-full flex-col items-center rounded px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${autoPing.on ? "text-primary" : "text-text-muted hover:text-primary"}`}
               >
-                <span className="material-symbols-outlined text-[18px]">bolt</span>
-                <span className="text-[10px] leading-tight">Auto-ping</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">bolt</span>
+                <span className="text-[11px] leading-tight">Auto-ping</span>
               </button>
             </Tooltip>
           )}
           <button onClick={onEdit} className="flex flex-col items-center rounded px-2 py-1 text-text-muted hover:bg-black/5 hover:text-primary dark:hover:bg-white/5">
-            <span className="material-symbols-outlined text-[18px]">edit</span>
-            <span className="text-[10px] leading-tight">Edit</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">edit</span>
+            <span className="text-[11px] leading-tight">Edit</span>
           </button>
           <button onClick={onDelete} className="flex flex-col items-center rounded px-2 py-1 text-red-500 hover:bg-red-500/10">
-            <span className="material-symbols-outlined text-[18px]">delete</span>
-            <span className="text-[10px] leading-tight">Delete</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">delete</span>
+            <span className="text-[11px] leading-tight">Delete</span>
           </button>
         </div>
         <Toggle
@@ -271,6 +273,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
           checked={connection.isActive ?? true}
           onChange={onToggleActive}
           title={(connection.isActive ?? true) ? "Disable connection" : "Enable connection"}
+          aria-label={(connection.isActive ?? true) ? "Disable connection" : "Enable connection"}
         />
       </div>
     </div>

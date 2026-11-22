@@ -38,16 +38,17 @@ describe("round-robin account selection", () => {
     expect(cache?.rows, "cache should be populated before the write").toBeTruthy();
 
     // Kick off the write without awaiting: this is what the routing path does
-    // now. The snapshot must already be invalidated when this returns, because
+    // now. The cached row must already carry the patch when this returns, because
     // getAdapter() is async and the request path does not wait for it.
     const pending = db.updateProviderConnection(created[0].id, {
       lastUsedAt: new Date().toISOString(),
       consecutiveUseCount: 2,
     });
+    const row = global.__liteRouterConnectionCache?.rows?.find((c) => c.id === created[0].id);
     expect(
-      global.__liteRouterConnectionCache?.rows,
-      "cache must be cleared synchronously, before the first await resolves"
-    ).toBeNull();
+      row?.consecutiveUseCount,
+      "cached row must be patched synchronously, before the first await resolves"
+    ).toBe(2);
     await pending;
   });
 

@@ -25,8 +25,9 @@ const connectionCache = global.__liteRouterConnectionCache ??= {
 // another replica mutated. Separate from CACHE_TTL_MS: the data TTL can be
 // generous because a foreign write is caught by the version check, which has to
 // be frequent enough to count as "immediately" (PRD 15.5 §3).
-const CACHE_TTL_MS = 5000;
-const VERSION_TTL_MS = 500;
+const CACHE_TTL_MS = Math.max(1000, Number(process.env.RUNTIME_CONFIG_TTL_MS || 5000));
+const VERSION_TTL_MS = Math.max(500, Number(process.env.RUNTIME_CONFIG_VERSION_TTL_MS || 5000));
+const MULTI_REPLICA = process.env.LITEROUTER_MULTI_REPLICA === "true";
 const CACHE_VERSION_KEY = "cache:connections:version";
 
 async function cacheVersion() {
@@ -40,9 +41,36 @@ async function bumpCacheVersion() {
 }
 
 function invalidateConnectionCache() {
+  connectionCache.gen = (connectionCache.gen || 0) + 1; // orphans any in-flight reload
+  connectionCache.index = null;
   connectionCache.rows = null;
   connectionCache.expiresAt = 0;
   connectionCache.versionCheckedAt = 0;
+}
+
+// Replace one row of the live snapshot. No snapshot or uncached row means
+// nothing is stale: the next load reads it from SQLite.
+function patchCachedConnection(conn) {
+  const rows = connectionCache.rows;
+  if (!rows) return;
+  const i = rows.findIndex((c) => c.id === conn.id);
+  if (i !== -1) {
+    rows[i] = conn;
+    connectionCache.index = null; // rebuilt lazily on next read
+  }
+}
+
+// Apply the patch to the cached row before the first await, so a selection that
+// interleaves with the async write already sees fresh state (round-robin cursor).
+// The post-commit patch then replaces it with the stored row.
+function optimisticPatchCachedConnection(id, data) {
+  const rows = connectionCache.rows;
+  if (!rows) return;
+  const i = rows.findIndex((c) => c.id === id);
+  if (i === -1) return;
+  const existing = rows[i];
+  rows[i] = pruneClearedLocks({ ...existing, ...resetHealthStateOnActivation(existing, data), updatedAt: new Date().toISOString() });
+  connectionCache.index = null; // index holds the pre-patch object; rebuild lazily
 }
 
 // Invalidate locally and tell every replica that its snapshot is stale.
@@ -50,13 +78,23 @@ function invalidateConnectionCache() {
 // bumping from inside the transaction could expose the new version before the
 // rows are visible, letting another replica reload the old snapshot and then
 // cache the new version, serving stale data until the TTL expires.
-async function invalidateConnectionCacheEverywhere() {
-  invalidateConnectionCache();
+async function invalidateConnectionCacheEverywhere({ localDone = false } = {}) {
+  if (!localDone) invalidateConnectionCache();
+  if (!MULTI_REPLICA) return;
   try {
     await bumpCacheVersion();
   } catch {
     /* fail open: a local-only invalidation still covers this process */
   }
+}
+
+// A cleared lock is DELETED, not stored as null: a null key still looks "present"
+// to readers that enumerate modelLock_* keys. Mutates and returns `conn`.
+function pruneClearedLocks(conn) {
+  for (const key of Object.keys(conn)) {
+    if (key.startsWith(MODEL_LOCK_PREFIX) && (conn[key] === null || conn[key] === undefined)) delete conn[key];
+  }
+  return conn;
 }
 
 function resetHealthStateOnActivation(existing, patch) {
@@ -81,7 +119,8 @@ function resetHealthStateOnActivation(existing, patch) {
 
 function rowToConn(row) {
   if (!row) return null;
-  const extra = parseJson(row.data, {});
+  // Lazy cleanup: rows written before locks were deleted still carry modelLock_*: null.
+  const extra = pruneClearedLocks(parseJson(row.data, {}));
   return {
     ...extra,
     id: row.id,
@@ -136,45 +175,106 @@ function deriveConnectionName(data, fallbackName) {
   return fallbackName;
 }
 
-export async function getProviderConnections(filter = {}) {
+export async function getProviderConnections(filter = {}, options = {}) {
   const now = Date.now();
   if (!connectionCache.rows || connectionCache.expiresAt <= now) {
-    await refreshConnectionCache();
-  } else if (connectionCache.versionCheckedAt <= now) {
-    // Held a usable snapshot, but confirm no other replica wrote since. A
-    // foreign bump makes every replica re-read, which is what keeps a UI
-    // mutation from being invisible here until the data TTL happens to lapse.
+    await ensureConnectionCache();
+  } else if (MULTI_REPLICA && connectionCache.versionCheckedAt <= now) {
+    // Multi-replica mode only: confirm no peer mutated configuration. A
+    // single-instance deployment has local write-through invalidation and does
+    // not spend Redis round-trips on the inference hot path.
     const version = await cacheVersion();
     connectionCache.versionCheckedAt = Date.now() + VERSION_TTL_MS;
     if (version !== null && version !== connectionCache.version) {
-      await refreshConnectionCache();
+      await ensureConnectionCache();
     }
   }
-  const list = connectionCache.rows.filter((c) =>
-    (!filter.provider || c.provider === filter.provider)
-    && (filter.isActive === undefined || c.isActive === Boolean(filter.isActive))
-  ).map((c) => structuredClone(c));
-  list.sort((a, b) => (a.priority || 999) - (b.priority || 999));
-  return list;
+  const index = getConnectionIndex();
+  // Per-provider arrays are pre-sorted by priority (stable, same as the old
+  // filter-then-sort), so selection only filters isActive and copies.
+  const source = filter.provider ? (index.byProvider.get(filter.provider) || []) : index.all;
+  const list = filter.isActive === undefined
+    ? source.slice()
+    : source.filter((c) => c.isActive === Boolean(filter.isActive));
+  return options.clone === false ? list : list.map((c) => structuredClone(c));
 }
 
-async function refreshConnectionCache() {
+const byPriority = (a, b) => (a.priority || 999) - (b.priority || 999);
+
+// Index over the snapshot: Map by id + per-provider priority-sorted arrays.
+// Rebuilt when the snapshot is replaced or a row is patched.
+function getConnectionIndex() {
+  const rows = connectionCache.rows;
+  const cached = connectionCache.index;
+  if (cached && cached.rows === rows) return cached;
+  const byId = new Map();
+  const byProvider = new Map();
+  for (const c of rows) {
+    byId.set(c.id, c);
+    let arr = byProvider.get(c.provider);
+    if (!arr) byProvider.set(c.provider, arr = []);
+    arr.push(c);
+  }
+  for (const arr of byProvider.values()) arr.sort(byPriority);
+  const all = rows.slice().sort(byPriority);
+  return (connectionCache.index = { rows, byId, byProvider, all });
+}
+
+let refreshInFlight = null;
+// Single-flight: concurrent expiries share one SELECT * + parse. A reload that
+// was started before an invalidation is never joined or committed (gen check).
+function refreshConnectionCache() {
+  const gen = connectionCache.gen || 0;
+  if (!refreshInFlight || refreshInFlight.gen !== gen) {
+    const entry = { gen, promise: null };
+    entry.promise = doRefreshConnectionCache(gen).finally(() => {
+      if (refreshInFlight === entry) refreshInFlight = null;
+    });
+    refreshInFlight = entry;
+  }
+  return refreshInFlight.promise;
+}
+
+// Reload until a snapshot is present (an invalidation can land between a
+// joined reload finishing and this caller resuming).
+async function ensureConnectionCache() {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await refreshConnectionCache();
+    if (connectionCache.rows) return;
+  }
+  throw new Error("connection cache reload kept being invalidated");
+}
+
+async function doRefreshConnectionCache(gen) {
   const db = await getAdapter();
+  if ((connectionCache.gen || 0) !== gen) return; // invalidated meanwhile; caller retries
+  connectionCache.index = null;
   connectionCache.rows = db.all("SELECT * FROM providerConnections").map(rowToConn);
-  // A Redis outage returns null, which then never compares equal to a real
-  // version — so recovery re-reads once rather than serving a stale snapshot.
-  connectionCache.version = await cacheVersion();
+  // Redis versioning is coordination for explicit multi-replica mode, not a
+  // required dependency for a normal single-instance read.
+  connectionCache.version = MULTI_REPLICA ? await cacheVersion() : null;
   connectionCache.expiresAt = Date.now() + CACHE_TTL_MS;
   connectionCache.versionCheckedAt = Date.now() + VERSION_TTL_MS;
 }
 
-export async function getProviderConnectionById(id) {
-  const db = await getAdapter();
-  const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
-  return rowToConn(row);
+export async function getProviderConnectionById(id, options = {}) {
+  if (!connectionCache.rows || connectionCache.expiresAt <= Date.now()) {
+    await ensureConnectionCache();
+  }
+  const row = getConnectionIndex().byId.get(id);
+  if (!row) return null;
+  return options.clone === false ? row : structuredClone(row);
 }
 
-// Internal sync reorder — must be called INSIDE a transaction
+// Internal sync reorder — must be called INSIDE a transaction.
+//
+// Normalizes priorities to a contiguous 1..N after a DELETE or an explicit
+// reorder, so gaps don't accumulate over time.
+//
+// Deliberately NOT called on insert: a new connection already gets
+// MAX(priority)+1, which sorts after every existing row, so the order is
+// identical with or without the rewrite. Skipping it there is what makes
+// import O(1) per key instead of O(pool) — see createProviderConnection.
 function reorderInTx(db, providerId) {
   const list = db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [providerId]).map(rowToConn);
   list.sort((a, b) => {
@@ -183,7 +283,10 @@ function reorderInTx(db, providerId) {
     return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
   });
   list.forEach((c, i) => {
-    db.run(`UPDATE providerConnections SET priority = ? WHERE id = ?`, [i + 1, c.id]);
+    const want = i + 1;
+    if ((c.priority || 0) !== want) {
+      db.run(`UPDATE providerConnections SET priority = ? WHERE id = ?`, [want, c.id]);
+    }
   });
 }
 
@@ -193,7 +296,21 @@ export async function createProviderConnection(data) {
   let result;
 
   db.transaction(() => {
-    const all = db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [data.provider]).map(rowToConn);
+    // apikey connections are deduped by name and need only the current max
+    // priority, so query for those directly instead of loading the whole pool
+    // (O(pool) per key — the other half of the import cost in #4311). The oauth
+    // branch below still scans, because its identity rules compare fields
+    // inside providerSpecificData and have no single-column equivalent.
+    const isApikey = data.authType === "apikey" && !!data.name;
+    const all = isApikey
+      ? db.all(
+          `SELECT * FROM providerConnections WHERE provider = ? AND authType = ? AND name = ?`,
+          [data.provider, "apikey", data.name]
+        ).map(rowToConn)
+      : db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [data.provider]).map(rowToConn);
+    const poolSize = isApikey
+      ? db.get(`SELECT COUNT(*) AS n FROM providerConnections WHERE provider = ?`, [data.provider])?.n ?? all.length
+      : all.length;
 
     let existing = null;
     if (data.authType === "oauth" && data.email) {
@@ -235,6 +352,21 @@ export async function createProviderConnection(data) {
     // access_token: never dedup — user manages duplicates manually
 
     if (existing) {
+      // Name collision on an apikey connection used to silently replace the
+      // stored apiKey, so a script that reused names ("Key 1", "Key 2", …)
+      // destroyed existing pool entries with no 409 and no warning. Callers that
+      // genuinely mean "update this one" pass allowOverwrite; everyone else gets
+      // a typed error naming the row that would have been replaced. #4311
+      if (isApikey && data.allowOverwrite !== true) {
+        const err = new Error(
+          `A connection named "${existing.name}" already exists for provider "${data.provider}". ` +
+          `Pass allowOverwrite: true to replace it.`
+        );
+        err.code = "PROVIDER_NAME_CONFLICT";
+        err.existingId = existing.id;
+        err.existingName = existing.name;
+        throw err;
+      }
       const normalized = resetHealthStateOnActivation(existing, data);
       const merged = { ...existing, ...normalized, updatedAt: now };
       upsert(db, merged);
@@ -244,11 +376,15 @@ export async function createProviderConnection(data) {
 
     let connectionName = data.name || null;
     if (!connectionName && (data.authType === "oauth" || data.authType === "access_token")) {
-      connectionName = deriveConnectionName(data, data.email || `Account ${all.length + 1}`);
+      connectionName = deriveConnectionName(data, data.email || `Account ${poolSize + 1}`);
     }
     let connectionPriority = data.priority;
     if (!connectionPriority) {
-      connectionPriority = all.reduce((m, c) => Math.max(m, c.priority || 0), 0) + 1;
+      // MAX(priority)+1 in SQL rather than a reduce over the loaded pool: the
+      // apikey path no longer has the whole pool in memory, and the aggregate
+      // is served by the index instead of a row scan. #4311
+      const maxRow = db.get(`SELECT MAX(priority) AS m FROM providerConnections WHERE provider = ?`, [data.provider]);
+      connectionPriority = (maxRow?.m || 0) + 1;
     }
 
     const conn = {
@@ -270,7 +406,11 @@ export async function createProviderConnection(data) {
     if (data.email !== undefined) conn.email = data.email;
 
     upsert(db, conn);
-    reorderInTx(db, data.provider);
+    // No reorderInTx here. `conn.priority` is already MAX(priority)+1, so the
+    // row sorts last and the resulting order is what reorderInTx would have
+    // produced anyway. The rewrite cost ~2N statements per insert — O(pool) —
+    // which made a 5k-key import O(n*m): ~25M statements at a 5k pool, and it
+    // serialized every parallel writer on the same transaction. #4311
     result = conn;
   });
 
@@ -280,25 +420,67 @@ export async function createProviderConnection(data) {
 
 // Critical: OAuth refresh token race — atomic merge inside transaction
 export async function updateProviderConnection(id, data) {
-  // Clear the local snapshot before the first await. getAdapter() is async, so
-  // clearing later happens a microtask after the call, and a selection that
-  // interleaves in that window would read the stale row — which is exactly what
-  // round-robin depends on being fresh. The Redis bump still lands after the
-  // commit, so replicas never see the new version before the rows.
-  invalidateConnectionCache();
+  // A priority change renumbers sibling rows (reorderInTx), so only that case
+  // drops the whole snapshot, before the first await (a selection interleaving
+  // there would read stale rows, which round-robin depends on being fresh).
+  // Otherwise the cached row is patched in place below: O(1), not O(pool).
+  // The Redis bump still lands after the commit.
+  const reorders = data.priority !== undefined;
+  if (reorders) invalidateConnectionCache();
+  else optimisticPatchCachedConnection(id, data);
   const db = await getAdapter();
   let result;
-  db.transaction(() => {
-    const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
-    if (!row) { result = null; return; }
-    const existing = rowToConn(row);
-    const normalized = resetHealthStateOnActivation(existing, data);
-    const merged = { ...existing, ...normalized, updatedAt: new Date().toISOString() };
-    upsert(db, merged);
-    if (data.priority !== undefined) reorderInTx(db, existing.provider);
-    result = merged;
-  });
-  if (result) await invalidateConnectionCacheEverywhere();
+  try {
+    db.transaction(() => {
+      const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
+      if (!row) { result = null; return; }
+      const existing = rowToConn(row);
+      const normalized = resetHealthStateOnActivation(existing, data);
+      const merged = pruneClearedLocks({ ...existing, ...normalized, updatedAt: new Date().toISOString() });
+      upsert(db, merged);
+      if (reorders) reorderInTx(db, existing.provider);
+      result = merged;
+      // Re-read the stored row so the cache matches what a reload would produce.
+      if (!reorders) patchCachedConnection(rowToConn(db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id])));
+    });
+  } catch (e) {
+    invalidateConnectionCache(); // optimistic patch may not match what was stored
+    throw e;
+  }
+  if (!result) invalidateConnectionCache();
+  if (result) await invalidateConnectionCacheEverywhere({ localDone: !reorders });
+  return result;
+}
+
+/**
+ * Atomic read-modify-write: `mutate(existing)` runs inside the write transaction
+ * against the stored row and returns the patch to merge (or null/undefined to skip
+ * the write). Counters such as backoffLevel must be derived here, not from a
+ * snapshot read earlier, or concurrent failures compute the same level.
+ * Resolves to the merged connection, or null when the row is missing or the patch
+ * was skipped.
+ */
+export async function mutateProviderConnection(id, mutate) {
+  const db = await getAdapter();
+  let result = null;
+  try {
+    db.transaction(() => {
+      const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
+      if (!row) return;
+      const existing = rowToConn(row);
+      const patch = mutate(existing);
+      if (!patch) return;
+      const normalized = resetHealthStateOnActivation(existing, patch);
+      const merged = pruneClearedLocks({ ...existing, ...normalized, updatedAt: new Date().toISOString() });
+      upsert(db, merged);
+      result = merged;
+      patchCachedConnection(rowToConn(db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id])));
+    });
+  } catch (e) {
+    invalidateConnectionCache();
+    throw e;
+  }
+  if (result) await invalidateConnectionCacheEverywhere({ localDone: true });
   return result;
 }
 

@@ -8,11 +8,11 @@ const net = require("net");
 const os = require("os");
 
 // Poll until the server accepts TCP connections on port, or timeout — avoids blind fixed waits.
-function waitServerReady(port, { timeoutMs = 15000, intervalMs = 150 } = {}) {
+function waitServerReady(port, { host = "127.0.0.1", timeoutMs = 30000, intervalMs = 150 } = {}) {
   const deadline = Date.now() + timeoutMs;
   return new Promise((resolve) => {
     const tryConnect = () => {
-      const socket = net.connect({ host: "127.0.0.1", port }, () => {
+      const socket = net.connect({ host, port }, () => {
         socket.destroy();
         resolve(true);
       });
@@ -63,8 +63,16 @@ function createSpinner(text) {
 }
 
 const pkg = require("./package.json");
-const { ensureSqliteRuntime, buildEnvWithRuntime } = require("./hooks/sqliteRuntime");
-const { ensureTrayRuntime } = require("./hooks/trayRuntime");
+const { buildEnvWithRuntime } = require("./hooks/sqliteRuntime");
+const { ensureRuntime } = require("./hooks/runtime");
+const {
+  writeServerPid,
+  readServerPid,
+  clearServerPid,
+  isTrackedServerAlive,
+  findListenerPid,
+  buildTrayArgs,
+} = require("./src/cli/utils/serverProc");
 const args = process.argv.slice(2);
 
 // Subcommands (`9router xai video …`) run against an already-running gateway
@@ -80,20 +88,27 @@ if (args[0] === "xai" && args[1] === "video") {
   return;
 }
 
-// Self-heal SQLite runtime deps (sql.js + better-sqlite3) into ~/.9router/runtime
-// so the server can resolve them via NODE_PATH. Best-effort — sql.js is required,
-// better-sqlite3 is optional. Logs to stderr only on failure.
-try { ensureSqliteRuntime({ silent: true }); } catch {}
-
-// Self-heal tray runtime (systray for macOS/Linux only). Windows skipped.
-try { ensureTrayRuntime({ silent: true }); } catch {}
+// Self-heal runtime deps (sql.js, better-sqlite3, systray2) into ~/.9router/runtime
+// with ONE background npm install. It never blocks server start: the server
+// falls back to bundled sql.js meanwhile, and a failed install leaves a marker
+// so offline launches back off instead of retrying (and hanging) every time.
+ensureRuntime({ silent: true }).catch(() => {});
 
 // Configuration constants
 const APP_NAME = pkg.name; // Use from package.json
-const INSTALL_CMD_LATEST = `npm i -g ${APP_NAME}@latest --prefer-online`;
+// Update channel: this fork has no published package of its own, and the
+// upstream "9router" package is a different product, so the check is OFF unless
+// NINEROUTER_UPDATE_PACKAGE names the package to track.
+const UPDATE_PACKAGE = (process.env.NINEROUTER_UPDATE_PACKAGE || "").trim();
+const INSTALL_CMD_LATEST = `npm i -g ${UPDATE_PACKAGE}@latest --prefer-online`;
 
 const DEFAULT_PORT = 20128;
 const DEFAULT_HOST = "0.0.0.0";
+
+// Address to probe/connect to: wildcard binds are reachable via loopback.
+function getProbeHost() {
+  return host === "0.0.0.0" || host === "::" || host === "" ? "127.0.0.1" : host;
+}
 
 // First non-internal IPv4 — the address remote peers actually reach when bound to 0.0.0.0.
 function getLanIp() {
@@ -110,10 +125,6 @@ function getDisplayHost() {
   return host === DEFAULT_HOST ? "localhost" : host;
 }
 const MAX_PORT_ATTEMPTS = 10;
-// Identifiers for killAllAppProcesses - only kill 9router specifically
-const PROCESS_IDENTIFIERS = [
-  '9router'  // Only package name - avoid killing other apps
-];
 
 // Parse arguments
 let port = DEFAULT_PORT;
@@ -150,6 +161,7 @@ Options:
   -l, --log           Show server logs (default: hidden)
   -t, --tray          Run in system tray mode (background)
   --skip-update       Skip auto-update check
+                      (update check is off unless NINEROUTER_UPDATE_PACKAGE is set)
   -h, --help          Show this help message
   -v, --version       Show version
 
@@ -174,152 +186,110 @@ if (skipUpdate && !trayMode && !process.stdin.isTTY) {
 // Always use Node.js runtime with absolute path
 const RUNTIME = process.execPath;
 
-// Compare semver versions: returns 1 if a > b, -1 if a < b, 0 if equal
+// Compare semver versions: returns 1 if a > b, -1 if a < b, 0 if equal.
+// Prerelease (1.2.3-beta.1) sorts below its release; identifiers compare per semver.
 function compareVersions(a, b) {
-  const partsA = a.split(".").map(Number);
-  const partsB = b.split(".").map(Number);
+  const parse = (v) => {
+    const [core, ...pre] = String(v).trim().replace(/^v/, "").split("+")[0].split("-");
+    const nums = core.split(".").map((n) => parseInt(n, 10) || 0);
+    while (nums.length < 3) nums.push(0);
+    return { nums, pre: pre.length ? pre.join("-").split(".") : [] };
+  };
+  const A = parse(a);
+  const B = parse(b);
   for (let i = 0; i < 3; i++) {
-    if (partsA[i] > partsB[i]) return 1;
-    if (partsA[i] < partsB[i]) return -1;
+    if (A.nums[i] > B.nums[i]) return 1;
+    if (A.nums[i] < B.nums[i]) return -1;
+  }
+  if (!A.pre.length && !B.pre.length) return 0;
+  if (!A.pre.length) return 1;
+  if (!B.pre.length) return -1;
+  for (let i = 0; i < Math.max(A.pre.length, B.pre.length); i++) {
+    const x = A.pre[i];
+    const y = B.pre[i];
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    const xn = /^\d+$/.test(x);
+    const yn = /^\d+$/.test(y);
+    if (xn && yn) {
+      if (+x !== +y) return +x > +y ? 1 : -1;
+    } else if (xn !== yn) {
+      return xn ? -1 : 1;
+    } else if (x !== y) {
+      return x > y ? 1 : -1;
+    }
   }
   return 0;
 }
 
-// Kill all 9router processes
-function killAllAppProcesses() {
-  return new Promise((resolve) => {
-    try {
-      const platform = process.platform;
-      let pids = [];
-
-      if (platform === "win32") {
-        // Windows: use WMI to get full CommandLine (tasklist /V doesn't include it)
-        try {
-          const psCmd = `powershell -NonInteractive -WindowStyle Hidden -Command "Get-WmiObject Win32_Process -Filter 'Name=\\"node.exe\\"' | Select-Object ProcessId,CommandLine | ConvertTo-Csv -NoTypeInformation"`;
-          const output = execSync(psCmd, {
-            encoding: "utf8",
-            windowsHide: true,
-            timeout: 5000
-          });
-          const lines = output.split("\n").slice(1).filter(l => l.trim());
-          lines.forEach(line => {
-            // Whitelist: real node process running 9router/cli.js, or next-server.
-            // Avoids killing editors/grep/strace/cursor that just have "9router" in cmdline.
-            const cmd = line.toLowerCase();
-            const isAppProcess =
-              (cmd.includes("node") && cmd.includes("9router") && (cmd.includes("cli.js") || cmd.includes("\\9router") || cmd.includes("/9router")))
-              || cmd.includes("next-server");
-            if (isAppProcess) {
-              const match = line.match(/^"(\d+)"/);
-              if (match && match[1] && match[1] !== process.pid.toString()) {
-                pids.push(match[1]);
-              }
-            }
-          });
-        } catch (e) {
-          // No processes found or error - continue
-        }
-      } else {
-        // macOS/Linux: use ps to find all matching processes
-        try {
-          const output = execSync('ps aux 2>/dev/null', {
-            encoding: 'utf8',
-            timeout: 5000
-          });
-          const lines = output.split('\n');
-
-          lines.forEach(line => {
-            // Whitelist: real node process running 9router/cli.js, or next-server.
-            // Avoids killing grep/strace/editors/cursor that incidentally match "9router".
-            const cmd = line.toLowerCase();
-            const isAppProcess =
-              (cmd.includes("node") && cmd.includes("9router") && (cmd.includes("cli.js") || cmd.includes("/9router")))
-              || cmd.includes("next-server");
-            if (isAppProcess) {
-              const parts = line.trim().split(/\s+/);
-              const pid = parts[1];
-              if (pid && !isNaN(pid) && pid !== process.pid.toString()) {
-                pids.push(pid);
-              }
-            }
-          });
-        } catch (e) {
-          // No processes found or error - continue
-        }
-      }
-
-      // Kill all found processes
-      if (pids.length > 0) {
-        pids.forEach(pid => {
-          try {
-            if (platform === "win32") {
-              execSync(`taskkill /F /PID ${pid} 2>nul`, { stdio: 'ignore', shell: true, windowsHide: true, timeout: 3000 });
-            } else {
-              execSync(`kill -9 ${pid} 2>/dev/null`, { stdio: 'ignore', timeout: 3000 });
-            }
-          } catch (err) {
-            // Process already dead or can't kill - continue
-          }
-        });
-
-        // Wait for processes to fully terminate
-        setTimeout(() => resolve(), 1000);
-      } else {
-        resolve();
-      }
-    } catch (err) {
-      // Silent fail - continue anyway
-      resolve();
+function killPid(pid) {
+  try {
+    if (process.platform === "win32") {
+      execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore", windowsHide: true, timeout: 3000 });
+    } else {
+      execSync(`kill -9 ${pid}`, { stdio: "ignore", timeout: 3000 });
     }
-  });
+  } catch (e) {
+    // Already dead, or not ours to kill.
+  }
 }
 
-// Kill any process on specific port
-function killProcessOnPort(port) {
-  return new Promise((resolve) => {
-    try {
-      const platform = process.platform;
-      let pid;
-
-      if (platform === "win32") {
-        try {
-          const output = execSync(`netstat -ano | findstr :${port}`, {
-            encoding: 'utf8',
-            shell: true,
-            windowsHide: true,
-            timeout: 5000
-          }).trim();
-          const lines = output.split('\n').filter(l => l.includes('LISTENING'));
-          if (lines.length > 0) {
-            pid = lines[0].trim().split(/\s+/).pop();
-            execSync(`taskkill /F /PID ${pid} 2>nul`, { stdio: 'ignore', shell: true, windowsHide: true, timeout: 3000 });
-          }
-        } catch (e) {
-          // Port is free or error
-        }
-      } else {
-        // macOS/Linux
-        try {
-          const pidOutput = execSync(`lsof -ti:${port}`, {
-            encoding: 'utf8',
-            stdio: ['pipe', 'pipe', 'ignore']
-          }).trim();
-          if (pidOutput) {
-            pid = pidOutput.split('\n')[0];
-            execSync(`kill -9 ${pid} 2>/dev/null`, { stdio: 'ignore', timeout: 3000 });
-          }
-        } catch (e) {
-          // Port is free or error
-        }
-      }
-
-      // Wait for port to be released
-      setTimeout(() => resolve(), 500);
-    } catch (err) {
-      // Silent fail - continue anyway
-      resolve();
+// PID listening on exactly `port`, or null. Windows reads the local-address
+// column of netstat; Unix uses lsof's explicit TCP:PORT listener filter.
+function getListenerPid(p) {
+  try {
+    if (process.platform === "win32") {
+      const output = execSync("netstat -ano -p TCP", {
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: 5000,
+        stdio: ["ignore", "pipe", "ignore"]
+      });
+      return findListenerPid(output, p);
     }
-  });
+    const output = execSync(`lsof -tiTCP:${p} -sTCP:LISTEN`, {
+      encoding: "utf8",
+      timeout: 5000,
+      stdio: ["ignore", "pipe", "ignore"]
+    }).trim();
+    const pid = parseInt(output.split("\n")[0], 10);
+    return Number.isInteger(pid) ? pid : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Kill only the server we spawned ourselves (recorded in the pidfile), then
+// pick a free port: never force-kill a foreign listener. ponytail: the pidfile
+// is the whole ownership record — add per-port pidfiles if several instances
+// must coexist.
+async function claimPort() {
+  // A hide-to-tray child is handed its predecessor's PID via env; otherwise
+  // only the pidfile counts as ours.
+  const record = readServerPid();
+  const tracked = parseInt(process.env.NINEROUTER_REUSE_PID, 10) || (record && record.pid);
+  const trackedPort = (record && record.port) || port;
+  clearServerPid();
+  // Stale pidfile? After a reboot or crash the PID may now belong to an
+  // unrelated process. Confirm it is still the listener on the recorded port
+  // before killing; otherwise just drop the record.
+  if (tracked && tracked !== process.pid && isTrackedServerAlive(tracked, getListenerPid(trackedPort))) {
+    killPid(tracked);
+    // Wait for the socket to be released before scanning for a free port.
+    const deadline = Date.now() + 2000;
+    while (getListenerPid(port) !== null && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+  for (let i = 0; i < MAX_PORT_ATTEMPTS; i++) {
+    const candidate = port + i;
+    if (candidate > 65535) break;
+    if (getListenerPid(candidate) === null) {
+      port = candidate;
+      return;
+    }
+  }
+  // Every candidate is taken by someone else: let the server report EADDRINUSE.
 }
 
 
@@ -341,7 +311,7 @@ function isRestrictedEnvironment() {
 // Check if new version available, return latest version or null
 function checkForUpdate() {
   return new Promise((resolve) => {
-    if (skipUpdate) {
+    if (skipUpdate || !UPDATE_PACKAGE) {
       resolve(null);
       return;
     }
@@ -365,7 +335,7 @@ function checkForUpdate() {
       resolve(version);
     };
 
-    const req = https.get(`https://registry.npmjs.org/${pkg.name}/latest`, { timeout: 3000 }, (res) => {
+    const req = https.get(`https://registry.npmjs.org/${encodeURIComponent(UPDATE_PACKAGE)}/latest`, { timeout: 3000 }, (res) => {
       let data = "";
       res.on("data", chunk => data += chunk);
       res.on("end", () => {
@@ -417,20 +387,19 @@ const serverPath = fs.existsSync(customServerPath)
 
 if (!fs.existsSync(serverPath)) {
   console.error("Error: Standalone build not found.");
-  console.error("Please run 'npm run build:cli' first.");
+  console.error("Please run 'npm run build' in cli/ first.");
   process.exit(1);
 }
 
 // Start server immediately; run update check in parallel (not on the critical path).
 const updatePromise = checkForUpdate();
-killAllAppProcesses(port)
-  .then(() => killProcessOnPort(port))
-  .then(() => startServer(updatePromise));
+claimPort().then(() => startServer(updatePromise));
 
 // Show interface selection menu
 async function showInterfaceMenu(latestVersion) {
   const { selectMenu } = require("./src/cli/utils/input");
   const { clearScreen } = require("./src/cli/utils/display");
+  const { isAutoStartEnabled } = require("./src/cli/tray/autostart");
   clearScreen();
 
   const displayHost = getDisplayHost();
@@ -449,6 +418,7 @@ async function showInterfaceMenu(latestVersion) {
     { label: "Web UI (Open in Browser)", icon: "🌐" },
     { label: "Terminal UI (Interactive CLI)", icon: "💻" },
     { label: "Hide to Tray (Background)", icon: "🔔" },
+    { label: `${isAutoStartEnabled() ? "Disable" : "Enable"} Auto-start on Boot`, icon: "🔁" },
     { label: "Exit", icon: "🚪" }
   );
 
@@ -460,6 +430,7 @@ async function showInterfaceMenu(latestVersion) {
   if (selected === offset) return "web";
   if (selected === offset + 1) return "terminal";
   if (selected === offset + 2) return "hide";
+  if (selected === offset + 3) return "autostart";
   return "exit";
 }
 
@@ -504,6 +475,8 @@ function startServer(updatePromise) {
         if (crashLog.length > CRASH_LOG_LINES) crashLog = crashLog.slice(-CRASH_LOG_LINES);
       });
     }
+    // Record our own server so a later launch kills exactly this process.
+    if (child.pid) writeServerPid(child.pid, port);
     return child;
   }
 
@@ -527,13 +500,17 @@ function startServer(updatePromise) {
       // Also try to kill process group
       process.kill(-server.pid, "SIGKILL");
     } catch (e) { }
+    clearServerPid();
   }
 
   // Suppress all errors during shutdown (systray lib throws JSON parse errors)
   let isShuttingDown = false;
   process.on("uncaughtException", (err) => {
     if (isShuttingDown) return;
-    console.error("Error:", err.message);
+    console.error("Fatal error:", err && err.stack ? err.stack : err);
+    isShuttingDown = true;
+    cleanup();
+    process.exit(1);
   });
 
   // Handle all exit scenarios
@@ -557,12 +534,24 @@ function startServer(updatePromise) {
     setTimeout(() => process.exit(0), 100);
   });
 
+  // Server never accepted connections: stop instead of showing a dead menu.
+  // (A crash-restart loop that gave up has already exited the process.)
+  function failNotReady() {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.error(`\n❌ Server did not become ready on ${getProbeHost()}:${port}.`);
+    if (crashLog.length) crashLog.forEach((l) => console.error(l));
+    cleanup();
+    process.exit(1);
+  }
+
   // Initialize tray icon (runs alongside TUI)
   const initTrayIcon = () => {
     try {
       const { initTray } = require("./src/cli/tray/tray");
       initTray({
         port,
+        host,
         onQuit: () => {
           isShuttingDown = true;
           console.log("\n👋 Shutting down from tray...");
@@ -585,7 +574,8 @@ function startServer(updatePromise) {
     console.log(`\n🚀 ${pkg.name} v${pkg.version}`);
     console.log(`Server: http://${displayHost}:${port}`);
 
-    waitServerReady(port).then(() => {
+    waitServerReady(port, { host: getProbeHost() }).then((ready) => {
+      if (!ready) return failNotReady();
       initTrayIcon();
       console.log("\n💡 Router is now running in system tray. Close this terminal if you want.");
       console.log("   Right-click tray icon to open dashboard or quit.\n");
@@ -595,7 +585,8 @@ function startServer(updatePromise) {
   }
 
   // Wait for server to be ready, then show interface menu loop + tray
-  waitServerReady(port).then(async () => {
+  waitServerReady(port, { host: getProbeHost() }).then(async (ready) => {
+    if (!ready) return failNotReady();
     // Resolve parallel update check (already running); don't block server start on it.
     const latestVersion = await latestVersionPromise;
     // Start tray icon alongside TUI
@@ -613,9 +604,8 @@ function startServer(updatePromise) {
           console.log(`Run this after exit:\n`);
           console.log(`   \x1b[33m${INSTALL_CMD_LATEST}\x1b[0m\n`);
           cleanup();
-          await killAllAppProcesses(port);
-          await killProcessOnPort(port);
-          setTimeout(() => process.exit(0), 200);
+          await new Promise((r) => setTimeout(r, 200));
+          process.exit(0);
           return;
         } else if (choice === "web") {
           openBrowser(url);
@@ -625,17 +615,11 @@ function startServer(updatePromise) {
         } else if (choice === "terminal") {
           // Start Terminal UI - it will return when user selects Back
           const { startTerminalUI } = require("./src/cli/terminalUI");
-          await startTerminalUI(port);
+          await startTerminalUI(port, getProbeHost());
           // Loop continues, show menu again
         } else if (choice === "hide") {
           const { clearScreen } = require("./src/cli/utils/display");
           clearScreen();
-
-          // Enable auto startup on OS boot
-          try {
-            const { enableAutoStart } = require("./src/cli/tray/autostart");
-            enableAutoStart(__filename);
-          } catch (e) { }
 
           if (process.platform === "darwin") {
             // macOS: keep current process alive — spawning a detached child puts
@@ -655,11 +639,13 @@ function startServer(updatePromise) {
           // Windows/Linux: spawn detached bgProcess (systray works fine in child)
           console.log(`\n⏳ Starting background process... (tray icon will appear in ~3s)`);
 
-          const bgProcess = spawn(process.execPath, ["--dns-result-order=ipv4first", __filename, "--tray", "--skip-update", "-p", port.toString()], {
+          const bgProcess = spawn(process.execPath, ["--dns-result-order=ipv4first", __filename, ...buildTrayArgs({ host, port })], {
             detached: true,
             stdio: "ignore",
             windowsHide: true,
-            env: { ...process.env }
+            // Hand our server PID over so the child reclaims this port instead
+            // of treating its own predecessor as a foreign listener.
+            env: { ...process.env, NINEROUTER_REUSE_PID: server.pid ? String(server.pid) : "" }
           });
           bgProcess.unref();
 
@@ -670,6 +656,14 @@ function startServer(updatePromise) {
           // cleanup() kills server so bgProcess can claim the port fresh
           cleanup();
           process.exit(0);
+        } else if (choice === "autostart") {
+          const { enableAutoStart, disableAutoStart, isAutoStartEnabled } = require("./src/cli/tray/autostart");
+          const enable = !isAutoStartEnabled();
+          if (enable) enableAutoStart(__filename, { host, port });
+          else disableAutoStart();
+          console.log(enable ? "\n✅ Auto-start enabled for the current host and port.\n" : "\n✅ Auto-start disabled.\n");
+          const { pause } = require("./src/cli/utils/input");
+          await pause("Press Enter to go back to menu...");
         } else if (choice === "exit") {
           isShuttingDown = true;
           console.log("\nExiting...");
@@ -705,16 +699,17 @@ function startServer(updatePromise) {
     // Reset counter if last run was stable
     if (aliveMs >= RESTART_RESET_MS) restartCount = 0;
 
-    if (restartCount >= MAX_RESTARTS) {
-      console.error(`\n⚠️  Server crashed ${MAX_RESTARTS} times. Restarting...`);
-      restartCount = 0;
-      server = spawnServer();
-      attachServerEvents();
+    restartCount++;
+    if (restartCount > MAX_RESTARTS) {
+      console.error(`\n❌ Server crashed ${restartCount} times in a row (code=${code ?? "unknown"}). Giving up.`);
+      if (crashLog.length) crashLog.forEach((l) => console.error(l));
+      isShuttingDown = true;
+      cleanup();
+      process.exit(typeof code === "number" && code !== 0 ? code : 1);
       return;
     }
-
-    restartCount++;
-    const delay = Math.min(1000 * restartCount, 10000);
+    // Exponential backoff: 1s, 2s, 4s ... capped at 10s.
+    const delay = Math.min(1000 * 2 ** (restartCount - 1), 10000);
     console.error(`\n⚠️  Server exited (code=${code ?? "unknown"}). Restarting in ${delay / 1000}s... (${restartCount}/${MAX_RESTARTS})`);
     if (crashLog.length) {
       console.error("\n--- Server crash log ---");

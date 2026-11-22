@@ -1,7 +1,8 @@
 // Gemini helper functions for translator
 
 import { safeParseJSON } from "../concerns/json.js";
-import { OPENAI_BLOCK } from "../schema/index.js";
+import { DEFAULT_IMAGE_MIME, OPENAI_BLOCK } from "../schema/index.js";
+import { isGemini4Model } from "../../providers/capabilities.js";
 
 // Unsupported JSON Schema constraints that should be removed for Antigravity
 export const UNSUPPORTED_SCHEMA_CONSTRAINTS = [
@@ -29,10 +30,17 @@ export const UNSUPPORTED_SCHEMA_CONSTRAINTS = [
   // Dependency keywords (not supported)
   "dependencies", "dependentSchemas", "dependentRequired",
   // Other unsupported keywords
-  "title", "optional", "deprecated", "if", "then", "else", "contentMediaType", "contentEncoding",
+  "title", "optional", "~optional", "deprecated", "if", "then", "else", "contentMediaType", "contentEncoding",
   // UI/Styling properties (from Cursor tools - NOT JSON Schema standard)
   "cornerRadius", "fillColor", "fontFamily", "fontSize", "fontWeight",
-  "gap", "padding", "strokeColor", "strokeThickness", "textColor"
+  "gap", "padding", "strokeColor", "strokeThickness", "textColor",
+  // Non-standard annotation/error keywords used by some MCP tool schemas (#4283).
+  // Gemini's schema proto has no field for these and rejects the whole request with
+  // "Unknown name X: Cannot find field" if any nested schema node carries them.
+  "errorMessage", "errorMessages", "x-errorMessage", "x-errorMessages",
+  "markdownDescription", "x-intellij-html-description",
+  "x-taplo-info", "x-taplo", "doNotSuggest", "suggestSortText",
+  "minProperties", "maxProperties"
 ];
 
 // Default safety settings
@@ -43,6 +51,17 @@ export const DEFAULT_SAFETY_SETTINGS = [
   { category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" },
   { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "OFF" }
 ];
+
+function remoteImageMimeType(url) {
+  let pathname;
+  try { pathname = new URL(url).pathname.toLowerCase(); }
+  catch { return DEFAULT_IMAGE_MIME; }
+  if (pathname.endsWith(".jpg") || pathname.endsWith(".jpeg")) return "image/jpeg";
+  if (pathname.endsWith(".webp")) return "image/webp";
+  if (pathname.endsWith(".gif")) return "image/gif";
+  if (pathname.endsWith(".bmp")) return "image/bmp";
+  return DEFAULT_IMAGE_MIME;
+}
 
 // Convert OpenAI content to Gemini parts
 export function convertOpenAIContentToParts(content) {
@@ -68,7 +87,7 @@ export function convertOpenAIContentToParts(content) {
         }
       } else if (item.type === OPENAI_BLOCK.IMAGE_URL && item.image_url?.url && (item.image_url.url.startsWith("http://") || item.image_url.url.startsWith("https://"))) {
         parts.push({
-          fileData: { fileUri: item.image_url.url, mimeType: "image/*" }
+          fileData: { fileUri: item.image_url.url, mimeType: remoteImageMimeType(item.image_url.url) }
         });
       } else if (item.type === OPENAI_BLOCK.INPUT_AUDIO && item.input_audio?.data) {
         const format = item.input_audio.format || "wav";
@@ -286,13 +305,23 @@ function flattenAnyOfOneOf(obj) {
   }
 }
 
+// Choose one type from a multi-type union: structural clues first, then string > number > integer > boolean
+function pickBestType(obj, types) {
+  if (types.length === 0) return "string";
+  if (types.length === 1) return types[0];
+  if (obj.properties && types.includes("object")) return "object";
+  if (obj.items && typeof obj.items === "object" && obj.items.type && types.includes("array")) return "array";
+  for (const t of ["string", "number", "integer", "boolean"]) if (types.includes(t)) return t;
+  return types[0];
+}
+
 // Flatten type arrays
 function flattenTypeArrays(obj) {
   if (!obj || typeof obj !== "object") return;
 
   if (obj.type && Array.isArray(obj.type)) {
     const nonNullTypes = obj.type.filter(t => t !== "null");
-    obj.type = nonNullTypes.length > 0 ? nonNullTypes[0] : "string";
+    obj.type = pickBestType(obj, nonNullTypes);
   }
 
   for (const value of Object.values(obj)) {
@@ -306,7 +335,14 @@ function flattenTypeArrays(obj) {
 function ensureObjectType(obj) {
   if (!obj || typeof obj !== "object") return;
   if (obj.properties && !obj.type) obj.type = "object";
-  for (const v of Object.values(obj)) if (v && typeof v === "object") ensureObjectType(v);
+  for (const [key, v] of Object.entries(obj)) {
+    if (!v || typeof v !== "object") continue;
+    if (key === "properties" && !Array.isArray(v)) {
+      for (const sub of Object.values(v)) ensureObjectType(sub);
+    } else {
+      ensureObjectType(v);
+    }
+  }
 }
 
 // Convert prefixItems (tuple validation) to items — Gemini cannot express tuples,
@@ -334,10 +370,33 @@ function convertPrefixItems(obj) {
 // Gemini requires items on every type:"array" schema — fill a permissive placeholder
 function ensureArrayItems(obj) {
   if (!obj || typeof obj !== "object") return;
-  if (obj.type === "array" && !obj.items) {
-    obj.items = { type: "string" };
+  if (obj.type === "array") {
+    if (!obj.items || typeof obj.items !== "object" || Object.keys(obj.items).length === 0) {
+      obj.items = { type: "string" };
+    } else if (!obj.items.type) {
+      obj.items.type = obj.items.properties ? "object" : obj.items.items ? "array" : "string";
+    }
   }
   for (const v of Object.values(obj)) if (v && typeof v === "object") ensureArrayItems(v);
+}
+
+// Gemini proto predicates: `items` only on type:"array"; `properties`/`required` only on type:"object".
+// Schema-aware walk: `properties` is a name->schema map, so a parameter literally named
+// "items"/"properties"/"required" is never mistaken for a keyword. Untyped schemas are left alone.
+function enforceTypeConstraints(schema) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return;
+
+  if (schema.properties && typeof schema.properties === "object") {
+    for (const child of Object.values(schema.properties)) enforceTypeConstraints(child);
+  }
+  if (schema.items && typeof schema.items === "object") enforceTypeConstraints(schema.items);
+
+  if (typeof schema.type !== "string") return;
+  if (schema.type !== "array") delete schema.items;
+  if (schema.type !== "object") {
+    delete schema.properties;
+    delete schema.required;
+  }
 }
 
 // Clean JSON Schema for Antigravity API compatibility - removes unsupported keywords recursively
@@ -428,22 +487,77 @@ export function cleanJSONSchemaForAntigravity(schema) {
 
   addPlaceholders(cleaned);
 
+  // Phase 6: Enforce Gemini type predicates (items only on array, properties/required only on object)
+  enforceTypeConstraints(cleaned);
+
   return cleaned;
 }
 
-// Merge adjacent same-role messages, strip empty parts, ensure initial user turn
-export function normalizeGeminiContents(contents) {
+// Gemini / Cloud Code treat a `$ref` key inside functionResponse.response as a
+// pointer to functionResponse.parts and reject the request with
+// "The referenced name `#/$defs/...` in function_response.response does not match
+// to a display_name in the function_response.parts". Tool results that carry a
+// JSON Schema / OpenAPI document (webfetch, read, MCP) hit this, so rename the key.
+export const GEMINI_RESERVED_RESPONSE_KEYS = { "$ref": "_ref" };
+
+// Recursively rename reserved keys in a tool-result payload (arrays/objects only)
+export function sanitizeFunctionResponsePayload(value) {
+  if (Array.isArray(value)) return value.map(sanitizeFunctionResponsePayload);
+  if (!value || typeof value !== "object") return value;
+  const out = {};
+  for (const [key, val] of Object.entries(value)) {
+    out[GEMINI_RESERVED_RESPONSE_KEYS[key] ?? key] = sanitizeFunctionResponsePayload(val);
+  }
+  return out;
+}
+
+// Return the part with a sanitized functionResponse.response (same reference when untouched)
+function sanitizeFunctionResponsePart(part) {
+  const response = part?.functionResponse?.response;
+  if (!response || typeof response !== "object") return part;
+  return { ...part, functionResponse: { ...part.functionResponse, response: sanitizeFunctionResponsePayload(response) } };
+}
+
+// Gemini 4 rejects a merged user turn whose last part is not a functionResponse (#4802)
+function moveFunctionResponsesLast(parts) {
+  const responses = parts.filter(p => p.functionResponse);
+  if (!responses.length) return parts;
+  return [...parts.filter(p => !p.functionResponse), ...responses];
+}
+
+// Merge adjacent same-role messages, strip empty parts, ensure initial and terminal user turns
+export function normalizeGeminiContents(contents, model = null) {
+  const frLast = isGemini4Model(model);
   const out = [];
   for (const c of contents || []) {
     if (!c?.role || !Array.isArray(c.parts)) continue;
-    const parts = c.parts.filter(p => p && Object.keys(p).length > 0);
+    const parts = c.parts.filter(p => p && Object.keys(p).length > 0).map(sanitizeFunctionResponsePart);
     if (parts.length === 0) continue;
     const last = out.at(-1);
-    if (last?.role === c.role) last.parts.push(...parts);
-    else out.push({ ...c, parts: [...parts] });
+    if (last?.role === c.role) {
+      last.parts.push(...parts);
+      if (frLast && c.role === "user") last.parts = moveFunctionResponsesLast(last.parts);
+    } else out.push({ ...c, parts: frLast && c.role === "user" ? moveFunctionResponsesLast(parts) : [...parts] });
   }
   if (out.length > 0 && out[0].role !== "user") {
     out.unshift({ role: "user", parts: [{ text: "..." }] });
+  }
+  if (out.length > 0 && out.at(-1).role === "model") {
+    const fnCalls = (out.at(-1).parts || []).filter(p => p && p.functionCall);
+    if (fnCalls.length > 0) {
+      const responses = fnCalls.map(p => {
+        const call = p.functionCall || {};
+        const fr = {
+          name: call.name || "tool",
+          response: { result: "Continue." }
+        };
+        if (call.id) fr.id = call.id;
+        return { functionResponse: fr };
+      });
+      out.push({ role: "user", parts: responses });
+    } else {
+      out.push({ role: "user", parts: [{ text: "Continue." }] });
+    }
   }
   return out;
 }

@@ -1,10 +1,11 @@
 import { getProviderConnectionById, updateProviderConnection } from "@/lib/localDb";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { testProxyUrl } from "@/lib/network/proxyTest";
-import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
+import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isSystemOneProvider } from "@/shared/constants/providers";
 import { getDefaultModel } from "open-sse/config/providerModels.js";
 import { resolveOllamaLocalHost, PROVIDERS } from "open-sse/config/providers.js";
 import { CODEX_CLI_VERSION } from "open-sse/config/appConstants.js";
+import { GROK_CLI_PAGER_USER_AGENT, GROK_CLI_VERSION } from "open-sse/config/grokCli.js";
 import {
   refreshProviderCredentials,
   shouldRefreshCredentials,
@@ -112,10 +113,10 @@ const OAUTH_TEST_CONFIG = {
     extraHeaders: {
       Accept: "application/json",
       ...(PROVIDERS["grok-cli"]?.headers || {
-        "User-Agent": "grok-pager/0.2.93 grok-shell/0.2.93 (linux; x86_64)",
+        "User-Agent": GROK_CLI_PAGER_USER_AGENT,
         "x-xai-token-auth": "xai-grok-cli",
         "x-grok-client-identifier": "grok-pager",
-        "x-grok-client-version": "0.2.93",
+        "x-grok-client-version": GROK_CLI_VERSION,
       }),
     },
     refreshable: true,
@@ -473,6 +474,23 @@ async function fetchWithConnectionProxy(url, options = {}, effectiveProxy = null
 }
 
 async function testApiKeyConnection(connection, effectiveProxy = null) {
+  if (isSystemOneProvider(connection.provider)) {
+    const baseUrl = connection.providerSpecificData?.baseUrl;
+    if (!baseUrl) return { valid: false, error: "Missing base URL" };
+    try {
+      // Invalid questions: auth check without spending an evaluation.
+      const res = await fetchWithConnectionProxy(baseUrl.replace(/\/$/, ""), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${connection.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "ping", state: "ping", questions: {} }),
+      }, effectiveProxy);
+      const valid = res.status !== 401 && res.status !== 403;
+      return { valid, error: valid ? null : "Invalid API key" };
+    } catch (err) {
+      return { valid: false, error: err.message };
+    }
+  }
+
   if (isOpenAICompatibleProvider(connection.provider)) {
     const modelsBase = connection.providerSpecificData?.baseUrl;
     if (!modelsBase) return { valid: false, error: "Missing base URL" };
@@ -549,6 +567,16 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
       case "openai": {
         const res = await fetchWithConnectionProxy("https://api.openai.com/v1/models", { headers: { Authorization: `Bearer ${connection.apiKey}` } }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "typesafe": {
+        const res = await fetchWithConnectionProxy(PROVIDERS.typesafe.baseUrl, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${connection.apiKey}`, "Content-Type": "application/json" },
+          // Deliberately invalid questions: proves authentication without spending an evaluation.
+          body: JSON.stringify({ model: "jev-latest", state: "ping", questions: {} }),
+        }, effectiveProxy);
+        const valid = res.status !== 401 && res.status !== 403;
+        return { valid, error: valid ? null : "Invalid API key" };
       }
       case "vercel-ai-gateway": {
         const res = await fetchWithConnectionProxy("https://ai-gateway.vercel.sh/v1/models", { headers: { Authorization: `Bearer ${connection.apiKey}` } }, effectiveProxy);
@@ -688,6 +716,28 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
         const res = await fetchWithConnectionProxy("https://api.hyperbolic.xyz/v1/models", { headers: { Authorization: `Bearer ${connection.apiKey}` } }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
       }
+      case "runcrate":
+      case "synthetic": {
+        const cfg = PROVIDERS[connection.provider];
+        const res = await fetchWithConnectionProxy(cfg.validateUrl, { headers: { Authorization: `Bearer ${connection.apiKey}` } }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "sensenova-intl": {
+        // The registry entry owns the host; a missing validateUrl is a config bug,
+        // not a bad key, so it must not read as "invalid credential".
+        const validateUrl = PROVIDERS[connection.provider]?.validateUrl;
+        if (!validateUrl) return { valid: false, error: "Provider test not supported" };
+        const res = await fetchWithConnectionProxy(validateUrl, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${connection.apiKey}`, Accept: "application/json" },
+        }, effectiveProxy);
+        return {
+          valid: res.ok,
+          error: res.ok ? null : res.status === 401 || res.status === 403
+            ? "Invalid API key"
+            : `SenseNova API error (${res.status})`,
+        };
+      }
       case "ollama": {
         const res = await fetch("https://ollama.com/api/tags", { headers: { Authorization: `Bearer ${connection.apiKey}` } });
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
@@ -741,7 +791,7 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
         return { valid: res.ok, error: res.ok ? null : "OpenCode free tier unavailable" };
       }
       case "opencode-go": {
-        const res = await fetchWithConnectionProxy("https://opencode.ai/zen/go/v1/chat/completions", {
+        const res = await fetchWithConnectionProxy("https://opencode.ai/inference/go/openai/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${connection.apiKey}` },
           body: JSON.stringify({ model: getDefaultModel("opencode-go"), messages: [{ role: "user", content: "ping" }], max_tokens: 1, stream: false }),
@@ -804,6 +854,20 @@ case "llm7": {
           },
         }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key", refreshed: false };
+      }
+      case "kenari": {
+        // Kenari's /v1/models answers 200 for ANY key (auth-blind), so validating
+        // against transport.validateUrl would report a revoked key as valid. The
+        // quota endpoint is the one getKenariUsage trusts for auth and it answers
+        // 401 "invalid key".
+        const res = await fetchWithConnectionProxy(
+          PROVIDERS["kenari"]?.usage?.url || "https://kenari.id/v1/account/quota",
+          { headers: { Authorization: `Bearer ${connection.apiKey}`, Accept: "application/json" } },
+          effectiveProxy,
+        );
+        if (res.status === 401 || res.status === 403) return { valid: false, error: "Invalid API key" };
+        if (!res.ok) return { valid: false, error: `Kenari validation failed (HTTP ${res.status})` };
+        return { valid: true, error: null };
       }
       default:
         return { valid: false, error: "Provider test not supported" };

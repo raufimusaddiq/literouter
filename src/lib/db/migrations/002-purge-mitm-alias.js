@@ -15,6 +15,8 @@ export default {
   version: 2,
   name: "purge-mitm-alias",
   up(db) {
+    db.exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY, data TEXT NOT NULL)");
+    db.exec("CREATE TABLE IF NOT EXISTS kv (scope TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY (scope, key))");
     db.run(
       `DELETE FROM kv WHERE scope IN ('mitmAlias', 'mitmSudoEncrypted')`
     );

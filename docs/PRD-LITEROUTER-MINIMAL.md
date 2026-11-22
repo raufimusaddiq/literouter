@@ -741,7 +741,7 @@ Redis MUST NOT become the sole durable source for provider, combo, Usage, or oth
 
 Connection is a plain `REDIS_URL` (for example `redis://idx-redis:6379`).
 LiteRouter MUST namespace all keys with a deployable prefix
-(for example `literouter:staging:`) so multiple deployments can share one
+(for example `literouter:prod:`) so multiple deployments can share one
 Redis server without key collisions.
 
 Conceptual multi-instance deployment:
@@ -962,19 +962,18 @@ Existing provider, combo, quota, usage, and token-saver configuration should mig
 
 The deployment endpoint used by existing applications must not require application-level changes solely because LiteRouter becomes minimal.
 
-### 19.1 Isolated staging requirement
+### 19.1 Isolated validation requirement (staging sunset)
 
-Changes that alter the LiteRouter profile must be validated in an isolated staging deployment before production promotion.
+The staging branch and deployment are sunset: there is no `staging` branch, no
+`compose.staging.yml`, and no staging image workflow. Validation happens against
+a disposable copy of production data (see `phase-minimal-boundary.md` and
+`phase-edge-swap-rehearsal.md`) plus CI on the PR, not a long-lived staging
+deployment.
 
-Staging MUST NOT share mutable runtime state with production. At minimum it needs separate:
-
-- container/process identity,
-- listen port,
-- SQLite/data volume,
-- runtime network/namespace where practical,
-- secrets/credentials or explicitly scoped staging credentials.
-
-Exact Docker resource names and port numbers are deployment details, not part of the product contract. A deployment may use names such as `literouter-staging`, `literouter-staging-data`, and a dedicated staging port, but the PRD should not hard-code them.
+Any isolated validation environment MUST NOT share mutable runtime state with
+production. At minimum it needs a separate container/process identity, listen
+port, SQLite/data volume, and network namespace, and it must not use production
+credentials.
 
 Production data must be backed up before any migration that changes persisted state.
 
@@ -1064,7 +1063,7 @@ The minimalization initiative is complete only when all of the following are tru
 - routing hot-path performance is not worse than the current baseline under equivalent test traffic;
 - Usage buffering is bounded and shutdown flushing is tested;
 - fallback/retry paths are finite and deterministic;
-- staging is isolated from production state;
+- validation runs are isolated from production state;
 - rollback to the previous production image/version has been tested.
 
 ## 22. Scope tightening
@@ -1110,14 +1109,13 @@ are skipped; `unknown` remains eligible but is lower priority; quota fetch
 failure MUST NOT make the provider unusable. Reset timestamps are advisory
 until refreshed. Routing MUST never loop indefinitely on quota or retry errors.
 
-## 25. Staging and migration plan
+## 25. Migration plan (staging sunset)
 
-`main` remains the production branch and current LiteRouter deployment. `staging`
-is the only branch allowed to change the LiteRouter profile. Staging runs in an
-isolated Docker project: `compose.staging.yml`, container
-`literouter-staging`, port `20129`, volume `literouter-staging-data`, and
-network `literouter-staging`. It MUST NOT share production data, ports, or
-credentials.
+`main` is the production branch and the only release target. The staging branch
+and its deployment were sunset: no `compose.staging.yml`, no staging image
+workflow, and no `staging -> main` release PR. All changes open a PR against
+`main`, gated by CI and Hermes, and deploy the immutable production image for
+the merged SHA.
 
 Development proceeds in small, cherry-pickable PRs:
 
@@ -1130,12 +1128,12 @@ Development proceeds in small, cherry-pickable PRs:
    retained regression suite after each removal.
 5. Add Generic Provider transport capabilities only after the retained path is
    stable.
-6. Measure staging against the baseline; publish results in each implementation
-   PR.
+6. Measure against the production baseline (disposable data copy); publish
+   results in each implementation PR.
 7. Promote only through a canary deployment with a separate data backup and a
    verified rollback image.
 
-No staging change may alter `main`, production Caddy routing, the production
+No validation run may alter `main`, production Caddy routing, the production
 SQLite volume, or production secrets.
 
 ## 26. Promotion gates
@@ -1147,11 +1145,12 @@ Promotion requires all of the following:
 - Usage and Quota UI/API comparisons show no functional regression;
 - combo fallback, round-robin, cooldown, and quota fixtures pass;
 - no unbounded queue, retry loop, or synchronous per-request SQLite lookup;
-- staging startup/RSS/image/latency measurements are recorded;
+- startup/RSS/image/latency measurements against a disposable data copy are
+  recorded;
 - rollback to the prior production image is tested.
 
-Until every gate passes, staging is experimental and production remains the
-current LiteRouter deployment.
+Every change ships as a PR against `main`; there is no staging branch or
+staging deployment to promote from.
 
 ---
 
@@ -1202,7 +1201,7 @@ Recommended order:
 - routing/fallback suite;
 - token-saver suite;
 - before/after startup/RSS/image/latency measurements;
-- isolated staging smoke tests for active production clients;
+- isolated smoke tests for active production clients against a disposable copy;
 - backup and rollback rehearsal before production promotion.
 
 ---

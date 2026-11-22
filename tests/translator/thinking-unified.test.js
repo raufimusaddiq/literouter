@@ -88,12 +88,12 @@ describe("applyThinking per provider format", () => {
     expect(out.thinking).toEqual({ type: "adaptive" });
   });
   it("permanently adaptive Claude maps auto effort without adding a thinking switch", () => {
-    const out = apply("claude", "claude-fable-5-1", { thinking: { type: "adaptive" } }, "claude");
+    const out = apply("claude", "claude-fable-5-2", { thinking: { type: "adaptive" } }, "claude");
     expect(out.output_config).toEqual({ effort: "high" });
     expect(out.thinking).toBeUndefined();
   });
-  it("Fable 5.1 → effort without a redundant thinking switch", () => {
-    const out = apply("claude", "claude-fable-5-1", { reasoning_effort: "high" }, "claude");
+  it("Fable 5.2 → effort without a redundant thinking switch", () => {
+    const out = apply("claude", "claude-fable-5-2", { reasoning_effort: "high" }, "claude");
     expect(out.output_config).toEqual({ effort: "high" });
     expect(out.thinking).toBeUndefined();
   });
@@ -292,5 +292,31 @@ describe("extractReasoningText (response shapes)", () => {
   });
   it("no reasoning → empty", () => {
     expect(extractReasoningText({ content: "hello" })).toBe("");
+  });
+});
+
+describe("OpenCode Free ids with no capabilities entry (#2690)", () => {
+  const bunny = (effort) => ({
+    model: "oc/space-bunny-free",
+    messages: [{ role: "user", content: "hi" }],
+    reasoning_effort: effort,
+  });
+
+  it("keeps the client reasoning_effort for space-bunny-free", () => {
+    for (const level of ["low", "medium", "high", "xhigh", "none"]) {
+      expect(apply("openai", "oc/space-bunny-free", bunny(level), "oc").reasoning_effort).toBe(level);
+      expect(apply("openai-responses", "oc/space-bunny-free", bunny(level), "oc").reasoning).toEqual(
+        level === "none" ? { effort: "none", summary: "auto" } : { summary: "auto", effort: level },
+      );
+    }
+  });
+
+  it("clamps max to xhigh (openai format has no max)", () => {
+    expect(apply("openai", "oc/space-bunny-free", bunny("max"), "oc").reasoning_effort).toBe("xhigh");
+    expect(apply("openai-responses", "oc/space-bunny-free", bunny("max"), "oc").reasoning.effort).toBe("xhigh");
+  });
+
+  it("still strips it for a model that has no entry at all (control)", () => {
+    expect(apply("openai", "oc/no-such-model-xyz", bunny("high"), "oc").reasoning_effort).toBeUndefined();
   });
 });

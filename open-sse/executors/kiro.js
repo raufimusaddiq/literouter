@@ -9,9 +9,16 @@ import { v4 as uuidv4 } from "uuid";
 import { refreshKiroToken } from "../services/tokenRefresh.js";
 import { SSE_DONE, SSE_HEADERS } from "../utils/sseConstants.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
+import { isGatewayTimeout } from "../utils/requestTimeouts.js";
 import { STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig.js";
 
 const KIRO_REPAIR_BUFFER_MAX_BYTES = 8 * 1024 * 1024;
+// Regions per service host; a region outside the set is never spliced into the hostname.
+const KIRO_SERVICE_REGIONS = {
+  q: new Set(["us-east-1", "eu-central-1"]),
+  runtime: new Set(["us-east-1", "eu-central-1"]),
+  codewhisperer: new Set(["us-east-1"]),
+};
 const KIRO_REPAIR_HEARTBEAT_MS = 10_000;
 const KIRO_SHORT_FINAL_MAX_CHARS = 800;
 const EVENTSTREAM_MAX_MESSAGE_BYTES = 24 * 1024 * 1024;
@@ -77,6 +84,7 @@ function concatChunks(chunks, totalBytes) {
 }
 
 function makeAbortError(reason) {
+  if (isGatewayTimeout(reason)) return reason;
   const error = new Error(reason?.message || reason || "Request aborted");
   error.name = "AbortError";
   return error;
@@ -312,14 +320,21 @@ export class KiroExecutor extends BaseExecutor {
     // reject foreign tokens with 401/403, which DO fall through, so trying
     // q/codewhisperer first is safe for every auth method (CLIRO parity).
 
-    const region = (credentials?.providerSpecificData?.region || "us-east-1").trim();
-    const regionalize = (u) =>
-      region && region !== "us-east-1" && u.includes("amazonaws.com")
-        ? u.replace(/([a-z]+)\.[a-z0-9-]+\.amazonaws\.com/, `$1.${region}.amazonaws.com`)
-        : u;
+    // Only a covered region reaches the hostname that receives the bearer token.
+    const requestedRegion = (credentials?.providerSpecificData?.region || "us-east-1").trim();
+    const isAmazonHost = (u) => {
+      try { return new URL(u).hostname.endsWith(".amazonaws.com"); } catch { return false; }
+    };
+    const regionalize = (u) => {
+      if (!isAmazonHost(u)) return u;
+      const service = u.match(/\/\/([a-z]+)\.[a-z0-9-]+\.amazonaws\.com/)?.[1];
+      const covered = KIRO_SERVICE_REGIONS[service];
+      if (!covered || !covered.has(requestedRegion)) return u;
+      return u.replace(/([a-z]+)\.[a-z0-9-]+\.amazonaws\.com/, `$1.${requestedRegion}.amazonaws.com`);
+    };
 
-    const amazon = baseUrls.filter((u) => u.includes("amazonaws.com")).map(regionalize);
-    const others = baseUrls.filter((u) => !u.includes("amazonaws.com"));
+    const amazon = baseUrls.filter(isAmazonHost).map(regionalize);
+    const others = baseUrls.filter((u) => !isAmazonHost(u));
     const q = amazon.filter((u) => u.includes("://q."));
     const remaining = amazon.filter((u) => !u.includes("://q."));
     return q.length > 0
@@ -363,7 +378,16 @@ export class KiroExecutor extends BaseExecutor {
    */
   async execute(args) {
     const result = await super.execute(args);
-    if (result?.response?.ok) this.attachIntegrityGate(result, args);
+    if (result?.response?.ok) {
+      // KIRO_INTEGRITY_GATE=off streams through, forfeiting the tool-call repair retry.
+      if (process.env.KIRO_INTEGRITY_GATE === "off") {
+        result.response = this.transformEventStreamToSSE(result.response, args.model, {
+          toolSpecs: args.body?.conversationState?.currentMessage?.userInputMessage?.userInputMessageContext?.tools || []
+        });
+      } else {
+        this.attachIntegrityGate(result, args);
+      }
+    }
     return result;
   }
 
@@ -405,9 +429,9 @@ export class KiroExecutor extends BaseExecutor {
           controller.enqueue(bytes);
           controller.close();
         } catch (error) {
-          if (open && error.name === "AbortError") {
+          if (open && (error.name === "AbortError" || isGatewayTimeout(error))) {
             controller.error(error);
-          } else if (open && error.name !== "AbortError") {
+          } else if (open) {
             controller.enqueue(encodeSSEError(
               "kiro_integrity_gate_failed",
               error.message || "Kiro integrity validation failed"
@@ -471,7 +495,7 @@ export class KiroExecutor extends BaseExecutor {
           options.stallTimeoutMs
         );
       } catch (error) {
-        if (error.name === "AbortError") throw error;
+        if (error.name === "AbortError" || isGatewayTimeout(error)) throw error;
       }
       return encodeSSEError(
         "kiro_integrity_retry_upstream_error",

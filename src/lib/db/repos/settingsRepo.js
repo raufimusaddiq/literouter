@@ -22,15 +22,15 @@ const DEFAULT_SETTINGS = {
   comboStickyRoundRobinLimit: 1,
   comboStrategies: {},
   capacityAdapter: {
-    vision: { enabled: true, roundRobin: false, models: [] },
+    vision: { enabled: false, roundRobin: false, models: [] },
     pdf: { enabled: false, roundRobin: false, models: [] },
-    audioInput: { enabled: true, roundRobin: false, models: [] },
+    audioInput: { enabled: false, roundRobin: false, models: [] },
     videoInput: { enabled: false, roundRobin: false, models: [] },
   },
   requireLogin: true,
   requireApiKey: true,
   enableObservability: false,
-  observabilityMaxRecords: 1000,
+  observabilityMaxRecords: 15000,
   observabilityBatchSize: 20,
   observabilityFlushIntervalMs: 5000,
   observabilityMaxJsonSize: 5,
@@ -51,6 +51,9 @@ const DEFAULT_SETTINGS = {
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,
   pxpipeTimeoutMs: 15000,
+  // Days of per-request usageHistory rows to keep (0 = forever). usageDaily
+  // aggregates are never pruned, so all-time totals stay correct.
+  usageHistoryRetentionDays: 90,
 };
 
 async function readRaw() {

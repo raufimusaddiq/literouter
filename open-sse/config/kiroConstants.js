@@ -35,9 +35,6 @@ export const KIRO_DEFAULT_PROFILE_ARNS = {
   social: "arn:aws:codewhisperer:us-east-1:699475941385:profile/EHGA3GRVQMUK",
 };
 
-// Back-compat single default (Builder ID).
-export const KIRO_DEFAULT_PROFILE_ARN = KIRO_DEFAULT_PROFILE_ARNS["builder-id"];
-
 /** Resolve the shared default profileArn for a given auth method. */
 export function resolveDefaultProfileArn(authMethod) {
   const social = authMethod === "google" || authMethod === "github";
@@ -171,7 +168,22 @@ export function resolveKiroThinkingBudget(body, headers, model) {
   return null;
 }
 
-export function extractKiroEffortLevel(body) {
+function parseClaudeVersion(model) {
+  if (typeof model !== "string") return null;
+  const normalized = model.toLowerCase().replace(/-/g, ".");
+  const match = normalized.match(/(?:^|[/.])claude(?:[/.][a-z]+)*[/.](\d+)(?:[/.](\d+))?(?:[/.]|$)/);
+  if (!match) return null;
+  return { major: Number(match[1]), minor: match[2] === undefined ? null : Number(match[2]) };
+}
+
+// Kiro effort tiers per model (kiro.dev docs + live additionalModelRequestFieldsSchema):
+// 4.6 Claude models cap at low|medium|high|max; 4.7+ add xhigh. Unknown models stay conservative.
+function kiroModelLacksXhigh(model) {
+  const v = parseClaudeVersion(model);
+  return !v || (v.major === 4 && v.minor !== null && v.minor <= 6);
+}
+
+export function extractKiroEffortLevel(body, model) {
   const effort =
     body?.output_config?.effort ??
     body?.reasoning_effort ??
@@ -179,7 +191,8 @@ export function extractKiroEffortLevel(body) {
   if (typeof effort !== "string") return null;
   const normalized = effort.toLowerCase();
   if (normalized === "none" || normalized === "off" || normalized === "disabled") return null;
-  if (normalized === "xhigh" || normalized === "max") return "high";
+  if (normalized === "xhigh") return kiroModelLacksXhigh(model) ? "high" : "xhigh";
+  if (normalized === "max") return body?.output_config?.effort != null ? "max" : "high";
   if (["low", "medium", "high"].includes(normalized)) return normalized;
   return null;
 }
@@ -199,10 +212,10 @@ function extractKiroGptEffortLevel(body) {
   return null;
 }
 
-export function buildKiroAdditionalModelRequestFields(body, effortPath = "output_config") {
+export function buildKiroAdditionalModelRequestFields(body, effortPath = "output_config", model) {
   const effort = effortPath === "reasoning"
     ? extractKiroGptEffortLevel(body)
-    : extractKiroEffortLevel(body);
+    : extractKiroEffortLevel(body, model);
   if (!effort) return undefined;
   if (effortPath === "reasoning") {
     // Mirrors Kiro CLI/KAS buildEffortRequestFields("reasoning") for GPT.
@@ -222,11 +235,9 @@ export function resolveKiroEffortPath(model) {
     return "reasoning";
   }
   if (!normalized.includes("claude")) return null;
-  const match = normalized.match(/(?:^|[/.])claude(?:[/.][a-z]+)*[/.](\d+)(?:[/.](\d+))?(?:[/.]|$)/);
-  if (!match) return null;
-  const [, majorText, minorText] = match;
-  const major = Number(majorText);
-  const minor = minorText === undefined ? null : Number(minorText);
+  const v = parseClaudeVersion(model);
+  if (!v) return null;
+  const { major, minor } = v;
   const dateSuffixMinor = minor !== null && minor >= 1000;
   // Kiro rejected additionalModelRequestFields on legacy 4.5 models in live smoke.
   // Default future Claude/Kiro models to supported so new model releases do not
@@ -234,10 +245,6 @@ export function resolveKiroEffortPath(model) {
   return major < 4 || (major === 4 && (minor === null || minor <= 5 || dateSuffixMinor))
     ? null
     : "output_config";
-}
-
-export function supportsKiroAdditionalModelRequestFields(model) {
-  return resolveKiroEffortPath(model) !== null;
 }
 
 export function usesKiroNativeGptEffort(body, model) {
@@ -248,20 +255,7 @@ export function usesKiroNativeGptEffort(body, model) {
 export function buildKiroAdditionalModelRequestFieldsForModel(body, model) {
   const effortPath = resolveKiroEffortPath(model);
   if (!effortPath) return undefined;
-  return buildKiroAdditionalModelRequestFields(body, effortPath);
-}
-
-/**
- * Detect whether an inbound request is asking for reasoning / thinking output.
- * Thin wrapper over resolveKiroThinkingBudget (single source of truth).
- *
- * @param {object} body OpenAI-shaped request body (post-translation)
- * @param {object} [headers] Original inbound HTTP headers (case-insensitive)
- * @param {string} [model] Model id the caller asked for (post-strip ok)
- * @returns {boolean}
- */
-export function isThinkingEnabled(body, headers, model) {
-  return resolveKiroThinkingBudget(body, headers, model) !== null;
+  return buildKiroAdditionalModelRequestFields(body, effortPath, model);
 }
 
 /**

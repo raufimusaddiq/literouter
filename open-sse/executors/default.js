@@ -1,12 +1,15 @@
+import { randomUUID } from "node:crypto";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS, PROVIDER_OAUTH } from "../config/providers.js";
-import { ANTHROPIC_API_VERSION, OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE, selectAnthropicBeta } from "../providers/shared.js";
+import { ANTHROPIC_API_VERSION, OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE, selectAnthropicBeta, mergeAnthropicBeta } from "../providers/shared.js";
 import { resolveOpenAICompatibleApiType } from "../services/provider.js";
 import { OAUTH_ENDPOINTS, buildKimiHeaders } from "../config/appConstants.js";
 import { buildClineHeaders } from "../shared/clineAuth.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
+import { refreshSignal } from "../utils/requestTimeouts.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { stripUnsupportedParams } from "../translator/concerns/paramSupport.js";
+import { extractClaudeSessionIdFromUserId } from "../utils/claudeCloaking.js";
 
 // Auth header descriptors — derived from registry transport.auth, fallback to hardcoded defaults.
 const BEARER = { combined: true, header: "Authorization", scheme: "bearer" };
@@ -16,6 +19,29 @@ const AUTH_DESCRIPTORS = Object.fromEntries(
     .filter(([, t]) => t.auth)
     .map(([id, t]) => [id, t.auth])
 );
+
+function foldResponsesSystemMessages(body) {
+  if (!body || !Array.isArray(body.input)) return body;
+  const systemText = [];
+  const input = body.input.filter((item) => {
+    if (item?.type !== "message" || item.role !== "system") return true;
+    const text = Array.isArray(item.content)
+      ? item.content.filter((part) => part?.type === "input_text" || part?.type === "text").map((part) => part.text).filter(Boolean).join("\n")
+      : typeof item.content === "string" ? item.content : "";
+    if (text) systemText.push(text);
+    return false;
+  });
+  if (typeof body.instructions === "string" && body.instructions.trim()) systemText.unshift(body.instructions.trim());
+  if (!systemText.length) return input.length === body.input.length ? body : { ...body, input };
+  const index = input.findIndex((item) => item?.type === "message" && item.role === "user");
+  if (index < 0) return { ...body, input };
+  const user = input[index];
+  const prefix = systemText.join("\n\n");
+  const content = Array.isArray(user.content)
+    ? [{ type: "input_text", text: `${prefix}\n\n` }, ...user.content]
+    : `${prefix}\n\n${user.content || ""}`;
+  return { ...body, input: input.map((item, i) => i === index ? { ...item, content } : item), instructions: undefined };
+}
 
 // Apply a token to a header per scheme (matches legacy: combined always sets, even when undefined).
 function setAuth(headers, spec, token) {
@@ -38,6 +64,21 @@ function applyAuth(headers, desc, credentials) {
 
 // Provider-specific header quirks kept as small hooks (not pure auth).
 const HEADER_HOOKS = {
+  // CodeBuddy (CN + intl): the gateway runs a channel check per request and
+  // rejects anything that does not carry the conversation/request identifiers
+  // the official plugin sends. Without them upstream answers
+  // 400 {"code":11128,"msg":"request illegal"} with
+  // "This call failed channel verification, possibly because it was not sent
+  // from an official client" — the request never reaches the model.
+  // The same request WITH these headers passes channel verification and gets
+  // as far as the real rate limiter (429 / 6004).
+  codebuddyHeaders: (h) => {
+    const requestId = randomUUID();
+    h["X-Request-ID"] = requestId;
+    h["X-Conversation-ID"] = randomUUID();
+    h["X-Conversation-Request-ID"] = requestId;
+    h["X-Conversation-Message-ID"] = requestId;
+  },
   // Stable device_id from OAuth connection (CLIProxyAPI KimiTokenStorage.DeviceID)
   kimiHeaders: (h, c) => Object.assign(h, buildKimiHeaders(c?.providerSpecificData?.deviceId)),
   clineHeaders: (h, c) => Object.assign(h, buildClineHeaders(c.apiKey || c.accessToken)),
@@ -67,8 +108,20 @@ export class DefaultExecutor extends BaseExecutor {
     super(provider, PROVIDERS[provider] || PROVIDERS.openai);
   }
 
-  transformRequest(model, body) {
-    const transformed = this.applyJsonSchemaFallback(body);
+  transformRequest(model, body, stream) {
+    let transformed = this.applyJsonSchemaFallback(body);
+
+    // OpenAI-compatible upstreams (NVIDIA NIM, DeepSeek) reject `stream_options` on
+    // non-streaming requests with 400 "Stream options can only be defined when stream=True".
+    if (stream !== true && transformed && typeof transformed === "object"
+        && transformed.stream_options !== undefined && transformed.stream !== true) {
+      if (transformed === body) transformed = { ...transformed };
+      delete transformed.stream_options;
+    }
+
+    if (this.config.quirks?.responsesSystemRoleUnsupported) {
+      transformed = foldResponsesSystemMessages(transformed);
+    }
 
     if (transformed && typeof transformed === "object") {
       // quirk: some openai-compatible providers reject Anthropic's client_metadata field
@@ -164,9 +217,21 @@ export class DefaultExecutor extends BaseExecutor {
     // a node fronting Kimi or GLM answers on its own ids and never matches, so
     // gateways that would choke on unknown beta flags are left untouched.
     const isClaudeModel = typeof model === "string" && /^claude-/.test(model);
+    const clientBeta = credentials?.rawHeaders?.["anthropic-beta"];
     if (model && (this.provider === "claude"
       || (this.provider?.startsWith?.("anthropic-compatible-") && isClaudeModel))) {
-      headers["Anthropic-Beta"] = selectAnthropicBeta(model, body);
+      headers["Anthropic-Beta"] = mergeAnthropicBeta(selectAnthropicBeta(model, body), clientBeta);
+    } else if (this.provider === "anthropic" && clientBeta) {
+      headers["Anthropic-Beta"] = mergeAnthropicBeta(headers["Anthropic-Beta"], clientBeta);
+    }
+
+    // Claude OAuth: align x-claude-code-session-id with metadata.user_id.session_id if missing
+    if (this.provider === "claude" && !headers["x-claude-code-session-id"]) {
+      const token = credentials?.accessToken || credentials?.apiKey || "";
+      if (token.includes("sk-ant-oat")) {
+        const sid = extractClaudeSessionIdFromUserId(body?.metadata?.user_id);
+        if (sid) headers["x-claude-code-session-id"] = sid;
+      }
     }
 
     // Strip first-party Claude Code identity headers for non-Anthropic anthropic-compatible upstreams
@@ -247,6 +312,7 @@ export class DefaultExecutor extends BaseExecutor {
 
   async refreshWithJSON(url, body, proxyOptions = null) {
     const response = await proxyAwareFetch(url, {
+      signal: refreshSignal(),
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify(body)
@@ -258,6 +324,7 @@ export class DefaultExecutor extends BaseExecutor {
 
   async refreshWithForm(url, params, proxyOptions = null) {
     const response = await proxyAwareFetch(url, {
+      signal: refreshSignal(),
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
       body: new URLSearchParams(params)
@@ -270,6 +337,7 @@ export class DefaultExecutor extends BaseExecutor {
   async refreshIflow(refreshToken, proxyOptions = null) {
     const basicAuth = btoa(`${PROVIDERS.iflow.clientId}:${PROVIDERS.iflow.clientSecret}`);
     const response = await proxyAwareFetch(OAUTH_ENDPOINTS.iflow.token, {
+      signal: refreshSignal(),
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json", "Authorization": `Basic ${basicAuth}` },
       body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken, client_id: PROVIDERS.iflow.clientId, client_secret: PROVIDERS.iflow.clientSecret })
@@ -281,6 +349,7 @@ export class DefaultExecutor extends BaseExecutor {
 
   async refreshKiro(refreshToken, proxyOptions = null) {
     const response = await proxyAwareFetch(PROVIDERS.kiro.tokenUrl, {
+      signal: refreshSignal(),
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json", "User-Agent": "kiro-cli/1.0.0" },
       body: JSON.stringify({ refreshToken })
@@ -292,6 +361,7 @@ export class DefaultExecutor extends BaseExecutor {
 
   async refreshCline(refreshToken, proxyOptions = null) {
     const response = await proxyAwareFetch(PROVIDERS.cline.refreshUrl, {
+      signal: refreshSignal(),
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({ refreshToken, grantType: "refresh_token", clientType: "extension" })
@@ -315,6 +385,7 @@ export class DefaultExecutor extends BaseExecutor {
     if (!cfg?.refreshUrl || !cfg?.clientId) return null;
     const kimiHeaders = buildKimiHeaders(credentials?.providerSpecificData?.deviceId);
     const response = await proxyAwareFetch(cfg.refreshUrl, {
+      signal: refreshSignal(),
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",

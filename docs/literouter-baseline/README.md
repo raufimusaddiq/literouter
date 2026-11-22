@@ -48,7 +48,10 @@ The first settings attempt cached raw JSON and cloned per call, which measured
 *slower* than the SQLite read (46.1 vs 26.1 us/op). It was replaced by returning
 the cached merged object, since all callers only read it.
 
-## Staging deployment
+## Historical staging deployment (sunset)
+
+The following records describe the retired staging deployment. It is not an
+active environment, release target, or supported deployment path.
 
 `compose.staging.yml`: container `literouter-staging`, port `20129`, isolated
 volume `literouter-staging-data`, `MINIMAL_PROFILE=true`,
@@ -56,7 +59,7 @@ volume `literouter-staging-data`, `MINIMAL_PROFILE=true`,
 
 Redis is cache-only. Production volume and port are never shared.
 
-## Full-suite comparison (baseline vs staging)
+## Historical full-suite comparison (baseline vs staging)
 
 Run with `npm --prefix tests test -- --run` in a clean worktree at
 `origin-literouter/main` versus the current `staging` branch:
@@ -76,7 +79,8 @@ was repaired; they are kept to show the progression, not as a current target.
 `translator-request-normalization.test.js`). `staging` is now fully green: the
 suite was repaired in #20, which restored the live Cursor, Windsurf, Devin, and
 Gemini endpoint coverage and fixed the stale assertions instead of deleting
-them. `main` must not be treated as the reference any more — use `staging`.
+them. These staging comparisons are historical. `main` is now the only release
+and deployment reference.
 
 Run the suite from `tests/`, not the repository root. The `@/` path alias is
 only configured in `tests/vitest.config.js`, so a root-level run makes those

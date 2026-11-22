@@ -1,5 +1,6 @@
 import { BaseExecutor } from "./base.js";
-import { proxyAwareFetch } from "../utils/proxyFetch.js";
+import { SSE_HEADERS } from "../utils/sseConstants.js";
+import { fetchWithTimeouts } from "../utils/requestTimeouts.js";
 import { PROVIDERS } from "../config/providers.js";
 import { randomUUID } from "node:crypto";
 
@@ -416,12 +417,11 @@ export class WindsurfExecutor extends BaseExecutor {
 
     log?.debug?.("WS", `Windsurf → ${wsModel} (${wsMessages.length} messages)`);
 
-    const upstream = await proxyAwareFetch(url, {
+    const upstream = await fetchWithTimeouts(url, {
       method: "POST",
       headers,
       body: framedPayload,
-      signal,
-    }, proxyOptions);
+    }, proxyOptions, { signal, stream });
 
     if (!upstream.ok && upstream.status !== 200) {
       return { response: upstream, url, headers, transformedBody: protoPayload };
@@ -571,11 +571,7 @@ export class WindsurfExecutor extends BaseExecutor {
 
     return new Response(sseStream, {
       status: 200,
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      },
+      headers: { ...SSE_HEADERS },
     });
   }
 

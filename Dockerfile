@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1.7
-ARG NODE_IMAGE=node:22-alpine
+# Pinned to the October 2026 Node security release. The floating node:22-alpine
+# tag would also work today, but pinning means a rebuild cannot silently drift
+# back to an older base when the tag moves or a cache is reused.
+ARG NODE_IMAGE=node:22.23.4-alpine
 FROM ${NODE_IMAGE} AS base
 WORKDIR /app
 # CN mirror for apk (used by builder and runner stages)
@@ -19,13 +22,15 @@ RUN npm run build
 FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 
-LABEL org.opencontainers.image.title="9router"
+LABEL org.opencontainers.image.title="LiteRouter"
 
 ENV NODE_ENV=production
 ENV PORT=20128
 ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATA_DIR=/app/data
+# Make custom-server.js replace Node's bundled CA roots with the OS bundle (see useSystemCaStore).
+ENV LITEROUTER_SYSTEM_CA=1
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
@@ -45,7 +50,7 @@ RUN mkdir -p /app/data && chown -R node:node /app && \
   ln -sf /app/data-home /root/.9router 2>/dev/null || true
 
 # Fix permissions at runtime (handles mounted volumes)
-RUN apk --no-cache upgrade && apk --no-cache add su-exec && \
+RUN apk --no-cache upgrade && apk --no-cache add su-exec ca-certificates && \
   printf '#!/bin/sh\nchown -R node:node /app/data /app/data-home 2>/dev/null\nexec su-exec node "$@"\n' > /entrypoint.sh && \
   chmod +x /entrypoint.sh
 

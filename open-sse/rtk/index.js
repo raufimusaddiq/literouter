@@ -1,8 +1,48 @@
 // RTK port: compress tool_result content in LLM request bodies
-// Injected at the top of translateRequest (before any format translation)
+// Applied in chatCore on the source-format body, before translateRequest.
 import { RAW_CAP, MIN_COMPRESS_SIZE } from "./constants.js";
 import { autoDetectFilter } from "./autodetect.js";
 import { safeApply } from "./applyFilter.js";
+import { createHash } from "node:crypto";
+
+// Memo of compressed output per tool_result text. Conversations resend the whole
+// history every turn, so unchanged results would otherwise be re-filtered each time.
+// Keyed by length + sha1 (collision-safe in practice); bounded LRU by entries and bytes.
+// A cached value of null means "filters produced nothing usable; keep original".
+const MEMO_MAX_ENTRIES = 2000;
+const MEMO_MAX_BYTES = 32 * 1024 * 1024;
+const memo = new Map();
+let memoBytes = 0;
+export const rtkMemoStats = { hits: 0, misses: 0 };
+
+export function clearRtkMemo() { memo.clear(); memoBytes = 0; rtkMemoStats.hits = 0; rtkMemoStats.misses = 0; }
+
+function memoKey(text) {
+  return text.length + ":" + createHash("sha1").update(text).digest("base64");
+}
+
+function memoGet(key) {
+  if (!memo.has(key)) return undefined;
+  const entry = memo.get(key);
+  memo.delete(key); memo.set(key, entry); // LRU touch
+  return entry;
+}
+
+// Count key overhead too so null-output entries are not free.
+function memoSize(key, entry) {
+  return (entry.out ? entry.out.length : 0) + String(key).length + 64;
+}
+
+function memoSet(key, entry) {
+  const size = memoSize(key, entry);
+  memo.set(key, entry);
+  memoBytes += size;
+  while (memo.size > MEMO_MAX_ENTRIES || memoBytes > MEMO_MAX_BYTES) {
+    const oldest = memo.keys().next().value;
+    memoBytes -= memoSize(oldest, memo.get(oldest));
+    memo.delete(oldest);
+  }
+}
 
 // Compress tool_result content in-place. Returns stats or null if disabled/failed.
 export function compressMessages(body, enabled) {
@@ -126,23 +166,33 @@ function compressText(text, stats, shape) {
     return text;
   }
 
-  const fn = autoDetectFilter(text);
-  if (!fn) {
+  let key = null;
+  let entry;
+  try {
+    key = memoKey(text);
+    entry = memoGet(key);
+  } catch { /* fail-open: recompute */ }
+
+  if (entry !== undefined) {
+    rtkMemoStats.hits++;
+  } else {
+    rtkMemoStats.misses++;
+    const fn = autoDetectFilter(text);
+    const out = fn ? safeApply(fn, text) : null;
+    // Safety: never return empty, never grow the input
+    const usable = !!fn && !!out && out.length > 0 && out.length < bytesIn;
+    entry = usable ? { out, filter: fn.filterName || fn.name } : { out: null, filter: null };
+    if (key) { try { memoSet(key, entry); } catch { /* ignore */ } }
+  }
+
+  if (!entry.out) {
     stats.bytesAfter += bytesIn;
     return text;
   }
 
-  const out = safeApply(fn, text);
-
-  // Safety: never return empty, never grow the input
-  if (!out || out.length === 0 || out.length >= bytesIn) {
-    stats.bytesAfter += bytesIn;
-    return text;
-  }
-
-  stats.bytesAfter += out.length;
-  stats.hits.push({ shape, filter: fn.filterName || fn.name, saved: bytesIn - out.length });
-  return out;
+  stats.bytesAfter += entry.out.length;
+  stats.hits.push({ shape, filter: entry.filter, saved: bytesIn - entry.out.length });
+  return entry.out;
 }
 
 // Convenience: format a log line from stats

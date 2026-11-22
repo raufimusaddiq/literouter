@@ -1,4 +1,5 @@
 import { BaseExecutor } from "./base.js";
+import { refreshSignal } from "../utils/requestTimeouts.js";
 import { PROVIDERS } from "../config/providers.js";
 import { OAUTH_ENDPOINTS, GEMINI_CLI_API_CLIENT, geminiCLIUserAgent } from "../config/appConstants.js";
 
@@ -58,6 +59,7 @@ export class GeminiCLIExecutor extends BaseExecutor {
 
     try {
       const response = await fetch(OAUTH_ENDPOINTS.google.token, {
+        signal: refreshSignal(),
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
         body: new URLSearchParams({

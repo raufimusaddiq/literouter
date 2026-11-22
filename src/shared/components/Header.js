@@ -73,6 +73,13 @@ const getPageInfo = (pathname) => {
       icon: "data_usage",
       breadcrumbs: [],
     };
+  if (pathname.includes("/systemone"))
+    return {
+      title: "System One",
+      description: "Typed decision requests",
+      icon: "account_tree",
+      breadcrumbs: [],
+    };
   if (pathname.includes("/token-saver"))
     return {
       title: "Token Saver",
@@ -103,9 +110,9 @@ const getPageInfo = (pathname) => {
     };
   if (pathname === "/dashboard")
     return {
-      title: "Endpoint",
-      description: "API endpoint configuration",
-      icon: "api",
+      title: "Overview",
+      description: "Routing control center",
+      icon: "dashboard",
       breadcrumbs: [],
     };
   return { title: "", description: "", breadcrumbs: [] };
@@ -117,27 +124,18 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
   const { title, description, icon, breadcrumbs } = pageInfo;
 
-  const handleLogout = async () => {
-    try {
-      const res = await fetch("/api/auth/logout", { method: "POST" });
-      if (res.ok) {
-        window.location.assign("/login");
-      }
-    } catch (err) {
-      console.error("Failed to logout:", err);
-    }
-  };
-
   return (
-    <header className="shrink-0 flex items-center justify-between gap-3 border-b border-border-subtle bg-surface px-4 py-4 lg:px-8 lg:py-5">
+    <header className={`flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-bg px-4 py-2 lg:px-12 ${breadcrumbs.length > 0 ? "" : "lg:hidden"}`}>
       {/* Mobile menu button */}
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
           <button
+            type="button"
             onClick={onMenuClick}
-            className="text-text-main hover:text-primary transition-colors"
+            className="flex size-10 items-center justify-center rounded-lg text-text-main transition-colors hover:bg-surface-2 hover:text-primary"
+            aria-label="Open navigation"
           >
-            <span className="material-symbols-outlined">menu</span>
+            <span aria-hidden="true" className="material-symbols-outlined">menu</span>
           </button>
         )}
       </div>
@@ -152,7 +150,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
                 className="flex items-center gap-2"
               >
                 {index > 0 && (
-                  <span className="material-symbols-outlined text-text-muted text-base">
+                  <span aria-hidden="true" className="material-symbols-outlined text-text-muted text-base">
                     chevron_right
                   </span>
                 )}
@@ -174,46 +172,46 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
                         fallbackText={crumb.label.slice(0, 2).toUpperCase()}
                       />
                     )}
-              <h1 className="text-base font-semibold tracking-[-0.04em] text-text-main lg:text-[1.65rem] truncate">
+                    <p className="text-base font-semibold text-text-main lg:text-xl truncate">
                       {translate(crumb.label)}
-                    </h1>
+                    </p>
                   </div>
                 )}
               </div>
             ))}
           </div>
-        ) : title ? (
-          <div>
-            <p className="mb-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted lg:block">LiteRouter / workspace</p>
-            <div className="flex items-center gap-2">
-              {icon && (
-                <span className="material-symbols-outlined text-primary text-xl lg:text-2xl">
-                  {icon}
-                </span>
-              )}
-              <h1 className="text-base font-semibold tracking-[-0.04em] lg:text-[1.65rem] truncate">
-                {translate(title)}
-              </h1>
-            </div>
-            {description && (
-              <p className="hidden max-w-2xl text-sm text-text-muted lg:block truncate">
-                {translate(description)}
-              </p>
-            )}
-          </div>
         ) : null}
       </div>
 
-      {/* Right actions */}
-      <div className="flex items-center gap-1 shrink-0">
-        <HeaderSearch />
-        <ThemeToggle />
-        <HeaderLanguage />
-        <HeaderMenu onLogout={handleLogout} />
-      </div>
+      {/* Right actions: on lg+ without breadcrumbs the controls live in the page title row */}
+      <HeaderControls className={breadcrumbs.length > 0 ? "" : "lg:hidden"} />
     </header>
   );
 }
+
+export function HeaderControls({ className = "" }) {
+  const handleLogout = async () => {
+    try {
+      const res = await fetch("/api/auth/logout", { method: "POST" });
+      if (res.ok) {
+        window.location.assign("/login");
+      }
+    } catch (err) {
+      console.error("Failed to logout:", err);
+    }
+  };
+
+  return (
+    <div className={`flex shrink-0 items-center gap-1 ${className}`}>
+      <HeaderSearch />
+      <ThemeToggle />
+      <HeaderLanguage />
+      <HeaderMenu onLogout={handleLogout} />
+    </div>
+  );
+}
+
+HeaderControls.propTypes = { className: PropTypes.string };
 
 function HeaderSearch() {
   const visible = useHeaderSearchStore((s) => s.visible);
@@ -225,24 +223,25 @@ function HeaderSearch() {
 
   return (
     <div className="relative w-[160px] sm:w-[220px]">
-      <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none">
+      <span aria-hidden="true" className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none">
         search
       </span>
       <input
         type="text"
+        aria-label={placeholder || "Search"}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-8 pl-7 pr-7 rounded-lg border border-border bg-surface/60 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+        className="h-9 w-full rounded-[10px] border border-border-subtle bg-surface-2 pl-8 pr-7 text-sm transition-[background-color,border-color,box-shadow] focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/15"
       />
       {query && (
         <button
           type="button"
           onClick={() => setQuery("")}
-          className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main p-0.5 rounded"
+          className="absolute right-0.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-text-muted hover:bg-surface-2 hover:text-text-main"
           aria-label="Clear search"
         >
-          <span className="material-symbols-outlined text-[16px]">close</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
         </button>
       )}
     </div>

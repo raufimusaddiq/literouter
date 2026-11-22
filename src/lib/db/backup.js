@@ -20,16 +20,16 @@ export function makeBackupDir(label) {
   ensureDirs();
   const ver = getAppVersion();
   const slug = `${label}-${ver}-${timestampSlug()}`;
-  const dir = path.join(BACKUPS_DIR, slug);
-  fs.mkdirSync(dir, { recursive: true });
+  const dir = path.join(/* turbopackIgnore: true */ BACKUPS_DIR, slug);
+  fs.mkdirSync(/* turbopackIgnore: true */ dir, { recursive: true });
   return dir;
 }
 
 export function backupFile(srcPath, destDir, destName = null) {
-  if (!fs.existsSync(srcPath)) return null;
+  if (!fs.existsSync(/* turbopackIgnore: true */ srcPath)) return null;
   const name = destName || path.basename(srcPath);
-  const dest = path.join(destDir, name);
-  fs.copyFileSync(srcPath, dest);
+  const dest = path.join(/* turbopackIgnore: true */ destDir, name);
+  fs.copyFileSync(/* turbopackIgnore: true */ srcPath, dest);
   return dest;
 }
 
@@ -37,8 +37,8 @@ export function backupFile(srcPath, destDir, destName = null) {
 // table EXCEPT the excluded ones into it. Avoids duplicating the huge
 // observability log, so the backup stays small regardless of DB size.
 export function backupDbLite(adapter, destDir, destName = "data.sqlite") {
-  const dest = path.join(destDir, destName);
-  try { fs.rmSync(dest, { force: true }); } catch {}
+  const dest = path.join(/* turbopackIgnore: true */ destDir, destName);
+  try { fs.rmSync(/* turbopackIgnore: true */ dest, { force: true }); } catch {}
   const escaped = dest.replace(/'/g, "''");
 
   adapter.exec(`ATTACH DATABASE '${escaped}' AS bak`);
@@ -63,13 +63,13 @@ export function backupDbLite(adapter, destDir, destName = "data.sqlite") {
 }
 
 export function pruneOldBackups() {
-  if (!fs.existsSync(BACKUPS_DIR)) return;
-  const entries = fs.readdirSync(BACKUPS_DIR, { withFileTypes: true })
+  if (!fs.existsSync(/* turbopackIgnore: true */ BACKUPS_DIR)) return;
+  const entries = fs.readdirSync(/* turbopackIgnore: true */ BACKUPS_DIR, { withFileTypes: true })
     .filter((e) => e.isDirectory())
-    .map((e) => ({ name: e.name, full: path.join(BACKUPS_DIR, e.name), mtime: fs.statSync(path.join(BACKUPS_DIR, e.name)).mtimeMs }))
+    .map((e) => ({ name: e.name, full: path.join(/* turbopackIgnore: true */ BACKUPS_DIR, e.name), mtime: fs.statSync(/* turbopackIgnore: true */ path.join(/* turbopackIgnore: true */ BACKUPS_DIR, e.name)).mtimeMs }))
     .sort((a, b) => b.mtime - a.mtime);
 
   for (const old of entries.slice(KEEP_BACKUPS)) {
-    try { fs.rmSync(old.full, { recursive: true, force: true }); } catch {}
+    try { fs.rmSync(/* turbopackIgnore: true */ old.full, { recursive: true, force: true }); } catch {}
   }
 }

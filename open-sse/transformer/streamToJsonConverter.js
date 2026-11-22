@@ -3,6 +3,8 @@
  * Converts Responses API SSE stream to single JSON response
  * Used when client requests non-streaming but provider forces streaming (e.g., Codex)
  */
+import { GatewayTimeoutError, readWithIdleTimeout } from "../utils/requestTimeouts.js";
+import { NON_STREAM_TOTAL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS } from "../config/runtimeConfig.js";
 
 /**
  * Process a single SSE message and update state accordingly.
@@ -36,6 +38,10 @@ function processSSEMessage(msg, state) {
     }
   } else if (eventType === "response.failed") {
     state.status = "failed";
+    state.error = parsed.response?.error || parsed.error || state.error;
+  } else if (eventType === "error") {
+    state.status = "failed";
+    state.error = parsed.error || parsed || state.error;
   }
 }
 
@@ -46,7 +52,7 @@ const EMPTY_RESPONSE = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
  * @param {ReadableStream} stream - SSE stream from provider
  * @returns {Promise<Object>} Final JSON response in Responses API format
  */
-export async function convertResponsesStreamToJson(stream) {
+export async function convertResponsesStreamToJson(stream, { signal, idleMs, totalMs } = {}) {
   if (!stream || typeof stream.getReader !== "function") {
     return { id: `resp_${Date.now()}`, object: "response", created_at: Math.floor(Date.now() / 1000), status: "failed", output: [], usage: { ...EMPTY_RESPONSE } };
   }
@@ -63,12 +69,27 @@ export async function convertResponsesStreamToJson(stream) {
     items: new Map()
   };
 
+  const bounded = signal !== undefined || idleMs !== undefined || totalMs !== undefined;
+  const deadline = Date.now() + (totalMs ?? NON_STREAM_TOTAL_TIMEOUT_MS);
   try {
     while (true) {
-      const { done, value } = await reader.read();
+      let chunk;
+      if (bounded) {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) throw new GatewayTimeoutError("upstream body not finished in time", "total");
+        chunk = await readWithIdleTimeout(reader, { signal, timeoutMs: Math.min(idleMs ?? STREAM_STALL_TIMEOUT_MS, remaining) });
+      } else {
+        chunk = await reader.read();
+      }
+      const { done, value } = chunk;
       if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
+      const text = decoder.decode(value, { stream: true });
+      // buffer holds no "\n\n" after the previous split, so a new boundary can only
+      // be inside `text` or straddle the join; otherwise skip re-scanning the buffer.
+      const straddles = text.charCodeAt(0) === 10 && buffer.charCodeAt(buffer.length - 1) === 10;
+      buffer += text;
+      if (!straddles && !text.includes("\n\n")) continue;
       const messages = buffer.split("\n\n");
       buffer = messages.pop() || "";
 
@@ -81,8 +102,11 @@ export async function convertResponsesStreamToJson(stream) {
     if (buffer.trim()) {
       processSSEMessage(buffer, state);
     }
+  } catch (error) {
+    if (bounded) { try { await reader.cancel(error); } catch { /* closed */ } }
+    throw error;
   } finally {
-    reader.releaseLock();
+    try { reader.releaseLock(); } catch { /* released */ }
   }
 
   // Build output array from accumulated items (ordered by index)
@@ -92,7 +116,7 @@ export async function convertResponsesStreamToJson(stream) {
     output.push(state.items.get(i) || { type: "message", content: [], role: "assistant" });
   }
 
-  return {
+  const result = {
     id: state.responseId || `resp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     object: "response",
     created_at: state.created,
@@ -100,4 +124,6 @@ export async function convertResponsesStreamToJson(stream) {
     output,
     usage: state.usage
   };
+  if (state.error) result.error = state.error;
+  return result;
 }

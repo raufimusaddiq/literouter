@@ -1,6 +1,5 @@
-import { buildModelsList } from "../route.js";
-
-const LLM_KIND = "llm";
+import { buildModelsList, LLM_KIND } from "../route.js";
+import { getKeyAccessContext, filterModelsListForKey } from "@/sse/services/keyAccess.js";
 
 export async function OPTIONS() {
   return new Response(null, {
@@ -25,14 +24,26 @@ function json(data, options = {}) {
 /**
  * GET /v1/models/{provider}/{model} - OpenAI-compatible single model lookup.
  */
-export async function GET(_request, { params }) {
+export async function GET(request, { params }) {
   try {
     const { model } = await params;
     const path = Array.isArray(model) ? model : [model];
     const identifier = path.filter(Boolean).join("/");
     // Match the same LLM catalog exposed by GET /v1/models. A catch-all
     // parameter is required because provider-prefixed IDs contain a slash.
-    const models = await buildModelsList([LLM_KIND]);
+    const kind = request.nextUrl?.searchParams?.get("kind");
+    if (kind) {
+      const data = await filterModelsListForKey(
+        await getKeyAccessContext(request),
+        await buildModelsList([kind])
+      );
+      return json({ object: "list", data });
+    }
+
+    const models = await filterModelsListForKey(
+      await getKeyAccessContext(request),
+      await buildModelsList(["llm"])
+    );
     const matchedModel = models.find((candidate) => candidate.id === identifier);
 
     if (!matchedModel) {

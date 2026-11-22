@@ -39,6 +39,8 @@ export default {
     { id: "Qwen/Qwen3.6-Max-Preview", name: "Qwen 3.6 Max Preview" },
     { id: "Qwen/Qwen3.6-Plus", name: "Qwen 3.6 Plus" },
     { id: "stepfun/Step-3.5-Flash", name: "Step 3.5 Flash" },
+    { id: "google/gemini-4-carbon", name: "Gemini 4 Carbon" },
+    { id: "claude-fable-5-2", name: "Claude Fable 5.2" },
   ],
   features: {
     usage: true,

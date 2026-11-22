@@ -9,7 +9,6 @@
  */
 
 export const QODER_OPENAPI_BASE = "https://openapi.qoder.sh";
-export const QODER_CENTER_BASE = "https://center.qoder.sh";
 export const QODER_CHAT_BASE = "https://api3.qoder.sh";
 // Job-token (jt-...) traffic is rejected by api3 with "Login expired" (403);
 // the official qodercli serves it from api2 instead.
@@ -20,8 +19,6 @@ export const QODER_LOGIN_URL = "https://qoder.com/device/selectAccounts";
 // Device flow endpoints
 export const QODER_DEVICE_TOKEN_URL = `${QODER_OPENAPI_BASE}/api/v1/deviceToken/poll`;
 export const QODER_USERINFO_URL = `${QODER_OPENAPI_BASE}/api/v1/userinfo`;
-export const QODER_QUOTA_USAGE_URL = `${QODER_OPENAPI_BASE}/api/v2/quota/usage`;
-export const QODER_REFRESH_TOKEN_URL = `${QODER_CENTER_BASE}/algo/api/v3/user/refresh_token`;
 
 // PAT (Personal Access Token, pt-...) → short-lived job token (jt-...) exchange.
 // PATs cannot sign COSY requests directly — they must be exchanged first.

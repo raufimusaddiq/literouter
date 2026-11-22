@@ -6,10 +6,9 @@
 // We use the maintained `systray2` fork. The original `systray@1.0.5` package
 // bundles a 2017 x86_64 Go binary whose Mach-O headers are rejected by modern
 // dyld (macOS 14+), so the tray silently fails to register on Apple Silicon.
-const { spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
-const { getRuntimeDir, getRuntimeNodeModules, runNpmInstall, summarizeNpmError } = require("./sqliteRuntime");
+const { getRuntimeNodeModules } = require("./sqliteRuntime");
 
 const SYSTRAY_PKG = "systray2";
 const SYSTRAY_VERSION = "2.1.4";
@@ -57,51 +56,16 @@ function chmodSystrayBin({ silent = false } = {}) {
   }
 }
 
-function ensureRuntimeDir() {
-  const dir = getRuntimeDir();
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const pkgPath = path.join(dir, "package.json");
-  if (!fs.existsSync(pkgPath)) {
-    fs.writeFileSync(pkgPath, JSON.stringify({
-      name: "9router-runtime",
-      version: "1.0.0",
-      private: true
-    }, null, 2));
-  }
-  return dir;
-}
-
-function npmInstall(pkgs, { silent = false } = {}) {
-  const cwd = ensureRuntimeDir();
-  if (!silent) console.log("⏳ Installing system tray (first run)...");
-  const res = runNpmInstall({ cwd, pkgs, extraArgs: ["--no-save"], timeout: 120000 });
-  if (!res.ok && !silent) {
-    const reason = summarizeNpmError(res.stderr);
-    console.warn("⚠️  System tray install failed — tray disabled");
-    console.warn(`   Reason: ${reason}`);
-    console.warn(`   Retry:  cd "${cwd}" && npm install ${pkgs.join(" ")}`);
-  }
-  return res.ok;
-}
-
-// Public: ensure systray2 is installed on macOS/Linux only.
-// Windows skips entirely (uses PowerShell tray).
-function ensureTrayRuntime({ silent = false } = {}) {
-  // Always evict the legacy `systray` package — its binary is broken on
-  // modern macOS and an AV false-positive on Windows.
+// Public: evict the legacy package and report what (if anything) the combined
+// runtime install should add. Windows needs nothing (PowerShell tray).
+function getTrayPackages({ silent = true } = {}) {
   cleanupLegacySystray({ silent });
-
-  if (process.platform === "win32") {
-    return { systray: false, skipped: true };
-  }
+  if (process.platform === "win32") return [];
   if (hasSystray()) {
     chmodSystrayBin({ silent });
-    if (!silent) console.log("✅ System tray ready");
-    return { systray: true };
+    return [];
   }
-  const ok = npmInstall([`${SYSTRAY_PKG}@${SYSTRAY_VERSION}`], { silent });
-  if (ok) chmodSystrayBin({ silent });
-  return { systray: ok && hasSystray() };
+  return [{ name: SYSTRAY_PKG, version: SYSTRAY_VERSION }];
 }
 
-module.exports = { ensureTrayRuntime };
+module.exports = { getTrayPackages, chmodSystrayBin };

@@ -1,8 +1,10 @@
 import { detectFormat } from "../services/provider.js";
+import { SSE_HEADERS_CORS } from "./sseConstants.js";
 import { translateResponse, initState } from "../translator/index.js";
 import { FORMATS } from "../translator/formats.js";
 import { SKIP_PATTERNS } from "../config/runtimeConfig.js";
 import { formatSSE } from "./stream.js";
+import { CLAUDE_EVENT } from "../translator/schema/index.js";
 
 /**
  * Check for bypass patterns - return fake response without calling provider
@@ -213,12 +215,7 @@ function createStreamingResponse(sourceFormat, model, text) {
   return {
     success: true,
     response: new Response(translatedChunks.join(""), {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        "Access-Control-Allow-Origin": "*"
-      }
+      headers: { ...SSE_HEADERS_CORS }
     })
   };
 }
@@ -238,12 +235,12 @@ function mergeChunksToResponse(chunks, sourceFormat) {
 
   // For Claude format, find the message_stop or final message
   if (sourceFormat === FORMATS.CLAUDE) {
-    const messageStop = chunks.find(c => c.type === "message_stop");
+    const messageStop = chunks.find(c => c.type === CLAUDE_EVENT.MESSAGE_STOP);
     if (messageStop) {
       // Reconstruct complete message from chunks
-      const contentDelta = chunks.find(c => c.type === "content_block_delta");
-      const messageDelta = chunks.find(c => c.type === "message_delta");
-      const messageStart = chunks.find(c => c.type === "message_start");
+      const contentDelta = chunks.find(c => c.type === CLAUDE_EVENT.CONTENT_BLOCK_DELTA);
+      const messageDelta = chunks.find(c => c.type === CLAUDE_EVENT.MESSAGE_DELTA);
+      const messageStart = chunks.find(c => c.type === CLAUDE_EVENT.MESSAGE_START);
 
       if (messageStart?.message) {
         finalChunk = messageStart.message;

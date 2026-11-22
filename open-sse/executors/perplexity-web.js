@@ -1,3 +1,4 @@
+import { rethrowIfGatewayAbort } from "../utils/requestTimeouts.js";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
 import { SSE_DONE, SSE_HEADERS_NO_BUFFER } from "../utils/sseConstants.js";
@@ -457,6 +458,7 @@ export class PerplexityWebExecutor extends BaseExecutor {
     try {
       response = await fetch(PPLX_SSE_ENDPOINT, fetchOptions);
     } catch (err) {
+      rethrowIfGatewayAbort(err);
       log?.error?.("PPLX-WEB", `Fetch failed: ${err.message || String(err)}`);
       const errResp = new Response(JSON.stringify({
         error: { message: `Perplexity connection failed: ${err.message || String(err)}`, type: "upstream_error" },

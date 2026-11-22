@@ -21,6 +21,7 @@ export default {
   transport: {
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/models",
     format: "gemini",
+    quirks: { noDoneSentinel: true }, // Gemini-family clients reject the OpenAI [DONE] sentinel
     clientId: "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com",
     clientSecret: "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",
     auth: {
@@ -35,6 +36,10 @@ export default {
     },
   },
   models: [
+    { id: "gemini-4-carbon", name: "Gemini 4 Carbon" },
+    { id: "gemini-4-argon", name: "Gemini 4 Argon" },
+    { id: "gemini-4-neon", name: "Gemini 4 Neon" },
+    { id: "gemini-4-hydrogen", name: "Gemini 4 Hydrogen" },
     { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash" },
     { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash" },
     { id: "gemini-3.6-flash", name: "Gemini 3.6 Flash" },

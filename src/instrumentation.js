@@ -1,5 +1,8 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { warnIfWeakApiKeySecret } = await import("@/lib/auth/apiKeySecretWarning");
+    warnIfWeakApiKeySecret();
+
     const { initConsoleLogCapture } = await import("@/lib/consoleLogBuffer");
     initConsoleLogCapture();
 
@@ -10,5 +13,9 @@ export async function register() {
 
     const { startModelCatalogSync } = await import("@/lib/modelCatalog/sync.js");
     startModelCatalogSync();
+
+    // API-only servers never render app/layout.js, so start bootstrap (background
+    // token refresh etc.) here. bootstrap.js guards itself with global.__appBootstrapped.
+    await import("@/shared/services/bootstrap.js");
   }
 }

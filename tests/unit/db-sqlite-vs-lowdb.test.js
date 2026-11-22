@@ -129,9 +129,10 @@ describe("DB SQLite layer — public API parity", () => {
       errorCode: null,
       backoffLevel: 0,
       rateLimitedUntil: null,
-      modelLock_modelA: null,
-      modelLock_modelB: null,
     });
+    // Cleared locks are deleted, not stored as null.
+    expect(back).not.toHaveProperty("modelLock_modelA");
+    expect(back).not.toHaveProperty("modelLock_modelB");
   });
 
   it("providerConnections: re-saving valid OAuth credentials clears stale routing locks", async () => {
@@ -165,8 +166,8 @@ describe("DB SQLite layer — public API parity", () => {
       lastError: null,
       errorCode: null,
       backoffLevel: 0,
-      modelLock_modelA: null,
     });
+    expect(back).not.toHaveProperty("modelLock_modelA");
   });
 
   it("providerConnections: active soft warnings survive the health reset", async () => {
@@ -195,8 +196,8 @@ describe("DB SQLite layer — public API parity", () => {
       lastErrorAt: warningAt,
       errorCode: null,
       backoffLevel: 0,
-      modelLock_modelA: null,
     });
+    expect(back).not.toHaveProperty("modelLock_modelA");
   });
 
   it("providerConnections: GitHub OAuth uses account identity as fallback name", async () => {
@@ -226,6 +227,19 @@ describe("DB SQLite layer — public API parity", () => {
 
     await sqliteDb.deleteProviderNode(n.id);
     expect(await sqliteDb.getProviderNodeById(n.id)).toBeNull();
+  });
+
+  it("providerNodes: deletion prunes only exact custom-model prefixes and invalidates cached rows", async () => {
+    const ids = ["intake_%", "intake_X", "INTAKE_%"];
+    for (const id of ids) {
+      await sqliteDb.createProviderNode({ id, type: "openai", name: id });
+      await sqliteDb.addCustomModel({ providerAlias: id, id: "custom", type: "llm" });
+    }
+    expect((await sqliteDb.getCustomModels()).filter(model => ids.includes(model.providerAlias))).toHaveLength(3);
+    await sqliteDb.deleteProviderNode(ids[0]);
+    expect((await sqliteDb.getCustomModels()).filter(model => ids.includes(model.providerAlias)).map(model => model.providerAlias).sort())
+      .toEqual(ids.slice(1).sort());
+    for (const id of ids.slice(1)) await sqliteDb.deleteProviderNode(id);
   });
 
   it("proxyPools: CRUD with sort by updatedAt desc", async () => {
@@ -272,6 +286,15 @@ describe("DB SQLite layer — public API parity", () => {
     expect(after.find((m) => m.id === "m1")).toBeUndefined();
   });
 
+  it("customModels: add is visible immediately after a cached read", async () => {
+    await sqliteDb.getCustomModels(); // prime the kv scope cache
+    await sqliteDb.addCustomModel({ providerAlias: "p2", id: "m2", type: "llm", name: "Model 2" });
+    expect((await sqliteDb.getCustomModels()).find((m) => m.id === "m2")?.name).toBe("Model 2");
+    await sqliteDb.addCustomModel({ providerAlias: "p2", id: "m2", type: "llm", name: "Renamed" });
+    expect((await sqliteDb.getCustomModels()).find((m) => m.id === "m2")?.name).toBe("Renamed");
+    await sqliteDb.deleteCustomModel({ providerAlias: "p2", id: "m2" });
+  });
+
   it("disabledModels: add/remove per provider", async () => {
     await sqliteDb.disableModels("openai", ["gpt-3", "gpt-4"]);
     expect(await sqliteDb.getDisabledByProvider("openai")).toEqual(expect.arrayContaining(["gpt-3", "gpt-4"]));
@@ -281,7 +304,7 @@ describe("DB SQLite layer — public API parity", () => {
     expect(await sqliteDb.getDisabledByProvider("openai")).toEqual([]);
   });
 
-  it("usage: saveRequestUsage + getUsageHistory + getUsageStats", async () => {
+  it("usage: saveRequestUsage + usageHistory rows + getUsageStats", async () => {
     await sqliteDb.saveRequestUsage({
       provider: "openai", model: "gpt-4", connectionId: "c1",
       tokens: { prompt_tokens: 100, completion_tokens: 50 },
@@ -293,7 +316,7 @@ describe("DB SQLite layer — public API parity", () => {
       endpoint: "/v1/chat/completions", status: "ok",
     });
 
-    const hist = await sqliteDb.getUsageHistory({ provider: "openai" });
+    const hist = (await (await import("@/lib/db/driver.js")).getAdapter()).all(`SELECT tokens FROM usageHistory WHERE provider = ?`, ["openai"]).map((r) => ({ tokens: JSON.parse(r.tokens) }));
     expect(hist.length).toBeGreaterThanOrEqual(2);
     expect(hist[0].tokens.prompt_tokens).toBeDefined();
 

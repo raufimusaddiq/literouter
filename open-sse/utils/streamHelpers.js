@@ -1,6 +1,8 @@
 import { FORMATS } from "../translator/formats.js";
-import { buildErrorBody } from "./error.js";
+import { fallbackToolCallId } from "../translator/concerns/toolCall.js";
+import { buildErrorBody, resolveErrorFormat } from "./error.js";
 import { SSE_DONE } from "./sseConstants.js";
+import { CLAUDE_EVENT } from "../translator/schema/index.js";
 
 const sharedEncoder = new TextEncoder();
 
@@ -51,7 +53,7 @@ export function hasValuableContent(chunk, format) {
 
   // Claude format
   if (format === FORMATS.CLAUDE) {
-    const isContentBlockDelta = chunk.type === "content_block_delta";
+    const isContentBlockDelta = chunk.type === CLAUDE_EVENT.CONTENT_BLOCK_DELTA;
     const hasText = chunk.delta?.text && chunk.delta.text !== "";
     const hasThinking = chunk.delta?.thinking && chunk.delta.thinking !== "";
     const hasInputJson = chunk.delta?.partial_json && chunk.delta.partial_json !== "";
@@ -63,6 +65,54 @@ export function hasValuableContent(chunk, format) {
   }
 
   return true; // Other formats: keep all chunks
+}
+
+// Ensure every streamed tool_call carries an id.
+//
+// OpenAI's streaming contract: the id and function.name arrive on the FIRST
+// fragment of a tool call; later fragments carry only `index` + argument
+// deltas. Some providers instead open a brand-new `index` in a late fragment
+// and omit the id entirely. Strict OpenAI-compatible clients
+// (@ai-sdk/openai-compatible) then throw
+// "AI_InvalidResponseDataError: Expected 'id' to be a string." and abort the
+// whole turn.
+//
+// Fix: remember which tool-call indexes the client has seen, and mint an id
+// only when a fragment opens an unseen index. Continuation fragments of a known
+// index keep the id absent: OpenAI-style accumulators concatenate string delta
+// fields, so repeating the id would turn `call_abc` into `call_abccall_abc` and
+// the client's tool result would no longer match upstream history.
+//
+// Returns true when a chunk was modified.
+export function ensureStreamToolCallIds(chunk, seenIds) {
+  if (!chunk?.choices?.length) return false;
+  let changed = false;
+
+  for (const choice of chunk.choices) {
+    const calls = choice?.delta?.tool_calls;
+    if (!Array.isArray(calls)) continue;
+
+    for (const tc of calls) {
+      if (!tc || typeof tc !== "object") continue;
+
+      if (typeof tc.id === "string" && tc.id.length > 0) {
+        if (tc.index !== undefined) seenIds.set(tc.index, tc.id);
+        continue;
+      }
+
+      // No id on this fragment. A known index is a normal continuation: leave
+      // it id-less so the client keeps the id from the opening fragment.
+      if (tc.index !== undefined && seenIds.has(tc.index)) continue;
+
+      // The index is new to the client: mint the id it must open with.
+      const id = fallbackToolCallId(tc.index);
+      tc.id = id;
+      if (tc.index !== undefined) seenIds.set(tc.index, id);
+      changed = true;
+    }
+  }
+
+  return changed;
 }
 
 // Fix invalid id (generic or too short)
@@ -104,6 +154,18 @@ function cleanUsagePayload(payload) {
   return cleaned;
 }
 
+// Responses same-format passthrough: when the event needs no cleanup, forward the
+// original JSON text instead of re-stringifying (response.completed can be large).
+export function formatResponsesPassthroughSSE(eventName, parsed, rawJson) {
+  if (typeof rawJson === "string" && rawJson.length > 0 && cleanUsagePayload(parsed) === parsed) {
+    return `event: ${eventName}
+data: ${rawJson}
+
+`;
+  }
+  return formatSSE({ event: eventName, data: parsed });
+}
+
 // Format output as SSE
 export function formatSSE(data, sourceFormat) {
   if (data === null || data === undefined) return "data: null\n\n";
@@ -137,11 +199,16 @@ export function formatSSE(data, sourceFormat) {
 // NOTE: non-SSE client formats (Ollama NDJSON) get an SSE frame here — dead in
 // practice because detectFormatByEndpoint never resolves to OLLAMA.
 export function buildStreamErrorBytes(statusCode, message, clientFormat) {
-  const { error } = buildErrorBody(statusCode, message);
+  const format = resolveErrorFormat(null, clientFormat);
+  const body = buildErrorBody(statusCode, message, format);
 
-  const sse = clientFormat === FORMATS.CLAUDE
-    ? formatSSE({ type: "error", error }, FORMATS.CLAUDE)
-    : formatSSE({ error }, clientFormat) + SSE_DONE;
+  // Claude: `event: error` with the Anthropic envelope. Gemini: a bare error
+  // frame and no [DONE] sentinel (Gemini streams end by closing). OpenAI: error
+  // frame then [DONE].
+  let sse;
+  if (format === FORMATS.CLAUDE) sse = formatSSE(body, FORMATS.CLAUDE);
+  else if (format === FORMATS.GEMINI) sse = formatSSE(body, clientFormat);
+  else sse = formatSSE(body, clientFormat) + SSE_DONE;
 
   return sharedEncoder.encode(sse);
 }

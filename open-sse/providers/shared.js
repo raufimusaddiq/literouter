@@ -1,3 +1,4 @@
+import { setClaudeCliFallback } from "../utils/claudeCliVersion.js";
 import { platform, arch } from "os";
 
 // === OS/Arch helpers (Stainless fingerprint) ===
@@ -22,7 +23,11 @@ export function mapStainlessArch() {
 
 // Anthropic API version (single source — reused across claude-format providers/executors)
 export const ANTHROPIC_API_VERSION = "2023-06-01";
-export const CLAUDE_CLI_VERSION = "2.1.258";
+// Floor version only. LiteRouter pins 2.1.295 as the advertised minimum: the live
+// lookup in utils/claudeCliVersion.js may raise the version we send, never lower it,
+// and every failure path falls back to this value.
+export const CLAUDE_CLI_VERSION = "2.1.295";
+setClaudeCliFallback(CLAUDE_CLI_VERSION);
 
 // Shared Claude-compatible API headers (reused across claude-format providers)
 export const CLAUDE_API_HEADERS = {
@@ -77,8 +82,10 @@ export function selectAnthropicBeta(model = "", body = null) {
   return flags.join(",");
 }
 
-// Shared baseUrls
-export const KIMI_CODING_BASE_URL = "https://api.kimi.com/coding/v1/messages";
+export function mergeAnthropicBeta(...values) {
+  const flags = values.flatMap((v) => (typeof v === "string" ? v.split(",") : [])).map((f) => f.trim()).filter(Boolean);
+  return [...new Set(flags)].join(",");
+}
 
 // Default base for dynamic compat providers (openai-compatible-* / anthropic-compatible-*) when user gives no baseUrl
 export const OPENAI_COMPAT_BASE = "https://api.openai.com/v1";

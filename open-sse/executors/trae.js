@@ -1,4 +1,6 @@
+import { rethrowIfGatewayAbort } from "../utils/requestTimeouts.js";
 import { BaseExecutor } from "./base.js";
+import { SSE_HEADERS } from "../utils/sseConstants.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { PROVIDERS } from "../config/providers.js";
 
@@ -39,6 +41,14 @@ function flattenQuery(messages) {
   }
   // Trae expects query as a JSON-encoded string of typed content blocks.
   return JSON.stringify([{ type: "text", data: { content: parts.join("\n\n") } }]);
+}
+
+// Never reflect raw error text (it can carry stack/internal detail) to the client:
+// log it server-side, return a short stable message.
+function publicErrorMessage(err) {
+  const code = typeof err?.code === "string" && /^[A-Za-z0-9_.-]{1,40}$/.test(err.code) ? ` (${err.code})` : "";
+  console.error(`[trae] upstream request failed: ${err?.message || err}`);
+  return `trae upstream request failed${code}`;
 }
 
 export default class TraeExecutor extends BaseExecutor {
@@ -189,7 +199,8 @@ export default class TraeExecutor extends BaseExecutor {
     try {
       session = await this.createSession(headers, query, model, psd, signal);
     } catch (err) {
-      return { response: errResponse(502, err?.message ? String(err.message) : String(err)), url: this.base(), headers, transformedBody: body };
+      rethrowIfGatewayAbort(err);
+      return { response: errResponse(502, publicErrorMessage(err)), url: this.base(), headers, transformedBody: body };
     }
 
     // Shared per-turn state: plan_item thoughts (cumulative, longest wins).
@@ -282,11 +293,7 @@ export default class TraeExecutor extends BaseExecutor {
       return {
         response: new Response(sse, {
           status: 200,
-          headers: {
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-          },
+          headers: { ...SSE_HEADERS },
         }),
         url: this.base(),
         headers,
@@ -303,7 +310,8 @@ export default class TraeExecutor extends BaseExecutor {
         return ev === "done";
       }, signal);
     } catch (err) {
-      return { response: errResponse(502, err?.message ? String(err.message) : String(err)), url: this.base(), headers, transformedBody: body };
+      rethrowIfGatewayAbort(err);
+      return { response: errResponse(502, publicErrorMessage(err)), url: this.base(), headers, transformedBody: body };
     }
     if (errorEvent) {
       return { response: errResponse(502, `trae ${errorEvent.code || ""}: ${errorEvent.message || ""}`), url: this.base(), headers, transformedBody: body };

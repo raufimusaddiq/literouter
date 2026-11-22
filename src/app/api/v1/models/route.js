@@ -1,12 +1,17 @@
 import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS, getModelKind } from "@/shared/constants/models";
 import {
+  ALIAS_TO_ID,
   AI_PROVIDERS,
+  FREE_PROVIDERS,
   getProviderAlias,
+  resolveProviderId,
+  ID_TO_ALIAS,
   isAnthropicCompatibleProvider,
   isOpenAICompatibleProvider,
 } from "@/shared/constants/providers";
 import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
+import { getKeyAccessContext, filterModelsListForKey } from "@/sse/services/keyAccess.js";
 import { resolveKiroModels } from "open-sse/services/kiroModels.js";
 import { resolveKimchiModels } from "open-sse/services/kimchiModels.js";
 import { resolveQoderModels, routableQoderModels } from "open-sse/services/qoderModels.js";
@@ -15,9 +20,45 @@ import { resolveClinepassModels, resolveClineModels } from "open-sse/services/cl
 import { resolveGrokCliModels } from "open-sse/services/grokCliModels.js";
 import { resolveCursorModels } from "open-sse/services/cursorModels.js";
 import { resolveZedModels } from "open-sse/shared/zedAuth.js";
+import { resolveCommandCodeModels } from "open-sse/services/commandcodeModels.js";
+import { noteUntrackedModel } from "open-sse/providers/trackingGaps.js";
 import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
-import { capabilitiesFromServiceKind, getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
+import {
+  aggregateComboCapabilities,
+  capabilitiesFromServiceKind,
+  getCapabilitiesForModel,
+} from "open-sse/providers/capabilities.js";
+import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
+import { toAnthropicModelList } from "open-sse/utils/anthropicModels.js";
+import { buildErrorBody, resolveErrorFormat } from "open-sse/utils/error.js";
+import { FORMATS } from "open-sse/translator/formats.js";
+
+// Combo seats use UI aliases; the model registry also has transport aliases.
+// Capability overrides and catalog limits are keyed by provider id.
+const ALIAS_TO_PROVIDER_ID = {
+  ...Object.fromEntries(
+    Object.entries(PROVIDER_ID_TO_ALIAS).map(([id, alias]) => [alias, id])
+  ),
+  ...Object.fromEntries(
+    Object.entries(ID_TO_ALIAS).map(([id, alias]) => [alias, id])
+  ),
+  ...ALIAS_TO_ID,
+};
+
+function makeComboSeatResolver(nestedComboModels) {
+  const comboSeatCapabilities = (seat) => {
+    const slash = seat.indexOf("/");
+    if (slash <= 0) {
+      const nested = nestedComboModels?.get(seat);
+      if (!nested) return null;
+      return aggregateComboCapabilities(nested, nestedComboModels, comboSeatCapabilities);
+    }
+    const alias = seat.slice(0, slash);
+    return getCapabilitiesForModel(resolveProviderId(alias), seat.slice(slash + 1));
+  };
+  return comboSeatCapabilities;
+}
 
 // Per-provider live model resolvers. Each receives a connection record and
 // returns { models: [{ id, name? }, ...] } | null on failure.
@@ -98,6 +139,7 @@ const LIVE_MODEL_RESOLVERS = {
         connectionProxyUrl: proxy.connectionProxyUrl || "",
         connectionNoProxy: proxy.connectionNoProxy || "",
         vercelRelayUrl: proxy.vercelRelayUrl || "",
+        proxyPoolId: proxy.proxyPoolId || null,
         strictProxy: proxy.strictProxy === true,
       },
       onCredentialsRefreshed: async (refreshed) => {
@@ -132,6 +174,13 @@ const LIVE_MODEL_RESOLVERS = {
         })),
     };
   },
+  // CommandCode's catalog is public and account-independent, so no per-connection
+  // credentials are needed — the connection only has to exist and be active.
+  commandcode: async () => {
+    const result = await resolveCommandCodeModels();
+    if (!result?.models?.length) return null;
+    return { models: result.models.map(({ id, name }) => ({ id, name })) };
+  },
 };
 
 const parseOpenAIStyleModels = (data) => {
@@ -144,17 +193,18 @@ const parseOpenAIStyleModels = (data) => {
 const INTERNAL_MODELS_FETCH_HEADER = "x-9r-internal-models-fetch";
 
 // LLM kind sentinel — combos/models with no explicit kind default to LLM
-const LLM_KIND = "llm";
+export const LLM_KIND = "llm";
 
 // Map per-model `type` field (in PROVIDER_MODELS) to service kind.
 // Models without `type` are treated as LLM.
-const MODEL_TYPE_TO_KIND = {
+export const MODEL_TYPE_TO_KIND = {
   image: "image",
   tts: "tts",
   embedding: "embedding",
   stt: "stt",
   imageToText: "imageToText",
   video: "video",
+  systemone: "systemone",
 };
 
 function modelKind(model) {
@@ -232,12 +282,22 @@ async function fetchCompatibleModelIds(connection) {
 
 // Provider matches kindFilter when its serviceKinds intersect the requested kinds.
 // LLM is the default kind for providers missing serviceKinds.
-function providerMatchesKinds(providerId, kindFilter) {
+function providerMatchesKinds(providerId, kindFilter, candidateModels) {
   const provider = AI_PROVIDERS[providerId];
   const kinds = Array.isArray(provider?.serviceKinds) && provider.serviceKinds.length > 0
     ? provider.serviceKinds
     : [LLM_KIND];
-  return kindFilter.some((k) => kinds.includes(k));
+  if (kinds.length === 1 && kinds[0] === "systemone") return kindFilter.includes("systemone");
+  if (kindFilter.some((k) => kinds.includes(k))) return true;
+  const models = candidateModels
+    || (PROVIDER_MODELS[PROVIDER_ID_TO_ALIAS[providerId] || providerId] || []);
+  return models.some((model) => {
+    const modelId = typeof model === "string" ? model : model.id;
+    if (!modelId) return false;
+    return kindFilter.includes(modelKind(model) === LLM_KIND
+      ? inferKindFromUnknownModelId(modelId)
+      : modelKind(model));
+  });
 }
 
 // Combo matches kindFilter when its `kind` field is in the list.
@@ -245,6 +305,47 @@ function providerMatchesKinds(providerId, kindFilter) {
 function comboMatchesKinds(combo, kindFilter) {
   const kind = combo?.kind || LLM_KIND;
   return kindFilter.includes(kind);
+}
+
+// Nested combo names are valid seats — the model selector exposes them and
+// chat routing resolves them recursively — but a no-slash seat is otherwise
+// treated as a literal model and publishes the 200k floor. Expand nested
+// names (cycle-guarded) so the published window is the true min across the
+// whole chain.
+function comboSeatLimits(combo, combosByName, comboSeatNestedNames, visiting = new Set()) {
+  const name = typeof combo?.name === "string" ? combo.name : null;
+  if (name) {
+    if (visiting.has(name)) return { contextWindow: undefined, maxOutput: undefined };
+    visiting.add(name);
+  }
+
+  let contextWindow = Infinity;
+  let maxOutput = Infinity;
+  try {
+    for (const seat of Array.isArray(combo?.models) ? combo.models : []) {
+      if (typeof seat !== "string") continue;
+      const slash = seat.indexOf("/");
+      if (slash <= 0) {
+        const nested = combosByName.get(seat);
+        if (nested) {
+          const nestedLimits = comboSeatLimits(nested, combosByName, comboSeatNestedNames, visiting);
+          if (Number.isFinite(nestedLimits.contextWindow)) contextWindow = Math.min(contextWindow, nestedLimits.contextWindow);
+          if (Number.isFinite(nestedLimits.maxOutput)) maxOutput = Math.min(maxOutput, nestedLimits.maxOutput);
+          continue;
+        }
+      }
+      const caps = aggregateComboCapabilities([seat], null, makeComboSeatResolver(comboSeatNestedNames));
+      if (Number.isFinite(caps?.contextWindow)) contextWindow = Math.min(contextWindow, caps.contextWindow);
+      if (Number.isFinite(caps?.maxOutput)) maxOutput = Math.min(maxOutput, caps.maxOutput);
+    }
+  } finally {
+    if (name) visiting.delete(name);
+  }
+
+  return {
+    contextWindow: Number.isFinite(contextWindow) ? contextWindow : undefined,
+    maxOutput: Number.isFinite(maxOutput) ? maxOutput : undefined,
+  };
 }
 
 /**
@@ -258,7 +359,7 @@ export async function buildModelsList(kindFilter, options = {}) {
   const skipDynamicFetch = options.skipDynamicFetch === true;
   let connections = [];
   try {
-    connections = await getProviderConnections();
+    connections = await getProviderConnections({}, { clone: false });
     connections = connections.filter(c => c.isActive !== false);
   } catch (e) {
     console.log("Could not fetch providers, returning all models");
@@ -293,14 +394,35 @@ export async function buildModelsList(kindFilter, options = {}) {
   }
   const isDisabled = (alias, modelId) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
 
+  // Only the first active connection per provider is used (and handed to live
+  // resolvers), so clone that one instead of the whole cached pool per call.
   const activeConnectionByProvider = new Map();
   for (const conn of connections) {
     if (!activeConnectionByProvider.has(conn.provider)) {
-      activeConnectionByProvider.set(conn.provider, conn);
+      activeConnectionByProvider.set(conn.provider, structuredClone(conn));
+    }
+  }
+
+  // Include no-auth free providers (e.g. opencode) so their models are exposed in /v1/models
+  for (const [id, provider] of Object.entries(FREE_PROVIDERS || {})) {
+    if (provider?.noAuth && !activeConnectionByProvider.has(id)) {
+      activeConnectionByProvider.set(id, {
+        id: "noauth",
+        provider: id,
+        isActive: true,
+      });
     }
   }
 
   const models = [];
+  const combosByName = new Map(
+    combos.filter((c) => typeof c?.name === "string").map((c) => [c.name, c]),
+  );
+  const comboSeatNestedNames = new Map(
+    [...combosByName.entries()]
+      .filter(([, combo]) => Array.isArray(combo.models))
+      .map(([name, combo]) => [name, combo.models]),
+  );
 
   // Combos first (filtered by kind).
   for (const combo of combos) {
@@ -310,20 +432,30 @@ export async function buildModelsList(kindFilter, options = {}) {
       object: "model",
       owned_by: "combo",
     };
+    if (combo.kind === "webSearch" || combo.kind === "webFetch") {
+      entry.kind = combo.kind;
+    } else {
+      const comboCaps = aggregateComboCapabilities(combo.models, combosByName, makeComboSeatResolver(comboSeatNestedNames));
+      if (comboCaps) entry.capabilities = comboCaps;
+      // Any seat can serve the request, so the only window a combo can promise is
+      // its smallest. Combo entries were the only models on this endpoint that
+      // published no limits at all, which leaves a client to guess from the name —
+      // and it guesses high (see the snake_case note on the per-provider path).
+      const { contextWindow, maxOutput } = comboSeatLimits(combo, combosByName, comboSeatNestedNames);
+      if (Number.isFinite(contextWindow)) entry.context_length = contextWindow;
+      if (Number.isFinite(maxOutput)) entry.max_completion_tokens = maxOutput;
+    }
     models.push(entry);
   }
 
   if (connections.length === 0) {
     // DB unavailable -> return static models, filtered by per-model kind
-    const aliasToProviderId = Object.fromEntries(
-      Object.entries(PROVIDER_ID_TO_ALIAS).map(([id, alias]) => [alias, id])
-    );
     for (const [alias, providerModels] of Object.entries(PROVIDER_MODELS)) {
-      const providerId = aliasToProviderId[alias] || alias;
+      const providerId = ALIAS_TO_PROVIDER_ID[alias] || alias;
       if (!providerMatchesKinds(providerId, kindFilter)) continue;
       for (const model of providerModels) {
         if (!kindFilter.includes(modelKind(model))) continue;
-        if (isDisabled(alias, model.id)) continue;
+        if (isDisabled(alias, model.id) || isDisabled(providerId, model.id)) continue;
         models.push({
           id: `${alias}/${model.id}`,
           object: "model",
@@ -350,8 +482,6 @@ export async function buildModelsList(kindFilter, options = {}) {
     }
   } else {
     for (const [providerId, conn] of activeConnectionByProvider.entries()) {
-      if (!providerMatchesKinds(providerId, kindFilter)) continue;
-
       const staticAlias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
       const outputAlias = (
         conn?.providerSpecificData?.prefix
@@ -364,6 +494,11 @@ export async function buildModelsList(kindFilter, options = {}) {
         Array.isArray(enabledModels) && enabledModels.length > 0;
       const isCompatibleProvider =
         isOpenAICompatibleProvider(providerId) || isAnthropicCompatibleProvider(providerId);
+      if (!providerMatchesKinds(
+        providerId,
+        kindFilter,
+        hasExplicitEnabledModels ? enabledModels : undefined,
+      )) continue;
 
       // Build kind lookup for static models so we can filter even when only IDs are exposed
       const staticModelKindById = new Map(
@@ -395,6 +530,9 @@ export async function buildModelsList(kindFilter, options = {}) {
           const live = await liveResolver(conn);
           if (live?.models?.length) {
             rawModelIds = live.models.map((m) => m.id);
+            // Live ids can outrun the static pricing/caps tables; one silent
+            // warn per id keeps the cost blind spot discoverable.
+            for (const model of live.models) noteUntrackedModel(providerId, model.id, "v1-models");
             liveModelKindById = new Map(
               live.models
                 .filter((m) => m?.id)
@@ -476,7 +614,7 @@ export async function buildModelsList(kindFilter, options = {}) {
         // imageToText custom models stay in the LLM list (vision-capable chat models)
         const allowAsLlm = kind === "imageToText" && kindFilter.includes(LLM_KIND);
         if (!kindFilter.includes(kind) && !allowAsLlm) continue;
-        if (isDisabled(outputAlias, modelId) || isDisabled(staticAlias, modelId)) continue;
+        if (isDisabled(outputAlias, modelId) || isDisabled(staticAlias, modelId) || isDisabled(providerId, modelId)) continue;
 
         const model = {
           id: `${outputAlias}/${modelId}`,
@@ -511,6 +649,11 @@ export async function buildModelsList(kindFilter, options = {}) {
           }
           if (Number.isFinite(contextWindow)) model.context_length = contextWindow;
           if (Number.isFinite(maxOutput)) model.max_completion_tokens = maxOutput;
+          // Selectable reasoning levels (the set the dashboard picker shows) so clients
+          // can build their effort selector from the gateway instead of keeping a
+          // per-model table. Omitted when the model has no reasoning.
+          const thinkingLevels = getThinkingLevels(providerId, modelId);
+          if (Array.isArray(thinkingLevels) && thinkingLevels.length > 0) model.thinking_levels = thinkingLevels;
         }
         models.push(model);
       }
@@ -549,15 +692,30 @@ export async function GET(request) {
   try {
     // Detect cross-instance recursive /models fetch (another 9router fetching our /models)
     const skipDynamicFetch = request?.headers?.get(INTERNAL_MODELS_FETCH_HEADER) === "1";
-    const data = await buildModelsList([LLM_KIND], { skipDynamicFetch });
+    const kind = request.nextUrl?.searchParams?.get("kind");
+    const kindFilter = kind ? [kind] : [LLM_KIND];
+    const data = await filterModelsListForKey(
+      await getKeyAccessContext(request),
+      await buildModelsList(kindFilter, { skipDynamicFetch })
+    );
+    // Anthropic SDKs send anthropic-version; give them the Anthropic list shape.
+    if (request.headers.get("anthropic-version")) {
+      const params = request.nextUrl?.searchParams;
+      return Response.json(
+        toAnthropicModelList(data, {
+          limit: params?.get("limit"),
+          afterId: params?.get("after_id"),
+          beforeId: params?.get("before_id"),
+        }),
+        { headers: { "Access-Control-Allow-Origin": "*" } }
+      );
+    }
     return Response.json({ object: "list", data }, {
       headers: { "Access-Control-Allow-Origin": "*" },
     });
   } catch (error) {
     console.log("Error fetching models:", error);
-    return Response.json(
-      { error: { message: error.message, type: "server_error" } },
-      { status: 500 }
-    );
+    const format = request.headers.get("anthropic-version") ? FORMATS.CLAUDE : resolveErrorFormat(null);
+    return Response.json(buildErrorBody(500, error.message, format), { status: 500 });
   }
 }

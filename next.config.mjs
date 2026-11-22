@@ -25,6 +25,12 @@ const nextConfig = {
     root: tracingRoot
   },
   outputFileTracingRoot: tracingRoot,
+  // Backstop: dirs that must never ship in the standalone output (tests, docs, tooling).
+  outputFileTracingExcludes: {
+    "*": ["./tests/**/*", "./docs/**/*", "./cli/**/*", "./.rig/**/*", "./.claude/**/*", "./images/**/*", "./Dockerfile", "./*.md"],
+    "/instrumentation": ["./tests/**/*", "./docs/**/*", "./cli/**/*", "./.rig/**/*", "./.claude/**/*", "./images/**/*", "./Dockerfile", "./*.md"],
+    "/middleware": ["./tests/**/*", "./docs/**/*", "./cli/**/*", "./.rig/**/*", "./.claude/**/*", "./images/**/*", "./Dockerfile", "./*.md"],
+  },
   images: {
     unoptimized: true
   },
@@ -35,7 +41,7 @@ const nextConfig = {
     // Cache fetch responses across HMR refreshes for faster dev reloads.
     serverComponentsHmrCache: true,
     // Tree-shake heavy barrel imports to cut compile + bundle size
-    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "material-symbols", "marked"],
+    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable"],
   },
   webpack: (config, { isServer }) => {
     // Ignore fs/path modules in browser bundle

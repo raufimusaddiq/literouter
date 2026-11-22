@@ -1,5 +1,5 @@
 {
-  "name": "9router-tests",
+  "name": "literouter-tests",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -12,6 +12,6 @@
     "vitest": "^4.0.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.9"
   }
 }

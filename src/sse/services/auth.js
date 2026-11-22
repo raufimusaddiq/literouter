@@ -1,24 +1,60 @@
-import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
+import { getProviderConnections, getProviderConnectionById, validateApiKey, updateProviderConnection, mutateProviderConnection, getSettings, getProxyPools } from "@/lib/db/index.js";
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
-import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
+import { formatRetryAfter, checkFallbackError, shouldRotateAccount, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers.js";
 import { getAntigravityQuotaCache } from "./antigravityQuota.js";
+import { extractClientApiKey } from "./keyAccess.js";
 import * as log from "../utils/logger.js";
 
-// Mutex to prevent race conditions during account selection
-let selectionMutex = Promise.resolve();
+// Runtime-only round-robin cursor. Account rotation is request-serving state,
+// not durable provider configuration: persisting it on every request caused a
+// SQLite UPDATE, connection-cache invalidation, and Redis version bump for each
+// successful selection. JavaScript executes the selection/update block below
+// synchronously, so no async mutex is required inside one process.
+const selectionState = globalThis.__liteRouterSelectionState ??= new Map();
 
-// PRD 9.3: round-robin state must not require a synchronous database operation
-// per request. The cursor is derived from lastUsedAt/consecutiveUseCount, which
-// are durable, so persist in the background — the request path never waits on
-// the write. updateProviderConnection clears the connection cache
-// synchronously, so the next selection re-reads the row with the new cursor and
-// rotation still advances. An overlay cache is therefore unnecessary.
-function persistConnectionUsage(id, patch) {
-  updateProviderConnection(id, patch).catch((e) => {
-    log.warn("AUTH", `failed to persist round-robin cursor for ${id}: ${e?.message || e}`);
+function pickRoundRobinConnection(providerId, availableConnections, stickyLimit) {
+  const compare = (a, b) => {
+    const p = (a.priority || 999) - (b.priority || 999);
+    return p || String(a.id).localeCompare(String(b.id));
+  };
+  // The pool arrives priority-sorted; only copy + re-sort when the id tiebreak
+  // (or an unsorted caller) actually requires it. One O(n) pass, no allocation.
+  let sorted = true;
+  for (let i = 1; i < availableConnections.length; i++) {
+    if (compare(availableConnections[i - 1], availableConnections[i]) > 0) { sorted = false; break; }
+  }
+  const ordered = sorted ? availableConnections : [...availableConnections].sort(compare);
+  if (ordered.length === 0) return null;
+
+  const limit = Math.max(1, Number.parseInt(stickyLimit, 10) || 1);
+  const state = selectionState.get(providerId);
+  const currentIndex = state
+    ? ordered.findIndex((connection) => connection.id === state.connectionId)
+    : -1;
+
+  if (currentIndex >= 0 && state.consecutiveUseCount < limit) {
+    const next = {
+      connectionId: ordered[currentIndex].id,
+      consecutiveUseCount: state.consecutiveUseCount + 1,
+    };
+    selectionState.set(providerId, next);
+    return ordered[currentIndex];
+  }
+
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % ordered.length : 0;
+  const connection = ordered[nextIndex];
+  selectionState.set(providerId, {
+    connectionId: connection.id,
+    consecutiveUseCount: 1,
   });
+  return connection;
+}
+
+export function resetProviderSelectionState(provider = null) {
+  if (provider) selectionState.delete(resolveProviderId(provider));
+  else selectionState.clear();
 }
 
 const GITHUB_MONTHLY_USAGE_LIMIT = "you've reached your additional usage limit for your plan";
@@ -43,16 +79,9 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     ? excludeConnectionIds
     : (excludeConnectionIds ? new Set([excludeConnectionIds]) : new Set());
   const preferredConnectionId = options?.preferredConnectionId || null;
-  // Acquire mutex to prevent race conditions
-  const currentMutex = selectionMutex;
-  let resolveMutex;
-  selectionMutex = new Promise(resolve => { resolveMutex = resolve; });
 
-  try {
-    await currentMutex;
-
-    // Resolve alias to provider ID (e.g., "kc" -> "kilocode")
-    const providerId = resolveProviderId(provider);
+  // Resolve alias to provider ID (e.g., "kc" -> "kilocode")
+  const providerId = resolveProviderId(provider);
 
     // Inject a virtual connection for no-auth free providers (with optional proxy pool from settings)
     if (FREE_PROVIDERS[providerId]?.noAuth) {
@@ -76,13 +105,15 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
           connectionProxyUrl: resolvedProxy.connectionProxyUrl,
           connectionNoProxy: resolvedProxy.connectionNoProxy,
           connectionProxyPoolId: resolvedProxy.proxyPoolId || null,
+          strictProxy: resolvedProxy.strictProxy === true,
           vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
         },
       };
     }
 
-    const connections = await getProviderConnections({ provider: providerId, isActive: true });
-    log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
+    const connections = await getProviderConnections({ provider: providerId, isActive: true }, { clone: false });
+    const debugOn = process.env.LOG_LEVEL?.toUpperCase?.() === "DEBUG";
+    if (debugOn) log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
 
     if (connections.length === 0) {
       log.warn("AUTH", `No credentials for ${provider}`);
@@ -109,8 +140,8 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       return true;
     });
 
-    log.debug("AUTH", `${provider} | available: ${availableConnections.length}/${connections.length}`);
-    connections.forEach(c => {
+    if (debugOn) log.debug("AUTH", `${provider} | available: ${availableConnections.length}/${connections.length}`);
+    if (debugOn) connections.forEach(c => {
       const excluded = excludeSet.has(c.id);
       const locked = isModelLockActive(c, model);
       if (excluded || locked) {
@@ -159,45 +190,10 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       }
     }
     if (connection) {
-      // skip strategy
+      // Preferred connection bypasses rotation.
     } else if (strategy === "round-robin") {
       const stickyLimit = providerOverride.stickyRoundRobinLimit || settings.stickyRoundRobinLimit || 3;
-
-      // Sort by lastUsed (most recent first) to find current candidate
-      const byRecency = [...availableConnections].sort((a, b) => {
-        if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
-        if (!a.lastUsedAt) return 1;
-        if (!b.lastUsedAt) return -1;
-        return new Date(b.lastUsedAt) - new Date(a.lastUsedAt);
-      });
-
-      const current = byRecency[0];
-      const currentCount = current?.consecutiveUseCount || 0;
-
-      if (current && current.lastUsedAt && currentCount < stickyLimit) {
-        // Stay with current account
-        connection = current;
-        // Advance the cursor in memory, persist off the request path (PRD 9.3).
-        const nextCount = (connection.consecutiveUseCount || 0) + 1;
-        const lastUsedAt = new Date().toISOString();
-        persistConnectionUsage(connection.id, { lastUsedAt, consecutiveUseCount: nextCount });
-      } else {
-        // Pick the least recently used (excluding current if possible)
-        const sortedByOldest = [...availableConnections].sort((a, b) => {
-          if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
-          if (!a.lastUsedAt) return -1;
-          if (!b.lastUsedAt) return 1;
-          return new Date(a.lastUsedAt) - new Date(b.lastUsedAt);
-        });
-
-        connection = sortedByOldest[0];
-
-        // Reset count to 1 in memory, persist off the request path (PRD 9.3).
-        persistConnectionUsage(connection.id, {
-          lastUsedAt: new Date().toISOString(),
-          consecutiveUseCount: 1,
-        });
-      }
+      connection = pickRoundRobinConnection(providerId, availableConnections, stickyLimit);
     } else {
       // Default: fill-first (already sorted by priority in getProviderConnections)
       connection = availableConnections[0];
@@ -223,6 +219,7 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
         connectionProxyUrl: resolvedProxy.connectionProxyUrl,
         connectionNoProxy: resolvedProxy.connectionNoProxy,
         connectionProxyPoolId: resolvedProxy.proxyPoolId || null,
+        strictProxy: resolvedProxy.strictProxy === true,
         vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
       },
       connectionId: connection.id,
@@ -232,9 +229,6 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       // Pass full connection for clearAccountError to read modelLock_* keys
       _connection: connection
     };
-  } finally {
-    if (resolveMutex) resolveMutex();
-  }
 }
 
 /**
@@ -249,42 +243,55 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
  */
 export async function markAccountUnavailable(connectionId, status, errorText, provider = null, model = null, resetsAtMs = null) {
   if (!connectionId || connectionId === "noauth") return { shouldFallback: false, cooldownMs: 0 };
-  const connections = await getProviderConnections({ provider });
-  const conn = connections.find(c => c.id === connectionId);
-  const backoffLevel = conn?.backoffLevel || 0;
+  // Read-only lookup (display name only); the backoff level itself is read inside
+  // the write transaction below so concurrent failures cannot compute the same level.
+  const conn = await getProviderConnectionById(connectionId, { clone: false });
 
   // GitHub premium-request exhaustion is account-wide until the next UTC month.
   const githubResetAtMs = githubMonthlyResetMs(status, errorText, provider);
-
-  // Provider-specific precise cooldown (e.g. codex usage_limit_reached resets_at) overrides backoff
-  let shouldFallback, cooldownMs, newBackoffLevel;
-  if (githubResetAtMs) {
-    shouldFallback = true;
-    cooldownMs = githubResetAtMs - Date.now();
-    newBackoffLevel = 0;
-  } else if (resetsAtMs && resetsAtMs > Date.now()) {
-    shouldFallback = true;
-    // Antigravity quota API provides exact per-model resetAt. Do not truncate it.
-    cooldownMs = resolveProviderId(provider) === "antigravity"
-      ? resetsAtMs - Date.now()
-      : Math.min(resetsAtMs - Date.now(), MAX_RATE_LIMIT_COOLDOWN_MS);
-    newBackoffLevel = 0;
-  } else {
-    ({ shouldFallback, cooldownMs, newBackoffLevel } = checkFallbackError(status, errorText, backoffLevel));
-  }
-  if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
-
   const reason = typeof errorText === "string" ? errorText.slice(0, 200) : "Provider error";
-  const lockUpdate = buildModelLockUpdate(githubResetAtMs ? null : model, cooldownMs);
 
-  await updateProviderConnection(connectionId, {
-    ...lockUpdate,
-    testStatus: "unavailable",
-    lastError: reason,
-    errorCode: status,
-    lastErrorAt: new Date().toISOString(),
-    backoffLevel: newBackoffLevel ?? backoffLevel
+  let decision = { shouldFallback: false, cooldownMs: 0 };
+  let lockUpdate = null;
+  const stored = await mutateProviderConnection(connectionId, (existing) => {
+    const backoffLevel = existing.backoffLevel || 0;
+    // Provider-specific precise cooldown (e.g. codex usage_limit_reached resets_at) overrides backoff
+    let shouldFallback, cooldownMs, newBackoffLevel;
+    if (githubResetAtMs) {
+      shouldFallback = true;
+      cooldownMs = githubResetAtMs - Date.now();
+      newBackoffLevel = 0;
+    } else if (resetsAtMs && resetsAtMs > Date.now()) {
+      shouldFallback = true;
+      // Antigravity quota API provides exact per-model resetAt. Do not truncate it.
+      cooldownMs = resolveProviderId(provider) === "antigravity"
+        ? resetsAtMs - Date.now()
+        : Math.min(resetsAtMs - Date.now(), MAX_RATE_LIMIT_COOLDOWN_MS);
+      newBackoffLevel = 0;
+    } else {
+      const result = checkFallbackError(status, errorText, backoffLevel, provider);
+      // Request/model-scoped failures say nothing about the credential: no lock, no
+      // health write, and the caller must not rotate accounts for them.
+      shouldFallback = shouldRotateAccount(result);
+      cooldownMs = result.cooldownMs;
+      newBackoffLevel = result.newBackoffLevel;
+    }
+    if (!shouldFallback) return null;
+    decision = { shouldFallback: true, cooldownMs };
+    lockUpdate = buildModelLockUpdate(githubResetAtMs ? null : model, cooldownMs);
+    return {
+      ...lockUpdate,
+      testStatus: "unavailable",
+      lastError: reason,
+      errorCode: status,
+      lastErrorAt: new Date().toISOString(),
+      backoffLevel: newBackoffLevel ?? backoffLevel
+    };
   });
+  if (!decision.shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
+  // Connection vanished mid-flight: nothing to lock, but still rotate to another account.
+  if (!stored || !lockUpdate) return decision;
+  const cooldownMs = decision.cooldownMs;
 
   const lockKey = Object.keys(lockUpdate)[0];
   const connName = conn?.displayName || conn?.name || conn?.email || connectionId.slice(0, 8);
@@ -310,7 +317,8 @@ export async function clearAccountError(connectionId, currentConnection, model =
   if (!connectionId || connectionId === "noauth") return;
   const conn = currentConnection._connection || currentConnection;
   const now = Date.now();
-  const allLockKeys = Object.keys(conn).filter(k => k.startsWith("modelLock_"));
+  // Only locks with a value count: a null/empty key is a cleared lock, not a present one.
+  const allLockKeys = Object.keys(conn).filter(k => k.startsWith("modelLock_") && conn[k]);
 
   if (!conn.testStatus && !conn.lastError && allLockKeys.length === 0) return;
 
@@ -318,19 +326,19 @@ export async function clearAccountError(connectionId, currentConnection, model =
   const keysToClear = allLockKeys.filter(k => {
     if (model && k === `modelLock_${model}`) return true; // succeeded model
     if (model && k === "modelLock___all") return true;    // account-level lock
-    const expiry = conn[k];
-    return expiry && new Date(expiry).getTime() <= now;   // expired
+    return new Date(conn[k]).getTime() <= now;            // expired
   });
 
+  // Healthy and nothing to clear: zero writes on the hot path.
   if (keysToClear.length === 0 && conn.testStatus !== "unavailable" && !conn.lastError) return;
 
   // Check if any active locks remain after clearing
   const remainingActiveLocks = allLockKeys.filter(k => {
     if (keysToClear.includes(k)) return false;
-    const expiry = conn[k];
-    return expiry && new Date(expiry).getTime() > now;
+    return new Date(conn[k]).getTime() > now;
   });
 
+  // null here means "delete the key": the repo prunes cleared modelLock_* entries.
   const clearObj = Object.fromEntries(keysToClear.map(k => [k, null]));
 
   // Only reset error state if no active locks remain
@@ -348,22 +356,16 @@ export async function clearAccountError(connectionId, currentConnection, model =
 }
 
 /**
- * Extract API key from request headers
+ * Extract API key from the request.
+ *
+ * Delegates to the key-access extractor so auth and attribution read the key
+ * from exactly the same places (Bearer, x-api-key, x-goog-api-key, ?key=).
+ * A Gemini client that sends only `x-goog-api-key` must not look like "no key"
+ * here while the middleware authorized it — that produced a 401 on /v1beta and
+ * lost usage attribution.
  */
 export function extractApiKey(request) {
-  // Check Authorization header first
-  const authHeader = request.headers.get("Authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice(7);
-  }
-
-  // Check Anthropic x-api-key header
-  const xApiKey = request.headers.get("x-api-key");
-  if (xApiKey) {
-    return xApiKey;
-  }
-
-  return null;
+  return extractClientApiKey(request);
 }
 
 /**

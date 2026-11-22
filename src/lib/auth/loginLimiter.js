@@ -54,11 +54,28 @@ export function getClientIp(request) {
     if (realIp) return realIp;
   }
   // Behind a trusted reverse proxy that overwrites XFF with the real client IP.
+  // Rightmost-hop selection (custom-server.js) assumes exactly one trusted loopback
+  // proxy hop; a longer chain would key on an inner proxy instead of the client.
   if (process.env.TRUST_PROXY === "true") {
-    const xff = request.headers.get("x-forwarded-for");
-    if (xff) return xff.split(",")[0].trim();
+    // Same rule as custom-server.js: X-Real-IP, else the rightmost XFF hop (the one
+    // the trusted proxy appended). The leftmost entry is client-controlled.
+    const realIp = (request.headers.get("x-real-ip") || "").trim();
+    if (realIp) return realIp;
+    const hops = (request.headers.get("x-forwarded-for") || "").split(",").map((h) => h.trim()).filter(Boolean);
+    if (hops.length) return hops[hops.length - 1];
   }
   // Direct exposure without custom-server: single bucket so spoofed XFF
   // rotation cannot escape the limiter.
   return "unknown";
+}
+
+// Count the attempt as a failure BEFORE the caller runs the (slow) password
+// compare. Parallel guesses would otherwise all read the same pre-lockout
+// count, pass checkLock together, and land several tries inside one budget.
+// A success deletes the entry, so a correct password still resets the window.
+export function beginAttempt(ip) {
+  const lock = checkLock(ip);
+  if (lock.locked) return { locked: true, retryAfter: lock.retryAfter };
+  const { remainingBeforeLock } = recordFail(ip);
+  return { locked: false, remainingBeforeLock };
 }

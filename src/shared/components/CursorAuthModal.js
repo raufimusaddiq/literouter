@@ -95,7 +95,7 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }) {
         {autoDetecting && (
           <div className="text-center py-6">
             <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-3xl text-primary animate-spin">
+              <span aria-hidden="true" className="material-symbols-outlined text-3xl text-primary animate-spin">
                 progress_activity
               </span>
             </div>
@@ -113,7 +113,7 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }) {
             {autoDetected && (
               <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
                 <div className="flex gap-2">
-                  <span className="material-symbols-outlined text-green-600 dark:text-green-400">check_circle</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-green-600 dark:text-green-400">check_circle</span>
                   <p className="text-sm text-green-800 dark:text-green-200">
                     Tokens auto-detected from Cursor IDE successfully!
                   </p>
@@ -123,14 +123,14 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }) {
 
             {/* Windows manual instructions */}
             {windowsManual && (
-              <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800 flex flex-col gap-2">
+              <div className="bg-warning/10 p-3 rounded-lg border border-warning/30 flex flex-col gap-2">
                 <div className="flex gap-2 items-center">
-                  <span className="material-symbols-outlined text-amber-600 dark:text-amber-400">info</span>
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  <span aria-hidden="true" className="material-symbols-outlined text-warning">info</span>
+                  <p className="text-sm font-medium text-text-main">
                     Could not read Cursor database automatically.
                   </p>
                 </div>
-                <p className="text-xs text-amber-700 dark:text-amber-300">
+                <p className="text-xs text-text-muted">
                   Make sure Cursor IDE has been opened at least once, then click <strong>Retry</strong>. If the problem persists, paste your tokens manually below.
                 </p>
                 <Button onClick={runAutoDetect} variant="outline" fullWidth>
@@ -143,7 +143,7 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }) {
             {!autoDetected && !windowsManual && !error && (
               <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="flex gap-2">
-                  <span className="material-symbols-outlined text-blue-600 dark:text-blue-400">info</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-blue-600 dark:text-blue-400">info</span>
                   <p className="text-sm text-blue-800 dark:text-blue-200">
                     Cursor IDE not detected. Please paste your tokens manually.
                   </p>

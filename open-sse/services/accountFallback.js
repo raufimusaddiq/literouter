@@ -1,4 +1,4 @@
-import { ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig.js";
+import { SCOPE, ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig.js";
 
 /**
  * Calculate exponential backoff cooldown for rate limits (429)
@@ -18,30 +18,27 @@ export function getQuotaCooldown(backoffLevel = 0) {
  * @param {number} status - HTTP status code
  * @param {string} errorText - Error message text
  * @param {number} backoffLevel - Current backoff level for exponential backoff
- * @returns {{ shouldFallback: boolean, cooldownMs: number, newBackoffLevel?: number }}
+ * @param {string|null} provider - Provider id, for rules that only apply to one upstream
+ * @returns {{ shouldFallback: boolean, cooldownMs: number, scope: string, newBackoffLevel?: number }}
+ *   shouldFallback = a combo may try the next model; account rotation/locking additionally
+ *   requires scope === "account" (see shouldRotateAccount).
  */
-export function checkFallbackError(status, errorText, backoffLevel = 0) {
+export function checkFallbackError(status, errorText, backoffLevel = 0, provider = null) {
   const lowerError = errorText
     ? (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase()
     : "";
 
   for (const rule of ERROR_RULES) {
+    // Provider-scoped rules only apply to that upstream.
+    if (rule.provider && rule.provider !== provider) continue;
     // Text-based rule: match substring in error message
     if (rule.text && lowerError && lowerError.includes(rule.text)) {
-      if (rule.backoff) {
-        const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
-        return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), newBackoffLevel: newLevel };
-      }
-      return { shouldFallback: true, cooldownMs: rule.cooldownMs };
+      return ruleResult(rule, backoffLevel);
     }
 
     // Status-based rule: match HTTP status code
     if (rule.status && rule.status === status) {
-      if (rule.backoff) {
-        const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
-        return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), newBackoffLevel: newLevel };
-      }
-      return { shouldFallback: true, cooldownMs: rule.cooldownMs };
+      return ruleResult(rule, backoffLevel);
     }
   }
 
@@ -56,11 +53,26 @@ export function checkFallbackError(status, errorText, backoffLevel = 0) {
   // Account-scoped statuses keep their rules above (401/402/403/404/429), and the
   // text rules still win for rate-limit / quota / capacity wording.
   if (status >= 400 && status < 500 && status !== 401 && status !== 402 && status !== 403 && status !== 429) {
-    return { shouldFallback: false, cooldownMs: 0 };
+    return { shouldFallback: false, cooldownMs: 0, scope: SCOPE.request };
   }
 
   // Default: transient cooldown for any unmatched error
-  return { shouldFallback: true, cooldownMs: TRANSIENT_COOLDOWN_MS };
+  return { shouldFallback: true, cooldownMs: TRANSIENT_COOLDOWN_MS, scope: SCOPE.account };
+}
+
+function ruleResult(rule, backoffLevel) {
+  const scope = rule.scope || SCOPE.account;
+  if (rule.backoff) {
+    const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
+    return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), scope, newBackoffLevel: newLevel };
+  }
+  // Request-scoped failures stop everywhere; model-scoped ones only let a combo move on.
+  return { shouldFallback: scope !== SCOPE.request, cooldownMs: rule.cooldownMs, scope };
+}
+
+/** Account rotation + lock only make sense for account-scoped failures. */
+export function shouldRotateAccount(result) {
+  return !!result?.shouldFallback && (result.scope || SCOPE.account) === SCOPE.account;
 }
 
 /**
@@ -76,24 +88,6 @@ export function isAccountUnavailable(unavailableUntil) {
  */
 export function getUnavailableUntil(cooldownMs) {
   return new Date(Date.now() + cooldownMs).toISOString();
-}
-
-/**
- * Get the earliest rateLimitedUntil from a list of accounts
- * @param {Array} accounts - Array of account objects with rateLimitedUntil
- * @returns {string|null} Earliest rateLimitedUntil ISO string, or null
- */
-export function getEarliestRateLimitedUntil(accounts) {
-  let earliest = null;
-  const now = Date.now();
-  for (const acc of accounts) {
-    if (!acc.rateLimitedUntil) continue;
-    const until = new Date(acc.rateLimitedUntil).getTime();
-    if (until <= now) continue;
-    if (!earliest || until < earliest) earliest = until;
-  }
-  if (!earliest) return null;
-  return new Date(earliest).toISOString();
 }
 
 /**
@@ -164,17 +158,6 @@ export function buildModelLockUpdate(model, cooldownMs) {
 }
 
 /**
- * Build update object to clear all model locks on a connection.
- */
-export function buildClearModelLocksUpdate(connection) {
-  const cleared = {};
-  for (const key of Object.keys(connection)) {
-    if (key.startsWith(MODEL_LOCK_PREFIX)) cleared[key] = null;
-  }
-  return cleared;
-}
-
-/**
  * Filter available accounts (not in cooldown)
  */
 export function filterAvailableAccounts(accounts, excludeId = null) {
@@ -187,43 +170,4 @@ export function filterAvailableAccounts(accounts, excludeId = null) {
     }
     return true;
   });
-}
-
-/**
- * Reset account state when request succeeds
- * Clears cooldown and resets backoff level to 0
- * @param {object} account - Account object
- * @returns {object} Updated account with reset state
- */
-export function resetAccountState(account) {
-  if (!account) return account;
-  return {
-    ...account,
-    rateLimitedUntil: null,
-    backoffLevel: 0,
-    lastError: null,
-    status: "active"
-  };
-}
-
-/**
- * Apply error state to account
- * @param {object} account - Account object
- * @param {number} status - HTTP status code
- * @param {string} errorText - Error message
- * @returns {object} Updated account with error state
- */
-export function applyErrorState(account, status, errorText) {
-  if (!account) return account;
-
-  const backoffLevel = account.backoffLevel || 0;
-  const { cooldownMs, newBackoffLevel } = checkFallbackError(status, errorText, backoffLevel);
-
-  return {
-    ...account,
-    rateLimitedUntil: cooldownMs > 0 ? getUnavailableUntil(cooldownMs) : null,
-    backoffLevel: newBackoffLevel ?? backoffLevel,
-    lastError: { status, message: errorText, timestamp: new Date().toISOString() },
-    status: "error"
-  };
 }

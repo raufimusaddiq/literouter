@@ -22,7 +22,8 @@ const ALIAS_TOKENS = [
   "topaz","runway","runwayml","jina","jina-ai","polly","aws-polly","bb","blackbox",
   "af","airforce","api-airforce","llm7","llm-7","samba","sambanova","bm","bluesminds",
   "bzl","bazaarlink","kgw","kilo-gateway","hunyuan","tencent","qianfan","baidu","ernie",
-  "dv","devin","devin-cli","morph","morphllm",
+  "dv","devin","devin-cli","morph","morphllm","typesafe",
+  "syn","synthetic","synthetic-new","sensenova-intl",
 ];
 
 // Sort idToAlias by key — runtime accesses by key, order is irrelevant (content-based)

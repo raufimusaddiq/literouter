@@ -1,10 +1,20 @@
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
-import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK, OPENAI_FINISH } from "../schema/index.js";
+import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK, OPENAI_FINISH, CLAUDE_EVENT } from "../schema/index.js";
 import { buildChunk } from "../concerns/chunk.js";
 import { toOpenAIUsage } from "../concerns/usage.js";
 import { reasoningDelta } from "../concerns/reasoning.js";
 import { toOpenAIFinish } from "../concerns/finishReason.js";
+
+// state.usage.prompt_tokens already includes cache read + write. cached_tokens is
+// the marker canonicalizeUsage() reads as "cache-inclusive", so the stored prompt
+// is not folded a second time (#130). prompt_tokens_details carries the split to
+// the client: the stream layer rebuilds the finish-chunk usage from state.usage.
+function markCacheInclusive(usage) {
+  usage.cached_tokens = usage.cache_read_input_tokens || 0;
+  const details = toOpenAIUsage(usage, "claude")?.prompt_tokens_details;
+  if (details) usage.prompt_tokens_details = details;
+}
 
 // Create OpenAI chunk helper
 function createChunk(state, delta, finishReason = null) {
@@ -23,7 +33,7 @@ export function claudeToOpenAIResponse(chunk, state) {
   const event = chunk.type;
 
   switch (event) {
-    case "message_start": {
+    case CLAUDE_EVENT.MESSAGE_START: {
       state.messageId = chunk.message?.id || `msg_${Date.now()}`;
       state.model = chunk.message?.model;
       state.toolCallIndex = 0;
@@ -45,12 +55,13 @@ export function claudeToOpenAIResponse(chunk, state) {
         };
         if (cacheReadTokens > 0) state.usage.cache_read_input_tokens = cacheReadTokens;
         if (cacheCreationTokens > 0) state.usage.cache_creation_input_tokens = cacheCreationTokens;
+        markCacheInclusive(state.usage);
       }
       results.push(createChunk(state, { role: ROLE.ASSISTANT }));
       break;
     }
 
-    case "content_block_start": {
+    case CLAUDE_EVENT.CONTENT_BLOCK_START: {
       const block = chunk.content_block;
       if (block?.type === "server_tool_use") {
         // Built-in tool (web search) - Claude handles internally, skip
@@ -59,10 +70,6 @@ export function claudeToOpenAIResponse(chunk, state) {
       }
       if (block?.type === CLAUDE_BLOCK.TEXT) {
         state.textBlockStarted = true;
-      } else if (block?.type === CLAUDE_BLOCK.THINKING) {
-        state.inThinkingBlock = true;
-        state.currentBlockIndex = chunk.index;
-        results.push(createChunk(state, { content: "<think>" }));
       } else if (block?.type === CLAUDE_BLOCK.TOOL_USE) {
         const toolCallIndex = state.toolCallIndex++;
         // Restore original tool name from mapping (Claude OAuth)
@@ -82,13 +89,15 @@ export function claudeToOpenAIResponse(chunk, state) {
       break;
     }
 
-    case "content_block_delta": {
+    case CLAUDE_EVENT.CONTENT_BLOCK_DELTA: {
       // Skip deltas for built-in server tool blocks (web search)
       if (chunk.index === state.serverToolBlockIndex) break;
       const delta = chunk.delta;
       if (delta?.type === "text_delta" && delta.text) {
         results.push(createChunk(state, { content: delta.text }));
       } else if (delta?.type === "thinking_delta" && delta.thinking) {
+        // Thinking travels only in reasoning_content. No "<think>" markers in
+        // content: OpenAI-format clients render them as literal text.
         results.push(createChunk(state, reasoningDelta(delta.thinking)));
       } else if (delta?.type === "input_json_delta" && delta.partial_json) {
         const toolCall = state.toolCalls.get(chunk.index);
@@ -106,22 +115,26 @@ export function claudeToOpenAIResponse(chunk, state) {
       break;
     }
 
-    case "content_block_stop": {
+    case CLAUDE_EVENT.CONTENT_BLOCK_STOP: {
       // Skip stop for built-in server tool blocks (web search)
       if (chunk.index === state.serverToolBlockIndex) {
         state.serverToolBlockIndex = -1;
         break;
       }
-      if (state.inThinkingBlock && chunk.index === state.currentBlockIndex) {
-        results.push(createChunk(state, { content: "</think>" }));
-        state.inThinkingBlock = false;
+      // A no-argument tool never receives an input_json_delta; clients still need valid JSON.
+      const stoppedToolCall = state.toolCalls?.get(chunk.index);
+      if (stoppedToolCall && stoppedToolCall.function.arguments === "") {
+        stoppedToolCall.function.arguments = "{}";
+        results.push(createChunk(state, {
+          tool_calls: [{ index: stoppedToolCall.index, id: stoppedToolCall.id, function: { arguments: "{}" } }]
+        }));
       }
       state.textBlockStarted = false;
       state.thinkingBlockStarted = false;
       break;
     }
 
-    case "message_delta": {
+    case CLAUDE_EVENT.MESSAGE_DELTA: {
       // Extract usage from message_delta event (Claude native format).
       // Anthropic sends input/cache in message_start and only output here, so
       // fall back to cache captured in message_start when the delta omits it.
@@ -145,10 +158,18 @@ export function claudeToOpenAIResponse(chunk, state) {
 
         if (cacheReadTokens > 0) state.usage.cache_read_input_tokens = cacheReadTokens;
         if (cacheCreationTokens > 0) state.usage.cache_creation_input_tokens = cacheCreationTokens;
+        markCacheInclusive(state.usage);
       }
 
       if (chunk.delta?.stop_reason) {
         state.finishReason = convertStopReason(chunk.delta.stop_reason);
+        // A refusal produces no content blocks at all. Surface Anthropic's own
+        // explanation as the message text so the client shows *why* the turn is
+        // empty instead of a blank reply.
+        const refusalNote = chunk.delta.stop_reason === "refusal" && chunk.delta.stop_details?.explanation;
+        if (refusalNote) {
+          results.push(createChunk(state, { content: refusalNote }));
+        }
         const finalChunk = createChunk(state, {}, state.finishReason);
 
         if (state.usage) {
@@ -168,16 +189,13 @@ export function claudeToOpenAIResponse(chunk, state) {
       break;
     }
 
-    case "message_stop": {
+    case CLAUDE_EVENT.MESSAGE_STOP: {
       if (!state.finishReasonSent) {
         const finishReason = state.finishReason || (state.toolCalls?.size > 0 ? OPENAI_FINISH.TOOL_CALLS : OPENAI_FINISH.STOP);
-        const usageObj = (state.usage && typeof state.usage === 'object') ? {
-          usage: {
-            prompt_tokens: state.usage.input_tokens || 0,
-            completion_tokens: state.usage.output_tokens || 0,
-            total_tokens: (state.usage.input_tokens || 0) + (state.usage.output_tokens || 0)
-          }
-        } : {};
+        // Same cache-inclusive math as the message_delta finish chunk.
+        const usageObj = (state.usage && typeof state.usage === 'object')
+          ? { usage: toOpenAIUsage(state.usage, "claude") }
+          : {};
         results.push({ ...createChunk(state, {}, finishReason), ...usageObj });
         state.finishReasonSent = true;
       }

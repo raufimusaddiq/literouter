@@ -4,6 +4,66 @@ import { adjustMaxTokens } from "../formats/maxTokens.js";
 import { encodeDataUri } from "../concerns/image.js";
 import { collapseTextParts } from "../concerns/message.js";
 import { ROLE, GEMINI_ROLE, OPENAI_BLOCK } from "../schema/index.js";
+import { toOpenAIStop } from "../concerns/requestParams.js";
+
+// Gemini function-calling modes -> OpenAI tool_choice
+const GEMINI_MODE_AUTO = "AUTO";
+const GEMINI_MODE_NONE = "NONE";
+const GEMINI_MODE_ANY = "ANY";
+const JSON_MIME_TYPE = "application/json";
+
+// Gemini SDKs (@google/genai) emit upper-case schema types ("OBJECT", "STRING");
+// OpenAI-style providers want JSON Schema's lower-case spelling.
+function lowerCaseSchemaTypes(schema) {
+  if (Array.isArray(schema)) return schema.map(lowerCaseSchemaTypes);
+  if (!schema || typeof schema !== "object") return schema;
+  const out = {};
+  for (const [key, value] of Object.entries(schema)) {
+    out[key] = key === "type" && typeof value === "string" ? value.toLowerCase() : lowerCaseSchemaTypes(value);
+  }
+  return out;
+}
+
+function geminiToolConfigToChoice(toolConfig) {
+  const cfg = toolConfig?.functionCallingConfig;
+  if (!cfg?.mode) return undefined;
+  switch (String(cfg.mode).toUpperCase()) {
+    case GEMINI_MODE_NONE: return "none";
+    case GEMINI_MODE_AUTO: return "auto";
+    case GEMINI_MODE_ANY: {
+      const names = cfg.allowedFunctionNames;
+      if (Array.isArray(names) && names.length === 1) {
+        return { type: OPENAI_BLOCK.FUNCTION, function: { name: names[0] } };
+      }
+      return "required";
+    }
+    default: return undefined;
+  }
+}
+
+// Gemini's functionCall.id is optional. Without one, mint a unique id per call and
+// pair each functionResponse (also id-less) with the oldest unanswered call of the
+// same name, so two calls to one function in a turn do not collide.
+function createCallIdTracker() {
+  const counts = new Map();
+  const pending = new Map();
+  return {
+    next(call) {
+      if (call.id) return call.id;
+      // First call of a name keeps the plain `call_<name>` id; repeats get a suffix.
+      const n = counts.get(call.name) || 0;
+      counts.set(call.name, n + 1);
+      const id = n === 0 ? `call_${call.name}` : `call_${call.name}_${n}`;
+      if (!pending.has(call.name)) pending.set(call.name, []);
+      pending.get(call.name).push(id);
+      return id;
+    },
+    match(response) {
+      if (response.id) return response.id;
+      return pending.get(response.name)?.shift() || `call_${response.name}`;
+    }
+  };
+}
 
 // Convert Gemini request to OpenAI format
 export function geminiToOpenAIRequest(model, body, stream) {
@@ -26,6 +86,26 @@ export function geminiToOpenAIRequest(model, body, stream) {
     if (config.topP !== undefined) {
       result.top_p = config.topP;
     }
+    if (config.topK !== undefined) {
+      result.top_k = config.topK;
+    }
+    const stop = toOpenAIStop(config.stopSequences);
+    if (stop !== undefined) {
+      result.stop = stop;
+    }
+    if (Number.isFinite(config.candidateCount) && config.candidateCount > 1) {
+      result.n = config.candidateCount;
+    }
+    // responseMimeType/responseSchema -> response_format
+    const schema = config.responseJsonSchema || config.responseSchema;
+    if (schema && typeof schema === "object") {
+      result.response_format = {
+        type: "json_schema",
+        json_schema: { name: "response", schema: lowerCaseSchemaTypes(schema) }
+      };
+    } else if (config.responseMimeType === JSON_MIME_TYPE) {
+      result.response_format = { type: "json_object" };
+    }
   }
 
   // System instruction
@@ -41,10 +121,12 @@ export function geminiToOpenAIRequest(model, body, stream) {
 
   // Convert contents to messages
   if (body.contents && Array.isArray(body.contents)) {
+    const callIds = createCallIdTracker();
     for (const content of body.contents) {
-      const converted = convertGeminiContent(content);
+      const converted = convertGeminiContent(content, callIds);
       if (converted) {
-        result.messages.push(converted);
+        if (Array.isArray(converted)) result.messages.push(...converted);
+        else result.messages.push(converted);
       }
     }
   }
@@ -60,7 +142,7 @@ export function geminiToOpenAIRequest(model, body, stream) {
             function: {
               name: func.name,
               description: func.description || "",
-              parameters: func.parameters || { type: "object", properties: {} }
+              parameters: func.parametersJsonSchema || (func.parameters ? lowerCaseSchemaTypes(func.parameters) : { type: "object", properties: {} })
             }
           });
         }
@@ -68,11 +150,18 @@ export function geminiToOpenAIRequest(model, body, stream) {
     }
   }
 
+  if (result.tools?.length === 0) {
+    delete result.tools;
+  } else if (result.tools) {
+    const choice = geminiToolConfigToChoice(body.toolConfig);
+    if (choice !== undefined) result.tool_choice = choice;
+  }
+
   return result;
 }
 
 // Convert Gemini content to OpenAI message
-function convertGeminiContent(content) {
+function convertGeminiContent(content, callIds) {
   const role = content.role === GEMINI_ROLE.USER ? ROLE.USER : ROLE.ASSISTANT;
   
   if (!content.parts || !Array.isArray(content.parts)) {
@@ -81,8 +170,12 @@ function convertGeminiContent(content) {
 
   const parts = [];
   const toolCalls = [];
+  const toolResults = [];
 
   for (const part of content.parts) {
+    // Echoed reasoning from a previous turn is not user-visible content.
+    if (part.thought === true) continue;
+
     if (part.text !== undefined) {
       parts.push({ type: OPENAI_BLOCK.TEXT, text: part.text });
     }
@@ -100,7 +193,7 @@ function convertGeminiContent(content) {
       // Gemini lacks a native call id; derive a deterministic one from the name so the
       // matching functionResponse maps to the same tool_call_id (providers require pairing).
       toolCalls.push({
-        id: part.functionCall.id || `call_${part.functionCall.name}`,
+        id: callIds.next(part.functionCall),
         type: OPENAI_BLOCK.FUNCTION,
         function: {
           name: part.functionCall.name,
@@ -110,31 +203,34 @@ function convertGeminiContent(content) {
     }
 
     if (part.functionResponse) {
-      return {
+      toolResults.push({
         role: ROLE.TOOL,
-        tool_call_id: part.functionResponse.id || `call_${part.functionResponse.name}`,
+        tool_call_id: callIds.match(part.functionResponse),
         content: JSON.stringify(part.functionResponse.response?.result || part.functionResponse.response || {})
-      };
+      });
     }
   }
 
+  let message = null;
   if (toolCalls.length > 0) {
-    const result = { role: ROLE.ASSISTANT };
+    message = { role: ROLE.ASSISTANT };
     if (parts.length > 0) {
-      result.content = parts.length === 1 ? parts[0].text : parts;
+      message.content = parts.length === 1 ? parts[0].text : parts;
     }
-    result.tool_calls = toolCalls;
-    return result;
-  }
-
-  if (parts.length > 0) {
-    return {
+    message.tool_calls = toolCalls;
+  } else if (parts.length > 0) {
+    message = {
       role,
       content: collapseTextParts(parts)
     };
   }
 
-  return null;
+  // Complete the parts scan before returning: parallel results must all precede
+  // any co-located follow-up text or calls in the OpenAI message sequence.
+  if (toolResults.length > 0) {
+    return message ? [...toolResults, message] : toolResults;
+  }
+  return message;
 }
 
 // Extract text from Gemini content

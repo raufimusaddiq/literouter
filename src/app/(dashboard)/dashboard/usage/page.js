@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { UsageStats, RequestLogger, CardSkeleton, SegmentedControl } from "@/shared/components";
+import { UsageStats, RequestLogger, CardSkeleton, SegmentedControl, PageIntro } from "@/shared/components";
 import RequestDetailsTab from "./components/RequestDetailsTab";
 
 const PERIODS = [
@@ -41,13 +41,8 @@ function UsageContent() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      {/* Analysis controls */}
-      <div className="flex flex-col gap-4 rounded-[1.125rem] bg-surface-2 p-4 ring-1 ring-border-subtle sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Analysis</p>
-          <p className="text-sm text-text-main">Requests, tokens, and provider behavior.</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:items-end">
+      <PageIntro title="Usage" description="Requests, tokens, cost, and provider behavior across the selected window." />
+      <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
         <SegmentedControl
           options={[
             { value: "overview", label: "Overview" },
@@ -66,12 +61,11 @@ function UsageContent() {
             className="w-full sm:w-auto"
           />
         )}
-        </div>
       </div>
 
       {activeTab === "overview" && (
         <Suspense fallback={<CardSkeleton />}>
-          <UsageStats period={period} setPeriod={setPeriod} hidePeriodSelector />
+          <UsageStats period={period} setPeriod={setPeriod} hidePeriodSelector onOpenDetails={() => handleTabChange("details")} />
         </Suspense>
       )}
       {activeTab === "logs" && <RequestLogger />}

@@ -144,7 +144,7 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
         {phase === "detecting" && (
           <div className="text-center py-6">
             <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-3xl text-primary animate-spin">
+              <span aria-hidden="true" className="material-symbols-outlined text-3xl text-primary animate-spin">
                 progress_activity
               </span>
             </div>
@@ -160,7 +160,7 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
           <>
             <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
               <div className="flex gap-2">
-                <span className="material-symbols-outlined text-green-600 dark:text-green-400">check_circle</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-green-600 dark:text-green-400">check_circle</span>
                 <div className="text-sm text-green-800 dark:text-green-200">
                   <p className="font-medium">Xiaomi MiMo Desktop credentials found!</p>
                   <p className="mt-1 opacity-80">
@@ -191,7 +191,7 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
         {phase === "importing" && (
           <div className="text-center py-6">
             <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-3xl text-primary animate-spin">
+              <span aria-hidden="true" className="material-symbols-outlined text-3xl text-primary animate-spin">
                 progress_activity
               </span>
             </div>
@@ -202,10 +202,10 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
         {/* Not found — offer OAuth fallback */}
         {phase === "not-found" && (
           <>
-            <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+            <div className="bg-warning/10 p-3 rounded-lg border border-warning/30">
               <div className="flex gap-2 items-start">
-                <span className="material-symbols-outlined text-amber-600 dark:text-amber-400">info</span>
-                <div className="text-sm text-amber-800 dark:text-amber-200">
+                <span aria-hidden="true" className="material-symbols-outlined text-warning">info</span>
+                <div className="text-sm text-text-muted">
                   <p className="font-medium">Local credentials not found</p>
                   <p className="mt-1 opacity-80">{error}</p>
                   <p className="mt-2 opacity-80">

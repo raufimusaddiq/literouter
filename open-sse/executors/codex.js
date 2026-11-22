@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { BaseExecutor } from "./base.js";
 import { CODEX_DEFAULT_INSTRUCTIONS } from "../config/codexInstructions.js";
 import { PROVIDERS } from "../config/providers.js";
@@ -6,16 +7,17 @@ import {
   shouldRefreshCredentials,
 } from "../services/oauthCredentialManager.js";
 import { normalizeResponsesInput } from "../translator/formats/responsesApi.js";
-import { fetchImageAsBase64 } from "../translator/concerns/image.js";
+import { fetchImageAsBase64, assertImageCount, createImageByteBudget, dataUriBytes, mapWithConcurrency } from "../translator/concerns/image.js";
 import { getModelUpstreamId } from "../config/providerModels.js";
 import { getThinkingLevels } from "../providers/thinkingLevels.js";
 import { DEFAULT_RETRY_CONFIG, HTTP_STATUS, resolveRetryEntry } from "../config/runtimeConfig.js";
+import { PREFETCH_CONCURRENCY } from "../translator/concerns/prefetch.js";
 import { dbg } from "../utils/debugLog.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
 import { stripCodexUnsupportedPatterns } from "../utils/codexToolSchema.js";
 
 // SSE error patterns inside 200-OK bodies. Some retry same account first; capacity rotates accounts.
-const CODEX_SSE_RETRY_PATTERNS = ["server_is_overloaded", "service_unavailable_error"];
+const CODEX_SSE_RETRY_PATTERNS = ["server_is_overloaded", "service_unavailable_error", "response protection is unavailable"];
 const CODEX_SSE_ACCOUNT_FALLBACK_PATTERNS = ["selected model is at capacity", "model_at_capacity"];
 const CODEX_SSE_USER_OUTPUT_PATTERNS = [
   "event: response.output_text.delta",
@@ -104,11 +106,13 @@ function normalizeCodexTools(body) {
     const parameters = (tool.parameters && typeof tool.parameters === "object" && !Array.isArray(tool.parameters))
       ? tool.parameters
       : (fn?.parameters && typeof fn.parameters === "object" && !Array.isArray(fn.parameters) ? fn.parameters : { type: "object", properties: {} });
+    const strict = typeof tool.strict === "boolean" ? tool.strict : fn?.strict;
     for (const k of Object.keys(tool)) delete tool[k];
     tool.type = "function";
     tool.name = name.slice(0, 128);
     if (description) tool.description = description;
     tool.parameters = stripCodexUnsupportedPatterns(parameters, patternStats);
+    if (typeof strict === "boolean") tool.strict = strict;
     validNames.add(name);
     return true;
   });
@@ -138,6 +142,11 @@ function resolveCacheSessionId(body, credentials) {
 function normalizeReasoningEffort(model, value) {
   const supportedLevels = getThinkingLevels("codex", model);
   if (supportedLevels?.includes(value)) return value;
+  // Models that cannot disable reasoning reject "none"; use their lowest real level.
+  if (value === "none" && supportedLevels?.length) {
+    const lowest = supportedLevels.find((level) => level !== "none");
+    if (lowest) return lowest;
+  }
   if (value === "ultra" && supportedLevels?.includes("max")) return "max";
   if (value === "max" || value === "ultra") return "xhigh";
   return value;
@@ -195,6 +204,9 @@ function codexSseErrorResponse(status, message) {
   });
 }
 
+// transformed body -> per-request ids (singleton executor must not hold request state)
+const requestContexts = new WeakMap();
+
 /**
  * Codex Executor - handles OpenAI Codex API (Responses API format)
  * Automatically injects default instructions if missing
@@ -202,16 +214,22 @@ function codexSseErrorResponse(status, message) {
 export class CodexExecutor extends BaseExecutor {
   constructor() {
     super("codex", PROVIDERS.codex);
-    this._currentSessionId = null;
   }
 
   /**
    * Override headers to add codex-specific identity headers.
-   * transformRequest runs BEFORE buildHeaders, sets this._currentSessionId.
+   * transformRequest runs BEFORE buildHeaders, stashes the session id per request (WeakMap keyed by the transformed body).
    */
-  buildHeaders(credentials, stream = true) {
+  buildHeaders(credentials, stream = true, url = null, model = null, transformedBody = null) {
     const headers = super.buildHeaders(credentials, stream);
-    headers["session_id"] = this._currentSessionId || credentials?.connectionId || "default";
+    // Native remote compaction needs the client's beta opt-in on /responses.
+    const betaFeatures = credentials?.rawHeaders?.["x-codex-beta-features"];
+    if (typeof betaFeatures === "string" && betaFeatures.trim()) {
+      headers["x-codex-beta-features"] = betaFeatures;
+    }
+    // Per-request session id travels with the transformed body (not instance state).
+    const reqCtx = transformedBody ? requestContexts.get(transformedBody) : null;
+    headers["session_id"] = reqCtx?.sessionId || credentials?.connectionId || "default";
     // Identify client type to Codex backend (matches official codex CLI)
     if (!headers["originator"]) headers["originator"] = "codex_cli_rs";
     // Account/workspace binding header — required when multiple Codex accounts
@@ -229,9 +247,9 @@ export class CodexExecutor extends BaseExecutor {
     return headers;
   }
 
-  buildUrl(model, stream, urlIndex = 0, credentials = null) {
+  buildUrl(model, stream, urlIndex = 0, credentials = null, body = null) {
     const base = super.buildUrl(model, stream, urlIndex, credentials);
-    return this._isCompact ? `${base}/compact` : base;
+    return body?._compact === true ? `${base}/compact` : base;
   }
 
   async refreshCredentials(credentials, log) {
@@ -250,25 +268,41 @@ export class CodexExecutor extends BaseExecutor {
    */
   async prefetchImages(body) {
     if (!Array.isArray(body?.input)) return;
+    const remote = new Set();
     for (const item of body.input) {
       if (!Array.isArray(item.content)) continue;
-      const pending = item.content.map(async (c) => {
+      for (const c of item.content) {
+        if (c.type !== "image_url") continue;
+        const url = typeof c.image_url === "string" ? c.image_url : c.image_url?.url;
+        if (url && !url.startsWith("data:")) remote.add(url);
+      }
+    }
+    assertImageCount(remote.size);
+    const budget = createImageByteBudget();
+    const fetched = new Map();
+    await mapWithConcurrency([...remote], PREFETCH_CONCURRENCY, async (url) => {
+      const r = await fetchImageAsBase64(url, { timeoutMs: 15000 });
+      if (r) budget.add(dataUriBytes(r.url));
+      fetched.set(url, r);
+    });
+    for (const item of body.input) {
+      if (!Array.isArray(item.content)) continue;
+      item.content = item.content.map((c) => {
         if (c.type !== "image_url") return c;
         const url = typeof c.image_url === "string" ? c.image_url : c.image_url?.url;
         const detail = c.image_url?.detail || "auto";
         if (!url) return c;
         if (url.startsWith("data:")) return { type: "input_image", image_url: url, detail };
-        const fetched = await fetchImageAsBase64(url, { timeoutMs: 15000 });
-        return { type: "input_image", image_url: fetched?.url || url, detail };
+        return { type: "input_image", image_url: fetched.get(url)?.url || url, detail };
       });
-      item.content = await Promise.all(pending);
     }
   }
 
   async execute(args) {
+    if (args.body?._compact === true) return super.execute({ ...args, stream: false });
     const imgCount = Array.isArray(args.body?.input) ? args.body.input.reduce((n, it) => n + (Array.isArray(it.content) ? it.content.filter(c => c.type === "image_url").length : 0), 0) : 0;
     const inputLen = Array.isArray(args.body?.input) ? args.body.input.length : 0;
-    dbg("CODEX", `execute start | inputItems=${inputLen} | images=${imgCount} | sessionId=${this._currentSessionId || "pending"}`);
+    dbg("CODEX", `execute start | inputItems=${inputLen} | images=${imgCount} | sessionId=${resolveCacheSessionId(args.body, args.credentials)}`);
     if (imgCount > 0) {
       const t0 = Date.now();
       await this.prefetchImages(args.body);
@@ -309,7 +343,7 @@ export class CodexExecutor extends BaseExecutor {
       attempt++;
       args.log?.debug?.("RETRY", `CODEX | SSE "${peek.matched}" retry ${attempt}/${attempts} after ${delayMs / 1000}s`);
       dbg("CODEX", `SSE overloaded "${peek.matched}" → retry ${attempt}/${attempts} in ${delayMs}ms`);
-      await new Promise(r => setTimeout(r, delayMs));
+      await sleep(delayMs, undefined, { signal: args.signal });
     }
   }
 
@@ -331,11 +365,12 @@ export class CodexExecutor extends BaseExecutor {
         chunks.push(value);
         text += decoder.decode(value, { stream: true });
         const lowerText = text.toLowerCase();
+        // Never replay a request after user-visible output, even if it quotes an error.
+        if (CODEX_SSE_USER_OUTPUT_PATTERNS.some(p => lowerText.includes(p))) break;
         const accountHit = CODEX_SSE_ACCOUNT_FALLBACK_PATTERNS.find(p => lowerText.includes(p));
         if (accountHit) { matched = accountHit; accountFallback = true; break; }
         const retryHit = CODEX_SSE_RETRY_PATTERNS.find(p => lowerText.includes(p));
         if (retryHit) { matched = retryHit; break; }
-        if (CODEX_SSE_USER_OUTPUT_PATTERNS.some(p => lowerText.includes(p))) break;
       }
     } catch (e) {
       dbg("CODEX", `peek read error: ${e.message}`);
@@ -401,10 +436,22 @@ export class CodexExecutor extends BaseExecutor {
    * Image fetching is handled separately in prefetchImages() so this stays sync.
    */
   transformRequest(model, body, stream, credentials) {
-    this._isCompact = !!body._compact;
+    // Resolve identity before either endpoint builds its headers; carry it per-request.
+    const sessionId = resolveCacheSessionId(body, credentials);
+    const out = this._transformRequest(model, body, stream, credentials, sessionId);
+    if (out && typeof out === "object") requestContexts.set(out, { sessionId });
+    return out;
+  }
+
+  _transformRequest(model, body, stream, credentials, sessionId) {
+    if (body._compact === true) {
+      return {
+        model: getModelUpstreamId("cx", body.model || model),
+        input: body.input,
+        ...(body.instructions !== undefined ? { instructions: body.instructions } : {}),
+      };
+    }
     delete body._compact;
-    // Resolve conversation-stable session_id (priority: body → assistant-text → workspace → machine)
-    this._currentSessionId = resolveCacheSessionId(body, credentials);
     // Convert string input to array format (Codex API requires input as array)
     const normalized = normalizeResponsesInput(body.input);
     if (normalized) body.input = normalized;
@@ -433,8 +480,8 @@ export class CodexExecutor extends BaseExecutor {
     body.store = false;
 
     // Inject prompt_cache_key for stable Codex prompt caching
-    if (!body.prompt_cache_key && this._currentSessionId) {
-      body.prompt_cache_key = this._currentSessionId;
+    if (!body.prompt_cache_key && sessionId) {
+      body.prompt_cache_key = sessionId;
     }
 
     // Map virtual Codex review models to the upstream Codex model before suffix parsing.

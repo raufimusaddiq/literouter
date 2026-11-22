@@ -1,5 +1,9 @@
 import { v4 as uuidv4 } from "uuid";
+import { bumpConfigVersion } from "../configVersion.js";
+import { safeEqual } from "@/shared/utils/safeEqual.js";
 import { getAdapter } from "../driver.js";
+import { keyAccessFromColumns, keyAccessToColumns } from "@/shared/utils/keyAccess.js";
+import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
 
 // PRD 15.1/15.2: API-key lookup must not hit SQLite per request. The key set is
 // tiny, so cache the whole table and match in memory. TTL bounds how long a key
@@ -7,12 +11,21 @@ import { getAdapter } from "../driver.js";
 // ponytail: process-local cache, Redis invalidation when multi-replica matters
 const keyCache = global.__liteRouterApiKeyCache ??= { rows: null, expiresAt: 0 };
 const CACHE_TTL_MS = 5000;
-function invalidateApiKeyCache() { keyCache.rows = null; keyCache.expiresAt = 0; }
+function invalidateApiKeyCache() { keyCache.rows = null; keyCache.expiresAt = 0; bumpConfigVersion(); }
+
+// Constant-time match: every row is compared (no early exit) via sha256 + timingSafeEqual.
+function findRowByKey(rows, key) {
+  let found = null;
+  for (const row of rows) {
+    if (safeEqual(row.key, key) && !found) found = row;
+  }
+  return found;
+}
 
 async function allKeys() {
   if (keyCache.rows && keyCache.expiresAt > Date.now()) return keyCache.rows;
   const db = await getAdapter();
-  keyCache.rows = db.all(`SELECT key, isActive FROM apiKeys`);
+  keyCache.rows = db.all(`SELECT id, key, name, isActive, accessRestricted, accessAllow FROM apiKeys`);
   keyCache.expiresAt = Date.now() + CACHE_TTL_MS;
   return keyCache.rows;
 }
@@ -26,6 +39,7 @@ function rowToKey(row) {
     machineId: row.machineId,
     isActive: row.isActive === 1 || row.isActive === true,
     createdAt: row.createdAt,
+    access: keyAccessFromColumns(row.accessRestricted, row.accessAllow),
   };
 }
 
@@ -41,6 +55,12 @@ export async function getApiKeyById(id) {
   return rowToKey(row);
 }
 
+// Used by the /v1 handlers to read the presented key's access settings.
+export async function getApiKeyByKey(key) {
+  if (!key) return null;
+  return rowToKey(findRowByKey(await allKeys(), key));
+}
+
 export async function createApiKey(name, machineId) {
   if (!machineId) throw new Error("machineId is required");
   const db = await getAdapter();
@@ -53,10 +73,12 @@ export async function createApiKey(name, machineId) {
     machineId,
     isActive: true,
     createdAt: new Date().toISOString(),
+    access: { restricted: false, allow: [] },
   };
+  const cols = keyAccessToColumns(KEY_ACCESS_UNRESTRICTED);
   db.run(
-    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt) VALUES(?, ?, ?, ?, ?, ?)`,
-    [apiKey.id, apiKey.key, apiKey.name, apiKey.machineId, 1, apiKey.createdAt]
+    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, accessRestricted, accessAllow) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
+    [apiKey.id, apiKey.key, apiKey.name, apiKey.machineId, 1, apiKey.createdAt, cols.accessRestricted, cols.accessAllow]
   );
   invalidateApiKeyCache();
   return apiKey;
@@ -69,11 +91,12 @@ export async function updateApiKey(id, data) {
     const row = db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]);
     if (!row) return;
     const merged = { ...rowToKey(row), ...data };
+    const cols = keyAccessToColumns(merged.access);
     db.run(
-      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ? WHERE id = ?`,
-      [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, id]
+      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, accessRestricted = ?, accessAllow = ? WHERE id = ?`,
+      [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, cols.accessRestricted, cols.accessAllow, id]
     );
-    result = merged;
+    result = rowToKey(db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]));
   });
   invalidateApiKeyCache();
   return result;
@@ -88,7 +111,7 @@ export async function deleteApiKey(id) {
 
 export async function validateApiKey(key) {
   if (!key) return false;
-  const row = (await allKeys()).find((r) => r.key === key);
+  const row = findRowByKey(await allKeys(), key);
   if (!row) return false;
   return row.isActive === 1 || row.isActive === true;
 }

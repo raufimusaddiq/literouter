@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { bumpConfigVersion } from "../configVersion.js";
 
 function rowToCombo(row) {
   if (!row) return null;
@@ -16,27 +17,30 @@ function rowToCombo(row) {
 
 // ponytail: process-local cache; UI writes invalidate it, external writers wait for TTL
 const comboCache = global.__liteRouterComboCache ??= { rows: null, expiresAt: 0 };
-function invalidateComboCache() { comboCache.rows = null; comboCache.expiresAt = 0; }
+const COMBO_CACHE_TTL_MS = Math.max(1000, Number(process.env.RUNTIME_CONFIG_TTL_MS || 5000));
+function invalidateComboCache() { comboCache.rows = null; comboCache.expiresAt = 0; bumpConfigVersion(); }
+
+async function allCombosCached() {
+  if (comboCache.rows && comboCache.expiresAt > Date.now()) return comboCache.rows;
+  const db = await getAdapter();
+  comboCache.rows = db.all(`SELECT * FROM combos ORDER BY createdAt ASC`).map(rowToCombo);
+  comboCache.expiresAt = Date.now() + COMBO_CACHE_TTL_MS;
+  return comboCache.rows;
+}
 
 export async function getCombos() {
-  if (comboCache.rows && comboCache.expiresAt > Date.now()) return comboCache.rows.map((c) => structuredClone(c));
-  const db = await getAdapter();
-  const rows = db.all(`SELECT * FROM combos ORDER BY createdAt ASC`);
-  comboCache.rows = rows.map(rowToCombo);
-  comboCache.expiresAt = Date.now() + 5000;
-  return comboCache.rows.map((c) => structuredClone(c));
+  return (await allCombosCached()).map((c) => structuredClone(c));
 }
 
 export async function getComboById(id) {
-  const db = await getAdapter();
-  const row = db.get(`SELECT * FROM combos WHERE id = ?`, [id]);
-  return rowToCombo(row);
+  const row = (await allCombosCached()).find((combo) => combo.id === id);
+  return row ? structuredClone(row) : null;
 }
 
-export async function getComboByName(name) {
-  const db = await getAdapter();
-  const row = db.get(`SELECT * FROM combos WHERE name = ?`, [name]);
-  return rowToCombo(row);
+export async function getComboByName(name, options = {}) {
+  const row = (await allCombosCached()).find((combo) => combo.name === name);
+  if (!row) return null;
+  return options.clone === false ? row : structuredClone(row);
 }
 
 export async function createCombo(data) {

@@ -1,14 +1,17 @@
 import { FORMATS } from "./formats.js";
 import { ensureToolCallIds, fixMissingToolResponses } from "./concerns/toolCall.js";
-import { prepareClaudeRequest } from "./formats/claude.js";
+import { prepareClaudeRequest, ensureTrailingUserTurn } from "./formats/claude.js";
 import { normalizeResponsesRequest } from "./formats/responsesApi.js";
 import { cloakClaudeTools, decloakStreamChunk } from "../utils/claudeCloaking.js";
+import { restoreToolNames } from "../utils/opencodeFingerprint.js";
 import { filterToOpenAIFormat } from "./formats/openai.js";
 import { normalizeThinkingConfig } from "../services/provider.js";
 import { applyThinking, captureThinking } from "./concerns/thinkingUnified.js";
 import { captureSessionId } from "../utils/sessionManager.js";
-import { AntigravityExecutor } from "../executors/antigravity.js";
+import { ensureStreamToolCallIds } from "../utils/streamHelpers.js";
 import { PROVIDERS } from "../providers/index.js";
+import { ROLE, GEMINI_ROLE } from "./schema/roles.js";
+import { assertTargetSupportsParams } from "./concerns/requestParams.js";
 
 // Registry for translators. Lazy-init guards against circular-import order:
 // translator modules call register() (side-effect) before this module's body runs.
@@ -29,9 +32,6 @@ export function register(from, to, requestFn, responseFn) {
   }
 }
 
-// No-op: translators self-register via the static imports at the bottom of this file.
-function ensureInitialized() {}
-
 // Strip specific content types from messages (explicit opt-in via strip[] in PROVIDER_MODELS)
 function stripContentTypes(body, stripList = []) {
   if (!stripList.length || !body.messages || !Array.isArray(body.messages)) return;
@@ -49,15 +49,39 @@ function stripContentTypes(body, stripList = []) {
   }
 }
 
+// Role the client's conversation actually ended on, in the source format's own
+// shape — not every source uses messages[] (Gemini/Antigravity: contents[],
+// Responses/Codex: input[]). Only an explicit trailing model/assistant turn is
+// real prefill and must reach ensureTrailingUserTurn as ROLE.ASSISTANT; every
+// other tail (including no role, e.g. a function output) stays undefined so
+// the emptied-turn fix still applies.
+function detectClientLastRole(body) {
+  if (Array.isArray(body?.messages)) return body.messages[body.messages.length - 1]?.role;
+  const items = Array.isArray(body?.contents) ? body.contents : Array.isArray(body?.input) ? body.input : null;
+  if (!items) return undefined;
+  const role = items[items.length - 1]?.role;
+  return role === ROLE.ASSISTANT || role === GEMINI_ROLE.MODEL ? ROLE.ASSISTANT : undefined;
+}
+
 // Translate request: source -> openai -> target
 export function translateRequest(sourceFormat, targetFormat, model, body, stream = true, credentials = null, provider = null, reqLogger = null, stripList = [], connectionId = null, clientTool = null) {
-  ensureInitialized();
   let result = body;
+  // Reject (400) n>1 / logprobs only when the request is actually TRANSLATED to a
+  // non-OpenAI target (the response translator would keep only choice/candidate 0).
+  // Same-format requests (Gemini->Gemini, OpenAI->OpenAI, ...) skip translation
+  // entirely (see the `sourceFormat !== targetFormat` branch below), so the
+  // upstream response reaches the client intact and multi-candidate is allowed.
+  // Gemini->Gemini does NOT pivot through OpenAI. Throws RequestParamError.
+  if (sourceFormat !== targetFormat && targetFormat !== FORMATS.OPENAI) {
+    assertTargetSupportsParams(body, provider || targetFormat);
+  }
+  // Role the client actually ended on, before any translator drops an emptied turn.
+  const clientLastRole = detectClientLastRole(body);
 
   // Strip explicit content types (opt-in via strip[] in PROVIDER_MODELS entry)
   stripContentTypes(result, stripList);
 
-  // Normalize thinking config: remove if lastMessage is not user
+  // Normalize thinking config while preserving user and tool-result turns.
   normalizeThinkingConfig(result);
 
   // Always ensure tool_calls have id (some providers require it)
@@ -139,6 +163,7 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
   if (targetFormat === FORMATS.CLAUDE) {
     const apiKey = credentials?.accessToken || credentials?.apiKey || null;
     result = prepareClaudeRequest(result, provider, apiKey, connectionId, credentials?.rawHeaders, clientSessionId);
+    if (Array.isArray(result?.messages)) result.messages = ensureTrailingUserTurn(result.messages, clientLastRole);
   }
 
   // Claude cloaking: rename client tools with CLAUDE_TOOL_SUFFIX (anti-ban)
@@ -146,39 +171,47 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
   if (PROVIDERS[provider]?.quirks?.cloakToolsOnOAuth) {
     const apiKey = credentials?.accessToken || credentials?.apiKey || null;
     if (apiKey?.includes("sk-ant-oat")) {
+      const sanitizedNames = result._toolNameMap;
       const { body: cloakedBody, toolNameMap } = cloakClaudeTools(result);
       result = cloakedBody;
       if (toolNameMap?.size > 0) {
-        result._toolNameMap = toolNameMap;
+        // cloaked → sanitized → original (e.g. "a_b_cc" → "a_b" → "a.b")
+        result._toolNameMap = new Map([...toolNameMap].map(([cloaked, name]) => [cloaked, sanitizedNames?.get(name) ?? name]));
       }
     }
   }
-
-  // Antigravity cloaking disabled
-  // if (provider === FORMATS.ANTIGRAVITY && body.userAgent !== FORMATS.ANTIGRAVITY) {
-  //   const { cloakedBody, toolNameMap } = AntigravityExecutor.cloakTools(result);
-  //   result = cloakedBody;
-  //   if (toolNameMap?.size > 0) {
-  //     result._toolNameMap = toolNameMap;
-  //   }
-  // }
 
   return result;
 }
 
 // Translate response chunk: target -> openai -> source
 export function translateResponse(targetFormat, sourceFormat, chunk, state) {
-  ensureInitialized();
   // If same format, return as-is — except the tool name may still be cloaked:
   // translateRequest() suffixes client tools for OAuth-cloaked Claude providers
   // even when no format conversion is needed, so streamed tool_use blocks must
   // be decloaked here or the client sees an unknown ("_ide"-suffixed) tool.
   if (sourceFormat === targetFormat) {
-    return [decloakStreamChunk(chunk, state?.toolNameMap)];
+    // Same-format (openai→openai) passthrough: the upstream chunk reaches the
+    // client as-is. A fragment that opens a new tool-call index without an id
+    // aborts strict OpenAI-compatible clients (#4992) — mint/reuse one first.
+    if (state && chunk && typeof chunk === "object") {
+      if (!state.streamToolCallIds) state.streamToolCallIds = new Map();
+      ensureStreamToolCallIds(chunk, state.streamToolCallIds);
+    }
+    return [restoreToolNames(decloakStreamChunk(chunk, state?.toolNameMap), state?.toolNameMap)];
   }
 
   let results = [chunk];
   let openaiResults = null; // Store OpenAI intermediate results
+
+  // Cross-format: the intermediate OpenAI shape is the upstream contract, so a
+  // fragment that opens a tool-call index with no id must get one before any
+  // translator sees it (Anthropic tool_use requires an id; OpenAI clients expect
+  // one). Without this, openai-to-claude dropped such a call and its arguments.
+  if (state && chunk && typeof chunk === "object") {
+    if (!state.streamToolCallIds) state.streamToolCallIds = new Map();
+    ensureStreamToolCallIds(chunk, state.streamToolCallIds);
+  }
 
   // Direct route: if a response translator is registered for this exact
   // target:source pair, use it instead of pivoting through OpenAI. Mirrors the
@@ -187,7 +220,8 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
   const directFn = responseRegistry.get(`${targetFormat}:${sourceFormat}`);
   if (directFn) {
     const converted = directFn(chunk, state);
-    return converted ? (Array.isArray(converted) ? converted : [converted]) : [];
+    const directResults = converted ? (Array.isArray(converted) ? converted : [converted]) : [];
+    return restoreToolNames(directResults, state?.toolNameMap);
   }
 
   // Step 1: target -> openai (if target is not openai)
@@ -218,6 +252,8 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
     }
   }
 
+  results = restoreToolNames(results, state?.toolNameMap);
+
   // Attach OpenAI intermediate results for logging
   if (openaiResults && sourceFormat !== FORMATS.OPENAI && targetFormat !== FORMATS.OPENAI) {
     results._openaiIntermediate = openaiResults;
@@ -242,6 +278,10 @@ export function initState(sourceFormat) {
     inThinkingBlock: false,
     currentBlockIndex: null,
     toolCalls: new Map(),
+    // Tool-call ids already emitted to the client, keyed by tool-call index.
+    // A fragment that opens a NEW index without an id breaks strict
+    // OpenAI-compatible clients (#4992).
+    streamToolCallIds: new Map(),
     finishReason: null,
     finishReasonSent: false,
     usage: null,
@@ -273,6 +313,11 @@ export function initState(sourceFormat) {
       funcArgsDone: {},
       funcItemDone: {},
       customToolNames: new Set(),
+      // Chat Completions usage for response.completed. Not state.usage: other translators in
+      // the same pipeline overwrite that in their own shapes.
+      responsesUsage: null,
+      // finish_reason arrived before usage; response.completed waits for the usage chunk.
+      completionPending: false,
       completedSent: false
     };
   }
@@ -282,7 +327,6 @@ export function initState(sourceFormat) {
 
 // Kept for backward compatibility; translators are already registered at import time.
 export function initTranslators() {
-  ensureInitialized();
 }
 
 // Static side-effect imports: each module calls register() at load (works in ESM + bundler).
@@ -302,6 +346,7 @@ import "./response/claude-to-openai.js";
 import "./response/openai-to-claude.js";
 import "./response/gemini-to-openai.js";
 import "./response/openai-to-antigravity.js";
+import "./response/openai-to-gemini.js";
 import "./response/openai-responses.js";
 import "./response/kiro-to-openai.js";
 import "./response/cursor-to-openai.js";

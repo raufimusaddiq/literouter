@@ -2,7 +2,7 @@
 
 Minimal AI router for coding tools. LiteRouter is a maintained [9Router](https://github.com/decolua/9router) fork: same provider and protocol core, fewer runtime surfaces.
 
-[![CI](https://github.com/raufimusaddiq/literouter/actions/workflows/test.yml/badge.svg?branch=staging)](https://github.com/raufimusaddiq/literouter/actions/workflows/test.yml) [![License](https://img.shields.io/github/license/raufimusaddiq/literouter.svg)](LICENSE)
+[![CI](https://github.com/raufimusaddiq/literouter/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/raufimusaddiq/literouter/actions/workflows/test.yml) [![License](https://img.shields.io/github/license/raufimusaddiq/literouter.svg)](LICENSE)
 
 ## Why LiteRouter
 
@@ -14,12 +14,12 @@ Minimal AI router for coding tools. LiteRouter is a maintained [9Router](https:/
 
 ## Quick start
 
-Use the tested staging image:
+Use the immutable production image for a merged `main` SHA:
 
 ```yaml
 services:
   literouter:
-    image: ghcr.io/raufimusaddiq/literouter-staging:staging-latest
+    image: ghcr.io/raufimusaddiq/literouter-production:production-<full-main-sha>
     environment:
       DATA_DIR: /app/data
       MINIMAL_PROFILE: "true"
@@ -38,7 +38,7 @@ docker compose up -d
 
 Open `http://localhost:20128`. Configure providers in the dashboard, then point a compatible client at `http://localhost:20128/v1`.
 
-For the repository staging deployment, use [`compose.staging.yml`](compose.staging.yml). Image builds run in GitHub Actions; the host pulls published images.
+For the repository production deployment, use [`compose.production.yml`](compose.production.yml). Image builds run in GitHub Actions; the host pulls published images. Staging is sunset: no staging deployment and no `staging-latest` tag.
 
 ## LiteRouter vs 9Router
 
@@ -53,13 +53,13 @@ For the repository staging deployment, use [`compose.staging.yml`](compose.stagi
 | Tunnel, Tailscale, MITM runtime | Deleted | Included |
 | Intended operation | Small, direct routing deployment | Full product surface |
 
-LiteRouter is not an upstream drop-in package release. Build from this repository or use the staging image above; `npm install -g 9router` installs upstream 9Router.
+LiteRouter is not an upstream drop-in package release. Build from this repository or use the production image above; `npm install -g 9router` installs upstream 9Router.
 
-## Measured staging baseline
+## Measured production baseline
 
 All figures are documented with method and limits in the [baseline report](docs/literouter-baseline/phase-latency-resource.md).
 
-| Measurement | Production 9Router | LiteRouter staging |
+| Measurement | Production 9Router | LiteRouter |
 | --- | ---: | ---: |
 | Mock-router median latency, n=30 | 16.53 ms | 13.64 ms |
 | Mock-router p95 latency, n=30 | 25.36 ms | 19.40 ms |

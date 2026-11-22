@@ -53,3 +53,27 @@ test("session cap is enforced immediately after back-to-back requests", async ()
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+test("chunk appends are async stream writes and land in the session files", async () => {
+  process.env.ENABLE_REQUEST_LOGS = "true";
+  process.env.REQUEST_LOG_MAX_SESSIONS = "50";
+  const originalCwd = process.cwd();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-request-logs-async-"));
+  process.chdir(tempDir);
+  try {
+    const { createRequestLogger } = await import("../../open-sse/utils/requestLogger.js?case=async");
+    const logger = await createRequestLogger("openai", "openai", "m");
+    for (let i = 0; i < 50; i += 1) {
+      logger.appendProviderChunk(`p${i}\n`);
+      logger.appendConvertedChunk(`c${i}\n`);
+    }
+    await logger.flush();
+    const p = fs.readFileSync(path.join(logger.sessionPath, "5_res_provider.txt"), "utf8");
+    expect(p.split("\n").filter(Boolean)).toHaveLength(50);
+    expect(p.startsWith("p0\n")).toBe(true);
+    expect(fs.readFileSync(path.join(logger.sessionPath, "7_res_client.txt"), "utf8")).toContain("c49\n");
+  } finally {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});

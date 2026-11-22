@@ -1,4 +1,6 @@
+import { rethrowIfGatewayAbort } from "../utils/requestTimeouts.js";
 import { BaseExecutor } from "./base.js";
+import { ACCEPT_ENCODING } from "../utils/zstdCompat.js";
 import { PROVIDERS } from "../config/providers.js";
 import { SSE_DONE, SSE_HEADERS_NO_BUFFER } from "../utils/sseConstants.js";
 import { sseChunk } from "../utils/sse.js";
@@ -262,7 +264,7 @@ export class GrokWebExecutor extends BaseExecutor {
     const spanId = randomHex(8);
     const headers = {
       Accept: "*/*",
-      "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Accept-Encoding": ACCEPT_ENCODING,
       "Accept-Language": "en-US,en;q=0.9",
       Baggage: "sentry-environment=production,sentry-release=d6add6fb0460641fd482d767a335ef72b9b6abb8,sentry-public_key=b311e0f2690c81f25e2c4cf6d4f7ce1c",
       "Cache-Control": "no-cache",
@@ -297,6 +299,7 @@ export class GrokWebExecutor extends BaseExecutor {
         method: "POST", headers, body: JSON.stringify(grokPayload), signal,
       });
     } catch (err) {
+      rethrowIfGatewayAbort(err);
       log?.error?.("GROK-WEB", `Fetch failed: ${err.message || String(err)}`);
       const errResp = new Response(JSON.stringify({
         error: { message: `Grok connection failed: ${err.message || String(err)}`, type: "upstream_error" },

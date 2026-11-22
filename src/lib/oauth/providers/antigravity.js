@@ -1,5 +1,24 @@
 import { ANTIGRAVITY_CONFIG, getOAuthClientMetadata } from "../constants/oauth.js";
 
+export function resolveAntigravityRedirectUri(fallback) {
+  const configured = process.env.ANTIGRAVITY_REDIRECT_URI?.trim();
+  if (!configured) return fallback;
+  const invalid = () => new Error("ANTIGRAVITY_REDIRECT_URI must be an HTTPS /callback URL (HTTP allowed only on loopback), without credentials, query, or fragment");
+  let url;
+  try {
+    url = new URL(configured);
+  } catch {
+    throw invalid();
+  }
+  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  if ((url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) ||
+      url.pathname !== "/callback" || url.username || url.password || url.search || url.hash) {
+    throw invalid();
+  }
+  // Preserve the registered spelling for both authorization and token exchange.
+  return configured;
+}
+
 const antigravity = {
   config: ANTIGRAVITY_CONFIG,
   flowType: "authorization_code",

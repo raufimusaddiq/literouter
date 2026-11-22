@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/shared/utils/dateTime";
 import { useState, useEffect, useCallback } from "react";
 import Card from "@/shared/components/Card";
 import Button from "@/shared/components/Button";
@@ -7,6 +8,7 @@ import Drawer from "@/shared/components/Drawer";
 import Pagination from "@/shared/components/Pagination";
 import { cn } from "@/shared/utils/cn";
 import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
+import { getInputTokens, getOutputTokens, getCachedTokens, getCacheCreationTokens } from "./tokenDisplay";
 
 let providerNameCache = null;
 let providerNodesCache = null;
@@ -62,10 +64,10 @@ function CollapsibleSection({ title, children, defaultOpen = false, icon = null 
         className="w-full flex items-center justify-between p-3 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
       >
         <div className="flex items-center gap-2">
-          {icon && <span className="material-symbols-outlined text-[18px] text-text-muted">{icon}</span>}
+          {icon && <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-text-muted">{icon}</span>}
           <span className="font-semibold text-sm text-text-main">{title}</span>
         </div>
-        <span className={cn(
+        <span aria-hidden="true" className={cn(
           "material-symbols-outlined text-[20px] text-text-muted transition-transform duration-200",
           isOpen ? "rotate-90" : ""
         )}>
@@ -82,21 +84,9 @@ function CollapsibleSection({ title, children, defaultOpen = false, icon = null 
   );
 }
 
-function getCachedTokens(tokens) {
-  return tokens?.cached_tokens || tokens?.cache_read_input_tokens || 0;
-}
-
-function getCacheCreationTokens(tokens) {
-  return tokens?.cache_creation_input_tokens || 0;
-}
-
-function getInputTokens(tokens) {
-  const prompt = tokens?.prompt_tokens || tokens?.input_tokens || 0;
-  // Canonical storage keeps prompt cache-inclusive. Legacy Claude rows may have
-  // stored prompt cache-exclusive; fall back to cache when it's larger so old
-  // rows don't under-report input.
-  const cache = getCachedTokens(tokens);
-  return prompt < cache ? cache : prompt;
+/** Treat anything that is neither missing nor an explicit success as an error. */
+function isErrorStatus(status) {
+  return !!status && status !== "success" && status !== "ok";
 }
 
 export default function RequestDetailsTab() {
@@ -248,7 +238,75 @@ export default function RequestDetailsTab() {
       </Card>
 
       <Card padding="none">
-        <div className="overflow-x-auto">
+        {/* Mobile: card list. Table below is desktop-only. */}
+        <ul className="divide-y divide-black/5 dark:divide-white/5 lg:hidden">
+          {loading ? (
+            <li className="flex items-center justify-center gap-2 p-8 text-sm text-text-muted">
+              <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+              Loading...
+            </li>
+          ) : details.length === 0 ? (
+            <li className="p-8 text-center text-sm text-text-muted">No request details found</li>
+          ) : (
+            details.map((detail, index) => (
+              <li key={`m-${detail.id}-${index}`} className="flex flex-col gap-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-mono text-sm text-text-main">{detail.model}</p>
+                    <p className="mt-0.5 truncate text-xs text-text-muted">{getProviderName(detail.provider, providerNameCache)}</p>
+                  </div>
+                  <span className={cn(
+                    "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
+                    detail.status === "client_cancelled"
+                      ? "bg-warning/15 text-warning"
+                      : isErrorStatus(detail.status)
+                        ? "bg-danger/15 text-danger"
+                        : "bg-success/15 text-success"
+                  )}>
+                    {detail.status || "unknown"}
+                  </span>
+                </div>
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                  <div>
+                    <dt className="text-text-muted">Timestamp</dt>
+                    <dd className="mt-0.5 text-text-main">{formatDateTime(detail.timestamp)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-text-muted">Latency</dt>
+                    <dd className="mt-0.5 font-mono text-text-main">
+                      TTFT {detail.latency?.ttft || 0}ms / {detail.latency?.total || 0}ms
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-text-muted">Input</dt>
+                    <dd className="mt-0.5 font-mono text-text-main">{getInputTokens(detail.tokens).toLocaleString()}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-text-muted">Output</dt>
+                    <dd className="mt-0.5 font-mono text-text-main">{getOutputTokens(detail.tokens).toLocaleString()}</dd>
+                  </div>
+                  {getCachedTokens(detail.tokens) > 0 && (
+                    <div>
+                      <dt className="text-text-muted">Cached</dt>
+                      <dd className="mt-0.5 font-mono text-text-main">{getCachedTokens(detail.tokens).toLocaleString()}</dd>
+                    </div>
+                  )}
+                  {getCacheCreationTokens(detail.tokens) > 0 && (
+                    <div>
+                      <dt className="text-text-muted">Cache creation</dt>
+                      <dd className="mt-0.5 font-mono text-text-main">{getCacheCreationTokens(detail.tokens).toLocaleString()}</dd>
+                    </div>
+                  )}
+                </dl>
+                <Button variant="outline" size="sm" onClick={() => handleViewDetail(detail)} className="w-full">
+                  Detail
+                </Button>
+              </li>
+            ))
+          )}
+        </ul>
+
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full min-w-[880px]">
             <thead>
               <tr className="border-b border-black/5 dark:border-white/5">
@@ -268,7 +326,7 @@ export default function RequestDetailsTab() {
                 <tr>
                   <td colSpan="7" className="p-8 text-center text-text-muted">
                     <div className="flex items-center justify-center gap-2">
-                      <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+                      <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
                       Loading...
                     </div>
                   </td>
@@ -286,7 +344,7 @@ export default function RequestDetailsTab() {
                     className="border-b border-black/5 dark:border-white/5 last:border-b-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
                   >
                     <td className="whitespace-nowrap p-4 text-sm text-text-main">
-                      {new Date(detail.timestamp).toLocaleString()}
+                      {formatDateTime(detail.timestamp)}
                     </td>
                     <td className="max-w-[260px] truncate p-4 font-mono text-sm text-text-main">
                       {detail.model}
@@ -306,7 +364,7 @@ export default function RequestDetailsTab() {
                       {getCacheCreationTokens(detail.tokens) > 0 ? getCacheCreationTokens(detail.tokens).toLocaleString() : "—"}
                     </td>
                     <td className="p-4 text-sm text-text-main text-right font-mono">
-                      {detail.tokens?.completion_tokens?.toLocaleString() || 0}
+                      {getOutputTokens(detail.tokens).toLocaleString()}
                     </td>
                     <td className="p-4 text-sm text-text-muted">
                       <div className="flex flex-col gap-0.5">
@@ -358,7 +416,7 @@ export default function RequestDetailsTab() {
               </div>
               <div>
                 <span className="text-text-muted">Timestamp:</span>{" "}
-                <span className="text-text-main">{new Date(selectedDetail.timestamp).toLocaleString()}</span>
+                <span className="text-text-main">{formatDateTime(selectedDetail.timestamp)}</span>
               </div>
               <div>
                  <span className="text-text-muted">Provider:</span>{" "}
@@ -372,7 +430,11 @@ export default function RequestDetailsTab() {
                 <span className="text-text-muted">Status:</span>{" "}
                 <span className={cn(
                   "font-medium",
-                  selectedDetail.status === "success" ? "text-green-600" : "text-red-600"
+                  selectedDetail.status === "success"
+                    ? "text-green-600"
+                    : selectedDetail.status === "client_cancelled"
+                      ? "text-warning"
+                      : "text-red-600"
                 )}>
                   {selectedDetail.status}
                 </span>
@@ -408,7 +470,7 @@ export default function RequestDetailsTab() {
               <div>
                 <span className="text-text-muted">Output Tokens:</span>{" "}
                 <span className="text-text-main font-mono">
-                  {selectedDetail.tokens?.completion_tokens?.toLocaleString() || 0}
+                  {getOutputTokens(selectedDetail.tokens).toLocaleString()}
                 </span>
               </div>
             </div>
@@ -416,13 +478,13 @@ export default function RequestDetailsTab() {
             {selectedDetail.pxpipe && (
               <div className="rounded-lg border border-black/5 dark:border-white/5 p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="material-symbols-outlined text-[18px] text-text-muted">image</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-text-muted">image</span>
                   <span className="font-semibold text-sm text-text-main">PXPIPE</span>
                   <span className={cn(
                     "text-xs px-2 py-0.5 rounded",
                     selectedDetail.pxpipe.applied
                       ? "bg-green-500/15 text-green-600"
-                      : "bg-amber-500/15 text-amber-600"
+                      : "bg-warning/15 text-warning"
                   )}>
                     {selectedDetail.pxpipe.applied ? "Activated" : "Skipped"}
                   </span>
@@ -485,10 +547,10 @@ export default function RequestDetailsTab() {
                 {selectedDetail.response?.thinking && (
                   <div className="mb-4">
                     <h4 className="font-semibold text-text-main mb-2 flex items-center gap-2 text-xs uppercase tracking-wide opacity-70">
-                      <span className="material-symbols-outlined text-[16px]">psychology</span>
+                      <span aria-hidden="true" className="material-symbols-outlined text-[16px]">psychology</span>
                       Thinking Process
                     </h4>
-                    <pre className="max-h-[200px] max-w-full overflow-auto rounded-lg border border-amber-200 bg-amber-50 p-3 font-mono text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:p-4">
+                    <pre className="max-h-[200px] max-w-full overflow-auto rounded-lg border border-warning/30 bg-warning/10 p-3 font-mono text-xs text-text-main sm:p-4">
                       {selectedDetail.response.thinking}
                     </pre>
                   </div>

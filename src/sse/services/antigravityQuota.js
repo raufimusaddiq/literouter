@@ -106,6 +106,7 @@ async function _doRefresh(connectionId, accessToken, providerSpecificData, now) 
   try {
     const proxyCfg = await resolveConnectionProxyConfig(providerSpecificData || {});
     const proxyOptions = {
+      proxyPoolId: proxyCfg.proxyPoolId || null,
       connectionProxyEnabled: proxyCfg.connectionProxyEnabled === true,
       connectionProxyUrl: proxyCfg.connectionProxyUrl || "",
       connectionNoProxy: proxyCfg.connectionNoProxy || "",

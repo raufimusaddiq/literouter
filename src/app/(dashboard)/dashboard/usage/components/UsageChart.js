@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
+import { formatZoneLabel } from "@/shared/utils/dateTime";
 import {
   AreaChart,
   Area,
@@ -10,7 +11,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import Card from "@/shared/components/Card";
 
@@ -43,7 +43,8 @@ export default function UsageChart({ period = "7d" }) {
   }, [period]);
 
   useEffect(() => {
-    fetchData();
+    const id = window.setTimeout(fetchData, 0);
+    return () => window.clearTimeout(id);
   }, [fetchData]);
 
   const hasData = data.some((d) => d.tokens > 0 || d.cost > 0);
@@ -53,13 +54,13 @@ export default function UsageChart({ period = "7d" }) {
       <div className="grid w-full grid-cols-2 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:w-auto sm:self-start">
         <button
           onClick={() => setViewMode("tokens")}
-          className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "tokens" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
+          className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "tokens" ? "bg-primary text-primary-foreground shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
         >
           Tokens
         </button>
         <button
           onClick={() => setViewMode("cost")}
-          className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "cost" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
+          className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "cost" ? "bg-primary text-primary-foreground shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
         >
           Cost
         </button>
@@ -74,24 +75,24 @@ export default function UsageChart({ period = "7d" }) {
           <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="gradTokens" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="gradCost" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--color-warning)" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="var(--color-warning)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 10, fill: "currentColor", fillOpacity: 0.5 }}
+              tick={{ fontSize: 11, fill: "currentColor", fillOpacity: 0.5 }}
               tickLine={false}
               axisLine={false}
               interval="preserveStartEnd"
             />
             <YAxis
-              tick={{ fontSize: 10, fill: "currentColor", fillOpacity: 0.5 }}
+              tick={{ fontSize: 11, fill: "currentColor", fillOpacity: 0.5 }}
               tickLine={false}
               axisLine={false}
               tickFormatter={viewMode === "tokens" ? fmtTokens : fmtCost}
@@ -112,7 +113,7 @@ export default function UsageChart({ period = "7d" }) {
               <Area
                 type="monotone"
                 dataKey="tokens"
-                stroke="#6366f1"
+                stroke="var(--color-primary)"
                 strokeWidth={2}
                 fill="url(#gradTokens)"
                 dot={false}
@@ -122,7 +123,7 @@ export default function UsageChart({ period = "7d" }) {
               <Area
                 type="monotone"
                 dataKey="cost"
-                stroke="#f59e0b"
+                stroke="var(--color-warning)"
                 strokeWidth={2}
                 fill="url(#gradCost)"
                 dot={false}
@@ -132,6 +133,7 @@ export default function UsageChart({ period = "7d" }) {
           </AreaChart>
         </ResponsiveContainer>
       )}
+      {(period === "today" || period === "24h") && (<p className="text-right text-xs text-text-muted">Times in {formatZoneLabel()}</p>)}
     </Card>
   );
 }

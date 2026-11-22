@@ -3,14 +3,15 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous = NORMAL;
 PRAGMA temp_store = MEMORY;
 PRAGMA mmap_size = 30000000;
-PRAGMA cache_size = -64000;
+PRAGMA cache_size = -16000;
+PRAGMA wal_autocheckpoint = 1000;
 PRAGMA foreign_keys = ON;
 PRAGMA busy_timeout = 5000;
 `;
@@ -83,6 +84,10 @@ export const TABLES = {
       machineId: "TEXT",
       isActive: "INTEGER DEFAULT 1",
       createdAt: "TEXT NOT NULL",
+      // Per-key access control. Additive columns, picked up by
+      // syncSchemaFromTables() on boot; existing rows read as unrestricted (0).
+      accessRestricted: "INTEGER DEFAULT 0",
+      accessAllow: "TEXT",
     },
     indexes: ["CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)"],
   },
@@ -121,6 +126,11 @@ export const TABLES = {
       status: "TEXT",
       tokens: "TEXT",
       meta: "TEXT",
+      // #147: nullable, no default. Old rows stay NULL (never backfilled).
+      // Added by the additive sync as a metadata-only ALTER TABLE ADD COLUMN.
+      latencyMs: "INTEGER",
+      ttftMs: "INTEGER",
+      errorText: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_uh_ts ON usageHistory(timestamp DESC)",

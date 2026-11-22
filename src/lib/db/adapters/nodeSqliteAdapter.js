@@ -1,6 +1,7 @@
 // Built-in node:sqlite adapter — available in Node >= 22.5.0.
 // No native build, no npm install. API mirrors betterSqliteAdapter.
 import { PRAGMA_SQL } from "../schema.js";
+import { drainRuntimeBuffersSync } from "../shutdown.js";
 
 const CHECKPOINT_INTERVAL_MS = 60 * 1000;
 
@@ -32,9 +33,10 @@ export async function createNodeSqliteAdapter(filePath) {
     return stmt;
   }
 
-  // Periodic WAL checkpoint to keep -wal/-shm small
+  // Passive periodic checkpoint avoids request-serving stalls; TRUNCATE is
+  // reserved for close/backup maintenance.
   const checkpointTimer = setInterval(() => {
-    try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {}
+    try { db.exec("PRAGMA wal_checkpoint(PASSIVE)"); } catch {}
   }, CHECKPOINT_INTERVAL_MS);
   if (typeof checkpointTimer.unref === "function") checkpointTimer.unref();
 
@@ -43,7 +45,10 @@ export async function createNodeSqliteAdapter(filePath) {
     try { stmtCache.clear(); } catch {}
     try { db.close(); } catch {}
   }
-  const onShutdown = () => gracefulClose();
+  const onShutdown = () => {
+    drainRuntimeBuffersSync();
+    gracefulClose();
+  };
   process.once("beforeExit", onShutdown);
   process.once("SIGINT", () => { onShutdown(); process.exit(0); });
   process.once("SIGTERM", () => { onShutdown(); process.exit(0); });
@@ -77,6 +82,7 @@ export async function createNodeSqliteAdapter(filePath) {
     checkpoint() { try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {} },
     close() {
       clearInterval(checkpointTimer);
+      drainRuntimeBuffersSync();
       gracefulClose();
     },
     raw: db,

@@ -4,6 +4,7 @@ import {
   FREE_PROVIDERS,
   OAUTH_PROVIDERS,
   APIKEY_PROVIDERS,
+  supportsServiceKind,
   OPENAI_COMPATIBLE_PREFIX,
   ANTHROPIC_COMPATIBLE_PREFIX,
 } from "@/shared/constants/providers";
@@ -59,14 +60,20 @@ export async function POST(request) {
     } else if (mode === "free") {
       connectionsToTest = allConnections.filter((c) => getAuthGroup(c.provider, c) === "free");
     } else if (mode === "apikey") {
-      connectionsToTest = allConnections.filter((c) => getAuthGroup(c.provider, c) === "apikey");
+      connectionsToTest = allConnections.filter((c) =>
+        getAuthGroup(c.provider, c) === "apikey" && !supportsServiceKind(APIKEY_PROVIDERS[c.provider], "systemone"),
+      );
+    } else if (mode === "systemone") {
+      connectionsToTest = allConnections.filter((c) =>
+        getAuthGroup(c.provider, c) === "apikey" && supportsServiceKind(APIKEY_PROVIDERS[c.provider], "systemone"),
+      );
     } else if (mode === "compatible") {
       connectionsToTest = allConnections.filter((c) => isCompatibleProvider(c.provider));
     } else if (mode === "all") {
       connectionsToTest = allConnections;
     } else {
       return NextResponse.json(
-        { error: "Invalid mode. Use: provider, oauth, free, apikey, compatible, all" },
+        { error: "Invalid mode. Use: provider, oauth, free, apikey, systemone, compatible, all" },
         { status: 400 }
       );
     }

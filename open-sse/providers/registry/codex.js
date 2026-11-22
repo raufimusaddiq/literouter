@@ -2,7 +2,7 @@ import { withCodexReviewModels } from "../models/helpers.js";
 
 // Codex CLI version seen by OpenAI's backend — single source for the Version /
 // User-Agent identity headers. Bump when the installed codex CLI is upgraded.
-const CODEX_CLI_VERSION = "0.154.0";
+const CODEX_CLI_VERSION = "0.167.1";
 
 export default {
   id: "codex",
@@ -41,6 +41,7 @@ export default {
     cliVersion: CODEX_CLI_VERSION,
     headers: {
       originator: "codex_cli_rs",
+      version: CODEX_CLI_VERSION,
       "User-Agent": `codex_cli_rs/${CODEX_CLI_VERSION}`,
     },
     usage: {
@@ -50,15 +51,16 @@ export default {
     },
   },
   models: [
+    { id: "gpt-6.1-sol", name: "GPT 6.1 Sol" },
     { id: "gpt-6-astra", name: "GPT 6.0 Astra" },
+    { id: "gpt-6-sol", name: "GPT 6.0 Sol" },
+    { id: "gpt-6-luna", name: "GPT 6.0 Luna" },
     { id: "gpt-5.6-sol", name: "GPT 5.6 Sol" },
     { id: "gpt-5.6-sol-review", name: "GPT 5.6 Sol Review", upstreamModelId: "gpt-5.6-sol", quotaFamily: "review" },
     { id: "gpt-5.6-terra", name: "GPT 5.6 Terra" },
     { id: "gpt-5.6-terra-review", name: "GPT 5.6 Terra Review", upstreamModelId: "gpt-5.6-terra", quotaFamily: "review" },
     { id: "gpt-5.6-luna", name: "GPT 5.6 Luna" },
     { id: "gpt-5.6-luna-review", name: "GPT 5.6 Luna Review", upstreamModelId: "gpt-5.6-luna", quotaFamily: "review" },
-    { id: "gpt-5.5", name: "GPT 5.5" },
-    { id: "gpt-5.5-review", name: "GPT 5.5 Review", upstreamModelId: "gpt-5.5", quotaFamily: "review" },
     { id: "gpt-5.4", name: "GPT 5.4" },
     { id: "gpt-5.4-review", name: "GPT 5.4 Review", upstreamModelId: "gpt-5.4", quotaFamily: "review" },
     { id: "gpt-5.4-mini", name: "GPT 5.4 Mini" },
@@ -83,7 +85,9 @@ export default {
       codex_cli_simplified_flow: "true",
       originator: "codex_cli_rs",
     },
-    refreshLeadMs: 432000000,
+    // Access tokens live ~1h; a 5d lead rotated the refresh token on EVERY call —
+    // reuse of a rotated token revokes the whole OpenAI session (account logout).
+    refreshLeadMs: 600000,
     refresh: {
       encoding: "form",
       scope: "openid profile email offline_access",

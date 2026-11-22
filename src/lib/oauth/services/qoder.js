@@ -19,7 +19,7 @@ import { v4 as uuidv4 } from "uuid";
  * returns 403 for our flow). Users re-run login when expired.
  *
  * Mirrors the structure of KiroService — the COSY signing / WAF-bypass body
- * encoding / chat protocol live separately in src/lib/qoder/ because they're
+ * encoding / chat protocol live separately in open-sse/shared/qoder/ because they're
  * used by every signed request, not just OAuth.
  */
 

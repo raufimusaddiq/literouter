@@ -9,6 +9,7 @@ vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
 }));
 
 import { getExecutor } from "../../open-sse/executors/index.js";
+import { injectReasoningContent } from "../../open-sse/utils/reasoningContentInjector.js";
 import {
   OPENCODE_SESSION_RE,
   OPENCODE_REQUEST_RE,
@@ -82,6 +83,24 @@ describe("OpenCode Free Session ID Format", () => {
     const valid = "ses_f534dfae8ffeCy4Ee4tLWNygDc";
     expect(translateSessionId(valid)).toBe(valid);
     expect(translateSessionId(`  ${valid}  `)).toBe(valid);
+  });
+
+  it("translates arbitrary sessions with valid inverted timestamp prefix (fixes #4780)", () => {
+    const raw = "claude:non-opencode-uuid-12345";
+    const before = BigInt(Date.now());
+    const translated = translateSessionId(raw, "claude");
+    const after = BigInt(Date.now());
+    expect(translated).toMatch(OPENCODE_SESSION_RE);
+    expect(translated).toHaveLength(30);
+
+    const timeHex = translated.slice(4, 16);
+    const timestamp = ((~BigInt(`0x${timeHex}`)) & ((1n << 48n) - 1n)) >> 12n;
+    const timestampMask = (1n << 36n) - 1n;
+    expect((timestamp - before) & timestampMask).toBeLessThanOrEqual((after - before) & timestampMask);
+
+    // Stability across repeated translations of the same input
+    const repeated = translateSessionId(raw, "claude");
+    expect(repeated).toBe(translated);
   });
 });
 
@@ -277,43 +296,87 @@ describe("OpenCode Stable Session Reuse (429 follow-up)", () => {
     expect(second).toBe(first);
   });
 
-  it("cloaks free-tier requests with bash and read decoy tools", () => {
+  it("applies the full lowercase free-tier fingerprint quartet", () => {
+  const executor = getExecutor("opencode");
+
+  const chatNoTools = executor.transformRequest("nemotron-3-ultra-free", {
+    messages: [{ role: "user", content: "hi" }],
+  });
+  expect(chatNoTools.stream).toBe(true);
+  expect(chatNoTools.tool_choice).toBe("none");
+  expect(chatNoTools.tools.map((t) => t.function?.name)).toEqual([
+    "bash", "glob", "grep", "read",
+  ]);
+
+  const chatWithTools = executor.transformRequest("nemotron-3-ultra-free", {
+    messages: [{ role: "user", content: "hi" }],
+    tools: [
+      { type: "function", function: { name: "Bash", description: "Claude Code tool" } },
+      { type: "function", function: { name: "Glob", description: "Claude Code tool" } },
+      { type: "function", function: { name: "Grep", description: "Claude Code tool" } },
+      { type: "function", function: { name: "Read", description: "Claude Code tool" } },
+    ],
+    tool_choice: "auto",
+  });
+  expect(chatWithTools.tool_choice).toBe("auto");
+  expect(chatWithTools.tools.map((t) => t.function?.name)).toEqual([
+    "bash", "glob", "grep", "read",
+  ]);
+
+  const chatPartial = executor.transformRequest("nemotron-3-ultra-free", {
+    messages: [{ role: "user", content: "hi" }],
+    tools: [
+      { type: "function", function: { name: "bash", description: "existing" } },
+      { type: "function", function: { name: "read", description: "existing" } },
+    ],
+  });
+  expect(chatPartial.tools.map((t) => t.function?.name)).toEqual([
+    "bash", "read", "glob", "grep",
+  ]);
+  expect(chatPartial.tools[0].function.description).toBe("existing");
+});
+
+  it("cloaks Muse Responses requests even when the client already supplies tools", () => {
     const executor = getExecutor("opencode");
-
-    // Case 1: no tools sent by client -> injects bash + read with tool_choice none
-    const chatNoTools = executor.transformRequest("nemotron-3-ultra-free", {
-      messages: [{ role: "user", content: "hi" }],
-    });
-    expect(chatNoTools.stream).toBe(true);
-    expect(chatNoTools.tool_choice).toBe("none");
-    expect(chatNoTools.tools.map((t) => t.function?.name)).toEqual(["bash", "read"]);
-
-    // Case 2: external CLI tools (e.g. Claude Code Bash) -> preserves Bash, appends read
-    const chatWithTools = executor.transformRequest("nemotron-3-ultra-free", {
-      messages: [{ role: "user", content: "hi" }],
-      tools: [{ type: "function", function: { name: "Bash", description: "Claude Code tool" } }],
+    const transformed = executor.transformRequest("muse-spark-1.3-contributor-free(xhigh)", {
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] }],
+      tools: [{
+        type: "function",
+        name: "zcode_search",
+        description: "client-provided tool",
+        parameters: { type: "object", properties: {} },
+      }],
       tool_choice: "auto",
-    });
-    expect(chatWithTools.tool_choice).toBe("auto");
-    const names = chatWithTools.tools.map((t) => t.function?.name);
-    expect(names).toContain("Bash");
+      reasoning_effort: "xhigh",
+    }, true, {});
+
+    expect(transformed.stream).toBe(true);
+    expect(transformed.reasoning?.effort).toBe("xhigh");
+    const names = transformed.tools.map((tool) => tool.name);
+    expect(names).toContain("zcode_search");
     expect(names).toContain("bash");
     expect(names).toContain("read");
-
-    // Case 3: already has both bash and read -> do not insert anything
-    const chatFull = executor.transformRequest("nemotron-3-ultra-free", {
-      messages: [{ role: "user", content: "hi" }],
-      tools: [
-        { type: "function", function: { name: "bash", description: "existing" } },
-        { type: "function", function: { name: "read", description: "existing" } },
-      ],
-    });
-    expect(chatFull.tools.length).toBe(2);
-    expect(chatFull.tools[0].function.description).toBe("existing");
+    expect(names.filter((name) => name === "bash")).toHaveLength(1);
+    expect(names.filter((name) => name === "read")).toHaveLength(1);
   });
 
   it("declares forceStream on the opencode transport so chatCore serves SSE upstream", async () => {
     const { PROVIDERS } = await import("../../open-sse/config/providers.js");
     expect(PROVIDERS.opencode?.forceStream).toBe(true);
+  });
+});
+
+describe("OpenCode reasoning history", () => {
+  it("fills missing assistant reasoning without changing user messages or real reasoning", () => {
+    const body = { messages: [
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "hello" },
+      { role: "assistant", content: "answer", reasoning_content: "real reasoning" },
+    ] };
+    const result = injectReasoningContent({ provider: "opencode", model: "space-bunny-free", body });
+    expect(result.messages[0]).not.toHaveProperty("reasoning_content");
+    expect(result.messages[1].reasoning_content).toBe(" ");
+    expect(result.messages[2].reasoning_content).toBe("real reasoning");
+    expect(body.messages[1]).not.toHaveProperty("reasoning_content");
   });
 });

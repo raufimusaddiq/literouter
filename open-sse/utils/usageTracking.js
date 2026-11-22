@@ -3,6 +3,7 @@
  */
 
 import { FORMATS } from "../translator/formats.js";
+import { CLAUDE_EVENT } from "../translator/schema/index.js";
 
 // Legacy per-chunk usage console line; off by default (superseded by "📊 done")
 const DEBUG_USAGE = process.env.LOG_USAGE_VERBOSE === "1";
@@ -17,43 +18,9 @@ export const COLORS = {
   cyan: "\x1b[36m"
 };
 
-// Buffer tokens to prevent context errors
-const BUFFER_TOKENS = 2000;
-
 // Get HH:MM:SS timestamp
 function getTimeString() {
   return new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-
-/**
- * Add buffer tokens to usage to prevent context errors
- * @param {object} usage - Usage object (any format)
- * @returns {object} Usage with buffer added
- */
-export function addBufferToUsage(usage) {
-  if (!usage || typeof usage !== "object") return usage;
-
-  const result = { ...usage };
-
-  // Claude format
-  if (result.input_tokens !== undefined) {
-    result.input_tokens += BUFFER_TOKENS;
-  }
-
-  // OpenAI format
-  if (result.prompt_tokens !== undefined) {
-    result.prompt_tokens += BUFFER_TOKENS;
-  }
-
-  // Calculate or update total_tokens
-  if (result.total_tokens !== undefined) {
-    result.total_tokens += BUFFER_TOKENS;
-  } else if (result.prompt_tokens !== undefined && result.completion_tokens !== undefined) {
-    // Calculate total_tokens if not exists
-    result.total_tokens = result.prompt_tokens + result.completion_tokens;
-  }
-
-  return result;
 }
 
 export function filterUsageForFormat(usage, targetFormat) {
@@ -73,7 +40,7 @@ export function filterUsageForFormat(usage, targetFormat) {
   // Define allowed fields for each format
   const formatFields = {
     [FORMATS.CLAUDE]: [
-      'input_tokens', 'output_tokens', 
+      'input_tokens', 'output_tokens',
       'cache_read_input_tokens', 'cache_creation_input_tokens',
       'estimated'
     ],
@@ -98,7 +65,7 @@ export function filterUsageForFormat(usage, targetFormat) {
 
   // Get fields for target format
   let fields = formatFields[targetFormat];
-  
+
   // Use same fields for similar formats
   if (targetFormat === FORMATS.GEMINI_CLI || targetFormat === FORMATS.ANTIGRAVITY) {
     fields = formatFields[FORMATS.GEMINI];
@@ -242,7 +209,7 @@ export function extractUsage(chunk) {
   // Claude format (message_start event): carries input_tokens + cache_read +
   // cache_creation. message_delta later carries only the final output_tokens,
   // so callers must MERGE (mergeUsage), not overwrite, to keep cache counts.
-  if (chunk.type === "message_start" && chunk.message?.usage && typeof chunk.message.usage === "object") {
+  if (chunk.type === CLAUDE_EVENT.MESSAGE_START && chunk.message?.usage && typeof chunk.message.usage === "object") {
     const u = chunk.message.usage;
     return normalizeUsage({
       prompt_tokens: u.input_tokens || 0,
@@ -253,7 +220,7 @@ export function extractUsage(chunk) {
   }
 
   // Claude format (message_delta event)
-  if (chunk.type === "message_delta" && chunk.usage && typeof chunk.usage === "object") {
+  if (chunk.type === CLAUDE_EVENT.MESSAGE_DELTA && chunk.usage && typeof chunk.usage === "object") {
     return normalizeUsage({
       prompt_tokens: chunk.usage.input_tokens || 0,
       completion_tokens: chunk.usage.output_tokens || 0,
@@ -301,12 +268,14 @@ export function extractUsage(chunk) {
   }
 
   // Ollama NDJSON format (raw from provider, before translation)
-  // Ollama sends: {"model":"...","done":true,"prompt_eval_count":N,"eval_count":M}
+  // Ollama sends: {"model":"...","done":true,"prompt_eval_count":N,"eval_count":M,"prompt_eval_cached_count":C}
+  // prompt_eval_cached_count is a cache-read subset of prompt_eval_count (cache-INCLUSIVE).
   if (chunk.done === true && typeof chunk.prompt_eval_count === "number") {
     return normalizeUsage({
       prompt_tokens: chunk.prompt_eval_count || 0,
       completion_tokens: chunk.eval_count || 0,
-      total_tokens: (chunk.prompt_eval_count || 0) + (chunk.eval_count || 0)
+      total_tokens: (chunk.prompt_eval_count || 0) + (chunk.eval_count || 0),
+      cached_tokens: chunk.prompt_eval_cached_count || 0
     });
   }
 
@@ -370,21 +339,23 @@ export function estimateOutputTokens(contentLength) {
  */
 export function formatUsage(inputTokens, outputTokens, targetFormat) {
   // Claude format uses input_tokens/output_tokens
+  // Estimates carry no safety buffer: they are flagged `estimated` and must
+  // never overstate what the request actually used.
   if (targetFormat === FORMATS.CLAUDE) {
-    return addBufferToUsage({ 
-      input_tokens: inputTokens, 
-      output_tokens: outputTokens, 
-      estimated: true 
-    });
+    return {
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      estimated: true
+    };
   }
 
   // Default: OpenAI format (works for openai, gemini, responses, etc.)
-  return addBufferToUsage({
+  return {
     prompt_tokens: inputTokens,
     completion_tokens: outputTokens,
     total_tokens: inputTokens + outputTokens,
     estimated: true
-  });
+  };
 }
 
 /**

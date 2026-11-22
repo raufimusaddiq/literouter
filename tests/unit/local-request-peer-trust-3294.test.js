@@ -20,7 +20,7 @@ vi.mock("next/server", () => ({
   },
 }));
 
-vi.mock("@/lib/localDb", () => ({
+vi.mock("@/lib/db/index.js", () => ({
   getSettings: mocks.getSettings,
   validateApiKey: mocks.validateApiKey,
 }));
@@ -72,7 +72,7 @@ describe("peer header trust", () => {
     }));
 
     expect(response.status).toBe(401);
-    expect(response.body.error).toBe("API key required for remote API access");
+    expect(response.body.error.message).toBe("API key required for remote API access");
   });
 
   it("rejects a spoofed loopback peer IP carrying a wrong trust token", async () => {
@@ -173,6 +173,26 @@ describe("peer header trust", () => {
     // request shape the dashboard itself has; the documented local workflow.
     expect(response).toBe(mocks.nextResponse);
   });
+  // These two prove the @/lib/db/index.js mock really intercepts the guard: the
+  // outcome flips with the mocked value, so a stale mock path would fail here.
+  it("lets a remote caller through only when the mocked validateApiKey accepts the key", async () => {
+    const headers = { host: "172.18.192.1:20140", authorization: "Bearer router-key" };
+    mocks.validateApiKey.mockResolvedValue(true);
+    expect(await proxy(request("/api/v1/models", headers))).toBe(mocks.nextResponse);
+    expect(mocks.validateApiKey).toHaveBeenCalledWith("router-key");
+
+    mocks.validateApiKey.mockResolvedValue(false);
+    expect((await proxy(request("/api/v1/models", headers))).status).toBe(401);
+  });
+
+  it("honours the mocked getSettings().requireLogin for local-only routes", async () => {
+    const headers = { host: "localhost:20128", "x-9r-real-ip": "127.0.0.1", "x-9r-peer-token": PEER_TOKEN };
+    mocks.getSettings.mockResolvedValue({ requireLogin: false });
+    expect(await proxy(request("/api/headroom/start", headers))).toBe(mocks.nextResponse);
+
+    mocks.getSettings.mockResolvedValue({ requireLogin: true });
+    expect((await proxy(request("/api/headroom/start", headers))).status).toBe(403);
+  });
 });
 
 describe("login limiter client IP", () => {
@@ -208,6 +228,7 @@ describe("login limiter client IP", () => {
 
     const ip = getClientIp(request("/api/auth/login", { "x-forwarded-for": "198.51.100.7, 10.0.0.1" }));
 
-    expect(ip).toBe("198.51.100.7");
+    // Rightmost hop: the one the single trusted proxy appended; leftmost is client-controlled.
+    expect(ip).toBe("10.0.0.1");
   });
 });

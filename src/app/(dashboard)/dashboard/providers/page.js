@@ -8,6 +8,7 @@ import {
   Badge,
   Button,
   Toggle,
+  PageIntro,
 } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
@@ -18,9 +19,11 @@ import {
   WEB_COOKIE_PROVIDERS,
   OPENAI_COMPATIBLE_PREFIX,
   ANTHROPIC_COMPATIBLE_PREFIX,
+  supportsServiceKind,
 } from "@/shared/constants/providers";
 import Link from "next/link";
 import { getErrorCode, getRelativeTime } from "@/shared/utils";
+import { getConnectionHealthStats, HEALTH_LABELS } from "@/shared/utils/connectionHealth";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import ModelAvailabilityBadge from "./components/ModelAvailabilityBadge";
@@ -104,6 +107,7 @@ export default function ProvidersPage() {
   const [showAddCompatibleModal, setShowAddCompatibleModal] = useState(false);
   const [showAddAnthropicCompatibleModal, setShowAddAnthropicCompatibleModal] =
     useState(false);
+  const [showAddSystemOneModal, setShowAddSystemOneModal] = useState(false);
   const [testingMode, setTestingMode] = useState(null);
   const [testResults, setTestResults] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -170,8 +174,14 @@ export default function ProvidersPage() {
     fetchData();
   }, []);
 
+  // Sort comparators call this O(P log P) times per render; each call scans every
+  // connection, so cache results for the duration of this render.
+  const providerStatsCache = new Map();
   const getProviderStats = (providerId, authType) => {
     const authTypes = Array.isArray(authType) ? authType : [authType];
+    const cacheKey = `${providerId}\u0000${authTypes.join(",")}`;
+    const cached = providerStatsCache.get(cacheKey);
+    if (cached) return cached;
     const providerConnections = connections.filter(
       (c) => c.provider === providerId && authTypes.includes(c.authType),
     );
@@ -211,7 +221,9 @@ export default function ProvidersPage() {
       ? getRelativeTime(latestError.lastErrorAt)
       : null;
 
-    return { connected, error, total, errorCode, errorTime, allDisabled };
+    const stats = { connected, error, total, errorCode, errorTime, allDisabled };
+    providerStatsCache.set(cacheKey, stats);
+    return stats;
   };
 
   const matchStatus = (stats, isNoAuth) =>
@@ -331,7 +343,7 @@ export default function ProvidersPage() {
       ([key, info]) =>
         !info.hidden &&
         matchSearch(info.name) &&
-        (info.serviceKinds ?? ["llm"]).includes("llm") &&
+        (supportsServiceKind(info, "llm") || supportsServiceKind(info, "systemone")) &&
         matchStatus(getProviderStats(key, dualAuthTypes(info, key)), info.noAuth),
     )
     .sort(([ka, a], [kb, b]) => {
@@ -350,7 +362,8 @@ export default function ProvidersPage() {
     .filter(
       ([key, info]) =>
         !info.hidden &&
-        (info.serviceKinds ?? ["llm"]).includes("llm") &&
+        supportsServiceKind(info, "llm") &&
+        !supportsServiceKind(info, "systemone") &&
         matchSearch(info.name) &&
         matchStatus(getProviderStats(key, "apikey"), info.noAuth),
     )
@@ -360,6 +373,34 @@ export default function ProvidersPage() {
       if (ca !== cb) return ca - cb;
       return (a.name || "").localeCompare(b.name || "");
     });
+  const systemOneEntries = Object.entries(APIKEY_PROVIDERS)
+    .filter(
+      ([key, info]) =>
+        !info.hidden &&
+        supportsServiceKind(info, "systemone") &&
+        matchSearch(info.name) &&
+        matchStatus(getProviderStats(key, "apikey"), info.noAuth),
+    )
+    .sort(([ka, a], [kb, b]) => {
+      const pa = a.priority ?? 999;
+      const pb = b.priority ?? 999;
+      if (pa !== pb) return pa - pb;
+      const ca = getProviderStats(ka, "apikey").total > 0 ? 0 : 1;
+      const cb = getProviderStats(kb, "apikey").total > 0 ? 0 : 1;
+      if (ca !== cb) return ca - cb;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  const systemOneNodes = providerNodes
+    .filter((node) => node.type === "systemone")
+    .map((node) => ({
+      id: node.id,
+      name: node.name || "System One Node",
+      color: "#E551BA",
+      textIcon: "S1",
+    }))
+    .filter(
+      (p) => matchSearch(p.name) && matchStatus(getProviderStats(p.id, "apikey")),
+    );
   const isApikeySearching = !!searchQuery.trim() || statusFilter !== "all";
   const visibleApikeyEntries =
     isApikeySearching || showAllApikey
@@ -380,17 +421,33 @@ export default function ProvidersPage() {
     oauthEntries.length > 0 ||
     freeEntries.length > 0 ||
     freeTierEntries.length > 0 ||
+    systemOneEntries.length > 0 ||
+    systemOneNodes.length > 0 ||
     apikeyEntries.length > 0 ||
     compatibleProviders.length > 0 ||
     anthropicCompatibleProviders.length > 0;
 
+  const health = getConnectionHealthStats(connections);
+
   return (
     <div className="flex min-w-0 flex-col gap-7">
-      <div className="flex flex-col gap-3 rounded-[1.125rem] bg-surface-2 p-4 ring-1 ring-border-subtle sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Catalog</p>
-          <p className="text-sm text-text-main">Providers, routes, and connection health in one surface.</p>
-        </div>
+      <PageIntro
+        title="Providers"
+        description={<span id="needs-attention" className="scroll-mt-24">{health.total} {health.total === 1 ? "connection" : "connections"} · {health.ready} {HEALTH_LABELS.ready.toLowerCase()} · {health.attention} {health.attention === 1 ? "needs" : "need"} attention{health.inactive > 0 ? ` · ${health.inactive} inactive` : ""}{health.untested > 0 ? ` · ${health.untested} untested` : ""}</span>}
+      />
+      {health.attentionItems.length > 0 && (
+        <ul className="flex flex-col gap-1 rounded-xl bg-surface px-4 py-3 text-sm text-text-muted ring-1 ring-border-subtle" data-testid="needs-attention-list">
+          {health.attentionItems.map(({ connection, reason }) => (
+            <li key={connection.id}>
+              <Link href={`/dashboard/providers/${connection.provider}`} className="font-medium text-text-main hover:underline">
+                {connection.name || connection.email || connection.provider}
+              </Link>{" "}
+              · {reason.replace("_", " ")}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex items-center justify-end border-b border-border-subtle pb-4">
         <div className="flex items-center justify-end">
         <select
           value={statusFilter}
@@ -409,7 +466,7 @@ export default function ProvidersPage() {
 
       {!hasAnyResult && (
         <div className="text-center py-8 border border-dashed border-border rounded-xl">
-          <span className="material-symbols-outlined text-[32px] text-text-muted mb-2">
+          <span aria-hidden="true" className="material-symbols-outlined text-[32px] text-text-muted mb-2">
             search_off
           </span>
           <p className="text-text-muted text-sm">
@@ -427,6 +484,7 @@ export default function ProvidersPage() {
           <div className="grid grid-cols-1 gap-2 sm:flex sm:w-auto">
             <Button
               size="sm"
+              variant="secondary"
               icon="add"
               onClick={() => setShowAddAnthropicCompatibleModal(true)}
               className="w-full sm:w-auto"
@@ -438,7 +496,7 @@ export default function ProvidersPage() {
               variant="secondary"
               icon="add"
               onClick={() => setShowAddCompatibleModal(true)}
-              className="w-full !bg-white !text-black hover:!bg-gray-100 sm:w-auto"
+              className="w-full sm:w-auto"
             >
               Add OpenAI Compatible
             </Button>
@@ -447,11 +505,11 @@ export default function ProvidersPage() {
         {compatibleProviders.length === 0 &&
         anthropicCompatibleProviders.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-2 border border-dashed border-border rounded-xl text-text-muted text-sm">
-            <span className="material-symbols-outlined text-[18px]">extension</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">extension</span>
             <span>No custom providers — use buttons above to add OpenAI/Anthropic compatible endpoints</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="flex flex-col divide-y divide-border-subtle overflow-hidden rounded-[10px] bg-surface ring-1 ring-border-subtle">
             {[...compatibleProviders, ...anthropicCompatibleProviders].map(
               (info) => (
                 <ApiKeyProviderCard
@@ -469,6 +527,54 @@ export default function ProvidersPage() {
           </div>
         )}
       </div>
+
+      {(systemOneEntries.length > 0 || systemOneNodes.length > 0) && (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold sm:text-xl">System One providers</h2>
+            <p className="mt-1 text-sm text-text-muted">Typed decision APIs with their own request format and model catalog.</p>
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="add"
+              onClick={() => setShowAddSystemOneModal(true)}
+              className="w-full sm:w-auto"
+            >
+              Add System One
+            </Button>
+            <button
+              onClick={() => handleBatchTest("systemone")}
+              disabled={!!testingMode}
+              className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+                testingMode === "systemone"
+                  ? "animate-pulse border-primary/40 bg-primary/20 text-primary"
+                  : "border-border bg-bg text-text-muted hover:border-primary/40 hover:text-text-main"
+              }`}
+              title="Test all System One connections"
+              aria-label="Test all System One connections"
+            >
+              <span aria-hidden="true" className={`material-symbols-outlined text-[14px]${testingMode === "systemone" ? " animate-spin" : ""}`}>play_arrow</span>
+              {testingMode === "systemone" ? "Testing..." : "Test All"}
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-col divide-y divide-border-subtle overflow-hidden rounded-[10px] bg-surface ring-1 ring-border-subtle">
+          {[...systemOneEntries.map(([key, info]) => ({ key, info })), ...systemOneNodes.map((node) => ({ key: node.id, info: node }))].map(({ key, info }) => (
+            <ApiKeyProviderCard
+              key={key}
+              providerId={key}
+              provider={info}
+              stats={getProviderStats(key, "apikey")}
+              authType="apikey"
+              onToggle={(active) => handleToggleProvider(key, "apikey", active)}
+            />
+          ))}
+        </div>
+      </div>
+      )}
 
       {/* OAuth Providers */}
       {oauthEntries.length > 0 && (
@@ -490,7 +596,7 @@ export default function ProvidersPage() {
               title="Test all OAuth connections"
               aria-label="Test all OAuth connections"
             >
-              <span
+              <span aria-hidden="true"
                 className={`material-symbols-outlined text-[14px]${testingMode === "oauth" ? " animate-spin" : ""}`}
               >
                 play_arrow
@@ -499,7 +605,7 @@ export default function ProvidersPage() {
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="flex flex-col divide-y divide-border-subtle overflow-hidden rounded-[10px] bg-surface ring-1 ring-border-subtle">
           {oauthEntries.map(([key, info]) => {
             const authTypes = dualAuthTypes(info, key);
             return (
@@ -535,7 +641,7 @@ export default function ProvidersPage() {
             title="Test all Free connections"
             aria-label="Test all Free provider connections"
           >
-            <span
+            <span aria-hidden="true"
               className={`material-symbols-outlined text-[14px]${testingMode === "free" ? " animate-spin" : ""}`}
             >
               play_arrow
@@ -543,7 +649,7 @@ export default function ProvidersPage() {
             {testingMode === "free" ? "Testing..." : "Test All"}
           </button>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="flex flex-col divide-y divide-border-subtle overflow-hidden rounded-[10px] bg-surface ring-1 ring-border-subtle">
           {freeEntries.map(([key, info]) => {
             // Dual-auth (e.g. kiro): count/toggle oauth + apikey/api_key so the
             // card total matches the provider detail page.
@@ -596,7 +702,7 @@ export default function ProvidersPage() {
             title="Test all API Key connections"
             aria-label="Test all API Key connections"
           >
-            <span
+            <span aria-hidden="true"
               className={`material-symbols-outlined text-[14px]${testingMode === "apikey" ? " animate-spin" : ""}`}
             >
               play_arrow
@@ -604,7 +710,7 @@ export default function ProvidersPage() {
             {testingMode === "apikey" ? "Testing..." : "Test All"}
           </button>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="flex flex-col divide-y divide-border-subtle overflow-hidden rounded-[10px] bg-surface ring-1 ring-border-subtle">
           {visibleApikeyEntries.map(([key, info]) => (
             <ApiKeyProviderCard
               key={key}
@@ -621,7 +727,7 @@ export default function ProvidersPage() {
             onClick={() => setShowAllApikey(true)}
             className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary/5"
           >
-            <span className="material-symbols-outlined text-[16px]">expand_more</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">expand_more</span>
             Show all {apikeyEntries.length} providers
           </button>
         )}
@@ -667,6 +773,15 @@ export default function ProvidersPage() {
           setShowAddAnthropicCompatibleModal(false);
         }}
       />
+      <AddCompatibleModal
+        variant="systemone"
+        isOpen={showAddSystemOneModal}
+        onClose={() => setShowAddSystemOneModal(false)}
+        onCreated={(node) => {
+          setProviderNodes((prev) => [...prev, node]);
+          setShowAddSystemOneModal(false);
+        }}
+      />
 
       {/* Test Results Modal */}
       {testResults && (
@@ -686,7 +801,7 @@ export default function ProvidersPage() {
                 className="p-1 rounded-lg hover:bg-bg text-text-muted hover:text-text-main transition-colors"
                 aria-label="Close test results"
               >
-                <span className="material-symbols-outlined text-lg">close</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-lg">close</span>
               </button>
             </div>
             <div className="p-5">
@@ -703,24 +818,11 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
   const { connected, error, errorCode, errorTime, allDisabled } = stats;
   const isNoAuth = !!provider.noAuth;
 
-  const dotColors = {
-    free: "bg-green-500",
-    oauth: "bg-blue-500",
-    apikey: "bg-amber-500",
-    compatible: "bg-orange-500",
-  };
-  const dotLabels = {
-    free: "Free",
-    oauth: "OAuth",
-    apikey: "API Key",
-    compatible: "Compatible",
-  };
-
   return (
     <Link href={`/dashboard/providers/${providerId}`} className="group min-w-0">
       <Card
         padding="xs"
-        className={`h-full hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors cursor-pointer ${allDisabled ? "opacity-50" : ""}`}
+        className={`rounded-none px-4 py-3 shadow-none ring-0 transition-colors hover:bg-bg-alt cursor-pointer ${allDisabled ? "opacity-50" : ""}`}
       >
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -747,7 +849,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
                 {allDisabled ? (
                   <Badge variant="default" size="sm">
                     <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[12px]">
+                      <span aria-hidden="true" className="material-symbols-outlined text-[12px]">
                         pause_circle
                       </span>
                       Disabled
@@ -781,6 +883,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
                   checked={!allDisabled}
                   onChange={() => {}}
                   title={allDisabled ? "Enable provider" : "Disable provider"}
+                  aria-label={allDisabled ? "Enable provider" : "Disable provider"}
                 />
               </div>
             )}
@@ -822,19 +925,6 @@ function ApiKeyProviderCard({
     ANTHROPIC_COMPATIBLE_PREFIX,
   );
 
-  const dotColors = {
-    free: "bg-green-500",
-    oauth: "bg-blue-500",
-    apikey: "bg-amber-500",
-    compatible: "bg-orange-500",
-  };
-  const dotLabels = {
-    free: "Free",
-    oauth: "OAuth",
-    apikey: "API Key",
-    compatible: "Compatible",
-  };
-
   const getIconPath = () => {
     if (isCompatible && provider.apiType)
       return provider.apiType === "responses"
@@ -848,7 +938,7 @@ function ApiKeyProviderCard({
     <Link href={`/dashboard/providers/${providerId}`} className="group min-w-0">
       <Card
         padding="xs"
-        className={`h-full hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors cursor-pointer ${allDisabled ? "opacity-50" : ""}`}
+        className={`rounded-none px-4 py-3 shadow-none ring-0 transition-colors hover:bg-bg-alt cursor-pointer ${allDisabled ? "opacity-50" : ""}`}
       >
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -875,7 +965,7 @@ function ApiKeyProviderCard({
                 {allDisabled ? (
                   <Badge variant="default" size="sm">
                     <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[12px]">
+                      <span aria-hidden="true" className="material-symbols-outlined text-[12px]">
                         pause_circle
                       </span>
                       Disabled
@@ -919,6 +1009,7 @@ function ApiKeyProviderCard({
                   checked={!allDisabled}
                   onChange={() => {}}
                   title={allDisabled ? "Enable provider" : "Disable provider"}
+                  aria-label={allDisabled ? "Enable provider" : "Disable provider"}
                 />
               </div>
             )}
@@ -952,7 +1043,7 @@ function ProviderTestResultsView({ results }) {
   if (results.error && !results.results) {
     return (
       <div className="text-center py-6">
-        <span className="material-symbols-outlined text-red-500 text-[32px] mb-2 block">
+        <span aria-hidden="true" className="material-symbols-outlined text-red-500 text-[32px] mb-2 block">
           error
         </span>
         <p className="text-sm text-red-400">{results.error}</p>
@@ -967,6 +1058,7 @@ function ProviderTestResultsView({ results }) {
       oauth: "OAuth",
       free: "Free",
       apikey: "API Key",
+      systemone: "System One",
       provider: "Provider",
       all: "All",
     }[mode] || mode;
@@ -994,7 +1086,7 @@ function ProviderTestResultsView({ results }) {
           key={r.connectionId || i}
           className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg bg-black/[0.03] px-3 py-2 text-xs dark:bg-white/[0.03] sm:flex-nowrap"
         >
-          <span
+          <span aria-hidden="true"
             className={`material-symbols-outlined text-[16px] ${r.valid ? "text-emerald-500" : "text-red-500"}`}
           >
             {r.valid ? "check_circle" : "error"}
@@ -1013,7 +1105,7 @@ function ProviderTestResultsView({ results }) {
             </span>
           )}
           <span
-            className={`shrink-0 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
+            className={`shrink-0 text-[11px] uppercase font-bold px-1.5 py-0.5 rounded ${
               r.valid
                 ? "bg-emerald-500/15 text-emerald-400"
                 : "bg-red-500/15 text-red-400"

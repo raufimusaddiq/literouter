@@ -1,6 +1,9 @@
 // Provider icon paths under /public/providers.
 // Alias related brands; session-cache 404s so one miss never spams again.
 
+import { PROVIDER_ICON_IDS } from "@/shared/constants/providerIconManifest.js";
+import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers.js";
+
 const ICON_ALIASES = {
   "perplexity-agent": "perplexity",
   "gitlab-duo": "gitlab",
@@ -15,13 +18,15 @@ function normalizeId(providerId) {
   return providerId.trim().toLowerCase();
 }
 
-/** Resolve icon file id (after alias). Empty if previously failed this session. */
+/** Resolve icon file id (after alias). Empty if no logo ships for it or it failed this session. */
 export function resolveProviderIconId(providerId) {
   const id = normalizeId(providerId);
   if (!id) return "";
+  // Custom compatible nodes (prefix + uuid) never ship a logo.
+  if (isOpenAICompatibleProvider(id) || isAnthropicCompatibleProvider(id)) return "";
   if (failedIds.has(id)) return "";
   const aliased = ICON_ALIASES[id] || id;
-  if (failedIds.has(aliased)) return "";
+  if (failedIds.has(aliased) || !PROVIDER_ICON_IDS.has(aliased)) return "";
   return aliased;
 }
 

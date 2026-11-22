@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getDefaultPricing, formatCost } from "open-sse/providers/pricing.js";
+import { getDefaultPricing } from "open-sse/providers/pricing.js";
 
 export default function PricingModal({ isOpen, onClose, onSave }) {
   const [pricingData, setPricingData] = useState({});
@@ -195,7 +195,7 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
             </button>
             <button
               onClick={handleSave}
-              className="px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
               disabled={saving}
             >
               {saving ? "Saving..." : "Save Changes"}

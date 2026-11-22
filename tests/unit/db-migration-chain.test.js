@@ -95,6 +95,7 @@ describe("Schema migrations", () => {
 
     const keys = db.all(`SELECT * FROM apiKeys`);
     expect(keys).toHaveLength(1);
+    // apiKeys.key is the live credential, so it stays usable (plaintext).
     expect(keys[0].key).toBe("abc");
 
     const aliases = db.all(`SELECT * FROM kv WHERE scope='modelAliases'`);
@@ -114,5 +115,18 @@ describe("Schema migrations", () => {
     const db2 = await getAdapter2();
     const idx = db2.all(`PRAGMA index_list(providerNodes)`).map(i => i.name);
     expect(idx).toContain("idx_pn_type");
+  });
+});
+
+describe("usageHistory latency/error columns (#147)", () => {
+  it("declares nullable latencyMs/ttftMs/errorText; rows written without them are NULL", async () => {
+    const { getAdapter } = await import("@/lib/db/driver.js");
+    const db = await getAdapter();
+    const cols = db.all(`PRAGMA table_info(usageHistory)`).map((c) => c.name);
+    expect(cols).toEqual(expect.arrayContaining(["latencyMs", "ttftMs", "errorText"]));
+
+    db.run(`INSERT INTO usageHistory(timestamp, status) VALUES ('2026-11-01T00:00:00.000Z', 'ok')`);
+    const row = db.get(`SELECT latencyMs, ttftMs, errorText FROM usageHistory ORDER BY id DESC LIMIT 1`);
+    expect(row).toEqual({ latencyMs: null, ttftMs: null, errorText: null });
   });
 });

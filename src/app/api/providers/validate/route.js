@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { ACCEPT_ENCODING } from "open-sse/utils/zstdCompat.js";
 import { getProviderNodeById } from "@/models";
-import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
+import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isSystemOneProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getDefaultModel } from "open-sse/config/providerModels.js";
 import { resolveOllamaLocalHost, resolveXiaomiTokenplanBaseUrl, PROVIDERS } from "open-sse/config/providers.js";
 import { openaiToCommandCodeRequest } from "open-sse/translator/request/openai-to-commandcode.js";
@@ -133,6 +134,25 @@ export async function POST(request) {
         });
       }
 
+      if (isSystemOneProvider(provider)) {
+        const node = await getProviderNodeById(provider);
+        if (!node) {
+          return NextResponse.json({ valid: false, error: "System One node not found" }, { status: 404 });
+        }
+        if (remote) {
+          try { await assertPublicUrlResolved(node.baseUrl?.trim() || ""); }
+          catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
+        }
+        // Invalid questions authenticate without spending an evaluation.
+        const res = await validateFetch(node.baseUrl.replace(/\/$/, ""), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "ping", state: "ping", questions: {} }),
+        });
+        const isValid = res.status !== 401 && res.status !== 403;
+        return NextResponse.json({ valid: isValid, error: isValid ? null : "Invalid API key" });
+      }
+
       if (provider === "azure") {
         const endpoint = (providerSpecificData?.azureEndpoint || "").replace(/\/$/, "");
         const deployment = providerSpecificData?.deployment || "gpt-4";
@@ -165,6 +185,17 @@ export async function POST(request) {
       }
 
       switch (provider) {
+        case "typesafe": {
+          const typesafeRes = await validateFetch(PROVIDERS.typesafe.baseUrl, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            // Invalid questions authenticate without spending an evaluation.
+            body: JSON.stringify({ model: "jev-latest", state: "ping", questions: {} }),
+          });
+          isValid = typesafeRes.status !== 401 && typesafeRes.status !== 403;
+          break;
+        }
+
         case "openai":
           const openaiRes = await fetch("https://api.openai.com/v1/models", {
             headers: { "Authorization": `Bearer ${apiKey}` },
@@ -279,6 +310,9 @@ export async function POST(request) {
         case "ollama":
         case "ollama-local":
         case "chutes":
+        // synthetic: validateUrl is /v2/quotas, because the public /openai/v1/models
+        // answers 200 for any Bearer value and cannot reject a revoked key.
+        case "synthetic":
         case "xiaomi-mimo":
         case "xiaomi-tokenplan":
         case "nvidia": {
@@ -306,7 +340,7 @@ export async function POST(request) {
         }
 
         case "opencode-go": {
-          const res = await fetch("https://opencode.ai/zen/go/v1/chat/completions", {
+          const res = await fetch("https://opencode.ai/inference/go/openai/v1/chat/completions", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
             body: JSON.stringify({
@@ -407,7 +441,7 @@ export async function POST(request) {
             method: "POST",
             headers: {
               Accept: "*/*",
-              "Accept-Encoding": "gzip, deflate, br, zstd",
+              "Accept-Encoding": ACCEPT_ENCODING,
               "Accept-Language": "en-US,en;q=0.9",
               "Cache-Control": "no-cache",
               "Content-Type": "application/json",

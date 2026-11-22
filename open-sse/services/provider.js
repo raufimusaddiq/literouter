@@ -1,6 +1,7 @@
 import { PROVIDERS } from "../config/providers.js";
 import { OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE } from "../providers/shared.js";
 import { FORMATS } from "../translator/formats.js";
+import { ROLE } from "../translator/schema/roles.js";
 
 const OPENAI_COMPATIBLE_PREFIX = "openai-compatible-";
 const OPENAI_COMPATIBLE_DEFAULTS = {
@@ -185,15 +186,11 @@ export function isLastMessageFromUser(body) {
   return lastMsg?.role === "user";
 }
 
-// Check if request has thinking config
-export function hasThinkingConfig(body) {
-  return !!(body.reasoning_effort || body.thinking?.type === "enabled");
-}
-
 // Normalize provider-native thinking config based on last message role.
-// OpenAI reasoning_effort is request-level and must survive tool-result turns.
+// OpenAI tool results continue a user turn and must retain its thinking intent.
 export function normalizeThinkingConfig(body) {
-  if (!isLastMessageFromUser(body)) {
+  const lastMessage = body.messages?.[body.messages.length - 1];
+  if (!isLastMessageFromUser(body) && lastMessage?.role !== ROLE.TOOL) {
     delete body.thinking;
   }
   return body;

@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSettings, validateApiKey } from "@/lib/localDb";
+import { getSettings, validateApiKey } from "@/lib/db/index.js";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { verifyDashboardAuthToken } from "@/lib/auth/dashboardSession";
 import { hasTrustedPeerHeaders } from "@/lib/auth/trustedPeer";
+import { buildErrorBody, resolveErrorFormat } from "open-sse/utils/error.js";
+import { hasProxyMarker, trustLoopbackAsLocal } from "@/lib/auth/proxyMarkers";
+import { checkApiKeyThrottle, recordApiKeyFailure } from "@/lib/auth/apiKeyThrottle";
+import { safeEqual } from "@/shared/utils/safeEqual";
 
 const CLI_TOKEN_HEADER = "x-9r-cli-token";
 const CLI_TOKEN_SALT = "9r-cli-auth";
@@ -16,7 +20,7 @@ async function getCliToken() {
 async function hasValidCliToken(request) {
   const token = request.headers.get(CLI_TOKEN_HEADER);
   if (!token) return false;
-  return token === await getCliToken();
+  return safeEqual(token, await getCliToken());
 }
 
 // Public API paths — no auth required (LLM API has its own key auth inside handler).
@@ -35,6 +39,7 @@ const PUBLIC_PREFIXES = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex", "
 
 // Always require JWT token regardless of requireLogin setting
 const ALWAYS_PROTECTED = [
+  "/api/keys",
   "/api/settings/database",
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
@@ -65,7 +70,14 @@ const LOCAL_ONLY_PATHS = [
   "/api/headroom/start",
   "/api/headroom/stop",
   "/api/headroom/proxy",
+  "/api/headroom/restart",
+  "/api/pxpipe/install",
+  "/api/pxpipe/start",
 ];
+
+// Local-only for mutating methods only: the GET side is a read the remote
+// dashboard renders (installed extras, install log tail).
+const LOCAL_ONLY_MUTATING_PATHS = ["/api/headroom/extras"];
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
@@ -108,6 +120,9 @@ export function isLocalRequest(request) {
   // Stamped by custom-server.js when forwarding headers exist: request came through
   // a reverse proxy, so the loopback socket is the proxy hop, not the end-user.
   if (request.headers.get("x-9r-via-proxy")) return false;
+  // Operator opted out of loopback trust (proxy that sends no markers), or any proxy
+  // marker is present: the loopback peer is a proxy hop, never a local operator.
+  if (!trustLoopbackAsLocal() || hasProxyMarker(request.headers)) return false;
   if (!isLoopbackPeer(request)) return false;
   const origin = request.headers.get("origin");
   if (origin) {
@@ -120,6 +135,16 @@ export function isLocalRequest(request) {
 
 function isPublicLlmApi(pathname) {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+// Method-aware local-only gate: extras is a read from the dashboard but an
+// install/uninstall (spawns pip) on POST/DELETE.
+function isLocalOnlyRoute(request) {
+  const { pathname } = request.nextUrl;
+  if (LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p))) return true;
+  const method = (request.method || "GET").toUpperCase();
+  return method !== "GET" && method !== "HEAD" &&
+    LOCAL_ONLY_MUTATING_PATHS.some((p) => pathname.startsWith(p));
 }
 
 function extractApiKey(request) {
@@ -138,10 +163,20 @@ async function hasValidApiKey(request) {
   return await validateApiKey(apiKey);
 }
 
+function throttleKey(request) {
+  // x-9r-real-ip is only meaningful when custom-server stamped it (peer token proves it).
+  if (hasTrustedPeerHeaders(request)) return request.headers.get("x-9r-real-ip") || null;
+  return null;
+}
+
 async function canAccessPublicLlmApi(request) {
   if (isLocalRequest(request)) return true;
   if (await hasValidCliToken(request)) return true;
-  return await hasValidApiKey(request);
+  if (await hasValidApiKey(request)) return true;
+  // Only a presented-but-wrong key counts as a failed validation.
+  const ip = throttleKey(request);
+  if (ip && extractApiKey(request)) recordApiKeyFailure(ip);
+  return false;
 }
 
 async function canAccessLocalOnlyRoute(request) {
@@ -198,7 +233,7 @@ export async function proxy(request) {
   }
 
   // Local-only gate for spawn-capable / host-secret routes.
-  if (LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p))) {
+  if (isLocalOnlyRoute(request)) {
     if (!(await canAccessLocalOnlyRoute(request))) {
       return NextResponse.json({ error: "Local only: CLI token required" }, { status: 403 });
     }
@@ -213,7 +248,19 @@ export async function proxy(request) {
 
   if (isPublicLlmApi(pathname)) {
     if (await canAccessPublicLlmApi(request)) return NextResponse.next();
-    return NextResponse.json({ error: "API key required for remote API access" }, { status: 401 });
+    // Valid keys / CLI token always pass (shared edge IPs must not be locked out);
+    // only requests that failed validation are refused with 429 while the IP is blocked.
+    // Body shape follows the route protocol (Anthropic / Gemini / OpenAI).
+    const format = resolveErrorFormat(pathname);
+    const ip = throttleKey(request);
+    const gate = ip ? checkApiKeyThrottle(ip) : { blocked: false };
+    if (gate.blocked) {
+      return NextResponse.json(
+        buildErrorBody(429, "Too many failed authentication attempts", format),
+        { status: 429, headers: { "Retry-After": String(gate.retryAfter) } },
+      );
+    }
+    return NextResponse.json(buildErrorBody(401, "API key required for remote API access", format), { status: 401 });
   }
 
   // Deny-by-default for /api/* — public allow-list bypasses, everything else requires auth.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Card, Button, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
+import { Card, Button, Input, Modal, Toggle, ConfirmModal, PageIntro } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { getCurrentLocale, onLocaleChange } from "@/i18n/runtime";
 import {
@@ -41,6 +41,7 @@ export default function TokenSaverClient() {
   const [kompress, setKompress] = useState(true);
   const [restartingProxy, setRestartingProxy] = useState(false);
   const logPollRef = useRef(null);
+  const headroomHiddenRef = useRef(false);
   const [cavemanEnabled, setCavemanEnabled] = useState(false);
   const [cavemanLevel, setCavemanLevel] = useState("full");
   const [ponytailEnabled, setPonytailEnabled] = useState(false);
@@ -125,6 +126,18 @@ export default function TokenSaverClient() {
   };
 
   const refreshHeadroomStatus = useCallback(async () => {
+    if (headroomHiddenRef.current) {
+      // Minimal profile hides /api/headroom (404); don't request it, show "not available".
+      setHeadroomStatus({ installed: false, running: false, python: null, loading: false });
+      setHeadroomExtras({
+        version: null,
+        extras: { code: false, ml: false },
+        available: ["code", "ml"],
+        loading: false,
+      });
+      setPendingExtras([]);
+      return;
+    }
     setHeadroomStatus((s) => ({ ...s, loading: true }));
     try {
       const res = await fetch("/api/headroom/status", {
@@ -432,6 +445,7 @@ export default function TokenSaverClient() {
           setPonytailLevel(data.ponytailLevel || "full");
           setPxpipeEnabled(!!data.pxpipeEnabled);
           if (typeof data.pxpipeMinChars === "number") setPxpipeMinChars(data.pxpipeMinChars);
+          headroomHiddenRef.current = data.minimalProfile === true;
           refreshHeadroomStatus();
           // PRD: run the PXPIPE health check automatically when the page opens
           refreshPxpipeStatus().then(runPxpipeHealth);
@@ -475,18 +489,17 @@ export default function TokenSaverClient() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 rounded-[1.125rem] bg-surface-2 p-4 ring-1 ring-border-subtle sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Token saver</p>
-          <p className="text-sm text-text-main">Compression layers applied before requests leave the router.</p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+      <PageIntro
+        title="Token saver"
+        description="Compression layers that cut tokens before a request leaves."
+      >
+        <div className="mt-5 flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${rtkEnabled ? "bg-success/15 text-success" : "bg-surface-3 text-text-muted"}`}>RTK {rtkEnabled ? "on" : "off"}</span>
           <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${headroomRunning ? "bg-success/15 text-success" : "bg-surface-3 text-text-muted"}`}>Headroom {headroomRunning ? "on" : "off"}</span>
           <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${cavemanEnabled ? "bg-success/15 text-success" : "bg-surface-3 text-text-muted"}`}>Caveman {cavemanEnabled ? "on" : "off"}</span>
           <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${ponytailEnabled ? "bg-success/15 text-success" : "bg-surface-3 text-text-muted"}`}>Ponytail {ponytailEnabled ? "on" : "off"}</span>
         </div>
-      </div>
+      </PageIntro>
 
       <Card id="rtk">
         <div className="flex items-center justify-between pt-2 pb-4 border-b border-border gap-4">
@@ -509,6 +522,7 @@ export default function TokenSaverClient() {
           <Toggle
             checked={rtkEnabled}
             onChange={() => handleRtkEnabled(!rtkEnabled)}
+            aria-label="RETOKEN enabled"
           />
         </div>
         <div className="flex items-center justify-between py-4 gap-4 flex-wrap">
@@ -545,6 +559,7 @@ export default function TokenSaverClient() {
           <Toggle
             checked={headroomEnabled}
             onChange={() => handleHeadroomEnabled(!headroomEnabled)}
+            aria-label="Compress context"
           />
         </div>
         {headroomStatus.installed && (
@@ -575,6 +590,7 @@ export default function TokenSaverClient() {
                         checked={active}
                         disabled={restartingProxy}
                         onChange={() => toggleExtraActive(extra, !active)}
+                        aria-label={`Enable ${extra} proxy`}
                       />
                       <span className="font-medium">[{extra}]</span>
                       <button
@@ -615,7 +631,7 @@ export default function TokenSaverClient() {
                 <button
                   onClick={handleInstallExtras}
                   disabled={extrasActionLoading}
-                  className="text-xs px-2.5 py-1 rounded bg-primary text-white hover:opacity-90 disabled:opacity-50"
+                  className="text-xs px-2.5 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
                 >
                   {extrasActionLoading
                     ? "Installing…"
@@ -630,7 +646,7 @@ export default function TokenSaverClient() {
               <p className="text-xs text-text-muted mt-1">Restarting proxy…</p>
             )}
             {(extrasActionLoading || removingExtra) && installLog && (
-              <pre className="mt-2 max-h-32 overflow-auto rounded bg-surface-2 p-2 text-[10px] leading-tight text-text-muted whitespace-pre-wrap">
+              <pre className="mt-2 max-h-32 overflow-auto rounded bg-surface-2 p-2 text-[11px] leading-tight text-text-muted whitespace-pre-wrap">
                 {installLog}
               </pre>
             )}
@@ -672,7 +688,7 @@ export default function TokenSaverClient() {
                       onClick={() => handleCavemanLevel(lvl.id)}
                       className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
                         cavemanLevel === lvl.id
-                          ? "bg-primary text-white border-primary"
+                          ? "bg-primary text-primary-foreground border-primary"
                           : "bg-transparent border-border text-text-muted hover:bg-surface-2"
                       }`}
                       title={lvl.desc}
@@ -692,6 +708,7 @@ export default function TokenSaverClient() {
             <Toggle
               checked={cavemanEnabled}
               onChange={() => handleCavemanEnabled(!cavemanEnabled)}
+              aria-label="Terse output mode"
             />
           </div>
         </div>
@@ -723,7 +740,7 @@ export default function TokenSaverClient() {
                       onClick={() => handlePonytailLevel(lvl.id)}
                       className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
                         ponytailLevel === lvl.id
-                          ? "bg-primary text-white border-primary"
+                          ? "bg-primary text-primary-foreground border-primary"
                           : "bg-transparent border-border text-text-muted hover:bg-surface-2"
                       }`}
                       title={lvl.desc}
@@ -743,6 +760,7 @@ export default function TokenSaverClient() {
             <Toggle
               checked={ponytailEnabled}
               onChange={() => handlePonytailEnabled(!ponytailEnabled)}
+              aria-label="Ponytail mode"
             />
           </div>
         </div>
@@ -783,6 +801,7 @@ export default function TokenSaverClient() {
             checked={pxpipeEnabled}
             disabled={!pxpipeStatus.installed}
             onChange={() => handlePxpipeEnabled(!pxpipeEnabled)}
+            aria-label="PXPIPE"
           />
         </div>
         )}

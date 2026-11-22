@@ -3,19 +3,7 @@ import crypto from "crypto";
 const API_KEY_SECRET = process.env.API_KEY_SECRET || "endpoint-proxy-api-key-secret";
 
 /**
- * Generate 6-char random keyId
- */
-function generateKeyId() {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
-/**
- * Generate CRC (8-char HMAC)
+ * Legacy CRC (8-char HMAC), only used to recognise old-format keys
  */
 function generateCrc(machineId, keyId) {
   return crypto
@@ -26,28 +14,32 @@ function generateCrc(machineId, keyId) {
 }
 
 /**
- * Generate API key with machineId embedded
- * Format: sk-{machineId}-{keyId}-{crc8}
- * @param {string} machineId - 16-char machine ID
+ * Generate an unguessable API key: `sk-` + 24 random bytes (192 bits) base64url.
+ * No machineId or other identifying material is embedded.
+ * @param {string} [_machineId] - ignored; kept so existing callers keep working
  * @returns {{ key: string, keyId: string }}
  */
-export function generateApiKeyWithMachine(machineId) {
-  const keyId = generateKeyId();
-  const crc = generateCrc(machineId, keyId);
-  const key = `sk-${machineId}-${keyId}-${crc}`;
-  return { key, keyId };
+export function generateApiKeyWithMachine(_machineId) {
+  const secret = crypto.randomBytes(24).toString("base64url");
+  return { key: `sk-${secret}`, keyId: secret.slice(0, 6) };
 }
 
 /**
  * Parse API key and extract machineId + keyId
- * Supports both formats:
- * - New: sk-{machineId}-{keyId}-{crc8}
- * - Old: sk-{random8}
+ * Supports:
+ * - Current: sk-{32 base64url}
+ * - Legacy: sk-{machineId}-{keyId}-{crc8}
+ * - Legacy: sk-{random8}
  * @param {string} apiKey
  * @returns {{ machineId: string, keyId: string, isNewFormat: boolean } | null}
  */
 export function parseApiKey(apiKey) {
   if (!apiKey || !apiKey.startsWith("sk-")) return null;
+
+  // Current format: sk-{32 base64url chars} (192-bit random)
+  if (/^sk-[A-Za-z0-9_-]{32}$/.test(apiKey)) {
+    return { machineId: null, keyId: apiKey.slice(3, 9), isNewFormat: true, isLegacy: false };
+  }
 
   const parts = apiKey.split("-");
   
@@ -59,40 +51,14 @@ export function parseApiKey(apiKey) {
     const expectedCrc = generateCrc(machineId, keyId);
     if (crc !== expectedCrc) return null;
     
-    return { machineId, keyId, isNewFormat: true };
+    return { machineId, keyId, isNewFormat: true, isLegacy: true };
   }
   
   // Old format: sk-{random8} = 2 parts
   if (parts.length === 2) {
-    return { machineId: null, keyId: parts[1], isNewFormat: false };
+    return { machineId: null, keyId: parts[1], isNewFormat: false, isLegacy: true };
   }
   
   return null;
-}
-
-/**
- * Verify API key CRC (only for new format)
- * @param {string} apiKey
- * @returns {boolean}
- */
-export function verifyApiKeyCrc(apiKey) {
-  const parsed = parseApiKey(apiKey);
-  if (!parsed) return false;
-  
-  // Old format doesn't have CRC, always valid if parsed
-  if (!parsed.isNewFormat) return true;
-  
-  // New format already verified in parseApiKey
-  return true;
-}
-
-/**
- * Check if API key is new format (contains machineId)
- * @param {string} apiKey
- * @returns {boolean}
- */
-export function isNewFormatKey(apiKey) {
-  const parsed = parseApiKey(apiKey);
-  return parsed?.isNewFormat === true;
 }
 
