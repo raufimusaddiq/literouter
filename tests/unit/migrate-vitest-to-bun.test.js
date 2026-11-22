@@ -155,3 +155,15 @@ describe("migrate-vitest-to-bun snapshots", () => {
     expect(convertSnapshot(out)).toBe(out);
   });
 });
+
+describe("migrate-vitest-to-bun snapshot multi-line strings", () => {
+  it("re-lays out multi-line string properties the way bun prints them", () => {
+    const src =
+      "// Vitest Snapshot v1, x\n\nexports[`A > b 1`] = `\n{\n  \"c\": \"line1\n\nline3\",\n  \"d\": \"one line\",\n  \"e\": \"\",\n}\n`;\n";
+    const out = convertSnapshot(src);
+    expect(out).toBe(
+      "// Bun Snapshot v1, https://bun.sh/docs/test/snapshots\n\nexports[`A b 1`] = `\n{\n  \"c\": \n\"line1\n\nline3\"\n,\n  \"d\": \"one line\",\n  \"e\": \"\",\n}\n`;\n",
+    );
+    expect(convertSnapshot(out)).toBe(out);
+  });
+});

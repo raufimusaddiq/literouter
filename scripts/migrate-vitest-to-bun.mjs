@@ -239,9 +239,42 @@ export function convertSnapshot(source) {
     /^\/\/ Vitest Snapshot v1, [^\r\n]*/,
     "// Bun Snapshot v1, https://bun.sh/docs/test/snapshots",
   );
-  return out.replace(/^exports\[`((?:[^`\\]|\\.)*)`\] = `/gm, (m, key) => {
+  const keyed = out.replace(/^exports\[`((?:[^`\\]|\\.)*)`\] = `/gm, (m, key) => {
     return "exports[`" + key.replaceAll(" > ", " ") + "`] = `";
   });
+  return reflowMultilineStrings(keyed);
+}
+
+// pretty-format prints `"key": "a<nl>b",` for a multi-line string property; bun prints
+// `"key": <nl>"a<nl>b"<nl>,`. Same value, different layout.
+function reflowMultilineStrings(text) {
+  const lines = text.split("\n");
+  const res = [];
+  const isEnd = (t) => /"(,?)\r?$/.test(t);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const m = /^(\s*"(?:[^"\\]|\\.)*": )"([^\n]*)$/.exec(line);
+    if (!m || isEnd(m[2]) || line.startsWith("exports[")) {
+      res.push(line);
+      continue;
+    }
+    let j = i + 1;
+    while (j < lines.length && !isEnd(lines[j]) && !lines[j].startsWith("exports[")) j++;
+    if (j >= lines.length || lines[j].startsWith("exports[")) {
+      res.push(line);
+      continue;
+    }
+    const cr = line.endsWith("\r") ? "\r" : "";
+    const last = lines[j].replace(/\r$/, "");
+    const comma = last.endsWith(",") ? "," : "";
+    res.push(m[1] + cr);
+    res.push('"' + m[2]);
+    for (let k = i + 1; k < j; k++) res.push(lines[k]);
+    res.push((comma ? last.slice(0, -1) : last) + cr);
+    res.push(comma + cr);
+    i = j;
+  }
+  return res.join("\n");
 }
 
 function walkSnaps(p, acc) {
