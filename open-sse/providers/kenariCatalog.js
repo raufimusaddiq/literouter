@@ -54,7 +54,10 @@ function entryFor(model) {
   if (Object.hasOwn(table, model)) return table[model] || null;
   const bare = (model.includes("/") ? model.split("/").pop() : model).toLowerCase();
   if (bare !== model && Object.hasOwn(table, bare)) return table[bare] || null;
-  return null;
+  // Kenari's effort suffix ("muse-ember-1-0:max") on a listed model that advertises that level.
+  const colon = bare.lastIndexOf(":");
+  const base = colon > 0 && Object.hasOwn(table, bare.slice(0, colon)) ? table[bare.slice(0, colon)] : null;
+  return Array.isArray(base?.reasoningLevels) && base.reasoningLevels.includes(bare.slice(colon + 1)) ? base : null;
 }
 
 const LIMIT_KEYS = ["contextWindow", "maxOutput"];
