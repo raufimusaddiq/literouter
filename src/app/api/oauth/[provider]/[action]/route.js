@@ -8,6 +8,7 @@ import {
   pollForToken
 } from "@/lib/oauth/providers";
 import { createProviderConnection } from "@/models";
+import { parseGitLabBaseUrl } from "@/shared/utils/gitlabBaseUrl";
 import { readDesktopPassToken } from "open-sse/shared/mimoAccount.js";
 import {
   startCodexProxy,
@@ -131,6 +132,9 @@ export async function GET(request, { params }) {
       // is bound to the port the proxy is actually listening on.
       if (provider === "zed") {
         try { const p = new URL(redirectUri).port; if (p) meta.nativeAppPort = p; } catch { /* ignore */ }
+      }
+      if (provider === "gitlab" && meta.baseUrl && !parseGitLabBaseUrl(meta.baseUrl)) {
+        return NextResponse.json({ error: "GitLab base URL must be an http(s) URL" }, { status: 400 });
       }
       const authData = await generateAuthData(provider, redirectUri, Object.keys(meta).length ? meta : undefined);
       return NextResponse.json(authData);

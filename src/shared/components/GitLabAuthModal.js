@@ -4,7 +4,7 @@ import { useState } from "react";
 import PropTypes from "prop-types";
 import { Modal, Button, Input, OAuthModal } from "@/shared/components";
 
-const GITLAB_COM = "https://gitlab.com";
+import { GITLAB_COM, normalizeGitLabBaseUrl } from "@/shared/utils/gitlabBaseUrl";
 
 function getRedirectUri() {
   if (typeof window === "undefined") return "http://localhost/callback";
@@ -135,7 +135,7 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
           <>
             <p className="text-xs text-text-muted">
               Create an OAuth app at{" "}
-              <a href={`${baseUrl.trim() || GITLAB_COM}/-/profile/applications`} target="_blank" rel="noreferrer" className="text-primary underline">
+              <a href={`${normalizeGitLabBaseUrl(baseUrl)}/-/profile/applications`} target="_blank" rel="noreferrer" className="text-primary underline">
                 GitLab Applications
               </a>{" "}
               with redirect URI{" "}
@@ -161,7 +161,7 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
           <>
             <p className="text-xs text-text-muted">
               Create a PAT at{" "}
-              <a href={`${baseUrl.trim() || GITLAB_COM}/-/user_settings/personal_access_tokens`} target="_blank" rel="noreferrer" className="text-primary underline">
+              <a href={`${normalizeGitLabBaseUrl(baseUrl)}/-/user_settings/personal_access_tokens`} target="_blank" rel="noreferrer" className="text-primary underline">
                 GitLab Access Tokens
               </a>{" "}
               with scopes: <code className="bg-sidebar px-1 rounded text-xs">api</code>,{" "}
