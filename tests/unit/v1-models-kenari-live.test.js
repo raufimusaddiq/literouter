@@ -1,5 +1,6 @@
 import fs from "node:fs";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 import { setCatalogSource } from "../../open-sse/providers/capabilities.js";
 import { KENARI_CATALOG_FILE, getKenariProviderLive, invalidateKenariCatalog } from "../../open-sse/providers/kenariCatalog.js";

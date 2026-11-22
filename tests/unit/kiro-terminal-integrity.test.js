@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const fetchMock = vi.fn();
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({

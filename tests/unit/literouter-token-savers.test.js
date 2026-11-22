@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 // PRD 10: RTK, Caveman, and Ponytail must each work independently.
 describe("token savers", () => {

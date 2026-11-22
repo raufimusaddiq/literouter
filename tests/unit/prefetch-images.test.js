@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 vi.mock("../../open-sse/translator/concerns/image.js", async (orig) => {
   const actual = await orig();

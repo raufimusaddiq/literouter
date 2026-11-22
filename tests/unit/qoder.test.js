@@ -9,7 +9,7 @@
  *   - device flow URL construction
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
 import crypto from "crypto";
 
 import { qoderEncodeBody } from "../../open-sse/shared/qoder/encoding.js";

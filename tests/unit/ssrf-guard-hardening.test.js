@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 // Regression coverage for #3714: the SSRF guard's literal-hostname/IP checks
 // matched specific textual representations rather than the underlying address,

@@ -2,7 +2,8 @@
 // array as OpenAI messages: it sent Responses items to /v1/compress and then
 // assigned the returned OpenAI messages back to body.input, violating the
 // Responses format contract. body.input must stay Responses-shaped.
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 import { compressWithHeadroom } from "../../open-sse/rtk/headroom.js";
 
 describe("compressWithHeadroom openai-responses format (#1998)", () => {

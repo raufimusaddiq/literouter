@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach } from "bun:test";
 
 // Regression: the settings cache initialised only `raw`, so a fresh process
 // produced `undefined` settings and every /v1 request 500'd.

@@ -2,7 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fingerprintKey } from "../../open-sse/utils/keyFingerprint.js";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 let tempDir;
 let db;

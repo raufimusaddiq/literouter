@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 // Mock DNS lookup so we control which host resolves to what IP.
 const lookupMock = vi.fn();

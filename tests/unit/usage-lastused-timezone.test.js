@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 // lastUsed must be the real ISO timestamp of the latest request, never a local
 // date key ("YYYY-MM-DD"), even in the window between local and UTC midnight.

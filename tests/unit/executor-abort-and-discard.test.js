@@ -1,5 +1,6 @@
 // BaseExecutor: discarded retry responses are cancelled, retry sleeps honour the abort signal.
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const fetchMock = vi.fn();
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({

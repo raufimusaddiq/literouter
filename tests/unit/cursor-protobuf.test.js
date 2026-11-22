@@ -2,7 +2,7 @@
 // services/cursorModels.js), so its codec keeps a direct test. Only the exports
 // that actually exist are exercised here — the previous suite imported ten
 // functions of which nine were never implemented.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import {
   encodeVarint,
   encodeField,

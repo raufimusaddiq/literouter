@@ -1,5 +1,6 @@
 import fs from "node:fs";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 import { getCapabilitiesForModel, setCatalogSource } from "../../open-sse/providers/capabilities.js";
 import {

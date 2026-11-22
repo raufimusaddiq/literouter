@@ -1,7 +1,7 @@
 // providersDisplay.js derives UI display fields from the provider registry and
 // merges them into AI_PROVIDERS. Locks the merge contract only — the previous
 // suite also asserted TTS surfaces that have since been removed.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { AI_PROVIDERS } from "../../src/shared/constants/providers.js";
 import {
   PROVIDER_DISPLAY,

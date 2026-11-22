@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { PROVIDERS } from "open-sse/config/providers.js";
 import { APIKEY_PROVIDERS, supportsServiceKind } from "@/shared/constants/providers.js";

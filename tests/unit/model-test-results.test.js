@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { recordTestResult, TEST_ERROR, TEST_OK } from "@/shared/utils/modelTestResults.js";
 
 describe("model test results", () => {

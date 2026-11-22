@@ -10,7 +10,8 @@
 //   5. systemId identical authorize → exchange → stored connection
 //   6. register-session failure is distinguishable (backend contract)
 //   8. (backend) reopen/re-register creates a fresh session
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";

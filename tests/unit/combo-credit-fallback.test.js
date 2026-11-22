@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { handleComboChat } from "../../open-sse/services/combo.js";
 
 describe("combo credit fallback", () => {

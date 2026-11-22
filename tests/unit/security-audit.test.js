@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";

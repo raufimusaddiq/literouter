@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const mocks = vi.hoisted(() => ({
   execSync: vi.fn(() => { throw new Error("not found"); }),

@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 // Minimal DOM stubs: the runtime only needs cookies, a body, a tree walker,
 // and a MutationObserver constructor.

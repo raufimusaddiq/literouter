@@ -1,5 +1,6 @@
 // Guards the refactored USAGE_HANDLERS dispatch: unsupported → message, supported → routed.
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 // Stub network so handlers don't hit real APIs; each call resolves an empty 200.
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({

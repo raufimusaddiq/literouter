@@ -105,3 +105,4 @@ debug.log
 
 # benchmark output
 bench-results/
+test-results.xml

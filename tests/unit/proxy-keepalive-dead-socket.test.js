@@ -1,5 +1,6 @@
 // Dead keep-alive sockets (edge drops them without a RST) hung kenari for ~249s then 502.
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const staleErr = () => Object.assign(new TypeError("fetch failed"), { cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }) });
 

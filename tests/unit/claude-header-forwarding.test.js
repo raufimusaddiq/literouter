@@ -8,7 +8,8 @@
  *  - proxyFetch.js: api.anthropic.com uses native fetch while JA3 spoofing is disabled
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 // ─── DefaultExecutor.buildHeaders() ──────────────────────────────────────────
 
@@ -294,7 +295,7 @@ describe("proxyAwareFetch — api.anthropic.com routing", () => {
   });
 
   it("falls back gracefully when got-scraping throws on non-streaming path", async () => {
-    vi.doMock("got-scraping", () => {
+    vi.mock("got-scraping", () => {
       const fn = vi.fn().mockRejectedValue(new Error("TLS error"));
       fn.stream = vi.fn();
       return { gotScraping: fn };
@@ -326,7 +327,7 @@ describe("proxyAwareFetch — api.anthropic.com routing", () => {
 
   it("does NOT route non-Anthropic hosts through gotScraping", async () => {
     const gotScrapingMock = vi.fn();
-    vi.doMock("got-scraping", () => ({ gotScraping: gotScrapingMock }));
+    vi.mock("got-scraping", () => ({ gotScraping: gotScrapingMock }));
 
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,

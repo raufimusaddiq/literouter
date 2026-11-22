@@ -1,6 +1,6 @@
 // DeepSeek Flash lanes hang silently after ~2 chunks; they get a short stall budget
 // while every other model keeps the long default.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { resolveStallTimeoutMs } from "../../open-sse/handlers/chatCore/streamingHandler.js";
 import { STREAM_STALL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_FLASH_MS } from "../../open-sse/config/runtimeConfig.js";
 

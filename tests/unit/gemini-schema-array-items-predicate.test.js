@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { cleanJSONSchemaForAntigravity } from "../../open-sse/translator/formats/gemini.js";
 
 describe("cleanJSONSchemaForAntigravity handles array items and type predicates", () => {

@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const originalDataDir = process.env.DATA_DIR;
 
@@ -9,7 +10,7 @@ async function setupTestContext(nodeData) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-compatible-provider-"));
   process.env.DATA_DIR = tempDir;
   vi.resetModules();
-  vi.doMock("next/server", () => ({
+  vi.mock("next/server", () => ({
     NextResponse: {
       json(body, init = {}) {
         return new Response(JSON.stringify(body), {

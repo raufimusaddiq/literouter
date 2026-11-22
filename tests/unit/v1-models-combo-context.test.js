@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { setCatalogSource } from "../../open-sse/providers/capabilities.js";
 
 const db = vi.hoisted(() => ({

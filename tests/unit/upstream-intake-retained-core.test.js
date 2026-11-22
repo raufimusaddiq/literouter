@@ -1,4 +1,5 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";
 import { AntigravityExecutor } from "../../open-sse/executors/antigravity.js";
 import { restoreToolNames } from "../../open-sse/utils/opencodeFingerprint.js";

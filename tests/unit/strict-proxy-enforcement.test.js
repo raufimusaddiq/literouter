@@ -13,7 +13,8 @@
 //    attempt. When no proxy URL resolves there is nothing to try, so it
 //    reaches the trailing `return originalFetch(url, options)` and connects
 //    directly.
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const originalFetch = globalThis.fetch;
 const networkFetch = vi.fn().mockRejectedValue(new Error("network stub"));

@@ -1,7 +1,8 @@
 // #130 (LiteRouter equivalent of decolua/9router#5213): Claude cache usage across
 // format translation. Claude reports input_tokens EXCLUDING cache; OpenAI reports
 // prompt_tokens INCLUDING it. Each fact is asserted with exact numbers.
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "bun:test";
+import { vi } from "#test/vi";
 
 vi.mock("@/lib/usageDb.js", () => ({
   appendRequestLog: vi.fn(async () => {}),

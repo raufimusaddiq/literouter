@@ -5,7 +5,8 @@
  * an OpenAI -> Claude translation.
  * Regression: https://github.com/decolua/9router/issues/3418
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const {
   executeMock,

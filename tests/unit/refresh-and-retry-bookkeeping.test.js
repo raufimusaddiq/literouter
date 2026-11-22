@@ -1,5 +1,6 @@
 // T-36: single credential write per shared refresh; upstream 504 is never replayed.
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const fx = vi.hoisted(() => ({
   refresh: vi.fn(),

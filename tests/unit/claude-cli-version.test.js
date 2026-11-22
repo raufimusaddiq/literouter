@@ -3,7 +3,7 @@
 // Anthropic gates new models on a minimum claude-cli version, so the fingerprint
 // is resolved from npm. LiteRouter requires: bounded, cached, one in-flight,
 // never below the pinned floor, and never blocking or failing a request.
-import { describe, expect, it, afterEach } from "vitest";
+import { describe, expect, it, afterEach } from "bun:test";
 
 import {
   getClaudeCliVersion,

@@ -5,7 +5,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const CATALOG_URL = "https://api.commandcode.ai/provider/v1/models?view=client";
 

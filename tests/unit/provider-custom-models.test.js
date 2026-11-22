@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { applyQoderModelNames, getProviderCustomModelRows } from "@/shared/utils/providerCustomModels.js";
 
 describe("Qoder model display names", () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 // PRD 24: a signal must drain buffered request details to SQLite, not just log.
 describe("request detail signal drain", () => {

@@ -4,7 +4,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 import { fingerprintKey, isKeyFingerprint } from "../../open-sse/utils/keyFingerprint.js";
 
 const PLAINTEXT = "sk-legacy-machine-aaaaaa-1234abcd";

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import antigravity, { resolveAntigravityRedirectUri } from "../../src/lib/oauth/providers/antigravity.js";
 import { generateAuthData, exchangeTokens } from "../../src/lib/oauth/providers.js";
 import { matchesOAuthState } from "../../src/shared/utils/oauthCallback.js";

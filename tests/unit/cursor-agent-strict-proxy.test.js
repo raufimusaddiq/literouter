@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "bun:test";
+import { vi } from "#test/vi";
 
 import { CursorExecutor } from "../../open-sse/executors/cursor.js";
 import { encodeField, wrapConnectRPCFrame } from "../../open-sse/utils/cursorProtobuf.js";

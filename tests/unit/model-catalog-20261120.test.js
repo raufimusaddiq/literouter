@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { getPricingForModel } from "../../open-sse/providers/pricing.js";
 import { getCapabilitiesForModel as getCapabilities } from "../../open-sse/providers/capabilities.js";
 import openai from "../../open-sse/providers/registry/openai.js";

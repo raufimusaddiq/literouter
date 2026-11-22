@@ -1,5 +1,6 @@
 // T-37: honest client usage, bounded accumulators, finalize-on-cancel, single detail write.
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const saved = [];
 vi.mock("@/lib/usageDb.js", () => ({

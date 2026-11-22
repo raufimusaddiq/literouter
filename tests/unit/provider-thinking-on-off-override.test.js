@@ -1,7 +1,8 @@
 // providerThinking mode "on"/"off" must never leak into reasoning_effort.
 // Before the fix, a body that already carried `thinking` fell through to the
 // reasoning_effort branch and shipped the invalid value "on"/"off" upstream.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const { executeMock, refreshMock, errorResultMock, parseUpstreamErrorMock } = vi.hoisted(() => ({
   executeMock: vi.fn(),

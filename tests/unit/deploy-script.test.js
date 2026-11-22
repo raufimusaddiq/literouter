@@ -2,7 +2,7 @@ import { readFileSync, mkdtempSync, writeFileSync, chmodSync, rmSync } from "nod
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, expect, it } from "vitest";
+import { afterAll, expect, it } from "bun:test";
 
 const script = new URL("../../scripts/deploy.sh", import.meta.url).pathname;
 const repository = "ghcr.io/raufimusaddiq/literouter-production";

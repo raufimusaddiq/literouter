@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "bun:test";
+import { vi } from "#test/vi";
 
 // We can't easily import the open-sse switch logic without real PROVIDERS config,
 // so verify the wrapper function shape directly via dynamic import.
@@ -29,7 +30,7 @@ describe("xai/token-refresh wrapper", () => {
 
   it("refreshTokenByProvider returns expiresIn for refreshed xai tokens", async () => {
     vi.resetModules();
-    vi.doMock("../../src/lib/oauth/services/xai.js", () => ({
+    vi.mock("../../src/lib/oauth/services/xai.js", () => ({
       XaiService: class {
         async refreshAccessToken(refreshToken) {
           return {

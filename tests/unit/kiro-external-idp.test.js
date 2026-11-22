@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const originalFetch = global.fetch;
 const TEST_CLIENT_ID = "00000000-0000-4000-8000-000000000000";
@@ -117,7 +118,7 @@ describe("Kiro external_idp (CLIProxyAPI) import and refresh", () => {
 
   it("sends TokenType for external_idp Kiro usage probes", async () => {
     const calls = [];
-    vi.doMock("../../open-sse/utils/proxyFetch.js", () => ({
+    vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
       proxyAwareFetch: vi.fn(async (url, init) => {
         calls.push({ url, init });
         return {
@@ -145,7 +146,7 @@ describe("Kiro external_idp (CLIProxyAPI) import and refresh", () => {
 
   it("imports CLIProxyAPI external_idp JSON as a Kiro OAuth connection", async () => {
     const createdConnections = [];
-    vi.doMock("next/server", () => ({
+    vi.mock("next/server", () => ({
       NextResponse: {
         json(body, init = {}) {
           return new Response(JSON.stringify(body), {
@@ -155,7 +156,7 @@ describe("Kiro external_idp (CLIProxyAPI) import and refresh", () => {
         },
       },
     }));
-    vi.doMock("@/models", () => ({
+    vi.mock("@/models", () => ({
       createProviderConnection: vi.fn(async (data) => {
         const connection = { id: "conn-1", ...data };
         createdConnections.push(connection);

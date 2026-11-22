@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 // PRD 24: the request-details buffer must be bounded, must apply a documented
 // drop policy on overflow, and shutdown must flush within a fixed timeout.

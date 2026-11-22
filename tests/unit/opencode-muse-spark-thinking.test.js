@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";
 import { PROVIDER_MODELS, getModelTargetFormat } from "../../open-sse/config/providerModels.js";
 import { getThinkingLevels } from "../../open-sse/providers/thinkingLevels.js";

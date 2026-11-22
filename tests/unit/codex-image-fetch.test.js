@@ -8,7 +8,8 @@
  *    sent to upstream contains base64 data, not remote URLs
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 // Mock DNS so the SSRF guard treats example.com as public.
 vi.mock("node:dns/promises", () => ({ lookup: async () => [{ address: "93.184.216.34", family: 4 }] }));

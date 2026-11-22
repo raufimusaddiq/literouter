@@ -1,4 +1,4 @@
-import { describe, it, beforeAll } from "vitest";
+import { describe, it, beforeAll } from "bun:test";
 import assert from "node:assert/strict";
 
 // Load the registry entry once for the suite so a load failure is reported

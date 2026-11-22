@@ -1,7 +1,8 @@
 // Per-API-key access control: every /v1 handler type is wired to the gate, the
 // gate runs before any credential lookup, and a restricted key calling an allowed
 // combo keeps combo failover (real combo.js).
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const fx = vi.hoisted(() => ({
   combos: [

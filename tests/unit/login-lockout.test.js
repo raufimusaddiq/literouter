@@ -1,6 +1,7 @@
 // Login lockout must count attempts reserved BEFORE the bcrypt compare, so a
 // burst of parallel guesses cannot all read the same pre-lockout count.
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 let limiter;
 

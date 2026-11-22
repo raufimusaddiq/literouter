@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 // The OpenAI/Anthropic "compatible" branches fetch a node-supplied baseUrl
 // server-side. A remote caller must not be able to aim that fetch at an

@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { DatabaseSync } from "node:sqlite";
 
 // Seeded-fixture benchmark for the 24h stats query. Opt-in: BENCH=1 npx vitest run unit/perf-rollup-bench

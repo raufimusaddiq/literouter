@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { isTokenSaverEnabled } from "../../open-sse/config/runtimeConfig.js";
 
 describe("token saver bypass headers", () => {

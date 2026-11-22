@@ -1,6 +1,7 @@
 // T-39: protocol compatibility — Gemini /v1beta tools, max_completion_tokens,
 // stop/params mapping, per-protocol error shapes, Anthropic model list.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const mocks = vi.hoisted(() => ({
   handleChat: vi.fn(), getSettings: vi.fn(), isValidApiKey: vi.fn(),

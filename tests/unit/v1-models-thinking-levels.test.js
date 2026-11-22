@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { getThinkingLevels } from "../../open-sse/providers/thinkingLevels.js";
 
 const db = vi.hoisted(() => ({

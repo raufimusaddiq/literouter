@@ -1,5 +1,6 @@
 // T-35: client abort propagation + bounded, non-replaying timeouts.
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const fx = vi.hoisted(() => ({
   chatCore: vi.fn(),

@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll, afterAll } from "vitest";
+import { describe, expect, it, beforeAll, afterAll } from "bun:test";
 
 // PRD 9.3: round-robin state must not require a synchronous database operation
 // per request. The account cursor is now persisted in the background, so the

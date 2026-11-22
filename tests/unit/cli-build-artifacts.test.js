@@ -4,14 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-let testApi;
-try {
-  testApi = await import("vitest");
-} catch (error) {
-  if (error.code !== "ERR_MODULE_NOT_FOUND") throw error;
-  testApi = await import("node:test");
-}
-const { afterEach, describe, it } = testApi;
+import { afterEach, describe, it } from "bun:test";
 
 const require = createRequire(import.meta.url);
 const {

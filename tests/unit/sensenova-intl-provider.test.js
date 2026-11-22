@@ -5,7 +5,7 @@
 // accepts it. LiteRouter has no China-site provider, so this entry is the only
 // SenseNova host it ships — same split shape as alicode/alicode-intl, with a
 // fixed host and no user-supplied base URL.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import REGISTRY from "../../open-sse/providers/registry/index.js";
 import { PROVIDERS, PROVIDER_MODELS } from "../../open-sse/providers/index.js";

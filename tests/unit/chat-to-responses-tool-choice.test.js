@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { openaiToOpenAIResponsesRequest } from "../../open-sse/translator/request/openai-responses.js";
 
 const fn = (name) => ({ type: "function", function: { name, description: "d", parameters: { type: "object", properties: {} } } });

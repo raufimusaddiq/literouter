@@ -2,7 +2,8 @@
 // /api/v1/models and /api/providers/[id]/models. The protobuf decode is the
 // part worth locking: it reads field numbers out of an upstream payload the
 // repo does not control.
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 // agent.api5.cursor.sh is HTTP/2-only, so the fetcher uses node:http2, not fetch.
 const h2 = vi.hoisted(() => ({ connect: vi.fn() }));

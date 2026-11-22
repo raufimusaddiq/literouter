@@ -1,5 +1,6 @@
 // #147: an aborted stream must name its request, and the persisted row must be an error.
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 import { pipeWithDisconnect, createStreamController } from "../../open-sse/utils/streamHandler.js";
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });

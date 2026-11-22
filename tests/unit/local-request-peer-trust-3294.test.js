@@ -1,7 +1,8 @@
 // GHSA-pjm4-8fpg-f9p6 (#3294): `next start` leaves custom-server.js out of the request
 // path, so x-9r-real-ip arrives straight from the client and a remote caller can claim to
 // be loopback. Host is spoofable the same way, so it cannot be the production fallback.
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const mocks = vi.hoisted(() => ({
   nextResponse: Symbol("next"),

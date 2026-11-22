@@ -1,7 +1,7 @@
 // Real Claude Code CLI requests (Claude format) → non-Claude provider via OpenAI bridge.
 // Focuses on context components a real CLI sends: system arrays w/ cache_control, thinking
 // signatures, tool_result with images, audio. KNOWN BUG = it.fails (source file:line in comments).
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
@@ -41,7 +41,7 @@ describe("Claude Code CLI context → OpenAI", () => {
 
   // claude-to-openai.js:128 — redacted_thinking also dropped
   // KNOWN BUG
-  it.fails("redacted_thinking block is not silently dropped", () => {
+  it.failing("redacted_thinking block is not silently dropped", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       messages: [
         { role: "assistant", content: [

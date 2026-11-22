@@ -1,5 +1,5 @@
 // T-35: raw proxyAwareFetch callers with no signal/timer (token refresh etc.) must still be bounded.
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, afterAll } from "bun:test";
 import http from "node:http";
 
 process.env.UNDICI_BACKSTOP_MS = "300";

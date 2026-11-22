@@ -3,7 +3,7 @@
 // previous_response_id and server-generated item IDs (rs_/fc_/resp_/msg_) —
 // no longer reach OpenCode Go's /responses endpoint, while chat-completion
 // requests for non-Luna models still pass through untouched.
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach } from "bun:test";
 import { OpenCodeGoExecutor } from "../../open-sse/executors/opencode-go.js";
 
 const executor = new OpenCodeGoExecutor();

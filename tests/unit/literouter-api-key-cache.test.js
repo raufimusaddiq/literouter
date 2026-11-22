@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 // PRD 15.1/15.2: API-key lookup must not hit SQLite per request. validateApiKey
 // now serves from a process-local cache, so the correctness risk moves to

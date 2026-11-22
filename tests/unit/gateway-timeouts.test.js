@@ -1,5 +1,6 @@
 // T-35: bounded, non-replaying timeouts + pending counter safety.
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const fx = vi.hoisted(() => ({ fetch: vi.fn(), pending: vi.fn(), execute: vi.fn() }));
 

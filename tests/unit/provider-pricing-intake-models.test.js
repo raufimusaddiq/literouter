@@ -1,6 +1,6 @@
 // Pricing + capability rows for the models this intake introduces or exposes.
 // Closes the "routes but bills $0" gap: every advertised id has an explicit row.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { getPricingForModel, setRuntimePricing, clearRuntimePricing } from "../../open-sse/providers/pricing.js";
 import { getCapabilitiesForModel, DEFAULT_CAPABILITIES, PROVIDER_CAPABILITIES } from "../../open-sse/providers/capabilities.js";

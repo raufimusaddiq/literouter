@@ -7,7 +7,7 @@
  * without an explicit clear every login attempt would leak a private key for
  * the whole process lifetime.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import {
   registerXiaomiMimoSession,
   getXiaomiMimoSessionStatus,

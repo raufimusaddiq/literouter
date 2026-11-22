@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { compressWithPxpipe, formatPxpipeLog } from "../../open-sse/rtk/pxpipe.js";
 
 const bigText = "x".repeat(30000);

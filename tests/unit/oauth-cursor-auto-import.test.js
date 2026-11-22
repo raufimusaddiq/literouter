@@ -3,7 +3,8 @@
 // better-sqlite3, and falls back to the sqlite3 CLI when native bindings
 // are unavailable. Mirrors the route in
 // src/app/api/oauth/cursor/auto-import/route.js.
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 // Mock next/server
 vi.mock("next/server", () => ({

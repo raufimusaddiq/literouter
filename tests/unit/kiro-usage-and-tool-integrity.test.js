@@ -39,7 +39,8 @@
  * executor -- the same body fails identically on any account -- so it belongs to
  * the request-scoped `fallback: false` rule kind, not here.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const fetchMock = vi.fn();
 

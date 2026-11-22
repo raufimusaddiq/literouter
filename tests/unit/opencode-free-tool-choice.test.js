@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { PROVIDERS } from "../../open-sse/config/providers.js";
 import { OpenCodeExecutor } from "../../open-sse/executors/opencode.js";
 import { proxyAwareFetch } from "../../open-sse/utils/proxyFetch.js";

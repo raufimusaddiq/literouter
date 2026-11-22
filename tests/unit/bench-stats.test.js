@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { percentile, summarize, slope, fmt } from "../../scripts/bench/stats.mjs";
 
 describe("bench stats helper", () => {

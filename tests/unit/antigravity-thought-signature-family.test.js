@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 // Keep the signature store in RAM only; the SQLite kv layer is not under test here.
 vi.mock("@/lib/db/helpers/kvStore.js", () => ({

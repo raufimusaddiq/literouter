@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { APIKEY_PROVIDERS, supportsServiceKind } from "@/shared/constants/providers.js";
 import { getModelsByProviderId } from "open-sse/config/providerModels.js";
 

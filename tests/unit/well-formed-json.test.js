@@ -1,6 +1,6 @@
 // kenari answered 400 "invalid JSON: lone leading surrogate in hex escape" for bodies
 // holding a split emoji; the gateway must send U+FFFD instead of a bare \udXXX escape.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { stringifyWellFormed } from "../../open-sse/utils/wellFormedJson.js";
 
 describe("stringifyWellFormed", () => {

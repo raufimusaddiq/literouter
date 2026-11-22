@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { PROVIDER_MODELS, isValidModel } from "@/shared/constants/models.js";
 import { getPricingForModel } from "open-sse/providers/pricing.js";
 import { CodexExecutor } from "open-sse/executors/codex.js";

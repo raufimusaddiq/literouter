@@ -1,5 +1,5 @@
 // #147: retention must be an explicit, bounded, env-pinnable number.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { resolveMaxRecords } from "@/lib/db/repos/requestDetailsRepo.js";
 
 describe("resolveMaxRecords", () => {

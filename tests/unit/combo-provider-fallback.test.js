@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 // Spy on the real classifier so the combo path's own call arguments and the
 // cooldown it receives are observable without changing its behaviour.

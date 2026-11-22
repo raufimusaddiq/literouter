@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 
 import { CursorExecutor } from "../../open-sse/executors/cursor.js";
 import { GatewayTimeoutError, isGatewayTimeout, isAbortError } from "../../open-sse/utils/requestTimeouts.js";

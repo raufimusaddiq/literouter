@@ -9,7 +9,8 @@
 // quota endpoint is the one getKenariUsage already trusts for auth and answers
 // 401 "invalid key", so that is what the connection test probes.
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const getProviderConnectionById = vi.fn();
 const updateProviderConnection = vi.fn(async () => ({}));

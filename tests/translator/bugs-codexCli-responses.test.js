@@ -1,5 +1,5 @@
 // Real Codex CLI requests (OpenAI Responses API: { input:[], instructions }) → providers.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
@@ -11,7 +11,7 @@ const R2R = (body) => translateRequest(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI_
 describe("Codex CLI Responses → OpenAI", () => {
   // openai-responses.js:103 — function_call with empty name skipped, can leave tool_calls: []
   // KNOWN BUG: empty tool_calls array is rejected by OpenAI/Codex
-  it.fails("assistant has no empty tool_calls array when all names are empty", () => {
+  it.failing("assistant has no empty tool_calls array when all names are empty", () => {
     const out = R2O({
       input: [
         { type: "function_call", call_id: "c1", name: "", arguments: "{}" },
@@ -31,7 +31,7 @@ describe("Codex CLI Responses → OpenAI", () => {
 
   // openai-responses.js:75-77 — input_image uses file_id as raw url
   // KNOWN BUG
-  it.fails("input_image with file_id is not used as a raw url", () => {
+  it.failing("input_image with file_id is not used as a raw url", () => {
     const out = R2O({
       input: [{ type: "message", role: "user", content: [
         { type: "input_image", file_id: "file-abc" },

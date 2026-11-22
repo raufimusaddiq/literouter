@@ -1,11 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 describe("proxy dispatcher LRU", () => {
   const closed = [];
   beforeEach(() => { closed.length = 0; vi.resetModules(); });
 
   it("evicts the least-recently-used dispatcher, not the oldest-inserted", async () => {
-    vi.doMock("undici", async (orig) => {
+    vi.mock("undici", async (orig) => {
       const actual = await orig();
       class ProxyAgent {
         constructor(o) { this.uri = o.uri; }
@@ -62,7 +63,7 @@ describe("RTK memo", () => {
 
   it("is fail-open when hashing throws", async () => {
     vi.resetModules();
-    vi.doMock("node:crypto", () => ({ createHash: () => { throw new Error("nope"); } }));
+    vi.mock("node:crypto", () => ({ createHash: () => { throw new Error("nope"); } }));
     try {
       const rtk = await import("../../open-sse/rtk/index.js");
       const body = mkBody(bigDiff());
@@ -95,7 +96,7 @@ describe("connection snapshot index", () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    vi.doMock("@/lib/db/driver.js", () => ({ getAdapter: vi.fn(async () => db), getAdapterSync: vi.fn(() => db) }));
+    vi.mock("@/lib/db/driver.js", () => ({ getAdapter: vi.fn(async () => db), getAdapterSync: vi.fn(() => db) }));
     global.__liteRouterConnectionCache = { rows: null, expiresAt: 0, versionCheckedAt: 0 };
     rows.clear(); db.all.mockClear();
     repo = await import("@/lib/db/repos/connectionsRepo.js");

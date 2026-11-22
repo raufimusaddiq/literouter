@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 import { formatDateTime, formatTime, formatDate, formatZoneLabel, setAppTimeZone, getAppTimeZone } from "@/shared/utils/dateTime.js";
 
 const INSTANT = "2026-11-20T01:00:00.000Z";

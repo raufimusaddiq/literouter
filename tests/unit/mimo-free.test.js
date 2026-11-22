@@ -9,7 +9,8 @@
  *   - provider/model config registration
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 // Mock proxyAwareFetch so bootstrapJwt never hits the network.
 const fetchMock = vi.fn();

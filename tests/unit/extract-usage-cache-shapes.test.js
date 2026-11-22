@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "bun:test";
+import { vi } from "#test/vi";
 
 // sever the DB import chain (usageDb -> @/lib/db/*) — not under test
 vi.mock("@/lib/usageDb.js", () => ({

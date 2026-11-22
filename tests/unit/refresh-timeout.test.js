@@ -1,5 +1,5 @@
 // T-35: a hung OAuth refresh endpoint must abort at REFRESH_TIMEOUT_MS and count as a failed refresh.
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, afterAll } from "bun:test";
 import http from "node:http";
 
 process.env.REFRESH_TIMEOUT_MS = "300";

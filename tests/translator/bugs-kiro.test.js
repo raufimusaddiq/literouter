@@ -1,5 +1,5 @@
 // OpenAI → Kiro (AWS CodeWhisperer) request translation.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
@@ -50,14 +50,14 @@ describe("OpenAI → Kiro", () => {
 
   // openai-to-kiro.js:309 — maxTokens hardcoded to 32000, ignores body.max_tokens
   // KNOWN BUG
-  it.fails("respects client max_tokens", () => {
+  it.failing("respects client max_tokens", () => {
     const out = O2K({ max_tokens: 100, messages: [{ role: "user", content: "hi" }] });
     expect(out.inferenceConfig?.maxTokens, "client max_tokens ignored").toBe(100);
   });
 
   // openai-to-kiro.js:132-134 — remote http image becomes "[Image: url]" text (lost)
   // KNOWN BUG
-  it.fails("remote image url is preserved as an image, not text", () => {
+  it.failing("remote image url is preserved as an image, not text", () => {
     const out = O2K({
       messages: [{ role: "user", content: [
         { type: "text", text: "see" },

@@ -1,6 +1,6 @@
 // Expose bugs caused by OpenAI being the intermediate format: data lost/wrong on source → openai → target.
 // Each test describes the EXPECTED-correct behavior. A FAIL is evidence of the bug (with source file:line).
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
@@ -11,7 +11,7 @@ const T = (src, tgt, body, provider = null) =>
 describe("bug: Claude → OpenAI bridge data loss", () => {
   // claude-to-openai.js:133-141 — image source.type==="url" only handles base64
   // KNOWN BUG: it.fails passes while app drops the url; flips to failing once fixed.
-  it.fails("image with source.type=url is preserved (NOT dropped)", () => {
+  it.failing("image with source.type=url is preserved (NOT dropped)", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       messages: [{ role: "user", content: [
         { type: "text", text: "look" },
@@ -60,7 +60,7 @@ describe("bug: Claude → OpenAI bridge data loss", () => {
 
   // claude-to-openai.js:155-173 — is_error lost
   // KNOWN BUG
-  it.fails("tool_result is_error flag is preserved", () => {
+  it.failing("tool_result is_error flag is preserved", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       messages: [
         { role: "assistant", content: [{ type: "tool_use", id: "call_1", name: "f", input: {} }] },

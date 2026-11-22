@@ -1,5 +1,6 @@
 // Guards forceStream moved from chatCore hardcode → PROVIDERS schema (#5).
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const { executeMock } = vi.hoisted(() => ({
   executeMock: vi.fn(),

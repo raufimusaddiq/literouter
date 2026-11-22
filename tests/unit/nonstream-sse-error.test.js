@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 vi.mock("@/lib/usageDb.js", () => ({
   appendRequestLog: vi.fn(async () => {}),

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { applyThinking } from "../../open-sse/translator/concerns/thinkingUnified.js";
 import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";

@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 vi.mock("../../open-sse/services/qoderModels.js", () => ({
   getQoderModelConfig: vi.fn(async () => ({ key: "auto", max_output_tokens: 32 })),

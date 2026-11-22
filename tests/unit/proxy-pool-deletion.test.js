@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const db = vi.hoisted(() => ({ get: vi.fn(), all: vi.fn(), run: vi.fn(), transaction: vi.fn() }));
 vi.mock("../../src/lib/db/driver.js", () => ({ getAdapter: async () => db }));

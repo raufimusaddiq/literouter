@@ -1,7 +1,7 @@
 // #128: does LiteRouter add input tokens to Claude requests? These tests pin the
 // verified answer for each candidate, so the numbers are reproducible in CI and a
 // change that alters them shows up as a failure rather than a silent cost.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import {

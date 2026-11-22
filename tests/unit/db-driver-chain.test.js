@@ -2,7 +2,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 let tempDir;
 const originalDataDir = process.env.DATA_DIR;
@@ -31,7 +32,7 @@ describe("Driver fallback chain", () => {
 
   it("falls back to node:sqlite when better-sqlite3 unavailable", async () => {
     // Mock the better-sqlite3 adapter to throw
-    vi.doMock("@/lib/db/adapters/betterSqliteAdapter.js", () => {
+    vi.mock("@/lib/db/adapters/betterSqliteAdapter.js", () => {
       throw new Error("simulated unavailable");
     });
     const { getAdapter } = await import("@/lib/db/driver.js");
@@ -46,10 +47,10 @@ describe("Driver fallback chain", () => {
   });
 
   it("falls back to sql.js when both native drivers unavailable", async () => {
-    vi.doMock("@/lib/db/adapters/betterSqliteAdapter.js", () => {
+    vi.mock("@/lib/db/adapters/betterSqliteAdapter.js", () => {
       throw new Error("simulated unavailable");
     });
-    vi.doMock("@/lib/db/adapters/nodeSqliteAdapter.js", () => {
+    vi.mock("@/lib/db/adapters/nodeSqliteAdapter.js", () => {
       throw new Error("simulated unavailable");
     });
     const { getAdapter } = await import("@/lib/db/driver.js");

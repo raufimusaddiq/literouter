@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { DefaultExecutor } from "../../open-sse/executors/default.js";
 
 describe("DefaultExecutor stream_options", () => {

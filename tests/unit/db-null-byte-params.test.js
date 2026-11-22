@@ -12,7 +12,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 import { stripNullBytes } from "@/lib/db/helpers/nullBytes.js";
 
 // Built at runtime so the source file itself holds no literal NUL byte.

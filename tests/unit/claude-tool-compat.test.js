@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { openaiToClaudeRequest } from "../../open-sse/translator/request/openai-to-claude.js";
 import { claudeToOpenAIResponse } from "../../open-sse/translator/response/claude-to-openai.js";
 import { initState, translateRequest } from "../../open-sse/translator/index.js";

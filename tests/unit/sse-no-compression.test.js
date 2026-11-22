@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "bun:test";
 import http from "node:http";
 import { createRequire } from "node:module";
 import { SSE_HEADERS, SSE_HEADERS_CORS, SSE_HEADERS_NO_BUFFER, sseResponseHeaders } from "open-sse/utils/sseConstants.js";

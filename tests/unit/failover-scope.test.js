@@ -1,5 +1,6 @@
 // T-36: request/model/account failure scope, honest account-health bookkeeping.
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const fx = vi.hoisted(() => ({
   chatCore: vi.fn(),
