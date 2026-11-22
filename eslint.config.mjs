@@ -1,5 +1,6 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
+import noComments from "./eslint-rules/no-comments.mjs";
 
 // React Compiler rules ship as errors and the dashboard has ~41 pre-existing
 // violations. Downgrade them to warnings so the CI lint step only fails on real
@@ -19,6 +20,11 @@ const eslintConfig = defineConfig([
     files: nextVitals[0].files,
     plugins: { "react-hooks": nextVitals[0].plugins["react-hooks"] },
     rules: reactCompilerDebt,
+  },
+  {
+    files: ["**/*.{js,jsx,mjs,cjs}"],
+    plugins: { local: { rules: { "no-comments": noComments } } },
+    rules: { "local/no-comments": "error" },
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([
