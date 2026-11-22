@@ -163,9 +163,9 @@ export default function ProviderDetailPage() {
   const isFreeNoAuth = !!FREE_PROVIDERS[providerId]?.noAuth;
   const staticModels = getModelsByProviderId(providerId);
   const providerAlias = getProviderAlias(providerId);
-  // Live rows may be non-chat (Kenari image/tts/...); this list is chat models.
-  const models = LIVE_MODEL_CATALOG_PROVIDERS.has(providerId) && liveModels.length > 0
-    ? liveModels.filter((m) => !m.kind || m.kind === "llm")
+  // Kenari's live rows only describe models (levels); the list stays what the user added.
+  const models = LIVE_MODEL_CATALOG_PROVIDERS.has(providerId) && providerId !== "kenari" && liveModels.length > 0
+    ? liveModels
     : applyQoderModelNames(staticModels, customModels, providerAlias);
 
   const isOpenAICompatible = isOpenAICompatibleProvider(providerId);

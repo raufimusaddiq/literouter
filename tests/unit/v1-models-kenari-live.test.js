@@ -48,24 +48,15 @@ afterEach(() => {
 
 const ids = (list) => list.map((m) => m.id);
 
-describe("/v1/models kenari live list", () => {
-  it("lists the cached catalog with Kenari's limits and keeps image/tts/stt/video models out of the LLM list", async () => {
+describe("/v1/models kenari: catalog describes, the user's list decides", () => {
+  it("lists only static + added models, with Kenari's limits on the ones the user added", async () => {
     writeCatalog();
+    db.getCustomModels.mockResolvedValueOnce([{ id: "muse-ember-1-0", providerAlias: "kn" }]);
 
     const llm = await buildModelsList(["llm"]);
-    const muse = llm.find((m) => m.id === "kn/muse-ember-1-0");
-    expect(muse).toMatchObject({ context_length: 1048576, max_completion_tokens: 524288 });
-    expect(ids(llm)).toContain("kn/glm-4-7-flash:free");
-    for (const nonChat of ["gemini-3-8-flash-lite-tts", "gpt-image-2"]) {
-      expect(ids(llm)).not.toContain(`kn/${nonChat}`);
-    }
-
-  });
-
-  it("falls back to the static list when there is no cache", async () => {
-    const llm = await buildModelsList(["llm"]);
-    expect(llm.some((m) => m.id.startsWith("kn/"))).toBe(true);
-    expect(ids(llm)).not.toContain("kn/muse-ember-1-0");
+    expect(llm.find((m) => m.id === "kn/muse-ember-1-0")).toMatchObject({ context_length: 1048576, max_completion_tokens: 524288 });
+    // In Kenari's catalog but never added: not listed.
+    expect(ids(llm)).not.toContain("kn/beam-1-0:free");
   });
 
   it("applies Kenari's limits to explicitly enabled models too", async () => {
