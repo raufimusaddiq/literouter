@@ -78,3 +78,68 @@ describe("migrate-vitest-to-bun transform", () => {
     expect(T(src)).toContain(`vi.importActual("a")`);
   });
 });
+
+describe("migrate-vitest-to-bun hardening", () => {
+  it("keeps a vi alias on the #test/vi import", () => {
+    const out = T(`import { it, vi as v } from "vitest";
+v.fn();
+`);
+    expect(out).toBe(`import { it } from "bun:test";
+import { vi as v } from "#test/vi";
+v.fn();
+`);
+    expect(T(out)).toBe(out);
+  });
+
+  it("rewrites .fails after a call chain", () => {
+    const out = T(`it.skipIf(x).fails("a", () => {});
+it.each([1, 2]).fails("b", () => {});
+`);
+    expect(out).toContain(`it.skipIf(x).failing("a"`);
+    expect(out).toContain(`it.each([1, 2]).failing("b"`);
+  });
+
+  it("reports .fails on an unrecognised chain root instead of ignoring it", () => {
+    const src = `foo.bar(1).fails("a");
+`;
+    const r = analyze(src, "p.test.js");
+    expect(r.manual.map((m) => m.kind)).toEqual(["fails-unrecognised-chain"]);
+    expect(r.output).toBe(src);
+  });
+
+  it("inserts the auto vi import after a shebang and a use-strict directive", () => {
+    expect(T(`#!/usr/bin/env bun
+vi.fn();
+`)).toBe(
+      `#!/usr/bin/env bun
+import { vi } from "#test/vi";
+vi.fn();
+`,
+    );
+    expect(T(`"use strict";
+vi.fn();
+`)).toBe(`"use strict";
+import { vi } from "#test/vi";
+vi.fn();
+`);
+    expect(T(`#!/x
+'use strict'
+
+vi.fn();
+`)).toBe(
+      `#!/x
+'use strict'
+import { vi } from "#test/vi";
+
+vi.fn();
+`,
+    );
+  });
+
+  it("drops import type from vitest", () => {
+    expect(T(`import type { Mock } from "vitest";
+const a = 1;
+`)).toBe(`const a = 1;
+`);
+  });
+});

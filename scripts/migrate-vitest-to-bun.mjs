@@ -87,13 +87,50 @@ function baseName(spec) {
   return spec.replace(/^type\s+/, "").split(/\s+as\s+/)[0].trim();
 }
 
+// Walks back from the `.` of `.fails(` over identifiers, dots and balanced () / [] groups
+// and returns the root identifier of the member-call chain ("it", "test", ...).
+function chainRoot(mask, dotIdx) {
+  let i = dotIdx - 1;
+  while (i >= 0) {
+    const c = mask[i];
+    if (c === ")" || c === "]") {
+      const open = c === ")" ? "(" : "[";
+      let depth = 0;
+      for (; i >= 0; i--) {
+        if (mask[i] === c) depth++;
+        else if (mask[i] === open && --depth === 0) break;
+      }
+      i--;
+    } else if (/[\w$.\s]/.test(c)) i--;
+    else break;
+  }
+  const m = /^[\w$]+/.exec(mask.slice(i + 1, dotIdx).trimStart());
+  return m ? m[0] : "";
+}
+
+// Offset just past a shebang line and any "use strict" directives at the top of the file.
+function prologueEnd(source) {
+  let pos = 0;
+  if (source.startsWith("#!")) {
+    const nl = source.indexOf("\n");
+    pos = nl === -1 ? source.length : nl + 1;
+  }
+  const re = /^(?:[ \t]*\r?\n)*[ \t]*(["'])use strict\1[ \t]*;?[ \t]*(?:\r?\n|$)/;
+  for (;;) {
+    const m = re.exec(source.slice(pos));
+    if (!m) break;
+    pos += m[0].length;
+  }
+  return pos;
+}
+
 export function analyze(source, filePath = "") {
   const eol = source.includes("\r\n") ? "\r\n" : "\n";
   const mask = maskSource(source);
   const manual = [];
   const edits = []; // {start,end,text}
   const report = (idx, kind) => manual.push({ file: filePath, line: lineOf(source, idx), kind });
-  const hasViImport = /(^|\n)[ \t]*import\s*\{\s*vi\s*\}\s*from\s*["']#test\/vi["']/.test(source);
+  const hasViImport = /(^|\n)[ \t]*import\s*\{\s*vi(?:\s+as\s+[\w$]+)?\s*\}\s*from\s*["']#test\/vi["']/.test(source);
   let viImported = false;
 
   // 1. named vitest imports (anchored at line start, real code only)
@@ -103,17 +140,18 @@ export function analyze(source, filePath = "") {
     const names = parseNames(m[1]);
     const keep = [];
     let hasVi = false;
+    let viSpec = "vi";
     for (const spec of names) {
       const b = baseName(spec);
       if (spec.startsWith("type ") || TYPE_ONLY.has(b)) continue;
       if (b === "expectTypeOf" || b === "assertType") report(m.index, `unsupported-type-helper:${b}`);
-      if (spec === "vi") hasVi = true;
+      if (b === "vi") { hasVi = true; viSpec = spec; }
       else keep.push(spec);
     }
     const lines = [];
     if (keep.length) lines.push(`import { ${keep.join(", ")} } from "bun:test";`);
     if (hasVi && !hasViImport && !viImported) {
-      lines.push(`import { vi } from "#test/vi";`);
+      lines.push(`import { ${viSpec} } from "#test/vi";`);
       viImported = true;
     }
     let end = m.index + m[0].length;
@@ -122,6 +160,18 @@ export function analyze(source, filePath = "") {
       else if (source[end] === "\n") end += 1;
     }
     edits.push({ start: m.index, end, text: lines.join(eol) });
+  }
+
+  // type-only imports from vitest carry no runtime value: drop them
+  const typeImportRe = /^import\s+type\s*\{[^}]*\}\s*from\s*(["'])vitest\1[ \t]*;?/gm;
+  const droppedTypeImports = new Set();
+  for (const m of source.matchAll(typeImportRe)) {
+    if (mask[m.index] !== "i") continue;
+    droppedTypeImports.add(m.index);
+    let end = m.index + m[0].length;
+    if (source.startsWith("\r\n", end)) end += 2;
+    else if (source[end] === "\n") end += 1;
+    edits.push({ start: m.index, end, text: "" });
   }
 
   // other vitest import shapes: report, never silently skip
@@ -136,6 +186,7 @@ export function analyze(source, filePath = "") {
     for (const m of source.matchAll(re)) {
       // inside a comment/string the leading keyword is blanked in the mask
       if (mask[m.index] !== source[m.index]) continue;
+      if (droppedTypeImports.has(m.index)) continue;
       report(m.index, "unsupported-vitest-import");
     }
   }
@@ -144,9 +195,13 @@ export function analyze(source, filePath = "") {
   for (const m of mask.matchAll(/\bvi\.doMock(?=\s*\()/g)) {
     edits.push({ start: m.index + 3, end: m.index + 9, text: "mock" });
   }
-  for (const m of mask.matchAll(/\b(?:it|test)(?:\.\w+)*\.fails(?=\s*\()/g)) {
-    const s = m.index + m[0].length - "fails".length;
-    edits.push({ start: s, end: s + 5, text: "failing" });
+  for (const m of mask.matchAll(/\.fails(?=\s*\()/g)) {
+    const root = chainRoot(mask, m.index);
+    if (root === "it" || root === "test") {
+      edits.push({ start: m.index + 1, end: m.index + 6, text: "failing" });
+    } else {
+      report(m.index, "fails-unrecognised-chain");
+    }
   }
   for (const m of mask.matchAll(/\bvi\.importActual\b/g)) report(m.index, "importActual");
   for (const m of mask.matchAll(/\bvi\.doUnmock\b/g)) report(m.index, "doUnmock");
@@ -163,6 +218,7 @@ export function analyze(source, filePath = "") {
     const first = mask.search(/\S/);
     let at = first === -1 ? source.length : first;
     while (at > 0 && source[at - 1] !== "\n") at--;
+    at = Math.max(at, prologueEnd(source));
     edits.push({ start: at, end: at, text: `import { vi } from "#test/vi";${eol}` });
   }
 
