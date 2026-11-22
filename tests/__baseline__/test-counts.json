@@ -383,7 +383,7 @@
     "tests/unit/stream-tool-call-id.test.js": 12,
     "tests/unit/strict-proxy-enforcement.test.js": 16,
     "tests/unit/synthetic-usage.test.js": 9,
-    "tests/unit/system-ca-trust.test.js": 0,
+    "tests/unit/system-ca-trust.test.js": 5,
     "tests/unit/system-inject.test.js": 49,
     "tests/unit/systemone-lab.test.js": 16,
     "tests/unit/systemone-provider-catalog.test.js": 4,
