@@ -31,12 +31,29 @@ const extras = {
   // exactly at the window end still fire before it. Microtasks are flushed after every jump so
   // timers created by awaited callbacks also fire. Elapsed time is measured via Date.now() (so a
   // callback calling setSystemTime mid-window skews it). Bun's timer clock has integer-ms resolution
-  // (and advanceTimersByTime(0) still moves it 1ms), so fractional ms are floored and 0 only
-  // flushes microtasks.
+  // and treats delay 0 as 1ms, so fractional ms are floored.
+  //
+  // advance(0): fires timers due "now" (setTimeout(fn), setTimeout(fn, 0)) and delay-0 timers
+  // scheduled by their awaited callbacks, like vitest. Bun can only do this through
+  // advanceTimersByTime(0), which moves its timer clock 1ms per pass, so (a) Date.now() is
+  // restored with setSystemTime, (b) the internal timer clock still drifts 1ms per pass, and
+  // (c) Bun cannot tell setTimeout(fn, 0) from setTimeout(fn, 1): a 1ms timer also fires
+  // (vitest would not fire it).
   async advanceTimersByTimeAsync(ms) {
     const total = Math.max(0, Math.floor(ms));
     await flushMicrotasks();
-    if (total === 0) return;
+    if (total === 0) {
+      const dateBefore = Date.now();
+      for (let pass = 0; pass < 100; pass++) {
+        const countBefore = bunVi.getTimerCount();
+        bunVi.advanceTimersByTime(0);
+        const fired = bunVi.getTimerCount() < countBefore;
+        await flushMicrotasks();
+        if (!fired) break;
+      }
+      if (Date.now() !== dateBefore) jest.setSystemTime(dateBefore);
+      return;
+    }
     const end = { fired: false };
     let elapsedDeadline = total;
     let sentinel;

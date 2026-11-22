@@ -121,6 +121,38 @@ describe("vi helper", () => {
     expect(fired).toEqual(["end"]);
   });
 
+  it("advanceTimersByTimeAsync(0) fires already-due timers without moving Date.now()", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(5_000_000);
+    const fired = [];
+    setTimeout(() => fired.push("zero"), 0);
+    setTimeout(() => fired.push("nodelay"));
+    setTimeout(() => fired.push("later"), 50);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fired).toEqual(["zero", "nodelay"]);
+    expect(Date.now()).toBe(5_000_000);
+  });
+
+  it("advanceTimersByTimeAsync(0) fires delay-0 timers scheduled by awaited callbacks", async () => {
+    vi.useFakeTimers();
+    const fired = [];
+    setTimeout(async () => {
+      await Promise.resolve();
+      setTimeout(() => fired.push("inner"), 0);
+      fired.push("outer");
+    }, 0);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fired).toEqual(["outer", "inner"]);
+  });
+
+  it("advanceTimersByTimeAsync(N) fires a setTimeout(fn, 0) scheduled before the call", async () => {
+    vi.useFakeTimers();
+    const fired = [];
+    setTimeout(() => fired.push("zero"), 0);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(fired).toEqual(["zero"]);
+  });
+
   it("advanceTimersByTimeAsync floors fractional ms and never over-advances", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000_000);
@@ -145,7 +177,7 @@ describe("vi helper", () => {
     try {
       // Explicit fixture paths only, so the child never collects vi.test.js (no recursion).
       const proc = Bun.spawn(
-        ["bun", "test", "--parallel", "helpers/__fixtures__/isolation.test.js",
+        [process.execPath, "test", "--parallel", "helpers/__fixtures__/isolation.test.js",
          "helpers/__fixtures__/nested/relative-mock.test.js",
          "--reporter=junit", `--reporter-outfile=${out}`],
         { cwd: resolve(import.meta.dir, ".."), stdout: "ignore", stderr: "ignore" },
