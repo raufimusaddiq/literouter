@@ -729,7 +729,8 @@ let catalogSource = null;
 /**
  * Install the synced catalog reader (server only).
  * @param {{ getModalities: (provider: string, model: string) => object|null,
- *           getLimits: (provider: string, model: string) => object|null } | null} source
+ *           getLimits: (provider: string, model: string) => object|null,
+ *           getProviderLive?: (provider: string, model: string) => object|null } | null} source
  */
 export function setCatalogSource(source) {
   catalogSource = source;
@@ -739,6 +740,26 @@ export function setCatalogSource(source) {
 function getCatalogSource() {
   if (typeof globalThis === "undefined") return catalogSource;
   return globalThis.__9rCatalogSource || null;
+}
+
+// Authoritative per-gateway numbers (optional source.getProviderLive). Wins over
+// every table and the models.dev overlay: limits override when > 0, modalities
+// only turn on. Fails open: a throwing or absent hook leaves the result as is.
+function applyProviderLive(result, provider, model) {
+  const source = getCatalogSource();
+  if (typeof source?.getProviderLive !== "function") return result;
+  let live;
+  try {
+    live = source.getProviderLive(provider, model);
+  } catch {
+    return result;
+  }
+  if (!live) return result;
+  const out = { ...result };
+  if (live.contextWindow > 0) out.contextWindow = live.contextWindow;
+  if (live.maxOutput > 0) out.maxOutput = live.maxOutput;
+  for (const key of MODALITY_KEYS) if (live[key] === true) out[key] = true;
+  return out;
 }
 
 // Apply the synced catalog + name heuristic on top of a table-resolved result.
@@ -817,6 +838,11 @@ export function getCapabilitiesForModel(providerInput, model) {
   if (!model) return { ...DEFAULT_CAPABILITIES };
 
   const provider = ALIAS_TO_PROVIDER_ID[providerInput] || providerInput;
+  const resolved = resolveFromTables(provider, model);
+  return provider === "kenari" ? applyProviderLive(resolved, provider, model) : resolved;
+}
+
+function resolveFromTables(provider, model) {
 
   // Canonical exact lookup strips vendor prefix: "anthropic/claude-opus-4.7" -> "claude-opus-4.7".
   const baseModel = model.includes("/") ? model.split("/").pop() : model;

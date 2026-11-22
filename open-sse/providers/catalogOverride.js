@@ -75,5 +75,10 @@ export function invalidateCatalog() {
 // too, so it cannot import this file directly — the server pushes it in.
 export async function installCatalogSource() {
   const { setCatalogSource } = await import("./capabilities.js");
-  setCatalogSource({ getModalities: getCatalogModalities, getLimits: getCatalogLimits });
+  const { getKenariProviderLive } = await import("./kenariCatalog.js");
+  setCatalogSource({
+    getModalities: getCatalogModalities,
+    getLimits: getCatalogLimits,
+    getProviderLive: getKenariProviderLive,
+  });
 }

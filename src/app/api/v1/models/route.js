@@ -21,6 +21,7 @@ import { resolveGrokCliModels } from "open-sse/services/grokCliModels.js";
 import { resolveCursorModels } from "open-sse/services/cursorModels.js";
 import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { resolveCommandCodeModels } from "open-sse/services/commandcodeModels.js";
+import { listKenariModels } from "open-sse/providers/kenariCatalog.js";
 import { noteUntrackedModel } from "open-sse/providers/trackingGaps.js";
 import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
@@ -180,6 +181,22 @@ const LIVE_MODEL_RESOLVERS = {
     const result = await resolveCommandCodeModels();
     if (!result?.models?.length) return null;
     return { models: result.models.map(({ id, name }) => ({ id, name })) };
+  },
+  // Kenari's own list, from the daily-synced cache (never fetched here). No
+  // cache -> null -> the static list. Non-chat models carry their kind so
+  // image/tts/stt/video entries stay out of the LLM list; "music" has no kind of
+  // its own in MODEL_TYPE_TO_KIND and would read as an LLM, so it is filed as tts.
+  kenari: async () => {
+    const cached = listKenariModels();
+    if (!cached?.length) return null;
+    return {
+      models: cached.map((m) => {
+        if (m.kind && m.kind !== LLM_KIND) {
+          return { id: m.id, name: m.name, kind: m.kind === "music" ? "tts" : m.kind };
+        }
+        return { id: m.id, name: m.name, capabilities: getCapabilitiesForModel("kenari", m.id) };
+      }),
+    };
   },
 };
 

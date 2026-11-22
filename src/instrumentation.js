@@ -14,6 +14,10 @@ export async function register() {
     const { startModelCatalogSync } = await import("@/lib/modelCatalog/sync.js");
     startModelCatalogSync();
 
+    // Kenari publishes its own limits/modalities/model list; keep a daily copy.
+    const { startKenariCatalogSync } = await import("@/lib/modelCatalog/kenariSync.js");
+    startKenariCatalogSync();
+
     // API-only servers never render app/layout.js, so start bootstrap (background
     // token refresh etc.) here. bootstrap.js guards itself with global.__appBootstrapped.
     await import("@/shared/services/bootstrap.js");
