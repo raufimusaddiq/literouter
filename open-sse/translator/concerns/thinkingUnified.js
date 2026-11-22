@@ -2,7 +2,7 @@
 // Config-driven: thinking format/limits come from capabilities.js + registry transport,
 // never hardcoded per-model here. See .docs/thinking/plan.md MATRIX VI-A.
 
-import { getCapabilitiesForModel } from "../../providers/capabilities.js";
+import { getCapabilitiesForModel, getProviderLiveData } from "../../providers/capabilities.js";
 import { getThinkingLevels } from "../../providers/thinkingLevels.js";
 import { PROVIDERS } from "../../providers/index.js";
 import { LEVEL_TO_BUDGET, budgetToLevel, effortToBudget, effortToThinkingLevel } from "./thinking.js";
@@ -131,8 +131,21 @@ const NATIVE_ONLY_FORMATS = new Set(["gemini-level", "gemini-budget", "claude-bu
 // DeepSeek ignores it. Only dynamic compat nodes opt into the passthrough.
 const isOpenAICompatibleNode = (provider) => String(provider || "").startsWith("openai-compatible-");
 
+// Kenari takes its advertised levels on each of its three wires, so the wire picks the shape.
+const KENARI_FORMAT_BY_WIRE = {
+  openai: "openai",
+  "openai-responses": "openai-responses",
+  claude: "claude-adaptive",
+};
+
+function kenariReasoning(provider, model) {
+  const live = getProviderLiveData(provider, model);
+  return live?.reasoning === true && live.reasoningLevels?.length ? live : null;
+}
+
 function resolveFormat(targetFormat, model, provider) {
   if (targetFormat === "commandcode") return "commandcode";
+  if (kenariReasoning(provider, model) && KENARI_FORMAT_BY_WIRE[targetFormat]) return KENARI_FORMAT_BY_WIRE[targetFormat];
   if (provider === "codex" && /gpt-5\.6-(sol|terra|luna)/.test(model)) return "openai";
   const providerFmt = provider ? PROVIDERS[provider]?.thinkingFormat : null;
   if (providerFmt) return providerFmt;
@@ -437,13 +450,19 @@ export function applyThinking(targetFormat, model, body, provider = null, intent
 
   const fmt = resolveFormat(targetFormat, cleanModel, provider);
   const supportedLevels = getThinkingLevels(provider, cleanModel);
-  const responsesMinimalClamp = targetFormat === "openai-responses"
+  const kenariLive = kenariReasoning(provider, cleanModel);
+  // The minimal->low clamp is OpenAI's; Kenari advertises minimal itself.
+  const responsesMinimalClamp = !kenariLive && targetFormat === "openai-responses"
     && supportedLevels?.includes("minimal");
   // Anthropic's `display` (summarized | omitted) decides whether thinking text
   // comes back at all; keep what the client asked for instead of resetting it.
   // An OpenAI-shaped client's ask arrives via the captured intent instead.
   const display = typeof body.thinking?.display === "string" ? body.thinking.display : intent?.display;
   stripAll(body);
-  applyFormat(fmt, body, cfg, caps, supportedLevels, display, responsesMinimalClamp, isOpenAICompatibleNode(provider));
+  // "none" on a model that cannot disable thinking -> its lowest advertised level.
+  const effective = kenariLive && cfg.mode === "none" && caps.thinkingCanDisable === false && supportedLevels?.length
+    ? { mode: "level", level: supportedLevels[0] }
+    : cfg;
+  applyFormat(fmt, body, effective, caps, supportedLevels, display, responsesMinimalClamp, isOpenAICompatibleNode(provider));
   return body;
 }

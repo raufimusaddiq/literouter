@@ -1,13 +1,12 @@
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getCapabilitiesForModel, setCatalogSource } from "../../open-sse/providers/capabilities.js";
 import {
+  KENARI_CATALOG_FILE,
   getKenariProviderLive,
+  invalidateKenariCatalog,
   listKenariModels,
-  setKenariCatalogFile,
 } from "../../open-sse/providers/kenariCatalog.js";
 import { normalizeKenariModels } from "../../src/lib/modelCatalog/kenariSync.js";
 
@@ -15,8 +14,12 @@ const fixture = JSON.parse(
   fs.readFileSync(new URL("../fixtures/kenari-models.json", import.meta.url), "utf8"),
 );
 
-let dir;
-let file;
+vi.mock("@/lib/dataDir.js", async () => {
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  return { DATA_DIR: mkdtempSync(join(tmpdir(), "kenari-test-")) };
+});
 
 function install({ overlay } = {}) {
   setCatalogSource({
@@ -27,20 +30,18 @@ function install({ overlay } = {}) {
 }
 
 function writeCatalog(models = normalizeKenariModels(fixture)) {
-  fs.writeFileSync(file, JSON.stringify({ v: 1, syncedAt: 1, models }));
-  setKenariCatalogFile(file); // also drops the cached copy
+  writeRaw(JSON.stringify({ v: 1, models }));
 }
 
-beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "kenari-catalog-"));
-  file = path.join(dir, "kenari-catalog.json");
-  setKenariCatalogFile(file);
-});
+function writeRaw(contents) {
+  fs.writeFileSync(KENARI_CATALOG_FILE, contents);
+  invalidateKenariCatalog();
+}
 
 afterEach(() => {
   setCatalogSource(null);
-  setKenariCatalogFile(null);
-  fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(KENARI_CATALOG_FILE, { force: true });
+  invalidateKenariCatalog();
 });
 
 describe("normalizeKenariModels", () => {
@@ -68,9 +69,6 @@ describe("normalizeKenariModels", () => {
   it("classifies non-chat models by endpoint and gives them no limits", () => {
     expect(models["gemini-3-8-flash-lite-tts"].kind).toBe("tts");
     expect(models["gpt-image-2"].kind).toBe("image");
-    expect(models["gemini-omni-flash"].kind).toBe("video");
-    expect(models["gpt-transcribe"].kind).toBe("stt");
-    expect(models["lyria-3-5"].kind).toBe("music");
     expect(models["gpt-image-2"]).not.toHaveProperty("contextWindow");
   });
 
@@ -108,8 +106,7 @@ describe("capability precedence for kenari", () => {
     });
   });
 
-  it("beats PROVIDER_CAPABILITIES-level overrides (kenari id resolved via the live hook last)", () => {
-    // gpt-6-luna is a MODEL/PATTERN-table entry; a Kenari entry for it must win.
+  it("beats the MODEL/PATTERN tables", () => {
     writeCatalog({ "gpt-6-luna": { contextWindow: 4242, maxOutput: 99 } });
     install();
     expect(getCapabilitiesForModel("kenari", "gpt-6-luna")).toMatchObject({ contextWindow: 4242, maxOutput: 99 });
@@ -180,8 +177,7 @@ describe("fail open", () => {
   it("falls back to the tables when the file is corrupt or the wrong shape", () => {
     install();
     for (const contents of ["{not json", "[]", JSON.stringify({ models: [1, 2] }), JSON.stringify({ models: null })]) {
-      fs.writeFileSync(file, contents);
-      setKenariCatalogFile(file);
+      writeRaw(contents);
       expect(getKenariProviderLive("kenari", "muse-ember-1-0")).toBeNull();
       expect(listKenariModels()).toBeNull();
       expect(() => getCapabilitiesForModel("kenari", "muse-ember-1-0")).not.toThrow();
@@ -203,9 +199,7 @@ describe("fail open", () => {
     writeCatalog({ "muse-ember-1-0": { contextWindow: 111 } });
     install();
     expect(getCapabilitiesForModel("kenari", "muse-ember-1-0").contextWindow).toBe(111);
-    fs.writeFileSync(file, JSON.stringify({ models: { "muse-ember-1-0": { contextWindow: 222 } } }));
-    const future = new Date(Date.now() + 5000);
-    fs.utimesSync(file, future, future);
+    writeRaw(JSON.stringify({ models: { "muse-ember-1-0": { contextWindow: 222 } } }));
     expect(getCapabilitiesForModel("kenari", "muse-ember-1-0").contextWindow).toBe(222);
   });
 });

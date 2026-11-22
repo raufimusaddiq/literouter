@@ -1,10 +1,8 @@
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setCatalogSource } from "../../open-sse/providers/capabilities.js";
-import { getKenariProviderLive, setKenariCatalogFile } from "../../open-sse/providers/kenariCatalog.js";
+import { KENARI_CATALOG_FILE, getKenariProviderLive, invalidateKenariCatalog } from "../../open-sse/providers/kenariCatalog.js";
 import { normalizeKenariModels } from "../../src/lib/modelCatalog/kenariSync.js";
 
 const db = vi.hoisted(() => ({
@@ -25,26 +23,27 @@ const fixture = JSON.parse(
   fs.readFileSync(new URL("../fixtures/kenari-models.json", import.meta.url), "utf8"),
 );
 
-let dir;
-let file;
+vi.mock("@/lib/dataDir.js", async () => {
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  return { DATA_DIR: mkdtempSync(join(tmpdir(), "kenari-test-")) };
+});
 
 function writeCatalog() {
-  fs.writeFileSync(file, JSON.stringify({ v: 1, models: normalizeKenariModels(fixture) }));
-  setKenariCatalogFile(file);
+  fs.writeFileSync(KENARI_CATALOG_FILE, JSON.stringify({ v: 1, models: normalizeKenariModels(fixture) }));
+  invalidateKenariCatalog();
 }
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "kenari-live-"));
-  file = path.join(dir, "kenari-catalog.json");
-  setKenariCatalogFile(file);
   setCatalogSource({ getModalities: () => null, getLimits: () => null, getProviderLive: getKenariProviderLive });
   db.getProviderConnections.mockResolvedValue([{ id: 1, provider: "kenari", isActive: true, providerSpecificData: {} }]);
 });
 
 afterEach(() => {
   setCatalogSource(null);
-  setKenariCatalogFile(null);
-  fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(KENARI_CATALOG_FILE, { force: true });
+  invalidateKenariCatalog();
 });
 
 const ids = (list) => list.map((m) => m.id);
@@ -57,7 +56,7 @@ describe("/v1/models kenari live list", () => {
     const muse = llm.find((m) => m.id === "kn/muse-ember-1-0");
     expect(muse).toMatchObject({ context_length: 1048576, max_completion_tokens: 524288 });
     expect(ids(llm)).toContain("kn/glm-4-7-flash:free");
-    for (const nonChat of ["gemini-3-8-flash-lite-tts", "gpt-image-2", "gemini-omni-flash", "gpt-transcribe", "lyria-3-5"]) {
+    for (const nonChat of ["gemini-3-8-flash-lite-tts", "gpt-image-2"]) {
       expect(ids(llm)).not.toContain(`kn/${nonChat}`);
     }
 

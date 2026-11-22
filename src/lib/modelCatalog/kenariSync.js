@@ -15,37 +15,30 @@ import {
   invalidateKenariCatalog,
 } from "open-sse/providers/kenariCatalog.js";
 
-export const KENARI_MODELS_URL = "https://kenari.id/v1/models";
+const KENARI_MODELS_URL = "https://kenari.id/v1/models";
 const FETCH_TIMEOUT_MS = 30000;
-export const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const STARTUP_DELAY_MS = 60 * 1000;
 const RETRY_DELAY_MS = 30 * 60 * 1000;
 
-// Kenari endpoint -> kind. "music" is audio output with no LLM-list meaning; the
-// /v1/models resolver files it with the non-LLM audio kinds.
+// Kenari endpoint -> kind (music is filed with tts: audio output, never an LLM).
 const KIND_BY_ENDPOINT = {
   chat: "llm",
   images: "image",
   audio_speech: "tts",
   audio_transcription: "stt",
   videos: "video",
-  music: "music",
+  music: "tts",
 };
+
+// Levels Kenari may advertise in supported_reasoning_levels; anything else is dropped.
+const KNOWN_REASONING_LEVELS = new Set(["minimal", "low", "medium", "high", "xhigh", "max"]);
 
 const positive = (n) => (Number.isFinite(n) && n > 0 ? n : undefined);
 
-function kindOf(m) {
-  const endpoints = Array.isArray(m.endpoints) ? m.endpoints : [];
-  for (const endpoint of endpoints) {
-    if (Object.hasOwn(KIND_BY_ENDPOINT, endpoint)) return KIND_BY_ENDPOINT[endpoint];
-  }
-  const out = Array.isArray(m.modalities?.output) ? m.modalities.output : [];
-  if (out.includes("text")) return "llm";
-  if (out.includes("image")) return "image";
-  if (out.includes("video")) return "video";
-  if (out.includes("audio")) return "tts";
-  return undefined;
-}
+const kindOf = (m) => (Array.isArray(m.endpoints) ? m.endpoints : [])
+  .map((endpoint) => (Object.hasOwn(KIND_BY_ENDPOINT, endpoint) ? KIND_BY_ENDPOINT[endpoint] : undefined))
+  .find(Boolean);
 
 // Kenari response body -> { [modelId]: compact entry }. Only fields actually
 // present are kept; entries without a usable id are dropped.
@@ -69,6 +62,11 @@ export function normalizeKenariModels(body) {
     if (input.includes("audio")) entry.audioInput = true;
     if (input.includes("video")) entry.videoInput = true;
     if (typeof m.reasoning === "boolean") entry.reasoning = m.reasoning;
+    if (typeof m.reasoning_toggle === "boolean") entry.reasoningToggle = m.reasoning_toggle;
+    if (Array.isArray(m.supported_reasoning_levels)) {
+      const levels = [...new Set(m.supported_reasoning_levels.filter((l) => KNOWN_REASONING_LEVELS.has(l)))];
+      if (levels.length) entry.reasoningLevels = levels;
+    }
     if (typeof m.tool_call === "boolean") entry.tools = m.tool_call;
     pairs.push([m.id, entry]);
   }
@@ -83,17 +81,13 @@ function writeAtomic(file, contents) {
   fs.renameSync(`${file}.tmp`, file);
 }
 
-let state = { running: false, lastSync: null, lastError: null, lastResult: null };
+let running = false;
 let timer = null;
-
-export function getKenariSyncState() {
-  return { ...state, file: KENARI_CATALOG_FILE, url: KENARI_MODELS_URL, intervalMs: SYNC_INTERVAL_MS };
-}
 
 // Run one sync. Returns a summary, or null when it could not complete.
 export async function syncKenariCatalog() {
-  if (state.running) return null;
-  state.running = true;
+  if (running) return null;
+  running = true;
   try {
     const response = await fetch(KENARI_MODELS_URL, {
       headers: { accept: "application/json" },
@@ -111,16 +105,12 @@ export async function syncKenariCatalog() {
 
     const result = { status: "updated", models: count, bytes: Buffer.byteLength(serialized) };
     console.log(`[kenariCatalog] ${count} models, ${(result.bytes / 1024).toFixed(1)}KB`);
-    state.lastSync = Date.now();
-    state.lastError = null;
-    state.lastResult = result;
     return result;
   } catch (error) {
-    state.lastError = error?.message || String(error);
-    console.log(`[kenariCatalog] sync failed: ${state.lastError}`);
+    console.log(`[kenariCatalog] sync failed: ${error?.message || error}`);
     return null;
   } finally {
-    state.running = false;
+    running = false;
   }
 }
 

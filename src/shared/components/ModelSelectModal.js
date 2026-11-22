@@ -24,7 +24,7 @@ const NO_AUTH_PROVIDER_IDS = Object.keys(FREE_PROVIDERS).filter(id => FREE_PROVI
 
 // Providers with per-account live catalogs via /api/providers/[id]/models.
 // Static registry stays as fallback when live fetch fails or is empty.
-const LIVE_CATALOG_PROVIDERS = ["cursor", "cline", "clinepass"];
+const LIVE_CATALOG_PROVIDERS = ["cursor", "cline", "clinepass", "kenari"];
 
 // Fetch a provider's account-scoped catalog for every active connection and merge
 // the results. Entries collapse by model id on purpose: two connections of the
@@ -114,10 +114,12 @@ export default function ModelSelectModal({
   const cursorConnectionIds = liveConnectionIdsByProvider.cursor;
   const clineConnectionIds = liveConnectionIdsByProvider.cline;
   const clinepassConnectionIds = liveConnectionIdsByProvider.clinepass;
+  const kenariConnectionIds = liveConnectionIdsByProvider.kenari;
 
   const cursorModels = useLiveProviderModels(isOpen, cursorConnectionIds, "Cursor");
   const clineModels = useLiveProviderModels(isOpen, clineConnectionIds, "Cline");
   const clinepassModels = useLiveProviderModels(isOpen, clinepassConnectionIds, "ClinePass");
+  const kenariModels = useLiveProviderModels(isOpen, kenariConnectionIds, "Kenari");
 
   const fetchCombos = async () => {
     try {
@@ -337,7 +339,7 @@ export default function ModelSelectModal({
           hasModels: mergedModels.length > 0,
         };
       } else {
-        const liveModels = providerId === "cursor" ? cursorModels : providerId === "cline" ? clineModels : providerId === "clinepass" ? clinepassModels : [];
+        const liveModels = providerId === "cursor" ? cursorModels : providerId === "cline" ? clineModels : providerId === "clinepass" ? clinepassModels : providerId === "kenari" ? kenariModels : [];
         const hardcodedModels = liveModels.length > 0
           ? liveModels
           : getModelsByProviderId(providerId);
@@ -364,7 +366,7 @@ export default function ModelSelectModal({
           .map((m) => ({ id: m.id, name: m.name || m.id, value: `${alias}/${m.id}`, isCustom: true }));
 
         const merged = [
-          ...applyQoderModelNames(hardcodedModels, customModels, alias).map((m) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m) })),
+          ...applyQoderModelNames(hardcodedModels, customModels, alias).map((m) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m), caps: m.caps })),
           ...customAliasModels,
           ...customRegisteredModels,
         ];
@@ -408,7 +410,7 @@ export default function ModelSelectModal({
     });
 
     return groups;
-  }, [filteredActiveProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, kindFilter, activeProviders, cursorModels, clineModels, clinepassModels]);
+  }, [filteredActiveProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, kindFilter, activeProviders, cursorModels, clineModels, clinepassModels, kenariModels]);
 
   // Filter combos by search query (and hide combos when kindFilter is set — combos are LLM-only by design)
   const filteredCombos = useMemo(() => {
@@ -434,7 +436,7 @@ export default function ModelSelectModal({
       let models = group.models;
       // Filter by input-modality capability (vision/pdf/audioInput/videoInput).
       if (capFilter) {
-        models = models.filter((m) => getCaps(m.value)?.[capFilter] === true);
+        models = models.filter((m) => (m.caps || getCaps(m.value))?.[capFilter] === true);
         if (models.length === 0) return;
       }
       if (query) {
@@ -597,12 +599,12 @@ export default function ModelSelectModal({
                         <>
                           {model.name}
                           <span className="text-[11px] opacity-60 font-normal">custom</span>
-                          <CapacityBadges caps={getCaps(model.value)} />
+                          <CapacityBadges caps={model.caps || getCaps(model.value)} />
                         </>
                       ) : (
                         <>
                           {model.name}
-                          <CapacityBadges caps={getCaps(model.value)} />
+                          <CapacityBadges caps={model.caps || getCaps(model.value)} />
                         </>
                       )}
                     </span>

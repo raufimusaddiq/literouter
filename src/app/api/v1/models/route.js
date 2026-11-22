@@ -182,18 +182,13 @@ const LIVE_MODEL_RESOLVERS = {
     if (!result?.models?.length) return null;
     return { models: result.models.map(({ id, name }) => ({ id, name })) };
   },
-  // Kenari's own list, from the daily-synced cache (never fetched here). No
-  // cache -> null -> the static list. Non-chat models carry their kind so
-  // image/tts/stt/video entries stay out of the LLM list; "music" has no kind of
-  // its own in MODEL_TYPE_TO_KIND and would read as an LLM, so it is filed as tts.
+  // Kenari's daily-synced list (cache only, no fetch); null -> static list.
   kenari: async () => {
     const cached = listKenariModels();
     if (!cached?.length) return null;
     return {
       models: cached.map((m) => {
-        if (m.kind && m.kind !== LLM_KIND) {
-          return { id: m.id, name: m.name, kind: m.kind === "music" ? "tts" : m.kind };
-        }
+        if (m.kind && m.kind !== LLM_KIND) return { id: m.id, name: m.name, kind: m.kind };
         return { id: m.id, name: m.name, capabilities: getCapabilitiesForModel("kenari", m.id) };
       }),
     };

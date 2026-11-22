@@ -742,23 +742,31 @@ function getCatalogSource() {
   return globalThis.__9rCatalogSource || null;
 }
 
-// Authoritative per-gateway numbers (optional source.getProviderLive). Wins over
-// every table and the models.dev overlay: limits override when > 0, modalities
-// only turn on. Fails open: a throwing or absent hook leaves the result as is.
-function applyProviderLive(result, provider, model) {
+// Authoritative per-gateway data (optional source.getProviderLive, Kenari only).
+// Wins over every table and the models.dev overlay. Fails open.
+export function getProviderLiveData(providerInput, model) {
+  const provider = ALIAS_TO_PROVIDER_ID[providerInput] || providerInput;
+  if (provider !== "kenari" || !model) return null;
   const source = getCatalogSource();
-  if (typeof source?.getProviderLive !== "function") return result;
-  let live;
+  if (typeof source?.getProviderLive !== "function") return null;
   try {
-    live = source.getProviderLive(provider, model);
+    return source.getProviderLive(provider, model) || null;
   } catch {
-    return result;
+    return null;
   }
-  if (!live) return result;
+}
+
+// Limits override when > 0; modalities and reasoning only turn on.
+// thinkingFormat is left to the existing resolution.
+function applyProviderLive(result, live) {
   const out = { ...result };
   if (live.contextWindow > 0) out.contextWindow = live.contextWindow;
   if (live.maxOutput > 0) out.maxOutput = live.maxOutput;
   for (const key of MODALITY_KEYS) if (live[key] === true) out[key] = true;
+  if (live.reasoning === true) {
+    out.reasoning = true;
+    if (live.reasoningToggle === false) out.thinkingCanDisable = false;
+  }
   return out;
 }
 
@@ -839,7 +847,8 @@ export function getCapabilitiesForModel(providerInput, model) {
 
   const provider = ALIAS_TO_PROVIDER_ID[providerInput] || providerInput;
   const resolved = resolveFromTables(provider, model);
-  return provider === "kenari" ? applyProviderLive(resolved, provider, model) : resolved;
+  const live = getProviderLiveData(provider, model);
+  return live ? applyProviderLive(resolved, live) : resolved;
 }
 
 function resolveFromTables(provider, model) {
