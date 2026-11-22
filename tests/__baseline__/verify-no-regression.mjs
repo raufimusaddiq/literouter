@@ -5,14 +5,15 @@
 import { readFileSync } from "node:fs";
 import { parseJunit } from "./junit.mjs";
 
-// Errors between tests (root `errors` attr) cannot be attributed per file: Bun only
-// reports them on <testsuites>. They are tolerated only when at least one known-fail
-// test is among the failures (expected-red environment); otherwise any error fails.
+// Bun does NOT report load-time failures ("Unhandled error between tests") in the junit:
+// the broken file is simply absent, and root `errors` is not set. Those are caught by
+// verify-test-counts.mjs (a baseline file missing from the junit counts as 0 < baseline).
+// Throws from timers / unhandled rejections are attributed to the running test as <failure>.
+// The root `errors` check here is only a defensive fallback and is strict: any errors > 0 fails.
 export function findRegressions({ cases, errors }, knownFails) {
   const nowFails = cases.filter(c => c.status === "failed").map(c => c.file + " :: " + c.fullName);
   const regressions = nowFails.filter(f => !knownFails.has(f));
-  const hasKnownFail = nowFails.some(f => knownFails.has(f));
-  return { nowFails, regressions, unattributedErrors: errors > 0 && !hasKnownFail ? errors : 0 };
+  return { nowFails, regressions, unattributedErrors: errors > 0 ? errors : 0 };
 }
 
 if (import.meta.main) {
@@ -32,7 +33,7 @@ if (import.meta.main) {
       regressions.forEach(f => console.error("  - " + f));
     }
     if (unattributedErrors) {
-      console.error(`\n❌ REGRESSION: ${unattributedErrors} error(s) between tests, no known-fail to attribute them to`);
+      console.error(`\n❌ REGRESSION: ${unattributedErrors} error(s) between tests reported by junit root`);
     }
     process.exit(1);
   }

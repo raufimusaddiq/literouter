@@ -3,6 +3,8 @@
 import { readFileSync } from "node:fs";
 import { parseJunit } from "./junit.mjs";
 
+// A file that fails to load is absent from Bun's junit (no root `errors`); this gate catches it
+// because a baseline file with no cases counts as 0 < baseline.
 export function checkCounts(baselineFiles, cases) {
   const actual = {};
   for (const c of cases) actual[c.file] = (actual[c.file] ?? 0) + 1;
@@ -11,11 +13,21 @@ export function checkCounts(baselineFiles, cases) {
     .filter(r => r.actual < r.expected);
 }
 
+// True when no junit file path matches any baseline key (wrong cwd, e.g. not run from tests/).
+export function pathsMismatch(baselineFiles, cases) {
+  return cases.length > 0 && !cases.some(c => c.file in baselineFiles);
+}
+
 if (import.meta.main) {
   const path = process.argv[2];
   if (!path) { console.error("Missing junit.xml path"); process.exit(2); }
   const baseline = JSON.parse(readFileSync(new URL("./test-counts.json", import.meta.url), "utf8"));
-  const offenders = checkCounts(baseline.files, parseJunit(readFileSync(path, "utf8")).cases);
+  const { cases } = parseJunit(readFileSync(path, "utf8"));
+  if (pathsMismatch(baseline.files, cases)) {
+    console.error("❌ junit paths don't match baseline keys — run bun test from tests/");
+    process.exit(1);
+  }
+  const offenders = checkCounts(baseline.files, cases);
   if (offenders.length) {
     console.error(`\n❌ TEST COUNT DROP: ${offenders.length} file(s) below baseline (expected/actual):\n`);
     offenders.forEach(o => console.error(`  - ${o.file}  ${o.expected}/${o.actual}`));

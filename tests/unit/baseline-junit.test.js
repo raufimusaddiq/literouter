@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { parseJunit } from "../__baseline__/junit.mjs";
-import { checkCounts } from "../__baseline__/verify-test-counts.mjs";
+import { checkCounts, pathsMismatch } from "../__baseline__/verify-test-counts.mjs";
 import { findRegressions } from "../__baseline__/verify-no-regression.mjs";
 
 const XML = String.raw`<?xml version="1.0" encoding="UTF-8"?>
@@ -51,14 +51,30 @@ describe("checkCounts", () => {
 describe("findRegressions", () => {
   const parsed = parseJunit(XML);
   const key = "tests/translator/golden-url-header.test.js :: GOLDEN buildHeaders (default executor providers) cline → headers (apiKey / oauth)";
-  test("known fail with errors is accepted", () => {
-    const r = findRegressions(parsed, new Set([key]));
+  test("known fail is accepted when there are no root errors", () => {
+    const r = findRegressions({ ...parsed, errors: 0 }, new Set([key]));
     expect(r.regressions).toEqual([]);
     expect(r.unattributedErrors).toBe(0);
   });
-  test("unknown fail is a regression; errors with no known fail are flagged", () => {
-    const r = findRegressions(parsed, new Set());
-    expect(r.regressions).toEqual([key]);
-    expect(r.unattributedErrors).toBe(2);
+  test("unknown fail is a regression", () => {
+    expect(findRegressions(parsed, new Set()).regressions).toEqual([key]);
+  });
+  test("root errors > 0 is strict: fails even when a known fail exists", () => {
+    expect(findRegressions(parsed, new Set([key])).unattributedErrors).toBe(2);
+  });
+});
+
+describe("load failure (real Bun shape: file absent, no root errors)", () => {
+  const xml = `<testsuites name="bun test" tests="1"><testsuite name="a.test.js" file="unit/a.test.js"><testcase name="t"/></testsuite></testsuites>`;
+  test("parseJunit errors is 0 and counts gate flags the missing file", () => {
+    const { cases, errors } = parseJunit(xml);
+    expect(errors).toBe(0);
+    expect(checkCounts({ "tests/unit/a.test.js": 1, "tests/unit/broken.test.js": 7 }, cases))
+      .toEqual([{ file: "tests/unit/broken.test.js", expected: 7, actual: 0 }]);
+  });
+  test("pathsMismatch detects junit not produced from tests/", () => {
+    const { cases } = parseJunit(xml);
+    expect(pathsMismatch({ "tests/unit/a.test.js": 1 }, cases)).toBe(false);
+    expect(pathsMismatch({ "tests/unit/other.test.js": 1 }, cases)).toBe(true);
   });
 });
