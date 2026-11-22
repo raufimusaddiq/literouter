@@ -1,4 +1,7 @@
 import { describe, it, expect, afterEach } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { vi } from "#test/vi";
 
 vi.mock("./__fixtures__/dep.js", () => ({ dep: () => "mocked" }));
@@ -88,5 +91,75 @@ describe("vi helper", () => {
   it("keeps bun's own function references", async () => {
     const bun = (await import("bun:test")).vi;
     for (const k of ["mock", "fn", "spyOn", "useFakeTimers", "clearAllMocks"]) expect(vi[k]).toBe(bun[k]);
+  });
+
+  it("advanceTimersByTimeAsync jumps 1h quickly and respects the window end", async () => {
+    vi.useFakeTimers();
+    const fired = [];
+    setTimeout(() => fired.push("59m"), 59 * 60_000);
+    setTimeout(() => fired.push("61m"), 61 * 60_000);
+    await vi.advanceTimersByTimeAsync(3_600_000);
+    expect(fired).toEqual(["59m"]);
+  }, 1000); // fake timers freeze every clock, so the per-test 1s timeout is the "fast" assertion
+
+  it("advanceTimersByTimeAsync fires a timer due exactly at the window end", async () => {
+    vi.useFakeTimers();
+    const fired = [];
+    setTimeout(() => fired.push("edge"), 100);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(fired).toEqual(["edge"]);
+  });
+
+  it("advanceTimersByTimeAsync fires a mid-window-created timer due exactly at the window end", async () => {
+    vi.useFakeTimers();
+    const fired = [];
+    setTimeout(async () => {
+      await Promise.resolve();
+      setTimeout(() => fired.push("end"), 500);
+    }, 500);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fired).toEqual(["end"]);
+  });
+
+  it("advanceTimersByTimeAsync floors fractional ms and never over-advances", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    await vi.advanceTimersByTimeAsync(10.9); // Bun timers are integer ms: floored to 10
+    expect(Date.now()).toBe(1_000_010);
+    await vi.advanceTimersByTimeAsync(0.5);
+    expect(Date.now()).toBe(1_000_010);
+  });
+
+  it("setSystemTime + advanceTimersByTimeAsync advances Date.now by exactly the amount", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2021-06-01T00:00:00Z"));
+    const start = Date.now();
+    setTimeout(() => {}, 250);
+    await vi.advanceTimersByTimeAsync(1234);
+    expect(Date.now() - start).toBe(1234);
+  });
+
+  it("isolation pin actually runs (not skipped) under bun test --parallel", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "vi-pin-"));
+    const out = join(dir, "junit.xml");
+    try {
+      // Explicit fixture paths only, so the child never collects vi.test.js (no recursion).
+      const proc = Bun.spawn(
+        ["bun", "test", "--parallel", "helpers/__fixtures__/isolation.test.js",
+         "helpers/__fixtures__/nested/relative-mock.test.js",
+         "--reporter=junit", `--reporter-outfile=${out}`],
+        { cwd: resolve(import.meta.dir, ".."), stdout: "ignore", stderr: "ignore" },
+      );
+      expect(await proc.exited).toBe(0);
+      const xml = readFileSync(out, "utf8");
+      const cases = xml.split("<testcase").slice(1);
+      const iso = cases.filter((c) => c.includes("dep.js is not mocked"));
+      const rel = cases.filter((c) => c.includes("relative vi.mock from a nested dir"));
+      expect(iso.length).toBe(1);
+      expect(rel.length).toBe(1);
+      expect(cases.filter((c) => /<skipped|<failure|<error/.test(c)).length).toBe(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

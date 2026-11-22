@@ -25,18 +25,39 @@ const extras = {
     jest.setSystemTime(t);
   },
 
-  // Advance fake time in 1ms steps, flushing microtasks (and a macrotask
-  // periodically) between steps, so timers created by awaited callbacks inside
-  // the window fire, and timers past the window do not.
+  // Jump from deadline to deadline instead of stepping every ms. A sentinel timer at the
+  // window end guarantees advanceTimersToNextTimer never lands past the window. The sentinel is
+  // re-armed (newest timer) before every jump so timers created inside the window with a deadline
+  // exactly at the window end still fire before it. Microtasks are flushed after every jump so
+  // timers created by awaited callbacks also fire. Elapsed time is measured via Date.now() (so a
+  // callback calling setSystemTime mid-window skews it). Bun's timer clock has integer-ms resolution
+  // (and advanceTimersByTime(0) still moves it 1ms), so fractional ms are floored and 0 only
+  // flushes microtasks.
   async advanceTimersByTimeAsync(ms) {
+    const total = Math.max(0, Math.floor(ms));
     await flushMicrotasks();
-    for (let elapsed = 0; elapsed < ms; elapsed++) {
-      bunVi.advanceTimersByTime(1);
+    if (total === 0) return;
+    const end = { fired: false };
+    let elapsedDeadline = total;
+    let sentinel;
+    try {
+      while (!end.fired) {
+        sentinel = setTimeout(() => {
+          end.fired = true;
+        }, elapsedDeadline);
+        const before = Date.now();
+        bunVi.advanceTimersToNextTimer();
+        const moved = Date.now() - before;
+        clearTimeout(sentinel);
+        sentinel = undefined;
+        elapsedDeadline -= moved;
+        await flushMicrotasks();
+      }
+      await new Promise((r) => setImmediate(r));
       await flushMicrotasks();
-      if (elapsed % 50 === 49) await new Promise((r) => setImmediate(r));
+    } finally {
+      if (sentinel !== undefined) clearTimeout(sentinel);
     }
-    await new Promise((r) => setImmediate(r));
-    await flushMicrotasks();
   },
 
   stubGlobal(name, value) {
