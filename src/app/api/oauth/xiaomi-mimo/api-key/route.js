@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 import { createProviderConnection } from "@/models";
+import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
+import { isLocalRequest } from "@/dashboardGuard";
+
+function trimTrailingSlashes(value) {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end--;
+  return value.slice(0, end);
+}
 
 export async function POST(request) {
   try {
@@ -20,12 +28,22 @@ export async function POST(request) {
       );
     }
 
-    const effectiveBaseUrl = (baseUrl || "https://api.xiaomimimo.com/v1").replace(/\/+$/, "");
+    const remote = !isLocalRequest(request);
+    const rawBaseUrl = typeof baseUrl === "string" && baseUrl.trim() ? baseUrl.trim() : "https://api.xiaomimimo.com/v1";
+    try {
+      const parsed = new URL(rawBaseUrl);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("Unsupported protocol");
+      if (remote) await assertPublicUrlResolved(rawBaseUrl);
+    } catch {
+      return NextResponse.json({ error: "baseUrl not allowed" }, { status: 400 });
+    }
+    const effectiveBaseUrl = trimTrailingSlashes(rawBaseUrl);
+    const validateFetch = remote ? fetchPublic : fetch;
 
     let validated = false;
     let modelCount = 0;
     try {
-      const resp = await fetch(`${effectiveBaseUrl}/models`, {
+      const resp = await validateFetch(`${effectiveBaseUrl}/models`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${key}`,
