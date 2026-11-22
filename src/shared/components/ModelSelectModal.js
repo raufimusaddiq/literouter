@@ -340,7 +340,9 @@ export default function ModelSelectModal({
         };
       } else {
         const liveModels = providerId === "cursor" ? cursorModels : providerId === "cline" ? clineModels : providerId === "clinepass" ? clinepassModels : providerId === "kenari" ? kenariModels : [];
-        const hardcodedModels = liveModels.length > 0
+        // Kenari's live rows only supply caps; its list stays what the user added.
+        const liveCaps = new Map(liveModels.map((m) => [m.id, m.caps]));
+        const hardcodedModels = liveModels.length > 0 && providerId !== "kenari"
           ? liveModels
           : getModelsByProviderId(providerId);
         const hardcodedIds = new Set(hardcodedModels.map((m) => m.id));
@@ -369,7 +371,7 @@ export default function ModelSelectModal({
           ...applyQoderModelNames(hardcodedModels, customModels, alias).map((m) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m), caps: m.caps })),
           ...customAliasModels,
           ...customRegisteredModels,
-        ];
+        ].map((m) => (m.caps || !liveCaps.get(m.id) ? m : { ...m, caps: liveCaps.get(m.id) }));
         // Dedupe by value (alias may equal hardcoded id, causing React key collision)
         const seen = new Set();
         let allModels = filterByKind(merged.filter((m) => {
