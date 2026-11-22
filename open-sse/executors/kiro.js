@@ -18,6 +18,7 @@ import { SSE_DONE, SSE_HEADERS } from "../utils/sseConstants.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
 import { isGatewayTimeout } from "../utils/requestTimeouts.js";
 import { STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig.js";
+import { buildKiroIdentityHeaders } from "../shared/kiroIdentity.js";
 
 const KIRO_REPAIR_BUFFER_MAX_BYTES = 8 * 1024 * 1024;
 const KIRO_SERVICE_REGIONS = {
@@ -235,6 +236,7 @@ export class KiroExecutor extends BaseExecutor {
   buildHeaders(credentials, stream = true, url = "") {
     const headers = {
       ...this.config.headers,
+      ...buildKiroIdentityHeaders(credentials, "streaming"),
       "Amz-Sdk-Request": "attempt=1; max=3",
       "Amz-Sdk-Invocation-Id": crypto.randomUUID()
     };

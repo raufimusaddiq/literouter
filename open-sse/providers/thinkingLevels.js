@@ -34,6 +34,7 @@ const CODEX_GPT_5_6_LEVELS = ["none", "minimal", "low", "medium", "high", "xhigh
 const CLAUDE_NO_XHIGH = ["none", "low", "medium", "high", "max"];
 
 const PATTERN_THINKING = [
+  { pattern: "*gemini-4-hydrogen*", levels: ["low", "medium", "high", "xhigh"] },
   { pattern: "*claude*4.6*", levels: CLAUDE_NO_XHIGH },
   { pattern: "*claude*4-6*", levels: CLAUDE_NO_XHIGH },
   { provider: "codex", pattern: "*gpt-6.1-sol*", levels: ["low", "medium", "high", "xhigh", "max"] },
