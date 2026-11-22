@@ -6,8 +6,6 @@ export function getFocusable(container) {
   return Array.from(container.querySelectorAll(FOCUSABLE)).filter((el) => !el.hasAttribute("disabled") && el.getAttribute("aria-hidden") !== "true");
 }
 
-// Pure: given the focusable list, the active element and whether Shift is held,
-// returns the element focus should wrap to, or null when the browser default is fine.
 export function nextTrapTarget(focusables, active, shift) {
   if (!focusables.length) return null;
   const first = focusables[0];

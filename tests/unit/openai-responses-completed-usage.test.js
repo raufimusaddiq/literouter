@@ -8,9 +8,6 @@ vi.mock("@/lib/usageDb.js", () => ({
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { createSSETransformStreamWithLogger } from "../../open-sse/utils/stream.js";
 
-// Codex compacts its history only from the token usage reported on `response.completed`
-// (sess.get_total_token_usage). Without it Codex never compacts and eventually sends a
-// prompt larger than the model's context window.
 
 async function runTransform(targetFormat, lines) {
   const encoder = new TextEncoder();
@@ -36,7 +33,6 @@ async function runTransform(targetFormat, lines) {
   return text + decoder.decode();
 }
 
-// Parse the client-facing SSE into [{ event, data }], skipping the [DONE] sentinel.
 function parseEvents(text) {
   return text
     .split("\n\n")
@@ -52,9 +48,6 @@ function parseEvents(text) {
 const sse = (data) => [`data: ${JSON.stringify(data)}`, ""];
 const claudeSse = (data) => [`event: ${data.type}`, `data: ${JSON.stringify(data)}`, ""];
 
-// Mirrors ResponseCompletedUsage in codex-rs/codex-api/src/sse/responses.rs. The three totals
-// are required i64s and the details are optional, but each detail field is a required i64
-// when present. Any deviation fails Codex's parse of the whole event, killing the turn.
 function expectCodexUsageShape(usage) {
   for (const field of ["input_tokens", "output_tokens", "total_tokens"]) {
     expect(Number.isInteger(usage[field]), field).toBe(true);
@@ -115,7 +108,6 @@ describe("Responses response.completed reports token usage", () => {
 
     const completed = events.filter((e) => e.event === "response.completed");
     expect(completed).toHaveLength(1);
-    // Terminal event last: Codex stops reading at response.completed.
     expect(events.at(-1).event).toBe("response.completed");
 
     const usage = completed[0].data.response.usage;

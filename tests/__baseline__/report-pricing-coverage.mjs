@@ -1,8 +1,3 @@
-// Note: an explicit 0 row counts as covered (cost not tracked); the CI guard only catches
-// null/missing pricing, so the explicit-zero count is printed here to keep those visible.
-// Read-only report: which chat/llm catalog models have no pricing row (or an explicit 0/0 row).
-// Usage: bun tests/__baseline__/report-pricing-coverage.mjs [provider-substring] [all]
-// The filter is a plain case-insensitive substring of the provider id (not a regex).
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 

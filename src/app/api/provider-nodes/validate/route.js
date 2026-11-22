@@ -2,17 +2,12 @@ import { NextResponse } from "next/server";
 import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
 import { isLocalRequest } from "@/dashboardGuard";
 
-// Every fetch of a caller-supplied node URL goes through fetchPublic, which
-// re-resolves the host and re-validates each redirect hop. A LAN node reached by
-// the trusted local operator is permitted explicitly by allowing the resolved
-// private address, never by skipping the guard.
 const fetchNode = (url, options, timeout = 10000) => {
   const { localOperator, ...init } = options;
   const withTimeout = { ...init, signal: AbortSignal.timeout(timeout) };
   return fetchPublic(url, withTimeout, { allowPrivate: localOperator === true });
 };
 
-// Validate URL format
 const isValidUrl = (url) => {
   try {
     new URL(url);
@@ -22,7 +17,6 @@ const isValidUrl = (url) => {
   }
 };
 
-// Parse error details for user-friendly messages
 const getErrorMessage = (error) => {
   if (error.cause?.code === "ECONNREFUSED") return "Connection refused - provider node offline or unreachable";
   if (error.cause?.code === "ENOTFOUND") return "DNS lookup failed - invalid domain or network issue";
@@ -34,7 +28,6 @@ const getErrorMessage = (error) => {
   return "Network connection failed - check URL and network connectivity";
 };
 
-// Get status-specific error message for /models endpoint
 const getModelsErrorMessage = (status) => {
   if (status === 401 || status === 403) return "API key unauthorized";
   if (status === 404) return "/models endpoint not found - try chat validation with model ID";
@@ -42,7 +35,6 @@ const getModelsErrorMessage = (status) => {
   return `Unexpected response (${status})`;
 };
 
-// Get status-specific error message for /chat/completions endpoint
 const getChatErrorMessage = (status) => {
   if (status === 401 || status === 403) return "API key unauthorized";
   if (status === 400) return "Invalid model or bad request";
@@ -51,7 +43,6 @@ const getChatErrorMessage = (status) => {
   return `Chat request failed (${status})`;
 };
 
-// POST /api/provider-nodes/validate - Validate API key against base URL
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -61,13 +52,10 @@ export async function POST(request) {
       return NextResponse.json({ error: "Base URL and API key required" }, { status: 400 });
     }
 
-    // Validate URL format
     if (!isValidUrl(baseUrl)) {
       return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
     }
 
-    // SSRF guard for remote callers; the local operator keeps self-hosted
-    // nodes on the LAN (LM Studio, vLLM, ollama-openai-compat).
     const localOperator = isLocalRequest(request);
     const remote = !localOperator;
     if (remote) {
@@ -78,7 +66,6 @@ export async function POST(request) {
       }
     }
 
-    // Anthropic Compatible Validation
     if (type === "anthropic-compatible") {
       let normalizedBase = baseUrl.trim().replace(/\/$/, "");
       if (normalizedBase.endsWith("/messages")) {
@@ -98,12 +85,10 @@ export async function POST(request) {
 
       if (res.ok) return NextResponse.json({ valid: true });
 
-      // Auth errors - no point trying chat fallback
       if (res.status === 401 || res.status === 403) {
         return NextResponse.json({ valid: false, error: "API key unauthorized" });
       }
 
-      // Fallback: try chat/completions if modelId provided
       if (modelId) {
         const chatRes = await fetchNode(`${normalizedBase}/chat/completions`, {
           method: "POST",
@@ -133,7 +118,6 @@ export async function POST(request) {
       return NextResponse.json({ valid: false, error: getModelsErrorMessage(res.status) });
     }
 
-    // System One node validation: native endpoint, auth-only probe.
     if (type === "systemone") {
       const res = await fetchNode(baseUrl.replace(/\/$/, ""), {
         method: "POST",
@@ -145,7 +129,6 @@ export async function POST(request) {
       return NextResponse.json({ valid, error: valid ? null : "API key unauthorized" });
     }
 
-    // OpenAI Compatible Validation (Default)
     const modelsUrl = `${baseUrl.replace(/\/$/, "")}/models`;
     const res = await fetchNode(modelsUrl, {
       localOperator,
@@ -154,12 +137,10 @@ export async function POST(request) {
 
     if (res.ok) return NextResponse.json({ valid: true });
 
-    // Auth errors - no point trying chat fallback
     if (res.status === 401 || res.status === 403) {
       return NextResponse.json({ valid: false, error: "API key unauthorized" });
     }
 
-    // Fallback: try chat/completions if modelId provided
     if (modelId) {
       const chatRes = await fetchNode(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",

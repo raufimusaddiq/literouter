@@ -1,4 +1,3 @@
-// Verify alias resolution is byte-for-byte stable (both directions, all sources).
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -8,7 +7,6 @@ import { PROVIDER_ID_TO_ALIAS, PROVIDER_MODELS } from "../../open-sse/config/pro
 const here = dirname(fileURLToPath(import.meta.url));
 const snapPath = join(here, "alias-baseline.json");
 
-// All known alias tokens to probe (collected from both maps' historical keys)
 const ALIAS_TOKENS = [
   "cc","cx","gc","qw","if","ag","gh","kr","cu","kc","kmc","cl","oc","ocg","qd","qoder",
   "el","openai","vercel","vercel-ai-gateway","anthropic","gemini","openrouter","glm","kimi",
@@ -26,7 +24,6 @@ const ALIAS_TOKENS = [
   "syn","synthetic","synthetic-new","sensenova-intl",
 ];
 
-// Sort idToAlias by key — runtime accesses by key, order is irrelevant (content-based)
 const sortedIdToAlias = Object.fromEntries(
   Object.keys(PROVIDER_ID_TO_ALIAS).sort().map(k => [k, PROVIDER_ID_TO_ALIAS[k]])
 );
@@ -48,7 +45,6 @@ if (JSON.stringify(baseline) === JSON.stringify(current)) {
   console.log(`✅ Alias resolution byte-for-byte equal (${ALIAS_TOKENS.length} tokens).`);
   process.exit(0);
 }
-// Diff
 for (const a of ALIAS_TOKENS) {
   if (baseline.aliasToId[a] !== current.aliasToId[a]) {
     console.error(`~ alias ${a}: ${baseline.aliasToId[a]} -> ${current.aliasToId[a]}`);

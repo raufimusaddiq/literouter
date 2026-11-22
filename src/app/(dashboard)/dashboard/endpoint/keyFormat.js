@@ -16,7 +16,6 @@ export function relativeTime(iso, now = Date.now()) {
   return `${Math.round(h / 24)} d ago`;
 }
 
-// Default order: last used desc, never-used last (then by name).
 export function sortKeysByLastUsed(keys, usage) {
   const ts = (k) => {
     const v = usage?.[k.id]?.lastUsed;

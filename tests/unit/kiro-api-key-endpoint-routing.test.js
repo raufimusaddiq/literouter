@@ -45,7 +45,6 @@ describe("Kiro auth-aware endpoint routing", () => {
   });
 
   it("never builds a host in a region that service does not serve", () => {
-    // ap-southeast-1 has no Kiro host; codewhisperer has none outside us-east-1.
     expect(executor.getOrderedBaseUrls(credentials("idc", "ap-southeast-1"))).toEqual([Q, CODEWHISPERER, RUNTIME]);
     expect(executor.getOrderedBaseUrls(credentials("idc", "eu-central-1"))).not.toContain(
       "https://codewhisperer.eu-central-1.amazonaws.com/generateAssistantResponse"
@@ -53,7 +52,6 @@ describe("Kiro auth-aware endpoint routing", () => {
   });
 
   it("refuses to splice an attacker-controlled region into the hostname", () => {
-    // The stored region is interpolated into a host that receives the bearer token.
     const hostile = "x.attacker.tld#";
     for (const url of executor.getOrderedBaseUrls(credentials("idc", hostile))) {
       expect(new URL(url).hostname).toMatch(/\.amazonaws\.com$|\.kiro\.dev$/);

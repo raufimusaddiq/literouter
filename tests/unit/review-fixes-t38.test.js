@@ -1,4 +1,3 @@
-// Hermes review fixes: legacy usage in rollup, allow-set cache invalidation, signature drain on shutdown.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -15,9 +14,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  try { global._dbAdapter?.instance?.close?.(); } catch { /* ignore */ }
+  try { global._dbAdapter?.instance?.close?.(); } catch {}
   delete global._dbAdapter;
-  try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch { /* windows EPERM */ }
+  try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });
@@ -82,7 +81,6 @@ describe("allow-set cache vs provider node edits", () => {
     const mk = () => ({ keyId: "k2", keyName: "k2", allow: ["mynode/gpt-4"], _sets: null });
     expect(await enforceKeyAccess(mk(), "mynode/gpt-4")).toBeNull();
     await updateProviderNode(node.id, { prefix: "other" });
-    // "other/gpt-4" now resolves to the node, but the allow entry "mynode/gpt-4" no longer does.
     expect(await enforceKeyAccess(mk(), "other/gpt-4")).not.toBeNull();
   });
 });

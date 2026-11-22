@@ -1,31 +1,23 @@
-/**
- * Antigravity weekly quota — best-effort retrieval from retrieveUserQuotaSummary.
- * Failure never breaks existing per-model quota display.
- */
 
 import { U, parseResetTime, fetchWithTimeout } from "./shared.js";
 import { ANTIGRAVITY_IDE_USER_AGENT, ANTIGRAVITY_IDE_VERSION } from "../../providers/shared.js";
 
-// — Weekly quota summary config ——————————————————————————————
 const WEEKLY_CONFIG = {
   ...U("antigravity"),
   userAgent: ANTIGRAVITY_IDE_USER_AGENT,
 };
 
-// — Cache: TTL + in-flight dedup per project ———————————————
-const WEEKLY_CACHE_TTL_MS = 180_000; // 3 minutes
-const weeklyCache = new Map(); // cacheKey -> { result, expiresAt } | { promise }
+const WEEKLY_CACHE_TTL_MS = 180_000;
+const weeklyCache = new Map();
 
 function cacheKey(accessToken, projectId) {
   return `${accessToken}::${projectId || ""}`;
 }
 
-// Exported for tests only
 export function _clearWeeklyCache() {
   weeklyCache.clear();
 }
 
-// — Group-name and window to stable key mapping ——————————————————————
 const GROUP_CONFIGS = [
   {
     pattern: /gemini/i,
@@ -39,17 +31,9 @@ const GROUP_CONFIGS = [
   },
 ];
 
-/**
- * Parse a retrieveUserQuotaSummary response into normalized weekly quotas.
- * Pure function — safe to unit-test without network.
- *
- * @param {Object|null} data  Raw JSON response
- * @returns {Object}  e.g. { gemini_weekly: { used, total, ... }, claude_gpt_weekly: { ... } }
- */
 export function parseWeeklyQuotaSummary(data) {
   if (!data || typeof data !== "object") return {};
 
-  // Groups may live at data.groups or data.quotaSummary.groups
   const groups = Array.isArray(data.groups)
     ? data.groups
     : Array.isArray(data.quotaSummary?.groups)
@@ -75,19 +59,15 @@ export function parseWeeklyQuotaSummary(data) {
 
       if (!isWeekly && !isSession) continue;
 
-      // If a session (5h) bucket is marked disabled by upstream (because weekly was hit),
-      // keep it so the UI shows the 5h row, but with remainingFraction: 0.
-      // Disabled weekly buckets are truly disabled and skipped.
       if (bucket.disabled === true && isWeekly) continue;
 
       const remainingFraction = bucket.disabled === true ? 0 : Number(bucket.remainingFraction);
       if (!Number.isFinite(remainingFraction)) continue;
 
-      // Match group to a known family
       for (const config of GROUP_CONFIGS) {
         if (config.pattern.test(displayName)) {
           const target = isWeekly ? config.weekly : config.session;
-          if (result[target.key]) break; // first matching bucket per type wins
+          if (result[target.key]) break;
 
           const total = 1000;
           const remaining = Math.round(total * remainingFraction);
@@ -110,13 +90,9 @@ export function parseWeeklyQuotaSummary(data) {
   return result;
 }
 
-/**
- * Fetch weekly quota summary — cached, deduped, never throws.
- */
 export async function fetchAntigravityWeeklyQuota(accessToken, projectId, proxyOptions = null) {
   const key = cacheKey(accessToken, projectId);
 
-  // Serve in-flight or cached
   const hit = weeklyCache.get(key);
   if (hit?.promise) return hit.promise;
   if (hit && hit.expiresAt > Date.now()) return hit.result;

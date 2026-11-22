@@ -105,8 +105,6 @@ describe("Kiro external_idp (CLIProxyAPI) import and refresh", () => {
     expect(headers.TokenType).toBe("EXTERNAL_IDP");
     expect(headers.tokentype).toBeUndefined();
 
-    // q.* is attempted first for every auth method (kiro.dev's path gateway is
-    // terminal on 400), then codewhisperer as the fallback surface.
     expect(executor.buildUrl("claude-sonnet-4.5", true, 0, credentials)).toBe(
       "https://q.us-east-1.amazonaws.com/generateAssistantResponse"
     );

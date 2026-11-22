@@ -3,15 +3,12 @@ import http from "node:http";
 import { createRequire } from "node:module";
 import { SSE_HEADERS, SSE_HEADERS_CORS, SSE_HEADERS_NO_BUFFER, sseResponseHeaders } from "open-sse/utils/sseConstants.js";
 
-// Same middleware Next (>=16.4.6) applies to route-handler responses.
 const require = createRequire(import.meta.url);
 const compression = require("../../node_modules/next/dist/compiled/compression");
 
 const servers = [];
 afterEach(() => { while (servers.length) servers.pop().close(); });
 
-// Serve a streaming Response (a "route handler" result) through the compression middleware,
-// writing chunks with delays so incremental delivery is observable.
 async function serve(makeResponse) {
   const compress = compression();
   const server = http.createServer(async (req, res) => {
@@ -63,9 +60,9 @@ describe("SSE responses survive Next's response compression", () => {
       const port = await serve(() => slowSse(headers));
       const { res, chunks, times, text } = await fetchChunks(port);
       expect(res.headers["content-encoding"] ?? "").not.toMatch(/gzip|br|deflate/);
-      expect(text.match(/^data: /gm)).toHaveLength(4); // plain, parseable SSE
+      expect(text.match(/^data: /gm)).toHaveLength(4);
       expect(chunks.length).toBeGreaterThan(1);
-      expect(times.at(-1) - times[0]).toBeGreaterThan(60); // spread over time, not one buffered write
+      expect(times.at(-1) - times[0]).toBeGreaterThan(60);
     }
   );
 

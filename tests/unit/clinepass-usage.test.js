@@ -125,7 +125,6 @@ describe("getUsageForProvider(clinepass)", () => {
       total: 100,
       remainingPercentage: 54,
     });
-    // UI treats absolute remaining as % — must not set it.
     expect(usage.quotas["Session (5h)"].remaining).toBeUndefined();
   });
 

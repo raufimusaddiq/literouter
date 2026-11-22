@@ -1,4 +1,3 @@
-// T-35: client abort propagation + bounded, non-replaying timeouts.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const fx = vi.hoisted(() => ({

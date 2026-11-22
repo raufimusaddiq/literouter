@@ -2,8 +2,6 @@
 
 import { Children, cloneElement, isValidElement, useId, useState } from "react";
 
-// Hover/focus tooltip. The tooltip text is linked to the (single) child trigger via
-// aria-describedby, shown on hover AND keyboard focus (focus-within), and Escape dismisses it.
 export default function Tooltip({ text, children, position = "top", color }) {
   const id = useId();
   const [dismissed, setDismissed] = useState(false);
@@ -32,7 +30,6 @@ export default function Tooltip({ text, children, position = "top", color }) {
       className="relative inline-flex group/tt"
       onKeyDown={(e) => {
         if (e.key === "Escape") {
-          // Only swallow Escape while the tooltip is visible (e.g. keep a parent Modal open).
           if (visible && !dismissed) e.stopPropagation();
           setDismissed(true);
         }

@@ -1,16 +1,8 @@
-// P0 GOLDEN (refactor2): lock OUTPUT translateResponse/Request cho các concern
-// SẮP refactor ở P1-P4 (usage field-map, finishReasonMap, reasoningDelta).
-// Bổ sung coverage còn thiếu so với golden-response-stream.test.js:
-//   - commandcode usage/finish
-//   - passthrough openai→openai (request + response)
-//   - kiro/ollama finish_reason sau tool (lock behavior HIỆN TẠI, kể cả bug đã biết)
-// Sau refactor chạy lại phải khớp y hệt. Lệch = regression.
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
 import { translateRequest, translateResponse, initState } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 
-// Strip volatile id/created so snapshots are stable across runs.
 function stripVolatile(chunks) {
   return JSON.parse(JSON.stringify(chunks), (key, val) => {
     if (key === "created") return 0;
@@ -99,7 +91,7 @@ describe("GOLDEN usage math: Claude prompt = input + cache (lock)", () => {
     ];
     const out = runStream(FORMATS.CLAUDE, FORMATS.OPENAI, events);
     const finalChunk = out.find(c => c.usage);
-    expect(finalChunk.usage.prompt_tokens).toBe(15); // 10 + 3 + 2
+    expect(finalChunk.usage.prompt_tokens).toBe(15);
     expect(finalChunk.usage.completion_tokens).toBe(5);
     expect(finalChunk.usage).toMatchSnapshot();
   });

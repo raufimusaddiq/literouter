@@ -1,4 +1,3 @@
-// Claude Messages API streaming SSE event "type" discriminators. Pure data.
 export const CLAUDE_EVENT = {
   MESSAGE_START: "message_start",
   MESSAGE_DELTA: "message_delta",

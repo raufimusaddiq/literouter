@@ -38,22 +38,6 @@ import { defaultClaudeToolType, shouldDefaultClaudeToolType } from "../translato
 import { applyResponsesFunctionToolsQuirk } from "../translator/concerns/responsesFunctionTools.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
 
-/**
- * Core chat handler - shared between SSE and Worker
- * @param {object} options.body - Request body
- * @param {object} options.modelInfo - { provider, model }
- * @param {object} options.credentials - Provider credentials
- * @param {string} options.sourceFormatOverride - Override detected source format (e.g. "openai-responses")
- */
-/**
- * Remove translator-internal continuity fields from the outbound upstream
- * body. The Responses→Chat request translator stashes reasoning
- * `encrypted_content` on assistant messages so a later openai→responses
- * round-trip can restore the store=false continuity blob; that stash must
- * never reach an upstream provider. Chat-native proxies reject the unknown
- * assistant-message field and answer every turn with a literal "400" body
- * (observed with multi-turn Codex sessions via OpenAI-compatible nodes).
- */
 export function stripContinuityFields(body) {
   if (!body || !Array.isArray(body.messages)) return body;
   for (const msg of body.messages) {
@@ -65,11 +49,6 @@ export function stripContinuityFields(body) {
   return body;
 }
 
-/**
- * Entry point. Guarantees the pending-request counter is released on any throw and that a
- * client abort / gateway timeout surfaces as a typed result (499 / 504) instead of a throw.
- * Callers must not lock the account for either (neither says anything about its health).
- */
 export async function handleChatCore(opts) {
   const state = { release: null };
   try {
@@ -92,7 +71,6 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
   const { provider, model } = modelInfo;
   const clientSignal = clientRawRequest?.signal || null;
   const requestStartTime = Date.now();
-  // Stable per-session color so all lines of one CLI conversation share a tag
   const sessionSeed = (() => {
     try {
       return resolveSessionId({ headers: clientRawRequest?.headers, body, connectionId, scope: provider });
@@ -108,43 +86,18 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     return createErrorResult(HTTP_STATUS.BAD_REQUEST, "Native compaction requires a Codex Responses provider");
   }
 
-  // Check for bypass patterns (warmup, skip, cc naming)
   const bypassResponse = handleBypassRequest(body, model, userAgent, ccFilterNaming);
   if (bypassResponse) return bypassResponse;
 
   const alias = PROVIDER_ID_TO_ALIAS[provider] || provider;
   const modelTargetFormat = getModelTargetFormat(alias, model);
-  // Multi-endpoint providers: pick transport matching sourceFormat → zero translation.
-  // Per-model guard: only use the transport when the model declares support for that
-  // sourceFormat — opencode-go models differ in endpoint support (kimi/glm only do
-  // /chat/completions), so without this guard a claude-format request would wrongly
-  // route kimi to /messages.
   const modelSupportedFormats = getModelSupportedFormats(alias, model);
   const runtimeTransport = resolveTransport(provider, sourceFormat, credentials);
-  // Per-model guard: when a model declares supportedFormats, only use the
-  // sourceFormat-matched transport if that format is declared (opencode-go models
-  // differ — kimi/glm only do /chat/completions). Undeclared models keep the
-  // upstream default (use the transport), preserving behavior for glm/deepseek/...
-  // When the client's wire format is NOT among the model's supportedFormats, fall
-  // back to the transport for the model's declared targetFormat so the URL always
-  // matches the translated body. Without this, a Responses-only model (e.g. Muse
-  // Spark: supportedFormats ["openai-responses"]) requested by an OpenAI client is
-  // translated to the Responses body (`input`) yet POSTed to the default Chat
-  // Completions URL, and upstream rejects it: "unknown parameter `input`".
   const modelTargetTransport = modelTargetFormat ? resolveTransport(provider, modelTargetFormat) : null;
   let useTransport = (!modelSupportedFormats || modelSupportedFormats.includes(sourceFormat))
     ? runtimeTransport
     : modelTargetTransport;
-  // A source-format-matched endpoint keeps the request lossless. Prefer it
-  // over a model-level targetFormat, which is only the fallback for clients
-  // whose wire format has no supported transport (for example MiniMax-M3:
-  // OpenAI clients should stay on /chat/completions; other clients can fall
-  // back to its declared Claude target).
   const targetFormat = useTransport?.format || modelTargetFormat || getTargetFormat(provider, credentials);
-  // A model may be available only on a non-default transport.  For example,
-  // OpenCode Go Luna is Responses-only.  When a chat-format client selects it
-  // directly or through a combo, translate to the model's declared target and
-  // send it to that transport rather than the provider's default chat URL.
   if (!useTransport && modelSupportedFormats?.includes(targetFormat)) {
     useTransport = resolveTransport(provider, targetFormat, credentials);
   }
@@ -152,12 +105,9 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
   const stripList = getModelStrip(alias, model);
   const upstreamModel = getModelUpstreamId(alias, model);
 
-  // Inject provider-level thinking config override (only if client hasn't set)
-  // on/off → extended type (body.thinking), none/low/medium/high → effort type (body.reasoning_effort)
   if (providerThinking?.mode && providerThinking.mode !== "auto") {
     const mode = providerThinking.mode;
     if (mode === "on" || mode === "off") {
-      // Extended type only — "on"/"off" are not valid reasoning_effort values.
       if (!body.thinking) {
         if (mode === "on") {
           console.log("Injecting provider-level thinking config override: on");
@@ -178,21 +128,15 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
   const providerRequiresStreaming = PROVIDERS[provider]?.forceStream === true || getModelForceStream(alias, model);
   let stream = providerRequiresStreaming ? true : (sourceFormat === FORMATS.CLAUDE ? body.stream === true : body.stream !== false);
 
-  // Image generation models require non-streaming (Google v1internal:generateContent)
   const modelType = getModelType(alias, model);
   const isImageGenModel = modelType === "imageGen" || /image/i.test(model);
   if (isImageGenModel && (provider === "antigravity" || provider === "gemini-cli")) {
     stream = false;
   }
 
-  // DeepSeek-TUI: interactive TUI panel sends stream:true and needs SSE.
-  // Non-interactive mode (-p flag) sends without stream and can't parse SSE.
-  // Only force non-streaming when client didn't explicitly request it.
   const detectedTool = detectClientTool(clientRawRequest?.headers || {}, body);
   if (detectedTool === "deepseek-tui" && body.stream !== true) stream = false;
 
-  // Check client Accept header preference for non-streaming requests
-  // This fixes AI SDK compatibility where clients send Accept: application/json
   const acceptHeader = clientRawRequest?.headers?.accept || "";
   const clientPrefersJson = acceptHeader.includes("application/json");
   const clientPrefersSSE = acceptHeader.includes("text/event-stream");
@@ -205,21 +149,16 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
   reqLogger.logRawRequest(body);
   log?.debug?.("FORMAT", `${sourceFormat} → ${targetFormat} | stream=${stream}`);
 
-  // Native passthrough: CLI tool and provider are the same ecosystem
-  // Skip all translation/normalization — only model and Bearer are swapped
   const clientTool = detectedTool;
   const passthrough = isNativePassthrough(clientTool, provider);
 
-  // Expose raw client headers to translators/executors for session-id resolution
   if (credentials) credentials.rawHeaders = clientRawRequest?.headers || {};
 
-  // Auto-strip media blocks the model can't read (vision/audio/pdf) before translation.
   if (!passthrough) {
     const caps = getCapabilitiesForModel(provider, model);
     if (stripUnsupportedModalities(body, sourceFormat, caps)) {
       log?.debug?.("MODALITY", `stripped unsupported media for ${provider}/${model}`);
     }
-    // Convert remote image URLs to base64 for targets that can't fetch URLs.
     try {
       const n = await prefetchRemoteImages(body, sourceFormat, targetFormat, { signal: clientRawRequest?.signal });
       if (n > 0) log?.debug?.("MODALITY", `prefetched ${n} remote image(s) for ${targetFormat}`);
@@ -247,13 +186,11 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
         delete translatedBody.reasoning_effort;
       }
     }
-    // Normalize newer Cowork/CC beta shapes (adaptive thinking, mid-conversation system) the API rejects
     if (clientTool === "claude") normalizeClaudePassthrough(translatedBody, translatedBody.model);
   } else {
     try {
       translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, stream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
     } catch (error) {
-      // Unsupported request parameters (n>1, logprobs...) are the client's error, not ours.
       if (!(error instanceof RequestParamError)) throw error;
       trackPendingRequest(model, provider, connectionId, false, true);
       return createErrorResult(error.status, error.message);
@@ -270,10 +207,6 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     stripContinuityFields(translatedBody);
   }
 
-  // Kenari /v1/responses subset: convert `custom` tools → `function` (freeform
-  // `input` param) and drop text.format structured outputs. Same-format
-  // passthrough skips translation, so this is the only normalization point.
-  // Converted names ride on _customToolNames for the response-side rewrite.
   if (PROVIDERS[provider]?.quirks?.responsesFunctionToolsOnly && targetFormat === FORMATS.OPENAI_RESPONSES) {
     const before = customToolNames;
     translatedBody = applyResponsesFunctionToolsQuirk(translatedBody);
@@ -282,7 +215,6 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     customToolNames = new Set([...(names || []), ...(before || [])]);
   }
 
-  // Dedupe duplicate built-in tools when equivalent MCP tools are present (Claude clients only).
   if (Array.isArray(translatedBody.tools)) {
     const { tools: deduped, stripped } = dedupeTools(translatedBody.tools, { clientTool, model, messages: translatedBody.messages });
     if (stripped.length > 0) {
@@ -291,11 +223,8 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     }
   }
 
-  // Token savers: applied at the final body just before dispatch
-  // Covers both passthrough (source shape) and translated (target shape) flows
   const finalFormat = passthrough ? sourceFormat : targetFormat;
 
-  // Request line: one correlated summary (fmt + thinking + counts + account)
   if (log?.line) {
     const clientModel = clientRawRequest?.body?.model || `${provider}/${model}`;
     const msgN = translatedBody.messages?.length || translatedBody.input?.length || translatedBody.contents?.length || body.messages?.length || body.input?.length || 0;
@@ -316,31 +245,21 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     log.line(reqTag, "▶", parts.join(" · "));
   }
 
-  // TTS models don't support tool messages/function calling
   if (modelType === "tts" && translatedBody.messages) {
     translatedBody.messages = translatedBody.messages.filter(msg => msg.role !== "tool");
     delete translatedBody.tools;
   }
 
-  // Claude tool schema requires `type` to be explicitly set; strict gateways (e.g., MiniMax)
-  // reject legacy payloads that omit it with HTTP 400. Default to "custom" when missing.
-  // Provider-scoped via quirks (shouldDefaultClaudeToolType): only gateways that declare
-  // requireClaudeToolType get the explicit type. Applying it unconditionally breaks
-  // Claude-format endpoints that only accept the legacy typeless tool shape — DeepSeek's
-  // Anthropic-compatible endpoint 400s with "unknown variant `custom`" (#3905).
   if (shouldDefaultClaudeToolType(provider, finalFormat, translatedBody.tools, PROVIDERS)) {
     translatedBody.tools = defaultClaudeToolType(translatedBody.tools);
   }
 
-  // Per-request opt-out: client can bypass all token savers via header
   const tokenSaverEnabled = isTokenSaverEnabled(clientRawRequest?.headers);
 
-  // RTK: compress tool_result content
   const rtkStats = preTranslateRtk || compressMessages(translatedBody, tokenSaverEnabled && rtkEnabled);
   const rtkLine = formatRtkLog(rtkStats);
   if (rtkLine) console.log(rtkLine);
 
-  // Headroom: optional external proxy compression; fail open if proxy is absent.
   const headroomDiagnostics = {};
   const headroomStats = await compressWithHeadroom(translatedBody, { enabled: tokenSaverEnabled && headroomEnabled, url: headroomUrl, model: upstreamModel, format: finalFormat, compressUserMessages: headroomCompressUserMessages, timeoutMs: headroomTimeoutMs, diagnostics: headroomDiagnostics });
   const headroomLine = formatHeadroomLog(headroomStats);
@@ -352,23 +271,19 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     }
   } else if (tokenSaverEnabled && headroomEnabled) log?.warn?.("HEADROOM", `skipped: ${headroomDiagnostics.reason || "compression unavailable"}${headroomDiagnostics.endpoint ? ` (${headroomDiagnostics.endpoint})` : ""}`);
 
-  // Token-saver flags accumulator for the single "⚙" log line below.
   const xf = [];
 
-  // Caveman: inject terse-style system prompt
   if (tokenSaverEnabled && cavemanEnabled && cavemanLevel) {
     injectCaveman(translatedBody, finalFormat, cavemanLevel);
     xf.push(`CAVEMAN:${cavemanLevel}`);
   }
 
-  // Ponytail: inject lazy-senior-dev system prompt
   if (tokenSaverEnabled && ponytailEnabled && ponytailLevel) {
     injectPonytail(translatedBody, finalFormat, ponytailLevel);
     xf.push(`PONYTAIL:${ponytailLevel}`);
   }
   if (rtkStats?.hits?.length) xf.push(`RTK:${rtkStats.hits.length}`);
 
-  // PXPIPE: image bulky context (Claude-format bodies only), last saver before dispatch
   let pxpipeSummary = null;
   if (pxpipeEnabled) {
     const pxpipeResult = await compressWithPxpipe(translatedBody, {
@@ -378,18 +293,15 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     pxpipeSummary = pxpipeResult.summary;
     if (pxpipeResult.body) translatedBody = pxpipeResult.body;
     if (pxpipeSummary?.applied) xf.push(`PXPIPE:${pxpipeSummary.imageCount}img`);
-    try { onPxpipeEvent?.({ provider, model, ...pxpipeSummary }); } catch { /* stats must not break requests */ }
+    try { onPxpipeEvent?.({ provider, model, ...pxpipeSummary }); } catch {}
   }
 
   if (xf.length && log?.line) log.line(reqTag, "⚙", xf.join(" · "));
 
-  // Pin cache breakpoints to the final body — every saver above can reshape
-  // system/tools/messages, and a stale anchor costs a full prefix rewrite.
   if (passthrough && clientTool === "claude") anchorClaudeCache(translatedBody);
 
   const executor = getExecutor(provider);
   trackPendingRequest(model, provider, connectionId, true);
-  // Idempotent release: every exit path (and the wrapper on a throw) funnels through here.
   let pendingOpen = true;
   const releasePending = (isError = false) => {
     if (!pendingOpen) return;
@@ -397,11 +309,9 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     trackPendingRequest(model, provider, connectionId, false, isError);
   };
   state.release = releasePending;
-  // Non-stream calls keep their total-timeout timer until the body is consumed; each
-  // executor result hands back dispose() so it (and its abort listener) never lingers.
   const disposers = [];
   const trackResult = (r) => { if (typeof r?.dispose === "function") disposers.push(r.dispose); return r; };
-  const disposeUpstreamSignals = () => { for (const d of disposers.splice(0)) { try { d(); } catch { /* ignore */ } } };
+  const disposeUpstreamSignals = () => { for (const d of disposers.splice(0)) { try { d(); } catch {} } };
 
   const msgCount = translatedBody.messages?.length || translatedBody.input?.length || translatedBody.contents?.length || translatedBody.request?.contents?.length || 0;
   log?.debug?.("REQUEST", `${provider.toUpperCase()} | ${model} | ${msgCount} msgs`);
@@ -415,7 +325,6 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     log, provider, model, reqTag
   });
 
-  // Upstream work stops when either the client goes away or the stream is cancelled/stalled.
   const upstreamSignal = clientSignal ? AbortSignal.any([clientSignal, streamController.signal]) : streamController.signal;
 
   const proxyOptions = {
@@ -440,7 +349,6 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
       const protocol = parsed.protocol || "http:";
       maskedProxyUrl = `${protocol}//${host}${port}`;
     } catch {
-      // Keep raw if URL parsing fails
     }
 
     const poolId = credentials?.providerSpecificData?.connectionProxyPoolId || "none";
@@ -453,10 +361,6 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     log?.debug?.("PROXY", `${provider.toUpperCase()} | ${model} | conn=${connectionName} | no_proxy=${proxyOptions.connectionNoProxy}`);
   }
 
-  // Model quirk (config/providerModels.js): some upstream models (e.g. OpenCode Go GPT-5.6 Luna
-  // Responses) reject sampling controls and require a minimum output-token budget. Clients send
-  // temperature by default and probes use tiny budgets, so normalize after all request
-  // transforms and before the executor.
   const samplingQuirk = getModelSamplingQuirk(alias, model);
   if (samplingQuirk.noSamplingControls) {
     delete translatedBody.temperature;
@@ -472,10 +376,7 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     }
   }
 
-  // Execute request
   let providerResponse, providerUrl, providerHeaders, finalBody;
-  // Most executors return their registry format. Cursor AgentService is an
-  // exception: it is decoded by the executor into OpenAI-compatible output.
   let providerResponseFormat = targetFormat;
   try {
     const result = trackResult(await executor.execute({
@@ -532,13 +433,8 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
 
   throwIfAborted(clientSignal);
 
-  // Handle 401/403 - try token refresh (skip for noAuth providers)
   if (!executor.noAuth && (providerResponse.status === HTTP_STATUS.UNAUTHORIZED || providerResponse.status === HTTP_STATUS.FORBIDDEN)) {
     try {
-      // Mutate credentials after each successful refresh: rotating refresh_token
-      // providers (xAI/grok-cli) issue a new RT on every refresh; without this,
-      // refreshWithRetry's 2nd/3rd attempt reuses the already-consumed RT →
-      // invalid_grant → auth_failed retryable=false.
       const newCredentials = await refreshWithRetry(async () => {
         const result = await executor.refreshCredentials(credentials, log, proxyOptions);
         if (result?.refreshToken && result.refreshToken !== credentials.refreshToken) {
@@ -565,9 +461,6 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
             log,
             proxyOptions,
           }));
-          // The refreshed retry supersedes the 401/403 entirely: take its response
-          // (even an error, so the failure is parsed from the retry, not the stale
-          // auth error) along with its headers and transformed body.
           discardResponse(providerResponse);
           providerResponse = retryResult.response;
           providerUrl = retryResult.url;
@@ -575,7 +468,6 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
           finalBody = retryResult.transformedBody;
           providerResponseFormat = retryResult.responseFormat || targetFormat;
         } catch (e) {
-          // Client gone / timeout: stop here instead of surfacing the stale 401 (which would lock the account).
           if (isAbortError(e) || isGatewayTimeout(e) || clientSignal?.aborted) throw e;
           log?.warn?.("TOKEN", `${provider.toUpperCase()} | retry after refresh failed`);
         }
@@ -588,7 +480,6 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     }
   }
 
-  // Some Claude models reject forced tool_choice or disabled thinking; adapt once and retry.
   if (!providerResponse.ok && providerResponse.status === HTTP_STATUS.BAD_REQUEST && targetFormat === FORMATS.CLAUDE) {
     try {
       const adapted = adaptClaudeRequestAfterRejection(translatedBody, await providerResponse.clone().text());
@@ -624,7 +515,6 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
 
   throwIfAborted(clientSignal);
 
-  // Provider returned error
   if (!providerResponse.ok) {
     releasePending(true);
     let parsedError;
@@ -653,17 +543,12 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
   const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, reqTag, log };
   const trackDone = () => releasePending();
 
-  // Provider forced streaming but client wants JSON. The Responses wire always
-  // streams upstream (openaiToOpenAIResponsesRequest pins stream:true), so a
-  // non-stream OpenAI/native client behind a Responses upstream must also take
-  // this path — handleForcedSSEToJson returns null when the body is not SSE.
   if (!clientRequestedStreaming && (providerRequiresStreaming || providerResponseFormat === FORMATS.OPENAI_RESPONSES)) {
     let result;
     try { result = await handleForcedSSEToJson({ ...sharedCtx, signal: upstreamSignal, providerResponse, sourceFormat, targetFormat: providerResponseFormat, customToolNames, toolNameMap, trackDone }); } finally { disposeUpstreamSignals(); }
     if (result) { streamController.handleComplete(); return result; }
   }
 
-  // True non-streaming response
   if (!stream) {
     let result;
     try { result = await handleNonStreamingResponse({ ...sharedCtx, signal: upstreamSignal, providerResponse, sourceFormat, targetFormat: providerResponseFormat, reqLogger, toolNameMap, customToolNames, trackDone }); } finally { disposeUpstreamSignals(); }
@@ -671,7 +556,6 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     return result;
   }
 
-  // Streaming response: the stream path (stream.js) owns the counter from here.
   pendingOpen = false;
   const { onStreamComplete, onStreamAbort, streamDetailId } = buildOnStreamComplete({ ...sharedCtx });
   return handleStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, userAgent, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, onStreamAbort, streamDetailId, credentials });

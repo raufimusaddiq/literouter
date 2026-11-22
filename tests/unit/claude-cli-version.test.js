@@ -1,8 +1,3 @@
-// Live Claude CLI version lookup — the hardening contract.
-//
-// Anthropic gates new models on a minimum claude-cli version, so the fingerprint
-// is resolved from npm. LiteRouter requires: bounded, cached, one in-flight,
-// never below the pinned floor, and never blocking or failing a request.
 import { describe, expect, it, afterEach } from "vitest";
 
 import {
@@ -44,7 +39,6 @@ describe("claudeCliVersion", () => {
 
   it("never advertises below the floor even if npm returns an older version", async () => {
     setClaudeCliFallback("2.1.295");
-    // A lookup result is adopted only when strictly greater than the floor.
     await ensureClaudeCliVersion(fakeFetch("1.0.0"));
     expect(getClaudeCliVersion()).toBe(FLOOR);
   });
@@ -69,8 +63,6 @@ describe("claudeCliVersion", () => {
     const fetchImpl = fakeFetch("2.2.0");
     const a = ensureClaudeCliVersion(fetchImpl);
     const b = ensureClaudeCliVersion(fetchImpl);
-    // Both calls return the last known version synchronously — the refresh is
-    // fire-and-forget, so a slow npm registry cannot add latency.
     expect(a).toBe(FLOOR);
     expect(b).toBe(FLOOR);
     expect(fetchImpl.calls.length).toBe(1);
@@ -81,7 +73,6 @@ describe("claudeCliVersion", () => {
     ensureClaudeCliVersion(fetchImpl);
     await new Promise((r) => setTimeout(r, 0));
     expect(getClaudeCliVersion()).toBe("2.2.0");
-    // Fresh success cache: no second lookup within the TTL.
     ensureClaudeCliVersion(fetchImpl);
     expect(fetchImpl.calls.length).toBe(1);
   });

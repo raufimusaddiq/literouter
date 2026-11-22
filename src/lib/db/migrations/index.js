@@ -1,6 +1,3 @@
-// Migration registry — append new entries when schema changes.
-// Each migration: { version: number, name: string, up(db): void }
-// Versions MUST be unique and monotonically increasing.
 import m001 from "./001-initial.js";
 import m002 from "./002-purge-mitm-alias.js";
 import m003 from "./003-fingerprint-usage-api-keys.js";

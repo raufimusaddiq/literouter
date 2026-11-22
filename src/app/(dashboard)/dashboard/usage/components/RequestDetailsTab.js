@@ -84,7 +84,6 @@ function CollapsibleSection({ title, children, defaultOpen = false, icon = null 
   );
 }
 
-/** Treat anything that is neither missing nor an explicit success as an error. */
 function isErrorStatus(status) {
   return !!status && status !== "success" && status !== "ok";
 }
@@ -238,7 +237,6 @@ export default function RequestDetailsTab() {
       </Card>
 
       <Card padding="none">
-        {/* Mobile: card list. Table below is desktop-only. */}
         <ul className="divide-y divide-black/5 dark:divide-white/5 lg:hidden">
           {loading ? (
             <li className="flex items-center justify-center gap-2 p-8 text-sm text-text-muted">

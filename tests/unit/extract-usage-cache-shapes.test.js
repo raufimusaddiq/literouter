@@ -1,12 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 
-// sever the DB import chain (usageDb -> @/lib/db/*) — not under test
 vi.mock("@/lib/usageDb.js", () => ({
   saveRequestUsage: vi.fn(),
   appendRequestLog: vi.fn(),
   saveRequestDetail: vi.fn(),
 }));
-// and the stream/console-coloring utils that drag in the translator graph
 vi.mock("../../open-sse/utils/stream.js", () => ({
   COLORS: {},
   formatSSE: vi.fn(),
@@ -15,13 +13,8 @@ vi.mock("../../open-sse/utils/stream.js", () => ({
 import { extractUsageFromResponse } from "../../open-sse/handlers/chatCore/requestDetail.js";
 import { canonicalizeUsage } from "../../open-sse/utils/usageTracking.js";
 
-// The three real-world usage shapes and how extractUsageFromResponse() must
-// surface their cache-read count so canonicalizeUsage() produces a correct
-// cached_tokens. Regression for non-streaming codex/Responses traffic, where
-// cache reads were silently dropped and usage recorded cached_tokens: 0.
 describe("extractUsageFromResponse cache surfaces", () => {
   it("surfaces OpenAI Responses input_tokens_details.cached_tokens", () => {
-    // codex / /v1/responses shape: prompt is cache-INCLUSIVE
     const out = extractUsageFromResponse({
       usage: { input_tokens: 25421, output_tokens: 5, total_tokens: 25426,
                input_tokens_details: { cached_tokens: 24320 } },
@@ -37,7 +30,6 @@ describe("extractUsageFromResponse cache surfaces", () => {
                input_tokens_details: { cached_tokens: 24320 } },
     });
     const out = canonicalizeUsage(extracted);
-    // inclusive prompt passes through unchanged; cache reported as subset
     expect(out.prompt_tokens).toBe(25421);
     expect(out.cached_tokens).toBe(24320);
     expect(out.total_tokens).toBe(25426);
@@ -51,7 +43,7 @@ describe("extractUsageFromResponse cache surfaces", () => {
     });
     expect(extracted.cached_tokens).toBeUndefined();
     const out = canonicalizeUsage(extracted);
-    expect(out.prompt_tokens).toBe(330); // 100 + 200 + 30
+    expect(out.prompt_tokens).toBe(330);
     expect(out.cached_tokens).toBe(200);
     expect(out.cache_creation_input_tokens).toBe(30);
   });
@@ -72,8 +64,6 @@ describe("extractUsageFromResponse cache surfaces", () => {
     expect(canonicalizeUsage(out).cached_tokens).toBe(240);
   });
 
-  // Ollama non-streaming: prompt_eval_count/eval_count/prompt_eval_cached_count
-  // live at the top level of the response body (not nested under `usage`).
   it("extracts Ollama top-level prompt_eval_count/eval_count", () => {
     const out = extractUsageFromResponse({
       model: "gpt-oss:120b",
@@ -96,10 +86,9 @@ describe("extractUsageFromResponse cache surfaces", () => {
       eval_count: 20,
       prompt_eval_cached_count: 80,
     });
-    expect(out.prompt_tokens).toBe(100); // cache-INCLUSIVE
+    expect(out.prompt_tokens).toBe(100);
     expect(out.completion_tokens).toBe(20);
     expect(out.cached_tokens).toBe(80);
-    // canonicalize passes cache-INCLUSIVE prompt through unchanged
     const canon = canonicalizeUsage(out);
     expect(canon.prompt_tokens).toBe(100);
     expect(canon.cached_tokens).toBe(80);
@@ -107,7 +96,6 @@ describe("extractUsageFromResponse cache surfaces", () => {
   });
 
   it("returns null for an Ollama-shaped body missing done flag", () => {
-    // Non-final Ollama chunk (done:false) carries no usage — must not match.
     expect(extractUsageFromResponse({ model: "x", done: false, prompt_eval_count: 5 }))
       .toBeNull();
   });

@@ -1,6 +1,3 @@
-/**
- * Usage Fetcher - Get usage data from provider APIs
- */
 
 import { getGitHubUsage } from "./usage/github.js";
 import { getGeminiUsage, getAntigravityUsage } from "./usage/google.js";
@@ -31,12 +28,6 @@ import {
   getQoderUsage,
 } from "./usage/misc.js";
 
-/**
- * Get usage data for a provider connection
- * @param {Object} connection - Provider connection with accessToken
- * @returns {Object} Usage data with quotas
- */
-// provider → usage handler (ctx carries every arg each handler needs)
 const USAGE_HANDLERS = {
   github: (c) => getGitHubUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
   "gemini-cli": (c) => getGeminiUsage(c.accessToken, c.providerDataWithProjectId, c.proxyOptions),
@@ -45,8 +36,6 @@ const USAGE_HANDLERS = {
   codex: (c) => getCodexUsage(c.accessToken, c.proxyOptions),
   kiro: (c) => getKiroUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
   qoder: async (c) => {
-    // PAT (pt-...) connections must be exchanged to a job token before the
-    // quota endpoint accepts them.
     const resolved = await resolveQoderCredentials(c, c.proxyOptions).catch(() => null);
     return getQoderUsage(resolved?.accessToken || c.accessToken, c.proxyOptions);
   },
@@ -69,7 +58,6 @@ const USAGE_HANDLERS = {
   commandcode: (c) => getCommandCodeUsage(c.apiKey, c.proxyOptions),
   kenari: (c) => getKenariUsage(c.apiKey, c.proxyOptions),
   synthetic: (c) => getSyntheticUsage(c.apiKey, c.proxyOptions),
-  // OAuth WorkOS JWT (workos: prefix) or plain ClinePass API key — same usage-limits URL.
   clinepass: (c) => getClinepassUsage(c.accessToken, c.apiKey, c.proxyOptions),
 };
 

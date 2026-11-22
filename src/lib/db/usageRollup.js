@@ -1,13 +1,6 @@
-// 10-minute rollup of usageHistory used by the 24h / today dashboard stats, so
-// the stats query cost scales with (buckets x distinct key tuples), not rows.
-// A bucket is the first 15 chars of the ISO timestamp ("2026-11-19T15:2").
-// Maintained in the same transaction as the history insert; backfilled by
-// migration 005 from usageHistory.
 export const ROLLUP_RETENTION_MS = 3 * 86400000;
 export const bucketOf = (ts) => String(ts || "").slice(0, 15);
 
-// Dimension tuples are interned in usageRollupKey so the rollup groups/sums on a
-// single integer instead of five text columns (the 24h query is a pure int GROUP BY).
 export const ROLLUP_TABLE_SQL = [
   `CREATE TABLE IF NOT EXISTS usageRollupKey (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,9 +23,7 @@ export const ROLLUP_TABLE_SQL = [
 ];
 export function ensureRollupTables(db) { for (const sql of ROLLUP_TABLE_SQL) db.run(sql); }
 
-const keyCaches = new WeakMap(); // db -> Map(tupleKey -> id)
-// Ids are cached before the enclosing txn commits; on rollback the INSERTed key
-// rows vanish (AUTOINCREMENT may reissue the id), so callers must drop the cache.
+const keyCaches = new WeakMap();
 export function clearRollupKeyCache(db) { keyCaches.delete(db); }
 export function getRollupKeyId(db, tuple) {
   let cache = keyCaches.get(db);
@@ -47,14 +38,11 @@ export function getRollupKeyId(db, tuple) {
   return id;
 }
 
-// Effective token value: JSON tokens field first (OpenAI or Anthropic naming),
-// falling back to the denormalized column (mirrors the JS `||` chain).
 const tok = (a, b, col) =>
   `COALESCE(NULLIF(CASE WHEN json_valid(tokens) THEN COALESCE(NULLIF(json_extract(tokens,'$.${a}'),0),json_extract(tokens,'$.${b}')) END,0), NULLIF(${col},0), 0)`;
 
 const TUPLE_EXPR = `COALESCE(provider,'') AS provider, COALESCE(model,'') AS model, COALESCE(connectionId,'') AS connectionId, COALESCE(apiKey,'') AS apiKey, COALESCE(endpoint,'') AS endpoint`;
 
-// Rebuild rollup rows for all history at/after sinceIso (idempotent).
 export function backfillUsageRollup(db, sinceIso) {
   ensureRollupTables(db);
   db.run(`DELETE FROM usageRollup WHERE bucket >= ?`, [bucketOf(sinceIso)]);

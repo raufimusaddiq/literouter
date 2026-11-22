@@ -1,4 +1,3 @@
-// T-36: real SQLite repo — cleared locks are deleted, backoff increments atomically.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -21,7 +20,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch { /* Windows keeps the sqlite file open */ }
+  try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });

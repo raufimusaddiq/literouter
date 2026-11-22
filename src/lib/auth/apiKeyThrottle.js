@@ -1,18 +1,14 @@
-// In-memory, bounded failed-auth throttle for the public gateway routes.
-// Counts only failed key validations per client IP. Lenient on purpose: behind
-// Cloudflare without Caddy `trusted_proxies`, many users can share one edge IP.
 const MAX_FAILS = Number(process.env.API_KEY_FAIL_LIMIT) > 0 ? Number(process.env.API_KEY_FAIL_LIMIT) : 20;
 const WINDOW_MS = 60_000;
 const BLOCK_MS = 60_000;
 const MAX_ENTRIES = 10_000;
 
-const store = (globalThis.__liteRouterKeyThrottle ??= new Map()); // ip -> { count, windowStart, blockedUntil }
+const store = (globalThis.__liteRouterKeyThrottle ??= new Map());
 
 function evict(now) {
   for (const [ip, e] of store) {
     if (e.blockedUntil <= now && now - e.windowStart > WINDOW_MS) store.delete(ip);
   }
-  // Still full: drop oldest-inserted entries (Map preserves insertion order).
   while (store.size >= MAX_ENTRIES) store.delete(store.keys().next().value);
 }
 
@@ -34,7 +30,7 @@ export function recordApiKeyFailure(ip, now = Date.now()) {
     e.count = 0;
     e.windowStart = now;
   }
-  store.delete(ip); // re-insert so the Map stays ordered by recency
+  store.delete(ip);
   store.set(ip, e);
 }
 

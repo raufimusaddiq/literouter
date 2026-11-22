@@ -94,7 +94,6 @@ export default function KeysTable({
           const menu = <KeyRowMenu keyName={k.name} onCopy={() => onCopy(k.key, k.id)} onDelete={() => onDelete(k)} />;
           return (
             <div key={k.id} role="rowgroup" className="border-b border-border last:border-b-0">
-              {/* Desktop row */}
               <div role="row" className={`hidden min-h-12 items-center gap-3 px-4 lg:grid ${COLS} ${paused ? "opacity-70" : ""}`}>
                 <span role="cell" className="truncate text-sm font-medium text-text-main" title={k.name}>{k.name}</span>
                 <span role="cell">{keyCell(k)}</span>
@@ -105,7 +104,6 @@ export default function KeysTable({
                 <span role="cell">{statusToggle(k)}</span>
                 <span role="cell">{menu}</span>
               </div>
-              {/* Phone / tablet: stacked */}
               <div role="row" className={`flex flex-col gap-1 px-4 py-3 lg:hidden ${paused ? "opacity-70" : ""}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="min-w-0 truncate text-sm font-medium text-text-main">{k.name}</span>

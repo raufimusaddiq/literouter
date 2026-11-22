@@ -1,9 +1,5 @@
 import { fingerprintKey, isKeyFingerprint } from "open-sse/utils/keyFingerprint.js";
 
-// Issue #136: usageHistory.apiKey and usageDaily.byApiKey stored client keys in
-// plaintext. New writes are fingerprinted; this rewrites rows written before.
-// It is idempotent (fingerprints are left alone). It cannot scrub bytes SQLite
-// already freed, nor earlier backups or request-log files: see CHANGELOG.
 function hasTable(db, name) {
   return !!db.get(`SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ?`, [name]);
 }
@@ -16,8 +12,6 @@ function rewriteHistory(db) {
   }
 }
 
-// Day-bucket rewrite shared with migration 003: imported legacy JSON bypasses the
-// versioned chain (it runs before the import), so the same fingerprinting is applied here.
 export function rewriteUsageDay(data) {
   const day = JSON.parse(data);
   const buckets = day.byApiKey;

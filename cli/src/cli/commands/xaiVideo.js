@@ -1,12 +1,3 @@
-/**
- * `9router xai video` — generate a Grok Imagine video through the local
- * 9router gateway and save the result as an MP4 file.
- *
- * Flow: POST /v1/videos/generations → poll GET /v1/videos/{request_id}
- * until done/failed/timeout → download video.url → atomic rename.
- *
- * No OAuth tokens or Authorization headers are ever printed.
- */
 
 const http = require("http");
 const https = require("https");
@@ -80,7 +71,6 @@ function parseArgs(argv) {
   return opts;
 }
 
-/** Local file path → base64 data URL; URLs pass through untouched. */
 function imageInputToUrl(input) {
   if (/^(https?:|data:)/i.test(input)) return input;
   const buf = fs.readFileSync(input);
@@ -89,7 +79,6 @@ function imageInputToUrl(input) {
   return `data:${mime};base64,${buf.toString("base64")}`;
 }
 
-/** Minimal JSON request against the local gateway. Returns { status, headers, body }. */
 function gatewayRequest({ host, port, apiKey, method, reqPath, body, signal }) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
@@ -105,7 +94,7 @@ function gatewayRequest({ host, port, apiKey, method, reqPath, body, signal }) {
       res.on("data", (c) => (data += c));
       res.on("end", () => {
         let parsed = null;
-        try { parsed = data ? JSON.parse(data) : null; } catch { /* keep raw */ }
+        try { parsed = data ? JSON.parse(data) : null; } catch {}
         resolve({ status: res.statusCode, headers: res.headers, body: parsed, raw: data });
       });
     });
@@ -121,10 +110,6 @@ const sleep = (ms, signal) =>
     signal?.addEventListener?.("abort", () => { clearTimeout(t); reject(new Error("aborted")); }, { once: true });
   });
 
-/**
- * Poll GET /v1/videos/{id} until a terminal status or deadline.
- * @returns {Promise<object>} final poll body (status done) — throws on failed/timeout.
- */
 async function pollUntilDone({ host, port, apiKey, requestId, connectionId, timeoutSec, pollIntervalMs, signal, onProgress }) {
   const deadline = Date.now() + timeoutSec * 1000;
   while (true) {
@@ -161,7 +146,7 @@ function gatewayRequestWithConnection({ host, port, apiKey, requestId, connectio
         res.on("data", (c) => (data += c));
         res.on("end", () => {
           let parsed = null;
-          try { parsed = data ? JSON.parse(data) : null; } catch { /* keep raw */ }
+          try { parsed = data ? JSON.parse(data) : null; } catch {}
           resolve({ status: res.statusCode, body: parsed, raw: data });
         });
       }
@@ -171,15 +156,11 @@ function gatewayRequestWithConnection({ host, port, apiKey, requestId, connectio
   });
 }
 
-/**
- * Download a URL to `outputPath` via a `.part` temp file with atomic rename.
- * The temp file is removed on any failure.
- */
 async function downloadToFile(url, outputPath, { signal } = {}) {
   const partPath = `${outputPath}.part`;
   await new Promise((resolve, reject) => {
     const cleanupAnd = (fn) => (err) => {
-      try { fs.unlinkSync(partPath); } catch { /* not created yet */ }
+      try { fs.unlinkSync(partPath); } catch {}
       fn(err);
     };
     const get = (target, redirectsLeft) => {
@@ -229,7 +210,7 @@ async function run(argv) {
   const partPath = `${opts.output}.part`;
   const onSigint = () => {
     controller.abort();
-    try { fs.unlinkSync(partPath); } catch { /* absent */ }
+    try { fs.unlinkSync(partPath); } catch {}
     console.error("\n✋ Cancelled");
     process.exit(130);
   };

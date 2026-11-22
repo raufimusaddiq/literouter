@@ -13,7 +13,7 @@ export default function Quickstart({ baseUrl, copied, onCopy }) {
 
   useEffect(() => {
     const id = window.setTimeout(() => {
-      try { setOpen(window.localStorage.getItem(STORAGE_KEY) === "1"); } catch { /* storage unavailable */ }
+      try { setOpen(window.localStorage.getItem(STORAGE_KEY) === "1"); } catch {}
     }, 0);
     return () => window.clearTimeout(id);
   }, []);
@@ -21,7 +21,7 @@ export default function Quickstart({ baseUrl, copied, onCopy }) {
   const toggle = () => {
     const next = !open;
     setOpen(next);
-    try { window.localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch { /* storage unavailable */ }
+    try { window.localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch {}
   };
 
   const active = snippets.find((s) => s.id === tab) || snippets[0];

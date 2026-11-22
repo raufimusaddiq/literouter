@@ -118,7 +118,6 @@ describe("GrokCliExecutor", () => {
       {
         accessToken: "tok_test",
         email: "top@example.com",
-        // userId only top-level; psd has neither email nor userId
         providerSpecificData: { authMethod: "device_code" },
       },
       true, null, null, reqBody
@@ -150,7 +149,6 @@ describe("GrokCliExecutor", () => {
       user: "cursor-user",
     };
 
-    // Simulate translator already converting messages→input; also test messages fallback
     const out = executor.transformRequest("grok-4.5-high", { ...body }, true, {
       connectionId: "conn-1",
     });
@@ -167,7 +165,6 @@ describe("GrokCliExecutor", () => {
     expect(out.input.length).toBeGreaterThan(0);
     expect(executor._getRequestContext(out).turnIdx).toBe(1);
 
-    // tools flattened + hosted tools kept
     expect(out.tools).toHaveLength(3);
     expect(out.tools[0]).toMatchObject({
       type: "function",
@@ -193,7 +190,6 @@ describe("GrokCliExecutor", () => {
 
     const out = executor.transformRequest("grok-4.5", body, true, { connectionId: "c1" });
     expect(out.input).toHaveLength(2);
-    // Official CLI sends system, not developer (Codex converts; Grok does not)
     expect(out.input[0].role).toBe("system");
     expect(out.input[1].id).toBeUndefined();
     expect(out.reasoning.effort).toBe("medium");
@@ -363,7 +359,6 @@ describe("GrokCliExecutor", () => {
       rawHeaders: { "x-session-id": "stable-session-xyz" },
     };
 
-    // Turn 1: one user message
     let out = executor.transformRequest(
       "grok-4.5",
       {
@@ -385,7 +380,6 @@ describe("GrokCliExecutor", () => {
 
     const sessionId = executor._getRequestContext(out).sessionId;
 
-    // Turn 2: full history with two user messages
     out = executor.transformRequest(
       "grok-4.5",
       {
@@ -405,7 +399,6 @@ describe("GrokCliExecutor", () => {
     headers = executor.buildHeaders({ accessToken: "t" }, true, null, null, out);
     expect(headers["x-grok-turn-idx"]).toBe("2");
 
-    // Same session, a new delta-style request advances without relying on full history.
     out = executor.transformRequest(
       "grok-4.5",
       {
@@ -427,7 +420,7 @@ describe("GrokCliExecutor", () => {
     const ha = executor.buildHeaders({ accessToken: "t" }, true, null, null, a);
     const hb = executor.buildHeaders({ accessToken: "t" }, true, null, null, b);
     expect(ha["x-grok-agent-id"]).toBe("dev-1");
-    expect(hb["x-grok-agent-id"]).toBe("machine-agent"); // not overwritten by null
+    expect(hb["x-grok-agent-id"]).toBe("machine-agent");
     expect(ha["x-grok-session-id"]).not.toBe(hb["x-grok-session-id"]);
     expect(executor).not.toHaveProperty("_agentId");
     expect(executor).not.toHaveProperty("_currentSessionId");
@@ -451,7 +444,6 @@ describe("GrokCliExecutor", () => {
         { role: "user", type: "message", content: "b" },
       ])
     ).toBe(2);
-    // monotonic
     expect(resolveGrokCliTurnIdx("s1", [{ role: "user", type: "message", content: "a" }])).toBe(2);
   });
 

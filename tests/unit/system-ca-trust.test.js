@@ -10,7 +10,6 @@ const customServer = join(root, "custom-server.js");
 const dir = mkdtempSync(join(tmpdir(), "ca-trust-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-// Throwaway chains generated at test time; nothing sensitive is committed.
 function makeChain(name) {
   const f = (ext) => join(dir, `${name}.${ext}`);
   const run = (...a) => execFileSync("openssl", a, { stdio: "pipe" });
@@ -55,9 +54,6 @@ describe("outbound clients honour the replaced default CA list", () => {
     distrusted = makeChain("distrusted");
   });
 
-  // Runs in a child so setDefaultCACertificates cannot leak into other tests. The "system"
-  // store is simulated with only `trusted.ca`; the server presents a chain from `distrusted`
-  // (stand-in for the compromised root) or from `trusted`.
   function probe(serverMaterial) {
     const script = `
       const https = require("https"); const tls = require("tls");

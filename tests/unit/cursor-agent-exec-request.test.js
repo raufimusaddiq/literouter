@@ -5,20 +5,17 @@ import { decodeMessage, encodeField, wrapConnectRPCFrame } from "../../open-sse/
 
 const LEN = 2;
 
-// agent.v1.AgentServerMessage.exec_request (field 2) carrying one ExecServerMessage variant.
 function execRequestFrame(execField) {
   const execServerMessage = Buffer.from(encodeField(execField, LEN, new Uint8Array()));
   return Buffer.from(wrapConnectRPCFrame(encodeField(2, LEN, execServerMessage)));
 }
 
-// agent.v1.AgentServerMessage.interaction_update (field 1) → text delta.
 function textFrame(text) {
   const textPart = Buffer.from(encodeField(1, LEN, text));
   const update = Buffer.from(encodeField(1, LEN, textPart));
   return Buffer.from(wrapConnectRPCFrame(encodeField(1, LEN, update)));
 }
 
-// InteractionUpdate.thinking_delta (field 4) + turn_ended (field 14).
 function thinkingFrame(text) {
   const thinkingPart = Buffer.from(encodeField(1, LEN, text));
   const update = Buffer.from(encodeField(4, LEN, thinkingPart));
@@ -151,7 +148,7 @@ describe("CursorExecutor AgentService exec_request handling", () => {
       stream: true,
     });
 
-    expect(written.length).toBe(2); // run frame + request-context reply
+    expect(written.length).toBe(2);
     const events = parseSSE(await result.response.text());
     const content = events.map((e) => e.choices?.[0]?.delta?.content || "").join("");
     expect(content).toBe("hello");
@@ -184,7 +181,7 @@ describe("CursorExecutor AgentService exec_request handling", () => {
     const content = events.map((e) => e.choices?.[0]?.delta?.content || "").join("");
     expect(content).toBe("partial answer more");
     expect(events.some((e) => e.error)).toBe(false);
-    expect(written.length).toBe(2); // run frame + IDE rejection
+    expect(written.length).toBe(2);
   });
 
   it("still emits later text after rejecting an IDE exec in the same read", async () => {

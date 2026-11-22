@@ -1,19 +1,8 @@
-/**
- * Synthetic usage — GET https://api.synthetic.new/v2/quotas
- * Auth: Bearer <apiKey>. The call itself does not count against the quota.
- * Docs: https://dev.synthetic.new/docs/synthetic/quotas
- *
- * Response: { subscription: { limit, requests, renewsAt } }
- */
 
 import { U, fetchWithTimeout, parseResetTime, toFiniteNumber } from "./shared.js";
 
 const QUOTAS_URL = U("synthetic").url || "https://api.synthetic.new/v2/quotas";
 
-/**
- * @param {string|null|undefined} apiKey
- * @param {object|null} proxyOptions
- */
 export async function getSyntheticUsage(apiKey = null, proxyOptions = null) {
   if (!apiKey || typeof apiKey !== "string" || !apiKey.trim()) {
     return { message: "Synthetic API key not available. Add a key to view usage." };

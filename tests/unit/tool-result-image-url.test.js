@@ -1,7 +1,3 @@
-/**
- * Regression for #5125: an image_url part inside a role:"tool" message must be
- * converted to a Claude image block, not forwarded as an OpenAI part.
- */
 import { describe, it, expect } from "vitest";
 import { openaiToClaudeRequest } from "../../open-sse/translator/request/openai-to-claude.js";
 

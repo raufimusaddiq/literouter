@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock getModelInfo to simulate custom provider prefix resolution
 vi.mock("@/sse/services/model.js", () => ({
   getModelInfo: vi.fn(async (modelId) => {
-    // Simulate prefix resolution for custom providers
     if (modelId.startsWith("my-prefix/")) {
       return {
         provider: "openai-compatible-chat-abc123",
@@ -16,7 +14,6 @@ vi.mock("@/sse/services/model.js", () => ({
         model: modelId.replace("acme/", "")
       };
     }
-    // Default: no prefix
     return {
       provider: modelId.split("/")[1] || "unknown",
       model: modelId.split("/")[1] || modelId

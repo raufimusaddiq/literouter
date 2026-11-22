@@ -1,7 +1,5 @@
-// Patch global fetch with proxy support (must be first)
 import "./utils/proxyFetch.js";
 
-// Config
 export { PROVIDERS } from "./config/providers.js";
 export { OAUTH_ENDPOINTS, CLAUDE_SYSTEM_PROMPT } from "./config/appConstants.js";
 export { CACHE_TTL, DEFAULT_MAX_TOKENS, COOLDOWN_MS, BACKOFF_CONFIG } from "./config/runtimeConfig.js";
@@ -16,7 +14,6 @@ export {
   getModelsByProviderId
 } from "./config/providerModels.js";
 
-// Translator
 export { FORMATS } from "./translator/formats.js";
 export { 
   register, 
@@ -27,7 +24,6 @@ export {
   initTranslators 
 } from "./translator/index.js";
 
-// Services
 export { 
   detectFormat, 
   getTargetFormat 
@@ -63,14 +59,11 @@ export {
   mergeProviderSpecificData,
 } from "./services/oauthCredentialManager.js";
 
-// Handlers
 export { handleChatCore, isTokenExpiringSoon } from "./handlers/chatCore.js";
 export { createStreamController, pipeWithDisconnect, createDisconnectAwareStream } from "./utils/streamHandler.js";
 
-// Executors
 export { getExecutor, hasSpecializedExecutor } from "./executors/index.js";
 
-// Utils
 export { errorResponse, formatProviderError } from "./utils/error.js";
 export { 
   createSSETransformStreamWithLogger, 

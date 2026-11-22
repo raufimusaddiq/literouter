@@ -1,10 +1,6 @@
-// Pre-fetch remote image URLs into base64 BEFORE translation, for target
-// formats whose upstream providers cannot fetch remote URLs themselves
-// (they require inline base64). Runs on the source-format body.
 import { FORMATS } from "../formats.js";
 import { fetchImageAsBase64, parseDataUri, assertImageCount, createImageByteBudget, dataUriBytes } from "./image.js";
 
-// Targets that require inline base64 images (cannot accept remote URLs).
 const TARGETS_NEED_BASE64 = new Set([
   FORMATS.GEMINI, FORMATS.GEMINI_CLI, FORMATS.VERTEX,
   FORMATS.ANTIGRAVITY, FORMATS.OLLAMA, FORMATS.KIRO,
@@ -15,7 +11,7 @@ export const PREFETCH_CONCURRENCY = 4;
 const PREFETCH_TIMEOUT_MS = 15000;
 const CACHE_TTL_MS = 60000;
 const CACHE_MAX_ENTRIES = 16;
-const imageCache = new Map(); // url -> { value, expiresAt } (insertion order = LRU order)
+const imageCache = new Map();
 
 export function clearPrefetchCacheForTests() { imageCache.clear(); }
 
@@ -24,7 +20,7 @@ async function cachedFetch(url, options) {
   const hit = imageCache.get(url);
   if (hit) {
     imageCache.delete(url);
-    if (hit.expiresAt > now) { imageCache.set(url, hit); return hit.value; } // refresh LRU position
+    if (hit.expiresAt > now) { imageCache.set(url, hit); return hit.value; }
   }
   const value = await fetchImageAsBase64(url, options);
   if (value && !options.signal?.aborted) {
@@ -38,7 +34,6 @@ function isRemoteUrl(url) {
   return typeof url === "string" && (url.startsWith("http://") || url.startsWith("https://"));
 }
 
-// Collect {get,set} accessors for every remote image URL in a source body.
 function collectImageRefs(body, sourceFormat) {
   const refs = [];
   const pushOpenAI = (messages) => {
@@ -95,22 +90,16 @@ function collectImageRefs(body, sourceFormat) {
   return refs;
 }
 
-/**
- * Replace remote image URLs with base64 data when the target needs inline data.
- * No-op when target accepts remote URLs (e.g. openai, claude) or body has none.
- * @returns {Promise<number>} count of images converted
- */
 export async function prefetchRemoteImages(body, sourceFormat, targetFormat, options = {}) {
   if (!body || !TARGETS_NEED_BASE64.has(targetFormat)) return 0;
   const refs = collectImageRefs(body, sourceFormat);
   if (!refs.length) return 0;
 
-  // Dedupe URLs within this request, then fetch with bounded concurrency.
   const pending = [];
-  const byUrl = new Map(); // url -> refs[]
+  const byUrl = new Map();
   for (const ref of refs) {
     const url = ref.get();
-    if (parseDataUri(url)) continue; // already inline
+    if (parseDataUri(url)) continue;
     if (!byUrl.has(url)) { byUrl.set(url, []); pending.push(url); }
     byUrl.get(url).push(ref);
   }

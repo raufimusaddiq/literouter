@@ -34,8 +34,6 @@ import { toAnthropicModelList } from "open-sse/utils/anthropicModels.js";
 import { buildErrorBody, resolveErrorFormat } from "open-sse/utils/error.js";
 import { FORMATS } from "open-sse/translator/formats.js";
 
-// Combo seats use UI aliases; the model registry also has transport aliases.
-// Capability overrides and catalog limits are keyed by provider id.
 const ALIAS_TO_PROVIDER_ID = {
   ...Object.fromEntries(
     Object.entries(PROVIDER_ID_TO_ALIAS).map(([id, alias]) => [alias, id])
@@ -60,9 +58,6 @@ function makeComboSeatResolver(nestedComboModels) {
   return comboSeatCapabilities;
 }
 
-// Per-provider live model resolvers. Each receives a connection record and
-// returns { models: [{ id, name? }, ...] } | null on failure.
-// Adding a provider here makes /v1/models prefer the live catalog for it.
 const LIVE_MODEL_RESOLVERS = {
   kiro: async (conn) => {
     const result = await resolveKiroModels({
@@ -75,15 +70,12 @@ const LIVE_MODEL_RESOLVERS = {
   qoder: async (conn) => {
     const result = await resolveQoderModels({
       accessToken: conn.accessToken,
-      // PAT (pt-...) connections keep the token in apiKey; without it the live
-      // catalog silently fails and /v1/models falls back to the static list.
       apiKey: conn.apiKey,
       refreshToken: conn.refreshToken,
       email: conn.email,
       displayName: conn.displayName,
       providerSpecificData: conn.providerSpecificData || {}
     });
-    // Visible + hidden (enable:false) catalog keys — chat routes all of them.
     const models = routableQoderModels(result);
     if (!models.length) return null;
     return { models: models.map((m) => ({ id: m.id, name: m.name })) };
@@ -174,8 +166,6 @@ const LIVE_MODEL_RESOLVERS = {
         })),
     };
   },
-  // CommandCode's catalog is public and account-independent, so no per-connection
-  // credentials are needed — the connection only has to exist and be active.
   commandcode: async () => {
     const result = await resolveCommandCodeModels();
     if (!result?.models?.length) return null;
@@ -188,15 +178,10 @@ const parseOpenAIStyleModels = (data) => {
   return data?.data || data?.models || data?.results || [];
 };
 
-// Header sent by fetchCompatibleModelIds to detect cross-instance /models fetches
-// and break recursive loops between 9router instances connected to each other.
 const INTERNAL_MODELS_FETCH_HEADER = "x-9r-internal-models-fetch";
 
-// LLM kind sentinel — combos/models with no explicit kind default to LLM
 export const LLM_KIND = "llm";
 
-// Map per-model `type` field (in PROVIDER_MODELS) to service kind.
-// Models without `type` are treated as LLM.
 export const MODEL_TYPE_TO_KIND = {
   image: "image",
   tts: "tts",
@@ -213,8 +198,6 @@ function modelKind(model) {
   return MODEL_TYPE_TO_KIND[k] || LLM_KIND;
 }
 
-// For dynamic/unknown model IDs (compatible providers, alias map, custom models)
-// fall back to provider-level kind matching when per-model type is unavailable.
 function inferKindFromUnknownModelId(modelId) {
   const lower = String(modelId).toLowerCase();
   if (/embed/.test(lower)) return "embedding";
@@ -280,8 +263,6 @@ async function fetchCompatibleModelIds(connection) {
   }
 }
 
-// Provider matches kindFilter when its serviceKinds intersect the requested kinds.
-// LLM is the default kind for providers missing serviceKinds.
 function providerMatchesKinds(providerId, kindFilter, candidateModels) {
   const provider = AI_PROVIDERS[providerId];
   const kinds = Array.isArray(provider?.serviceKinds) && provider.serviceKinds.length > 0
@@ -300,18 +281,11 @@ function providerMatchesKinds(providerId, kindFilter, candidateModels) {
   });
 }
 
-// Combo matches kindFilter when its `kind` field is in the list.
-// Combos with no kind are treated as LLM.
 function comboMatchesKinds(combo, kindFilter) {
   const kind = combo?.kind || LLM_KIND;
   return kindFilter.includes(kind);
 }
 
-// Nested combo names are valid seats — the model selector exposes them and
-// chat routing resolves them recursively — but a no-slash seat is otherwise
-// treated as a literal model and publishes the 200k floor. Expand nested
-// names (cycle-guarded) so the published window is the true min across the
-// whole chain.
 function comboSeatLimits(combo, combosByName, comboSeatNestedNames, visiting = new Set()) {
   const name = typeof combo?.name === "string" ? combo.name : null;
   if (name) {
@@ -348,14 +322,7 @@ function comboSeatLimits(combo, combosByName, comboSeatNestedNames, visiting = n
   };
 }
 
-/**
- * Build OpenAI-format models list filtered by service kinds.
- * @param {string[]} kindFilter - List of service kinds to include.
- */
 export async function buildModelsList(kindFilter, options = {}) {
-  // When this header is present, the /v1/models request came from another
-  // 9router instance's fetchCompatibleModelIds — skip dynamic fetch to break
-  // cross-instance recursive loops.
   const skipDynamicFetch = options.skipDynamicFetch === true;
   let connections = [];
   try {
@@ -394,8 +361,6 @@ export async function buildModelsList(kindFilter, options = {}) {
   }
   const isDisabled = (alias, modelId) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
 
-  // Only the first active connection per provider is used (and handed to live
-  // resolvers), so clone that one instead of the whole cached pool per call.
   const activeConnectionByProvider = new Map();
   for (const conn of connections) {
     if (!activeConnectionByProvider.has(conn.provider)) {
@@ -403,7 +368,6 @@ export async function buildModelsList(kindFilter, options = {}) {
     }
   }
 
-  // Include no-auth free providers (e.g. opencode) so their models are exposed in /v1/models
   for (const [id, provider] of Object.entries(FREE_PROVIDERS || {})) {
     if (provider?.noAuth && !activeConnectionByProvider.has(id)) {
       activeConnectionByProvider.set(id, {
@@ -424,7 +388,6 @@ export async function buildModelsList(kindFilter, options = {}) {
       .map(([name, combo]) => [name, combo.models]),
   );
 
-  // Combos first (filtered by kind).
   for (const combo of combos) {
     if (!comboMatchesKinds(combo, kindFilter)) continue;
     const entry = {
@@ -437,10 +400,6 @@ export async function buildModelsList(kindFilter, options = {}) {
     } else {
       const comboCaps = aggregateComboCapabilities(combo.models, combosByName, makeComboSeatResolver(comboSeatNestedNames));
       if (comboCaps) entry.capabilities = comboCaps;
-      // Any seat can serve the request, so the only window a combo can promise is
-      // its smallest. Combo entries were the only models on this endpoint that
-      // published no limits at all, which leaves a client to guess from the name —
-      // and it guesses high (see the snake_case note on the per-provider path).
       const { contextWindow, maxOutput } = comboSeatLimits(combo, combosByName, comboSeatNestedNames);
       if (Number.isFinite(contextWindow)) entry.context_length = contextWindow;
       if (Number.isFinite(maxOutput)) entry.max_completion_tokens = maxOutput;
@@ -449,7 +408,6 @@ export async function buildModelsList(kindFilter, options = {}) {
   }
 
   if (connections.length === 0) {
-    // DB unavailable -> return static models, filtered by per-model kind
     for (const [alias, providerModels] of Object.entries(PROVIDER_MODELS)) {
       const providerId = ALIAS_TO_PROVIDER_ID[alias] || alias;
       if (!providerMatchesKinds(providerId, kindFilter)) continue;
@@ -466,7 +424,6 @@ export async function buildModelsList(kindFilter, options = {}) {
 
     for (const customModel of customModels) {
       if (!customModel?.id || (customModel.type && customModel.type !== "llm")) continue;
-      // Custom models without active connection are LLM-only by current schema
       if (!kindFilter.includes(LLM_KIND)) continue;
       const providerAlias = customModel.providerAlias;
       if (!providerAlias) continue;
@@ -500,7 +457,6 @@ export async function buildModelsList(kindFilter, options = {}) {
         hasExplicitEnabledModels ? enabledModels : undefined,
       )) continue;
 
-      // Build kind lookup for static models so we can filter even when only IDs are exposed
       const staticModelKindById = new Map(
         providerModels.map((m) => [m.id, modelKind(m)])
       );
@@ -521,17 +477,12 @@ export async function buildModelsList(kindFilter, options = {}) {
         rawModelIds = await fetchCompatibleModelIds(conn);
       }
 
-      // Config-driven live catalog override (e.g. Kiro returns dynamic
-      // -thinking/-agentic variants per account). On failure, fall back to
-      // whatever rawModelIds already holds.
       const liveResolver = LIVE_MODEL_RESOLVERS[providerId];
       if (liveResolver && !hasExplicitEnabledModels) {
         try {
           const live = await liveResolver(conn);
           if (live?.models?.length) {
             rawModelIds = live.models.map((m) => m.id);
-            // Live ids can outrun the static pricing/caps tables; one silent
-            // warn per id keeps the cost blind spot discoverable.
             for (const model of live.models) noteUntrackedModel(providerId, model.id, "v1-models");
             liveModelKindById = new Map(
               live.models
@@ -569,7 +520,6 @@ export async function buildModelsList(kindFilter, options = {}) {
         .filter((m) => {
           if (!m?.id) return false;
           const kind = getModelKind(m) || LLM_KIND;
-          // imageToText custom models are vision-capable chat models.
           if (!kindFilter.includes(kind) && !(kind === "imageToText" && kindFilter.includes(LLM_KIND))) return false;
           const alias = m.providerAlias;
           return alias === staticAlias || alias === outputAlias || alias === providerId;
@@ -607,11 +557,9 @@ export async function buildModelsList(kindFilter, options = {}) {
       const mergedModelIds = Array.from(new Set([...modelIds, ...customModelIds, ...aliasModelIds]));
 
       for (const modelId of mergedModelIds) {
-        // Resolve kind: prefer custom/live metadata, then static, then ID heuristics.
         const customKind = customModelKindById.get(modelId);
         const liveKind = liveModelKindById.get(modelId);
         const kind = customKind || liveKind || staticModelKindById.get(modelId) || inferKindFromUnknownModelId(modelId);
-        // imageToText custom models stay in the LLM list (vision-capable chat models)
         const allowAsLlm = kind === "imageToText" && kindFilter.includes(LLM_KIND);
         if (!kindFilter.includes(kind) && !allowAsLlm) continue;
         if (isDisabled(outputAlias, modelId) || isDisabled(staticAlias, modelId) || isDisabled(providerId, modelId)) continue;
@@ -621,27 +569,13 @@ export async function buildModelsList(kindFilter, options = {}) {
           object: "model",
           owned_by: outputAlias,
         };
-        // Live-catalog resolvers (kiro/qoder/github/clinepass) mostly only return
-        // { id, name } — no per-model capability data. Fall back to the same
-        // pattern-matched capabilities the dashboard uses (useModelCaps.js) so
-        // dynamically-discovered LLM models still surface vision/reasoning/search/tools.
         const caps = liveCapabilitiesById.get(modelId)
           || capabilitiesFromServiceKind(customKind || liveKind)
           || (kind === LLM_KIND ? getCapabilitiesForModel(providerId, modelId) : null);
         if (caps) model.capabilities = caps;
-        // Token limits under the snake_case names the OpenAI/OpenRouter
-        // convention uses. `capabilities.contextWindow` is camelCase and nested,
-        // so clients matching context_length find nothing, fall back to guessing
-        // the window from the model name, and guess high — a 372k model read as
-        // 1.05M never reaches its compaction threshold and hard-fails upstream.
-        // Emitted at top level because not every client recurses into nested
-        // objects; the camelCase `capabilities` block stays for compatibility.
         if (kind === LLM_KIND || allowAsLlm) {
           let contextWindow = caps?.contextWindow;
           let maxOutput = caps?.maxOutput;
-          // Live-catalog and service-kind capabilities are usually partial
-          // (often just { tools: true }), so fill the gaps from the static
-          // table rather than emitting null and leaving clients to guess.
           if (!Number.isFinite(contextWindow) || !Number.isFinite(maxOutput)) {
             const fallback = getCapabilitiesForModel(providerId, modelId);
             if (!Number.isFinite(contextWindow)) contextWindow = fallback.contextWindow;
@@ -649,9 +583,6 @@ export async function buildModelsList(kindFilter, options = {}) {
           }
           if (Number.isFinite(contextWindow)) model.context_length = contextWindow;
           if (Number.isFinite(maxOutput)) model.max_completion_tokens = maxOutput;
-          // Selectable reasoning levels (the set the dashboard picker shows) so clients
-          // can build their effort selector from the gateway instead of keeping a
-          // per-model table. Omitted when the model has no reasoning.
           const thinkingLevels = getThinkingLevels(providerId, modelId);
           if (Array.isArray(thinkingLevels) && thinkingLevels.length > 0) model.thinking_levels = thinkingLevels;
         }
@@ -672,9 +603,6 @@ export async function buildModelsList(kindFilter, options = {}) {
   return dedupedModels;
 }
 
-/**
- * Handle CORS preflight
- */
 export async function OPTIONS() {
   return new Response(null, {
     headers: {
@@ -685,12 +613,8 @@ export async function OPTIONS() {
   });
 }
 
-/**
- * GET /v1/models - OpenAI compatible chat models list.
- */
 export async function GET(request) {
   try {
-    // Detect cross-instance recursive /models fetch (another 9router fetching our /models)
     const skipDynamicFetch = request?.headers?.get(INTERNAL_MODELS_FETCH_HEADER) === "1";
     const kind = request.nextUrl?.searchParams?.get("kind");
     const kindFilter = kind ? [kind] : [LLM_KIND];
@@ -698,7 +622,6 @@ export async function GET(request) {
       await getKeyAccessContext(request),
       await buildModelsList(kindFilter, { skipDynamicFetch })
     );
-    // Anthropic SDKs send anthropic-version; give them the Anthropic list shape.
     if (request.headers.get("anthropic-version")) {
       const params = request.nextUrl?.searchParams;
       return Response.json(

@@ -1,4 +1,3 @@
-// Combined, non-blocking runtime install (sql.js + better-sqlite3 + systray2).
 const { installRuntime } = require("./sqliteRuntime");
 const { getTrayPackages, chmodSystrayBin } = require("./trayRuntime");
 

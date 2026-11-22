@@ -1,14 +1,3 @@
-/**
- * Integration test: Antigravity (AG) prompt caching behavior.
- *
- * Verifies:
- *  1. Same sessionId + repeated long prompt → cache hit (cachedContentTokenCount > 0)
- *  2. Different sessionId (same account) → cache miss
- *  3. Cross-account cache share? (call A warmup → B same prompt/session, check hit)
- *
- * Reads real OAuth refreshToken from ~/.9router/db.json.
- * Enable with: AG_CACHE_TEST=1 npm test
- */
 
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
@@ -21,7 +10,7 @@ import { ANTIGRAVITY_HEADERS, INTERNAL_REQUEST_HEADER } from "../../open-sse/con
 const ENABLE = process.env.AG_CACHE_TEST === "1";
 const DB_PATH = path.join(os.homedir(), ".9router", "db.json");
 const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const MIN_CACHE_TOKENS = 100; // AG implicit cache threshold observed ~1024-2048
+const MIN_CACHE_TOKENS = 100;
 const LONG_TEXT = ("You are a careful assistant. Always follow these rules. ".repeat(300)).trim();
 
 function loadAgConnections() {
@@ -118,7 +107,6 @@ describe.skipIf(!ENABLE)("Antigravity cache behavior (real API)", () => {
 
     expect(r1.status).toBe(200);
     expect(r2.status).toBe(200);
-    // AG cache is content-based, not session-based → both calls hit
     expect(r2.cachedTokens).toBeGreaterThanOrEqual(MIN_CACHE_TOKENS);
   }, 60000);
 
@@ -129,33 +117,24 @@ describe.skipIf(!ENABLE)("Antigravity cache behavior (real API)", () => {
       refreshAccessToken(accB.refreshToken)
     ]);
 
-    // Account A warmup with its own sessionId
     const a1 = await callAg({ accessToken: tokenA, projectId: accA.projectId, sessionId: `cross-a-${crypto.randomUUID()}`, longText: LONG_TEXT, userText: "Reply with OK only." });
-    // Account B with DIFFERENT sessionId → if cache shares across accounts, it still hits
     const b1 = await callAg({ accessToken: tokenB, projectId: accB.projectId, sessionId: `cross-b-${crypto.randomUUID()}`, longText: LONG_TEXT, userText: "Reply with OK only." });
 
     console.log(`[cross-account] A cached=${a1.cachedTokens} | B cached=${b1.cachedTokens} (${accA.email} → ${accB.email})`);
 
     expect(a1.status).toBe(200);
     expect(b1.status).toBe(200);
-    // Cache is shared globally across accounts (content-based)
     expect(b1.cachedTokens).toBeGreaterThanOrEqual(MIN_CACHE_TOKENS);
   }, 90000);
 
-  // ─── Codex-style sessionId comparison ────────────────────────────────
-  // Codex derives sessionId from hash(conversation history), keeping it
-  // stable per-conversation. Test whether this strategy improves cache
-  // hit rate vs random sessionId on AG with a fresh unique prompt.
   it("codex-style sessionId vs random sessionId on unique prompt", async () => {
     const [acc] = conns;
     const token = await refreshAccessToken(acc.refreshToken);
 
-    // Build a unique conversation so no pre-existing cache can interfere
     const uniqueMarker = crypto.randomUUID();
     const uniqueLong = `MARKER-${uniqueMarker}. ${LONG_TEXT}`;
     const userText = "Reply with OK only.";
 
-    // Codex-style: sess_${sha256(systemInstruction + userContent).slice(0,32)}
     const hash = crypto.createHash("sha256").update(uniqueLong + "\n" + userText).digest("hex").slice(0, 32);
     const codexStyleSessionId = `sess_${hash}`;
 
@@ -163,7 +142,6 @@ describe.skipIf(!ENABLE)("Antigravity cache behavior (real API)", () => {
     const randomResults = [];
     const codexResults = [];
 
-    // Strategy A: random sessionId each call
     for (let i = 0; i < N; i++) {
       const r = await callAg({
         accessToken: token, projectId: acc.projectId,
@@ -174,7 +152,6 @@ describe.skipIf(!ENABLE)("Antigravity cache behavior (real API)", () => {
       console.log(`[random   call ${i + 1}] cached=${r.cachedTokens}`);
     }
 
-    // Strategy B: codex-style stable sessionId (same hash for every call)
     for (let i = 0; i < N; i++) {
       const r = await callAg({
         accessToken: token, projectId: acc.projectId,
@@ -191,13 +168,11 @@ describe.skipIf(!ENABLE)("Antigravity cache behavior (real API)", () => {
 
     randomResults.forEach(r => expect(r.status).toBe(200));
     codexResults.forEach(r => expect(r.status).toBe(200));
-    // No strict comparison — just report. AG cache is session-independent per prior tests.
   }, 180000);
 
   it("unique prompt (never seen) → explore when cache starts hitting", async () => {
     const [acc] = conns;
     const token = await refreshAccessToken(acc.refreshToken);
-    // Unique marker to guarantee no one has cached this exact prompt before
     const uniqueLong = `UNIQUE-${crypto.randomUUID()}. ${LONG_TEXT}`;
     const sessionId = `unique-${crypto.randomUUID()}`;
 
@@ -209,7 +184,6 @@ describe.skipIf(!ENABLE)("Antigravity cache behavior (real API)", () => {
     }
 
     results.forEach(r => expect(r.status).toBe(200));
-    // Log whether any call ever hits cache — no strict assertion (exploratory)
     const anyHit = results.some(r => r.cachedTokens >= MIN_CACHE_TOKENS);
     console.log(`[unique-prompt] any-hit=${anyHit}`);
   }, 90000);

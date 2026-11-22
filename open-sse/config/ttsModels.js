@@ -1,4 +1,3 @@
-// Gemini prebuilt voices (30 voices, multi-language auto-detect)
 const GEMINI_VOICES = [
   "Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede",
   "Callirrhoe", "Autonoe", "Enceladus", "Iapetus", "Umbriel", "Algieba",
@@ -7,7 +6,6 @@ const GEMINI_VOICES = [
   "Vindemiatrix", "Sadachbia", "Sadaltager", "Sulafat",
 ].map((id) => ({ id, name: id, type: "tts" }));
 
-// ── TTS Config (config-driven, single source of truth) ─────────────────────
 export const TTS_MODELS_CONFIG = {
   gemini: {
     models: [
@@ -24,7 +22,6 @@ export const TTS_MODELS_CONFIG = {
   },
 };
 
-// ── Build flat entries for PROVIDER_MODELS backward compat ─────────────────
 export function buildTtsProviderModels() {
   const entries = {};
   for (const [provider, cfg] of Object.entries(TTS_MODELS_CONFIG)) {

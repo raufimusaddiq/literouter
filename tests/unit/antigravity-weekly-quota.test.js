@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock proxyAwareFetch before any imports that use it
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
   proxyAwareFetch: vi.fn(),
 }));
@@ -12,7 +11,6 @@ import {
   _clearWeeklyCache,
 } from "../../open-sse/services/usage/antigravity-weekly.js";
 
-// — Fixtures ——————————————————————————————————————————————
 const GEMINI_GROUP = {
   displayName: "Gemini Models",
   buckets: [
@@ -51,7 +49,6 @@ const NESTED_RESPONSE = {
   },
 };
 
-// — parseWeeklyQuotaSummary ———————————————————————————————
 describe("parseWeeklyQuotaSummary", () => {
   it("extracts Gemini weekly and session quotas from top-level groups", () => {
     const result = parseWeeklyQuotaSummary(FULL_RESPONSE);
@@ -176,7 +173,6 @@ describe("parseWeeklyQuotaSummary", () => {
   });
 });
 
-// — fetchAntigravityWeeklyQuota ———————————————————————————
 describe("fetchAntigravityWeeklyQuota", () => {
   beforeEach(() => {
     proxyAwareFetch.mockReset();
@@ -287,7 +283,6 @@ describe("fetchAntigravityWeeklyQuota", () => {
   });
 });
 
-// — Integration: weekly failure does not affect existing quotas —————
 describe("weekly quota isolation from existing quota", () => {
   beforeEach(() => {
     proxyAwareFetch.mockReset();
@@ -357,7 +352,6 @@ describe("weekly quota isolation from existing quota", () => {
               },
               "claude-sonnet-4-6": {
                 displayName: "Claude Sonnet 4.6",
-                // Missing remainingFraction — free tier exhausted
                 quotaInfo: { resetTime: "2026-09-13T12:00:00Z" },
               },
             },
@@ -395,11 +389,9 @@ describe("weekly quota isolation from existing quota", () => {
     const { getAntigravityUsage } = await import("../../open-sse/services/usage/google.js");
     const result = await getAntigravityUsage("token", {});
 
-    // Per-model quotas should be absent (free-tier accounts skip model parsing)
     expect(result.quotas["gemini-3.8-flash-high"]).toBeUndefined();
     expect(result.quotas["claude-sonnet-4-6"]).toBeUndefined();
 
-    // Only weekly quotas should appear
     expect(result.quotas.gemini_weekly).toMatchObject({
       used: 0,
       total: 1000,
@@ -429,7 +421,6 @@ describe("weekly quota isolation from existing quota", () => {
             models: {
               "gemini-3.8-flash-high": {
                 displayName: "Gemini 3.8 Flash (High)",
-                // Exhausted model: no remainingFraction, future resetTime (5h window reset)
                 quotaInfo: { resetTime: "2026-09-13T12:00:00Z" },
               },
             },
@@ -469,10 +460,8 @@ describe("weekly quota isolation from existing quota", () => {
     const { getAntigravityUsage } = await import("../../open-sse/services/usage/google.js");
     const result = await getAntigravityUsage("token-exhausted", null);
 
-    // Per-model quota should show exhausted
     expect(result.quotas["gemini-3.8-flash-high"].remainingPercentage).toBe(0);
 
-    // 5h session quota should be reconciled to 0% with the family reset time
     expect(result.quotas.gemini_session).toMatchObject({
       used: 1000,
       total: 1000,
@@ -480,7 +469,6 @@ describe("weekly quota isolation from existing quota", () => {
       resetAt: "2026-09-13T12:00:00.000Z",
     });
 
-    // Weekly quota should remain intact and NOT be clobbered to 0% or steal the 5h resetAt
     expect(result.quotas.gemini_weekly).toMatchObject({
       used: 250,
       total: 1000,

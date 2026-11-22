@@ -5,15 +5,10 @@ import { getAdapter } from "../driver.js";
 import { keyAccessFromColumns, keyAccessToColumns } from "@/shared/utils/keyAccess.js";
 import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
 
-// PRD 15.1/15.2: API-key lookup must not hit SQLite per request. The key set is
-// tiny, so cache the whole table and match in memory. TTL bounds how long a key
-// revoked by another process stays usable; UI mutations invalidate directly.
-// ponytail: process-local cache, Redis invalidation when multi-replica matters
 const keyCache = global.__liteRouterApiKeyCache ??= { rows: null, expiresAt: 0 };
 const CACHE_TTL_MS = 5000;
 function invalidateApiKeyCache() { keyCache.rows = null; keyCache.expiresAt = 0; bumpConfigVersion(); }
 
-// Constant-time match: every row is compared (no early exit) via sha256 + timingSafeEqual.
 function findRowByKey(rows, key) {
   let found = null;
   for (const row of rows) {
@@ -55,7 +50,6 @@ export async function getApiKeyById(id) {
   return rowToKey(row);
 }
 
-// Used by the /v1 handlers to read the presented key's access settings.
 export async function getApiKeyByKey(key) {
   if (!key) return null;
   return rowToKey(findRowByKey(await allKeys(), key));

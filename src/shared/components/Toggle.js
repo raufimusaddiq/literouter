@@ -39,7 +39,6 @@ export default function Toggle({
         onClick={handleClick}
         className={cn(
           "relative inline-flex shrink-0 cursor-pointer items-center rounded-full",
-          // Keep the visual track small but guarantee a 44px touch target on phones.
           "after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']",
           "transition-colors duration-200 ease-in-out",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",

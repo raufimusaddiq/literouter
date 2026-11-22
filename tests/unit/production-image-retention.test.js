@@ -9,7 +9,6 @@ const id = (letter) => `sha256:${letter.repeat(64)}`;
 const image = (letter) => `${repository}:${tag(letter)}`;
 const row = (letter) => `${image(letter)} ${id(letter)}`;
 
-// Every Docker/curl invocation is a shell function. Unknown calls fail closed.
 const mock = `
 docker() {
   if [ "\${TEST_FAIL:-}" = "$1 $2" ]; then return 91; fi

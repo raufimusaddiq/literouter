@@ -147,7 +147,6 @@ export default function DashboardOverview() {
       ]);
       if (responses.some((response) => !response.ok)) throw new Error("Workspace data unavailable");
       const [providers, keys, settings] = await Promise.all(responses.map((response) => response.json()));
-      // Node names are cosmetic: a failure falls back to registry names.
       const nodes = await fetch("/api/provider-nodes").then((r) => (r.ok ? r.json() : {})).then((d) => d.nodes || []).catch(() => []);
       setData({ connections: providers.connections || [], keys: keys.keys || [], settings, nodes });
     } catch {

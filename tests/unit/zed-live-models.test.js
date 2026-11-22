@@ -1,14 +1,8 @@
-// Route-level acceptance for the Zed live-model wiring:
-//   GET /api/providers/[connectionId]/models  →  resolveZedModels  →  UI rows
-// Self-isolating: DATA_DIR points at a temp dir so seeding never touches ~/.9router.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 
-// Transport stub BELOW resolveZedModels: proxyAwareFetch captures the native
-// fetch at import time, so stubbing globalThis.fetch cannot intercept it.
-// Mock the module instead; untouched hosts pass through to native fetch.
 const stub = vi.hoisted(() => {
   const nativeFetch = globalThis.fetch.bind(globalThis);
   return { mode: "ok", calls: [], nativeFetch };
@@ -73,7 +67,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// Imports must be dynamic so DATA_DIR is set before the DB layer loads.
 const originalDataDir = process.env.DATA_DIR;
 let GET;
 let createProviderConnection;
@@ -123,7 +116,6 @@ describe("criterion 1+2 — active connection + live catalog → models with met
     expect(opus.supportsTools).toBe(true);
     expect(opus.supportsImages).toBe(true);
     expect(opus.supportsThinking).toBe(true);
-    // Credentials must never leak into the client response.
     expect(JSON.stringify(data)).not.toContain(conn.accessToken);
     expect(JSON.stringify(data)).not.toContain("tok-live");
   });
@@ -177,8 +169,6 @@ describe("criterion 5 (guard) — unsupported provider unchanged", () => {
       email: `guard-${Date.now()}@example.com`,
       testStatus: "active",
     }).catch(() => null);
-    // createProviderConnection may reject unknown providers; either way the
-    // route must not have gained a zed-shaped branch for others.
     if (!conn) return;
     const res = await getModels(conn.id);
     expect(res.status).toBe(400);

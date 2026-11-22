@@ -1,11 +1,4 @@
-// Stats helpers for the gateway benchmark. Pure functions, no dependencies.
 
-/**
- * Percentile with linear interpolation between closest ranks (numpy "linear").
- * @param {number[]} values  unsorted samples
- * @param {number} p         0..100
- * @returns {number} NaN for an empty sample
- */
 export function percentile(values, p) {
   if (!Array.isArray(values) || values.length === 0) return NaN;
   const sorted = [...values].sort((a, b) => a - b);
@@ -22,7 +15,6 @@ export function percentileSorted(sorted, p) {
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (rank - lo);
 }
 
-/** Summary of one metric: count, min, mean, p50, p90, p99, max. Non-finite samples are dropped. */
 export function summarize(values) {
   const clean = (values || []).filter((v) => Number.isFinite(v));
   if (clean.length === 0) {
@@ -41,7 +33,6 @@ export function summarize(values) {
   };
 }
 
-/** Least-squares slope of y over x (units of y per unit of x); NaN with <2 points. */
 export function slope(xs, ys) {
   const n = Math.min(xs.length, ys.length);
   if (n < 2) return NaN;

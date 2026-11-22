@@ -1,6 +1,3 @@
-// Per-API-key access control: engine + helpers.
-// Real model resolution (src/sse/services/model.js) over a mocked DB fixture, so
-// alias / provider-alias / node-prefix resolution is exercised for real.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const fx = vi.hoisted(() => ({
@@ -44,7 +41,7 @@ async function status(k, model) {
 beforeEach(() => {
   fx.keys = {};
   key("open", { restricted: false, allow: [] });
-  key("combo", { restricted: true, allow: ["main"] }); // case differs from combo "Main" on purpose
+  key("combo", { restricted: true, allow: ["main"] });
   key("b", { restricted: true, allow: ["openai/MODEL-B"] });
   key("empty", { restricted: true, allow: [] });
   key("cx", { restricted: true, allow: ["cx/gpt-5"] });
@@ -75,7 +72,7 @@ describe("restricted: allow by exact model", () => {
   it("allows the listed model, denies others", async () => {
     expect(await status("sk-b", "openai/model-b")).toBe(200);
     expect(await status("sk-b", "openai/model-a")).toBe(403);
-    expect(await status("sk-b", "openai/model-b-plus")).toBe(403); // exact, not prefix
+    expect(await status("sk-b", "openai/model-b-plus")).toBe(403);
   });
   it("denies a combo whose members include the allowed model", async () => {
     expect(await status("sk-b", "Main")).toBe(403);
@@ -89,7 +86,7 @@ describe("restricted: allow by combo", () => {
   it("combo members are NOT directly callable by name (only via the combo)", async () => {
     expect(await status("sk-combo", "openai/model-a")).toBe(403);
     expect(await status("sk-combo", "openai/model-b")).toBe(403);
-    expect(await status("sk-combo", "fast")).toBe(403); // alias of a member
+    expect(await status("sk-combo", "fast")).toBe(403);
   });
   it("other combos are denied", async () => {
     expect(await status("sk-combo", "other")).toBe(403);
@@ -98,14 +95,14 @@ describe("restricted: allow by combo", () => {
 
 describe("resolution cannot be used to bypass", () => {
   it("a model alias resolves to its target before matching", async () => {
-    expect(await status("sk-b", "fast")).toBe(403); // fast -> openai/model-a
-    expect(await status("sk-b", "bee")).toBe(200); // bee -> openai/model-b: same target, same answer
+    expect(await status("sk-b", "fast")).toBe(403);
+    expect(await status("sk-b", "bee")).toBe(200);
   });
   it("provider alias and full provider id are one target", async () => {
     expect(await status("sk-cx", "cx/gpt-5")).toBe(200);
     expect(await status("sk-cx", "codex/gpt-5")).toBe(200);
     expect(await status("sk-cx", "cx/gpt-5-mini")).toBe(403);
-    expect(await status("sk-cx", "openai/gpt-5")).toBe(403); // same model name, other provider
+    expect(await status("sk-cx", "openai/gpt-5")).toBe(403);
   });
   it("custom-node prefix and node id are one target", async () => {
     expect(await status("sk-node", "mock/glm-4")).toBe(200);
@@ -113,7 +110,6 @@ describe("resolution cannot be used to bypass", () => {
     expect(await status("sk-node", "mock/glm-5")).toBe(403);
   });
   it("bypass check: a case variant of a combo name that does NOT route to the combo is denied", async () => {
-    // combo lookup is exact; "MAIN" routes to openai/MAIN, not to combo "Main"
     expect(await status("sk-combo", "MAIN")).toBe(403);
     expect(await status("sk-combo", "main")).toBe(403);
   });
@@ -151,8 +147,8 @@ describe("403 response shape", () => {
     expect(r.headers.get("content-type")).toContain("application/json");
     const body = await r.json();
     expect(body).toEqual({ error: { message: keyAccessDeniedMessage("openai/model-a"), type: expect.any(String), code: expect.any(String) } });
-    expect(JSON.stringify(body)).not.toContain("key-b"); // no key name
-    expect(JSON.stringify(body)).not.toContain("MODEL-B"); // no allow list
+    expect(JSON.stringify(body)).not.toContain("key-b");
+    expect(JSON.stringify(body)).not.toContain("MODEL-B");
   });
   it("a missing model is denied for a restricted key (unverifiable target)", async () => {
     const ctx = await ctxFor("sk-b");
@@ -210,7 +206,7 @@ describe("capacity-adapter models", () => {
 describe("helpers: storage + validation", () => {
   it("columns -> access fails closed", () => {
     expect(helpers.keyAccessFromColumns(0, '["x"]')).toEqual({ restricted: false, allow: [] });
-    expect(helpers.keyAccessFromColumns(null, null)).toEqual({ restricted: false, allow: [] }); // pre-migration row
+    expect(helpers.keyAccessFromColumns(null, null)).toEqual({ restricted: false, allow: [] });
     expect(helpers.keyAccessFromColumns(1, "not json")).toEqual({ restricted: true, allow: [] });
     expect(helpers.keyAccessFromColumns(1, '{"a":1}')).toEqual({ restricted: true, allow: [] });
     expect(helpers.keyAccessFromColumns(1, '[" a ", "A", "", 3, "b"]')).toEqual({ restricted: true, allow: ["a", "b"] });
@@ -229,7 +225,7 @@ describe("helpers: storage + validation", () => {
     expect(v({ restricted: "yes", allow: [] }).ok).toBe(false);
     expect(v({ restricted: true, allow: "Main" }).ok).toBe(false);
     expect(v({ restricted: true, allow: [1] }).ok).toBe(false);
-    expect(v({ restricted: true, allow: [], mode: "deny" }).ok).toBe(false); // no deny mode
+    expect(v({ restricted: true, allow: [], mode: "deny" }).ok).toBe(false);
     expect(v({ restricted: true, allow: Array.from({ length: KEY_ACCESS_MAX_ENTRIES + 1 }, (_, i) => `m${i}`) }).ok).toBe(false);
     expect(v({ restricted: true, allow: ["x".repeat(300)] }).ok).toBe(false);
   });

@@ -1,4 +1,3 @@
-// Codex auto-generates a "-review" variant for each llm model (review quota family)
 export const CODEX_REVIEW_SUFFIX = "-review";
 
 export function withCodexReviewModels(models) {
@@ -26,8 +25,6 @@ export function isMuseSparkModel(modelId) {
   return /^muse[-_]?spark(?:$|[-_:.\s])/i.test(base);
 }
 
-// "model(level)" is a 9router thinking override; strip before matching.
-// Accepts both bare ids ("deepseek-v4-pro(max)") and provider-prefixed ones.
 export function isDeepSeekModel(modelId) {
   if (!modelId || typeof modelId !== "string") return false;
   const clean = modelId.replace(/\([^()]+\)\s*$/, "").trim();

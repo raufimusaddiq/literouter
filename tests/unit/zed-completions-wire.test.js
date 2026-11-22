@@ -1,8 +1,3 @@
-// Zed completions wire acceptance: the `provider` field of POST /completions
-// must use cloud.zed.dev's exact wire values (anthropic/open_ai/google/x_ai),
-// and the Zed Gemini path must not carry the shared translator's
-// safetySettings (Zed's hosted Gemini backend speaks the Vertex safety
-// vocabulary, not the public-Gemini enums).
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 vi.mock("open-sse/shared/zedAuth.js", async (importOriginal) => {
@@ -109,8 +104,6 @@ describe("completion payload shaping", () => {
     expect(captured.body.provider).toBe("google");
     expect(captured.body.provider_request).not.toHaveProperty("safetySettings");
 
-    // Sanity: the shared translator still emits safetySettings — the removal
-    // happens in the Zed executor, not in shared/native Gemini behavior.
     const { openaiToGeminiRequest } = await import(
       "open-sse/translator/request/openai-to-gemini.js"
     );
@@ -120,9 +113,6 @@ describe("completion payload shaping", () => {
   });
 
   it("always includes is_error on Anthropic tool_result blocks (Zed serde requires it)", async () => {
-    // cloud.zed.dev parses provider_request with Zed's Anthropic types where
-    // ToolResult.is_error is a required bool — omitting it yields:
-    //   400 failed to parse Anthropic request: missing field `is_error`
     resolveZedModels.mockResolvedValue(catalogFor([
       ["claude-sonnet-5-5", { provider: "anthropic" }],
     ]));

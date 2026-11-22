@@ -45,7 +45,7 @@ describe("Cursor AgentService strict-proxy policy guard", () => {
       strictProxy: true,
       proxyPoolId: "pool-1",
       connectionProxyEnabled: true,
-      connectionProxyUrl: "", // pool drained/inactive: nothing resolves
+      connectionProxyUrl: "",
     })).rejects.toThrow(/strict proxy/u);
     expect(connect).not.toHaveBeenCalled();
   });

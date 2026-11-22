@@ -1,5 +1,3 @@
-// Expose bugs caused by OpenAI being the intermediate format: data lost/wrong on source → openai → target.
-// Each test describes the EXPECTED-correct behavior. A FAIL is evidence of the bug (with source file:line).
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
@@ -9,8 +7,6 @@ const T = (src, tgt, body, provider = null) =>
   translateRequest(src, tgt, "m", body, true, null, provider);
 
 describe("bug: Claude → OpenAI bridge data loss", () => {
-  // claude-to-openai.js:133-141 — image source.type==="url" only handles base64
-  // KNOWN BUG: it.fails passes while app drops the url; flips to failing once fixed.
   it.fails("image with source.type=url is preserved (NOT dropped)", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       messages: [{ role: "user", content: [
@@ -22,7 +18,6 @@ describe("bug: Claude → OpenAI bridge data loss", () => {
     expect(json, "remote image url silently dropped").toContain("a.png");
   });
 
-  // claude-to-openai.js:128 switch — missing thinking/redacted_thinking case
   it("thinking block survives round-trip Claude→OpenAI→Claude", () => {
     const body = {
       messages: [{ role: "assistant", content: [
@@ -35,7 +30,6 @@ describe("bug: Claude → OpenAI bridge data loss", () => {
     expect(json, "thinking content lost via OpenAI bridge").toContain("secret reasoning");
   });
 
-  // The tool row stays text-only; the image is re-attached to the next user turn.
   it("tool_result with image block is not turned into raw JSON / dropped", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       messages: [
@@ -50,16 +44,12 @@ describe("bug: Claude → OpenAI bridge data loss", () => {
       ],
     });
     const toolMsg = out.messages.find((m) => m.role === "tool");
-    // Never a stringified block array on the tool row...
     expect(toolMsg?.content, "image in tool_result stringified").not.toMatch(/^\[/);
-    // ...and the image itself survives as an image_url block on a user turn.
     expect(JSON.stringify(out.messages), "image in tool_result lost").toContain(
       "data:image/png;base64,ZZZ"
     );
   });
 
-  // claude-to-openai.js:155-173 — is_error lost
-  // KNOWN BUG
   it.fails("tool_result is_error flag is preserved", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       messages: [
@@ -73,7 +63,6 @@ describe("bug: Claude → OpenAI bridge data loss", () => {
     expect(json, "is_error dropped → model can't see tool failure").toContain("is_error");
   });
 
-  // claude-to-openai.js:24-27 — system array only takes .text, drops cache_control/non-text
   it("system array non-text parts are not silently dropped", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       system: [
@@ -89,7 +78,6 @@ describe("bug: Claude → OpenAI bridge data loss", () => {
 });
 
 describe("bug: tool_call id stability across bridge", () => {
-  // toolCallHelper.js:29-31 — sanitize changes tc.id but tool_call_id in another message may drift
   it("sanitized tool id stays matched between call and result", () => {
     const out = T(FORMATS.OPENAI, FORMATS.OPENAI, {
       messages: [
@@ -106,7 +94,6 @@ describe("bug: tool_call id stability across bridge", () => {
 });
 
 describe("bug: empty content message handling", () => {
-  // openaiHelper.js:49-51,66-71 — empty content → {text:""} then filtered out
   it("assistant message with only tool_calls is not dropped", () => {
     const out = T(FORMATS.OPENAI, FORMATS.OPENAI, {
       messages: [

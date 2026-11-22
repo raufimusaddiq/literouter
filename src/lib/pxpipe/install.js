@@ -11,8 +11,6 @@ const INSTALL_TIMEOUT_MS = 5 * 60 * 1000;
 const IS_WIN = process.platform === "win32";
 const NPM_CMD = IS_WIN ? "npm.cmd" : "npm";
 
-// Same PATH extension trick as headroom/detect.js: packaged/launchd environments
-// often miss the Node bin dirs.
 const EXTRA_BINS = IS_WIN
   ? [`${process.env.ProgramFiles || ""}\\nodejs`, `${process.env.APPDATA || ""}\\npm`]
   : ["/usr/local/bin", "/opt/homebrew/bin", `${process.env.HOME || ""}/.local/bin`, "/usr/bin", "/bin"];
@@ -45,14 +43,13 @@ export function findNpm() {
   }
 }
 
-// { installed, version, path } — installed means the library entry exists on disk.
 export function getInstallInfo() {
   try {
     const pkgJson = path.join(packageRoot(), "package.json");
     if (!fs.existsSync(/* turbopackIgnore: true */ pkgJson) || !fs.existsSync(/* turbopackIgnore: true */ libraryEntry())) {
       return { installed: false, version: null, path: null };
     }
-    const pkg = JSON.parse(fs.readFileSync(/* turbopackIgnore: true */ pkgJson, "utf8"));
+    const pkg = JSON.parse(fs.readFileSync(pkgJson, "utf8"));
     return { installed: true, version: pkg.version || null, path: packageRoot() };
   } catch {
     return { installed: false, version: null, path: null };
@@ -63,8 +60,6 @@ export function isInstalling() {
   return installInFlight !== null;
 }
 
-// Install (or repair by reinstalling) pxpipe-proxy into DATA_DIR/pxpipe.
-// Serialized: concurrent calls await the same run.
 export function installPxpipe() {
   if (installInFlight) return installInFlight;
   installInFlight = runInstall().finally(() => { installInFlight = null; });

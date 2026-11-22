@@ -4,7 +4,6 @@ import { makeKv, invalidateKvScope } from "../helpers/kvStore.js";
 
 const aliasKv = makeKv("modelAliases");
 const customKv = makeKv("customModels");
-// modelAliases: key=alias, value=modelString
 export async function getModelAliases(options = {}) {
   return await aliasKv.getAll(options);
 }
@@ -17,7 +16,6 @@ export async function deleteModelAlias(alias) {
   await aliasKv.remove(alias);
 }
 
-// customModels: key=`${providerAlias}|${id}|${type}`, value=full model object
 function customKey(providerAlias, id, type) {
   return `${providerAlias}|${id}|${type}`;
 }
@@ -27,8 +25,6 @@ export async function getCustomModels() {
   return Object.values(all);
 }
 
-// Atomic upsert inside transaction to prevent duplicate races.
-// Re-adding an existing model updates caps/name without resetting omitted fields.
 export async function addCustomModel({ providerAlias, id, type = "llm", name, caps }) {
   const k = customKey(providerAlias, id, type);
   const db = await getAdapter();
@@ -45,7 +41,6 @@ export async function addCustomModel({ providerAlias, id, type = "llm", name, ca
     db.run(`INSERT INTO kv(scope, key, value) VALUES('customModels', ?, ?)`, [k, value]);
     added = true;
   });
-  // Written via raw SQL (atomic upsert), so drop the cached scope like kv.set does.
   invalidateKvScope("customModels");
   return added;
 }

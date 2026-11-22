@@ -1,17 +1,3 @@
-/**
- * Regression test for #4283
- *
- * Gemini Antigravity rejects tool schemas that contain unknown JSON Schema
- * keywords with: "Unknown name X: Cannot find field."
- *
- * The UNSUPPORTED_SCHEMA_CONSTRAINTS list in gemini.js did not include
- * "errorMessage" (and similar non-standard annotation keywords used by some
- * MCP tool schemas), causing 400 INVALID_ARGUMENT errors on tools with error
- * documentation fields.
- *
- * Fix: add errorMessage, errorMessages, markdownDescription, and other
- * non-standard annotation keywords to the strip list.
- */
 
 import { describe, it, expect } from "vitest";
 import { cleanJSONSchemaForAntigravity, UNSUPPORTED_SCHEMA_CONSTRAINTS } from "../../open-sse/translator/formats/gemini.js";

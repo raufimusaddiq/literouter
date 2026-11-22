@@ -1,12 +1,7 @@
 import crypto from "crypto";
 
-// Stored in place of a client API key. Deterministic so one client stays
-// distinguishable from another; keyed HMAC so the key cannot be recovered or
-// confirmed from the stored value without API_KEY_SECRET.
 const FINGERPRINT_RE = /^fp_[0-9a-f]{16}$/;
 
-// Client keys are high-entropy random tokens, not passwords, so a fast keyed
-// MAC is the right primitive. The MAC key is stretched once per secret.
 let derived = { secret: null, key: null };
 function fingerprintMacKey() {
   const secret = process.env.API_KEY_SECRET || "endpoint-proxy-api-key-secret";
@@ -33,8 +28,6 @@ export function fingerprintKey(key) {
 const CLIENT_KEY_HEADERS = ["authorization", "x-api-key", "api-key"];
 const SECRET_HEADER_PARTS = ["authorization", "api-key", "apikey", "cookie", "token", "secret", "credential"];
 
-// Client request headers: the client key becomes a fingerprint, every other
-// credential-bearing header is redacted. Routing headers are kept untouched.
 export function redactClientHeaders(headers) {
   if (!headers || typeof headers !== "object") return {};
   const out = {};
@@ -52,7 +45,6 @@ export function redactClientHeaders(headers) {
   return out;
 }
 
-// Upstream (provider) headers carry provider credentials, not client keys.
 export function redactUpstreamHeaders(headers) {
   if (!headers || typeof headers !== "object") return {};
   const out = {};

@@ -1,6 +1,3 @@
-// Anthropic `ping` events and upstream SSE comments produce no translated output.
-// Without a heartbeat the downstream client sees zero bytes through long thinking
-// and trips its own read timeout while the gateway's stall watchdog stays quiet.
 import { describe, it, expect } from "vitest";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { createSSETransformStreamWithLogger } from "../../open-sse/utils/stream.js";

@@ -376,7 +376,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Confirm password modal, then run export or import.
   const handleDbAuthConfirm = async () => {
     const { mode, password } = dbAuth;
     setDbAuth({ open: false, mode: "", password: "" });
@@ -401,7 +400,6 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-5xl px-0">
       <div className="flex flex-col gap-6">
         <PageIntro title="Settings" description="Manage appearance, access, routing defaults, network behavior, and database backups." />
-        {/* Local Mode Info */}
         <Card>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div className="flex items-center gap-3 sm:gap-4">
@@ -477,7 +475,6 @@ export default function ProfilePage() {
           </div>
         </Card>
 
-        {/* Language */}
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="size-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
@@ -495,7 +492,6 @@ export default function ProfilePage() {
           </button>
         </Card>
 
-        {/* Security */}
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
@@ -532,13 +528,6 @@ export default function ProfilePage() {
                     />
                   </div>
                 )}
-                {/* {!settings.hasPassword && (
-                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <p className="text-sm text-blue-600 dark:text-blue-400">
-                      Setting password for the first time. Leave current password empty or use default: <code className="bg-blue-500/20 px-1 rounded">123456</code>
-                    </p>
-                  </div>
-                )} */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
                     <Input
@@ -578,7 +567,6 @@ export default function ProfilePage() {
           </div>
         </Card>
 
-        {/* Routing Preferences */}
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
@@ -602,7 +590,6 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* Sticky Round Robin Limit */}
             {settings.fallbackStrategy === "round-robin" && (
               <div className="flex items-start sm:items-center justify-between gap-4 pt-2 border-t border-border/50">
                 <div className="flex-1 min-w-0">
@@ -624,7 +611,6 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Combo Round Robin */}
             <div className="flex items-start sm:items-center justify-between gap-4 pt-4 border-t border-border/50">
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm sm:text-base">Combo Round Robin</p>
@@ -640,7 +626,6 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* Combo Sticky Round Robin Limit */}
             {settings.comboStrategy === "round-robin" && (
               <div className="flex items-center justify-between pt-2 border-t border-border/50">
                 <div>
@@ -673,7 +658,6 @@ export default function ProfilePage() {
           </div>
         </Card>
 
-        {/* Network */}
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shrink-0">
@@ -746,7 +730,6 @@ export default function ProfilePage() {
           </div>
         </Card>
 
-        {/* Observability Settings */}
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-surface-2 text-text-muted shrink-0">
@@ -770,7 +753,6 @@ export default function ProfilePage() {
           </div>
         </Card>
 
-        {/* Account actions */}
         <div className="flex flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
@@ -782,7 +764,6 @@ export default function ProfilePage() {
           </Button>
         </div>
 
-        {/* App Info */}
         <div className="text-center text-xs sm:text-sm text-text-muted py-4">
           <p>{APP_CONFIG.name} v{APP_CONFIG.version}</p>
           <p className="mt-1">{isRemoteHost ? "Remote Mode" : "Local Mode - All data stored on your machine"}</p>

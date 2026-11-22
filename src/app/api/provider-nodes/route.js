@@ -7,8 +7,6 @@ import { isLocalRequest } from "@/dashboardGuard";
 import { PROVIDERS } from "open-sse/config/providers.js";
 
 export const dynamic = "force-dynamic";
-// Every registry provider id/alias is reserved as a display prefix, so a user
-// node can never shadow a built-in System One route.
 const PROVIDER_NODE_RESERVED_PREFIXES = new Set(Object.keys(PROVIDERS).flatMap((id) => {
   const entry = PROVIDERS[id];
   return [id, entry?.alias, ...(entry?.aliases || [])].filter(Boolean);
@@ -22,7 +20,6 @@ const ANTHROPIC_COMPATIBLE_DEFAULTS = {
   baseUrl: "https://api.anthropic.com/v1",
 };
 
-// GET /api/provider-nodes - List all provider nodes
 export async function GET() {
   try {
     const nodes = await getProviderNodes();
@@ -33,7 +30,6 @@ export async function GET() {
   }
 }
 
-// POST /api/provider-nodes - Create provider node
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -47,12 +43,9 @@ export async function POST(request) {
       return NextResponse.json({ error: "Prefix is required" }, { status: 400 });
     }
 
-    // Determine type
     const nodeType = type || "openai-compatible";
 
     if (nodeType === "openai-compatible") {
-      // Explicit per-transport capabilities are optional; when absent, apiType
-      // keeps the legacy single-transport behavior.
       const transports = Array.isArray(body.transports)
         ? body.transports.filter((t) => ["chat_completions", "responses", "messages"].includes(t))
         : null;
@@ -73,11 +66,9 @@ export async function POST(request) {
     }
 
     if (nodeType === "anthropic-compatible") {
-      // Sanitize Base URL: remove trailing slash, and remove trailing /messages if user added it
-      // This prevents double-appending /messages at runtime
       let sanitizedBaseUrl = (baseUrl || ANTHROPIC_COMPATIBLE_DEFAULTS.baseUrl).trim().replace(/\/$/, "");
       if (sanitizedBaseUrl.endsWith("/messages")) {
-        sanitizedBaseUrl = sanitizedBaseUrl.slice(0, -9); // remove /messages
+        sanitizedBaseUrl = sanitizedBaseUrl.slice(0, -9);
       }
 
       const node = await createProviderNode({
@@ -101,9 +92,6 @@ export async function POST(request) {
       } catch {
         return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
       }
-      // Same SSRF gate the validate route applies: block literal and resolved
-      // internal hosts (169.254.169.254, LAN) for remote callers; the trusted
-      // local operator keeps LAN nodes.
       const localOperator = isLocalRequest(request);
       try {
         await assertPublicUrlResolved(sanitizedBaseUrl, { allowPrivate: localOperator });

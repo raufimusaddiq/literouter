@@ -1,17 +1,6 @@
-/**
- * Unit tests for the MiMo Free no-auth provider.
- *
- * Covers the parts that would silently break the bootstrap → JWT → chat flow:
- *   - fingerprint / session id primitives (format + determinism)
- *   - JWT bootstrap (caching, exp parsing, error paths)
- *   - system marker injection (the 403 anti-abuse gate)
- *   - executor wiring (headers, transformRequest, registration)
- *   - provider/model config registration
- */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock proxyAwareFetch so bootstrapJwt never hits the network.
 const fetchMock = vi.fn();
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
   proxyAwareFetch: (...args) => fetchMock(...args),
@@ -32,7 +21,6 @@ function jsonResponse(data, { ok = true, status = 200 } = {}) {
   return { ok, status, json: async () => data };
 }
 
-// Build a fake JWT with the given exp (seconds) in the payload.
 function makeJwt(expSec) {
   const header = Buffer.from(JSON.stringify({ alg: "HS256" })).toString("base64url");
   const payload = Buffer.from(JSON.stringify({ exp: expSec })).toString("base64url");
@@ -151,7 +139,6 @@ describe("bootstrapJwt", () => {
   });
 
   it("re-fetches once the cached jwt is within the expiry buffer", async () => {
-    // exp 100s out < 300s buffer → treated as near-expiry.
     fetchMock.mockResolvedValueOnce(jsonResponse({ jwt: makeJwt(Math.floor(Date.now() / 1000) + 100) }));
     await bootstrapJwt();
     const fresh = makeJwt(Math.floor(Date.now() / 1000) + 3600);
@@ -202,7 +189,6 @@ describe("MimoFreeExecutor", () => {
     expect(url).toBe(CHAT_URL);
     expect(headers["Authorization"]).toMatch(/^Bearer /);
     expect(transformedBody.messages[0].content).toContain(MIMO_SYSTEM_MARKER);
-    // first call = bootstrap, second = chat with auth header
     const chatHeaders = fetchMock.mock.calls[1][1].headers;
     expect(chatHeaders["Authorization"]).toMatch(/^Bearer /);
   });
@@ -219,7 +205,6 @@ describe("MimoFreeExecutor", () => {
       credentials: {},
     });
     expect(response.status).toBe(200);
-    // bootstrap, chat(403), re-bootstrap, chat(200)
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });

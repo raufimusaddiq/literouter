@@ -1,5 +1,3 @@
-// The tunnel/Tailscale/MITM runtime was deleted in PR #14. Nothing retained
-// reads its settings or mitmAlias scope, so stale state is dropped on upgrade.
 const REMOVED_SETTINGS = [
   "tunnelEnabled",
   "tunnelUrl",

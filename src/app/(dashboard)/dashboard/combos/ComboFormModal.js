@@ -7,14 +7,12 @@ import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import { Button, Modal, Input, ModelSelectModal } from "@/shared/components";
 
-// Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
 
 function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMoveDown, onRemove }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
-    // no transition — prevents the CSS settle animation fighting React's re-render on drop
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 999 : undefined,
   };
@@ -38,7 +36,6 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
       style={style}
       className={`group flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 bg-black/[0.02] hover:bg-black/[0.04] dark:bg-white/[0.02] dark:hover:bg-white/[0.04] transition-colors ${isDragging ? "shadow-md ring-1 ring-primary/30" : ""}`}
     >
-      {/* Drag handle */}
       <button
         {...attributes}
         {...listeners}
@@ -53,10 +50,8 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
         </svg>
       </button>
 
-      {/* Index badge */}
       <span className="text-[11px] font-medium text-text-muted w-3 text-center shrink-0">{index + 1}</span>
 
-      {/* Inline editable model value */}
       {editing ? (
         <input
           autoFocus
@@ -76,7 +71,6 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
         </div>
       )}
 
-      {/* Priority arrows */}
       <div className="flex shrink-0 items-center gap-0.5">
         <button
           onClick={onMoveUp}
@@ -98,7 +92,6 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
         </button>
       </div>
 
-      {/* Remove */}
       <button
         onClick={onRemove}
         aria-label="Remove model"
@@ -112,7 +105,6 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
 }
 
 export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindFilter = null }) {
-  // Initialize state with combo values - key prop on parent handles reset on remount
   const [name, setName] = useState(combo?.name || "");
   const [models, setModels] = useState(combo?.models || []);
   const [showModelSelect, setShowModelSelect] = useState(false);
@@ -125,7 +117,6 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Use stable index-based IDs so duplicates and similar names are handled correctly
   const modelItems = models.map((model, i) => ({ uid: `item-${i}`, model }));
 
   const handleDragEnd = (event) => {
@@ -219,7 +210,6 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
         title={isEdit ? "Edit Combo" : "Create Combo"}
       >
         <div className="flex flex-col gap-3">
-          {/* Name */}
           <div>
             <Input
               label="Combo Name"
@@ -233,7 +223,6 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
             </p>
           </div>
 
-          {/* Models */}
           <div>
             <label className="text-sm font-medium mb-1.5 block">Models</label>
 
@@ -269,7 +258,6 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
             </DndContext>
             )}
 
-            {/* Add Model button */}
             <button
               onClick={() => setShowModelSelect(true)}
               className="w-full mt-2 py-2 border border-dashed border-black/10 dark:border-white/10 rounded-lg text-xs text-primary font-medium hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-1"
@@ -279,7 +267,6 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
             </button>
           </div>
 
-          {/* Actions */}
           <div className="flex flex-col gap-2 pt-1 sm:flex-row">
             <Button onClick={onClose} variant="ghost" fullWidth size="sm">
               Cancel
@@ -296,7 +283,6 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
         </div>
       </Modal>
 
-      {/* Model Select Modal */}
       {showModelSelect && (
         <ModelSelectModal
           isOpen={showModelSelect}

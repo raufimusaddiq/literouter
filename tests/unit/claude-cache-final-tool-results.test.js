@@ -1,6 +1,3 @@
-// A tool loop's request ends with the last assistant turn's tool results, after that turn's
-// breakpoint: without a 4th breakpoint on them they go at the full input price, and are written
-// into the cache only by the next request, which appends to them.
 import { describe, it, expect } from "vitest";
 import { anchorClaudeCache, prepareClaudeRequest } from "../../open-sse/translator/formats/claude.js";
 

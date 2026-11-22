@@ -1,15 +1,3 @@
-/**
- * Unit tests for perplexity-web executor
- *
- * Covers:
- *  - Message parsing (system/user/assistant/developer, multi-part content)
- *  - Query building for first turn vs follow-up (session continuity)
- *  - Tools injection into instructions
- *  - Request body shape (dual query_str top-level + params.query_str is required by upstream)
- *  - Auth header construction (apiKey → Cookie, accessToken → Bearer)
- *  - Model mapping (normal + thinking)
- *  - Error handling (401, 429)
- */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {

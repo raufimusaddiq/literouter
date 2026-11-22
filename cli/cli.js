@@ -7,7 +7,6 @@ const https = require("https");
 const net = require("net");
 const os = require("os");
 
-// Poll until the server accepts TCP connections on port, or timeout — avoids blind fixed waits.
 function waitServerReady(port, { host = "127.0.0.1", timeoutMs = 30000, intervalMs = 150 } = {}) {
   const deadline = Date.now() + timeoutMs;
   return new Promise((resolve) => {
@@ -26,7 +25,6 @@ function waitServerReady(port, { host = "127.0.0.1", timeoutMs = 30000, interval
   });
 }
 
-// Native spinner - no external dependency
 function createSpinner(text) {
   const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
   let i = 0;
@@ -75,8 +73,6 @@ const {
 } = require("./src/cli/utils/serverProc");
 const args = process.argv.slice(2);
 
-// Subcommands (`9router xai video …`) run against an already-running gateway
-// and bypass the launcher flow (no runtime self-heal, no server spawn).
 if (args[0] === "xai" && args[1] === "video") {
   const { run } = require("./src/cli/commands/xaiVideo");
   run(args.slice(2))
@@ -88,29 +84,19 @@ if (args[0] === "xai" && args[1] === "video") {
   return;
 }
 
-// Self-heal runtime deps (sql.js, better-sqlite3, systray2) into ~/.9router/runtime
-// with ONE background npm install. It never blocks server start: the server
-// falls back to bundled sql.js meanwhile, and a failed install leaves a marker
-// so offline launches back off instead of retrying (and hanging) every time.
 ensureRuntime({ silent: true }).catch(() => {});
 
-// Configuration constants
-const APP_NAME = pkg.name; // Use from package.json
-// Update channel: this fork has no published package of its own, and the
-// upstream "9router" package is a different product, so the check is OFF unless
-// NINEROUTER_UPDATE_PACKAGE names the package to track.
+const APP_NAME = pkg.name;
 const UPDATE_PACKAGE = (process.env.NINEROUTER_UPDATE_PACKAGE || "").trim();
 const INSTALL_CMD_LATEST = `npm i -g ${UPDATE_PACKAGE}@latest --prefer-online`;
 
 const DEFAULT_PORT = 20128;
 const DEFAULT_HOST = "0.0.0.0";
 
-// Address to probe/connect to: wildcard binds are reachable via loopback.
 function getProbeHost() {
   return host === "0.0.0.0" || host === "::" || host === "" ? "127.0.0.1" : host;
 }
 
-// First non-internal IPv4 — the address remote peers actually reach when bound to 0.0.0.0.
 function getLanIp() {
   for (const ifaces of Object.values(os.networkInterfaces())) {
     for (const i of ifaces || []) {
@@ -120,13 +106,11 @@ function getLanIp() {
   return null;
 }
 
-// Local URL stays "localhost"; warn separately when bound to all interfaces (network-exposed).
 function getDisplayHost() {
   return host === DEFAULT_HOST ? "localhost" : host;
 }
 const MAX_PORT_ATTEMPTS = 10;
 
-// Parse arguments
 let port = DEFAULT_PORT;
 let host = DEFAULT_HOST;
 let noBrowser = false;
@@ -177,17 +161,13 @@ Commands:
   }
 }
 
-// Auto-relaunch after update: detached process has no TTY → fallback to tray
 if (skipUpdate && !trayMode && !process.stdin.isTTY) {
   trayMode = true;
   process.env.TRAY_MODE = "1";
 }
 
-// Always use Node.js runtime with absolute path
 const RUNTIME = process.execPath;
 
-// Compare semver versions: returns 1 if a > b, -1 if a < b, 0 if equal.
-// Prerelease (1.2.3-beta.1) sorts below its release; identifiers compare per semver.
 function compareVersions(a, b) {
   const parse = (v) => {
     const [core, ...pre] = String(v).trim().replace(/^v/, "").split("+")[0].split("-");
@@ -230,12 +210,9 @@ function killPid(pid) {
       execSync(`kill -9 ${pid}`, { stdio: "ignore", timeout: 3000 });
     }
   } catch (e) {
-    // Already dead, or not ours to kill.
   }
 }
 
-// PID listening on exactly `port`, or null. Windows reads the local-address
-// column of netstat; Unix uses lsof's explicit TCP:PORT listener filter.
 function getListenerPid(p) {
   try {
     if (process.platform === "win32") {
@@ -259,23 +236,13 @@ function getListenerPid(p) {
   }
 }
 
-// Kill only the server we spawned ourselves (recorded in the pidfile), then
-// pick a free port: never force-kill a foreign listener. ponytail: the pidfile
-// is the whole ownership record — add per-port pidfiles if several instances
-// must coexist.
 async function claimPort() {
-  // A hide-to-tray child is handed its predecessor's PID via env; otherwise
-  // only the pidfile counts as ours.
   const record = readServerPid();
   const tracked = parseInt(process.env.NINEROUTER_REUSE_PID, 10) || (record && record.pid);
   const trackedPort = (record && record.port) || port;
   clearServerPid();
-  // Stale pidfile? After a reboot or crash the PID may now belong to an
-  // unrelated process. Confirm it is still the listener on the recorded port
-  // before killing; otherwise just drop the record.
   if (tracked && tracked !== process.pid && isTrackedServerAlive(tracked, getListenerPid(trackedPort))) {
     killPid(tracked);
-    // Wait for the socket to be released before scanning for a free port.
     const deadline = Date.now() + 2000;
     while (getListenerPid(port) !== null && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 100));
@@ -289,18 +256,14 @@ async function claimPort() {
       return;
     }
   }
-  // Every candidate is taken by someone else: let the server report EADDRINUSE.
 }
 
 
-// Detect if running in restricted environment (Codespaces, Docker)
 function isRestrictedEnvironment() {
-  // Check for Codespaces
   if (process.env.CODESPACES === "true" || process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN) {
     return "GitHub Codespaces";
   }
 
-  // Check for Docker
   if (fs.existsSync("/.dockerenv") || (fs.existsSync("/proc/1/cgroup") && fs.readFileSync("/proc/1/cgroup", "utf8").includes("docker"))) {
     return "Docker";
   }
@@ -308,7 +271,6 @@ function isRestrictedEnvironment() {
   return null;
 }
 
-// Check if new version available, return latest version or null
 function checkForUpdate() {
   return new Promise((resolve) => {
     if (skipUpdate || !UPDATE_PACKAGE) {
@@ -357,7 +319,6 @@ function checkForUpdate() {
   });
 }
 
-// Open browser
 function openBrowser(url) {
   const platform = process.platform;
   let cmd;
@@ -377,8 +338,6 @@ function openBrowser(url) {
   });
 }
 
-// Find standalone server (bundled in bin/app for published package).
-// Prefer custom-server.js (injects real socket IP) when present.
 const standaloneDir = path.join(__dirname, "app");
 const customServerPath = path.join(standaloneDir, "custom-server.js");
 const serverPath = fs.existsSync(customServerPath)
@@ -391,11 +350,9 @@ if (!fs.existsSync(serverPath)) {
   process.exit(1);
 }
 
-// Start server immediately; run update check in parallel (not on the critical path).
 const updatePromise = checkForUpdate();
 claimPort().then(() => startServer(updatePromise));
 
-// Show interface selection menu
 async function showInterfaceMenu(latestVersion) {
   const { selectMenu } = require("./src/cli/utils/input");
   const { clearScreen } = require("./src/cli/utils/display");
@@ -435,14 +392,12 @@ async function showInterfaceMenu(latestVersion) {
 }
 
 const MAX_RESTARTS = 2;
-const RESTART_RESET_MS = 30000; // Reset counter if alive > 30s
+const RESTART_RESET_MS = 30000;
 
 function startServer(updatePromise) {
-  // Accept either a Promise (parallel update check) or a resolved value.
   const latestVersionPromise = Promise.resolve(updatePromise);
   const displayHost = getDisplayHost();
   const url = `http://${displayHost}:${port}/dashboard`;
-  // Surface real network exposure when bound to all interfaces (default 0.0.0.0).
   if (host === DEFAULT_HOST) {
     const lanIp = getLanIp();
     if (lanIp) console.log(`\x1b[33m⚠ Network-exposed: reachable at http://${lanIp}:${port} (bound 0.0.0.0). Use --host 127.0.0.1 for local-only.\x1b[0m`);
@@ -475,35 +430,29 @@ function startServer(updatePromise) {
         if (crashLog.length > CRASH_LOG_LINES) crashLog = crashLog.slice(-CRASH_LOG_LINES);
       });
     }
-    // Record our own server so a later launch kills exactly this process.
     if (child.pid) writeServerPid(child.pid, port);
     return child;
   }
 
   let server = spawnServer();
 
-  // Cleanup function - force kill server process
   let isCleaningUp = false;
   function cleanup() {
     if (isCleaningUp) return;
     isCleaningUp = true;
     try {
-      // Kill tray if running
       try {
         const { killTray } = require("./src/cli/tray/tray");
         killTray();
       } catch (e) { }
-      // Kill server process directly
       if (server.pid) {
         process.kill(server.pid, "SIGKILL");
       }
-      // Also try to kill process group
       process.kill(-server.pid, "SIGKILL");
     } catch (e) { }
     clearServerPid();
   }
 
-  // Suppress all errors during shutdown (systray lib throws JSON parse errors)
   let isShuttingDown = false;
   process.on("uncaughtException", (err) => {
     if (isShuttingDown) return;
@@ -513,7 +462,6 @@ function startServer(updatePromise) {
     process.exit(1);
   });
 
-  // Handle all exit scenarios
   process.on("SIGINT", () => {
     if (isShuttingDown) return;
     isShuttingDown = true;
@@ -534,8 +482,6 @@ function startServer(updatePromise) {
     setTimeout(() => process.exit(0), 100);
   });
 
-  // Server never accepted connections: stop instead of showing a dead menu.
-  // (A crash-restart loop that gave up has already exited the process.)
   function failNotReady() {
     if (isShuttingDown) return;
     isShuttingDown = true;
@@ -545,7 +491,6 @@ function startServer(updatePromise) {
     process.exit(1);
   }
 
-  // Initialize tray icon (runs alongside TUI)
   const initTrayIcon = () => {
     try {
       const { initTray } = require("./src/cli/tray/tray");
@@ -561,13 +506,10 @@ function startServer(updatePromise) {
         onOpenDashboard: () => openBrowser(url)
       });
     } catch (err) {
-      // Tray not available - continue without it
     }
   };
 
-  // Tray-only mode: no TUI, just tray icon
   if (trayMode) {
-    // Ignore SIGHUP so macOS terminal close doesn't kill the background tray process
     process.removeAllListeners("SIGHUP");
     process.on("SIGHUP", () => {});
 
@@ -584,12 +526,9 @@ function startServer(updatePromise) {
     return;
   }
 
-  // Wait for server to be ready, then show interface menu loop + tray
   waitServerReady(port, { host: getProbeHost() }).then(async (ready) => {
     if (!ready) return failNotReady();
-    // Resolve parallel update check (already running); don't block server start on it.
     const latestVersion = await latestVersionPromise;
-    // Start tray icon alongside TUI
     initTrayIcon();
 
     try {
@@ -609,21 +548,16 @@ function startServer(updatePromise) {
           return;
         } else if (choice === "web") {
           openBrowser(url);
-          // Wait for user to come back
           const { pause } = require("./src/cli/utils/input");
           await pause("\nPress Enter to go back to menu...");
         } else if (choice === "terminal") {
-          // Start Terminal UI - it will return when user selects Back
           const { startTerminalUI } = require("./src/cli/terminalUI");
           await startTerminalUI(port, getProbeHost());
-          // Loop continues, show menu again
         } else if (choice === "hide") {
           const { clearScreen } = require("./src/cli/utils/display");
           clearScreen();
 
           if (process.platform === "darwin") {
-            // macOS: keep current process alive — spawning a detached child puts
-            // it outside the login session so NSStatusItem silently fails.
             process.removeAllListeners("SIGHUP");
             process.on("SIGHUP", () => {});
 
@@ -632,19 +566,15 @@ function startServer(updatePromise) {
             console.log(`   Server: http://${displayHost}:${port}`);
             console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
 
-            // Tray already init'd at startup — just keep event loop alive.
             return;
           }
 
-          // Windows/Linux: spawn detached bgProcess (systray works fine in child)
           console.log(`\n⏳ Starting background process... (tray icon will appear in ~3s)`);
 
           const bgProcess = spawn(process.execPath, ["--dns-result-order=ipv4first", __filename, ...buildTrayArgs({ host, port })], {
             detached: true,
             stdio: "ignore",
             windowsHide: true,
-            // Hand our server PID over so the child reclaims this port instead
-            // of treating its own predecessor as a foreign listener.
             env: { ...process.env, NINEROUTER_REUSE_PID: server.pid ? String(server.pid) : "" }
           });
           bgProcess.unref();
@@ -653,7 +583,6 @@ function startServer(updatePromise) {
           console.log(`   Server: http://${displayHost}:${port}`);
           console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
 
-          // cleanup() kills server so bgProcess can claim the port fresh
           cleanup();
           process.exit(0);
         } else if (choice === "autostart") {
@@ -696,7 +625,6 @@ function startServer(updatePromise) {
 
   function tryRestart(code) {
     const aliveMs = Date.now() - serverStartTime;
-    // Reset counter if last run was stable
     if (aliveMs >= RESTART_RESET_MS) restartCount = 0;
 
     restartCount++;
@@ -708,7 +636,6 @@ function startServer(updatePromise) {
       process.exit(typeof code === "number" && code !== 0 ? code : 1);
       return;
     }
-    // Exponential backoff: 1s, 2s, 4s ... capped at 10s.
     const delay = Math.min(1000 * 2 ** (restartCount - 1), 10000);
     console.error(`\n⚠️  Server exited (code=${code ?? "unknown"}). Restarting in ${delay / 1000}s... (${restartCount}/${MAX_RESTARTS})`);
     if (crashLog.length) {

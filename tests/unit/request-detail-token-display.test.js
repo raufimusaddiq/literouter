@@ -1,6 +1,3 @@
-// RequestDetailsTab token display helpers (issue #3890).
-// The component is "use client" JSX, so the pure helpers live in
-// tokenDisplay.js and are imported here directly.
 import { describe, it, expect } from "vitest";
 import { getOutputTokens, getInputTokens } from "@/app/(dashboard)/dashboard/usage/components/tokenDisplay.js";
 

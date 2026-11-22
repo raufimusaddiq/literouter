@@ -1,10 +1,3 @@
-// SenseNova international site (token.sensenova.ai).
-//
-// Keys are per-site: token.sensenova.cn answers an international key with
-// 401 {"error":{"code":16,"message":"Forbidden"}}, while token.sensenova.ai
-// accepts it. LiteRouter has no China-site provider, so this entry is the only
-// SenseNova host it ships — same split shape as alicode/alicode-intl, with a
-// fixed host and no user-supplied base URL.
 import { describe, expect, it } from "vitest";
 
 import REGISTRY from "../../open-sse/providers/registry/index.js";

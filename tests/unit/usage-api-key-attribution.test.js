@@ -47,8 +47,6 @@ describe("Usage stats API key attribution", () => {
       status: "ok",
     });
 
-    // The DB adapter is process-global; seed once rather than resetting modules
-    // between periods (which does not replace its open database).
     for (const period of ["24h", "today", "7d", "30d"]) {
       const stats = await db.getUsageStats(period);
       const apiKeyEntries = Object.values(stats.byApiKey);

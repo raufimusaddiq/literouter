@@ -2,9 +2,6 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import noComments from "./eslint-rules/no-comments.mjs";
 
-// React Compiler rules ship as errors and the dashboard has ~41 pre-existing
-// violations. Downgrade them to warnings so the CI lint step only fails on real
-// errors; delete this block once the debt is cleared.
 const reactCompilerDebt = {
   "react-hooks/set-state-in-effect": "warn",
   "react-hooks/immutability": "warn",
@@ -26,16 +23,12 @@ const eslintConfig = defineConfig([
     plugins: { local: { rules: { "no-comments": noComments } } },
     rules: { "local/no-comments": "error" },
   },
-  // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Separate package with its own build output.
     "cli/app/**",
-    // Agent worktrees carry their own copies of the sources.
     ".claude/**",
     ".rig/**",
   ]),

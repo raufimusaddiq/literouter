@@ -1,12 +1,9 @@
-// Tier 1 — Structural coverage: every model in PROVIDER_MODELS must translate
-// without throwing, correct upstreamId, strip applied. Data-driven → new providers auto-covered.
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { buildProviderGroups, buildModelMatrix, resolveTargetFormat } from "./matrix.js";
 
-// Base OpenAI-format request with text + tool + image (exercises strip + tool paths)
 function baseBody(modelId) {
   return {
     model: modelId,
@@ -35,7 +32,6 @@ describe("coverage: every model translates without throwing", () => {
     for (const m of models) {
       const target = resolveTargetFormat(alias, m.id);
       const body = baseBody(m.id);
-      // source = openai (lingua franca); exercise openai → target path
       const out = translateRequest(FORMATS.OPENAI, target, m.id, body, true, null, alias);
       expect(out, `${alias}/${m.id} → ${target} returned falsy`).toBeTruthy();
     }

@@ -19,9 +19,8 @@ export default function APIPageClient({ machineId }) {
   const [hasPassword, setHasPassword] = useState(true);
 
   const [usage, setUsage] = useState({});
-  const [usageState, setUsageState] = useState("loading"); // loading | ready | error
+  const [usageState, setUsageState] = useState("loading");
 
-  // Client-side local/remote detection (UI hint only, not a security gate)
   const [isRemoteHost, setIsRemoteHost] = useState(false);
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -32,7 +31,6 @@ export default function APIPageClient({ machineId }) {
 
   const { copied, copy } = useCopyToClipboard();
 
-  // Security gate: block remote exposure while dashboard uses default password or login is off.
   const isLoginUnsafe = !requireLogin || !hasPassword;
   const unsafeReason = !requireLogin
     ? "Enable \"Require login\" and set a custom password before exposing the endpoint."
@@ -75,7 +73,6 @@ export default function APIPageClient({ machineId }) {
       };
 
       let existing = await fetchKeys();
-      // Auto-provision a default key for first-time users so the endpoint works out of the box.
       if (existing.length === 0) {
         try {
           const createRes = await fetch("/api/keys", {
@@ -84,7 +81,7 @@ export default function APIPageClient({ machineId }) {
             body: JSON.stringify({ name: "Default Key" }),
           });
           if (createRes.ok) existing = await fetchKeys();
-        } catch { /* fall through to empty render */ }
+        } catch {}
       }
       setKeys(existing);
     } catch (error) {
@@ -94,7 +91,6 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
-  // Usage is slow on large tables: fetched separately so it never blocks the page.
   const fetchUsage = async () => {
     try {
       const res = await fetch("/api/usage/keys");
@@ -171,7 +167,6 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
-  // Save a key's access (restricted flag + allow list).
   const handleUpdateKeyAccess = async (id, access) => {
     try {
       const res = await fetch(`/api/keys/${id}`, {
@@ -220,7 +215,6 @@ It will only be able to call the combos and models you add. Until you add one, i
 
   const [baseUrl, setBaseUrl] = useState("/v1");
 
-  // Hydration fix: Only access window on client side
   useEffect(() => {
     if (typeof window !== "undefined") {
       const id = window.setTimeout(() => setBaseUrl(`${window.location.origin}/v1`), 0);
@@ -272,7 +266,6 @@ It will only be able to call the combos and models you add. Until you add one, i
         onRequestRestrict={handleRequestRestrict}
       />
 
-      {/* Add Key Modal */}
       <Modal
         isOpen={showAddModal}
         title="Create API key"
@@ -310,7 +303,6 @@ It will only be able to call the combos and models you add. Until you add one, i
         </form>
       </Modal>
 
-      {/* Created Key Modal */}
       <Modal
         isOpen={!!createdKey}
         title="API Key Created"
@@ -347,7 +339,6 @@ It will only be able to call the combos and models you add. Until you add one, i
         </div>
       </Modal>
 
-      {/* Confirm Modal */}
       <ConfirmModal
         isOpen={!!confirmState}
         onClose={() => setConfirmState(null)}

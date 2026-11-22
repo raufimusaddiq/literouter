@@ -13,7 +13,6 @@ const COLORS = {
   cyan: "\x1b[36m"
 };
 
-// Cached header (SWR): show last value instantly, refresh in background.
 let cachedHeader = "";
 let fetchingHeader = false;
 
@@ -42,25 +41,17 @@ async function refreshHeaderBg(port) {
 }
 
 function getHeader(port) {
-  // Kick off background refresh; return cache (or placeholder on first call).
   refreshHeaderBg(port);
   return cachedHeader || `Endpoint: http://localhost:${port}/v1\nKey:      ${COLORS.dim}...${COLORS.reset}`;
 }
 
-/**
- * Start Terminal UI
- * @param {number} port - Server port number
- */
 async function startTerminalUI(port, host = "127.0.0.1") {
-  // Configure API client
   api.configure({ host, port });
 
   const basePath = ["9Router"];
 
-  // Prime header cache before first render
   await refreshHeaderBg(port);
 
-  // Main menu
   await showMenuWithBack({
     title: "📡 9Router Terminal UI",
     breadcrumb: basePath,
@@ -70,7 +61,7 @@ async function startTerminalUI(port, host = "127.0.0.1") {
         label: "Providers",
         action: async () => {
           await showProvidersMenu([...basePath, "Providers"]);
-          return true; // Continue
+          return true;
         }
       },
       {

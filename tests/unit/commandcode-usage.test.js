@@ -91,7 +91,6 @@ describe("getUsageForProvider(commandcode)", () => {
       apiKey: "user_test",
     });
 
-    // remaining = 12.5 + 1 + 0.5 = 14; cap GOAT = 70; used = 56
     expect(usage.quotas.Credits).toMatchObject({
       used: 56,
       total: 70,

@@ -1,10 +1,3 @@
-/**
- * Unit tests for open-sse/translator/request/openai-to-claude.js
- *
- * Tests cover:
- *  - openaiToClaudeRequest() - OpenAI to Claude request translation
- *  - Response format handling (json_schema, json_object)
- */
 
 import { describe, it, expect } from "vitest";
 import { openaiToClaudeRequest } from "../../open-sse/translator/request/openai-to-claude.js";
@@ -33,11 +26,9 @@ describe("openaiToClaudeRequest", () => {
 
       const result = openaiToClaudeRequest("claude-sonnet-4.5", body, false);
 
-      // Should have system array with instructions
       expect(result.system).toBeDefined();
       expect(Array.isArray(result.system)).toBe(true);
 
-      // Check that system prompt includes schema
       const systemText = result.system
         .filter(s => s.type === "text")
         .map(s => s.text)
@@ -59,7 +50,6 @@ describe("openaiToClaudeRequest", () => {
 
       const result = openaiToClaudeRequest("claude-sonnet-4.5", body, false);
 
-      // Should have system array with instructions
       expect(result.system).toBeDefined();
       expect(Array.isArray(result.system)).toBe(true);
 
@@ -79,7 +69,6 @@ describe("openaiToClaudeRequest", () => {
 
       const result = openaiToClaudeRequest("claude-sonnet-4.5", body, false);
 
-      // Should have system but without JSON instructions
       expect(result.system).toBeDefined();
 
       const systemText = result.system
@@ -87,7 +76,6 @@ describe("openaiToClaudeRequest", () => {
         .map(s => s.text)
         .join("\n");
 
-      // Should NOT contain JSON-specific instructions
       expect(systemText).not.toContain("You must respond with valid JSON");
     });
 
@@ -112,7 +100,6 @@ describe("openaiToClaudeRequest", () => {
 
       const result = openaiToClaudeRequest("claude-sonnet-4.5", body, false);
 
-      // Should preserve original system message
       const systemText = result.system
         .filter(s => s.type === "text")
         .map(s => s.text)
@@ -136,7 +123,6 @@ describe("openaiToClaudeRequest", () => {
       openaiToClaudeRequest("claude-sonnet-4.5", { ...baseBody, tool_choice: tc }, false).tool_choice;
 
     it("converts OpenAI forced tool ({type:'function'}) to Claude {type:'tool'}", () => {
-      // Must NOT leak the OpenAI "function" type — Claude only accepts auto|any|tool|none.
       expect(choiceOf({ type: "function", function: { name: "todo_write" } }))
         .toEqual({ type: "tool", name: "todo_write" });
     });
@@ -154,8 +140,6 @@ describe("openaiToClaudeRequest", () => {
     });
 
     it("never leaks an invalid type (falls back to auto)", () => {
-      // Malformed forced choice with no tool name, and unknown types, must not
-      // pass an invalid `type` through to Claude.
       expect(choiceOf({ type: "function", function: {} })).toEqual({ type: "auto" });
       expect(choiceOf({ type: "function" })).toEqual({ type: "auto" });
       expect(choiceOf({ type: "bogus" })).toEqual({ type: "auto" });
@@ -168,8 +152,6 @@ describe("openaiToClaudeRequest", () => {
   });
 
   describe("tool_result is_error", () => {
-    // Strict Anthropic parsers (notably Zed cloud.zed.dev/completions) require
-    // `is_error` as a non-optional bool on every tool_result block.
     const toolHistory = (toolMsg) => ({
       messages: [
         { role: "user", content: "list files" },
@@ -266,8 +248,6 @@ describe("openaiToClaudeResponse", () => {
       }]
     };
 
-    // Tool arguments are buffered and emitted once the turn finishes, so the
-    // finish_reason chunk is what carries the sanitized input_json_delta.
     openaiToClaudeResponse(chunk, state);
     const result = openaiToClaudeResponse({
       ...chunk,

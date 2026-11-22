@@ -52,7 +52,6 @@ describe("usage chart follows process.env.TZ", () => {
       provider: "openai", model: "gpt-4", connectionId: "c1", endpoint: "/v1/chat", status: "ok",
       timestamp: INSTANT, tokens: { prompt_tokens: 3, completion_tokens: 2 },
     });
-    // 00:30Z yesterday-in-UTC terms is 07:30 Jakarta: same local day; 2026-11-19T16:59Z is the previous Jakarta day.
     await db.saveRequestUsage({
       provider: "openai", model: "gpt-4", connectionId: "c1", endpoint: "/v1/chat", status: "ok",
       timestamp: "2026-11-19T16:59:00.000Z", tokens: { prompt_tokens: 9, completion_tokens: 9 },
@@ -63,7 +62,6 @@ describe("usage chart follows process.env.TZ", () => {
     expect(buckets[8].label).toBe("08:00");
     expect(buckets[8].tokens).toBe(5);
     expect(buckets[8].requests).toBe(1);
-    // the 16:59Z request is before local midnight, so excluded from "today"
     expect(buckets.reduce((n, b) => n + b.requests, 0)).toBe(1);
     const days = await db.getChartData("7d");
     expect(days.at(-1).requests).toBe(1);

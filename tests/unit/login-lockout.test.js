@@ -1,5 +1,3 @@
-// Login lockout must count attempts reserved BEFORE the bcrypt compare, so a
-// burst of parallel guesses cannot all read the same pre-lockout count.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 let limiter;
@@ -28,7 +26,6 @@ describe("login limiter reservations", () => {
 
     expect(limiter.checkLock(ip).locked).toBe(true);
     expect(outcomes.filter((o) => o.locked).length).toBeGreaterThan(0);
-    // Only the first MAX_FAILS_BEFORE_LOCK reservations may reach the compare.
     expect(outcomes.findIndex((o) => o.locked)).toBe(5);
   });
 

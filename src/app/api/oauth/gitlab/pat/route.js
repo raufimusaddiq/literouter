@@ -2,10 +2,6 @@ import { NextResponse } from "next/server";
 import { createProviderConnection } from "@/models";
 import { parseGitLabBaseUrl } from "@/shared/utils/gitlabBaseUrl";
 
-/**
- * POST /api/oauth/gitlab/pat
- * Authenticate GitLab Duo with a Personal Access Token (PAT)
- */
 export async function POST(request) {
   try {
     let body;
@@ -25,7 +21,6 @@ export async function POST(request) {
       return NextResponse.json({ error: "GitLab base URL must be an http(s) URL" }, { status: 400 });
     }
 
-    // Verify token by fetching current user
     const userRes = await fetch(`${base}/api/v4/user`, {
       headers: { "Private-Token": token.trim(), Accept: "application/json" },
     });

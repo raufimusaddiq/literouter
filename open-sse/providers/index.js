@@ -1,14 +1,10 @@
-// Single source: build PROVIDERS + PROVIDER_MODELS from registry/{id}.js (transport + models co-located).
 import REGISTRY from "./registry/index.js";
 import { PROVIDER_DEFAULTS } from "./schema.js";
 import { normalizeModel } from "./models/schema.js";
 import { buildTtsProviderModels } from "../config/ttsModels.js";
 
-// oauth block is canonical for these fields; inject into transport so executors reading
-// this.config.{clientId,clientSecret,tokenUrl} keep working without duplicating in transport
 const OAUTH_INJECT_FIELDS = ["clientId", "clientSecret", "tokenUrl"];
 
-// transport: re-apply shared default (format:"openai") + inject oauth-canonical fields
 function buildTransport(transport, oauth) {
   const t = { ...transport };
   if (!t.format) t.format = PROVIDER_DEFAULTS.format;
@@ -33,5 +29,4 @@ for (const entry of REGISTRY) {
   if (entry.oauth) PROVIDER_OAUTH[entry.id] = entry.oauth;
 }
 
-// Native Gemini audio model/voice tables use special keys, not provider ids.
 Object.assign(PROVIDER_MODELS, buildTtsProviderModels());

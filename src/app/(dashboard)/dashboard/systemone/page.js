@@ -92,16 +92,12 @@ export default function SystemOnePage() {
   }, []);
 
   useEffect(() => {
-    // Only save once the loaded form has been committed; otherwise strict-mode
-    // double effects would overwrite storage with the blank initial form.
     if (!hydrated) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(form));
     } catch {}
   }, [form, hydrated]);
 
-  // Keep the advanced JSON in step with the form. Edits typed into the JSON box
-  // set the flag so they are not reformatted under the cursor.
   useEffect(() => {
     if (!advancedOpen) return;
     if (advancedSource.current === "json") {

@@ -3,9 +3,6 @@ import { describe, expect, it } from "vitest";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { createSSETransformStreamWithLogger } from "../../open-sse/utils/stream.js";
 
-// Ollama streams NDJSON — one raw JSON object per line, no "data: " prefix.
-// Whatever arrives without a closing newline stays in the line buffer and is
-// only parsed when the transform flushes.
 async function runOllamaStream(input) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -90,7 +87,6 @@ describe("SSE providers keep their sentinel handling", () => {
     }
     text += decoder.decode();
     expect(text).toContain('"content":"hi"');
-    // The sentinel is a framing marker, not a chunk — it must not be translated.
     expect(text).not.toContain('"done":true');
   });
 });

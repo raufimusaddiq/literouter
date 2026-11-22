@@ -1,29 +1,14 @@
 import { CLAUDE_EVENT } from "../translator/schema/index.js";
-/**
- * Helpers for the OpenCode Zen free-tier client fingerprint.
- *
- * Live upstream probes show that free-tier requests must include the lowercase
- * file-search quartet (bash/glob/grep/read). Agent clients such as Claude Code
- * may declare the same tools with different casing, so those case variants must
- * be renamed instead of duplicated. The response side restores the caller's
- * original spelling so downstream clients still recognise their own tool calls.
- */
 
-/** Canonical names required by the upstream free-tier gate. */
 export const OPENCODE_FINGERPRINT_TOOLS = ["bash", "glob", "grep", "read"];
 
-// Request body -> names renamed for that request. transformRequest() mutates the
-// same body object that chatCore passed into the executor, so a WeakMap keeps the
-// mapping request-local without putting transport metadata on the wire.
 const renamedToolNames = new WeakMap();
 
-/** Canonical lowercase name when `name` is a quartet member; "" otherwise. */
 export function fingerprintToolKey(name) {
   const lower = String(name ?? "").trim().toLowerCase();
   return OPENCODE_FINGERPRINT_TOOLS.includes(lower) ? lower : "";
 }
 
-/** Read a tool name from either flat ({name}) or chat ({function:{name}}) shape. */
 function toolNameOf(tool) {
   if (!tool || typeof tool !== "object" || Array.isArray(tool)) return "";
   if (typeof tool.name === "string" && tool.name.trim()) return tool.name.trim();
@@ -34,14 +19,6 @@ function toolNameOf(tool) {
   return "";
 }
 
-/**
- * Canonicalise only the fingerprint quartet and remove duplicate quartet
- * variants. Non-fingerprint tools are preserved verbatim, including tools whose
- * names differ only by case; they are outside OpenCode's fingerprint contract.
- *
- * @param {Array} tools
- * @returns {{ tools: Array, map: Map<string,string> }} map: sent name -> original name
- */
 export function concealFingerprintToolNames(tools) {
   const map = new Map();
   if (!Array.isArray(tools) || tools.length === 0) return { tools, map };
@@ -61,8 +38,6 @@ export function concealFingerprintToolNames(tools) {
       continue;
     }
 
-    // `Bash` + `bash` is rejected upstream as a duplicate. Keep exactly one
-    // declaration for each quartet member.
     if (seenQuartet.has(key)) continue;
     seenQuartet.add(key);
 
@@ -79,7 +54,6 @@ export function concealFingerprintToolNames(tools) {
   return { tools: out, map };
 }
 
-/** Append only genuinely missing quartet declarations. */
 export function appendMissingFingerprintTools(tools, flat) {
   const list = Array.isArray(tools) ? tools : [];
   for (const name of OPENCODE_FINGERPRINT_TOOLS) {
@@ -101,7 +75,6 @@ export function appendMissingFingerprintTools(tools, flat) {
   return list;
 }
 
-/** Point an explicit tool_choice at a quartet member after canonicalisation. */
 export function retargetToolChoice(body, map) {
   if (!body || typeof body !== "object" || !map?.size) return;
   const choice = body.tool_choice;
@@ -122,15 +95,6 @@ export function retargetToolChoice(body, map) {
   }
 }
 
-/**
- * Full request-side pass: canonicalise quartet case variants, remove duplicate
- * quartet declarations, append missing members and preserve the legacy
- * tool_choice defaults used by the OpenCode executor.
- *
- * @param {object} body
- * @param {boolean} flat - true for Responses tools ({name}), false for chat tools
- * @returns {Map<string,string>} map: sent name -> original name
- */
 export function applyFingerprintTools(body, flat) {
   if (!body || typeof body !== "object") return new Map();
 
@@ -139,9 +103,6 @@ export function applyFingerprintTools(body, flat) {
   body.tools = appendMissingFingerprintTools(tools, flat);
   retargetToolChoice(body, map);
 
-  // Preserve the existing executor semantics. Responses uses auto when the
-  // fingerprint helper supplies tools; chat requests with no caller tools use
-  // none so the injected decoys cannot be selected.
   if (!body.tool_choice) {
     if (flat) body.tool_choice = "auto";
     else if (!hadClientTools) body.tool_choice = "none";
@@ -151,21 +112,17 @@ export function applyFingerprintTools(body, flat) {
   return map;
 }
 
-/** Store the rename map for `body`. */
 export function recordRenamedToolNames(body, map) {
   if (!body || typeof body !== "object" || !map?.size) return;
   renamedToolNames.set(body, map);
 }
 
-/** Retrieve the rename map for `body`. */
 export function takeRenamedToolNames(body) {
   if (!body || typeof body !== "object") return null;
   return renamedToolNames.get(body) || null;
 }
 
-// Response side -------------------------------------------------------------
 
-/** Restore caller tool spellings in supported response/event shapes. */
 export function restoreToolNames(payload, map) {
   if (!map?.size || !payload) return payload;
   if (Array.isArray(payload)) return payload.map((item) => restoreToolNames(item, map));
@@ -180,7 +137,6 @@ export function restoreToolNames(payload, map) {
   if (typeof payload.event === "string" && payload.data) put("data", restoreToolNames(payload.data, map));
   if (payload.type === "response.completed" && payload.response) put("response", restoreToolNames(payload.response, map));
 
-  // Claude streaming content_block_start event.
   if (payload.type === CLAUDE_EVENT.CONTENT_BLOCK_START) {
     const block = payload.content_block;
     if (block?.type === "tool_use" && typeof block.name === "string" && map.has(block.name)) {
@@ -188,7 +144,6 @@ export function restoreToolNames(payload, map) {
     }
   }
 
-  // Claude non-streaming message body.
   if (Array.isArray(payload.content)) {
     put("content", payload.content.map((block) =>
       block?.type === "tool_use" && typeof block.name === "string" && map.has(block.name)
@@ -196,7 +151,6 @@ export function restoreToolNames(payload, map) {
         : block));
   }
 
-  // OpenAI Chat Completions, both streaming delta and JSON message shapes.
   if (Array.isArray(payload.choices)) {
     put("choices", payload.choices.map((choice) => {
       let changed = false;
@@ -218,7 +172,6 @@ export function restoreToolNames(payload, map) {
     }));
   }
 
-  // OpenAI Responses final JSON body.
   if (Array.isArray(payload.output)) {
     put("output", payload.output.map((item) =>
       item?.type === "function_call" && typeof item.name === "string" && map.has(item.name)
@@ -226,7 +179,6 @@ export function restoreToolNames(payload, map) {
         : item));
   }
 
-  // OpenAI Responses SSE events such as response.output_item.added/done.
   const item = payload.item;
   if (item?.type === "function_call" && typeof item.name === "string" && map.has(item.name)) {
     put("item", { ...item, name: map.get(item.name) });
