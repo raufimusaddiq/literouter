@@ -232,6 +232,29 @@ export function transform(source, filePath = "") {
   return analyze(source, filePath).output;
 }
 
+// vitest .snap -> bun .snap: only the header and the key separator change
+// (vitest joins describe/test names with " > ", bun with " "); values are kept verbatim.
+export function convertSnapshot(source) {
+  const out = source.replace(
+    /^\/\/ Vitest Snapshot v1, [^\r\n]*/,
+    "// Bun Snapshot v1, https://bun.sh/docs/test/snapshots",
+  );
+  return out.replace(/^exports\[`((?:[^`\\]|\\.)*)`\] = `/gm, (m, key) => {
+    return "exports[`" + key.replaceAll(" > ", " ") + "`] = `";
+  });
+}
+
+function walkSnaps(p, acc) {
+  const st = fs.statSync(p);
+  if (st.isDirectory()) {
+    for (const name of fs.readdirSync(p)) {
+      if (SKIP_DIRS.has(name)) continue;
+      walkSnaps(path.join(p, name), acc);
+    }
+  } else if (p.endsWith(".snap")) acc.push(p);
+  return acc;
+}
+
 function walk(p, acc) {
   const st = fs.statSync(p);
   if (st.isDirectory()) {
@@ -247,6 +270,20 @@ function main(argv) {
   const check = argv.includes("--check");
   const roots = argv.filter((a) => !a.startsWith("--"));
   if (!roots.length) roots.push("tests");
+  if (argv.includes("--snapshots")) {
+    let n = 0;
+    for (const f of roots.flatMap((r) => walkSnaps(r, []))) {
+      const src = fs.readFileSync(f, "utf8");
+      const out = convertSnapshot(src);
+      if (out !== src) {
+        n++;
+        if (!check) fs.writeFileSync(f, out);
+      }
+    }
+    console.log(`${n} snapshot files ${check ? "would change" : "converted"}`);
+    if (check && n) process.exit(1);
+    return;
+  }
   const files = roots.flatMap((r) => walk(r, []));
   const changed = [];
   const manual = [];

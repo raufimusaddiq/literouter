@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { transform, analyze } from "../../scripts/migrate-vitest-to-bun.mjs";
+import { transform, analyze, convertSnapshot } from "../../scripts/migrate-vitest-to-bun.mjs";
 
 const T = (s) => transform(s, "x.test.js");
 
@@ -141,5 +141,17 @@ vi.fn();
 const a = 1;
 `)).toBe(`const a = 1;
 `);
+  });
+});
+
+describe("migrate-vitest-to-bun snapshots", () => {
+  it("converts header and key separators only", () => {
+    const src =
+      "// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html\n\nexports[`A > b > c d 1`] = `\n{\n  \"x > y\": 1,\n}\n`;\n";
+    const out = convertSnapshot(src);
+    expect(out).toBe(
+      "// Bun Snapshot v1, https://bun.sh/docs/test/snapshots\n\nexports[`A b c d 1`] = `\n{\n  \"x > y\": 1,\n}\n`;\n",
+    );
+    expect(convertSnapshot(out)).toBe(out);
   });
 });

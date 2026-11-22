@@ -1,6 +1,6 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`GOLDEN response stream: Claude → OpenAI > text + thinking + tool_use + usage + finish 1`] = `
+exports[`GOLDEN response stream: Claude → OpenAI text + thinking + tool_use + usage + finish 1`] = `
 [
   {
     "choices": [
@@ -119,7 +119,7 @@ exports[`GOLDEN response stream: Claude → OpenAI > text + thinking + tool_use 
 ]
 `;
 
-exports[`GOLDEN response stream: Gemini → OpenAI > image output (inlineData → delta.images) 1`] = `
+exports[`GOLDEN response stream: Gemini → OpenAI image output (inlineData → delta.images) 1`] = `
 [
   {
     "choices": [
@@ -174,7 +174,7 @@ exports[`GOLDEN response stream: Gemini → OpenAI > image output (inlineData �
 ]
 `;
 
-exports[`GOLDEN response stream: Gemini → OpenAI > text + thought(no-sig) + functionCall + usage + finish 1`] = `
+exports[`GOLDEN response stream: Gemini → OpenAI text + thought(no-sig) + functionCall + usage + finish 1`] = `
 [
   {
     "choices": [
@@ -273,7 +273,7 @@ exports[`GOLDEN response stream: Gemini → OpenAI > text + thought(no-sig) + fu
 ]
 `;
 
-exports[`GOLDEN response stream: Kiro → OpenAI > text + reasoning + toolUse + usage + stop 1`] = `
+exports[`GOLDEN response stream: Kiro → OpenAI text + reasoning + toolUse + usage + stop 1`] = `
 [
   {
     "choices": [
@@ -352,7 +352,7 @@ exports[`GOLDEN response stream: Kiro → OpenAI > text + reasoning + toolUse + 
 ]
 `;
 
-exports[`GOLDEN response stream: Ollama → OpenAI > content + thinking + tool_calls + done usage 1`] = `
+exports[`GOLDEN response stream: Ollama → OpenAI content + thinking + tool_calls + done usage 1`] = `
 [
   {
     "choices": [
@@ -416,7 +416,7 @@ exports[`GOLDEN response stream: Ollama → OpenAI > content + thinking + tool_c
 ]
 `;
 
-exports[`GOLDEN response stream: OpenAI-Responses (codex) → OpenAI > error event → error chunk (fallback id/created) 1`] = `
+exports[`GOLDEN response stream: OpenAI-Responses (codex) → OpenAI error event → error chunk (fallback id/created) 1`] = `
 [
   {
     "choices": [
@@ -436,7 +436,7 @@ exports[`GOLDEN response stream: OpenAI-Responses (codex) → OpenAI > error eve
 ]
 `;
 
-exports[`GOLDEN response stream: OpenAI-Responses (codex) → OpenAI > text + reasoning + tool_call + completed usage 1`] = `
+exports[`GOLDEN response stream: OpenAI-Responses (codex) → OpenAI text + reasoning + tool_call + completed usage 1`] = `
 [
   {
     "choices": [
