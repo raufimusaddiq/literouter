@@ -5,6 +5,7 @@ import { ANTHROPIC_API_VERSION, OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE, selec
 import { resolveOpenAICompatibleApiType } from "../services/provider.js";
 import { OAUTH_ENDPOINTS, buildKimiHeaders } from "../config/appConstants.js";
 import { buildClineHeaders } from "../shared/clineAuth.js";
+import { buildKiroIdentityHeaders } from "../shared/kiroIdentity.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { refreshSignal } from "../utils/requestTimeouts.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
@@ -309,7 +310,7 @@ export class DefaultExecutor extends BaseExecutor {
     const response = await proxyAwareFetch(PROVIDERS.kiro.tokenUrl, {
       signal: refreshSignal(),
       method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json", "User-Agent": "kiro-cli/1.0.0" },
+      headers: { "Content-Type": "application/json", "Accept": "application/json", ...buildKiroIdentityHeaders({ refreshToken }) },
       body: JSON.stringify({ refreshToken })
     }, proxyOptions);
     if (!response.ok) return null;
