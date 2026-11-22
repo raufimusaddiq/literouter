@@ -4,14 +4,14 @@
   "private": true,
   "type": "module",
   "description": "Unit tests for LiteRouter gateway behavior",
-  "scripts": {
-    "test": "vitest run --reporter=verbose",
-    "test:watch": "vitest --reporter=verbose"
+  "imports": {
+    "#test/*": "./helpers/*.js"
   },
-  "devDependencies": {
-    "vitest": "^4.0.0"
+  "scripts": {
+    "test": "bun test --parallel",
+    "test:junit": "bun test --parallel --reporter=junit --reporter-outfile=../test-results.xml"
   },
   "engines": {
-    "node": ">=20.9"
+    "bun": ">=1.4.4"
   }
 }

@@ -1,0 +1,3 @@
+[test]
+root = "."
+pathIgnorePatterns = ["**/*.live.test.js", "**/node_modules/**", "**/.claude/**", "**/dist/**"]
