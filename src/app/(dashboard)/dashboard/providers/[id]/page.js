@@ -29,7 +29,7 @@ const ONE_BY_ONE_DELAY_MS = 1000;
 // Providers whose registry list is only an offline fallback: the dashboard
 // renders the live per-connection catalog from GET /api/providers/[id]/models
 // when one resolves, and falls back to the static rows otherwise.
-const LIVE_MODEL_CATALOG_PROVIDERS = new Set(["cursor", "zed", "claude", "commandcode"]);
+const LIVE_MODEL_CATALOG_PROVIDERS = new Set(["cursor", "zed", "claude", "commandcode", "kenari"]);
 
 const AUTO_PING_SETTINGS_KEYS = {
   claude: "claudeAutoPing",
@@ -163,7 +163,8 @@ export default function ProviderDetailPage() {
   const isFreeNoAuth = !!FREE_PROVIDERS[providerId]?.noAuth;
   const staticModels = getModelsByProviderId(providerId);
   const providerAlias = getProviderAlias(providerId);
-  const models = LIVE_MODEL_CATALOG_PROVIDERS.has(providerId) && liveModels.length > 0
+  // Kenari's live rows only describe models (levels); the list stays what the user added.
+  const models = LIVE_MODEL_CATALOG_PROVIDERS.has(providerId) && providerId !== "kenari" && liveModels.length > 0
     ? liveModels
     : applyQoderModelNames(staticModels, customModels, providerAlias);
 
@@ -181,10 +182,13 @@ export default function ProviderDetailPage() {
     : providerId === "kimi" ? "Kimi API Key"
     : providerId === "qoder" ? "PAT"
     : "API Key";
+  // Live rows may carry server-resolved levels (Kenari); the browser has no catalog source.
+  const levelsForModel = (modelId) =>
+    liveModels.find((m) => m.id === modelId)?.thinkingLevels || getThinkingLevels(providerId, modelId);
   // Resolve suffix "(level)" for a model when a thinking level is picked and the model supports it.
   const resolveThinkingSuffix = (modelId) => {
     if (!thinkingMode || thinkingMode === "auto") return null;
-    const levels = getThinkingLevels(providerId, modelId);
+    const levels = levelsForModel(modelId);
     return levels && levels.includes(thinkingMode) ? thinkingMode : null;
   };
   const providerStorageAlias = isCompatible ? providerId : providerAlias;
@@ -196,7 +200,7 @@ export default function ProviderDetailPage() {
     const addLevels = (modelId) => {
       if (!modelId || seen.has(modelId)) return;
       seen.add(modelId);
-      const lv = getThinkingLevels(providerId, modelId);
+      const lv = levelsForModel(modelId);
       if (lv) lv.forEach((l) => { if (l !== "none") set.add(l); });
     };
     for (const m of models) addLevels(m.id);

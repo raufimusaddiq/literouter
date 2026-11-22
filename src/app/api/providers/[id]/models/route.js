@@ -15,6 +15,9 @@ import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { resolveClineModels, resolveClinepassModels } from "open-sse/services/clinepassModels.js";
 import { resolveCommandCodeModels } from "open-sse/services/commandcodeModels.js";
 import { noteUntrackedModel } from "open-sse/providers/trackingGaps.js";
+import { listKenariModels } from "open-sse/providers/kenariCatalog.js";
+import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
+import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
 
 const GEMINI_CLI_MODELS_URL = "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
 
@@ -220,6 +223,31 @@ const PROVIDER_MODELS_CONFIG = {
       return {
         models: getStaticProviderModels("commandcode"),
         warning: "CommandCode returned no live models; falling back to static catalog.",
+      };
+    },
+  },
+  // Kenari's daily-synced list (cache only). caps/thinkingLevels are resolved here
+  // because the browser has no catalog source installed. Empty cache -> static list.
+  kenari: {
+    customResolver: async () => {
+      const cached = listKenariModels();
+      if (!cached?.length) return { models: getStaticProviderModels("kenari") };
+      return {
+        models: cached.map((m) => {
+          const model = { id: m.id, name: m.name || m.id };
+          if (m.kind && m.kind !== "llm") return { ...model, kind: m.kind };
+          const c = getCapabilitiesForModel("kenari", m.id);
+          model.caps = {
+            vision: c.vision,
+            search: c.search,
+            reasoning: c.reasoning,
+            contextWindow: c.contextWindow,
+            maxOutput: c.maxOutput,
+          };
+          const levels = getThinkingLevels("kenari", m.id);
+          if (levels) model.thinkingLevels = levels;
+          return model;
+        }),
       };
     },
   },

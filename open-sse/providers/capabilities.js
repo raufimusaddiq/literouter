@@ -729,7 +729,8 @@ let catalogSource = null;
 /**
  * Install the synced catalog reader (server only).
  * @param {{ getModalities: (provider: string, model: string) => object|null,
- *           getLimits: (provider: string, model: string) => object|null } | null} source
+ *           getLimits: (provider: string, model: string) => object|null,
+ *           getProviderLive?: (provider: string, model: string) => object|null } | null} source
  */
 export function setCatalogSource(source) {
   catalogSource = source;
@@ -739,6 +740,34 @@ export function setCatalogSource(source) {
 function getCatalogSource() {
   if (typeof globalThis === "undefined") return catalogSource;
   return globalThis.__9rCatalogSource || null;
+}
+
+// Authoritative per-gateway data (optional source.getProviderLive, Kenari only).
+// Wins over every table and the models.dev overlay. Fails open.
+export function getProviderLiveData(providerInput, model) {
+  const provider = ALIAS_TO_PROVIDER_ID[providerInput] || providerInput;
+  if (provider !== "kenari" || !model) return null;
+  const source = getCatalogSource();
+  if (typeof source?.getProviderLive !== "function") return null;
+  try {
+    return source.getProviderLive(provider, model) || null;
+  } catch {
+    return null;
+  }
+}
+
+// Limits override when > 0; modalities and reasoning only turn on.
+// thinkingFormat is left to the existing resolution.
+function applyProviderLive(result, live) {
+  const out = { ...result };
+  if (live.contextWindow > 0) out.contextWindow = live.contextWindow;
+  if (live.maxOutput > 0) out.maxOutput = live.maxOutput;
+  for (const key of MODALITY_KEYS) if (live[key] === true) out[key] = true;
+  if (live.reasoning === true) {
+    out.reasoning = true;
+    if (live.reasoningToggle === false) out.thinkingCanDisable = false;
+  }
+  return out;
 }
 
 // Apply the synced catalog + name heuristic on top of a table-resolved result.
@@ -817,6 +846,12 @@ export function getCapabilitiesForModel(providerInput, model) {
   if (!model) return { ...DEFAULT_CAPABILITIES };
 
   const provider = ALIAS_TO_PROVIDER_ID[providerInput] || providerInput;
+  const resolved = resolveFromTables(provider, model);
+  const live = getProviderLiveData(provider, model);
+  return live ? applyProviderLive(resolved, live) : resolved;
+}
+
+function resolveFromTables(provider, model) {
 
   // Canonical exact lookup strips vendor prefix: "anthropic/claude-opus-4.7" -> "claude-opus-4.7".
   const baseModel = model.includes("/") ? model.split("/").pop() : model;

@@ -1,6 +1,6 @@
 // Resolve valid thinking levels per model — drives UI level picker (suffix "model(level)").
 // Reuses capabilities.js (thinkingFormat/canDisable) so this file only maps format→levels (DRY).
-import { getCapabilitiesForModel } from "./capabilities.js";
+import { getCapabilitiesForModel, getProviderLiveData } from "./capabilities.js";
 import { matchPattern } from "./pricing.js";
 import { resolveKiroEffortPath } from "../config/kiroConstants.js";
 
@@ -95,6 +95,12 @@ const isOpenAICompatibleNode = (provider) => String(provider || "").startsWith("
 // Returns valid thinking levels for a model, or null when the model has no reasoning.
 export function getThinkingLevels(provider, model) {
   if (provider === "kiro" && resolveKiroEffortPath(model) === null) return null;
+  // Kenari's synced catalog (server side only) is authoritative; "none" only if its toggle is on.
+  const live = getProviderLiveData(provider, model);
+  if (live?.reasoning === false) return null;
+  if (live?.reasoning === true && live.reasoningLevels?.length) {
+    return live.reasoningToggle === true ? ["none", ...live.reasoningLevels] : [...live.reasoningLevels];
+  }
   const caps = getCapabilitiesForModel(provider, model);
   if (!caps.reasoning) return null;
   const hit = PATTERN_THINKING.find((entry) =>

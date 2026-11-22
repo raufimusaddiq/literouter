@@ -9,7 +9,7 @@ export default {
   display: {
     name: "Kenari",
     icon: "flight",
-    color: "#0EA5E9",
+    color: "#B5362A",
     textIcon: "KN",
     website: "https://kenari.id",
     notice: {
