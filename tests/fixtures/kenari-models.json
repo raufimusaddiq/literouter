@@ -1,0 +1,238 @@
+{
+ "object": "list",
+ "data": [
+  {
+   "context_length": 200000,
+   "endpoints": [
+    "chat"
+   ],
+   "id": "glm-4-7-flash:free",
+   "max_output_tokens": 117964,
+   "modalities": {
+    "input": [
+     "text",
+     "file"
+    ],
+    "output": [
+     "text"
+    ]
+   },
+   "name": "GLM-4.7-Flash",
+   "protocols": [
+    "openai-chat",
+    "openai-responses",
+    "anthropic-messages"
+   ],
+   "reasoning": true,
+   "reasoning_toggle": true,
+   "tool_call": true
+  },
+  {
+   "context_length": 1000000,
+   "endpoints": [
+    "chat"
+   ],
+   "id": "glm-5-3",
+   "max_output_tokens": 128000,
+   "modalities": {
+    "input": [
+     "text",
+     "file"
+    ],
+    "output": [
+     "text"
+    ]
+   },
+   "name": "GLM-5.3",
+   "protocols": [
+    "openai-chat",
+    "openai-responses",
+    "anthropic-messages"
+   ],
+   "reasoning": true,
+   "reasoning_options": [
+    "low",
+    "high",
+    "max"
+   ],
+   "reasoning_toggle": false,
+   "supported_reasoning_levels": [
+    "low",
+    "high",
+    "max"
+   ],
+   "tool_call": true
+  },
+  {
+   "context_length": 500000,
+   "endpoints": [
+    "chat"
+   ],
+   "id": "grok-4-7",
+   "max_output_tokens": 450000,
+   "modalities": {
+    "input": [
+     "text",
+     "image",
+     "pdf",
+     "file"
+    ],
+    "output": [
+     "text"
+    ]
+   },
+   "name": "Grok 4.7",
+   "protocols": [
+    "openai-chat",
+    "openai-responses",
+    "anthropic-messages"
+   ],
+   "reasoning": true,
+   "reasoning_options": [
+    "low",
+    "medium",
+    "high",
+    "xhigh"
+   ],
+   "reasoning_toggle": false,
+   "supported_reasoning_levels": [
+    "low",
+    "medium",
+    "high",
+    "xhigh"
+   ],
+   "tool_call": true,
+   "video_extensions": true
+  },
+  {
+   "context_length": 1048576,
+   "endpoints": [
+    "chat"
+   ],
+   "id": "minimax-m3",
+   "max_output_tokens": 235929,
+   "modalities": {
+    "input": [
+     "text",
+     "image",
+     "video",
+     "file"
+    ],
+    "output": [
+     "text"
+    ]
+   },
+   "name": "MiniMax-M3",
+   "protocols": [
+    "openai-chat",
+    "openai-responses",
+    "anthropic-messages"
+   ],
+   "reasoning": true,
+   "reasoning_toggle": false,
+   "tool_call": true
+  },
+  {
+   "context_length": 1048576,
+   "endpoints": [
+    "chat"
+   ],
+   "id": "muse-ember-1-0",
+   "max_output_tokens": 524288,
+   "modalities": {
+    "input": [
+     "text",
+     "image",
+     "pdf",
+     "file"
+    ],
+    "output": [
+     "text"
+    ]
+   },
+   "name": "Muse Ember 1.0",
+   "protocols": [
+    "openai-chat",
+    "openai-responses",
+    "anthropic-messages"
+   ],
+   "reasoning": true,
+   "reasoning_options": [
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "reasoning_toggle": false,
+   "supported_reasoning_levels": [
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "tool_call": true
+  },
+  {
+   "context_length": 262144,
+   "endpoints": [
+    "chat"
+   ],
+   "id": "beam-1-0:free",
+   "modalities": {
+    "input": [
+     "text",
+     "file"
+    ],
+    "output": [
+     "text"
+    ]
+   },
+   "name": "Beam 1.0",
+   "protocols": [
+    "openai-chat",
+    "openai-responses",
+    "anthropic-messages"
+   ],
+   "reasoning_toggle": false
+  },
+  {
+   "endpoints": [
+    "audio_speech"
+   ],
+   "id": "gemini-3-8-flash-lite-tts",
+   "modalities": {
+    "input": [
+     "text"
+    ],
+    "output": [
+     "audio"
+    ]
+   },
+   "name": "Gemini 3.8 Flash-Lite TTS",
+   "reasoning_toggle": false
+  },
+  {
+   "endpoints": [
+    "images"
+   ],
+   "id": "gpt-image-2",
+   "modalities": {
+    "input": [
+     "text",
+     "image"
+    ],
+    "output": [
+     "image"
+    ]
+   },
+   "name": "GPT Image 2",
+   "reasoning": false,
+   "reasoning_toggle": false,
+   "tool_call": false
+  }
+ ]
+}
