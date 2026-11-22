@@ -262,7 +262,7 @@ Rules, in this order:
   - Replace `setup-node` with `oven-sh/setup-bun@v2` and `bun-version: 1.4.4`.
   - Install with `bun install --frozen-lockfile` at the root and in `tests/`.
   - Run, from `tests/`: `CI=true bun test --parallel --reporter=junit --reporter-outfile=../test-results.xml`.
-  - Then run `git diff --exit-code -- tests` (fails if Bun wrote or changed any snapshot), `bun tests/__baseline__/verify-no-regression.mjs test-results.xml`, `bun tests/__baseline__/verify-test-counts.mjs test-results.xml`, `bun scripts/migrate-vitest-to-bun.mjs --check tests`, `bunx eslint .`, and `bun run build:bun` (interim Next-on-Bun build) with the existing standalone budget check.
+  - Then run `git diff --exit-code -- tests` (fails if Bun wrote or changed any snapshot), `bun tests/__baseline__/verify-no-regression.mjs test-results.xml`, `bun tests/__baseline__/verify-test-counts.mjs test-results.xml`, `bun scripts/migrate-vitest-to-bun.mjs --check tests`, `bunx --bun eslint .` (a plain `bunx eslint` follows ESLint's `node` shebang), and `bun run build:bun` (interim Next-on-Bun build) with the existing standalone budget check.
 - [ ] **Step 2:** Root `package.json`: add `"engines": { "bun": ">=1.4.4" }` and `"test": "cd tests && bun test --parallel"`. Generate `bun.lock` with `bun install`. The root `package-lock.json` stays until Plan 4, because the Dockerfile still uses `npm ci`.
 - [ ] **Step 3:** Update the test commands in `CLAUDE.md`: no `npx vitest`, `bun test` from `tests/`, the junit verify scripts, and the rule "after merging `main`, run `bun scripts/migrate-vitest-to-bun.mjs tests`".
 - [ ] **Step 4:** Open the PR to `staging`. CI must be green:
