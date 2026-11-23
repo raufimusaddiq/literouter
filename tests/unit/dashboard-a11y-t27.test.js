@@ -22,8 +22,8 @@ describe("T-27 dashboard leftovers", () => {
 
   it("quota account cards use h2, not h3", () => {
     const src = read("src/web/pages/dashboard/usage/components/ProviderLimits/index.js");
-    expect(src).toMatch(/<h2 className="text-sm font-semibold text-text-primary truncate">/);
-    expect(src).not.toMatch(/<h3 className="text-sm font-semibold text-text-primary truncate">/);
+    expect(src).toMatch(/<h2 className="text-sm font-semibold text-ink truncate">/);
+    expect(src).not.toMatch(/<h3 className="text-sm font-semibold text-ink truncate">/);
   });
 });
 
