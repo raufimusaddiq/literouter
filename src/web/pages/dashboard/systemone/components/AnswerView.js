@@ -95,7 +95,6 @@ function Box({ answer, assets }) {
     <div>
       {asset?.data_base64 ? (
         <div className="relative inline-block max-w-full overflow-hidden rounded-lg ring-1 ring-border-subtle">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`data:image/${asset.format};base64,${asset.data_base64}`} alt="Image used for the box question" className="block max-h-80 w-auto max-w-full" />
           <div
             aria-hidden="true"

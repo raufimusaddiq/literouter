@@ -50,14 +50,7 @@ describe("Next's server pieces are gone", () => {
     expect(stripList[1]).toContain('"x-9r-real-ip"');
   });
 
-  it("next.config.mjs has no rewrites", async () => {
-    const text = read(join(root, "next.config.mjs"));
-    expect(text).not.toContain("rewrites");
-    expect(text).not.toContain("proxyClientMaxBodySize");
-    expect(text).not.toContain("serverExternalPackages");
-    const config = (await import(join(root, "next.config.mjs"))).default;
-    expect(config.rewrites).toBeUndefined();
-    expect(config.experimental.proxyClientMaxBodySize).toBeUndefined();
-    expect(config.serverExternalPackages).toBeUndefined();
+  it("next.config.mjs has no rewrites", () => {
+    expect(existsSync(join(root, "next.config.mjs"))).toBe(false);
   });
 });
