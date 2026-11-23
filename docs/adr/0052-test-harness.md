@@ -127,7 +127,7 @@ Per-file module isolation needs `--parallel` (see D4). A full run took about 11 
 
 ### D19. Deleted tests are recorded in the count baseline
 
-`test-counts.json` has a `"deleted": { "<file> :: <full name>": "<reason>" }` map; a whole-file deletion uses `"<file> :: *"`. `files` stays at the frozen vitest counts. `verify-test-counts.mjs` subtracts one from a file's expected count per deleted case, so a lowered count without an entry fails and a bogus entry fails when no case is missing from the frozen count. A whole-file entry must state `(N cases)` equal to the frozen count and the file must run 0 cases. The gate prints the list on every run and fails when a deleted case still runs or its file has no frozen count.
+`test-counts.json` has a `"deleted": { "<file> :: <full name>": "<reason>" }` map; a whole-file deletion uses `"<file> :: *"`. `files` stays at the frozen vitest counts. `verify-test-counts.mjs` subtracts one from a file's expected count per deleted case, so a lowered count without an entry fails. A whole-file entry must state `(N cases)` equal to the frozen count and the file must run 0 cases. The gate prints the list on every run and fails when a deleted case still runs or its file has no frozen count.
 
 **Where:** `tests/__baseline__/test-counts.json`; `tests/__baseline__/verify-test-counts.mjs`; `tests/unit/baseline-junit.test.js`
 

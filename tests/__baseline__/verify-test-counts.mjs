@@ -41,8 +41,6 @@ export function checkDeleted(baselineFiles, deleted, cases) {
       else if (fileCases.length) problems.push({ key, problem: "file still present in junit" });
     } else if (fileCases.some(c => c.fullName === k.name)) {
       problems.push({ key, problem: "case still present in junit" });
-    } else if (fileCases.length >= baselineFiles[k.file]) {
-      problems.push({ key, problem: "no case is missing from the frozen count" });
     }
   }
   return problems;

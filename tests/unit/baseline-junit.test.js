@@ -113,9 +113,10 @@ describe("deleted records against the frozen baseline", () => {
   test("accepts an entry for a case that vanished", () => {
     expect(checkDeleted({ "tests/a.test.js": 3 }, del, cases)).toEqual([]);
   });
-  test("a bogus entry for a case that never vanished fails", () => {
-    expect(checkDeleted({ "tests/a.test.js": 2 }, del, cases))
-      .toEqual([{ key: "tests/a.test.js :: gone", problem: "no case is missing from the frozen count" }]);
+  test("a file with a deleted entry that later gains tests still passes", () => {
+    const grown = [...cases, { file: "tests/a.test.js", fullName: "added later 1", status: "passed" }, { file: "tests/a.test.js", fullName: "added later 2", status: "passed" }];
+    expect(checkDeleted({ "tests/a.test.js": 3 }, del, grown)).toEqual([]);
+    expect(checkCounts({ "tests/a.test.js": 3 }, grown, del)).toEqual([]);
   });
   test("flags a deleted case that still runs", () => {
     expect(checkDeleted({ "tests/a.test.js": 3 }, { "tests/a.test.js :: kept": "r" }, cases))
