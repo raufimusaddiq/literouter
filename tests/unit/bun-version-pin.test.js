@@ -10,6 +10,8 @@ function pins() {
   const found = [];
   const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   found.push({ where: "package.json engines.bun", version: String(pkg.engines?.bun ?? "").replace(/^[^\d]*/, "") });
+  const cli = JSON.parse(readFileSync(join(root, "cli", "package.json"), "utf8"));
+  found.push({ where: "cli/package.json engines.bun", version: String(cli.engines?.bun ?? "").replace(/^[^\d]*/, "") });
   const workflows = join(root, ".github", "workflows");
   for (const file of new Bun.Glob("*.yml").scanSync({ cwd: workflows })) {
     const text = readFileSync(join(workflows, file), "utf8");

@@ -3,7 +3,8 @@ name: Test
 on:
   pull_request:
   push:
-    branches: [main, staging]
+    branches: [main]
+  workflow_call:
 
 concurrency:
   group: test-${{ github.ref }}
@@ -60,4 +61,53 @@ jobs:
 
       - run: bun tests/parity/compare-upstream.mjs tests/parity/expected parity-actual
 
-      - run: bun run build:web
+      - name: CLI tests
+        working-directory: cli
+        run: |
+          if [ -f bun.lock ]; then bun install --frozen-lockfile; else bun install; fi
+          bun test
+
+      - run: bun run build
+
+      - run: git diff --exit-code -- src/shared/constants/providerIconManifest.js
+
+      - run: bun scripts/smoke-server.mjs --spawn dist/app
+
+      - run: test "$(du -sm dist/app | cut -f1)" -le 30
+
+  image:
+    needs: unit
+    runs-on: ubuntu-latest
+    name: image (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+          - platform: linux/arm64
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - uses: docker/setup-qemu-action@v3
+        if: matrix.platform == 'linux/arm64'
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: literouter:ci
+          cache-from: type=gha,scope=image-${{ matrix.arch }}
+          cache-to: type=gha,scope=image-${{ matrix.arch }},mode=max
+
+      - run: bun scripts/check-image-size.mjs literouter:ci --max-mb 150
+
+      - run: bun scripts/smoke-image.mjs literouter:ci --platform ${{ matrix.platform }} --timeout 600
