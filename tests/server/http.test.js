@@ -5,9 +5,18 @@ describe("http helpers", () => {
   test("json matches NextResponse.json", async () => {
     const res = json({ a: 1 }, { status: 201, headers: { "x-test": "y" } });
     expect(res.status).toBe(201);
-    expect(res.headers.get("content-type")).toContain("application/json");
+    expect(res.headers.get("content-type")).toBe("application/json");
     expect(res.headers.get("x-test")).toBe("y");
-    expect(await res.json()).toEqual({ a: 1 });
+    expect(await res.text()).toBe('{"a":1}');
+  });
+
+  test("json keeps a caller supplied content-type", () => {
+    const res = json({ a: 1 }, { headers: { "Content-Type": "application/problem+json" } });
+    expect(res.headers.get("content-type")).toBe("application/problem+json");
+  });
+
+  test("redirect rejects a relative target without a base", () => {
+    expect(() => redirect("/login")).toThrow();
   });
 
   test("redirect resolves a relative target and defaults to 307", () => {

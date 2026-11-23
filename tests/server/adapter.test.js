@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { isLongLived, toBunHandler } from "../../src/server/adapter.js";
+import { json } from "../../src/server/http.js";
 
 const servers = [];
 afterEach(() => {
@@ -38,6 +39,40 @@ describe("toBunHandler", () => {
     });
     await fetch(`${base}/k/a%20b`);
     expect(seen).toEqual({ id: "a b" });
+  });
+
+  test("named params are decoded exactly once", async () => {
+    let seen;
+    const base = serve({
+      "/k/:id": toBunHandler(async () => ({
+        GET: async (req, ctx) => {
+          seen = await ctx.params;
+          return new Response("ok");
+        },
+      })),
+    });
+    await fetch(`${base}/k/a%2520b`);
+    expect(seen).toEqual({ id: "a%20b" });
+    await fetch(`${base}/k/a%2Fb`);
+    expect(seen).toEqual({ id: "a/b" });
+  });
+
+  test("catch-all segments are decoded once each, including an encoded slash", async () => {
+    let seen;
+    const route = { path: "/m/*", catchAll: "model" };
+    const base = serve({
+      "/m/*": toBunHandler(
+        async () => ({
+          GET: async (req, ctx) => {
+            seen = await ctx.params;
+            return new Response("ok");
+          },
+        }),
+        route,
+      ),
+    });
+    await fetch(`${base}/m/a%2Fb/c%2520d`);
+    expect(seen).toEqual({ model: ["a/b", "c%20d"] });
   });
 
   test("catch-all params are a string[]", async () => {
@@ -143,7 +178,7 @@ describe("toBunHandler", () => {
   });
 
   test("gzips large responses it returns", async () => {
-    const h = toBunHandler(async () => ({ GET: () => Response.json({ d: "x".repeat(4000) }) }));
+    const h = toBunHandler(async () => ({ GET: () => json({ d: "x".repeat(4000) }) }));
     const res = await h(new Request("http://h.test/g", { headers: { "accept-encoding": "gzip" } }), null);
     expect(res.headers.get("content-encoding")).toBe("gzip");
   });

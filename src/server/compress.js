@@ -1,3 +1,5 @@
+import { isMaterialised } from "./http.js";
+
 const MIN_BYTES = 1024;
 
 function isCompressible(type) {
@@ -37,10 +39,15 @@ export async function maybeCompress(req, res) {
   if (!isCompressible(headers.get("content-type") || "")) return res;
   if ((headers.get("cache-control") || "").toLowerCase().includes("no-transform")) return res;
   const declared = headers.get("content-length");
+  if (declared === null && !isMaterialised(res)) return res;
   if (declared !== null && Number(declared) < MIN_BYTES) return res;
-  const buffer = new Uint8Array(await res.clone().arrayBuffer());
-  if (buffer.byteLength < MIN_BYTES) return res;
+  const buffer = new Uint8Array(await res.arrayBuffer());
+  if (buffer.byteLength < MIN_BYTES) {
+    return new Response(buffer, { status: res.status, statusText: res.statusText, headers });
+  }
   const out = new Headers(headers);
+  const etag = out.get("etag");
+  if (etag && !etag.startsWith("W/")) out.set("ETag", `W/${etag}`);
   out.set("Content-Encoding", "gzip");
   out.delete("Content-Length");
   out.append("Vary", "Accept-Encoding");
