@@ -45,6 +45,8 @@ export const GUARDED_PATHS = [
   "src/shared/components/ThemeToggle.js",
   "src/web/pages/dashboard/endpoint",
   "src/web/pages/dashboard/combos",
+  "src/web/pages/dashboard/systemone",
+  "src/web/pages/dashboard/token-saver",
 ];
 
 const BACKDROP_BLUR_ALLOWED = new Set(["src/shared/components/shell/TopBar.js"]);
