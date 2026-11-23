@@ -61,7 +61,7 @@ describe("grok-web validation", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => { global.fetch = originalFetch; });
 
-  it("should return valid:true when response is 200", async () => {
+  it("grok-web should return valid:true when response is 200", async () => {
     global.fetch = vi.fn().mockResolvedValue({ status: 200 });
     const result = await validateGrokWeb("test-token");
     expect(result.valid).toBe(true);
@@ -134,7 +134,7 @@ describe("perplexity-web validation", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => { global.fetch = originalFetch; });
 
-  it("should return valid:true when response is 200", async () => {
+  it("perplexity-web should return valid:true when response is 200", async () => {
     global.fetch = vi.fn().mockResolvedValue({ status: 200 });
     const result = await validatePerplexityWeb("test-token");
     expect(result.valid).toBe(true);
