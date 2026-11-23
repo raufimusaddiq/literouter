@@ -96,6 +96,10 @@ export function getConsoleLogs() {
   return state.logs;
 }
 
+export function getPendingLineCount() {
+  return state.pendingLines.length;
+}
+
 export function clearConsoleLogs() {
   state.logs = [];
   state.emitter.emit("clear");

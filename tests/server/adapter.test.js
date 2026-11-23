@@ -93,11 +93,11 @@ describe("toBunHandler", () => {
     expect(seen).toEqual({ model: ["a", "b c"] });
   });
 
-  test("405 with Allow for a missing method", async () => {
+  test("405 without Allow for a missing method, as Next sends it", async () => {
     const base = serve({ "/x": toBunHandler(async () => ({ GET: ok })) });
     const res = await fetch(`${base}/x`, { method: "POST" });
     expect(res.status).toBe(405);
-    expect(res.headers.get("allow")).toContain("GET");
+    expect(res.headers.get("allow")).toBeNull();
   });
 
   test("auto OPTIONS returns 204 with Allow", async () => {
@@ -108,6 +108,7 @@ describe("toBunHandler", () => {
     expect(allow).toContain("GET");
     expect(allow).toContain("POST");
     expect(allow).toContain("OPTIONS");
+    expect(allow).toBe("GET, HEAD, OPTIONS, POST");
   });
 
   test("HEAD runs GET and drops the body", async () => {

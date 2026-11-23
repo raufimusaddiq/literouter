@@ -20,7 +20,7 @@ function allowedMethods(mod) {
   const allowed = METHODS.filter((m) => typeof mod[m] === "function");
   if (allowed.includes("GET") && !allowed.includes("HEAD")) allowed.push("HEAD");
   if (!allowed.includes("OPTIONS")) allowed.push("OPTIONS");
-  return allowed;
+  return allowed.sort();
 }
 
 function decode(segment) {
@@ -65,7 +65,7 @@ export function toBunHandler(load, route = {}) {
     const handler = mod[method];
     if (typeof handler !== "function") {
       if (method === "OPTIONS") return new Response(null, { status: 204, headers: { Allow: allowed.join(", ") } });
-      return new Response(null, { status: 405, headers: { Allow: allowed.join(", ") } });
+      return new Response(null, { status: 405 });
     }
     const params = buildParams(req, route, pathname);
     const handled = await handler(req, { params: Promise.resolve(params) });
