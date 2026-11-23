@@ -26,7 +26,7 @@ Zed's `codeVerifier` encodes the RSA private key. Session registration is theref
 
 The `/callback` page may hand the code and state only to the dashboard window we expect to be the opener (same origin) or to the Codex helper listening on a fixed loopback port. Any other origin is treated as hostile (a drive-by page that opened the popup against the well-known `redirect_uri` to phish the code). `postMessage` is sent once per allowed origin, never with `"*"`, because the browser then delivers only when the opener's origin matches `targetOrigin`. On the receiving side, `OAuthModal.handleMessage` accepts only the dashboard origin or this attempt's exact callback origin.
 
-**Where:** `src/app/callback/page.js`: `expectedOrigins`, relay logic; `src/shared/components/OAuthModal.js`: `handleMessage`
+**Where:** `src/web/pages/callback/page.js`: `expectedOrigins`, relay logic; `src/shared/components/OAuthModal.js`: `handleMessage`
 
 ### D4. Proxy-flow sessions are server-side and survive until exchange
 
