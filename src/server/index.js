@@ -26,7 +26,8 @@ function isSpaPath(pathname) {
 
 function trailingSlashRedirect(url) {
   if (url.pathname.length <= 1 || !url.pathname.endsWith("/")) return null;
-  const target = url.pathname.replace(/\/$/, "") + url.search;
+  const path = "/" + url.pathname.replace(/^[/\\]+/, "").replace(/\\/g, "/");
+  const target = (path.replace(/\/$/, "") || "/") + url.search;
   const body = new ReadableStream({
     start(controller) {
       controller.enqueue(new TextEncoder().encode(target));

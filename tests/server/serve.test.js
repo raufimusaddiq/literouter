@@ -1,10 +1,21 @@
 import { describe, it, expect, beforeAll, afterAll, spyOn } from "bun:test";
 import os from "node:os";
+import net from "node:net";
+import { createHash, timingSafeEqual } from "node:crypto";
+import { vi } from "#test/vi";
 import { useTempDataDirAtLoad } from "../helpers/tempDataDir.js";
 import { mockBootCollaborators } from "../helpers/bootMocks.js";
 
 useTempDataDirAtLoad("lr-serve-");
 const calls = mockBootCollaborators();
+const guardFlags = { throwOnCompare: false };
+vi.mock("@/shared/utils/safeEqual", () => ({
+  safeEqual: (a, b) => {
+    if (guardFlags.throwOnCompare) throw new Error("guard boom");
+    const hash = (v) => createHash("sha256").update(String(v ?? "")).digest();
+    return timingSafeEqual(hash(a), hash(b));
+  },
+}));
 
 const { routeTable } = await import("../../src/server/routes.js");
 const { startServer } = await import("../../src/server/index.js");
@@ -41,6 +52,28 @@ function nonLoopbackIPv4() {
     }
   }
   return null;
+}
+
+function rawRequest(path) {
+  return new Promise((resolve, reject) => {
+    const socket = net.connect(server.port, "127.0.0.1");
+    let data = "";
+    socket.setTimeout(10_000, () => socket.destroy(new Error("raw request timed out")));
+    socket.on("data", (chunk) => {
+      data += chunk.toString("latin1");
+    });
+    socket.on("error", reject);
+    socket.on("close", () => {
+      const [head] = data.split("\r\n\r\n");
+      const lines = head.split("\r\n");
+      const header = (name) => {
+        const line = lines.find((l) => l.toLowerCase().startsWith(`${name}:`));
+        return line ? line.slice(name.length + 1).trim() : null;
+      };
+      resolve({ status: Number(lines[0].split(" ")[1]), location: header("location"), refresh: header("refresh") });
+    });
+    socket.write(`GET ${path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n`);
+  });
 }
 
 beforeAll(async () => {
@@ -133,6 +166,51 @@ describe("startServer", () => {
     expect(c.status).toBe(308);
   });
 
+  it("trailing slash redirects never emit a protocol-relative Location", async () => {
+    const cases = [
+      ["//evil.com/", "/evil.com"],
+      ["///evil.com//", "/evil.com/"],
+      ["////evil.com/path/?q=1", "/evil.com/path?q=1"],
+      ["//", "/"],
+    ];
+    for (const [path, expected] of cases) {
+      const res = await rawRequest(path);
+      expect(res.status).toBe(308);
+      expect(res.location).toBe(expected);
+      expect(res.location).toMatch(/^\/(?![/\\])|^\/$/);
+      expect(res.refresh).toBe(`0;url=${expected}`);
+    }
+  });
+
+  it("a backslash-prefixed path cannot redirect off-origin either", async () => {
+    for (const path of ["/\\evil.com/", "/\\/evil.com/", "\\\\evil.com/"]) {
+      const res = await rawRequest(path);
+      if (res.status === 308) {
+        expect(res.location).toMatch(/^\/(?![/\\])/);
+        expect(res.location).not.toContain("\\");
+      } else {
+        expect(res.location).toBeNull();
+      }
+    }
+  });
+
+  it("a guard that throws returns 500 and the next request still works", async () => {
+    const errors = spyOn(console, "error").mockImplementation(() => {});
+    guardFlags.throwOnCompare = true;
+    let boom;
+    try {
+      boom = await fetch(`${base}/api/keys`, { headers: auth });
+    } finally {
+      guardFlags.throwOnCompare = false;
+      errors.mockRestore();
+    }
+    expect(boom.status).toBe(500);
+    expect(await boom.text()).toBe("");
+    const after = await fetch(`${base}/api/keys`, { headers: auth });
+    expect(after.status).toBe(200);
+    expect((await after.json()).matched).toBe("/api/keys");
+  });
+
   it("a handler that throws returns 500 and the next request still works", async () => {
     const errors = spyOn(console, "error").mockImplementation(() => {});
     const boom = await fetch(`${base}/__boom`);
@@ -166,8 +244,11 @@ describe("startServer", () => {
   });
 
   it("startServer twice in one process boots once", async () => {
+    const sharedBoot = globalThis.__lrBoot;
+    expect(sharedBoot).toBeInstanceOf(Promise);
     const second = await startServer({ port: 0, hostname: "127.0.0.1" });
     servers.push(second);
+    expect(globalThis.__lrBoot).toBe(sharedBoot);
     expect(second.port).not.toBe(server.port);
     expect(calls.warn).toHaveBeenCalledTimes(1);
     expect(calls.consoleCapture).toHaveBeenCalledTimes(1);

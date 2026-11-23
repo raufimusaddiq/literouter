@@ -16,8 +16,11 @@ describe("runBootOnce", () => {
 
   it("runs each step exactly once across repeated and concurrent calls", async () => {
     await Promise.all([runBootOnce(), runBootOnce(), runBootOnce()]);
+    const shared = globalThis.__lrBoot;
+    expect(shared).toBeInstanceOf(Promise);
     await runBootOnce();
     await runBootOnce();
+    expect(globalThis.__lrBoot).toBe(shared);
 
     expect(calls.warn).toHaveBeenCalledTimes(1);
     expect(calls.consoleCapture).toHaveBeenCalledTimes(1);
