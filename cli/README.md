@@ -75,9 +75,10 @@ literouter stop            # Stop the running LiteRouter server
 
 ## 💾 Data Location
 
-- **macOS/Linux**: `~/.9router/db/data.sqlite`
-- **Windows**: `%APPDATA%/9router/db/data.sqlite`
-- **Docker**: `/app/data/db/data.sqlite` (mount `$HOME/.9router` to persist)
+- **macOS/Linux**: `~/.literouter/db/data.sqlite`
+- **Windows**: `%APPDATA%\literouter\db\data.sqlite`
+- **Docker**: `/app/data/db/data.sqlite` (mount `$HOME/.literouter` to persist)
+- **Legacy**: if only `~/.9router` (`%APPDATA%\9router`) exists it is used as it is; rename it to `~/.literouter` once no old 9router is running. `DATA_DIR` overrides all of this.
 
 ---
 

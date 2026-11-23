@@ -12,7 +12,8 @@ SQLite on `bun:sqlite` only, under `src/lib/db/`.
 - **Finalize cached statements before `close(true)`** or Windows keeps the file locked (EBUSY). Where: `src/lib/db/adapters/bunSqliteAdapter.js`.
 - **Shutdown drains buffers first and synchronously** (usage, request details, `flushPendingSignaturesSync` for the 1s unref'd signature timer), then closes the DB; every signal handler is synchronous. Anchor singletons (driver, request-details queue, schedulers like `quotaAutoPing`) on `globalThis`, or `bun --hot` double-initializes them. Where: `src/lib/db/shutdown.js`, `src/server/shutdown.js`.
 - **A Unix-style absolute `DATA_DIR` is ignored on Windows.** Where: `src/lib/dataDir.js`.
-- Usage logs (`usage.json`, `log.txt`) live under `~/.9router` and ignore `DATA_DIR`. Where: `src/lib/usageDb.js`.
+- Usage lives in the same SQLite database as everything else and follows `DATA_DIR`. Where: `src/lib/db/repos/*`.
+- **The data-dir resolver lives in `cli/hooks/dataDir.js` (CommonJS)**: the default is `~/.literouter`, or `~/.9router` when only that exists; it never creates the default. The published CLI ships only `cli.js`, `src`, `hooks` and `app`, so the server imports it relatively and the bundle inlines it; keep it dependency-free. Where: `cli/hooks/dataDir.js`, `src/lib/dataDir.js`.
 
 ## Connections
 

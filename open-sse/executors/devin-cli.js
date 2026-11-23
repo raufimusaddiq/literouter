@@ -70,7 +70,7 @@ rl.on("line", (line) => {
 `.trimStart();
 
 function ensureClientToolsScript() {
-  const scriptPath = path.join(os.tmpdir(), "9router-devin-client-tools.mjs");
+  const scriptPath = path.join(os.tmpdir(), "literouter-devin-client-tools.mjs");
   fs.writeFileSync(/* turbopackIgnore: true */ scriptPath, CLIENT_TOOLS_MCP_SCRIPT);
   return scriptPath;
 }

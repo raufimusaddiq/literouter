@@ -416,7 +416,7 @@ describe("DevinCliExecutor ACP session/new", () => {
     const reader = response.body.getReader();
     await reader.read();
     expect(child.opts.env.XDG_CONFIG_HOME).toBeTruthy();
-    const scriptPath = path.join(os.tmpdir(), "9router-devin-client-tools.mjs");
+    const scriptPath = path.join(os.tmpdir(), "literouter-devin-client-tools.mjs");
     expect(fs.existsSync(scriptPath)).toBe(true);
     expect(fs.readFileSync(scriptPath, "utf8")).toContain("clientTools");
     expect(fs.readFileSync(scriptPath, "utf8")).toContain("DEVIN_MCP_TOOLS");
