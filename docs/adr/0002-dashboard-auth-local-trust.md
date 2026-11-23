@@ -26,7 +26,7 @@ A request counts as a local browser only when `src/server/trust.js` classified i
 
 `isRemoteHost` in the endpoint page and the token-saver page's handling of hidden headroom only adjust what the UI shows. They are never a security boundary; real enforcement is server-side in the guard. When the minimal profile hides `/api/headroom` (it answers 404), the token-saver client does not request it and shows "not available" instead of an error.
 
-**Where:** `src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.js`: `isRemoteHost`; `src/app/(dashboard)/dashboard/token-saver/TokenSaverClient.js`: `refreshHeadroomStatus`
+**Where:** `src/web/pages/dashboard/endpoint/EndpointPageClient.js`: `isRemoteHost`; `src/web/pages/dashboard/token-saver/TokenSaverClient.js`: `refreshHeadroomStatus`
 
 ### D4. Secrets are never mass-assigned from a settings PATCH
 

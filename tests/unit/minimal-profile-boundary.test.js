@@ -20,14 +20,14 @@ describe("minimal profile route boundary", () => {
     expect(hidden).not.toContain("/dashboard/basic-chat");
     expect(() =>
       readFileSync(
-        new URL("../../src/app/(dashboard)/dashboard/basic-chat/page.js", import.meta.url)
+        new URL("../../src/web/pages/dashboard/basic-chat/page.js", import.meta.url)
       )
     ).toThrow();
   });
 
   it("deletes the media surfaces instead of hiding them", () => {
     for (const path of [
-      "../../src/app/(dashboard)/dashboard/media-providers/[kind]/page.js",
+      "../../src/web/pages/dashboard/media-providers/[kind]/page.js",
       "../../src/app/api/media-providers/tts/voices/route.js",
       "../../src/app/api/v1/audio/voices/route.js",
       "../../src/app/api/v1/audio/speech/route.js",
@@ -44,8 +44,8 @@ describe("minimal profile route boundary", () => {
 
   it("deletes the CLI-tools and MITM surfaces instead of hiding them", () => {
     for (const path of [
-      "../../src/app/(dashboard)/dashboard/cli-tools/page.js",
-      "../../src/app/(dashboard)/dashboard/mitm/page.js",
+      "../../src/web/pages/dashboard/cli-tools/page.js",
+      "../../src/web/pages/dashboard/mitm/page.js",
       "../../src/app/api/cli-tools/all-statuses/route.js",
       "../../src/app/api/cli-tools/cowork-mcp-tools/route.js",
       "../../src/shared/constants/cliTools.js",
@@ -79,7 +79,7 @@ describe("minimal profile route boundary", () => {
 
   it("deletes tunnel, Tailscale, and the Endpoint page's tunnel UI", () => {
     const page = readFileSync(
-      new URL("../../src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.js", import.meta.url),
+      new URL("../../src/web/pages/dashboard/endpoint/EndpointPageClient.js", import.meta.url),
       "utf8"
     );
     expect(page).not.toMatch(/\/api\/tunnel\//);
@@ -145,7 +145,7 @@ describe("minimal profile route boundary", () => {
 
   it("deletes the Proxy Pools UI and deploy routes", () => {
     for (const path of [
-      "../../src/app/(dashboard)/dashboard/proxy-pools/page.js",
+      "../../src/web/pages/dashboard/proxy-pools/page.js",
       "../../src/app/api/proxy-pools/cloudflare-deploy/route.js",
       "../../src/app/api/proxy-pools/deno-deploy/route.js",
       "../../src/app/api/proxy-pools/vercel-deploy/route.js",

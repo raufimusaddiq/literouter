@@ -44,7 +44,7 @@ Clients echo `reasoning_content` on assistant messages. The Kimchi executor stri
 
 Only specific client headers reach the provider (TypeSafe's danger-zone headers switch on image assets and long context; nothing else is forwarded), and hop-by-hop or body-affecting headers are never forwarded. Custom nodes with prefix `systemone-<uuid>` are async, resolved in `handleSystemOne`, where a cache-hit lookup is one await like `getSettings`. Cloudflare Workers AI wraps System One payloads in `{ result: {...}, success }`. Built-in dual-transport providers (for example Cloudflare Clef) keep chat and System One endpoints separate; System One URLs may reference `{accountId}` (connection `providerSpecificData`) and `{model}`. The dashboard lab generates ids with a random per-page-load token so ids restored from localStorage never collide after the counter restarts, and saves only after the loaded form is committed so strict-mode double effects do not overwrite storage with a blank form.
 
-**Where:** `src/sse/handlers/systemOne.js`; `src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js`; `src/app/(dashboard)/dashboard/systemone/page.js`
+**Where:** `src/sse/handlers/systemOne.js`; `src/web/pages/dashboard/systemone/lib/requestBuilder.js`; `src/web/pages/dashboard/systemone/page.js`
 
 ## Consequences
 

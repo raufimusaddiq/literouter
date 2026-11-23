@@ -49,8 +49,8 @@ describe("CapacityBadges a11y", () => {
   });
 
   it("only the provider-detail ModelRow opts in", () => {
-    expect(read("src/app/(dashboard)/dashboard/providers/[id]/ModelRow.js")).toMatch(/<CapacityBadges focusable/);
+    expect(read("src/web/pages/dashboard/providers/[id]/ModelRow.js")).toMatch(/<CapacityBadges focusable/);
     expect(read("src/shared/components/ModelSelectModal.js")).not.toMatch(/CapacityBadges[^>]*focusable/);
-    expect(read("src/app/(dashboard)/dashboard/combos/page.js")).not.toMatch(/CapacityBadges[^>]*focusable/);
+    expect(read("src/web/pages/dashboard/combos/page.js")).not.toMatch(/CapacityBadges[^>]*focusable/);
   });
 });

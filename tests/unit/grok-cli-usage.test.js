@@ -10,7 +10,7 @@ import { getUsageForProvider } from "../../open-sse/services/usage.js";
 import { parseGrokCliBilling } from "../../open-sse/services/usage/grok-cli.js";
 import { USAGE_SUPPORTED_PROVIDERS } from "../../src/shared/constants/providers.js";
 import { PROVIDERS } from "../../open-sse/providers/index.js";
-import { parseQuotaData } from "../../src/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js";
+import { parseQuotaData } from "../../src/web/pages/dashboard/usage/components/ProviderLimits/utils.js";
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {

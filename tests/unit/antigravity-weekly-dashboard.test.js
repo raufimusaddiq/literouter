@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { parseQuotaData } from "@/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js";
+import { parseQuotaData } from "@/web/pages/dashboard/usage/components/ProviderLimits/utils.js";
 
 describe("Antigravity dashboard normalization with weekly quotas", () => {
   const data = {

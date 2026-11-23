@@ -328,7 +328,7 @@ The repo has no browser test dependency, and the Playwright plugin is available 
 
 ## Left for Plan 4 (still mentions Next after this plan)
 
-`eslint.config.mjs` and `eslint-config-next`; `cli/package.json` (`next` dependency) and `cli/scripts/build-cli.js`; `Dockerfile`, `.dockerignore`, `.npmignore`, `.gitignore` `.next` entries; `docker-publish.yml` and `production-image.yml`; `scripts/copy-standalone-assets.mjs`; `package-lock.json`; `ARCHITECTURE.md` and README text. Also for Plan 4: embed `dist/web` and `public/` in the compiled executable and point `getSpa()` and `serveStatic` at the embedded copies; call `buildWeb({ production: true })` from `scripts/build.mjs` instead of a second `Bun.build` config; consider moving the now build-time-only runtime dependencies (`react`, `react-dom`, `recharts`, `@xyflow/react`, `@dnd-kit/*`, `zustand`, `material-symbols`, `prop-types`) to `devDependencies`.
+`cli/package.json` (`next` dependency) and `cli/scripts/build-cli.js`; `Dockerfile`, `.dockerignore`, `.npmignore`, `.gitignore` `.next` entries; `docker-publish.yml` and `production-image.yml`; `scripts/copy-standalone-assets.mjs`; `package-lock.json`; `ARCHITECTURE.md` and README text. Also for Plan 4: embed `dist/web` and `public/` in the compiled executable and point `getSpa()` and `serveStatic` at the embedded copies; call `buildWeb({ production: true })` from `scripts/build.mjs` instead of a second `Bun.build` config; consider moving the now build-time-only runtime dependencies (`react`, `react-dom`, `recharts`, `@xyflow/react`, `@dnd-kit/*`, `zustand`, `material-symbols`, `prop-types`) to `devDependencies`.
 
 ## Done when
 

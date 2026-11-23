@@ -38,7 +38,7 @@ describe("getConnectionHealthStats", () => {
     expect(s.attentionItems).toHaveLength(1);
   });
   it("both pages use the shared function", () => {
-    const root = path.resolve(__dirname, "../../src/app/(dashboard)/dashboard");
+    const root = path.resolve(__dirname, "../../src/web/pages/dashboard");
     for (const f of ["DashboardOverview.js", "providers/page.js"]) {
       expect(fs.readFileSync(path.join(root, f), "utf8")).toContain("getConnectionHealthStats(");
     }

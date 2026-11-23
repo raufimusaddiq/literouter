@@ -26,7 +26,7 @@ Hard capabilities are input modalities (vision, pdf, audio, video): a model lack
 
 `capacityAdapter.js` appends per-capability fallback pools (vision, pdf, audioInput, videoInput) behind the models already going to be tried. Adapter models are prepended as priority candidates only when none of the original models can satisfy the required capabilities; otherwise the list is left alone and `reorderByCapabilities` handles it, so a combo with a capable member is never overridden. An enabled pool with no models is a no-op: the user cleared every model on purpose, and substituting a model they cannot see is worse. The dashboard therefore starts entries disabled, and normalizes the legacy stored form (an array of {model, enabled}). Trimmed history sent to an adapter model is capped at 80% of its context window to leave room for the response.
 
-**Where:** `open-sse/services/capacityAdapter.js`: `getCapacityAdapterConfig`, `augmentModelsWithCapacityAdapter`, `stripHistoryForContext`; `src/app/(dashboard)/dashboard/combos/page.js`
+**Where:** `open-sse/services/capacityAdapter.js`: `getCapacityAdapterConfig`, `augmentModelsWithCapacityAdapter`, `stripHistoryForContext`; `src/web/pages/dashboard/combos/page.js`
 
 ### D4. Wait out transient 502/503 before falling through
 

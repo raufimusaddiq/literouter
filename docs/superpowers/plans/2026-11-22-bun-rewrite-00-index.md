@@ -70,12 +70,14 @@ A plan that needs to change a name here must update this file in the same PR.
 - **`src/server/boot.js`**
   - `export async function runBootOnce()` contains what `instrumentation.register()` did, plus `initOutboundProxy` and `initConsoleLogCapture`.
 - **`src/server/paths.js`**
-  - Plan 2 creates it with `PUBLIC_DIR`. Plan 3 adds `SPA_DIR`. Plan 4 adds `isBundled` and `assertBundleCwd`, and the bundled/compiled branches.
+  - Plan 2 creates it with `PUBLIC_DIR`. Plan 3 adds `SPA_DIR` and `SPA_DIR_OVERRIDE` (the resolved `LITEROUTER_SPA_DIR`, or `null` when unset). It also exports `REPO_ROOT`. Plan 4 adds `isBundled` and `assertBundleCwd`, and the bundled/compiled branches.
 
 | | Source run | Bundled or compiled | Env override |
 |---|---|---|---|
 | `PUBLIC_DIR` | `<repo>/public` | `join(import.meta.dir, "public")` | `LITEROUTER_PUBLIC_DIR` |
 | `SPA_DIR` | `<repo>/dist/web`, or a memoised dev build | `join(import.meta.dir, "web")` | `LITEROUTER_SPA_DIR` |
+
+- **Dev build directory:** when `SPA_DIR_OVERRIDE` is null and `NODE_ENV` is not `production`, a source run builds into `<repo>/dist/web-dev/<pid>` (one directory per process) and `getSpa()` serves from it.
 
 - **`src/server/spa.js`**
   - `export async function serveSpa(req) → Promise<Response>`.
@@ -96,7 +98,7 @@ A plan that needs to change a name here must update this file in the same PR.
 - **`src/web/build.js`**
   - `export async function buildWeb({ production, outdir }) → Promise<…>`.
   - It writes `index.html` and `assets/*`, with `publicPath: "/"` and `bun-plugin-tailwind`.
-  - Production builds set `define: { "process.env.NODE_ENV": '"production"' }`.
+  - Every build sets `define: { "process.env": "{}" }` for the browser output, and production adds `"process.env.NODE_ENV": '"production"'`, which takes precedence over the generic one.
   - `scripts/build-web.mjs` is the CLI for it.
 - **Entry and shell:** `src/web/index.html` (no absolute URLs; icon, manifest and GA tags come from `head.js`), `src/web/main.jsx`, `src/web/App.jsx`.
 - **`src/web/routes.js`:** `routes`, `findRoute(pathname)`. `/dashboard/settings/pricing` has `shell: false`.
@@ -105,7 +107,7 @@ A plan that needs to change a name here must update this file in the same PR.
   - `src/web/head.js`: `headExtras({ gaId })`
   - `src/web/router.js`: `useRouter()` (`push`, `replace`, `back`, `refresh`), `usePathname()`, `useSearchParams()`, `useParams()`, `<Link href>`, `redirect(href)`
 - **`src/server/spaBuild.js`**
-  - `getSpa() → Promise<{ dir, indexHtml }>`, `invalidateSpa()`.
+  - `getSpa() → Promise<{ dir, indexHtml }>`, `invalidateSpa()`, `spaUnavailableResponse(error)`.
   - It resolves through `SPA_DIR`. In production, a missing build throws.
 - **Pages** live in `src/web/pages/**`. Shared components stay in `src/shared/components`.
 - **Test dependencies:** `tests/package.json` gains `happy-dom` and `@happy-dom/global-registrator`.
@@ -146,6 +148,6 @@ A plan that needs to change a name here must update this file in the same PR.
   - `tests/parity/known-diffs.json` lists every accepted response difference. Each entry names a `file` and a `path`, gives a `reason`, and pins the exact `actual` value or sets `absent: true` when the value is missing from the Bun output, so a different value is still reported. A listed diff that stops occurring is reported as stale and fails the run. `tests/parity/known-upstream-diffs.json` is the same for the upstream-request comparison, which is keyed per fixture (the requests each fixture caused, in order) rather than as one global sequence.
   - `tests/parity/runtime-header-allowlist.json`. It is short and reviewed. A Bun default header (`accept-encoding`, `user-agent`) that reaches an upstream gets **fixed in `open-sse/`**, not allowlisted, when it can affect prompt caching.
   - Recorded outputs are normalised and small, so Plan 5 can commit them as goldens in `tests/parity/expected/`.
-- **Next-leftover gate:** `bun scripts/port-next-routes.mjs --check src/app/api src/server` must exit 0 (scope fixed in Plan 2 Task 14). The dashboard pages, layouts and components under `src/app/**/page.js`, `src/i18n` and `src/shared/components` still import `next/*` until Plan 3, so `--check src` is not yet clean. `bun scripts/gen-route-table.mjs --check` guards the route table against drift. CI runs both, then `tests/parity/run.mjs --target bun --out parity-actual`, `compare.mjs` and `compare-upstream.mjs` against `tests/parity/expected`; `parity-actual/` is git-ignored.
+- **Next-leftover gate:** `bun scripts/port-next-routes.mjs --check src` must exit 0 (Plan 2 scoped it to `src/app/api src/server`; Plan 3 Task 6 widened it to the whole `src` tree once the dashboard stopped importing `next/*`). `bun scripts/gen-route-table.mjs --check` guards the route table against drift. CI runs both, then `tests/parity/run.mjs --target bun --out parity-actual`, `compare.mjs` and `compare-upstream.mjs` against `tests/parity/expected`; `parity-actual/` is git-ignored.
 - **Cutover scripts:** `scripts/cutover/*`. They are defined by Plan 5.
 - **ESLint** runs as `bunx --bun eslint .` or `bun --bun run eslint .`. A plain `bunx eslint` follows the `node` shebang.

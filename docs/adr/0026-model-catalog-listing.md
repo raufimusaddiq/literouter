@@ -14,7 +14,7 @@ Model metadata (ids, context windows, output limits, modalities) comes from seve
 
 Providers whose catalogs move fast (Kenari weekly, Kilo Code proxying about 334 OpenRouter models, Venice 90+ text models, TokenRouter, Cursor, Cline, Qoder, CommandCode) keep only a seed list in the registry. Unknown ids still route through `passthroughModels`, and a `modelsFetcher` fetches the live list. Without the fetcher the combo picker shows only the hardcoded models and hides dynamic ones. The dashboard and `ModelSelectModal` use `/api/providers/[id]/models` when it resolves and fall back to static rows when the live fetch fails or is empty (an empty array means "nothing live"). Entries collapse by model id because two connections of one provider produce the same picker value (`alias/id`). The provider page lists what the user added; Kenari's live rows only describe models (levels) and never extend the list.
 
-**Where:** `open-sse/providers/registry/kenari.js`, `kilocode.js`, `venice.js`, `tokenrouter.js`; `src/shared/components/ModelSelectModal.js`; `src/app/(dashboard)/dashboard/providers/[id]/page.js`
+**Where:** `open-sse/providers/registry/kenari.js`, `kilocode.js`, `venice.js`, `tokenrouter.js`; `src/shared/components/ModelSelectModal.js`; `src/web/pages/dashboard/providers/[id]/page.js`
 
 ### D2. Authority order: Kenari for kenari, then models.dev delta, then hand-written tables
 
@@ -38,7 +38,7 @@ CommandCode publishes the same public catalog its CLI polls (no auth, ETag = cat
 
 Qoder's chat endpoint silently downgrades to a different model when the wrong `model_config` is sent, so the COSY-signed `/algo/api/v2/model/list` catalog is fetched and each `model_config` cached by key. On error the cache stays empty and chat reports "model config not yet fetched, retry shortly". The config is cached even for UI-hidden models (`enable:false`): the chat endpoint still serves them, so `/v1/models` advertises the list the router will actually route, IDE-visible models first. A PAT (`pt-...`) cannot sign COSY requests, so it is exchanged via `openapi.qoder.sh/api/v1/jobToken/exchange` for a job token (`jt-...`); job-token traffic must go to `api2.qoder.sh` because `api3` rejects it with 403 "Login expired". In-flight entries are cleared only if still current, since a later `forceRefresh` may have replaced them. Qoder renames models while keeping the key stable (for example `qmodel_latest`), so refresh upserts every entry so the saved display name follows upstream without duplicate rows, and ids may arrive as `qoder/auto` or `auto` so the prefix is stripped.
 
-**Where:** `open-sse/services/qoderModels.js`; `src/app/(dashboard)/dashboard/providers/[id]/page.js`; `src/shared/utils/providerCustomModels.js`
+**Where:** `open-sse/services/qoderModels.js`; `src/web/pages/dashboard/providers/[id]/page.js`; `src/shared/utils/providerCustomModels.js`
 
 ### D6. /v1/models publishes honest limits, including for combos
 
@@ -56,7 +56,7 @@ The dashboard probe streams and stops at the first token; waiting for a full gen
 
 The backend upserts apikey connections by name (`connectionsRepo`: `authType === "apikey" && name === data.name`), so a colliding name overwrites an existing key. Bulk-add used to derive `<base> <lineIndex>` blindly and silently replaced earlier keys. The planner gap-fills the smallest free `<base> <n>` against existing connection names and names already assigned in the batch. Each key is validated before saving so bulk-added connections get a real status like single adds.
 
-**Where:** `src/shared/utils/bulkAdd.js`; `src/app/(dashboard)/dashboard/providers/[id]/AddApiKeyModal.js`
+**Where:** `src/shared/utils/bulkAdd.js`; `src/web/pages/dashboard/providers/[id]/AddApiKeyModal.js`
 
 ### D9. Picker and client-side catalog details
 

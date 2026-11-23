@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { lazy, Suspense, useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useSearchParams, useRouter } from "@/web/router";
 import { FREE_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers";
 
 function isUsageTopologyProvider(id) {
@@ -11,11 +11,10 @@ function isUsageTopologyProvider(id) {
 }
 import Badge from "./Badge";
 import Card from "./Card";
-import OverviewCards from "@/app/(dashboard)/dashboard/usage/components/OverviewCards";
-import UsageTable, { fmt, fmtTime } from "@/app/(dashboard)/dashboard/usage/components/UsageTable";
-import dynamic from "next/dynamic";
-const ProviderTopology = dynamic(() => import("@/app/(dashboard)/dashboard/usage/components/ProviderTopology"), { ssr: false });
-const UsageChart = dynamic(() => import("@/app/(dashboard)/dashboard/usage/components/UsageChart"), { ssr: false });
+import OverviewCards from "@/web/pages/dashboard/usage/components/OverviewCards";
+import UsageTable, { fmt, fmtTime } from "@/web/pages/dashboard/usage/components/UsageTable";
+const ProviderTopology = lazy(() => import("@/web/pages/dashboard/usage/components/ProviderTopology"));
+const UsageChart = lazy(() => import("@/web/pages/dashboard/usage/components/UsageChart"));
 
 const STATS_REFETCH_DEBOUNCE_MS = 2000;
 
@@ -482,17 +481,19 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
 
       {loading ? spinner : (
         <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:h-[480px] lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-          <ProviderTopology
-            providers={providers}
-            activeRequests={stats.activeRequests || []}
-            lastProvider={stats.recentRequests?.[0]?.provider || ""}
-            errorProvider={stats.errorProvider || ""}
-          />
+          <Suspense fallback={null}>
+            <ProviderTopology
+              providers={providers}
+              activeRequests={stats.activeRequests || []}
+              lastProvider={stats.recentRequests?.[0]?.provider || ""}
+              errorProvider={stats.errorProvider || ""}
+            />
+          </Suspense>
           <RecentRequests requests={stats.recentRequests || []} onOpenDetails={onOpenDetails} />
         </div>
       )}
 
-      {loading ? spinner : <UsageChart period={period} />}
+      {loading ? spinner : <Suspense fallback={null}><UsageChart period={period} /></Suspense>}
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

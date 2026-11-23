@@ -14,19 +14,19 @@ The dashboard's Provider Limits view and the quota auto-ping service read per-pr
 
 `getRemainingPercentage` / `QuotaTable` interpret `remaining` as a 0-100 percentage. An absolute credit count (e.g. Qoder's 348 credits) would render as "348%", and Grok CLI, Kimi, Ollama, Vercel and the other credit/ratio providers hit the same trap. Those handlers therefore set only `remainingPercentage` (and `used`/`total` where the percentage derives from them, as for Groq headers and Codex/Kiro). Vercel needs an explicit percentage because used=95.5 / total=100 would otherwise compute 4% instead of 96%. Ollama's `usage` is a 0..1 ratio converted to a 0..100 bar. MiniMax M-series buckets only ship `*_remaining_percent`, so the count is synthesized as total=100 matching the `countMeansRemaining` semantic, otherwise the UI flips the percentage.
 
-**Where:** `open-sse/services/usage/grok-cli.js`: `makeQuota`; `open-sse/services/usage/kimi.js`: `makeQuota`; `open-sse/services/usage/misc.js`; `open-sse/services/usage/minimax.js`; `src/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js`: `parseQuotaData`; `tests/unit/kimi-usage.test.js`; `tests/unit/ollama-usage.test.js`
+**Where:** `open-sse/services/usage/grok-cli.js`: `makeQuota`; `open-sse/services/usage/kimi.js`: `makeQuota`; `open-sse/services/usage/misc.js`; `open-sse/services/usage/minimax.js`; `src/web/pages/dashboard/usage/components/ProviderLimits/utils.js`: `parseQuotaData`; `tests/unit/kimi-usage.test.js`; `tests/unit/ollama-usage.test.js`
 
 ### D2. Recurring versus one-shot quotas are distinguished and worded differently
 
 A missing `recurring` flag defaults to true (the quota refreshes at `resetAt`). Bonus or one-shot packs set `recurring:false`, and their `resetAt` is a hard expiry, so the UI says "Expires in" instead of "Resets in". CodeBuddy CN is the main case: it mixes refill packs (a recurring allowance whose Cycle fields hold the live numbers, e.g. CycleCapacityUsed 6.54 / 500, with `CycleEndTime` far earlier than `DeductionEndTime`) and bonus packs (one-shot, `CycleEndTime == DeductionEndTime`, plain Capacity fields). They must not be merged. A gap of more than 2 days between cycle end and validity end classifies a pack as refill. Refill packs are listed first with a cadence label (Monthly/Weekly/Daily); bonus packs are "Bonus Pack N", soonest-expiring first. The handler is CN-only because a future intl variant would get its own endpoint. Quota is behind a Tencent billing POST with the payload wrapped twice under `data.Response.Data`.
 
-**Where:** `open-sse/services/usage/codebuddy-cn.js`: `REFILL_GAP_MS` and pack classification; `src/app/(dashboard)/dashboard/usage/components/ProviderLimits/QuotaTable.js`; `src/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js`: `parseQuotaData`
+**Where:** `open-sse/services/usage/codebuddy-cn.js`: `REFILL_GAP_MS` and pack classification; `src/web/pages/dashboard/usage/components/ProviderLimits/QuotaTable.js`; `src/web/pages/dashboard/usage/components/ProviderLimits/utils.js`: `parseQuotaData`
 
 ### D3. Claude's OAuth usage endpoint is cached, deduplicated and cooled down
 
 The OAuth usage endpoint rate-limits with 429. Requests are deduplicated and short-TTL cached per access token (many tabs, accounts and auto-refresh all funnel through it; without this each call hits Anthropic and triggers 429). After a 429 the token is put on a per-token cooldown, which only affects the quota endpoint (chat with the same token still works). A soft failure (429 or error) prefers the last good read and is not cached. The dashboard polls Claude less often than other providers. `utilization` is percent USED (87 means 13% remaining). Model-scoped weekly limits (e.g. Fable) arrive in `limits[]` with `kind: "weekly_scoped"`, not as `seven_day_*` keys; with no entry the row is omitted, never fabricated.
 
-**Where:** `open-sse/services/usage/claude.js`: `fetchClaudeUsageRaw`, `OAUTH_429_COOLDOWN_MS`, `USAGE_CACHE_TTL_MS`; `src/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js`: `CLAUDE_REFRESH_INTERVAL_MS`
+**Where:** `open-sse/services/usage/claude.js`: `fetchClaudeUsageRaw`, `OAUTH_429_COOLDOWN_MS`, `USAGE_CACHE_TTL_MS`; `src/web/pages/dashboard/usage/components/ProviderLimits/utils.js`: `CLAUDE_REFRESH_INTERVAL_MS`
 
 ### D4. Antigravity and Google quota quirks
 
@@ -38,7 +38,7 @@ Free-tier Antigravity accounts only have weekly quotas (no separate 5h window), 
 
 API-key Kiro connections call the quota API with a bearer token plus `tokentype: API_KEY`, so CodeWhisperer treats it as a long-lived API key; without it GetUsageLimits is rejected (401/403). For api-key auth the shared default placeholder `profileArn` is never injected because CodeWhisperer 403s a profileArn not owned by the key's account; only a profileArn resolved for the connection is sent. Social auth (Google/GitHub) tokens may not work with the quota API, so auth errors return "Chat may still work" rather than marking the account broken. The dashboard falls back to the region segment of the `profileArn` when `region` is not stored (social and imported flows).
 
-**Where:** `open-sse/services/usage/kiro.js`: `getKiroUsage`; `src/app/(dashboard)/dashboard/usage/components/ProviderLimits/index.js`: `getConnectionSecondaryLabel`
+**Where:** `open-sse/services/usage/kiro.js`: `getKiroUsage`; `src/web/pages/dashboard/usage/components/ProviderLimits/index.js`: `getConnectionSecondaryLabel`
 
 ### D6. Grok CLI quota: gRPC-web frame, depleted state and shared pool
 

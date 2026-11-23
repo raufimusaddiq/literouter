@@ -4,7 +4,7 @@ import {
   getHiddenQuotaRows,
   parseQuotaData,
   trimHiddenQuotaKeys,
-} from "@/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js";
+} from "@/web/pages/dashboard/usage/components/ProviderLimits/utils.js";
 
 describe("provider quota visibility", () => {
   const data = {

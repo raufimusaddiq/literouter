@@ -113,3 +113,4 @@ test-results.xml
 
 # parity run output
 /parity-actual/
+/dist/

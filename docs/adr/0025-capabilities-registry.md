@@ -32,7 +32,7 @@ An id missing from the tables falls through to `DEFAULT_CAPABILITIES` (reasoning
 
 `capabilities.js` is bundled into the dashboard's browser code, so it cannot import `node:fs`. The server installs the catalog reader through `setCatalogSource()` (from `catalogOverride.js`; Kenari has a similar hook). Because the server bundles this module into several route chunks, each with its own module state, the install must not land in a copy invisible to the one that resolves requests: the slot lives on `globalThis` and every read goes through it. Caching the reader locally would keep it alive in other copies after `setCatalogSource(null)`, which the sync does before rebuilding. The browser consequently falls back to generic patterns and under-reports limits, so the dashboard uses the server's answer carried by `/api/models`.
 
-**Where:** `open-sse/providers/capabilities.js`: `setCatalogSource`, global catalog slot; `open-sse/providers/catalogOverride.js`: `installCatalogSource`; `open-sse/providers/kenariCatalog.js`; `src/app/(dashboard)/dashboard/combos/page.js`; `tests/unit/model-catalog-scope.test.js`
+**Where:** `open-sse/providers/capabilities.js`: `setCatalogSource`, global catalog slot; `open-sse/providers/catalogOverride.js`: `installCatalogSource`; `open-sse/providers/kenariCatalog.js`; `src/web/pages/dashboard/combos/page.js`; `tests/unit/model-catalog-scope.test.js`
 
 ### D5. Catalog entries are scoped per provider plus model
 
