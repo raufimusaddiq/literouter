@@ -8,6 +8,7 @@ export const EXEMPT_DIRS = ["tests/parity/fixtures", "tests/parity/expected"];
 
 export const DIR_LOADED_ALLOW = [];
 
+const CORPUS_EXCLUDE = new Set(["scripts/check-test-hygiene.mjs", "tests/unit/test-hygiene.test.js"]);
 const SKIP_DIRS = new Set(["node_modules", "dist", ".git", ".claude"]);
 const TEXT_EXT = new Set([".js", ".mjs", ".cjs", ".json", ".yml", ".yaml", ".sh", ".toml", ".txt", ".snap"]);
 const TEST_FILE = /\.test\.(js|mjs)$/;
@@ -39,10 +40,6 @@ function isText(file) {
   return TEXT_EXT.has(path.extname(file));
 }
 
-function stem(file) {
-  return path.basename(file, path.extname(file));
-}
-
 function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -56,8 +53,8 @@ export function duplicateTitles(source) {
   for (const line of source.split("\n")) {
     const m = TITLE.exec(line);
     if (!m) continue;
-    const [, indent, kind, modifier, , title] = m;
-    if (modifier === ".each" || title.includes("${")) continue;
+    const [, indent, kind, , , title] = m;
+    if (title.includes("${")) continue;
     while (stack.length && stack[stack.length - 1].indent >= indent.length) stack.pop();
     if (kind === "describe") {
       stack.push({ indent: indent.length, title });
@@ -70,6 +67,21 @@ export function duplicateTitles(source) {
   return dups;
 }
 
+const SPECIFIER = /["'`]([^"'`\n]+)["'`]/g;
+
+function importsHelper(importer, text, helper) {
+  const target = helper.replace(/\.[cm]?js$/, "");
+  for (const m of text.matchAll(SPECIFIER)) {
+    const spec = m[1];
+    let resolved;
+    if (spec.startsWith("#test/")) resolved = `tests/helpers/${spec.slice(6)}`;
+    else if (spec.startsWith("./") || spec.startsWith("../")) resolved = path.posix.join(path.posix.dirname(importer), spec);
+    else continue;
+    if (resolved.replace(/\.[cm]?js$/, "") === target) return true;
+  }
+  return false;
+}
+
 export function findHygieneProblems(root, { allow = DIR_LOADED_ALLOW } = {}) {
   const files = [];
   for (const dir of TEST_ROOTS) walk(root, dir, files);
@@ -78,7 +90,7 @@ export function findHygieneProblems(root, { allow = DIR_LOADED_ALLOW } = {}) {
   for (const dir of CORPUS_EXTRA_ROOTS) walk(root, dir, extra);
   const corpus = new Map();
   for (const f of [...inScope, ...extra]) {
-    if (!isText(f) || f === "scripts/check-test-hygiene.mjs") continue;
+    if (!isText(f) || CORPUS_EXCLUDE.has(f)) continue;
     corpus.set(f, read(root, f));
   }
   for (const f of files) {
@@ -88,7 +100,8 @@ export function findHygieneProblems(root, { allow = DIR_LOADED_ALLOW } = {}) {
   const problems = [];
   const allowed = (f) => allow.some((a) => under(f, a.path));
   const mentionedElsewhere = (self, needle) => {
-    for (const [f, text] of corpus) if (f !== self && text.includes(needle)) return true;
+    const re = new RegExp(`(?<![\w.-])${escapeRe(needle)}(?!\w)`);
+    for (const [f, text] of corpus) if (f !== self && re.test(text)) return true;
     return false;
   };
 
@@ -101,11 +114,9 @@ export function findHygieneProblems(root, { allow = DIR_LOADED_ALLOW } = {}) {
       }
     }
     if (isHelper && /\.(js|mjs)$/.test(f)) {
-      const name = stem(f);
-      const spec = new RegExp(`["'\`](?:[^"'\`\\n]*/)?${escapeRe(name)}(?:\\.[cm]?js)?["'\`]`);
       let used = false;
       for (const [other, text] of corpus) {
-        if (other !== f && spec.test(text)) {
+        if (other !== f && importsHelper(other, text, f)) {
           used = true;
           break;
         }

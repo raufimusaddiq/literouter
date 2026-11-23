@@ -51,6 +51,15 @@ describe("test hygiene check", () => {
     expect(findHygieneProblems(root).map((p) => p.rule)).toEqual(["unreferenced-fixture"]);
   });
 
+  it("does not count a longer name containing the fixture basename as a reference", () => {
+    const root = tree({
+      "tests/unit/a.test.js": 'import { it, expect } from "bun:test";\nit("a", () => { expect(read("tests/fixtures/my-orphan.json")).toBe(1); });\n',
+      "tests/fixtures/my-orphan.json": "{}\n",
+      "tests/fixtures/orphan.json": "{}\n",
+    });
+    expect(findHygieneProblems(root)).toEqual([{ rule: "unreferenced-fixture", file: "tests/fixtures/orphan.json" }]);
+  });
+
   it("lets an explicit allow entry cover a directory-loaded fixture", () => {
     const root = tree({
       "tests/unit/a.test.js": GOOD_TEST,
@@ -75,6 +84,15 @@ describe("test hygiene check", () => {
       "tests/helpers/dead.js": "export const dead = 1;\n",
     });
     expect(findHygieneProblems(root)).toEqual([{ rule: "unreferenced-helper", file: "tests/helpers/dead.js" }]);
+  });
+
+  it("does not count a same-stem import that resolves elsewhere", () => {
+    const root = tree({
+      "tests/unit/a.test.js": 'import { x } from "./other/shared.js";\nimport { it, expect } from "bun:test";\nit("a", () => expect(x).toBe(1));\n',
+      "tests/unit/other/shared.js": "export const x = 1;\n",
+      "tests/helpers/shared.js": "export const y = 1;\n",
+    });
+    expect(findHygieneProblems(root)).toEqual([{ rule: "unreferenced-helper", file: "tests/helpers/shared.js" }]);
   });
 
   it("accepts a helper imported by relative path from cli/test", () => {

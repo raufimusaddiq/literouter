@@ -58,7 +58,7 @@ cd tests && CI=true bun test --parallel --reporter=junit --reporter-outfile=../t
 - No copy-pasted cases: cases that share a body and differ only in data are one `it.each` / `describe.each` table, with the real per-case differences as columns (a model version or provider id is a row, not a new file).
 - Shared helpers live only in `tests/helpers/` (plus the per-suite `helpers/` dirs) and are deleted in the PR that removes their last user.
 - Every fixture file is referenced by at least one test or script. Recorded corpora (`tests/parity/fixtures`, `tests/parity/expected`) are exempt by directory.
-- Every `*.test.js` has an assertion, and no test only asserts helpers it defines itself.
+- Every `*.test.js` has an assertion (checked in CI). No test only asserts helpers it defines itself (review rule, not checked).
 - Merging or deleting tests needs a before/after assertion proof in the PR: name the cases and show every expectation survives.
 - `bun scripts/check-test-hygiene.mjs --check` runs in CI and fails on an unreferenced fixture or helper, a test file with no `expect(`, and a duplicate test title within a file. One-behaviour and no-restating stay review rules.
 
