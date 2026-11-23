@@ -9,17 +9,6 @@
 .material-symbols-outlined { animation: ms-fallback 0s linear 2s forwards; }
 
 :root {
-  --color-brand-50: #f3f4f4;
-  --color-brand-100: #eaeced;
-  --color-brand-200: #dfe1e2;
-  --color-brand-300: #bfc3c6;
-  --color-brand-400: #62676c;
-  --color-brand-500: #121314;
-  --color-brand-600: #23262a;
-  --color-brand-700: #18191a;
-  --color-brand-800: #121314;
-  --color-brand-900: #0a0b0b;
-
   --color-bg: #f3f4f4;
   --color-raise: #ffffff;
   --color-line: #dfe1e2;
@@ -49,17 +38,6 @@
 }
 
 .dark {
-  --color-brand-50: #18191a;
-  --color-brand-100: #25282a;
-  --color-brand-200: #3b3f42;
-  --color-brand-300: #50555a;
-  --color-brand-400: #868b90;
-  --color-brand-500: #ecedee;
-  --color-brand-600: #ffffff;
-  --color-brand-700: #f3f4f4;
-  --color-brand-800: #f8f9f9;
-  --color-brand-900: #ffffff;
-
   --color-bg: #111212;
   --color-raise: #18191a;
   --color-line: #25282a;
@@ -102,17 +80,6 @@ select {
 }
 
 @theme inline {
-  --color-brand-50: var(--color-brand-50);
-  --color-brand-100: var(--color-brand-100);
-  --color-brand-200: var(--color-brand-200);
-  --color-brand-300: var(--color-brand-300);
-  --color-brand-400: var(--color-brand-400);
-  --color-brand-500: var(--color-brand-500);
-  --color-brand-600: var(--color-brand-600);
-  --color-brand-700: var(--color-brand-700);
-  --color-brand-800: var(--color-brand-800);
-  --color-brand-900: var(--color-brand-900);
-
   --color-bg: var(--color-bg);
   --color-bg-alt: var(--color-bg-alt);
   --color-surface-2: var(--color-surface-2);
