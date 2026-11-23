@@ -32,7 +32,7 @@ calls return `401`. Use `npm run start` against a built app if you need the loca
 operator view; it loads the wrapper and grants it over loopback.
 - Bun variants: `npm run dev:bun` / `build:bun` / `start:bun` (`prebuild:bun` regenerates the provider icon manifest; CI builds with `bun run build:bun`). Root `bun.lock` sits beside `package-lock.json`, which stays until Plan 4 because the Dockerfile uses `npm ci`.
 - Default runtime port is **20128** (dashboard at `/dashboard`, API at `/v1`).
-- Lint: `npx eslint .` (config `eslint.config.mjs`, extends `eslint-config-next`).
+- Lint: `bunx --bun eslint .` (config `eslint.config.mjs`, extends `eslint-config-next`).
 
 CLI package (`cli/`):
 ```bash

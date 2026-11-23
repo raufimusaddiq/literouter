@@ -53,7 +53,7 @@ Comments are banned in this repo. The `local/no-comments` ESLint rule enforces t
    `apply` re-parses every file and refuses any edit that breaks parsing. Fix or skip every `failedFiles` entry; never hand-edit around the tool.
 
 7. **Verify.**
-   - `npx eslint .` passes.
+   - `bunx --bun eslint .` passes.
    - The full test suite shows no regression. Run it with the junit or verify script the branch uses (`tests/__baseline__/verify-no-regression.mjs`).
    - `npm run build` passes (or `bun run build` once Plan 4 lands).
    - The diff removes comments only, apart from blank-line cleanup. Spot-check it with `git diff --stat` and a sample of files.

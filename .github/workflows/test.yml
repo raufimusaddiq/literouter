@@ -30,6 +30,7 @@ jobs:
         working-directory: tests
 
       - run: git diff --exit-code -- tests
+      - run: test -z "$(git status --porcelain -- tests)"
 
       - run: bun tests/__baseline__/verify-no-regression.mjs test-results.xml
       - run: bun tests/__baseline__/verify-test-counts.mjs test-results.xml

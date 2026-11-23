@@ -23,7 +23,7 @@ cp .env.example .env
 npm install
 npm run dev                         # Next.js development server
 npm run build && npm run start      # production-style local server
-npx eslint .                        # lint
+bunx --bun eslint .                        # lint
 cd tests && bun test --parallel
 ```
 
