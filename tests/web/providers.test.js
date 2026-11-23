@@ -1,50 +1,19 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import React, { act } from "react";
-import { createRoot } from "react-dom/client";
+import { describe, it, expect, afterEach, spyOn } from "bun:test";
+import React from "react";
+import { setupDom, mount } from "#test/dom";
 
-beforeAll(() => {
-  GlobalRegistrator.register({ url: "http://localhost:20128/dashboard/providers" });
-  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-});
-
-afterAll(async () => {
-  await GlobalRegistrator.unregister();
-  delete globalThis.IS_REACT_ACT_ENVIRONMENT;
-});
+setupDom("http://localhost:20128/dashboard/providers");
 
 const originalFetch = globalThis.fetch;
 
-async function flush() {
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 30));
-  });
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 30));
-  });
-}
-
-async function mount(element) {
-  const container = document.createElement("div");
-  document.body.appendChild(container);
-  const root = createRoot(container);
-  await act(async () => {
-    root.render(element);
-  });
-  await flush();
-  return {
-    container,
-    unmount: () =>
-      act(async () => {
-        root.unmount();
-        container.remove();
-      }),
-  };
-}
-
-beforeEach(() => {
-  window.history.replaceState({}, "", "/dashboard/providers");
-});
+const DETAIL_PAYLOADS = [
+  ["/api/providers", { connections: [] }],
+  ["/api/provider-nodes", { nodes: [] }],
+  ["/api/proxy-pools", { proxyPools: [] }],
+  ["/api/models/alias", { aliases: {} }],
+  ["/api/models/custom", { models: [] }],
+  ["/api/models/disabled", { ids: [] }],
+];
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
@@ -56,25 +25,8 @@ describe("Providers pages (Route Sheet)", () => {
     window.history.replaceState({}, "", "/dashboard/providers/claude");
     globalThis.fetch = (url) => {
       const u = String(url);
-      if (u.startsWith("/api/providers")) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ connections: [] }) });
-      }
-      if (u.startsWith("/api/provider-nodes")) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ nodes: [] }) });
-      }
-      if (u.startsWith("/api/proxy-pools")) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ proxyPools: [] }) });
-      }
-      if (u.startsWith("/api/models/alias")) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ aliases: {} }) });
-      }
-      if (u.startsWith("/api/models/custom")) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ models: [] }) });
-      }
-      if (u.startsWith("/api/models/disabled")) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ids: [] }) });
-      }
-      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+      const payload = DETAIL_PAYLOADS.find(([prefix]) => u.startsWith(prefix))?.[1] ?? {};
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(payload) });
     };
 
     const { ParamsProvider } = await import("../../src/web/router.js");
@@ -85,6 +37,7 @@ describe("Providers pages (Route Sheet)", () => {
         { params: { id: "claude" } },
         React.createElement(ProviderDetailPage),
       ),
+      { settle: true },
     );
 
     const crumb = container.querySelector('nav[aria-label="Breadcrumb"]');
@@ -103,15 +56,24 @@ describe("Providers pages (Route Sheet)", () => {
     await unmount();
   });
 
-  it("CooldownTimer renders the remaining countdown", async () => {
-    const { default: CooldownTimer } = await import("../../src/web/pages/dashboard/providers/[id]/CooldownTimer.js");
-    const future = new Date(Date.now() + 95_000).toISOString();
-    const { container, unmount } = await mount(React.createElement(CooldownTimer, { until: future }));
+  it.each([
+    { remainingMs: 45_000, text: "45s" },
+    { remainingMs: 95_000, text: "1m 35s" },
+    { remainingMs: 7_380_000, text: "2h 3m" },
+    { remainingMs: -1_000, text: null },
+  ])("CooldownTimer with $remainingMs ms left renders $text", async ({ remainingMs, text }) => {
+    const now = Date.parse("2026-01-01T00:00:00.000Z");
+    const nowSpy = spyOn(Date, "now").mockReturnValue(now);
+    try {
+      const { default: CooldownTimer } = await import("../../src/web/pages/dashboard/providers/[id]/CooldownTimer.js");
+      const until = new Date(now + remainingMs).toISOString();
+      const { container, unmount } = await mount(React.createElement(CooldownTimer, { until }));
 
-    const el = container.querySelector("span");
-    expect(el).not.toBeNull();
-    expect(el.textContent).toMatch(/1m \d+s/);
+      expect(container.querySelector("span")?.textContent.replace("schedule", "") ?? null).toBe(text);
 
-    await unmount();
+      await unmount();
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 });

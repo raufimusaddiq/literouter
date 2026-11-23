@@ -1,52 +1,13 @@
-import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { describe, it, expect } from "bun:test";
 import React, { act } from "react";
-import { createRoot } from "react-dom/client";
+import { setupDom, mount, click, pressKey } from "#test/dom";
 
-beforeAll(() => {
-  GlobalRegistrator.register({ url: "http://localhost/dashboard" });
-  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-});
-
-afterAll(async () => {
-  await GlobalRegistrator.unregister();
-  delete globalThis.IS_REACT_ACT_ENVIRONMENT;
-});
+setupDom();
 
 const { default: HeaderMenu } = await import("../../src/shared/components/HeaderMenu.js");
 const { default: KeyRowMenu } = await import(
   "../../src/web/pages/dashboard/endpoint/components/KeyRowMenu.js"
 );
-
-async function mount(element) {
-  const container = document.createElement("div");
-  document.body.appendChild(container);
-  const root = createRoot(container);
-  await act(async () => {
-    root.render(element);
-  });
-  return {
-    container,
-    unmount: () =>
-      act(async () => {
-        root.unmount();
-        container.remove();
-      }),
-  };
-}
-
-async function click(element) {
-  await act(async () => {
-    element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  });
-}
-
-async function pressKey(key) {
-  await act(async () => {
-    document.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
-  });
-}
 
 describe("HeaderMenu accessibility and keyboard navigation", () => {
   it("renders role=menu with role=menuitem children and focuses the first item on open", async () => {

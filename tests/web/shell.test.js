@@ -1,122 +1,28 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { describe, it, expect, afterEach, beforeEach } from "bun:test";
 import React, { act, useState } from "react";
-import { createRoot } from "react-dom/client";
+import { setupDom, setupViewportStubs, stubMatchMedia, MockResizeObserver, mount, click, pressKey } from "#test/dom";
 
-beforeAll(() => {
-  GlobalRegistrator.register({ url: "http://localhost/dashboard" });
-  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-});
+setupDom();
+setupViewportStubs();
 
-afterAll(async () => {
-  await GlobalRegistrator.unregister();
-  delete globalThis.IS_REACT_ACT_ENVIRONMENT;
-});
-
-let currentWidth = 1440;
-let reducedMotion = false;
-const originalMatchMedia = typeof window !== "undefined" ? window.matchMedia : undefined;
-const originalResizeObserver = globalThis.ResizeObserver;
-const resizeObserverInstances = [];
-
-function evaluateMediaQuery(query, width) {
-  const minMatch = query.match(/\(min-width:\s*(\d+)px\)/);
-  const maxMatch = query.match(/\(max-width:\s*(\d+)px\)/);
-  if (query.includes("prefers-reduced-motion")) {
-    return reducedMotion;
-  }
-  let ok = true;
-  if (minMatch) ok = ok && width >= Number(minMatch[1]);
-  if (maxMatch) ok = ok && width <= Number(maxMatch[1]);
-  return ok;
-}
-
-function stubViewport(width, { reduced = false } = {}) {
-  currentWidth = width;
-  reducedMotion = reduced;
-  window.matchMedia = (query) => ({
-    matches: evaluateMediaQuery(query, currentWidth),
-    media: query,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
+function stubViewport(width) {
+  stubMatchMedia((query) => {
+    const min = query.match(/\(min-width:\s*(\d+)px\)/);
+    const max = query.match(/\(max-width:\s*(\d+)px\)/);
+    return (!min || width >= Number(min[1])) && (!max || width <= Number(max[1]));
   });
 }
 
-class MockResizeObserver {
-  constructor(callback) {
-    this.callback = callback;
-    this.elements = [];
-    resizeObserverInstances.push(this);
-  }
-  observe(el) {
-    this.elements.push(el);
-  }
-  unobserve(el) {
-    this.elements = this.elements.filter((item) => item !== el);
-  }
-  disconnect() {
-    this.elements = [];
-  }
-  trigger() {
-    this.callback(
-      this.elements.map((target) => ({ target })),
-      this,
-    );
-  }
-}
-
 beforeEach(() => {
-  resizeObserverInstances.length = 0;
   stubViewport(1440);
-  globalThis.ResizeObserver = MockResizeObserver;
-  window.ResizeObserver = MockResizeObserver;
   document.body.style.overflow = "";
 });
 
 afterEach(() => {
-  if (originalMatchMedia) window.matchMedia = originalMatchMedia;
-  globalThis.ResizeObserver = originalResizeObserver;
-  window.ResizeObserver = originalResizeObserver;
   document.body.style.overflow = "";
 });
 
-async function mount(element) {
-  const container = document.createElement("div");
-  document.body.appendChild(container);
-  const root = createRoot(container);
-  await act(async () => {
-    root.render(element);
-  });
-  return {
-    container,
-    rerender: (next) =>
-      act(async () => {
-        root.render(next);
-      }),
-    unmount: () =>
-      act(async () => {
-        root.unmount();
-        container.remove();
-      }),
-  };
-}
-
-async function click(el) {
-  await act(async () => {
-    el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  });
-}
-
-async function pressEscape() {
-  await act(async () => {
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-  });
-}
+const pressEscape = () => pressKey("Escape");
 
 describe("Route Sheet shell", () => {
   it("desktop nav marks only the current page", async () => {
@@ -152,7 +58,7 @@ describe("Route Sheet shell", () => {
     Object.defineProperty(nav, "clientWidth", { configurable: true, value: 900 });
 
     await act(async () => {
-      for (const observer of resizeObserverInstances) {
+      for (const observer of MockResizeObserver.instances) {
         observer.trigger();
       }
     });
