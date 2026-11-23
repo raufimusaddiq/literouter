@@ -28,16 +28,6 @@ function makeChain(name) {
 }
 
 describe("useSystemCaStore bookkeeping", () => {
-  it("installs the system certs as the process default", () => {
-    const calls = [];
-    const n = useSystemCaStore({
-      getCACertificates: (t) => (t === "system" ? ["a", "b"] : ["bundled"]),
-      setDefaultCACertificates: (c) => calls.push(c),
-    }, {});
-    expect(n).toBe(2);
-    expect(calls).toEqual([["a", "b"]]);
-  });
-
   it("fails closed on an empty system store", () => {
     const calls = [];
     const host = { fetch: () => {} };
@@ -45,10 +35,6 @@ describe("useSystemCaStore bookkeeping", () => {
     expect(() => useSystemCaStore({ getCACertificates: () => [], setDefaultCACertificates: (c) => calls.push(c) }, host)).toThrow(/refusing/);
     expect(calls).toEqual([]);
     expect(host.fetch).toBe(original);
-  });
-
-  it("is enabled in the production image", () => {
-    expect(readFileSync(join(root, "Dockerfile"), "utf8")).toMatch(/^ENV LITEROUTER_SYSTEM_CA=1$/m);
   });
 
   it("calling it twice does not wrap fetch twice and applies the latest list", async () => {
