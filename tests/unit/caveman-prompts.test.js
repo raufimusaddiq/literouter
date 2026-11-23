@@ -55,9 +55,6 @@ describe("Caveman prompt coverage", () => {
 
 describe("Caveman internal consistency", () => {
   it("no level uses Unicode arrow (SHARED_NO_DECORATION bans arrow shorthand)", () => {
-    // SHARED_NO_DECORATION uses ASCII -> to quote the banned pattern.
-    // Unicode → is the character old ULTRA used in "Pattern: [thing] → [result]".
-    // Verify no level now uses it.
     for (const level of LEVEL_KEYS) {
       expect(CAVEMAN_PROMPTS[level]).not.toContain("→");
     }

@@ -7,7 +7,7 @@ describe("normalizeClaudePassthrough — Haiku adaptive thinking (#5183)", () =>
       "claude-haiku-5-5",
       "claude-haiku-5.5",
       "anthropic/claude-haiku-5-5",
-      "claude-haiku-6", // a future generation must not be downgraded either
+      "claude-haiku-6",
     ];
 
     for (const model of models) {

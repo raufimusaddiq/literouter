@@ -4,8 +4,6 @@ vi.mock("../../open-sse/services/cursorModels.js", async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    // Executor tests stub the network-dependent live fetch; resolver logic
-    // itself is exercised against the real module below.
     resolveCursorModels: vi.fn(),
   };
 });
@@ -31,8 +29,6 @@ function field(fieldNumber, value) {
   return Uint8Array.from([(fieldNumber << 3) | 2, ...varint(value.length), ...value]);
 }
 
-// Proto bools are varint fields (wire type 0), not length-delimited.
-// Tags themselves are varints, so field numbers > 15 need 2 tag bytes.
 function boolField(fieldNumber, value) {
   return Uint8Array.from([...varint((fieldNumber << 3) | 0), value ? 1 : 0]);
 }
@@ -52,13 +48,10 @@ function concat(...parts) {
   return result;
 }
 
-// GetUsableModelsResponse.usable_models (1) → ModelDetails {id(1), name(4)}.
 function usableModel(id, name) {
   return field(1, concat(field(1, text(id)), field(4, text(name))));
 }
 
-// GetUsableModelsResponse.available_models (2) → AvailableModels
-// {name(1), defaultOn(2), isChatOnly(4), supportsAgent(5), isHidden(35)}.
 function availableModel({ id, defaultOn = false, isChatOnly = false, supportsAgent = false, isHidden = false }) {
   const parts = [field(1, text(id))];
   if (defaultOn) parts.push(boolField(2, true));
@@ -146,7 +139,6 @@ describe("mergeCursorModelFlags", () => {
       { id: "gpt-5.2", name: "GPT", defaultOn: true, isChatOnly: false, supportsAgent: true, isHidden: false },
       { id: "haiku", name: "Haiku", defaultOn: false, isChatOnly: true, supportsAgent: false, isHidden: false },
     ]);
-    // Without field 2 the list passes through unchanged.
     expect(mergeCursorModelFlags(usable, concat(usableModel("gpt-5.2", "GPT")))).toEqual(usable);
   });
 });
@@ -175,7 +167,6 @@ describe("CursorExecutor auto model resolution", () => {
     const run = decodeMessage(decodeMessage(written[0].subarray(5)).get(1)[0].value);
     const requested = decodeMessage(run.get(9)[0].value);
     expect(Buffer.from(requested.get(1)[0].value).toString()).toBe("claude-4.6-opus");
-    // ModelDetails (field 3) carries the resolved id too.
     const details = decodeMessage(run.get(3)[0].value);
     expect(Buffer.from(details.get(1)[0].value).toString()).toBe("claude-4.6-opus");
   });

@@ -55,7 +55,6 @@ describe("/v1/models kenari: catalog describes, the user's list decides", () => 
 
     const llm = await buildModelsList(["llm"]);
     expect(llm.find((m) => m.id === "kn/muse-ember-1-0")).toMatchObject({ context_length: 1048576, max_completion_tokens: 524288 });
-    // In Kenari's catalog but never added: not listed.
     expect(ids(llm)).not.toContain("kn/beam-1-0:free");
   });
 

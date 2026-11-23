@@ -3,7 +3,6 @@ const http = require("node:http");
 const net = require("node:net");
 const test = require("node:test");
 
-// 1kb cap so the oversized case stays cheap to send.
 process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE = "1kb";
 
 const BASE_HEADERS = [
@@ -36,8 +35,6 @@ function upgradeRequest(port, extraHeaders, body) {
   });
 }
 
-// Loads custom-server.js, which patches http.createServer, then boots a server
-// through the patch. `seen` collects what the HTTP/1.1 handler observed.
 async function withServer(fn) {
   const originalCreateServer = http.createServer;
   delete require.cache[require.resolve("../../custom-server.js")];

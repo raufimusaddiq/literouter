@@ -1,15 +1,3 @@
-// Acceptance suite for the Zed native-app auth fix.
-// Self-isolating: DATA_DIR points at a temp dir before the DB layer loads,
-// so criterion 3's connection save never reaches the real ~/.9router DB.
-//
-// Covers criteria:
-//   1. Zed proxy starts
-//   2. Stray callback (no params) MUST NOT kill session / stop proxy
-//   3. Real callback (user_id + access_token) MUST complete session + save connection
-//   4. RSA decrypt works (round-trip)
-//   5. systemId identical authorize → exchange → stored connection
-//   6. register-session failure is distinguishable (backend contract)
-//   8. (backend) reopen/re-register creates a fresh session
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -21,7 +9,6 @@ import {
   decryptZedAccessToken,
 } from "open-sse/shared/zedAuth.js";
 
-// Imports must be dynamic so DATA_DIR is set before the DB layer loads.
 const originalDataDir = process.env.DATA_DIR;
 let tempDir;
 let startZedProxy, stopZedProxy, registerZedSession, getZedSessionStatus, clearZedSession;
@@ -44,8 +31,6 @@ afterAll(() => {
 
 const realFetch = globalThis.fetch;
 
-// Never hit the real network in tests: cloud.zed.dev calls are best-effort
-// (postExchange try/catch) — fail them fast and loud instead.
 beforeEach(() => {
   globalThis.fetch = async (url, init) => {
     if (String(url).includes("cloud.zed.dev")) {
@@ -61,12 +46,11 @@ afterEach(async () => {
 });
 
 async function startTestProxy() {
-  const started = await startZedProxy(0); // random loopback port — parallel-safe
+  const started = await startZedProxy(0);
   expect(started.success).toBe(true);
   return started;
 }
 
-/** Simulate zed.dev: RSA-encrypt a plaintext token with the flow's public key. */
 function encryptForCallback(publicKeyB64Url, plaintext) {
   const der = Buffer.from(String(publicKeyB64Url), "base64url");
   const key = crypto.createPublicKey({ key: der, format: "der", type: "pkcs1" });
@@ -125,12 +109,10 @@ describe("criterion 2 — stray callback MUST NOT kill session", () => {
     const res = await realFetch(`http://127.0.0.1:${started.port}/`);
     expect(res.status).toBe(200);
 
-    // Session must still be pending (not poisoned to error)…
     const session = getZedSessionStatus("stray-state-1");
     expect(session).not.toBeNull();
     expect(session.status).toBe("pending");
 
-    // …and the SAME server must still own the port (no silent restart).
     const again = await startZedProxy(0);
     expect(again.port).toBe(started.port);
 
@@ -179,7 +161,6 @@ describe("criterion 3 — real callback completes session + saves connection", (
     expect(conn.providerSpecificData?.userId).toBe("user-123");
     expect(conn.providerSpecificData?.systemId).toBe(auth.systemId);
 
-    // Proxy stopped itself after the terminal outcome (no orphan listener).
     const again = await startZedProxy(0);
     expect(again.port).not.toBe(started.port);
     stopZedProxy();
@@ -193,7 +174,6 @@ describe("criterion 5 — systemId stable authorize → exchange → stored", ()
     });
     const url = new URL(auth.authUrl);
     expect(url.searchParams.get("native_app_port")).toBe("59999");
-    // The system_id embedded in the sign-in URL must be observable downstream.
     expect(auth.systemId).toBe(url.searchParams.get("system_id"));
     expect(auth.systemId).toBeTruthy();
   });
@@ -202,7 +182,6 @@ describe("criterion 5 — systemId stable authorize → exchange → stored", ()
     const auth = await generateAuthData("zed", "http://127.0.0.1:59998/", {
       nativeAppPort: 59998,
     });
-    // Public key always rides in the authorize URL (mirrors the real flow).
     const pubFromUrl = new URL(auth.authUrl).searchParams.get("native_app_public_key");
     expect(pubFromUrl).toBeTruthy();
     const enc2 = encryptForCallback(pubFromUrl, "tok2");
@@ -230,7 +209,6 @@ describe("criterion 6 — register-session failure is distinguishable", () => {
       params: Promise.resolve({ provider: "zed", action: "register-session" }),
     });
     const data = await res.json();
-    // Backend contract: failure must be explicit (modal is required to check it).
     expect(data.success).toBe(false);
   });
 });
@@ -259,7 +237,6 @@ describe("criterion L — decrypt failure errors the session but keeps the serve
     const state = `wrongkey-state-${Date.now()}`;
     registerZedSession({ state, codeVerifier: live.privateKeyVerifier });
 
-    // Token encrypted for a DIFFERENT keypair (e.g. superseded popup).
     const bad = encryptForCallback(other.publicKey, "not-for-this-key");
     const cb = new URL(`http://127.0.0.1:${started.port}/`);
     cb.searchParams.set("user_id", "user-123");
@@ -272,7 +249,6 @@ describe("criterion L — decrypt failure errors the session but keeps the serve
     expect(session.status).toBe("error");
     expect(session.error).toMatch(/decrypt/i);
 
-    // Server must still be alive (same port) for the live attempt.
     const again = await startZedProxy(0);
     expect(again.port).toBe(started.port);
     clearZedSession(state);

@@ -4,11 +4,9 @@ import { DEFAULT_LOCALE, LOCALE_COOKIE, normalizeLocale } from "./config";
 
 let translationMap = {};
 let currentLocale = DEFAULT_LOCALE;
-// Locale whose literals are currently held in translationMap
 let loadedLocale = "en";
 let reloadCallbacks = [];
 
-// Read locale from cookie
 function getLocaleFromCookie() {
   if (typeof document === "undefined") return DEFAULT_LOCALE;
   const cookie = document.cookie
@@ -18,7 +16,6 @@ function getLocaleFromCookie() {
   return normalizeLocale(value);
 }
 
-// Load translation map
 async function loadTranslations(locale) {
   if (locale === "en") {
     translationMap = {};
@@ -38,7 +35,6 @@ async function loadTranslations(locale) {
   }
 }
 
-// Translate text - exported for use in components
 export function translate(text) {
   if (!text || typeof text !== "string") return text;
   const trimmed = text.trim();
@@ -47,12 +43,10 @@ export function translate(text) {
   return translationMap[trimmed] || text;
 }
 
-// Get current locale - exported for use in components
 export function getCurrentLocale() {
   return currentLocale;
 }
 
-// Register callback for locale changes
 export function onLocaleChange(callback) {
   reloadCallbacks.push(callback);
   return () => {
@@ -60,15 +54,12 @@ export function onLocaleChange(callback) {
   };
 }
 
-// Process text node
 function processTextNode(node) {
   if (!node.nodeValue || !node.nodeValue.trim()) return;
   
-  // Skip if parent is script, style, code, or structural elements
   const parent = node.parentElement;
   if (!parent) return;
   
-  // Skip if parent or any ancestor has data-i18n-skip attribute
   let element = parent;
   while (element) {
     if (element.hasAttribute && element.hasAttribute('data-i18n-skip')) {
@@ -79,7 +70,6 @@ function processTextNode(node) {
   
   const tagName = parent.tagName?.toLowerCase();
   
-  // Skip elements that don't allow text nodes
   const skipTags = [
     "script", "style", "code", "pre",
     "colgroup", "table", "thead", "tbody", "tfoot", "tr",
@@ -88,22 +78,18 @@ function processTextNode(node) {
   
   if (skipTags.includes(tagName)) return;
   
-  // Store original text if not already stored
   if (!node._originalText) {
     node._originalText = node.nodeValue;
   }
   
-  // Use original text for translation
   const original = node._originalText;
   const translated = translate(original);
   
-  // Only update if different to avoid unnecessary DOM mutations
   if (translated !== node.nodeValue) {
     node.nodeValue = translated;
   }
 }
 
-// Process all text nodes in element
 function processElement(element) {
   if (!element) return;
   
@@ -117,28 +103,22 @@ function processElement(element) {
   let node;
   const nodesToProcess = [];
   
-  // Collect all nodes first to avoid live collection issues
   while ((node = walker.nextNode())) {
     nodesToProcess.push(node);
   }
   
-  // Process collected nodes
   nodesToProcess.forEach(processTextNode);
 }
 
-// Initialize runtime i18n
 export async function initRuntimeI18n() {
   if (typeof window === "undefined") return;
   
   currentLocale = getLocaleFromCookie();
   await loadTranslations(currentLocale);
   
-  // Process existing DOM (English text is already the source text)
   if (currentLocale !== "en") processElement(document.body);
   
-  // Watch for new nodes
   const observer = new MutationObserver((mutations) => {
-    // In English, nodes are either untouched or were restored by reloadTranslations
     if (currentLocale === "en") return;
     mutations.forEach((mutation) => {
       mutation.addedNodes.forEach((node) => {
@@ -157,17 +137,13 @@ export async function initRuntimeI18n() {
   });
 }
 
-// Reload translations when locale changes
 export async function reloadTranslations() {
   const previousLocale = currentLocale;
   currentLocale = getLocaleFromCookie();
   await loadTranslations(currentLocale);
   
-  // Notify all registered callbacks
   reloadCallbacks.forEach(callback => callback());
   
-  // Re-process entire DOM (will use stored original text); nothing to restore
-  // or translate when staying in English
   if (previousLocale === "en" && currentLocale === "en") return;
   processElement(document.body);
 }

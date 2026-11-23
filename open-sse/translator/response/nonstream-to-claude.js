@@ -26,11 +26,6 @@ function buildClaudeMessage({ id, model, content, finishReason, usage }) {
   };
 }
 
-// Claude reports input_tokens EXCLUDING cache, with cache read/write apart.
-// OpenAI Chat (prompt_tokens + prompt_tokens_details) and Responses (input_tokens
-// + input_tokens_details) report a cache-inclusive prompt, so split it the same
-// way the streaming openai-to-claude translator does (#130). Claude-shaped usage
-// (input_tokens + cache_*_input_tokens) is already split and passes through.
 function toClaudeUsage(usage) {
   const n = (v) => (typeof v === "number" ? v : 0);
   const output = n(usage?.completion_tokens) || n(usage?.output_tokens);
@@ -61,8 +56,6 @@ export function openAICompletionToClaudeMessage(responseBody) {
   const content = [];
   const reasoning = message.reasoning_content
     || message.provider_specific_fields?.reasoning_content
-    // `reasoning` (string) is the vendor alias some OpenAI-compatible upstreams
-    // use (SenseNova, OpenRouter) instead of reasoning_content.
     || (typeof message.reasoning === "string" ? message.reasoning : "");
 
   if (reasoning) content.push({ type: "thinking", thinking: reasoning });

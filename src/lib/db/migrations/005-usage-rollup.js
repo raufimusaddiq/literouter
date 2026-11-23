@@ -1,7 +1,5 @@
 import { backfillUsageRollup, ensureRollupTables, ROLLUP_RETENTION_MS } from "../usageRollup.js";
 
-// 24h / today dashboard stats read a 10-minute rollup instead of scanning every
-// usageHistory row. Backfill covers the retention window of the rollup.
 export default {
   version: 5,
   name: "usage-rollup",

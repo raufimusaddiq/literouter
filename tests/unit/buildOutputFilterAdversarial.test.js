@@ -1,5 +1,3 @@
-// Adversarial / edge-case tests for PR #1175
-// Goals: find corruption, boundary bugs, false positives, integration regressions
 import { describe, it, expect } from "vitest";
 import { autoDetectFilter } from "../../open-sse/rtk/autodetect.js";
 import { buildOutput } from "../../open-sse/rtk/filters/buildOutput.js";
@@ -10,9 +8,6 @@ import { safeApply } from "../../open-sse/rtk/applyFilter.js";
 import { compressMessages } from "../../open-sse/rtk/index.js";
 import { DETECT_WINDOW, MIN_COMPRESS_SIZE } from "../../open-sse/rtk/constants.js";
 
-// ============================================================
-// 1. PRIORITY / OVERLAPPING PATTERNS
-// ============================================================
 describe("PR #1175 - priority with overlapping patterns", () => {
   it("git-diff wins over buildOutput when both present", () => {
     const input = [
@@ -39,15 +34,11 @@ describe("PR #1175 - priority with overlapping patterns", () => {
   });
 });
 
-// ============================================================
-// 2. BOUNDARY: DETECT_WINDOW
-// ============================================================
 describe("PR #1175 - DETECT_WINDOW boundary", () => {
   it("build pattern beyond DETECT_WINDOW chars: NOT detected", () => {
     const padding = "x".repeat(DETECT_WINDOW + 100);
     const input = `${padding}\n   Compiling foo v0.1.0\n    Finished release in 1.2s`;
     const filter = autoDetectFilter(input);
-    // Pattern lives past detection window — won't be seen
     expect(filter).not.toBe(buildOutput);
   });
 
@@ -57,9 +48,6 @@ describe("PR #1175 - DETECT_WINDOW boundary", () => {
   });
 });
 
-// ============================================================
-// 3. LINE ENDINGS / WHITESPACE QUIRKS
-// ============================================================
 describe("PR #1175 - line endings & whitespace", () => {
   it("CRLF line endings still detect", () => {
     const input = "npm warn deprecated foo@1.0.0\r\nadded 5 packages in 2s\r\n";
@@ -69,7 +57,6 @@ describe("PR #1175 - line endings & whitespace", () => {
   it("Tab-prefixed Compiling (real cargo output uses leading spaces, not tab)", () => {
     const input = "\tCompiling foo v0.1.0\n\tCompiling bar v0.2.0\n\tFinished dev in 1s";
     const filter = autoDetectFilter(input);
-    // \s matches tab, so should detect
     expect(filter).toBe(buildOutput);
   });
 
@@ -79,12 +66,8 @@ describe("PR #1175 - line endings & whitespace", () => {
   });
 });
 
-// ============================================================
-// 4. ADVERSARIAL: USER CODE / STRING LITERALS
-// ============================================================
 describe("PR #1175 - adversarial: user code containing build strings", () => {
   it("user JS code with console.log('npm warn ...') triggers buildOutput", () => {
-    // This is a realistic case: LLM is reading a file with this code
     const input = [
       "function logWarning() {",
       "  console.log('npm warn this is a warning');",
@@ -95,10 +78,7 @@ describe("PR #1175 - adversarial: user code containing build strings", () => {
       "}"
     ].join("\n");
     const filter = autoDetectFilter(input);
-    // Regex uses `m` flag, so ^ matches line start — these are inside indented code
-    // BUT: regex uses 'i' so case-insensitive, and `^npm warn` requires line to START with it
     console.log("[user-code-npm-warn] detected:", filter?.filterName || "null");
-    // Expectation: should NOT detect (lines start with spaces)
     expect(filter).not.toBe(buildOutput);
   });
 
@@ -111,10 +91,8 @@ describe("PR #1175 - adversarial: user code containing build strings", () => {
     ].join("\n");
     const filter = autoDetectFilter(input);
     console.log("[file-content-build-success] detected:", filter?.filterName || "null");
-    // Document behavior — buildOutput should preserve non-pattern lines as fallback
     if (filter === buildOutput) {
       const out = buildOutput(input);
-      // BUILD SUCCESS preserved
       expect(out).toContain("BUILD SUCCESS");
     }
   });
@@ -137,15 +115,11 @@ describe("PR #1175 - adversarial: user code containing build strings", () => {
     expect(out).toContain("error[E0432]");
     expect(out).toContain("error: aborting");
     expect(out).toContain("error: could not compile");
-    // Minimal fix: cargo error context lines now preserved
     expect(out).toContain("use foo::bar");
     expect(out).toContain("no `bar`");
   });
 });
 
-// ============================================================
-// 5. CORRUPTION / SAFETY: NO EMPTY OUTPUT
-// ============================================================
 describe("PR #1175 - corruption safety", () => {
   it("input with only progress lines (no errors/warnings/summary) returns input fallback", () => {
     const input = [
@@ -154,7 +128,6 @@ describe("PR #1175 - corruption safety", () => {
       "   Compiling c v0.1.0"
     ].join("\n");
     const out = buildOutput(input);
-    // out = "Compiled 3 packages" (non-empty)
     expect(out.length).toBeGreaterThan(0);
     expect(out).toContain("Compiled 3 packages");
   });
@@ -206,15 +179,11 @@ describe("PR #1175 - corruption safety", () => {
   });
 
   it("safeApply wraps buildOutput against panics", () => {
-    // Pass a non-string input via direct call — safeApply should catch
     const out = safeApply(buildOutput, "npm warn deprecated foo\nadded 1 package\n");
     expect(typeof out).toBe("string");
   });
 });
 
-// ============================================================
-// 6. INTEGRATION: compressMessages pipeline
-// ============================================================
 describe("PR #1175 - integration with compressMessages", () => {
   function buildBody(toolResultText) {
     return {
@@ -253,11 +222,9 @@ describe("PR #1175 - integration with compressMessages", () => {
   });
 
   it("compressed output never grows input (safety guard)", () => {
-    // Pathological: every line is something buildOutput keeps verbatim
     const text = "npm ERR! error line 1\nnpm ERR! error line 2\nnpm ERR! error line 3\n".repeat(20);
     const body = buildBody(text);
     const stats = compressMessages(body, true);
-    // either no hit (grew) or hit and shrunk
     const after = body.messages[0].content[0].content;
     expect(after.length).toBeLessThanOrEqual(text.length);
   });
@@ -280,9 +247,6 @@ describe("PR #1175 - integration with compressMessages", () => {
   });
 });
 
-// ============================================================
-// 6.5. GIT-LOG PRIORITY
-// ============================================================
 describe("git-log priority", () => {
   it("git-log chosen over build-output when commit header present in first window", () => {
     const input = [
@@ -315,20 +279,15 @@ describe("git-log priority", () => {
   });
 });
 
-// ============================================================
-// 7. PORCELAIN REGRESSION DEEPER TESTS
-// ============================================================
 describe("PR #1175 - porcelain regression deeper", () => {
   it("mixed staged + workdir + untracked porcelain → detected (has status code first char)", () => {
     const input = [
-      "M  src/staged.js",   // staged modified
-      " M src/workdir.js",  // workdir modified (space first)
+      "M  src/staged.js",
+      " M src/workdir.js",
       "?? new.js",
       "A  src/added.js"
     ].join("\n");
     const filter = autoDetectFilter(input);
-    // M and A and ?? lines have status code first → 4/4 lines hit? No — " M" has space first
-    // isMostlyPorcelain requires >= 60% hit. With new regex, hits = M/?/A = 3, total = 4, 75% ≥ 60%
     expect(filter).toBe(gitStatus);
   });
 
@@ -354,16 +313,11 @@ describe("PR #1175 - porcelain regression deeper", () => {
   });
 });
 
-// ============================================================
-// 8. PATHOLOGICAL INPUTS
-// ============================================================
 describe("PR #1175 - pathological", () => {
   it("very long single line (no newlines) with build pattern", () => {
     const input = "npm warn deprecated foo@1.0.0: " + "x".repeat(5000);
     const filter = autoDetectFilter(input);
-    // Pattern at start (within DETECT_WINDOW)
     expect(filter).toBe(buildOutput);
-    // Should NOT crash
     const out = buildOutput(input);
     expect(typeof out).toBe("string");
   });
@@ -386,7 +340,6 @@ describe("PR #1175 - pathological", () => {
   });
 
   it("null/undefined safety via safeApply", () => {
-    // buildOutput would throw on null.split() — safeApply must catch
     const out = safeApply(buildOutput, null);
     expect(out).toBe(null);
   });

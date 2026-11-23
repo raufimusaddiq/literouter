@@ -4,7 +4,6 @@ import path from "node:path";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { fingerprintKey, redactClientHeaders, redactUpstreamHeaders } from "../../open-sse/utils/keyFingerprint.js";
 
-// Sanitized fixtures only: these are not credentials.
 const KEY_A = "sk-fixture-aaaaaa-00000001";
 const KEY_B = "sk-fixture-bbbbbb-00000002";
 const UPSTREAM = "upstream-fixture-token-0003";

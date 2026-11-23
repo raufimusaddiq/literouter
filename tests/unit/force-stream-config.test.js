@@ -1,4 +1,3 @@
-// Guards forceStream moved from chatCore hardcode → PROVIDERS schema (#5).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { executeMock } = vi.hoisted(() => ({
@@ -149,7 +148,6 @@ describe("forceStream provider config", () => {
     for (const id of FORCED) {
       expect(PROVIDERS[id]?.forceStream, `${id} forced`).toBe(true);
     }
-    // a sample of others must NOT force
     for (const id of ["deepseek", "claude", "gemini", "openrouter"]) {
       expect(PROVIDERS[id]?.forceStream, `${id} not forced`).not.toBe(true);
     }

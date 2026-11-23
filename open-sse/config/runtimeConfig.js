@@ -1,4 +1,3 @@
-// HTTP status codes
 export const HTTP_STATUS = {
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
@@ -14,29 +13,23 @@ export const HTTP_STATUS = {
   GATEWAY_TIMEOUT: 504
 };
 
-// Re-export error config (backward compat)
 export { ERROR_TYPES, DEFAULT_ERROR_MESSAGES, BACKOFF_CONFIG, COOLDOWN_MS } from "./errorConfig.js";
 
-// Cache TTLs (seconds)
 export const CACHE_TTL = {
-  userInfo: 300,    // 5 minutes
-  modelAlias: 3600  // 1 hour
+  userInfo: 300,
+  modelAlias: 3600
 };
 
-// Memory management config
 export const MEMORY_CONFIG = {
   sessionTtlMs: 2 * 60 * 60 * 1000,
   sessionCleanupIntervalMs: 30 * 60 * 1000,
   dnsCacheTtlMs: 5 * 60 * 1000,
-  // Must be >= the proxy pool size or dispatchers thrash (no keep-alive, CONNECT+TLS
-  // per request). Env: PROXY_DISPATCHERS_MAX_SIZE.
   proxyDispatchersMaxSize: (() => {
     const n = parseInt(process.env.PROXY_DISPATCHERS_MAX_SIZE || "", 10);
     return Number.isFinite(n) && n > 0 ? n : 256;
   })(),
 };
 
-// Parse a positive integer env override, falling back to a default.
 function envMs(name, def) {
   const raw = process.env[name];
   if (raw == null || raw === "") return def;
@@ -44,48 +37,27 @@ function envMs(name, def) {
   return Number.isFinite(n) && n > 0 ? n : def;
 }
 
-// Inter-chunk stall timeout (once tokens are flowing). Generous headroom so
-// slow reasoning models aren't aborted mid-stream. Env: STREAM_STALL_TIMEOUT_MS.
 export const STREAM_STALL_TIMEOUT_MS = envMs("STREAM_STALL_TIMEOUT_MS", 360 * 1000);
 
-// DeepSeek Flash lanes (opencode-go, kenari) accept the request, send ~2 chunks, then
-// go silent forever. Flash does not do long silent reasoning, so cut those hangs at
-// 90s instead of 360s. Env: STREAM_STALL_TIMEOUT_FLASH_MS.
 export const STREAM_STALL_TIMEOUT_FLASH_MS = envMs("STREAM_STALL_TIMEOUT_FLASH_MS", 90 * 1000);
 
-// Min gap between liveness heartbeats re-emitted on translated streams. Env: STREAM_HEARTBEAT_MS.
 export const TRANSLATE_HEARTBEAT_MS = envMs("STREAM_HEARTBEAT_MS", 5 * 1000);
 
-// Time-to-first-token timeout (prompt prefill). Env: STREAM_FIRST_CHUNK_TIMEOUT_MS.
 export const STREAM_FIRST_CHUNK_TIMEOUT_MS = envMs("STREAM_FIRST_CHUNK_TIMEOUT_MS", 200 * 1000);
 
 export const PENDING_COMPLETION_FLUSH_MS = envMs("PENDING_COMPLETION_FLUSH_MS", 3000);
 
-// Fetch connect timeout: abort if upstream doesn't return response headers within this duration
-// Applies to streaming requests only; non-stream upstreams send headers once the whole
-// completion is done, so they get NON_STREAM_TOTAL_TIMEOUT_MS instead.
 export const FETCH_CONNECT_TIMEOUT_MS = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1000);
 
-// Hard cap on a single OAuth/token-refresh HTTP call. Env: REFRESH_TIMEOUT_MS.
 export const REFRESH_TIMEOUT_MS = envMs("REFRESH_TIMEOUT_MS", 30 * 1000);
 
-// Total budget for a non-stream upstream call (headers + body). Env: NON_STREAM_TOTAL_TIMEOUT_MS.
 export const NON_STREAM_TOTAL_TIMEOUT_MS = envMs("NON_STREAM_TOTAL_TIMEOUT_MS", 10 * 60 * 1000);
 
-// Safety net on the undici Agent for the 60+ raw proxyAwareFetch callers (token refresh,
-// vertex/qoder/trae, ...) that have no timer of their own. Sized above every gateway
-// watchdog (headers / non-stream total / inter-chunk stall) so those always fire first
-// with a proper 504; undici only ever catches a caller that has none. headersTimeout is
-// time-to-headers and bodyTimeout is idle time between chunks, so long healthy streams
-// are unaffected. Env: UNDICI_BACKSTOP_MS.
 export const UNDICI_BACKSTOP_MS = envMs(
   "UNDICI_BACKSTOP_MS",
   Math.max(NON_STREAM_TOTAL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS, FETCH_CONNECT_TIMEOUT_MS) + 30 * 1000,
 );
 
-// Keep-alive socket TTL. Cap it below upstream/edge idle windows (Cloudflare, AWS Global
-// Accelerator / NVIDIA NIM) that drop idle sockets without a TCP RST. keepAliveMaxTimeout is
-// clamped to the same value so an upstream `Keep-Alive` header cannot extend it to 600s.
 export const DEFAULT_KEEPALIVE_TIMEOUT_MS = 4 * 1000;
 export const FRESH_RETRY_KEEPALIVE_TIMEOUT_MS = 1;
 export const FETCH_KEEPALIVE_TIMEOUT_MS = envMs("FETCH_KEEPALIVE_TIMEOUT_MS", DEFAULT_KEEPALIVE_TIMEOUT_MS);
@@ -95,15 +67,11 @@ export function resolveKeepAliveTimeouts() {
   return { keepAliveTimeout: timeout, keepAliveMaxTimeout: timeout };
 }
 
-// Escape hatch: FETCH_FRESH_RETRY=off disables the transport-level replay, leaving only the
-// executor's own retry path (which still forces a fresh socket). Defaults to on.
 export function isFreshSocketReplayEnabled() {
   const raw = String(process.env.FETCH_FRESH_RETRY ?? "").trim().toLowerCase();
   return !(raw === "off" || raw === "0" || raw === "false" || raw === "no");
 }
 
-// Dead keep-alive sockets surface as these codes/substrings; DNS, connect-refused and TLS
-// failures are excluded so a real unreachable host is never mistaken for a stale socket.
 export const STALE_SOCKET_ERROR_CODES = new Set([
   "UND_ERR_SOCKET",
   "ECONNRESET",
@@ -120,52 +88,36 @@ export const NON_STALE_SOCKET_ERROR_CODES = new Set([
   "UND_ERR_INVALID_ARG",
 ]);
 
-// Deliberately excludes a bare "fetch failed": with no error code the upstream may already
-// hold the request, and replaying it would send (and bill) the same completion twice.
 export const STALE_SOCKET_ERROR_SUBSTRINGS = [
   "other side closed",
   "socket hang up",
 ];
 
-// Dashboard model-test probe budget, measured to the FIRST token. Shares the
-// first-chunk default: the probe measures reachability through the router, so a
-// budget below the router's own first-chunk wait reports healthy-but-slow models
-// as broken. Env: MODEL_TEST_TIMEOUT_MS.
 export const MODEL_TEST_TIMEOUT_MS = envMs("MODEL_TEST_TIMEOUT_MS", 200 * 1000);
 
-// Gemini native TTS fetch timeout: abort if Google does not return response headers in time.
 export const GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS = envMs("GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS", 45 * 1000);
 
-// Default token limits
 export const DEFAULT_MAX_TOKENS = 64000;
 export const DEFAULT_MIN_TOKENS = 32000;
 
-// LiteRouter is the product name; the legacy `9router` spelling stays accepted so existing clients keep working.
 export const TOKEN_SAVER_HEADER = "x-9router-token-saver";
 export const TOKEN_SAVER_HEADER_ALIASES = [TOKEN_SAVER_HEADER, "x-literouter-token-saver"];
 export const isTokenSaverEnabled = (headers = {}) => !TOKEN_SAVER_HEADER_ALIASES.some(
   (header) => headers[header]?.toLowerCase() === "off",
 );
 
-// Retry config for 429 responses (legacy - kept for backward compatibility)
 export const RETRY_CONFIG = {
   maxAttempts: 2,
   delayMs: 2000
 };
 
-// Default retry config by status code: { attempts, delayMs }
-// Backward compat: if value is a number, treated as attempts with RETRY_CONFIG.delayMs
 export const DEFAULT_RETRY_CONFIG = {
-  // 408 "request body timed out": upstream never processed the request, safe to resend once.
   408: { attempts: 1, delayMs: 300 },
   429: { attempts: 0, delayMs: 0 },
   502: { attempts: 3, delayMs: 3000 },
   503: { attempts: 3, delayMs: 2000 }
-  // No 504 entry on purpose: an upstream 504 may already be a billed generation, so it is
-  // surfaced once, never replayed. Pre-send/connect failures retry under the 502 entry.
 };
 
-// Normalize a retry entry to { attempts, delayMs }
 export function resolveRetryEntry(entry) {
   if (entry == null) return { attempts: 0, delayMs: RETRY_CONFIG.delayMs };
   if (typeof entry === "number") return { attempts: entry, delayMs: RETRY_CONFIG.delayMs };
@@ -175,10 +127,8 @@ export function resolveRetryEntry(entry) {
   };
 }
 
-// Requests containing these texts will bypass provider
 export const SKIP_PATTERNS = [
   "Please write a 5-10 word title for the following conversation:"
 ];
 
-// Hard cap on combo-in-combo nesting (chat expansion + combo write-path validation).
 export const MAX_COMBO_DEPTH = 8;

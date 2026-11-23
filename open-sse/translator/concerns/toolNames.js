@@ -1,7 +1,3 @@
-// Upstreams such as Codex (Responses) and Anthropic require tool names matching
-// ^[a-zA-Z0-9_-]{1,128}$. MCP-style names ("server.tool") are rewritten for the
-// upstream and mapped back on the response. Names that are already valid are
-// reserved first so an alias can never collide with a real tool.
 const MAX_TOOL_NAME_LEN = 128;
 export const VALID_TOOL_NAME = new RegExp(`^[a-zA-Z0-9_-]{1,${MAX_TOOL_NAME_LEN}}$`);
 
@@ -27,8 +23,6 @@ export function createToolNameSanitizer(declaredNames = []) {
   return { safe, toOriginal };
 }
 
-// Every tool name a Chat Completions request mentions: declarations, assistant
-// history, and an explicit tool_choice.
 export function collectChatToolNames(body) {
   return [
     ...(Array.isArray(body.tools) ? body.tools.map((tool) => tool?.function?.name ?? tool?.name) : []),

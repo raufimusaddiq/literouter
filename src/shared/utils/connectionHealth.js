@@ -1,15 +1,3 @@
-// Single source of truth for connection health, shared by Overview and Providers.
-//
-// Every connection lands in exactly one bucket, so ready + attention + inactive + untested === total:
-//   inactive  - isActive === false (disabled by the operator). Always wins, even if the
-//               last test failed: a disabled connection is not routing, so it is not
-//               "needing attention" either.
-//   attention - active, and one of: rate-limited (rateLimitedUntil in the future),
-//               cooldown (testStatus "unavailable" with a live modelLock_* in the future),
-//               expired credentials, or error. `reason` says which.
-//   ready     - verified passing (active/success), or a stale "unavailable" whose
-//               cooldown has ended.
-//   untested  - active but never tested (no testStatus); not counted as ready.
 
 export const HEALTH = Object.freeze({
   READY: "ready",

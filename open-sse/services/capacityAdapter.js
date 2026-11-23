@@ -1,20 +1,8 @@
-/**
- * Capacity Adapter — global fallback pools of models per input-modality capability
- * (vision / pdf / audioInput / videoInput).
- *
- * The pool models are appended as extra fallback candidates behind whatever models
- * were already going to be tried (a combo's members, or a single target model).
- * combo.js's existing reorderByCapabilities then floats a capable pool model to the
- * front only when none of the original models can handle the request — so this
- * never overrides a combo that already has a member covering the capability.
- */
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
 
 const CAPABILITY_KEYS = ["vision", "pdf", "audioInput", "videoInput"];
 const HARD_CAPS = new Set(CAPABILITY_KEYS);
 
-// Normalize a capability entry to { enabled, roundRobin, models }. Backward-compat:
-// accept the legacy array form [{model, enabled}] (treated as enabled, fallback).
 function normalizeCapEntry(entry) {
   if (Array.isArray(entry)) {
     return { enabled: true, roundRobin: false, models: entry.map((e) => e?.model || e).filter(Boolean) };
@@ -29,14 +17,10 @@ function normalizeCapEntry(entry) {
   return { enabled: false, roundRobin: false, models: [] };
 }
 
-// Resolve one capability's full config. An enabled pool with no models is a
-// no-op: the user cleared every model on purpose, and silently substituting a
-// model they cannot see or remove is worse than doing nothing.
 export function getCapacityAdapterConfig(cap, settings) {
   return normalizeCapEntry(settings?.capacityAdapter?.[cap]);
 }
 
-// Flatten enabled models across all capability pools, in priority order, deduped.
 export function getCapacityAdapterModels(settings) {
   const seen = new Set();
   const models = [];
@@ -53,14 +37,11 @@ export function getCapacityAdapterModels(settings) {
   return models;
 }
 
-// Strategy for a capability: "round-robin" when enabled+roundRobin, else "fallback".
 export function getCapacityAdapterStrategy(cap, settings) {
   const { enabled, roundRobin } = getCapacityAdapterConfig(cap, settings);
   return enabled && roundRobin ? "round-robin" : "fallback";
 }
 
-// Strategy from the request's required capabilities: picks the first capability
-// whose adapter pool is enabled and can satisfy a hard requirement.
 export function getActiveAdapterStrategy(requiredCapabilities, settings) {
   const hard = [...(requiredCapabilities || [])].filter((c) => HARD_CAPS.has(c));
   for (const cap of hard) {
@@ -79,12 +60,6 @@ function modelSatisfies(modelStr, requiredHard) {
   return requiredHard.every((c) => caps[c] === true);
 }
 
-// Prepend capacity-adapter models as priority candidates when NONE of the
-// original models (combo members, or the single target model) can satisfy the
-// request's required capabilities. Adapter models go FIRST (priority); the
-// original models follow as fallback. Leaves `models` untouched when the
-// original list already covers it (combo.js's reorderByCapabilities handles
-// that case via autoSwitch).
 export function augmentModelsWithCapacityAdapter(models, requiredCapabilities, settings) {
   const hard = [...(requiredCapabilities || [])].filter((c) => HARD_CAPS.has(c));
   if (hard.length === 0 || !Array.isArray(models) || models.length === 0) return models;
@@ -95,8 +70,8 @@ export function augmentModelsWithCapacityAdapter(models, requiredCapabilities, s
   return [...pool, ...models];
 }
 
-const CHARS_PER_TOKEN = 4; // rough estimate; avoids pulling in a tokenizer dependency
-const HEAD_KEEP = 6;      // messages after system kept verbatim before dropping the middle
+const CHARS_PER_TOKEN = 4;
+const HEAD_KEEP = 6;
 
 function blockLength(content) {
   if (typeof content === "string") return content.length;
@@ -106,10 +81,6 @@ function blockLength(content) {
   return 0;
 }
 
-// Trim history to fit a (possibly smaller) context window by dropping the MIDDLE.
-// Preserves: all system/instruction messages (head), and the trailing user run
-// carrying the media the switch happened for (tail). Older middle turns between
-// the head instructions and the current turn are dropped first.
 export function stripHistoryForContext(body, contextWindow) {
   const key = Array.isArray(body.messages) ? "messages"
     : Array.isArray(body.input) ? "input"
@@ -127,20 +98,16 @@ export function stripHistoryForContext(body, contextWindow) {
   const isAssistant = (r) => r === "assistant" || r === "model";
   let i = rest.length - 1;
   while (i >= 0 && !isAssistant(rest[i]?.role)) i--;
-  const tail = rest.slice(i + 1);          // current user turn (has media) — always kept
-  const older = rest.slice(0, i + 1);      // everything before it
+  const tail = rest.slice(i + 1);
+  const older = rest.slice(0, i + 1);
   if (older.length === 0) return body;
 
   const contentOf = (m) => m.content ?? m.parts;
-  // Cap at 80% of the adapter model's context window — leaves room for the response.
   const budgetChars = (contextWindow || 200000) * 0.8 * CHARS_PER_TOKEN;
 
-  // Prefer keeping the first HEAD_KEEP messages (initial instructions/context) verbatim;
-  // only trim further if even that exceeds the adapter model's context window.
   const headKept = older.slice(0, HEAD_KEEP);
   let total = systemMsgs.concat(headKept, tail).reduce((s, m) => s + blockLength(contentOf(m)), 0);
 
-  // If head + tail overflow, drop head turns from the end (closest to middle) first.
   let head = headKept;
   while (total > budgetChars && head.length > 0) {
     const dropped = head.pop();
@@ -151,8 +118,6 @@ export function stripHistoryForContext(body, contextWindow) {
   return { ...body, [key]: [...systemMsgs, ...head, ...tail] };
 }
 
-// Wrap a handleSingleModel callback so calls to a capacity-adapter model strip
-// history to fit its context window first. No-op passthrough when the pool is empty.
 export function withCapacityAdapterStripping(handleSingleModel, adapterModels) {
   const adapterSet = new Set(adapterModels);
   if (adapterSet.size === 0) return handleSingleModel;

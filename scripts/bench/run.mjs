@@ -1,14 +1,4 @@
 #!/usr/bin/env node
-// Load generator for LiteRouter's /v1 path (node fetch only, no dependencies).
-//
-//   LITEROUTER_BENCH_KEY=sk-... node scripts/bench/run.mjs \
-//     --base-url https://ai.example.com/v1 --model hy4-flash --mode stream \
-//     --concurrency 1 --requests 20 --max-tokens 128 --label real-c1
-//
-// Flags: --base-url (http://127.0.0.1:20128/v1)  --key | env LITEROUTER_BENCH_KEY (never printed or written)
-//   --model  --mode stream|nonstream (stream)  --concurrency (1)  --requests N | --duration SECONDS
-//   --prompt-size approx input tokens (16)  --max-tokens (128)  --abort-after-ms (0 = never)
-//   --label (bench)  --out-dir (bench-results)  --timeout-ms (120000)  --no-write
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -30,7 +20,6 @@ function classifyError(err, timedOut) {
   return err?.name || "error";
 }
 
-/** Send one request and measure it. Never throws; failures are recorded in the result. */
 async function oneRequest(opts, seq) {
   const stream = opts.mode === "stream";
   const body = {

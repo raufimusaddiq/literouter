@@ -5,8 +5,6 @@ import { fingerprintKey } from "open-sse/utils/keyFingerprint.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
 import { bucketOf, clearRollupKeyCache, getRollupKeyId, ROLLUP_RETENTION_MS } from "../usageRollup.js";
 
-// Client keys are never stored: usage rows and daily buckets carry a
-// non-reversible fingerprint (open-sse/utils/keyFingerprint.js).
 function maskApiKey(key) {
   return fingerprintKey(key);
 }
@@ -25,7 +23,6 @@ const USAGE_BATCH_SIZE = Math.max(1, Number.parseInt(process.env.USAGE_BATCH_SIZ
 const USAGE_FLUSH_INTERVAL_MS = Math.max(10, Number.parseInt(process.env.USAGE_FLUSH_INTERVAL_MS || "100", 10) || 100);
 const USAGE_MAX_BUFFERED = Math.max(USAGE_BATCH_SIZE, Number.parseInt(process.env.USAGE_MAX_BUFFERED || "5000", 10) || 5000);
 
-// In-memory state shared across Next.js modules
 if (!global._pendingRequests) global._pendingRequests = { byModel: {}, byAccount: {} };
 if (!global._lastErrorProvider) global._lastErrorProvider = { provider: "", ts: 0 };
 if (!global._statsEmitter) {
@@ -86,9 +83,6 @@ function addToCounter(target, key, values) {
   if (values.ts && isLaterTs(values.ts, target[key].lastTs)) target[key].lastTs = values.ts;
 }
 
-// Compare real ISO timestamps only. A bare date key ("YYYY-MM-DD") is never a
-// timestamp: Date-parsing it yields UTC midnight, which mis-orders it against
-// real instants whenever the local day differs from the UTC day.
 const ISO_TS_RE = /^\d{4}-\d{2}-\d{2}T/;
 function isLaterTs(candidate, current) {
   if (typeof candidate !== "string" || !ISO_TS_RE.test(candidate)) return false;
@@ -99,8 +93,6 @@ function isLaterTs(candidate, current) {
   return Number.isNaN(cur) || c > cur;
 }
 
-// Synthetic lastUsed for legacy day rows: local end-of-day of the day key,
-// clamped to now. Parsed manually; Date.parse("YYYY-MM-DD") would be UTC.
 function dayKeyToFallbackTs(dateKey) {
   const [y, m, d] = String(dateKey).split("-").map(Number);
   const t = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
@@ -190,16 +182,11 @@ async function calculateCost(provider, model, tokens) {
     const { getPricingForModel } = await import("./pricingRepo.js");
     const pricing = await getPricingForModel(provider, model);
     if (!pricing) {
-      // Routes fine, but no row: surface the gap once instead of billing a
-      // silent $0 (see open-sse/providers/trackingGaps.js).
       const { noteUntrackedModel } = await import("open-sse/providers/trackingGaps.js");
       noteUntrackedModel(provider, model, "cost");
       return 0;
     }
 
-    // Delegate the actual math to the single source of truth (avoids the two
-    // copies drifting apart — see open-sse/providers/pricing.js for the
-    // cache-inclusive prompt_tokens convention this assumes).
     const { calculateCostFromTokens } = await import("open-sse/providers/pricing.js");
     return calculateCostFromTokens(tokens, pricing);
   } catch (e) {
@@ -248,7 +235,6 @@ export function trackPendingRequest(model, provider, connectionId, started, erro
     lastErrorProvider.ts = Date.now();
   }
 
-  // [PENDING] console line removed; lifecycle is visible via "▶" and "📊 done" lines
   scheduleStatsEvent("pending");
 }
 
@@ -297,10 +283,6 @@ export async function getActiveRequests() {
   return { activeRequests, recentRequests, errorProvider, pending: pendingRequests };
 }
 
-// usageDaily aggregates are kept parsed in memory and written back on a slower
-// cadence (and on shutdown / before any read), instead of read+parse+stringify
-// of the whole day blob on every flush. Aggregation happens after the history
-// insert commits, so a rolled-back batch never double-counts into a cached day.
 const DAILY_FLUSH_INTERVAL_MS = Math.max(250, Number(process.env.USAGE_DAILY_FLUSH_MS || 5000));
 const MAX_CACHED_DAYS = 4;
 const dailyState = globalThis.__liteRouterUsageDailyState ??= { days: new Map(), timer: null };
@@ -322,7 +304,6 @@ function getCachedDay(db, dateKey) {
   return slot;
 }
 
-// Persist every dirty cached day. Sync so it is safe in shutdown handlers.
 export function flushUsageDailySync(db = getAdapterSync()) {
   if (dailyState.timer) {
     clearTimeout(dailyState.timer);
@@ -340,7 +321,6 @@ export function flushUsageDailySync(db = getAdapterSync()) {
     });
     for (const [, slot] of dirty) slot.dirty = false;
   }
-  // Bound memory: keep only the most recent days resident.
   if (dailyState.days.size > MAX_CACHED_DAYS) {
     const keys = [...dailyState.days.keys()].sort().reverse();
     for (const k of keys.slice(MAX_CACHED_DAYS)) {
@@ -368,7 +348,7 @@ function writeUsageBatch(db, entries) {
   if (!entries.length) return [];
 
   const insertedEntries = [];
-  const rollup = new Map(); // bucket+tuple -> aggregate, upserted once per group
+  const rollup = new Map();
   let insertedCount = 0;
 
   try {
@@ -461,7 +441,6 @@ function writeUsageBatch(db, entries) {
     throw err;
   }
 
-  // History rows are committed; fold them into the in-memory daily aggregate.
   for (const entry of insertedEntries) {
     const slot = getCachedDay(db, getLocalDateKey(entry.timestamp));
     aggregateEntryToDay(slot.day, entry);
@@ -481,15 +460,13 @@ function onUsageBatchPersisted(insertedEntries) {
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 let lastPruneAt = 0;
 
-// Drop per-request usageHistory rows older than the retention setting. Runs at
-// most hourly per process and never throws: pruning must not fail a flush.
 export async function pruneUsageHistory({ force = false, now = Date.now() } = {}) {
   if (!force && now - lastPruneAt < PRUNE_INTERVAL_MS) return 0;
   lastPruneAt = now;
   try {
     const rdb = await getAdapter();
     rdb.run(`DELETE FROM usageRollup WHERE bucket < ?`, [bucketOf(new Date(now - ROLLUP_RETENTION_MS).toISOString())]);
-  } catch { /* best-effort */ }
+  } catch {}
   try {
     const { getSettings } = await import("./settingsRepo.js");
     const days = Number((await getSettings()).usageHistoryRetentionDays);
@@ -588,8 +565,6 @@ function drainUsageSync() {
       onUsageBatchPersisted(inserted);
       settlePersistedBatch(batch);
     } catch (e) {
-      // Put the failed batch back before reporting the shutdown failure so no
-      // accepted Usage event silently disappears from the bounded queue.
       usageWriteBuffer.items.unshift(...batch);
       for (const item of batch) item.reject?.(e);
       console.error("Failed to drain usage stats:", e);
@@ -614,9 +589,6 @@ export async function saveRequestUsage(entry) {
     prepared.cost = Number(prepared.cost) || 0;
   }
 
-  // Preserve the historical public contract: awaiting saveRequestUsage means
-  // the event is durable. Production response handlers intentionally do not
-  // await it, so they still benefit from batching off the response path.
   return new Promise((resolve, reject) => {
     const enqueue = async () => {
       try {
@@ -628,7 +600,6 @@ export async function saveRequestUsage(entry) {
 
         if (usageWriteBuffer.items.length >= USAGE_BATCH_SIZE) {
           flushUsageQueue({ drainAll: false }).catch(() => {
-            // Individual waiter is resolved/retried/rejected by the flush path.
           });
         } else {
           scheduleUsageFlush();
@@ -643,7 +614,7 @@ export async function saveRequestUsage(entry) {
 }
 
 function loadDaysInRange(adapter, maxDays) {
-  flushUsageDailySync(adapter); // readers must see the in-memory aggregate
+  flushUsageDailySync(adapter);
   if (maxDays == null) {
     return adapter.all(`SELECT dateKey, data FROM usageDaily`);
   }
@@ -653,21 +624,14 @@ function loadDaysInRange(adapter, maxDays) {
   return adapter.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ?`, [cutoffKey]);
 }
 
-// Hard floor between recomputes: reads inside it are served from the previous
-// result (stale by <= floor) even after new batches persist, so N tabs and a
-// push-per-batch SSE feed cost at most one query set per floor. The recompute is
-// synchronous, so concurrent callers can never run it twice (single flight).
 const LIVE_STATS_TTL_MS = Math.max(0, Number(process.env.LIVE_STATS_TTL_MS || 3000));
-const liveAggCache = new Map(); // period -> { at, dbRef, cutoff, rows }
+const liveAggCache = new Map();
 
 const ROLLUP_AGG = `SELECT k.provider, k.model, k.connectionId, k.apiKey, k.endpoint, r.n, r.promptTokens, r.completionTokens, r.cachedTokens, r.cost, r.firstTs, r.lastTs
   FROM (SELECT keyId, SUM(n) AS n, SUM(promptTokens) AS promptTokens, SUM(completionTokens) AS completionTokens,
           SUM(cachedTokens) AS cachedTokens, SUM(cost) AS cost, MIN(firstTs) AS firstTs, MAX(lastTs) AS lastTs
         FROM usageRollup WHERE bucket > ? GROUP BY keyId) r JOIN usageRollupKey k ON k.id = r.keyId`;
 
-// 24h/today read the 10-minute rollup for whole buckets, plus raw history for the
-// single partial bucket the (sliding) cutoff falls in. Cost is O(buckets x tuples),
-// independent of request volume.
 function computeLiveAggregate(db, cutoff) {
   const cb = bucketOf(cutoff);
   const upper = cb.slice(0, -1) + String.fromCharCode(cb.charCodeAt(cb.length - 1) + 1);
@@ -691,7 +655,6 @@ function computeLiveAggregate(db, cutoff) {
     if (r.firstTs < m.firstTs) m.firstTs = r.firstTs;
     if (r.lastTs > m.lastTs) m.lastTs = r.lastTs;
   }
-  // Rollup keys use '' for absent values; restore null so output matches the raw-row shape.
   const nn = (v) => v || null;
   return [...merged.values()]
     .sort((a, b) => (a.firstTs < b.firstTs ? -1 : a.firstTs > b.firstTs ? 1 : 0))
@@ -701,7 +664,6 @@ function computeLiveAggregate(db, cutoff) {
 function getLiveHistoryAggregate(db, period, cutoff) {
   const hit = liveAggCache.get(period);
   const now = Date.now();
-  // "24h" cutoff slides every call; key the cache on period + TTL, not cutoff.
   if (hit && hit.dbRef === db && now - hit.at < LIVE_STATS_TTL_MS && (period !== "today" || hit.cutoff === cutoff)) return hit.rows;
   const rows = computeLiveAggregate(db, cutoff);
   liveAggCache.set(period, { at: now, dbRef: db, cutoff, rows });
@@ -737,7 +699,6 @@ export async function getUsageStats(period = "all") {
     if (k.key) apiKeyMap[fingerprintKey(k.key)] = { name: k.name, id: k.id, createdAt: k.createdAt };
   }
 
-  // recentRequests from live history (last 100 entries enough for 20 deduped)
   const recentRows = db.all(`SELECT timestamp, provider, model, tokens, status FROM usageHistory ORDER BY id DESC LIMIT 100`);
   const seen = new Set();
   const recentRequests = recentRows
@@ -772,7 +733,6 @@ export async function getUsageStats(period = "all") {
     errorProvider: (Date.now() - lastErrorProvider.ts < 10000) ? lastErrorProvider.provider : "",
   };
 
-  // Active requests
   for (const [connectionId, models] of Object.entries(pendingRequests.byAccount)) {
     for (const [modelKey, count] of Object.entries(models)) {
       if (count > 0) {
@@ -787,7 +747,6 @@ export async function getUsageStats(period = "all") {
     }
   }
 
-  // last10Minutes — query 10min window
   const now = new Date();
   const currentMinuteStart = new Date(Math.floor(now.getTime() / 60000) * 60000);
   const tenMinutesAgo = new Date(currentMinuteStart.getTime() - 9 * 60 * 1000);
@@ -912,17 +871,11 @@ export async function getUsageStats(period = "all") {
       }
     }
 
-    // Overlay precise lastUsed timestamps from history.
-    // ponytail: overlay scans only a recent window; entries older than that keep
-    // day-level lastUsed from usageDaily. Upgrade to a materialized per-key
-    // MAX(timestamp) table if exact old timestamps ever matter.
     const OVERLAY_WINDOW_MS = 2 * 86400000;
     const overlayCutoff = Math.max(
       maxDays ? Date.now() - maxDays * 86400000 : 0,
       Date.now() - OVERLAY_WINDOW_MS
     );
-    // Only MAX(timestamp) per key tuple matters here, so aggregate in SQL
-    // instead of materializing every history row in the window per call.
     const histRows = db.all(
       `SELECT MAX(timestamp) AS timestamp, provider, model, connectionId, apiKey, endpoint FROM usageHistory WHERE timestamp >= ? GROUP BY provider, model, connectionId, apiKey, endpoint`,
       [new Date(overlayCutoff).toISOString()]
@@ -948,9 +901,6 @@ export async function getUsageStats(period = "all") {
       if (stats.byEndpoint[endpointKey] && isLaterTs(ts, stats.byEndpoint[endpointKey].lastUsed)) stats.byEndpoint[endpointKey].lastUsed = ts;
     }
 
-    // Legacy usageDaily rows carry no lastTs. Entries still without a real
-    // timestamp (no real lastTs on any day, no history overlay) fall back to a
-    // synthetic ISO instant at local end-of-day of the newest such day key.
     for (const [dim, keys] of Object.entries(dayFallback)) {
       for (const [k, dk] of Object.entries(keys)) {
         const entry = stats[dim][k];
@@ -958,7 +908,6 @@ export async function getUsageStats(period = "all") {
       }
     }
   } else {
-    // 24h / today: live history
     let cutoff;
     if (period === "today") {
       const startOfDay = new Date();
@@ -967,9 +916,6 @@ export async function getUsageStats(period = "all") {
     } else {
       cutoff = new Date(Date.now() - PERIOD_MS["24h"]).toISOString();
     }
-    // Aggregate in SQL (one row per distinct key tuple) instead of
-    // materializing + JSON.parse-ing every history row on the event loop.
-    // Cached briefly so N dashboard tabs != N queries.
     const filtered = getLiveHistoryAggregate(db, period, cutoff);
 
     for (const r of filtered) {
@@ -1109,7 +1055,6 @@ export async function getChartData(period = "7d") {
   const today = new Date();
   const labelFn = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-  // Build map of dateKey → day data
   const dayRows = loadDaysInRange(db, bucketCount);
   const dayMap = {};
   for (const r of dayRows) dayMap[r.dateKey] = parseJson(r.data, {});
@@ -1165,10 +1110,6 @@ export async function getRecentLogs(limit = 200) {
   }
 }
 
-// Per-fingerprint request count for the last 24h and last-used time (all time).
-// Split in two so each part uses idx_usageHistory_apiKey_timestamp / idx_uh_ts
-// instead of scanning the whole table: a 24h range count, then a loose index
-// scan over distinct keys with an indexed MAX(timestamp) per key.
 export async function getApiKeyUsageRows(now = Date.now()) {
   const db = await getAdapter();
   const since = new Date(now - PERIOD_MS["24h"]).toISOString();

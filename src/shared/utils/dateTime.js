@@ -1,6 +1,3 @@
-// One app timezone for server and UI. The server's effective zone (TZ) is
-// handed to the client by the dashboard layout (TimezoneProvider), so SSR and
-// client render identical text and every viewer sees the deployment's zone.
 let appTimeZone = null;
 
 export function getServerTimeZone() {
@@ -17,7 +14,6 @@ export function setAppTimeZone(tz) {
     new Intl.DateTimeFormat("en-US", { timeZone: tz });
     appTimeZone = tz;
   } catch {
-    // invalid zone: keep the previous one
   }
 }
 
@@ -51,7 +47,6 @@ export function formatDate(value, timeZone, options) {
   return fmt(value, options || { year: "numeric", month: "numeric", day: "numeric" }, timeZone);
 }
 
-/** Short zone label, e.g. "GMT+7" (Asia/Jakarta) or "UTC". */
 export function formatZoneLabel(timeZone, at = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: timeZone || getAppTimeZone(), timeZoneName: "short" }).formatToParts(at);
   return parts.find((p) => p.type === "timeZoneName")?.value || "";

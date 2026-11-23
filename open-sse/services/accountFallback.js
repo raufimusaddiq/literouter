@@ -1,62 +1,31 @@
 import { SCOPE, ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig.js";
 
-/**
- * Calculate exponential backoff cooldown for rate limits (429)
- * Level 1: 1s, Level 2: 2s, Level 3: 4s... → max 4 min
- * @param {number} backoffLevel - Current backoff level
- * @returns {number} Cooldown in milliseconds
- */
 export function getQuotaCooldown(backoffLevel = 0) {
   const level = Math.max(0, backoffLevel - 1);
   const cooldown = BACKOFF_CONFIG.base * Math.pow(2, level);
   return Math.min(cooldown, BACKOFF_CONFIG.max);
 }
 
-/**
- * Check if error should trigger account fallback (switch to next account)
- * Config-driven: matches ERROR_RULES top-to-bottom (text rules first, then status)
- * @param {number} status - HTTP status code
- * @param {string} errorText - Error message text
- * @param {number} backoffLevel - Current backoff level for exponential backoff
- * @param {string|null} provider - Provider id, for rules that only apply to one upstream
- * @returns {{ shouldFallback: boolean, cooldownMs: number, scope: string, newBackoffLevel?: number }}
- *   shouldFallback = a combo may try the next model; account rotation/locking additionally
- *   requires scope === "account" (see shouldRotateAccount).
- */
 export function checkFallbackError(status, errorText, backoffLevel = 0, provider = null) {
   const lowerError = errorText
     ? (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase()
     : "";
 
   for (const rule of ERROR_RULES) {
-    // Provider-scoped rules only apply to that upstream.
     if (rule.provider && rule.provider !== provider) continue;
-    // Text-based rule: match substring in error message
     if (rule.text && lowerError && lowerError.includes(rule.text)) {
       return ruleResult(rule, backoffLevel);
     }
 
-    // Status-based rule: match HTTP status code
     if (rule.status && rule.status === status) {
       return ruleResult(rule, backoffLevel);
     }
   }
 
-  // Request-scoped client errors that matched no rule above: a 400 caused by the
-  // request itself (context overflow, malformed body, unsupported parameter) says
-  // nothing about the credential, so cooling the account down only removes a
-  // healthy connection from rotation. With a single connection it is worse: every
-  // later request in the window fails with a copy of this very error
-  // ("all 1 accounts locked for <model> | lastError=[400]: ..."), which hides the
-  // real cause from the caller and makes unrelated sessions look like they hit the
-  // same limit. Hand the upstream error back for this request instead.
-  // Account-scoped statuses keep their rules above (401/402/403/404/429), and the
-  // text rules still win for rate-limit / quota / capacity wording.
   if (status >= 400 && status < 500 && status !== 401 && status !== 402 && status !== 403 && status !== 429) {
     return { shouldFallback: false, cooldownMs: 0, scope: SCOPE.request };
   }
 
-  // Default: transient cooldown for any unmatched error
   return { shouldFallback: true, cooldownMs: TRANSIENT_COOLDOWN_MS, scope: SCOPE.account };
 }
 
@@ -66,35 +35,22 @@ function ruleResult(rule, backoffLevel) {
     const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
     return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), scope, newBackoffLevel: newLevel };
   }
-  // Request-scoped failures stop everywhere; model-scoped ones only let a combo move on.
   return { shouldFallback: scope !== SCOPE.request, cooldownMs: rule.cooldownMs, scope };
 }
 
-/** Account rotation + lock only make sense for account-scoped failures. */
 export function shouldRotateAccount(result) {
   return !!result?.shouldFallback && (result.scope || SCOPE.account) === SCOPE.account;
 }
 
-/**
- * Check if account is currently unavailable (cooldown not expired)
- */
 export function isAccountUnavailable(unavailableUntil) {
   if (!unavailableUntil) return false;
   return new Date(unavailableUntil).getTime() > Date.now();
 }
 
-/**
- * Calculate unavailable until timestamp
- */
 export function getUnavailableUntil(cooldownMs) {
   return new Date(Date.now() + cooldownMs).toISOString();
 }
 
-/**
- * Format rateLimitedUntil to human-readable "reset after Xm Ys"
- * @param {string} rateLimitedUntil - ISO timestamp
- * @returns {string} e.g. "reset after 2m 30s"
- */
 export function formatRetryAfter(rateLimitedUntil) {
   if (!rateLimitedUntil) return "";
   const diffMs = new Date(rateLimitedUntil).getTime() - Date.now();
@@ -110,21 +66,14 @@ export function formatRetryAfter(rateLimitedUntil) {
   return `reset after ${parts.join(" ")}`;
 }
 
-/** Prefix for model lock flat fields on connection record */
 export const MODEL_LOCK_PREFIX = "modelLock_";
 
-/** Special key used when no model is known (account-level lock) */
 export const MODEL_LOCK_ALL = `${MODEL_LOCK_PREFIX}__all`;
 
-/** Build the flat field key for a model lock */
 export function getModelLockKey(model) {
   return model ? `${MODEL_LOCK_PREFIX}${model}` : MODEL_LOCK_ALL;
 }
 
-/**
- * Check if a model lock on a connection is still active.
- * Reads flat field `modelLock_${model}` (or `modelLock___all` when model=null).
- */
 export function isModelLockActive(connection, model) {
   const key = getModelLockKey(model);
   const expiry = connection[key] || connection[MODEL_LOCK_ALL];
@@ -132,10 +81,6 @@ export function isModelLockActive(connection, model) {
   return new Date(expiry).getTime() > Date.now();
 }
 
-/**
- * Get earliest active model lock expiry across all modelLock_* fields.
- * Used for UI cooldown display.
- */
 export function getEarliestModelLockUntil(connection) {
   if (!connection) return null;
   let earliest = null;
@@ -149,17 +94,11 @@ export function getEarliestModelLockUntil(connection) {
   return earliest ? new Date(earliest).toISOString() : null;
 }
 
-/**
- * Build update object to set a model lock on a connection.
- */
 export function buildModelLockUpdate(model, cooldownMs) {
   const key = getModelLockKey(model);
   return { [key]: new Date(Date.now() + cooldownMs).toISOString() };
 }
 
-/**
- * Filter available accounts (not in cooldown)
- */
 export function filterAvailableAccounts(accounts, excludeId = null) {
   const now = Date.now();
   return accounts.filter(acc => {

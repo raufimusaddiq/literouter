@@ -5,11 +5,8 @@ import {
 } from "./tokenRefresh.js";
 import { PROVIDER_OAUTH } from "../providers/index.js";
 
-// Single source: codex.oauth.maxRefreshAgeMs (8 days) — proactive refresh window
 export const CODEX_MAX_REFRESH_AGE_MS = PROVIDER_OAUTH["codex"]?.maxRefreshAgeMs;
 
-// Shared across Next route bundles (each may instantiate this module separately)
-// so concurrent refreshes of one credential still dedupe.
 const refreshLocks = (globalThis.__9rRefreshLocks ??= new Map());
 
 function parseTimeMs(value) {
@@ -52,7 +49,6 @@ export function shouldRefreshCredentials(provider, credentials, nowMs = Date.now
     return true;
   }
 
-  // Proactive stale refresh for providers declaring oauth.maxRefreshAgeMs (e.g. codex)
   const maxAgeMs = PROVIDER_OAUTH[provider]?.maxRefreshAgeMs;
   if (maxAgeMs && credentials.refreshToken && isCodexRefreshStale(credentials, nowMs, maxAgeMs)) {
     return true;
@@ -107,7 +103,6 @@ export function mergeRefreshedCredentials(provider, currentCredentials, refreshe
     next.copilotTokenExpiresAt = refreshedCredentials.copilotTokenExpiresAt;
   }
 
-  // trackRefreshAt providers (e.g. codex) always stamp lastRefreshAt for staleness tracking
   if (
     PROVIDER_OAUTH[provider]?.trackRefreshAt ||
     next.accessToken ||
@@ -148,12 +143,6 @@ export async function withCredentialRefreshLock(provider, credentials, refreshFn
   return pending;
 }
 
-/**
- * @param {{ onRefreshed?: (merged: object) => Promise<void> }} [options]
- *   onRefreshed runs once, inside the dedupe lock, only for the caller that owns the
- *   refresh (persistence). Waiters on the same lock receive the merged result without
- *   re-running it, so N concurrent requests make one write, not N.
- */
 export async function refreshProviderCredentials(provider, credentials, log, options = {}) {
   if (!credentials) return null;
 

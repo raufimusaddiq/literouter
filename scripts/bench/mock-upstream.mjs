@@ -1,16 +1,4 @@
 #!/usr/bin/env node
-// Tiny OpenAI-compatible mock upstream for gateway benchmarks (node built-ins only).
-//
-//   node scripts/bench/mock-upstream.mjs --port 9101 --chunks 200 --chunk-delay-ms 20
-//
-// Options (flag or env):
-//   --port MOCK_PORT (9101)   --host MOCK_HOST (127.0.0.1)
-//   --chunks MOCK_CHUNKS                    stream chunk count; default = request max_tokens, else 50
-//   --chunk-delay-ms MOCK_CHUNK_DELAY_MS    delay between chunks (20)
-//   --first-byte-delay-ms MOCK_FIRST_BYTE_DELAY_MS   delay before the first byte (0)
-//   --tokens-per-chunk MOCK_TOKENS_PER_CHUNK         tokens per content delta (1)
-//   --nonstream-delay-ms MOCK_NONSTREAM_DELAY_MS     delay before a non-stream reply (0)
-// Endpoints: POST /v1/chat/completions, GET /v1/models, GET /_stats (open sockets / in-flight).
 import http from "node:http";
 import { pathToFileURL } from "node:url";
 
@@ -98,7 +86,6 @@ export function startMock(opts = {}) {
     const word = "tok ".repeat(wordCount);
     const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens };
 
-    // `close` fires on the response when the peer went away before we ended it.
     res.on("close", () => {
       if (!res.writableEnded) done(true);
     });
@@ -114,7 +101,6 @@ export function startMock(opts = {}) {
         }));
         done(false);
       };
-      // Delay 0 replies inline: setTimeout(0) is quantised to ~15ms on Windows, which would hide gateway overhead.
       if (cfg.nonstreamDelayMs > 0) setTimeout(reply, cfg.nonstreamDelayMs);
       else reply();
       return;

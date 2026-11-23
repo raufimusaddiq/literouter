@@ -1,13 +1,9 @@
-// Built-in node:sqlite adapter — available in Node >= 22.5.0.
-// No native build, no npm install. API mirrors betterSqliteAdapter.
 import { PRAGMA_SQL } from "../schema.js";
 import { drainRuntimeBuffersSync } from "../shutdown.js";
 
 const CHECKPOINT_INTERVAL_MS = 60 * 1000;
 
 export async function createNodeSqliteAdapter(filePath) {
-  // Suppress "ExperimentalWarning: SQLite is an experimental feature" from node:sqlite.
-  // Stable enough for production use as of Node 22.x (RC quality).
   const origEmit = process.emit;
   process.emit = function (name, data, ...rest) {
     if (name === "warning" && data?.name === "ExperimentalWarning" && /SQLite/i.test(data.message || "")) {
@@ -16,7 +12,6 @@ export async function createNodeSqliteAdapter(filePath) {
     return origEmit.call(process, name, data, ...rest);
   };
 
-  // Dynamic import — fails on Node < 22.5 → driver.js falls back to sql.js
   const sqlite = await import("node:sqlite");
   const Database = sqlite.DatabaseSync;
   const db = new Database(filePath);
@@ -33,8 +28,6 @@ export async function createNodeSqliteAdapter(filePath) {
     return stmt;
   }
 
-  // Passive periodic checkpoint avoids request-serving stalls; TRUNCATE is
-  // reserved for close/backup maintenance.
   const checkpointTimer = setInterval(() => {
     try { db.exec("PRAGMA wal_checkpoint(PASSIVE)"); } catch {}
   }, CHECKPOINT_INTERVAL_MS);
@@ -67,7 +60,6 @@ export async function createNodeSqliteAdapter(filePath) {
     },
     exec(sql) { return db.exec(sql); },
     transaction(fn) {
-      // node:sqlite has no transaction wrapper. Use SAVEPOINT for nested support.
       const sp = `sp_${Math.random().toString(36).slice(2)}`;
       db.exec(`SAVEPOINT ${sp}`);
       try {

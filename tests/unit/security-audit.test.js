@@ -3,15 +3,9 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// Resolve fixture paths against the repo, not the vitest cwd. `npm --prefix
-// tests test` runs with cwd=tests/, so a bare path.resolve("src/...") would
-// look for tests/src/... and fail with ENOENT.
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const repoPath = (p) => path.join(REPO_ROOT, p);
 
-// ============================================================
-// AUDIT-002 (#1962): API key masking in usage stats
-// ============================================================
 describe("AUDIT-002: API key masking", () => {
   it("source should contain maskApiKey function", () => {
     const source = fs.readFileSync(
@@ -26,15 +20,11 @@ describe("AUDIT-002: API key masking", () => {
       repoPath("src/lib/db/repos/usageRepo.js"),
       "utf-8"
     );
-    // Both code paths (daily summary + 24h live) should use apiKeyMasked
     const maskedCount = (source.match(/apiKeyMasked/g) || []).length;
-    expect(maskedCount).toBeGreaterThanOrEqual(4); // function def + 3 usage sites
+    expect(maskedCount).toBeGreaterThanOrEqual(4);
 
-    // The byApiKey stats entries should use apiKeyMasked, not raw apiKey
-    // Check the daily summary path
     const dailyPath = source.match(/stats\.byApiKey\[akKey\] = \{[^}]*apiKeyMasked[^}]*\}/);
     expect(dailyPath).not.toBeNull();
-    // Check the 24h live path
     const livePath = source.match(/stats\.byApiKey\[akKey\] = \{[^}]*apiKeyMasked[^}]*\}/g);
     expect(livePath).not.toBeNull();
     expect(livePath.length).toBeGreaterThanOrEqual(1);
@@ -45,16 +35,11 @@ describe("AUDIT-002: API key masking", () => {
       repoPath("src/lib/db/repos/usageRepo.js"),
       "utf-8"
     );
-    // The 24h path should use apiKeyMasked in the akKey template
     expect(source).toContain("${apiKeyMasked}|${r.model}|${r.provider");
-    // Should NOT use raw r.apiKey in the key
     expect(source).not.toContain("${r.apiKey}|${r.model}|${r.provider");
   });
 });
 
-// ============================================================
-// AUDIT-003 (#1961): Proxy URL validation
-// ============================================================
 describe("AUDIT-003: Proxy URL validation", () => {
   beforeEach(() => {
     delete process.env.HTTP_PROXY;
@@ -82,7 +67,6 @@ describe("AUDIT-003: Proxy URL validation", () => {
       outboundProxyEnabled: true,
       outboundProxyUrl: "http://proxy.example.com:8080",
     });
-    // new URL().href normalizes (adds trailing slash)
     expect(process.env.HTTP_PROXY).toContain("http://proxy.example.com:8080");
     expect(process.env.HTTPS_PROXY).toContain("http://proxy.example.com:8080");
   });
@@ -94,7 +78,6 @@ describe("AUDIT-003: Proxy URL validation", () => {
       outboundProxyEnabled: true,
       outboundProxyUrl: "https://proxy.example.com:443",
     });
-    // new URL().href normalizes (drops default port 443, adds trailing slash)
     expect(process.env.HTTP_PROXY).toContain("https://proxy.example.com");
   });
 
@@ -159,9 +142,6 @@ describe("AUDIT-003: Proxy URL validation", () => {
   });
 });
 
-// ============================================================
-// AUDIT-018 (#1972): XSS escaping in OAuth callback
-// ============================================================
 describe("AUDIT-018: XSS escaping in OAuth callback", () => {
   it("source should contain escapeHtml function", () => {
     const source = fs.readFileSync(
@@ -190,9 +170,7 @@ describe("AUDIT-018: XSS escaping in OAuth callback", () => {
     );
     expect(source).toContain("safeMessage");
     expect(source).toContain("${safeMessage}");
-    // Should NOT use raw message in HTML body
     expect(source).not.toContain("<p>${message}</p>");
   });
 });
 
-// ============================================================

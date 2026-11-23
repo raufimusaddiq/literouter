@@ -16,7 +16,6 @@ import { translate } from "@/i18n/runtime";
 const getPageInfo = (pathname) => {
   if (!pathname) return { title: "", description: "", breadcrumbs: [] };
 
-  // Provider detail page: /dashboard/providers/[id]
   const providerMatch = pathname.match(/\/providers\/([^/]+)$/);
   if (providerMatch) {
     const providerId = providerMatch[1];
@@ -120,13 +119,11 @@ const getPageInfo = (pathname) => {
 
 export default function Header({ onMenuClick, showMenuButton = true }) {
   const pathname = usePathname();
-  // Memoize page info to prevent unnecessary recalculations
   const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
   const { title, description, icon, breadcrumbs } = pageInfo;
 
   return (
     <header className={`flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-bg px-4 py-2 lg:px-12 ${breadcrumbs.length > 0 ? "" : "lg:hidden"}`}>
-      {/* Mobile menu button */}
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
           <button
@@ -140,7 +137,6 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         )}
       </div>
 
-      {/* Page title with breadcrumbs */}
       <div className="flex min-w-0 flex-1 flex-col">
         {breadcrumbs.length > 0 ? (
           <div className="flex items-center gap-2">
@@ -183,7 +179,6 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         ) : null}
       </div>
 
-      {/* Right actions: on lg+ without breadcrumbs the controls live in the page title row */}
       <HeaderControls className={breadcrumbs.length > 0 ? "" : "lg:hidden"} />
     </header>
   );

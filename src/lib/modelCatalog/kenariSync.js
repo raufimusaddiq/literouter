@@ -1,11 +1,3 @@
-// Daily refresh of Kenari's own model list (public, unauthenticated).
-//
-// Kenari publishes authoritative context/output limits and modalities for every
-// model it serves; the hand-written tables drift from it. This keeps a compact
-// copy next to the database for open-sse/providers/kenariCatalog.js to read.
-// Always on (one small public request a day, no credentials, nothing to gate it
-// on), with KENARI_CATALOG_SYNC=off as a kill switch. Failures are swallowed on
-// purpose: a stale or missing file just means the existing tables decide.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -21,7 +13,6 @@ const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const STARTUP_DELAY_MS = 60 * 1000;
 const RETRY_DELAY_MS = 30 * 60 * 1000;
 
-// Kenari endpoint -> kind (music is filed with tts: audio output, never an LLM).
 const KIND_BY_ENDPOINT = {
   chat: "llm",
   images: "image",
@@ -31,7 +22,6 @@ const KIND_BY_ENDPOINT = {
   music: "tts",
 };
 
-// Levels Kenari may advertise in supported_reasoning_levels; anything else is dropped.
 const KNOWN_REASONING_LEVELS = new Set(["minimal", "low", "medium", "high", "xhigh", "max"]);
 
 const positive = (n) => (Number.isFinite(n) && n > 0 ? n : undefined);
@@ -40,8 +30,6 @@ const kindOf = (m) => (Array.isArray(m.endpoints) ? m.endpoints : [])
   .map((endpoint) => (Object.hasOwn(KIND_BY_ENDPOINT, endpoint) ? KIND_BY_ENDPOINT[endpoint] : undefined))
   .find(Boolean);
 
-// Kenari response body -> { [modelId]: compact entry }. Only fields actually
-// present are kept; entries without a usable id are dropped.
 export function normalizeKenariModels(body) {
   const list = Array.isArray(body) ? body : body?.data;
   if (!Array.isArray(list)) return {};
@@ -70,8 +58,6 @@ export function normalizeKenariModels(body) {
     if (typeof m.tool_call === "boolean") entry.tools = m.tool_call;
     pairs.push([m.id, entry]);
   }
-  // fromEntries defines own properties, so an id like "__proto__" cannot reach
-  // the prototype.
   return Object.fromEntries(pairs);
 }
 
@@ -84,7 +70,6 @@ function writeAtomic(file, contents) {
 let running = false;
 let timer = null;
 
-// Run one sync. Returns a summary, or null when it could not complete.
 export async function syncKenariCatalog() {
   if (running) return null;
   running = true;
@@ -96,7 +81,6 @@ export async function syncKenariCatalog() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const models = normalizeKenariModels(await response.json());
     const count = Object.keys(models).length;
-    // An empty list is an upstream hiccup, not a catalog: keep the last good file.
     if (!count) throw new Error("no models in response");
 
     const serialized = JSON.stringify({ v: KENARI_CATALOG_VERSION, syncedAt: Date.now(), models });
@@ -114,7 +98,6 @@ export async function syncKenariCatalog() {
   }
 }
 
-// Schedule the recurring sync. Disable entirely with KENARI_CATALOG_SYNC=off.
 export function startKenariCatalogSync() {
   if (timer) return;
   if (String(process.env.KENARI_CATALOG_SYNC || "").toLowerCase() === "off") return;

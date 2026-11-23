@@ -4,9 +4,6 @@ import { FORMATS } from "../../open-sse/translator/formats.js";
 import { initState } from "../../open-sse/translator/index.js";
 import { openaiToOpenAIResponsesResponse } from "../../open-sse/translator/response/openai-responses.js";
 
-// targetFormat === OPENAI is the direct openai -> openai-responses route, which is
-// the only one where flush() reaches this translator (see the flushReachesUs note
-// above the finish_reason branch).
 function newState() {
   return { ...initState(FORMATS.OPENAI_RESPONSES), targetFormat: FORMATS.OPENAI };
 }
@@ -45,11 +42,6 @@ function doneItems(events) {
 }
 
 describe("response.completed output (issue #4307)", () => {
-  // The regression: sendCompleted() built the response object without an `output`
-  // key at all, so response.completed arrived with no output even though the
-  // message had already been streamed. Clients that build the final result from
-  // the terminal event (GitHub Copilot CLI 1.0.89 with a BYOK provider) printed
-  // the text and then failed with "No response was returned".
   it("repeats the streamed message in response.completed", () => {
     const state = newState();
     openaiToOpenAIResponsesResponse(textChunk("O"), state);

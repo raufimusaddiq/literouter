@@ -1,10 +1,7 @@
-// Build a base64 data URI from mime + base64 payload
 export function encodeDataUri(mimeType, base64) {
   return `data:${mimeType};base64,${base64}`;
 }
 
-// Parse a base64 data URI → { mimeType, base64 }, or null if not a data URI.
-// [\s\S] tolerates newlines inside the base64 payload.
 const DATA_URI_RE = /^data:([^;]+);base64,([\s\S]+)$/;
 export function parseDataUri(url) {
   if (typeof url !== "string") return null;
@@ -17,7 +14,6 @@ import { BlockList, isIP } from "node:net";
 import { Agent } from "undici";
 import { MAX_IMAGE_BYTES, MAX_REMOTE_IMAGES_PER_REQUEST, MAX_TOTAL_IMAGE_BYTES, FETCH_TIMEOUT_MS, IMAGE_SIGNATURES, BLOCKED_HOSTS } from "../../config/mediaConfig.js";
 
-// Reserved / special-purpose ranges that must never be fetched (SSRF targets).
 const blockList = new BlockList();
 for (const [net, prefix] of [
   ["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8],
@@ -31,14 +27,11 @@ for (const [net, prefix] of [
   ["fc00::", 7], ["fe80::", 10], ["fec0::", 10], ["ff00::", 8],
 ]) blockList.addSubnet(net, prefix, "ipv6");
 
-// True if an IPv4/IPv6 address is private/reserved (SSRF target). Fails closed.
 export function isPrivateIp(ip) {
   if (!ip || typeof ip !== "string") return true;
-  const addr = ip.split("%")[0]; // strip IPv6 zone id
+  const addr = ip.split("%")[0];
   const family = isIP(addr);
   if (!family) return true;
-  // IPv4-mapped IPv6 (::ffff:a.b.c.d / ::ffff:xxxx:xxxx): judge by the embedded IPv4.
-  // (An ::ffff:0:0/96 rule can't be used: BlockList maps every IPv4 into that range.)
   if (family === 6) {
     const m = addr.toLowerCase().match(/^(?:0{0,4}:){0,5}ffff:(?:(\d+\.\d+\.\d+\.\d+)|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/);
     if (m) {
@@ -49,8 +42,6 @@ export function isPrivateIp(ip) {
   return blockList.check(addr, family === 4 ? "ipv4" : "ipv6");
 }
 
-// Resolve host once and return only public IPs (SSRF guard).
-// Rejects if any resolved record is private/reserved (defeats multi-A tricks).
 async function resolvePinnedIps(hostname) {
   if (!hostname || BLOCKED_HOSTS.has(hostname.toLowerCase())) return null;
   try {
@@ -62,7 +53,6 @@ async function resolvePinnedIps(hostname) {
   }
 }
 
-// Verify buffer magic bytes match a known image signature; return its mime or null.
 function detectImageMime(buf) {
   for (const { sig, offset, mime, verifyWebp } of IMAGE_SIGNATURES) {
     if (buf.length < offset + sig.length) continue;
@@ -71,23 +61,12 @@ function detectImageMime(buf) {
       if (buf[offset + i] !== sig[i]) { match = false; break; }
     }
     if (!match) continue;
-    // WEBP: RIFF....WEBP — bytes 8..11 must be "WEBP".
     if (verifyWebp && !(buf.length >= 12 && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50)) continue;
     return mime;
   }
   return null;
 }
 
-/**
- * Fetch a remote image URL and return it as a base64 data URI.
- * Hardened against SSRF (private/metadata IPs), memory DoS (size cap),
- * and disguised non-image payloads (magic-byte verification).
- * Returns null on any failure or rejection.
- *
- * @param {string} imageUrl - HTTP(S) URL of the image
- * @param {object} options - { signal, timeoutMs, maxBytes }
- * @returns {Promise<{url: string, mimeType: string}|null>}
- */
 export async function fetchImageAsBase64(imageUrl, options = {}) {
   const { signal, timeoutMs = FETCH_TIMEOUT_MS, maxBytes = MAX_IMAGE_BYTES } = options;
   if (!imageUrl || (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://"))) {
@@ -103,17 +82,14 @@ export async function fetchImageAsBase64(imageUrl, options = {}) {
   const timeout = signal ? null : setTimeout(() => controller.abort(), timeoutMs);
   const fetchSignal = signal || controller.signal;
 
-  // Pin connect to the validated IP so no second DNS resolution can rebind (TOCTOU fix).
   const dispatcher = new Agent({
     connect: { lookup: (_h, _o, cb) => cb(null, [{ address: pinnedIps[0].address, family: pinnedIps[0].family }]) },
   });
 
   try {
-    // redirect:"manual" prevents a public URL redirecting to a private one (SSRF bypass).
     const response = await fetch(imageUrl, { signal: fetchSignal, redirect: "manual", dispatcher });
     if (!response.ok || !response.body) return null;
 
-    // Stream-read with a hard byte cap to avoid loading huge payloads into memory.
     const reader = response.body.getReader();
     const chunks = [];
     let total = 0;
@@ -121,13 +97,13 @@ export async function fetchImageAsBase64(imageUrl, options = {}) {
       const { done, value } = await reader.read();
       if (done) break;
       total += value.length;
-      if (total > maxBytes) { try { await reader.cancel(); } catch { /* ignore */ } return null; }
+      if (total > maxBytes) { try { await reader.cancel(); } catch {} return null; }
       chunks.push(value);
     }
 
     const buf = Buffer.concat(chunks, total);
     const mimeType = detectImageMime(buf);
-    if (!mimeType) return null; // not a recognized image — reject disguised payloads
+    if (!mimeType) return null;
 
     return { url: `data:${mimeType};base64,${buf.toString("base64")}`, mimeType };
   } catch {
@@ -138,7 +114,6 @@ export async function fetchImageAsBase64(imageUrl, options = {}) {
   }
 }
 
-/** Thrown when a request exceeds the remote-image count / total-bytes caps (maps to HTTP 400). */
 export class ImageLimitError extends Error {
   constructor(message) {
     super(message);
@@ -152,13 +127,11 @@ export function assertImageCount(count, max = MAX_REMOTE_IMAGES_PER_REQUEST) {
   if (count > max) throw new ImageLimitError(`Image limit exceeded: ${count} remote images in one request (max ${max})`);
 }
 
-// Decoded byte size of a base64 data URI produced by fetchImageAsBase64.
 export function dataUriBytes(dataUri) {
   const b64 = typeof dataUri === "string" ? dataUri.slice(dataUri.indexOf(",") + 1) : "";
   return Math.floor((b64.length * 3) / 4);
 }
 
-/** Running total of fetched image bytes for one request; throws ImageLimitError when over cap. */
 export function createImageByteBudget(max = MAX_TOTAL_IMAGE_BYTES) {
   let total = 0;
   return {
@@ -169,7 +142,6 @@ export function createImageByteBudget(max = MAX_TOTAL_IMAGE_BYTES) {
   };
 }
 
-/** Run fn over items with at most `limit` in flight; results keep input order. Rejects on first error. */
 export async function mapWithConcurrency(items, limit, fn) {
   const out = new Array(items.length);
   let next = 0;

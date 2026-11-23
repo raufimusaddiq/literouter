@@ -1,9 +1,3 @@
-/**
- * Truncate text with ellipsis
- * @param {string} text - Text to truncate
- * @param {number} maxLength - Maximum length
- * @returns {string} Truncated text
- */
 function truncate(text, maxLength) {
   if (!text || text.length <= maxLength) {
     return text;
@@ -11,11 +5,6 @@ function truncate(text, maxLength) {
   return text.substring(0, maxLength - 3) + "...";
 }
 
-/**
- * Mask API key showing only first and last characters
- * @param {string} key - API key to mask
- * @returns {string} Masked key
- */
 function maskKey(key) {
   if (!key || key.length < 8) {
     return "***";
@@ -25,11 +14,6 @@ function maskKey(key) {
   return `${firstChars}${"*".repeat(key.length - 8)}${lastChars}`;
 }
 
-/**
- * Format date to readable string
- * @param {Date|string|number} date - Date to format
- * @returns {string} Formatted date string
- */
 function formatDate(date) {
   const d = new Date(date);
   if (isNaN(d.getTime())) {
@@ -46,11 +30,6 @@ function formatDate(date) {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
-/**
- * Format number with commas
- * @param {number} num - Number to format
- * @returns {string} Formatted number
- */
 function formatNumber(num) {
   if (typeof num !== "number" || isNaN(num)) {
     return "0";
@@ -58,11 +37,6 @@ function formatNumber(num) {
   return num.toLocaleString("en-US");
 }
 
-/**
- * Format bytes to human readable size
- * @param {number} bytes - Bytes to format
- * @returns {string} Formatted size string
- */
 function formatBytes(bytes) {
   if (typeof bytes !== "number" || isNaN(bytes) || bytes < 0) {
     return "0 B";
@@ -80,11 +54,6 @@ function formatBytes(bytes) {
   return `${size.toFixed(2)} ${units[unitIndex]}`;
 }
 
-/**
- * Get relative time string
- * @param {Date|string|number} date - Date to compare
- * @returns {string} Relative time string
- */
 function getRelativeTime(date) {
   const d = new Date(date);
   if (isNaN(d.getTime())) {

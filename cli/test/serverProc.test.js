@@ -13,7 +13,6 @@ const {
   isTrackedServerAlive,
 } = require("../src/cli/utils/serverProc");
 
-// Real `netstat -ano -p TCP` shape (IPv4 + IPv6, one non-listening row).
 const NETSTAT = `
 Active Connections
 
@@ -61,13 +60,9 @@ test("buildTrayArgs falls back to the launcher defaults", () => {
 });
 
 test("stale pidfile after a reboot is not treated as our server", () => {
-  // Recorded PID 4321 still exists in the OS, but the listener on the
-  // recorded port is a different process (or nobody): not ours to kill.
   assert.strictEqual(isTrackedServerAlive(4321, 9999), false);
   assert.strictEqual(isTrackedServerAlive(4321, null), false);
-  // Live case: recorded PID is exactly the listener on that port.
   assert.strictEqual(isTrackedServerAlive(4321, 4321), true);
-  // Junk never authorizes a kill.
   assert.strictEqual(isTrackedServerAlive(null, 4321), false);
   assert.strictEqual(isTrackedServerAlive(0, 0), false);
   assert.strictEqual(isTrackedServerAlive("abc", "abc"), false);

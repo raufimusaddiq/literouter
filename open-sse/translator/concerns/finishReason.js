@@ -1,8 +1,5 @@
-// Concern #6: finish_reason / stop_reason mapping.
-// One entry per direction; switch by special format, default handles common providers.
 import { OPENAI_FINISH, CLAUDE_STOP, GEMINI_FINISH } from "../schema/finishReasons.js";
 
-// upstream finish/stop reason → OpenAI finish_reason
 export function toOpenAIFinish(reason, format) {
   switch (format) {
     case "claude":
@@ -11,9 +8,6 @@ export function toOpenAIFinish(reason, format) {
         case CLAUDE_STOP.MAX_TOKENS: return OPENAI_FINISH.LENGTH;
         case CLAUDE_STOP.TOOL_USE: return OPENAI_FINISH.TOOL_CALLS;
         case CLAUDE_STOP.STOP_SEQUENCE: return OPENAI_FINISH.STOP;
-        // A refusal is a blocked turn, not a clean stop: with the default mapping an
-        // OpenAI client saw finish_reason "stop" and an empty message (9Router logged
-        // "succeeded", OUT 0) and could not tell it from a real answer.
         case CLAUDE_STOP.REFUSAL: return OPENAI_FINISH.CONTENT_FILTER;
         default: return OPENAI_FINISH.STOP;
       }
@@ -51,7 +45,6 @@ export function toOpenAIFinish(reason, format) {
   }
 }
 
-// OpenAI finish_reason → upstream stop reason
 export function fromOpenAIFinish(reason, format) {
   switch (format) {
     case "claude":

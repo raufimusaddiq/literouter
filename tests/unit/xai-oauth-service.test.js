@@ -1,7 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("xai/oauth service", { timeout: 30000 }, () => {
-  // Warm the transform cache once: re-importing after vi.resetModules is slow on Windows.
   beforeAll(async () => {
     await import("../../src/lib/oauth/services/xai.js");
   }, 60000);

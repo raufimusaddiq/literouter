@@ -1,8 +1,3 @@
-// Regression: an unmatched 4xx (a request-scoped failure) used to hit the
-// transient-cooldown default, which locked the account for 30s and — with a
-// single connection — answered every other request in that window with a copy of
-// the first error. A 400 "maximum context length" from one session therefore
-// looked like the same failure in unrelated sessions.
 import { describe, expect, it } from "vitest";
 import { checkFallbackError } from "../../open-sse/services/accountFallback.js";
 

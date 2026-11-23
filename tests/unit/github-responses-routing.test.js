@@ -1,9 +1,3 @@
-/**
- * Regression test for #1062:
- * GitHub Copilot's /responses endpoint only serves OpenAI (gpt/codex) models.
- * Gemini/Claude models must never be routed/escalated there, otherwise they
- * fail with a misleading 400 "does not support Responses API".
- */
 
 import { describe, it, expect, vi } from "vitest";
 import { GithubExecutor } from "../../open-sse/executors/github.js";
@@ -36,13 +30,11 @@ describe("GithubExecutor.supportsResponsesEndpoint", () => {
 describe("GithubExecutor.execute cached-route guard (#1062)", () => {
   it("does NOT use /responses for a Gemini model even if it was wrongly cached as codex", async () => {
     const exec = new GithubExecutor();
-    // Simulate a prior misclassification that cached the Gemini model.
     exec.knownCodexModels.add("gemini-3.1-pro-preview");
 
     const respSpy = vi
       .spyOn(exec, "executeWithResponsesEndpoint")
       .mockResolvedValue({ via: "responses" });
-    // Short-circuit the /chat/completions path (BaseExecutor.execute).
     const baseSpy = vi
       .spyOn(Object.getPrototypeOf(Object.getPrototypeOf(exec)), "execute")
       .mockResolvedValue({ response: { status: 200 }, via: "chat" });

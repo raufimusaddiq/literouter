@@ -21,7 +21,7 @@ export default {
   transport: {
     baseUrl: "https://aiplatform.googleapis.com",
     format: "vertex",
-    quirks: { noDoneSentinel: true }, // Gemini-family clients reject the OpenAI [DONE] sentinel
+    quirks: { noDoneSentinel: true },
   },
   models: [
     { id: "gemini-3.1-pro-preview", name: "Gemini 3.1 Pro Preview" },
@@ -30,5 +30,4 @@ export default {
     { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
   ],
   serviceKinds: ["llm"],
-  // Docs: https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/veo-video-generation
 };

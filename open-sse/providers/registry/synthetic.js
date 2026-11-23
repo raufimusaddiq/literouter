@@ -23,7 +23,6 @@ export default {
   ],
   transport: {
     baseUrl: "https://api.synthetic.new/openai/v1/chat/completions",
-    // /openai/v1/models is public, so it cannot tell a bad key from a good one; quotas can.
     validateUrl: "https://api.synthetic.new/v2/quotas",
     usage: {
       url: "https://api.synthetic.new/v2/quotas",

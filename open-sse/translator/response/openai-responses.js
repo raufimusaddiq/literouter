@@ -1,7 +1,3 @@
-/**
- * Translator: OpenAI Chat Completions → OpenAI Responses API (response)
- * Converts streaming chunks from Chat Completions to Responses API events
- */
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
 import { buildChunk } from "../concerns/chunk.js";
@@ -10,27 +6,11 @@ import { fallbackToolCallId } from "../concerns/toolCall.js";
 import { reasoningDelta, extractReasoningText } from "../concerns/reasoning.js";
 import { ROLE, OPENAI_BLOCK, RESPONSES_ITEM, OPENAI_FINISH, MODEL_FALLBACK } from "../schema/index.js";
 
-/**
- * Translate OpenAI chunk to Responses API events
- * @returns {Array} Array of events with { event, data } structure
- */
-// Upstream Chat Completions usage -> Responses API usage shape.
-// Without this, /v1/responses never reports usage: Responses clients (Codex CLI)
-// keep their "context used" gauge pinned at 0 and never auto-compact, so a long
-// session grows until the upstream context limit rejects it (9router issue #3432).
-//
-// Note this is stored under state.responsesUsage, NOT state.usage: state.usage is
-// owned by the stream layer, which fills it with normalizeUsage()-shaped counts
-// (prompt_tokens/prompt_tokens_details) and hands it to finalizeStream() for
-// logging and cost accounting. Overwriting it with this shape silently drops
-// cached/reasoning tokens from those stats.
 function toResponsesUsage(usage) {
   if (!usage || typeof usage !== "object") return null;
 
   const inputTokens = [usage.input_tokens, usage.prompt_tokens].find(Number.isInteger);
   const outputTokens = [usage.output_tokens, usage.completion_tokens].find(Number.isInteger);
-  // Some upstreams attach zeroed placeholders to every chunk. Wait for real counts
-  // so response.completed cannot freeze the placeholder before the usage trailer.
   if (inputTokens === undefined || outputTokens === undefined || inputTokens + outputTokens <= 0) {
     return null;
   }
@@ -54,8 +34,6 @@ export function openaiToOpenAIResponsesResponse(chunk, state) {
     return flushEvents(state);
   }
 
-  // Capture usage before the choices guard: OpenAI may send it in a trailer
-  // whose choices array is empty.
   const responseUsage = toResponsesUsage(chunk.usage);
   if (responseUsage) state.responsesUsage = responseUsage;
 
@@ -75,7 +53,6 @@ export function openaiToOpenAIResponsesResponse(chunk, state) {
   const idx = choice.index || 0;
   const delta = choice.delta || {};
 
-  // Emit initial events
   if (!state.started) {
     state.started = true;
     state.responseId = chunk.id ? `resp_${chunk.id}` : state.responseId;
@@ -104,14 +81,12 @@ export function openaiToOpenAIResponsesResponse(chunk, state) {
     });
   }
 
-  // Handle reasoning across vendor shapes (reasoning_content / reasoning / reasoning_details)
   const reasoningText = extractReasoningText(delta);
   if (reasoningText) {
     startReasoning(state, emit, idx);
     emitReasoningDelta(state, emit, reasoningText);
   }
 
-  // Handle text content
   if (delta.content) {
     let content = delta.content;
 
@@ -137,14 +112,11 @@ export function openaiToOpenAIResponsesResponse(chunk, state) {
     }
 
     if (content) {
-      // The answer starts, so thinking is over. Upstreams that send reasoning via
-      // reasoning_content never emit "</think>", so close it here rather than at finish.
       closeReasoning(state, emit);
       emitTextContent(state, emit, idx, content);
     }
   }
 
-  // Handle tool_calls (empty array is truthy; require a real call)
   if (delta.tool_calls && delta.tool_calls.length) {
     closeReasoning(state, emit);
     closeMessage(state, emit, idx);
@@ -153,22 +125,10 @@ export function openaiToOpenAIResponsesResponse(chunk, state) {
     }
   }
 
-  // Handle finish_reason
   if (choice.finish_reason) {
     for (const i in state.msgItemAdded) closeMessage(state, emit, i);
     closeReasoning(state, emit);
     for (const i in state.funcCallIds) closeToolCall(state, emit, i);
-    // Upstreams report usage either on the finish chunk itself or on a trailing chunk
-    // whose `choices` array is empty (OpenAI does the latter). Emitting
-    // response.completed here would freeze the payload before that trailing chunk is
-    // parsed, so when usage is not known yet we leave completion to flushEvents(),
-    // which runs once the upstream stream ends and by then has seen every chunk.
-    //
-    // That only holds on the direct openai:openai-responses route. When this converter
-    // runs as the second hop of a pivot (Claude/Gemini/Kiro upstream), translateResponse()
-    // drops the terminal null chunk before reaching us — the first hop returns null for
-    // it, leaving nothing to iterate — so flushEvents() is never called and deferring
-    // would swallow the terminal event entirely. Keep the old behaviour there.
     const flushReachesUs = state.targetFormat === FORMATS.OPENAI;
     if (state.responsesUsage || !flushReachesUs) sendCompleted(state, emit);
     else state.completionPending = true;
@@ -177,7 +137,6 @@ export function openaiToOpenAIResponsesResponse(chunk, state) {
   return events;
 }
 
-// Helper functions
 function startReasoning(state, emit, idx) {
   if (!state.reasoningId) {
     state.reasoningId = `rs_${state.responseId}_${idx}`;
@@ -334,7 +293,7 @@ function extractCustomToolInput(argumentsText) {
   try {
     const parsed = JSON.parse(argumentsText);
     if (parsed && typeof parsed === "object" && typeof parsed.input === "string") return parsed.input;
-  } catch { /* incomplete or raw freeform input */ }
+  } catch {}
   return argumentsText;
 }
 
@@ -346,9 +305,6 @@ function emitToolCall(state, emit, tc) {
   if (funcName) state.funcNames[tcIdx] = funcName;
   if (newCallId) state.funcCallIds[tcIdx] = newCallId;
 
-  // Some compatible providers split the call id and function name across
-  // chunks. Wait for both before deciding whether this is a custom tool;
-  // otherwise an `exec` call can be irreversibly announced as function_call.
   const callId = state.funcCallIds[tcIdx];
   if (!state.funcItemAdded[tcIdx] && callId && state.funcNames[tcIdx]) {
     state.funcItemAdded[tcIdx] = true;
@@ -379,9 +335,6 @@ function emitToolCall(state, emit, tc) {
         delta: tc.function.arguments
       });
     }
-    // Custom input is emitted once at close, after the Chat JSON wrapper can be
-    // parsed and unwrapped. Streaming the raw JSON fragments would expose
-    // {"input":"..."} instead of the freeform program Codex expects.
     state.funcArgsBuf[tcIdx] += tc.function.arguments;
   }
 }
@@ -436,16 +389,6 @@ function closeToolCall(state, emit, idx) {
   }
 }
 
-// response.completed carries the finished Response object, so response.output has
-// to repeat the items already delivered in response.output_item.done. Clients that
-// build their final result from the terminal event (GitHub Copilot CLI, the OpenAI
-// SDK "final response" helpers) otherwise treat the turn as empty even though the
-// text was streamed - see issue #4307.
-//
-// Keyed by output_index so a repeated close overwrites rather than duplicating the
-// item, and ordered by output_index so response.output matches the order the items
-// were emitted in. Lazily created because stream.js can hand us a state it built
-// itself rather than one from initState().
 function recordCompletedOutputItem(state, outputIndex, item) {
   state.completedOutputItems ??= new Map();
   const index = Number.isInteger(outputIndex) ? outputIndex : Number.parseInt(outputIndex, 10) || 0;
@@ -497,21 +440,14 @@ function flushEvents(state) {
   return events;
 }
 
-// currentToolCallId is intentionally sticky for the current turn so flush/completion
-  // can still finalize as tool_calls even if the tool call was emitted before stream end.
 function computeFinishReason(state) {
    return state.toolCallIndex > 0 || state.currentToolCallId
     ? OPENAI_FINISH.TOOL_CALLS
     : OPENAI_FINISH.STOP;
 }
 
-/**
- * Translate OpenAI Responses API chunk to OpenAI Chat Completions format
- * This is for when Codex returns data and we need to send it to an OpenAI-compatible client
- */
 export function openaiResponsesToOpenAIResponse(chunk, state) {
   if (!chunk) {
-    // Flush: send final chunk with finish_reason
     if (state.finishReasonSent || !state.started) return null;
 
     const finishReason = computeFinishReason(state);
@@ -532,27 +468,19 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
     return finalChunk;
   }
 
-  // Handle different event types from Responses API
   const eventType = chunk.type || chunk.event;
   const data = chunk.data || chunk;
 
-  // Initialize state
   if (!state.started) {
     state.started = true;
     state.chatId = `chatcmpl-${Date.now()}`;
     state.created = Math.floor(Date.now() / 1000);
     state.toolCallIndex = 0;
     state.currentToolCallId = null;
-    // item_id → chat tool_calls index. Deltas carry item_id; keying on it (not
-    // stream position) keeps parallel calls separate when upstream emits all
-    // output_item.added events before any done/delta. Lazily created so callers
-    // that build their own state object (stream.js) need no changes.
     state.respToolChatIndex ??= new Map();
-    // Indices that already received argument deltas (guards done-with-args).
     state.respToolArgsEmitted ??= new Set();
   }
 
-  // Text content delta
   if (eventType === "response.output_text.delta") {
     const delta = data.delta || "";
     if (!delta) return null;
@@ -563,16 +491,10 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
     );
   }
 
-  // Text content done (ignore, we handle via delta)
   if (eventType === "response.output_text.done") {
     return null;
   }
 
-  // Function call started (standard function_call or custom_tool_call).
-  // Index is assigned here (not on done): attributing deltas by stream position
-  // merges parallel calls into index 0 whenever upstream emits all addeds
-  // before dones — the client then concatenates N JSON payloads into one
-  // tool input and fails validation. The server item id is the correlator.
   if (eventType === "response.output_item.added" && (data.item?.type === RESPONSES_ITEM.FUNCTION_CALL || data.item?.type === "custom_tool_call")) {
     const item = data.item;
     state.currentToolCallId = item.call_id || fallbackToolCallId();
@@ -580,7 +502,7 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
     const key = item.id || data.item_id || state.currentToolCallId;
     let idx;
     if (key && state.respToolChatIndex.has(key)) {
-      idx = state.respToolChatIndex.get(key); // duplicate added (retry) — reuse
+      idx = state.respToolChatIndex.get(key);
     } else {
       idx = state.toolCallIndex++;
       if (key) state.respToolChatIndex.set(key, idx);
@@ -599,8 +521,6 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
     );
   }
 
-  // Function call arguments delta (standard or custom_tool_call variant).
-  // Routed by item_id so interleaved parallel fragments stay on their own call.
   if (eventType === "response.function_call_arguments.delta" || eventType === "response.custom_tool_call_input.delta") {
     const argsDelta = data.delta || "";
     if (!argsDelta) return null;
@@ -615,9 +535,6 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
     );
   }
 
-  // Function call done (standard or custom_tool_call variant).
-  // Index was assigned at added-time; nothing to advance. Some upstreams send
-  // complete arguments only here (no deltas) — emit them once in that case.
   if (eventType === "response.output_item.done" && (data.item?.type === RESPONSES_ITEM.FUNCTION_CALL || data.item?.type === "custom_tool_call")) {
     const key = data.item?.id || data.item_id;
     const idx = (key && state.respToolChatIndex?.get(key)) ?? Math.max(0, (state.toolCallIndex || 1) - 1);
@@ -635,15 +552,11 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
     return null;
   }
 
-  // Response completed
   if (eventType === "response.completed" || eventType === "response.done") {
-    // Extract usage from response.completed event
     const responseUsage = data.response?.usage;
     if (responseUsage && typeof responseUsage === "object") {
       const inputTokens = responseUsage.input_tokens || responseUsage.prompt_tokens || 0;
       const outputTokens = responseUsage.output_tokens || responseUsage.completion_tokens || 0;
-      // OpenAI Responses API: input_tokens already includes cached_tokens
-      // Cache info is in input_tokens_details.cached_tokens
       const cacheReadTokens = responseUsage.input_tokens_details?.cached_tokens || responseUsage.cache_read_input_tokens || 0;
       
       state.usage = buildUsage({ promptTokens: inputTokens, completionTokens: outputTokens, totalTokens: inputTokens + outputTokens, cachedTokens: cacheReadTokens });
@@ -653,7 +566,7 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
       const finishReason = computeFinishReason(state);
 
       state.finishReasonSent = true;
-      state.finishReason = finishReason; // Mark for usage injection in stream.js
+      state.finishReason = finishReason;
       
       const finalChunk = buildChunk(
         { id: state.chatId, created: state.created, model: state.model || MODEL_FALLBACK },
@@ -661,7 +574,6 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
         finishReason
       );
 
-      // Include usage in final chunk if available
       if (state.usage && typeof state.usage === "object") {
         finalChunk.usage = state.usage;
       }
@@ -671,9 +583,7 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
     return null;
   }
 
-  // Error events from Responses API (e.g. model_not_found)
   if (eventType === "error" || eventType === "response.failed") {
-    // Avoid emitting duplicate errors (error + response.failed arrive back-to-back)
     if (state.finishReasonSent) return null;
 
     const error = data.error || data.response?.error;
@@ -681,7 +591,6 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
       state.error = error;
       state.finishReasonSent = true;
 
-      // Surface the error as an OpenAI-compatible error chunk
       return buildChunk(
         { id: state.chatId || `chatcmpl-${Date.now()}`, created: state.created || Math.floor(Date.now() / 1000), model: state.model || MODEL_FALLBACK },
         { content: `[Error] ${error.message || JSON.stringify(error)}` },
@@ -691,7 +600,6 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
     return null;
   }
 
-  // Reasoning summary delta → emit as reasoning_content for client thinking display
   if (eventType === "response.reasoning_summary_text.delta") {
     const delta = data.delta || "";
     if (!delta) return null;
@@ -701,10 +609,8 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
     );
   }
 
-  // Ignore other events
   return null;
 }
 
-// Register both directions
 register(FORMATS.OPENAI, FORMATS.OPENAI_RESPONSES, null, openaiToOpenAIResponsesResponse);
 register(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI, null, openaiResponsesToOpenAIResponse);

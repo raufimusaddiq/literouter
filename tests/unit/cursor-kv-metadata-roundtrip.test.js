@@ -6,11 +6,6 @@ import {
   parseConnectRPCFrame,
 } from "../../open-sse/utils/cursorProtobuf.js";
 
-// KvServerMessage asks the client to get (field 2) or set (field 3) a blob.
-// The ack frame MUST echo the server's metadata (field 4) verbatim — dropping
-// it desynchronises AgentService session state. These tests lock that
-// round-trip so a refactor cannot silently regress it (the echo was missing
-// before c933eefc and had no coverage).
 const PROTOBUF_LEN = 2;
 const PROTOBUF_VARINT = 0;
 
@@ -19,8 +14,6 @@ function encodeBytes(field, bytes) {
 }
 
 function buildKvServerMessage(kvId, variantField, metadata) {
-  // Server-side fixture: KvServerMessage with id (field 1), get (2) or set (3)
-  // variant, and metadata (field 4), exactly as decodeAgentKvServerEvent reads.
   const fields = [];
   if (kvId) fields.push(encodeField(1, PROTOBUF_VARINT, kvId));
   fields.push(encodeBytes(variantField, new Uint8Array()));
@@ -38,7 +31,6 @@ function decodeKvClientFrame(frame) {
   const parsed = parseConnectRPCFrame(frame);
   expect(parsed).toBeTruthy();
   const clientMessage = decodeMessage(parsed.payload);
-  // AgentStreamClientMessage.agent (field 3) carries the KvClientMessage.
   const agent = clientMessage.get(3)?.[0];
   expect(agent?.wireType).toBe(PROTOBUF_LEN);
   return { kv: decodeMessage(agent.value), raw: agent.value };
@@ -89,8 +81,6 @@ describe("encodeKvClientMessage metadata round-trip", () => {
     const server = buildKvServerMessage(5, 2, metadata);
     const ack = encodeKvClientMessage(5, 2, new Uint8Array(0), serverMetadata(server));
     const { raw } = decodeKvClientFrame(ack);
-    // Walk raw bytes: field 1 varint key 0x08, field 2 len key 0x12,
-    // then field 4 len key 0x22 directly before the metadata payload.
     expect(raw[0]).toBe((1 << 3) | PROTOBUF_VARINT);
     expect(raw[1]).toBe(5);
     expect(raw[2]).toBe((2 << 3) | PROTOBUF_LEN);
@@ -100,7 +90,7 @@ describe("encodeKvClientMessage metadata round-trip", () => {
   it("round-trips a payload-bearing get ack", () => {
     const blob = new TextEncoder().encode("conversation-state");
     const metadata = new TextEncoder().encode("m");
-    const getResult = encodeBytes(1, blob); // GetResult.blob (field 1)
+    const getResult = encodeBytes(1, blob);
     const ack = encodeKvClientMessage(21, 2, getResult, metadata);
     const { kv } = decodeKvClientFrame(ack);
     const inner = decodeMessage(kv.get(2)[0].value);

@@ -10,7 +10,6 @@ function createMockFrame(eventType, payloadObj) {
   const headerNameBytes = new TextEncoder().encode(headerName);
   const headerValueBytes = new TextEncoder().encode(eventType);
 
-  // nameLen(1) + name + type(1) + valueLen(2) + value
   const headerLength = 1 + headerNameBytes.length + 1 + 2 + headerValueBytes.length;
   const totalLength = 12 + headerLength + payloadBytes.length + 4;
 
@@ -25,7 +24,7 @@ function createMockFrame(eventType, payloadObj) {
   buffer.set(headerNameBytes, offset);
   offset += headerNameBytes.length;
 
-  buffer[offset++] = 7; // String type
+  buffer[offset++] = 7;
   view.setUint16(offset, headerValueBytes.length, false);
   offset += 2;
   buffer.set(headerValueBytes, offset);
@@ -72,7 +71,6 @@ describe("KiroExecutor thinking tag stripping", () => {
   it("strips <thinking> tags from assistantResponseEvent", async () => {
     const executor = new KiroExecutor();
     
-    // Create frames
     const f1 = createMockFrame("assistantResponseEvent", { content: "Here is my answer. <thinking>Let me think..." });
     const f2 = createMockFrame("assistantResponseEvent", { content: "still thinking...</thinking> Yes, 42." });
     
@@ -89,16 +87,12 @@ describe("KiroExecutor thinking tag stripping", () => {
     
     const output = await readAllSSE(transformedResponse.body);
     
-    // Check that we got chat.completion.chunk outputs
     expect(output).toContain("chat.completion.chunk");
-    // Ensure the thinking parts are gone
     expect(output).not.toContain("<thinking>");
     expect(output).not.toContain("Let me think...");
     expect(output).not.toContain("still thinking...");
     expect(output).not.toContain("</thinking>");
     
-    // Check that the normal content is preserved
-    // Parse the data chunks
     const dataLines = output.split("\n").filter(line => line.startsWith("data: "));
     const contents = dataLines.map(line => {
       if (line.includes("[DONE]")) return "";
@@ -135,10 +129,8 @@ describe("KiroExecutor thinking tag stripping", () => {
     const dataLines = output.split("\n").filter(line => line.startsWith("data: ") && !line.includes("[DONE]"));
     const objects = dataLines.map(line => JSON.parse(line.slice(6)));
     
-    // First chunk should have reasoning_content
     expect(objects[0].choices[0].delta.reasoning_content).toBe("I am reasoning");
     
-    // We shouldn't get an empty content chunk from f1 since it was entirely stripped and reasoning was present
     const contentChunks = objects.filter(obj => obj.choices[0].delta.content !== undefined);
     expect(contentChunks.length).toBe(0);
   });

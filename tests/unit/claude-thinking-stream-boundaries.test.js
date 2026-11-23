@@ -1,16 +1,3 @@
-// Thinking/answer boundaries across the OpenAI pivot.
-//
-// claude-to-openai used to mark a Claude thinking block with literal "<think>" /
-// "</think>" chunks in delta.content while the thinking text itself went out in
-// reasoning_content. The pair always arrived empty and adjacent, so OpenAI-format
-// clients (opencode, DeepSeek Harness, ...) rendered a bare "<think></think>" above
-// every answer (#3399, #4199).
-//
-// The Responses translators leaned on that "</think>" marker as their only signal
-// to close the reasoning item before the answer. Dropping the marker therefore
-// requires closing reasoning when the first message text or tool call arrives —
-// which also fixes item ordering for every reasoning_content provider (DeepSeek,
-// GLM, Qwen, Kimi), not just Claude.
 import { describe, it, expect } from "vitest";
 import { claudeToOpenAIResponse } from "../../open-sse/translator/response/claude-to-openai.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
@@ -76,7 +63,6 @@ function sseStream(chunks) {
   });
 }
 
-// Upstream speaks `upstream`, client speaks the Responses API.
 async function viaResponsesTranslator(chunks, upstream, provider, model) {
   const out = sseStream(chunks).pipeThrough(
     createSSETransformStreamWithLogger(upstream, FORMATS.OPENAI_RESPONSES, provider, null, null, model),
@@ -95,7 +81,6 @@ function parseEvents(text) {
     .filter(Boolean);
 }
 
-// Index of the event announcing/finishing an output item of the given type.
 function itemEventIndex(events, eventType, itemType) {
   return events.findIndex((e) => e.type === eventType && e.item?.type === itemType);
 }

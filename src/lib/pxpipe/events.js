@@ -8,8 +8,6 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 let dirReady = false;
-// Size of EVENTS_FILE: seeded by one stat(), then tracked in memory so the
-// request path does no sync fs calls after the first event.
 let fileBytes = null;
 
 function ensureDir() {
@@ -18,7 +16,6 @@ function ensureDir() {
   dirReady = true;
 }
 
-// Fire-and-forget: stats must never break the request path.
 export function appendPxpipeEvent(event) {
   try {
     ensureDir();
@@ -26,13 +23,13 @@ export function appendPxpipeEvent(event) {
       try { fileBytes = fs.statSync(/* turbopackIgnore: true */ EVENTS_FILE).size; } catch { fileBytes = 0; }
     }
     if (fileBytes > MAX_FILE_BYTES) {
-      try { fs.renameSync(/* turbopackIgnore: true */ EVENTS_FILE, ROTATED_FILE); } catch { /* raced */ }
+      try { fs.renameSync(/* turbopackIgnore: true */ EVENTS_FILE, ROTATED_FILE); } catch {}
       fileBytes = 0;
     }
     const line = JSON.stringify({ ts: Date.now(), ...event }) + "\n";
     fileBytes += Buffer.byteLength(line);
     fs.appendFile(/* turbopackIgnore: true */ EVENTS_FILE, line, () => {});
-  } catch { /* ignore */ }
+  } catch {}
 }
 
 export function readPxpipeEvents({ sinceMs = null, limit = null } = {}) {
@@ -46,9 +43,9 @@ export function readPxpipeEvents({ sinceMs = null, limit = null } = {}) {
           const ev = JSON.parse(line);
           if (sinceMs && ev.ts < sinceMs) continue;
           events.push(ev);
-        } catch { /* skip corrupt line */ }
+        } catch {}
       }
-    } catch { /* ignore */ }
+    } catch {}
   }
   events.sort((a, b) => a.ts - b.ts);
   return limit ? events.slice(-limit) : events;
@@ -88,8 +85,6 @@ function finalize(totals) {
   return totals;
 }
 
-// Aggregated stats for the dashboard: all-time + windowed totals, a daily
-// tokens-saved timeline (last `timelineDays`), and the most recent events.
 export function getPxpipeStats({ timelineDays = 30, recentLimit = 100 } = {}) {
   const events = readPxpipeEvents();
   const now = Date.now();

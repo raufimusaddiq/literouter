@@ -2,7 +2,6 @@ import { formatTime } from "@/shared/utils/dateTime";
 import PropTypes from "prop-types";
 import { CapacityBadges } from "@/shared/components";
 
-// Opencode reports region blocks as RegionError; offer its workspace opt-in link.
 function regionOptInUrl(error) {
   const str = typeof error === "string" ? error : JSON.stringify(error);
   if (!/RegionError|hosted in China|regionNotAllowed/i.test(str)) return null;
@@ -15,7 +14,6 @@ function regionOptInUrl(error) {
 
 export default function ModelRow({ model, fullModel, alias, copied, onCopy, testResult, isCustom, isFree, onDeleteAlias, onTest, isTesting, onDisable, caps, thinkingSuffix }) {
   const displayModel = thinkingSuffix ? `${fullModel}(${thinkingSuffix})` : fullModel;
-  // This row's own result only — another model's error can never reach it.
   const testStatus = testResult?.status;
   const testError = testStatus === "error" ? (testResult.error || "Model not reachable") : null;
   const testedAt = typeof testResult?.at === "number"
@@ -138,7 +136,6 @@ ModelRow.propTypes = {
   alias: PropTypes.string,
   copied: PropTypes.string,
   onCopy: PropTypes.func.isRequired,
-  // This row's own test outcome; absent until the model is tested.
   testResult: PropTypes.shape({
     status: PropTypes.oneOf(["ok", "error"]).isRequired,
     error: PropTypes.string,

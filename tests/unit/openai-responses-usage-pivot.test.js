@@ -8,18 +8,6 @@ vi.mock("@/lib/usageDb.js", () => ({
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { createSSETransformStreamWithLogger } from "../../open-sse/utils/stream.js";
 
-/**
- * Usage must survive the PIVOT, not just the direct openai:openai-responses route.
- *
- * Codex talks the Responses API, so routing it at a Claude connection runs
- * claude -> openai -> openai-responses. The converter that attaches usage to
- * response.completed is the second hop, and it only ever sees the intermediate
- * OpenAI chunk — so whether Codex learns its context size depends on the first
- * hop putting usage on that intermediate chunk.
- *
- * Signature is (targetFormat, sourceFormat, ...) — targetFormat is what the
- * UPSTREAM speaks, sourceFormat is what the CLIENT speaks.
- */
 async function runTransform(chunks, targetFormat, provider) {
   const encoder = new TextEncoder();
   const input = chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("");
@@ -64,10 +52,6 @@ function completedResponse(output) {
   return JSON.parse(lines[0].slice(6)).response;
 }
 
-// Anthropic splits the counts across two events: message_start carries the whole
-// prompt side (input + both cache buckets), message_delta carries only the output
-// side. Neither event alone is the total, which is why the claude converter merges
-// them into state before emitting the intermediate chunk.
 const CLAUDE_CHUNKS_WITH_USAGE = [
   {
     type: "message_start",
@@ -90,14 +74,9 @@ const CLAUDE_CHUNKS_WITH_USAGE = [
 ];
 
 describe("OpenAI Responses usage across the pivot", () => {
-  // The reported failure: a Codex session on a Claude connection grew unbounded
-  // (101 -> 503 -> 631 messages) until Anthropic rejected it with
-  // "prompt is too long: 1676806 tokens > 1000000 maximum", because every
-  // token_count event Codex recorded had info: null.
   it("reports claude usage on response.completed so Codex can auto-compact", async () => {
     const output = await runTransform(CLAUDE_CHUNKS_WITH_USAGE, FORMATS.CLAUDE, "claude");
 
-    // prompt side = input + cache_read + cache_creation = 1500 + 12000 + 300.
     expect(completedResponse(output).usage).toEqual({
       input_tokens: 13800,
       output_tokens: 42,
@@ -106,9 +85,6 @@ describe("OpenAI Responses usage across the pivot", () => {
     });
   });
 
-  // Codex deserializes usage into a struct whose three top-level counts are all
-  // required, so dropping any one of them discards the whole object and leaves the
-  // context gauge empty — the same end state as reporting nothing.
   it("always reports all three top-level counts", async () => {
     const output = await runTransform(CLAUDE_CHUNKS_WITH_USAGE, FORMATS.CLAUDE, "claude");
     const usage = completedResponse(output).usage;

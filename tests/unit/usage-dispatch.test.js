@@ -1,7 +1,5 @@
-// Guards the refactored USAGE_HANDLERS dispatch: unsupported → message, supported → routed.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Stub network so handlers don't hit real APIs; each call resolves an empty 200.
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
   proxyAwareFetch: vi.fn(async () => ({
     ok: true,
@@ -32,7 +30,6 @@ describe("usage dispatch", () => {
     const { getUsageForProvider } = await load();
     for (const provider of SUPPORTED) {
       const res = await getUsageForProvider({ provider, accessToken: "t", apiKey: "k" });
-      // Routed handler must return an object and never the unsupported fallback
       expect(res, `${provider} routed`).toBeTypeOf("object");
       expect(res?.message).not.toBe(`Usage API not implemented for ${provider}`);
     }

@@ -1,7 +1,3 @@
-/**
- * Kenari usage — GET https://kenari.id/v1/account/quota
- * Auth: Bearer <apiKey>. Returns plan + month/week IDR windows.
- */
 
 import { proxyAwareFetch } from "../../utils/proxyFetch.js";
 import { toFiniteNumber } from "./shared.js";

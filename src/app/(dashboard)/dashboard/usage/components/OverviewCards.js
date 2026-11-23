@@ -6,7 +6,6 @@ import Card from "@/shared/components/Card";
 const fmt = (n) => new Intl.NumberFormat().format(n || 0);
 const fmtCost = (n) => `$${(n || 0).toFixed(2)}`;
 
-/** Keep card labels short; the exact value stays available via `title`. */
 const compact = (n) => new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n || 0);
 const compactCost = (n) => {
   const v = n || 0;

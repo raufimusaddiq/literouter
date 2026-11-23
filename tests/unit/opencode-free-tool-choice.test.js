@@ -7,8 +7,6 @@ vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
   proxyAwareFetch: vi.fn(async () => ({ ok: true, status: 200, headers: { get: () => "" } })),
 }));
 
-// Break caught: opencode/muse-spark-1.3-contributor-free 400 vì upstream
-// chỉ nhận tool_choice "auto"; named/required/none phải demote sang "auto".
 const FREE_13 = "muse-spark-1.3-contributor-free";
 const CREDS = { connectionId: "opencode-free-tool-choice-test" };
 const INPUT = [{ type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] }];

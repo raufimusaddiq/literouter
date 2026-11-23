@@ -8,7 +8,6 @@ const claudeBody = () => ({
   messages: [{ role: "user", content: bigText }],
 });
 
-// A transform double mimicking pxpipe-proxy/transform's contract.
 const appliedTransform = (outBody) => async () => ({
   applied: true,
   reason: "applied",
@@ -80,7 +79,7 @@ describe("compressWithPxpipe gates", () => {
   });
 
   it("fails open on timeout", async () => {
-    const transform = () => new Promise(() => {}); // never resolves
+    const transform = () => new Promise(() => {});
     const { body, summary } = await compressWithPxpipe(claudeBody(), {
       enabled: true, format: "claude", minChars: 1000, timeoutMs: 50, transform,
     });

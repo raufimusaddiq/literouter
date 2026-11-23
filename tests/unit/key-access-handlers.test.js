@@ -1,6 +1,3 @@
-// Per-API-key access control: every /v1 handler type is wired to the gate, the
-// gate runs before any credential lookup, and a restricted key calling an allowed
-// combo keeps combo failover (real combo.js).
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const fx = vi.hoisted(() => ({
@@ -88,8 +85,6 @@ beforeEach(() => {
     providerSpecificData: { enabledModels: ["gpt-4o", "text-embedding-3-small"] },
   }];
   mocks.getProviderCredentials.mockResolvedValue(null);
-  // model-a always fails upstream (500), so a combo of [model-a, model-b] only
-  // succeeds by failing over to model-b.
   mocks.handleChatCore.mockImplementation(async ({ modelInfo }) => (modelInfo.model === "model-a"
     ? {
       success: false, status: 500, error: "upstream error",
@@ -116,7 +111,7 @@ describe("chat (/v1/chat/completions, /v1/messages, /v1/responses all use handle
     for (const m of ["Main", "openai/model-b"]) {
       expect((await chat(m, "sk-open")).status).toBe(200);
     }
-    expect((await chat("openai/model-a", "sk-open")).status).toBe(500); // provider error, not a 403
+    expect((await chat("openai/model-a", "sk-open")).status).toBe(500);
   });
   it("restricted-to-combo key: combo 200, direct member and unlisted model 403 before any credential lookup", async () => {
     expect((await chat("Main", "sk-combo")).status).toBe(200);
@@ -131,8 +126,6 @@ describe("chat (/v1/chat/completions, /v1/messages, /v1/responses all use handle
   it("restricted-to-model-B key: B 200; the combo containing B and model A are 403", async () => {
     expect((await chat("openai/model-b", "sk-b")).status).toBe(200);
     vi.clearAllMocks();
-    // Bypass check: a per-member check would skip the failing model-a and serve
-    // the combo from model-b. The combo itself is not listed, so it is a 403.
     expect((await chat("Main", "sk-b")).status).toBe(403);
     expect((await chat("openai/model-a", "sk-b")).status).toBe(403);
     expect(mocks.handleChatCore).not.toHaveBeenCalled();
@@ -162,7 +155,6 @@ describe("chat (/v1/chat/completions, /v1/messages, /v1/responses all use handle
   });
 });
 
-// Retained non-chat handler: [name, call(model, key), allowedModel, deniedModel]
 const handlers = [
   ["systemone", (m, k) => handleSystemOne(post("/v1/systemone", { model: m, state: {}, questions: { q: "?" } }, k)), "typesafe/jev-latest", "typesafe/not-a-model"],
   ["gemini-native-tts", (m, k) => geminiRoute.POST(
@@ -216,7 +208,7 @@ describe("/v1/models routes filter by key", () => {
     expect(await list("sk-mix")).toEqual(["Main", someModel]);
     expect(await list("sk-combo")).toEqual(["Main"]);
     expect(await list("sk-empty")).toEqual([]);
-    expect(await list(null)).toEqual(all); // no key: unchanged (middleware governs remote access)
+    expect(await list(null)).toEqual(all);
   });
   it("/v1/models/{kind} and single-model lookup are filtered too", async () => {
     const kind = async (k, kindName) => modelsKindRoute.GET(new Request(`http://localhost/v1/models/${kindName}`, { headers: auth(k) }), { params: Promise.resolve({ kind: kindName }) });

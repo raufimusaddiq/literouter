@@ -1,9 +1,3 @@
-// Guards the bulk-add API-key naming bug: auto-generated "Key N" names used to be
-// derived from the paste-line index, blind to existing connection names. The
-// backend upserts apikey connections by name (connectionsRepo), so a colliding
-// generated name OVERWROTE an existing key instead of adding a new one.
-// Fix: planBulkAdd gap-fills the smallest free "<base> <n>" against existing
-// names (and earlier entries in the same batch) so a name is never reused.
 import { describe, it, expect } from "vitest";
 import { planBulkAdd } from "../../src/shared/utils/bulkAdd.js";
 
@@ -15,8 +9,6 @@ describe("planBulkAdd: auto-named gap-fill (the replace bug)", () => {
   });
 
   it("gap-fills around existing names — never reuses an existing name", () => {
-    // Key 3 and Key 5 already exist; user adds 4 keys.
-    // Free slots: 1, 2, 4, 6 -> assign those, never 3 or 5.
     const out = planBulkAdd(["sk-a", "sk-b", "sk-c", "sk-d"], ["Key 3", "Key 5"]);
     expect(out.map(o => o.name)).toEqual(["Key 1", "Key 2", "Key 4", "Key 6"]);
   });
@@ -34,7 +26,6 @@ describe("planBulkAdd: auto-named gap-fill (the replace bug)", () => {
 
   it("within-batch names are unique even for the same free slot", () => {
     const out = planBulkAdd(["sk-a", "sk-b", "sk-c"], ["Key 1"]);
-    // Key 1 taken; batch gets 2, 3, 4 — no internal dup.
     const names = out.map(o => o.name);
     expect(new Set(names).size).toBe(names.length);
     expect(names).toEqual(["Key 2", "Key 3", "Key 4"]);
@@ -49,7 +40,6 @@ describe("planBulkAdd: custom name|apiKey", () => {
   });
 
   it("custom name avoids an existing same-base name", () => {
-    // "Prod 1" exists -> first new "Prod|.." line becomes "Prod 2".
     const out = planBulkAdd(["Prod|sk-new"], ["Prod 1"]);
     expect(out[0].name).toBe("Prod 2");
   });

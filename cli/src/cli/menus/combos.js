@@ -5,9 +5,6 @@ const { formatDate } = require("../utils/format");
 const { selectModelFromList } = require("../utils/modelSelector");
 const { showMenuWithBack } = require("../utils/menuHelper");
 
-/**
- * Format model to string (handle both string and object)
- */
 function formatModel(model) {
   if (typeof model === "string") return model;
   if (model && typeof model === "object") {
@@ -16,11 +13,6 @@ function formatModel(model) {
   return String(model);
 }
 
-/**
- * Show actions for a specific combo
- * @param {Object} combo - Combo object
- * @param {Array<string>} breadcrumb - Breadcrumb path
- */
 async function showComboActions(combo, breadcrumb = []) {
   const modelsChain = Array.isArray(combo.models) 
     ? combo.models.map(formatModel).join(" → ") 
@@ -42,17 +34,13 @@ async function showComboActions(combo, breadcrumb = []) {
         label: "Delete Combo",
         action: async () => {
           await handleDeleteSingleCombo(combo);
-          return false; // Exit after delete
+          return false;
         }
       }
     ]
   });
 }
 
-/**
- * Handle editing a single combo
- * @param {Object} combo - Combo to edit
- */
 async function handleEditSingleCombo(combo) {
   clearScreen();
   console.log(`\n✏️  Edit Combo: ${combo.name}\n`);
@@ -82,7 +70,6 @@ async function handleEditSingleCombo(combo) {
     }
   }
   
-  // Use new models if any were added, otherwise keep current
   const finalModels = models.length > 0 ? models : combo.models;
   
   const result = await api.updateCombo(combo.id, { name, models: finalModels });
@@ -95,10 +82,6 @@ async function handleEditSingleCombo(combo) {
   await pause();
 }
 
-/**
- * Handle deleting a single combo
- * @param {Object} combo - Combo to delete
- */
 async function handleDeleteSingleCombo(combo) {
   const confirmed = await confirm(`Delete combo "${combo.name}"?`);
   if (confirmed) {
@@ -112,10 +95,6 @@ async function handleDeleteSingleCombo(combo) {
   }
 }
 
-/**
- * Main combos menu - list all combos and actions
- * @param {Array<string>} breadcrumb - Breadcrumb path
- */
 async function showCombosMenu(breadcrumb = []) {
   const { showListMenu } = require("../utils/menuHelper");
   
@@ -152,9 +131,6 @@ async function showCombosMenu(breadcrumb = []) {
   });
 }
 
-/**
- * Show combo detail with stats
- */
 async function showComboDetail(comboId) {
   clearScreen();
   
@@ -178,7 +154,6 @@ async function showComboDetail(comboId) {
   console.log("│                                                          │");
   console.log("│  Model Chain:                                           │");
   
-  // Models is array of strings like ["ag/claude-sonnet-4-5", "kr/claude-sonnet-4.5"]
   const models = Array.isArray(combo.models) ? combo.models : [];
   models.forEach((modelStr, index) => {
     const arrow = index < models.length - 1 ? " →" : "  ";
@@ -193,9 +168,6 @@ async function showComboDetail(comboId) {
   await pause();
 }
 
-/**
- * Format combo for menu display
- */
 function formatComboLabel(combo) {
   const modelsChain = Array.isArray(combo.models) ? combo.models.map(formatModel).join(" → ") : "";
   const maxLen = 40;
@@ -205,16 +177,12 @@ function formatComboLabel(combo) {
   return `${combo.name}: ${displayModels}`;
 }
 
-/**
- * Create new combo
- */
 async function handleCreateCombo() {
   clearScreen();
   
   showStatus("Create New Combo", "info");
   console.log();
   
-  // Get combo name
   const name = await prompt("Combo name: ");
   if (!name) {
     showStatus("Combo name is required", "error");
@@ -222,7 +190,6 @@ async function handleCreateCombo() {
     return;
   }
   
-  // Fetch available models
   showStatus("Loading available models...", "info");
   const modelsResult = await api.getModels();
   
@@ -240,7 +207,6 @@ async function handleCreateCombo() {
     return;
   }
   
-  // Select models for chain
   const selectedModels = [];
   
   console.log();
@@ -298,7 +264,6 @@ async function handleCreateCombo() {
     selectedModels.push(availableModels[num - 1]);
   }
   
-  // Create combo
   showStatus("Creating combo...", "info");
   
   const createResult = await api.createCombo({
@@ -316,9 +281,6 @@ async function handleCreateCombo() {
   await pause();
 }
 
-/**
- * Edit combo - select which combo to edit
- */
 async function handleEditCombo(combos) {
   if (combos.length === 0) {
     showStatus("No combos available", "warning");
@@ -343,9 +305,6 @@ async function handleEditCombo(combos) {
   await editSingleCombo(selectedCombo);
 }
 
-/**
- * Edit a single combo
- */
 async function editSingleCombo(combo) {
   clearScreen();
   showStatus(`Editing combo: ${combo.name}`, "info");
@@ -419,9 +378,6 @@ async function editSingleCombo(combo) {
   await pause();
 }
 
-/**
- * Delete combo - select which combo to delete
- */
 async function handleDeleteCombo(combos) {
   if (combos.length === 0) {
     showStatus("No combos available", "warning");

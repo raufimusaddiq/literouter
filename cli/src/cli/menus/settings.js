@@ -3,7 +3,6 @@ const { confirm, pause } = require("../utils/input");
 const { showStatus } = require("../utils/display");
 const { showMenuWithBack } = require("../utils/menuHelper");
 
-// ANSI colors
 const COLORS = {
   reset: "\x1b[0m",
   green: "\x1b[32m",
@@ -15,10 +14,6 @@ const COLORS = {
 
 const DEFAULT_PASSWORD = "123456";
 
-/**
- * Show settings menu (RTK + reset password)
- * @param {Array<string>} breadcrumb - Breadcrumb path
- */
 async function showSettingsMenu(breadcrumb = []) {
   await showMenuWithBack({
     title: "⚙️  Settings",
@@ -28,13 +23,11 @@ async function showSettingsMenu(breadcrumb = []) {
 
       lines.push(`  Endpoint: http://localhost:20127/v1`);
 
-      // RTK section
       const rtkOn = data?.settings?.rtkEnabled !== false;
       lines.push(`  RTK:      ${rtkOn ? `${COLORS.green}ON${COLORS.reset}` : `${COLORS.red}OFF${COLORS.reset}`} ${COLORS.dim}(Token Saver)${COLORS.reset}`);
       const headroomOn = data?.settings?.headroomEnabled === true;
       lines.push(`  Headroom: ${headroomOn ? `${COLORS.green}ON${COLORS.reset}` : `${COLORS.red}OFF${COLORS.reset}`} ${COLORS.dim}(${data?.settings?.headroomUrl || "http://localhost:8787"})${COLORS.reset}`);
 
-      // Auth mode section
       const authMode = data?.settings?.authMode || "password";
       const authColor = authMode === "password" ? COLORS.green : COLORS.yellow;
       lines.push(`  Auth:     ${authColor}${authMode.toUpperCase()}${COLORS.reset} ${COLORS.dim}(login mode)${COLORS.reset}`);
@@ -77,10 +70,6 @@ async function showSettingsMenu(breadcrumb = []) {
   });
 }
 
-/**
- * Reset authMode to "password" via API. Used when OIDC is misconfigured
- * and user is locked out of dashboard. CLI bypasses auth via x-9r-cli-token.
- */
 async function resetAuthMode() {
   const ok = await confirm("Reset auth mode to PASSWORD (disable OIDC)?");
   if (!ok) {
@@ -98,10 +87,6 @@ async function resetAuthMode() {
   await pause();
 }
 
-/**
- * Toggle RTK (Token Saver) via API
- * @param {boolean} currentlyOn
- */
 async function toggleRtk(currentlyOn) {
   const next = !currentlyOn;
   const result = await api.updateSettings({ rtkEnabled: next });
@@ -124,10 +109,6 @@ async function toggleHeadroom(currentlyOn) {
   await pause();
 }
 
-/**
- * Reset dashboard password to default via server API (writes the live SQLite DB).
- * After reset, user can log in with the default password "123456".
- */
 async function resetPassword() {
   const ok = await confirm(`Reset dashboard password to default "${DEFAULT_PASSWORD}"?`);
   if (!ok) {

@@ -4,7 +4,6 @@ import { getCapabilitiesForModel as getCapabilities } from "../../open-sse/provi
 import openai from "../../open-sse/providers/registry/openai.js";
 import gemini from "../../open-sse/providers/registry/gemini.js";
 
-// Rates: official vendor pages read 2026-11-20 (see model-catalog-report.md).
 describe("2026-11-20 model catalog pricing", () => {
   it.each([
     ["gpt-6.2-astra", 8, 40, 0.4, 10],

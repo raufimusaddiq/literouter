@@ -3,13 +3,8 @@ import { PROVIDERS } from "../config/providers.js";
 import { parseVertexSaJson, refreshVertexToken, refreshGoogleToken } from "../services/tokenRefresh.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 
-// Cache project IDs resolved from raw API keys { apiKey → projectId }
 const projectIdCache = new Map();
 
-/**
- * Parse Google ADC user credential JSON from apiKey string.
- * This is the format produced by `gcloud auth application-default login`.
- */
 function parseVertexAdcJson(apiKey) {
   if (typeof apiKey !== "string") return null;
   try {
@@ -28,10 +23,6 @@ function parseVertexAdcJson(apiKey) {
   }
 }
 
-/**
- * Resolve GCP project ID from a raw Vertex API key.
- * Sends a dummy 404 request and parses "projects/{id}" from the error message.
- */
 async function resolveProjectId(apiKey) {
   if (projectIdCache.has(apiKey)) return projectIdCache.get(apiKey);
 
@@ -48,16 +39,6 @@ async function resolveProjectId(apiKey) {
   return projectId;
 }
 
-/**
- * VertexExecutor - Google Cloud Vertex AI
- *
- * "vertex"         → Gemini models via regional/global Vertex endpoint
- * "vertex-partner" → Partner models (Llama, Mistral, GLM, DeepSeek, Qwen)
- *                    via global OpenAI-compatible endpoint
- *
- * Auth: SA JSON (stored as apiKey) → JWT assertion → Bearer token (via jose)
- * Token is minted/cached in tokenRefresh.js, not here.
- */
 export class VertexExecutor extends BaseExecutor {
   constructor(providerId = "vertex") {
     super(providerId, PROVIDERS[providerId] || {});
@@ -73,17 +54,14 @@ export class VertexExecutor extends BaseExecutor {
       credentials?.providerSpecificData?.projectId;
 
     if (this.provider === "vertex-partner") {
-      // Partner models require project_id in path regardless of auth method
       if (!projectId) throw new Error("Vertex partner models require a project_id. Add it in providerSpecificData or use Service Account JSON.");
       const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/endpoints/openapi/chat/completions`;
       return url;
     }
 
-    // Gemini on Vertex
     const action = stream ? "streamGenerateContent" : "generateContent";
 
     if (usesOAuth) {
-      // SA JSON / ADC / pre-set accessToken: must use project-scoped path to avoid RESOURCE_PROJECT_INVALID
       if (!projectId) {
         throw new Error(
           "Vertex OAuth/ADC requires a project_id. " +
@@ -96,9 +74,6 @@ export class VertexExecutor extends BaseExecutor {
       return url;
     }
 
-    // Raw API keys with an explicit project must honor its location (e.g. Argon on global).
-    // Keep the projectless endpoint for existing connections without a configured project.
-    // ?alt=sse is required for proper SSE streaming (matches every other Gemini executor)
     const location = credentials?.providerSpecificData?.location || "global";
     let url = projectId
       ? `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:${action}`
@@ -110,8 +85,6 @@ export class VertexExecutor extends BaseExecutor {
   buildHeaders(credentials, stream = true) {
     const headers = { "Content-Type": "application/json" };
 
-    // SA JSON / ADC flows use a Bearer token; a raw API key goes in the
-    // x-goog-api-key header (never the URL, which gets logged).
     if (credentials.accessToken) {
       headers["Authorization"] = `Bearer ${credentials.accessToken}`;
     } else if (credentials.apiKey && !parseVertexSaJson(credentials.apiKey) && !parseVertexAdcJson(credentials.apiKey)) {
@@ -137,14 +110,12 @@ export class VertexExecutor extends BaseExecutor {
     const saJson = parseVertexSaJson(credentials?.apiKey);
     const adcJson = parseVertexAdcJson(credentials?.apiKey);
 
-    // SA JSON flow: mint Bearer token via JWT assertion (cached)
     if (saJson) {
       const result = await refreshVertexToken(saJson, log);
       if (!result?.accessToken) throw new Error("Vertex: failed to mint access token from Service Account JSON");
       credentials.accessToken = result.accessToken;
     }
 
-    // ADC user credential flow: refresh Bearer token via Google OAuth2 token endpoint
     if (adcJson) {
       const result = await refreshGoogleToken(
         adcJson.refresh_token,
@@ -156,7 +127,6 @@ export class VertexExecutor extends BaseExecutor {
       credentials.accessToken = result.accessToken;
     }
 
-    // vertex-partner with raw key: auto-resolve project_id if not provided
     if (this.provider === "vertex-partner" && !saJson && !adcJson && !credentials?.providerSpecificData?.projectId) {
       const projectId = await resolveProjectId(credentials.apiKey);
       if (!projectId) throw new Error("Vertex: could not resolve project_id from API key. Please add it manually in provider settings.");

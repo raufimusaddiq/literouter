@@ -7,19 +7,12 @@ import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 
-// Lazy-load: keeps @dnd-kit out of the combos page chunk until the form modal opens
 const ComboFormModal = dynamic(() => import("./ComboFormModal"), { ssr: false });
 
-// Capacity adapter: global fallback pools of models per input-modality capability.
-// A request needing a capability the target model/combo lacks switches straight
-// to the first enabled model here instead of erroring or dropping the data.
 const CAPACITY_ADAPTER_CAPS = [
   { key: "vision", label: "Vision", icon: "visibility", desc: "Images" },
-  // pdf, videoInput temporarily hidden — no translator support yet for those blocks.
   { key: "audioInput", label: "Audio", icon: "graphic_eq", desc: "Audio input" },
 ];
-// Opt-in: an adapter with no model pool does nothing, so it starts disabled
-// rather than showing an enabled switch that has no effect.
 const EMPTY_CAP_ENTRY = { enabled: false, roundRobin: false, models: [] };
 const EMPTY_CAPACITY_ADAPTER = {
   vision: { ...EMPTY_CAP_ENTRY },
@@ -27,7 +20,6 @@ const EMPTY_CAPACITY_ADAPTER = {
   audioInput: { ...EMPTY_CAP_ENTRY },
   videoInput: { ...EMPTY_CAP_ENTRY },
 };
-// Backward-compat: legacy stored form was an array of {model, enabled}.
 function normalizeCapEntry(entry) {
   if (Array.isArray(entry)) {
     return { enabled: true, roundRobin: false, models: entry.map((e) => e?.model || e).filter(Boolean) };
@@ -79,7 +71,6 @@ export default function CombosPage() {
       const providersData = await providersRes.json();
       const settingsData = settingsRes.ok ? await settingsRes.json() : {};
       
-      // Only LLM combos here - the minimal profile has no media surfaces
       if (combosRes.ok) setCombos((combosData.combos || []).filter(c => !c.kind || c.kind === "llm"));
       if (providersRes.ok) {
         setActiveProviders(providersData.connections || []);
@@ -167,13 +158,10 @@ export default function CombosPage() {
     });
   };
 
-  // Merge a per-combo strategy patch into settings.comboStrategies. Passing an empty
-  // patch (strategy back to default "fallback") drops the entry entirely.
   const handleSetComboStrategy = async (comboName, patch) => {
     try {
       const updated = { ...comboStrategies };
       const next = { ...(updated[comboName] || {}), ...patch };
-      // Prune to keep settings clean: default fallback with no extras = no entry.
       if (!next.fallbackStrategy || next.fallbackStrategy === "fallback") {
         delete updated[comboName];
       } else {
@@ -214,7 +202,6 @@ export default function CombosPage() {
         <StrategyNote title="Fusion" text="Parallel panel plus judge. Highest cost." />
       </div>
 
-      {/* Combos List */}
       {combos.length === 0 ? (
         <Card>
           <div className="text-center py-12">
@@ -248,7 +235,6 @@ export default function CombosPage() {
         </div>
       )}
 
-      {/* Capacity Adapter */}
       <CapacityAdapterSection
         capacityAdapter={capacityAdapter}
         onChange={handleSetCapacityAdapter}
@@ -256,7 +242,6 @@ export default function CombosPage() {
         getCaps={getCaps}
       />
 
-      {/* Create Modal - Use key to force remount and reset state */}
       {showCreateModal && (
         <ComboFormModal
           key="create"
@@ -278,7 +263,6 @@ export default function CombosPage() {
         />
       )}
 
-      {/* Confirm Delete Modal */}
       <ConfirmModal
         isOpen={!!confirmState}
         onClose={() => setConfirmState(null)}
@@ -302,9 +286,6 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
   const current = strategy.fallbackStrategy || "fallback";
   const judge = strategy.judgeModel || "";
   const isFusion = current === "fusion";
-  // The synced catalog is server-only, so resolving here would fall back to the
-  // generic patterns and under-report the limits. getCaps carries the server's
-  // answer for /api/models.
   const comboCaps = aggregateComboCapabilities(combo.models, comboByName, getCaps);
 
   return (
@@ -335,7 +316,6 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
                 <span className="text-[11px] text-text-muted">+{combo.models.length - 3} more</span>
               )}
             </div>
-            {/* Fusion: judge picker (Auto = first model) */}
             {isFusion && (
               <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="text-[11px] font-medium text-text-muted">Judge</span>
@@ -362,9 +342,7 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
-          {/* Strategy selector — always visible */}
           <div className="w-full sm:w-[200px]">
             <Select
               aria-label="Fallback strategy"
@@ -406,7 +384,6 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
         </div>
       </div>
 
-      {/* Judge model picker (single-select; combo members make natural judges too) */}
       {showJudgeSelect && (
         <ModelSelectModal
           isOpen={showJudgeSelect}
@@ -479,7 +456,6 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
   return (
     <Card padding="sm" className={`group ${!enabled ? "opacity-50" : ""}`}>
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Master toggle + icon + label + chips */}
         <div className="flex min-w-0 flex-1 items-start gap-2.5 sm:items-center">
           <Toggle
             checked={enabled}
@@ -524,7 +500,6 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
           </div>
         </div>
 
-        {/* Actions: Round-robin toggle + Add Model */}
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
           <label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer select-none">
             <Toggle

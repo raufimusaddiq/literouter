@@ -1,4 +1,3 @@
-// Pure async helpers shared by the quota page (client) and /api/usage (server).
 
 export class TimeoutError extends Error {
   constructor(ms, label = "Request") {
@@ -8,10 +7,6 @@ export class TimeoutError extends Error {
   }
 }
 
-/**
- * Run fn(signal) with a deadline. Rejects with TimeoutError and aborts the
- * signal when the deadline passes. fn may ignore the signal.
- */
 export async function withTimeout(fn, ms, label) {
   const controller = new AbortController();
   let timer;
@@ -28,10 +23,6 @@ export async function withTimeout(fn, ms, label) {
   }
 }
 
-/**
- * Run worker(item, index) over items with at most `limit` in flight.
- * Never rejects: returns settled results in input order.
- */
 export async function runWithConcurrency(items, limit, worker) {
   const results = new Array(items.length);
   let next = 0;
@@ -50,13 +41,8 @@ export async function runWithConcurrency(items, limit, worker) {
   return results;
 }
 
-/**
- * Small TTL cache with in-flight de-duplication, keyed by string.
- * Only successful loads are cached; failures are shared by concurrent callers
- * but never stored.
- */
 export function createTtlCache({ ttlMs, now = Date.now, maxEntries = 500 }) {
-  const store = new Map(); // key -> { value, expiresAt }
+  const store = new Map();
   const inflight = new Map();
 
   async function get(key, loader, { bypass = false, shouldCache = () => true } = {}) {

@@ -20,25 +20,20 @@ export async function createSqlJsAdapter(filePath) {
   );
   const db = new SQLLib.Database(buf);
   db.exec(PRAGMA_SQL);
-  // Schema is created/synced by migrate.js after adapter init
 
   let dirty = false;
   let saveTimer = null;
   let firstDirtyAt = 0;
   const SAVE_DEBOUNCE_MS = 100;
-  // Under steady writes the debounce alone would postpone the save forever.
   const SAVE_MAX_WAIT_MS = Number(process.env.SQLJS_SAVE_MAX_WAIT_MS) > 0
     ? Number(process.env.SQLJS_SAVE_MAX_WAIT_MS)
     : 5000;
 
-  // Prepared-statement cache (bounded LRU): preparing per call dominates small queries.
   const STMT_CACHE_MAX = 200;
   const stmtCache = new Map();
 
-  // Atomic: write a sibling tmp file then rename over the target.
   function persist() {
     const data = db.export();
-    // export() frees every prepared statement; drop the (now dangling) cache.
     stmtCache.clear();
     const tmp = `${filePath}.${process.pid}.tmp`;
     try {
@@ -64,7 +59,6 @@ export async function createSqlJsAdapter(filePath) {
       failStreak = 0;
     } catch (e) {
       console.error("[sqljs] save failed:", e);
-      // dirty stays true; without a retry the data would sit unsaved until the next write.
       const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** failStreak);
       failStreak += 1;
       saveTimer = setTimeout(saveNow, delay);
@@ -170,8 +164,6 @@ export async function createSqlJsAdapter(filePath) {
     db.close();
   }
 
-  // Flush accepted runtime events first; their writes mark sql.js dirty and
-  // must be included in the final exported database image.
   const flush = () => {
     drainRuntimeBuffersSync();
     if (dirty) try { persist(); } catch {}

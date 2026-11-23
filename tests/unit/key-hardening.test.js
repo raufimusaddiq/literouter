@@ -81,7 +81,7 @@ describe("api key repo: legacy keys keep validating", () => {
     const { getAdapter } = await import("@/lib/db/driver.js");
     const db = await getAdapter();
     db.run(`INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt) VALUES('l1','sk-legacy-abcdef-12345678','old','m',1,'2020')`);
-    await repo.updateApiKey("l1", {}); // invalidates the key cache
+    await repo.updateApiKey("l1", {});
     expect(await repo.validateApiKey("sk-legacy-abcdef-12345678")).toBe(true);
   });
 });
@@ -121,7 +121,6 @@ describe("failed-auth throttle", () => {
     const blocked = await proxy(remote({ authorization: "Bearer sk-bad" }));
     expect(blocked.status).toBe(429);
     expect(Number(blocked.headers["Retry-After"])).toBeGreaterThan(0);
-    // keyless requests from another IP never count
     const keyless = () => req("/v1/models", { "x-9r-peer-token": PEER, "x-9r-real-ip": "8.8.8.8" });
     for (let i = 0; i < 30; i++) await proxy(keyless());
     expect((await proxy(keyless())).status).toBe(401);

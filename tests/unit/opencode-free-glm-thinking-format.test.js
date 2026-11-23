@@ -4,11 +4,6 @@ import { applyThinking } from "../../open-sse/translator/concerns/thinkingUnifie
 import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";
 import { getThinkingLevels } from "../../open-sse/providers/thinkingLevels.js";
 
-// 2026-10-18: glm-5.3-flash-free on OpenCode's own inference service answered
-//   400 [unknown_parameter] invalid request body: json: unknown field "thinking"
-// for the zai `thinking` object the *glm-5.3* pattern advertised, while
-// reasoning_effort was accepted (probed live on /inference/v1 and /zen/v1; the
-// paid glm-5.3-flash already carries the same fix via opencode-go).
 const LANES = ["opencode", "opencode-zen"];
 
 describe("OpenCode free GLM-5.3-Flash travels as OpenAI reasoning_effort", () => {
@@ -23,12 +18,10 @@ describe("OpenCode free GLM-5.3-Flash travels as OpenAI reasoning_effort", () =>
     const levels = getThinkingLevels(provider, "glm-5.3-flash-free");
     expect(levels).toContain("high");
     expect(levels).not.toContain("thinking");
-    expect(levels).not.toContain("none"); // thinkingCanDisable:false — GLM 5.3 always thinks
+    expect(levels).not.toContain("none");
   });
 
   it("does not regress the zai-served GLM-5.3-Flash lines", () => {
-    // glm / glm-cn / codebuddy-cn speak the native z.ai shapes: glm-5.3-flash
-    // keeps the binary thinking switch (codebuddy-cn uses reasoning_effort).
     expect(getCapabilitiesForModel("glm", "glm-5.3-flash").thinkingFormat).toBe("zai");
     const body = { reasoning_effort: "high" };
     applyThinking("openai", "glm-5.3-flash", body, "glm");

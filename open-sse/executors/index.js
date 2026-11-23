@@ -27,9 +27,6 @@ import WindsurfExecutor from "./windsurf.js";
 import { DevinCliExecutor } from "./devin-cli.js";
 import { DefaultExecutor } from "./default.js";
 
-// getExecutor is a long-standing synchronous public API used by provider tests,
-// CLI consumers, and internal call sites. Preserve that contract while avoiding
-// construction of every specialized executor at module load.
 const factories = {
   antigravity: () => new AntigravityExecutor(),
   azure: () => new AzureExecutor(),

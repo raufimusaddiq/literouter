@@ -1,4 +1,3 @@
-// T-35: bounded, non-replaying timeouts + pending counter safety.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const fx = vi.hoisted(() => ({ fetch: vi.fn(), pending: vi.fn(), execute: vi.fn() }));
@@ -28,7 +27,6 @@ const okJson = () => new Response(JSON.stringify({ choices: [{ message: { role: 
   status: 200, headers: { "content-type": "application/json" },
 });
 
-// fetch that resolves after `ms`, or rejects with the signal's reason when aborted first
 const slowFetch = (ms, make = okJson) => (url, init) => new Promise((resolve, reject) => {
   const t = setTimeout(() => resolve(make()), ms);
   init.signal.addEventListener("abort", () => { clearTimeout(t); reject(init.signal.reason); }, { once: true });
@@ -93,7 +91,7 @@ describe("BaseExecutor timeouts", () => {
     const ctrl = new AbortController();
     const p = run(false, ctrl.signal);
     const assertion = expect(p).rejects.toMatchObject({ name: "AbortError" });
-    await vi.advanceTimersByTimeAsync(100); // inside the 3s retry sleep
+    await vi.advanceTimersByTimeAsync(100);
     ctrl.abort();
     await assertion;
     expect(fx.fetch).toHaveBeenCalledTimes(1);
@@ -127,7 +125,7 @@ describe("handleChatCore", () => {
     fx.execute.mockImplementation(async ({ signal }) => {
       expect(signal.aborted).toBe(false);
       ctrl.abort();
-      expect(signal.aborted).toBe(true); // client signal reaches the executor signal
+      expect(signal.aborted).toBe(true);
       throw Object.assign(new Error("aborted"), { name: "AbortError" });
     });
     const r = await handleChatCore(base({ clientRawRequest: { endpoint: "/v1/chat/completions", body: {}, headers: {}, signal: ctrl.signal } }));

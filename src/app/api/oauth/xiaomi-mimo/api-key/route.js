@@ -9,13 +9,6 @@ function trimTrailingSlashes(value) {
   return value.slice(0, end);
 }
 
-/**
- * POST /api/oauth/xiaomi-mimo/api-key
- * Import a Xiaomi MiMo API key manually (or from auto-import).
- * The key is validated against the models endpoint, then stored.
- *
- * Body: { apiKey, uid?, baseUrl? }
- */
 export async function POST(request) {
   try {
     const { apiKey, uid, baseUrl, mimoPassToken, mimoUserId, mimoCUserId } = await request.json();
@@ -56,7 +49,6 @@ export async function POST(request) {
       }
     }
 
-    // Validate the key against the models endpoint
     let validated = false;
     let modelCount = 0;
     try {
@@ -78,15 +70,12 @@ export async function POST(request) {
         validated = true;
       }
     } catch {
-      // Network error — still allow import (key may be valid but network blocked)
     }
 
     if (!validated) {
-      // Soft-fail: store the key but mark as untested
       console.log("[xiaomi-mimo] key validation failed, storing as untested");
     }
 
-    // Dedup: if a connection with the same uid or same key already exists, update it
     const { getProviderConnections, updateProviderConnection } = await import("@/models");
     const existing = (await getProviderConnections()).find(
       (c) => c.provider === "xiaomi-mimo" && (
@@ -101,7 +90,6 @@ export async function POST(request) {
           ...existing.providerSpecificData,
           uid: uid || existing.providerSpecificData?.uid || null,
           baseUrl: effectiveBaseUrl,
-          // Per-account session credential — enables multi-account rotation.
           mimoPassToken: mimoPassToken || existing.providerSpecificData?.mimoPassToken || null,
           mimoUserId: mimoUserId || existing.providerSpecificData?.mimoUserId || null,
           mimoCUserId: mimoCUserId || existing.providerSpecificData?.mimoCUserId || null,
@@ -128,7 +116,6 @@ export async function POST(request) {
       authType: "api_key",
       accessToken: key,
       refreshToken: null,
-      // API keys don't expire on a fixed schedule; use a long horizon
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       email: uid ? `${uid}@xiaomi` : null,
       displayName: uid ? `Xiaomi ${uid}` : "Xiaomi MiMo",
@@ -138,7 +125,6 @@ export async function POST(request) {
         authMethod: "api_key",
         provider: "API Key",
         modelCount,
-        // Per-account session credential — enables multi-account rotation.
         mimoPassToken: mimoPassToken || null,
         mimoUserId: mimoUserId || null,
         mimoCUserId: mimoCUserId || null,

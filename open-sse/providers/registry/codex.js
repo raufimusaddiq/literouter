@@ -1,7 +1,5 @@
 import { withCodexReviewModels } from "../models/helpers.js";
 
-// Codex CLI version seen by OpenAI's backend — single source for the Version /
-// User-Agent identity headers. Bump when the installed codex CLI is upgraded.
 const CODEX_CLI_VERSION = "0.167.1";
 
 export default {
@@ -67,8 +65,6 @@ export default {
     { id: "gpt-5.4-mini-review", name: "GPT 5.4 Mini Review", upstreamModelId: "gpt-5.4-mini", quotaFamily: "review" },
     { id: "gpt-5.3-codex-spark", name: "GPT 5.3 Codex Spark" },
     { id: "gpt-5.3-codex-spark-review", name: "GPT 5.3 Codex Spark Review", upstreamModelId: "gpt-5.3-codex-spark", quotaFamily: "review" },
-    // Codex CLI's auto-review virtual model. Unlike the "-review" variants above it is not derived
-    // from a base model, so it is forwarded verbatim instead of having "-review" stripped (#1398).
     { id: "codex-auto-review", name: "Codex Auto Review", upstreamModelId: "codex-auto-review", quotaFamily: "review" },
   ],
   serviceKinds: ["llm"],
@@ -85,8 +81,6 @@ export default {
       codex_cli_simplified_flow: "true",
       originator: "codex_cli_rs",
     },
-    // Access tokens live ~1h; a 5d lead rotated the refresh token on EVERY call —
-    // reuse of a rotated token revokes the whole OpenAI session (account logout).
     refreshLeadMs: 600000,
     refresh: {
       encoding: "form",

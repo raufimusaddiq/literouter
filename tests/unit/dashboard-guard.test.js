@@ -47,8 +47,6 @@ function request(pathname, headers = {}) {
   };
 }
 
-// A request that actually came through custom-server.js: peer IP stamped from the TCP
-// socket and proven by the per-process secret.
 function localRequest(pathname, headers = {}) {
   return request(pathname, { "x-9r-peer-token": PEER_TOKEN, "x-9r-real-ip": "127.0.0.1", ...headers });
 }
@@ -277,8 +275,6 @@ describe("dashboard guard local-only routes", () => {
     mocks.validateApiKey.mockResolvedValue(false);
   });
 
-  // These routes spawn npm/pip or read host secrets; requireLogin=false must not
-  // expose them to a remote caller.
   it.each([
     ["get", "/api/pxpipe/install"],
     ["post", "/api/pxpipe/start"],

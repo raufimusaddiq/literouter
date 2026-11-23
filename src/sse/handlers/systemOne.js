@@ -16,8 +16,6 @@ import { trackPendingRequest } from "@/lib/usageDb.js";
 
 const FALLBACK_STATUSES = new Set([401, 403, 408, 429, 500, 502, 503, 504, 529]);
 
-// Only these client headers reach the provider. TypeSafe's danger-zone headers
-// switch on image assets and long context; nothing else is forwarded.
 export const FORWARDED_REQUEST_HEADERS = [
   "TypeSafe-Danger-Zone-Images",
   "TypeSafe-Danger-Zone-Long-Context",
@@ -73,8 +71,6 @@ export async function normalizeSystemOneRequest(body) {
   return { provider, model, body: { ...body, model } };
 }
 
-// Custom System One nodes (prefix "systemone-<uuid>") are async — resolved in
-// handleSystemOne, where a cache-hit node lookup is one await like getSettings.
 export function isCustomSystemOneProvider(providerId) {
   return typeof providerId === "string" && providerId.startsWith("systemone-");
 }
@@ -87,7 +83,6 @@ export async function resolveSystemOneNodeByPrefix(displayPrefix) {
 
 function copyHeaders(response) {
   const headers = { "Access-Control-Allow-Origin": "*" };
-  // Hop-by-hop/body-affecting headers are unsafe to forward; everything else is pass-through.
   const excluded = new Set(["connection", "keep-alive", "transfer-encoding", "upgrade", "content-length", "content-encoding"]);
   response.headers.forEach((value, name) => {
     if (!excluded.has(name.toLowerCase())) headers[name.toLowerCase()] = value;
@@ -111,7 +106,6 @@ async function readFailure(response) {
 async function recordSystemOneUsage(response, provider, model, connectionId, apiKey) {
   try {
     const payload = await response.clone().json();
-    // Cloudflare Workers AI wraps System One payloads in { result: {...}, success }.
     const usage = extractUsageFromResponse(payload?.result ?? payload);
     saveUsageStats({
       provider,
@@ -149,8 +143,6 @@ export async function handleSystemOne(request) {
   const { provider, model, body } = input;
   const resolvedAccessDenied = await enforceKeyAccessResolved(keyAccess, rawModel, provider, model);
   if (resolvedAccessDenied) return resolvedAccessDenied;
-  // Custom node resolution happens once per request; getProviderNodeById is
-  // cache-backed (same pattern as getSettings).
   const customNode = isCustomSystemOneProvider(provider) ? await getProviderNodeById(provider) : null;
   if (isCustomSystemOneProvider(provider) && !customNode) {
     return systemOneError(400, `Unknown System One provider: ${provider}`);
@@ -177,9 +169,6 @@ export async function handleSystemOne(request) {
     const config = customNode
       ? { baseUrl: customNode.baseUrl, format: customNode.apiType === "responses" ? "openai-responses" : "openai" }
       : PROVIDERS[provider];
-    // Built-in dual-transport providers (e.g. Cloudflare Clef) keep chat and
-    // System One endpoints separate. System One URLs may reference {accountId}
-    // (connection providerSpecificData) and {model} (request model id).
     const systemOneUrl = config.systemOneTransport
       ? config.systemOneTransport.baseUrl
           .replace("{accountId}", encodeURIComponent(credentials.providerSpecificData?.accountId || ""))

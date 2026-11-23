@@ -1,14 +1,8 @@
-// RTK port: compress tool_result content in LLM request bodies
-// Applied in chatCore on the source-format body, before translateRequest.
 import { RAW_CAP, MIN_COMPRESS_SIZE } from "./constants.js";
 import { autoDetectFilter } from "./autodetect.js";
 import { safeApply } from "./applyFilter.js";
 import { createHash } from "node:crypto";
 
-// Memo of compressed output per tool_result text. Conversations resend the whole
-// history every turn, so unchanged results would otherwise be re-filtered each time.
-// Keyed by length + sha1 (collision-safe in practice); bounded LRU by entries and bytes.
-// A cached value of null means "filters produced nothing usable; keep original".
 const MEMO_MAX_ENTRIES = 2000;
 const MEMO_MAX_BYTES = 32 * 1024 * 1024;
 const memo = new Map();
@@ -24,11 +18,10 @@ function memoKey(text) {
 function memoGet(key) {
   if (!memo.has(key)) return undefined;
   const entry = memo.get(key);
-  memo.delete(key); memo.set(key, entry); // LRU touch
+  memo.delete(key); memo.set(key, entry);
   return entry;
 }
 
-// Count key overhead too so null-output entries are not free.
 function memoSize(key, entry) {
   return (entry.out ? entry.out.length : 0) + String(key).length + 64;
 }
@@ -44,17 +37,14 @@ function memoSet(key, entry) {
   }
 }
 
-// Compress tool_result content in-place. Returns stats or null if disabled/failed.
 export function compressMessages(body, enabled) {
   if (!enabled) return null;
   if (!body) return null;
 
-  // Kiro format: conversationState.history + conversationState.currentMessage
   if (body.conversationState) {
     return compressKiroFormat(body, enabled);
   }
 
-  // Support both OpenAI/Claude "messages" and OpenAI Responses "input"
   const items = Array.isArray(body.messages) ? body.messages
     : Array.isArray(body.input) ? body.input
     : null;
@@ -66,7 +56,6 @@ export function compressMessages(body, enabled) {
       const msg = items[i];
       if (!msg) continue;
 
-      // Shape 4: OpenAI Responses — top-level { type:"function_call_output", output: string | [{type:"input_text", text}] }
       if (msg.type === "function_call_output") {
         if (typeof msg.output === "string") {
           msg.output = compressText(msg.output, stats, "openai-responses-string");
@@ -81,7 +70,6 @@ export function compressMessages(body, enabled) {
         continue;
       }
 
-      // Shape 1: OpenAI tool message — { role:"tool", content: "string" }
       if (msg.role === "tool" && typeof msg.content === "string") {
         msg.content = compressText(msg.content, stats, "openai-tool");
         continue;
@@ -89,7 +77,6 @@ export function compressMessages(body, enabled) {
 
       if (!Array.isArray(msg.content)) continue;
 
-      // Shape 1b: OpenAI tool message — { role:"tool", content:[{type:"text", text:"..."}] }
       if (msg.role === "tool") {
         for (let k = 0; k < msg.content.length; k++) {
           const part = msg.content[k];
@@ -100,17 +87,14 @@ export function compressMessages(body, enabled) {
         continue;
       }
 
-      // Shape 2/3: blocks array with tool_result entries
       for (let j = 0; j < msg.content.length; j++) {
         const block = msg.content[j];
         if (!block || block.type !== "tool_result") continue;
-        if (block.is_error === true) continue; // preserve error traces
+        if (block.is_error === true) continue;
 
         if (typeof block.content === "string") {
-          // Shape 2: claude string form
           block.content = compressText(block.content, stats, "claude-string");
         } else if (Array.isArray(block.content)) {
-          // Shape 3: claude array form — compress each text part
           for (let k = 0; k < block.content.length; k++) {
             const part = block.content[k];
             if (part && part.type === "text" && typeof part.text === "string") {
@@ -127,7 +111,6 @@ export function compressMessages(body, enabled) {
   return stats;
 }
 
-// Compress Kiro format: conversationState.history[].userInputMessage.userInputMessageContext.toolResults[].content[].text
 function compressKiroFormat(body, enabled) {
   const stats = { bytesBefore: 0, bytesAfter: 0, hits: [] };
   try {
@@ -140,7 +123,7 @@ function compressKiroFormat(body, enabled) {
       if (!Array.isArray(toolResults)) continue;
 
       for (const tr of toolResults) {
-        if (tr.status === "error") continue; // preserve error traces
+        if (tr.status === "error") continue;
         if (!Array.isArray(tr.content)) continue;
 
         for (const part of tr.content) {
@@ -171,7 +154,7 @@ function compressText(text, stats, shape) {
   try {
     key = memoKey(text);
     entry = memoGet(key);
-  } catch { /* fail-open: recompute */ }
+  } catch {}
 
   if (entry !== undefined) {
     rtkMemoStats.hits++;
@@ -179,10 +162,9 @@ function compressText(text, stats, shape) {
     rtkMemoStats.misses++;
     const fn = autoDetectFilter(text);
     const out = fn ? safeApply(fn, text) : null;
-    // Safety: never return empty, never grow the input
     const usable = !!fn && !!out && out.length > 0 && out.length < bytesIn;
     entry = usable ? { out, filter: fn.filterName || fn.name } : { out: null, filter: null };
-    if (key) { try { memoSet(key, entry); } catch { /* ignore */ } }
+    if (key) { try { memoSet(key, entry); } catch {} }
   }
 
   if (!entry.out) {
@@ -195,7 +177,6 @@ function compressText(text, stats, shape) {
   return entry.out;
 }
 
-// Convenience: format a log line from stats
 export function formatRtkLog(stats) {
   if (!stats || !stats.hits || stats.hits.length === 0) return null;
   const saved = stats.bytesBefore - stats.bytesAfter;

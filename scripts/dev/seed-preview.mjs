@@ -1,6 +1,3 @@
-// Dev-only: fill a DATA_DIR with realistic preview data (connections, usage, one API key).
-// Not imported by the app. Usage: node scripts/dev/seed-preview.mjs <DATA_DIR>
-// Writes <DATA_DIR>/db/data.sqlite through node:sqlite using the app's own schema.
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -23,7 +20,6 @@ for (const [name, def] of Object.entries(TABLES)) {
   for (const idx of def.indexes || []) db.exec(idx);
 }
 
-// Deterministic PRNG so previews are reproducible.
 let seed = 20260101;
 const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
 const pick = (arr) => arr[Math.floor(rand() * arr.length)];
@@ -41,7 +37,6 @@ const connections = [
   { provider: "groq", name: "Groq · fast", testStatus: "success" },
   { provider: "openrouter", name: "OpenRouter · fallback", testStatus: undefined },
   { provider: "deepseek", name: "DeepSeek · batch", testStatus: "success", isActive: false },
-  // Email-named connection on a built-in provider, and a custom OpenAI-compatible node.
   { provider: "mistral", name: "raufimusaddiq@gmail.com", email: "raufimusaddiq@gmail.com", testStatus: "success" },
   { provider: NODE_PROVIDER, name: "Sumopod", testStatus: "success" },
 ].map((c, i) => ({ ...c, id: uuid(), priority: i + 1 }));
@@ -59,8 +54,6 @@ for (const c of connections) {
   insConn.run(c.id, c.provider, "apikey", c.name, c.email || null, c.priority, c.isActive === false ? 0 : 1, JSON.stringify(data), iso(now - 20 * 86400000), iso(now));
 }
 
-// API keys: varied usage, one paused, one restricted, one never used.
-// Usage rows carry the key fingerprint (same API_KEY_SECRET as the server).
 const HOUR = 3600000;
 const apiKeys = [
   { name: "Production", lastUsedAgo: 2 * 60000, req24h: 1284, ageDays: 40 },
@@ -78,7 +71,6 @@ for (const k of apiKeys) {
     k.restricted ? 1 : 0, JSON.stringify(k.restricted || []));
 }
 
-// Usage: ~2.5k rows across 7 days, heavier on recent days and working hours.
 const models = [
   { provider: "openai", model: "gpt-4o", inp: [400, 3500], out: [80, 900], rate: [2.5, 10] },
   { provider: "openai", model: "gpt-4o-mini", inp: [200, 2000], out: [50, 500], rate: [0.15, 0.6] },
@@ -99,7 +91,7 @@ const dateKey = (t) => {
 const rows = [];
 const TARGET = 2600;
 while (rows.length < TARGET) {
-  const ageDays = Math.pow(rand(), 1.35) * 7; // skew toward recent
+  const ageDays = Math.pow(rand(), 1.35) * 7;
   const t = now - ageDays * 86400000;
   const hour = new Date(t).getHours();
   if (rand() > (hour >= 8 && hour <= 20 ? 1 : 0.35)) continue;
@@ -141,7 +133,6 @@ for (const r of rows) {
 }
 const insDay = db.prepare(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?)`);
 for (const [k, d] of Object.entries(days)) insDay.run(k, JSON.stringify(d));
-// Per-key usage rows (history only; the dashboard reads usageHistory for per-key stats).
 for (const k of apiKeys) {
   if (k.lastUsedAgo == null) continue;
   const fp = fingerprintKey(k.key);

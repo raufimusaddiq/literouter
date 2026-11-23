@@ -7,10 +7,6 @@ import { OpenCodeExecutor } from "../../open-sse/executors/opencode.js";
 import "../translator/registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 
-// oc/deepseek-v4.1-flash-free (OpenCode Zen free lane) serves exactly low|high|max.
-// The generic *deepseek-v4.* declarations (medium/xhigh) do not apply, and the
-// DeepSeek-API low/medium→high collapse must not swallow "low" — otherwise the
-// model's low tier is unreachable from 9router.
 const MODEL = "deepseek-v4.1-flash-free";
 const PROVIDER = "opencode";
 const LEVELS = ["low", "high", "max"];
@@ -65,8 +61,6 @@ describe("oc/deepseek-v4.1-flash-free reasoning levels", () => {
   it("sends the requested level to the OpenCode free chat endpoint end to end", () => {
     const executor = new OpenCodeExecutor();
     for (const level of LEVELS) {
-      // The handler strips the provider prefix before dispatch, so the executor
-      // only ever sees the bare upstream id (oc/... → keep it that way).
       const body = {
         model: MODEL,
         messages: [{ role: "user", content: "Reply with the single word: ok" }],
@@ -75,7 +69,6 @@ describe("oc/deepseek-v4.1-flash-free reasoning levels", () => {
       };
       const translated = translateRequest(FORMATS.OPENAI, FORMATS.OPENAI, MODEL, body, true, {}, PROVIDER);
       const out = executor.transformRequest(MODEL, translated, true, { connectionId: "oc-deepseek-effort-test" });
-      // LiteRouter keeps the free lane on /zen/v1 (the /inference/v1 move was deferred).
       expect(executor.buildUrl(MODEL)).toBe("https://opencode.ai/zen/v1/chat/completions");
       expect(out.reasoning_effort).toBe(level);
       expect(out.model).toBe(MODEL);

@@ -1,4 +1,3 @@
-// T-37: honest client usage, bounded accumulators, finalize-on-cancel, single detail write.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const saved = [];
@@ -52,7 +51,7 @@ describe("client usage is the upstream's, unbuffered", () => {
     const ts = createPassthroughStreamWithLogger("openai", null, "m", "c", BODY, (_c, u) => { internal = u; }, null);
     const { frames } = await run(ts, [delta("hello there"), finish(), "data: [DONE]\n\n"]);
     expect(frames.some((f) => f.usage)).toBe(false);
-    expect(internal.estimated).toBe(true); // internal accounting still estimates
+    expect(internal.estimated).toBe(true);
   });
 
   it("include_usage true + no upstream usage -> spec-shaped final chunk (choices: []) before [DONE]", async () => {
@@ -132,7 +131,7 @@ describe("cancelled stream finalizes", () => {
     const ts = createPassthroughStreamWithLogger("openai", null, "m", "c", BODY, onStreamComplete, null);
     await run(ts, [delta("partial output so far")], { close: false });
     ts.finalizeOnCancel();
-    ts.finalizeOnCancel(); // idempotent
+    ts.finalizeOnCancel();
     await new Promise((r) => setTimeout(r, 10));
     expect(saved).toHaveLength(1);
     expect(saved[0].status).toBe("client_cancelled");
@@ -167,7 +166,7 @@ describe("cancelled stream finalizes", () => {
     const { onStreamComplete } = make();
     const ts = createPassthroughStreamWithLogger("openai", null, "m", "c", BODY, onStreamComplete, null);
     await run(ts, [delta("hi"), finish(), "data: [DONE]\n\n"]);
-    ts.finalizeOnCancel(); // late cancel must not write again
+    ts.finalizeOnCancel();
     await new Promise((r) => setTimeout(r, 10));
     expect(saved).toHaveLength(1);
     expect(saved[0].status).toBe("success");

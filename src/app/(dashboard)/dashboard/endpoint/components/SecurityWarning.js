@@ -1,6 +1,5 @@
 "use client";
 
-/** Security warning banner with optional action link */
 export default function SecurityWarning({ message, action }) {
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20 text-warning">

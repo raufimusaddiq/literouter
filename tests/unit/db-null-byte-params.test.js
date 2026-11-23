@@ -1,21 +1,9 @@
-// Regression: SQLite binds TEXT as a NUL-terminated C string, so a bound
-// string with an embedded NUL cannot survive the write.
-//
-//  - better-sqlite3 rejects it: "TypeError: String contains null byte",
-//    which aborts the write and with it the background flush worker.
-//  - node:sqlite accepts it and silently keeps only the prefix before the
-//    NUL — the rest of the value is gone with no trace.
-//
-// Telemetry carries values that can contain one: a model id or endpoint taken
-// straight from the request, raw bytes out of a tool result, a diff. The write
-// must survive and must keep the whole value. (#4917)
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { stripNullBytes } from "@/lib/db/helpers/nullBytes.js";
 
-// Built at runtime so the source file itself holds no literal NUL byte.
 const NUL = String.fromCharCode(0);
 const DIRTY = `before${NUL}after`;
 
@@ -26,8 +14,6 @@ beforeEach(() => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-nul-"));
   process.env.DATA_DIR = tempDir;
   delete global._dbAdapter;
-  // driver.js captures the shared state object at module load, so the module
-  // has to be re-imported for each test to get a fresh (open) database.
   vi.resetModules();
 });
 

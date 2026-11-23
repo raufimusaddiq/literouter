@@ -52,7 +52,6 @@ describe("kenari native provider", () => {
   });
 
   it("is whitelisted for apikey usage lookups", () => {
-    // Mirrors src/shared/constants/providers.js derivation from registry flags.
     expect(REGISTRY.filter((r) => r.features?.usage).map((r) => r.id)).toContain("kenari");
     expect(REGISTRY.filter((r) => r.features?.usageApikey).map((r) => r.id)).toContain("kenari");
   });

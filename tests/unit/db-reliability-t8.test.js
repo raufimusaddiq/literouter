@@ -16,7 +16,6 @@ describe("sql.js adapter durability", () => {
     a.exec("CREATE TABLE t(i INTEGER)");
     vi.useFakeTimers();
     for (let i = 0; i < 30; i++) { a.run("INSERT INTO t VALUES(?)", [i]); await vi.advanceTimersByTimeAsync(50); }
-    // 1.5 s of writes every 50 ms: debounce (100 ms) never fires, max-wait must have.
     expect(fs.existsSync(file)).toBe(true);
     expect(fs.readdirSync(dir).filter((f) => f.endsWith(".tmp"))).toEqual([]);
     delete process.env.SQLJS_SAVE_MAX_WAIT_MS;
@@ -25,7 +24,6 @@ describe("sql.js adapter durability", () => {
 
 describe("driver init retry", () => {
   it("clears initPromise after a rejected init", async () => {
-    // DATA_DIR must not exist yet so ensureDirs() reaches fs.mkdirSync on the init path.
     const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "t8-drv-")), "fresh");
     process.env.DATA_DIR = dir;
     vi.resetModules();
@@ -49,10 +47,10 @@ describe("sqljs save retry", () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const rename = vi.spyOn(fs, "renameSync").mockImplementation(() => { throw new Error("disk"); });
     a.exec("CREATE TABLE t(i INTEGER)");
-    await vi.advanceTimersByTimeAsync(150); // debounce fires, persist fails
+    await vi.advanceTimersByTimeAsync(150);
     expect(fs.existsSync(file)).toBe(false);
     rename.mockRestore();
-    await vi.advanceTimersByTimeAsync(1100); // backoff retry succeeds without a new write
+    await vi.advanceTimersByTimeAsync(1100);
     expect(fs.existsSync(file)).toBe(true);
     err.mockRestore();
     vi.useRealTimers();
@@ -74,7 +72,7 @@ describe("requestDetailsRepo failed batch", () => {
     adapter.transaction = () => { throw new Error("db down"); };
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     for (let i = 0; i < 5; i++) await repo.saveRequestDetail({ id: `d${i}`, model: "m", pxpipe: { a: 1 } });
-    await repo.flushRequestDetails(); // sync drain fails -> requeued
+    await repo.flushRequestDetails();
     expect(repo.__buffer__.size()).toBe(3);
     adapter.transaction = origTx;
     expect(await repo.flushRequestDetails()).toBe(true);

@@ -4,7 +4,6 @@ import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
 import { buildErrorBody } from "open-sse/utils/error.js";
 import { FORMATS } from "open-sse/translator/formats.js";
 
-// Fallbacks when the registry has no limits for a model.
 const DEFAULT_INPUT_TOKEN_LIMIT = 128000;
 const DEFAULT_OUTPUT_TOKEN_LIMIT = 8192;
 
@@ -16,9 +15,6 @@ function limitsFor(provider, modelId) {
   };
 }
 
-/**
- * Handle CORS preflight
- */
 export async function OPTIONS() {
   return new Response(null, {
     headers: {
@@ -29,10 +25,6 @@ export async function OPTIONS() {
   });
 }
 
-/**
- * GET /v1beta/models - Gemini compatible models list
- * Returns models in Gemini API format
- */
 export async function GET(request) {
   try {
     const models = [];
@@ -71,8 +63,6 @@ export async function GET(request) {
       }
     }
 
-    // Restricted keys only see what they may call. The filter keys on `id` (provider/model),
-    // so run it over ids derived from the Gemini `name` and map back.
     const ctx = await getKeyAccessContext(request);
     if (!ctx) return Response.json({ models });
     const byId = new Map(models.map((m) => [m.name.replace(/^models\//, ""), m]));

@@ -5,7 +5,6 @@ const { formatDate, getRelativeTime } = require("../utils/format");
 const { showMenuWithBack } = require("../utils/menuHelper");
 const { copyToClipboard } = require("../utils/clipboard");
 
-// ANSI colors for styling
 const COLORS = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",
@@ -13,7 +12,6 @@ const COLORS = {
   dim: "\x1b[2m"
 };
 
-// Provider models - static config (synced from open-sse/config/providerModels.js)
 const PROVIDER_MODELS = {
   cc: [
     { id: "claude-opus-4-5-20251101" },
@@ -128,7 +126,6 @@ const PROVIDER_MODELS = {
   ],
 };
 
-// Provider definitions
 const OAUTH_PROVIDERS = {
   claude: { id: "claude", alias: "cc", name: "Claude Code" },
   codex: { id: "codex", alias: "cx", name: "OpenAI Codex" },
@@ -152,20 +149,10 @@ const APIKEY_PROVIDERS = {
 
 const ALL_PROVIDERS = { ...OAUTH_PROVIDERS, ...APIKEY_PROVIDERS };
 
-/**
- * Get auth type for provider
- * @param {string} providerId - Provider ID
- * @returns {string} "oauth" or "apikey"
- */
 function getAuthType(providerId) {
   return OAUTH_PROVIDERS[providerId] ? "oauth" : "apikey";
 }
 
-/**
- * Count connections by provider
- * @param {Array} connections - Array of connection objects
- * @returns {Object} Map of providerId -> count
- */
 function countConnectionsByProvider(connections) {
   const counts = {};
   connections.forEach(conn => {
@@ -175,12 +162,7 @@ function countConnectionsByProvider(connections) {
   return counts;
 }
 
-/**
- * Show main providers menu
- * @param {Array<string>} breadcrumb - Breadcrumb path
- */
 async function showProvidersMenu(breadcrumb = []) {
-  // Build provider items list
   const providerItems = [];
   
   Object.values(OAUTH_PROVIDERS).forEach(provider => {
@@ -213,10 +195,9 @@ async function showProvidersMenu(breadcrumb = []) {
     });
   });
 
-  // Custom provider nodes section
   providerItems.push({
     label: () => `${COLORS.dim}── Custom Providers ──${COLORS.reset}`,
-    action: async () => true, // separator, no-op
+    action: async () => true,
     isSeparator: true,
   });
   providerItems.push({
@@ -252,11 +233,6 @@ async function showProvidersMenu(breadcrumb = []) {
   });
 }
 
-/**
- * Build provider header with alias and models
- * @param {string} providerId - Provider ID
- * @returns {string}
- */
 function buildProviderHeader(providerId) {
   const provider = ALL_PROVIDERS[providerId];
   const alias = provider.alias || providerId;
@@ -264,7 +240,6 @@ function buildProviderHeader(providerId) {
   const lines = [];
   lines.push(`Alias: ${COLORS.cyan}${alias}${COLORS.reset}`);
   
-  // Get models from static config
   const models = PROVIDER_MODELS[alias] || [];
   if (models.length > 0) {
     const modelList = models
@@ -280,13 +255,6 @@ function buildProviderHeader(providerId) {
   return lines.join("\n");
 }
 
-/**
- * Show provider detail with connections and actions
- * @param {string} providerId - Provider ID
- * @param {string} authType - "oauth" or "apikey"
- * @param {Array} allConnections - All connections
- * @param {Array<string>} breadcrumb - Breadcrumb path
- */
 async function showProviderDetail(providerId, authType, allConnections, breadcrumb = []) {
   const provider = ALL_PROVIDERS[providerId];
   const { showListMenu } = require("../utils/menuHelper");
@@ -324,12 +292,6 @@ async function showProviderDetail(providerId, authType, allConnections, breadcru
   });
 }
 
-/**
- * Show actions for a specific connection
- * @param {Object} connection - Connection object
- * @param {string} providerId - Provider ID
- * @param {Array<string>} breadcrumb - Breadcrumb path
- */
 async function showConnectionActions(connection, providerId, breadcrumb = []) {
   const name = connection.name || connection.email || connection.displayName || "Unnamed";
   const status = connection.testStatus === "active" ? "✓ Active" : 
@@ -384,7 +346,7 @@ async function showConnectionActions(connection, providerId, breadcrumb = []) {
               showStatus(`Delete failed: ${result.error}`, "error");
             }
             await pause();
-            return false; // Exit menu after delete
+            return false;
           }
           return true;
         }
@@ -393,38 +355,20 @@ async function showConnectionActions(connection, providerId, breadcrumb = []) {
   });
 }
 
-/**
- * Handle adding new connection
- * @param {string} providerId - Provider ID
- * @param {string} authType - "oauth" or "apikey"
- */
-// Providers that use Device Code Flow (terminal-based polling)
 const DEVICE_CODE_PROVIDERS = ["github", "qwen", "kiro"];
 
-/**
- * Handle adding new connection - auto-detect flow type
- * @param {string} providerId - Provider ID
- * @param {string} authType - "oauth" or "apikey"
- */
 async function handleAddConnection(providerId, authType) {
   if (authType === "apikey") {
     await handleAddApiKeyConnection(providerId);
   } else {
-    // OAuth: auto-detect flow type based on provider
     if (DEVICE_CODE_PROVIDERS.includes(providerId)) {
-      // Device Code Flow for GitHub, Qwen, Kiro
       await handleAddDeviceCodeConnection(providerId);
     } else {
-      // Authorization Code Flow for Claude, Codex, Gemini, etc.
       await handleAddOAuthConnection(providerId);
     }
   }
 }
 
-/**
- * Handle adding API Key connection
- * @param {string} providerId - Provider ID
- */
 async function handleAddApiKeyConnection(providerId) {
   clearScreen();
   const provider = ALL_PROVIDERS[providerId];
@@ -461,16 +405,10 @@ async function handleAddApiKeyConnection(providerId) {
   await pause();
 }
 
-/**
- * Handle adding OAuth Authorization Code connection
- * User opens URL manually and pastes callback URL
- * @param {string} providerId - Provider ID
- */
 async function handleAddOAuthConnection(providerId) {
   clearScreen();
   const provider = ALL_PROVIDERS[providerId];
   
-  // Step 1: Get auth URL
   showStatus("Requesting authorization URL...", "info");
   const authResult = await api.getOAuthAuthUrl(providerId);
   
@@ -492,7 +430,6 @@ async function handleAddOAuthConnection(providerId) {
     return;
   }
   
-  // Step 2: Show URL and instructions
   clearScreen();
   showHeader("🔐 OAuth Login", `Providers > ${provider.name} > Add Connection`);
   
@@ -515,7 +452,6 @@ async function handleAddOAuthConnection(providerId) {
     return;
   }
   
-  // Step 3: Parse callback URL and extract code
   let code, urlState, error;
   try {
     const url = new URL(callbackUrl.trim());
@@ -541,7 +477,6 @@ async function handleAddOAuthConnection(providerId) {
     return;
   }
   
-  // Step 4: Exchange code for tokens
   console.log();
   showStatus("Exchanging code for tokens...", "info");
   const exchangeResult = await api.exchangeOAuthCode(providerId, {
@@ -560,15 +495,10 @@ async function handleAddOAuthConnection(providerId) {
   await pause();
 }
 
-/**
- * Handle adding OAuth Device Code connection
- * @param {string} providerId - Provider ID
- */
 async function handleAddDeviceCodeConnection(providerId) {
   clearScreen();
   const provider = ALL_PROVIDERS[providerId];
   
-  // Step 1: Request device code
   showStatus("Requesting device code...", "info");
   const deviceResult = await api.getOAuthDeviceCode(providerId);
   
@@ -592,7 +522,6 @@ async function handleAddDeviceCodeConnection(providerId) {
     return;
   }
   
-  // Step 2: Show instructions
   clearScreen();
   const deviceUrl = verification_uri_complete || verification_uri;
   showHeader("📱 Device Login", `Providers > ${provider.name} > Add Connection`);
@@ -609,8 +538,7 @@ async function handleAddDeviceCodeConnection(providerId) {
   console.log(`  ${COLORS.dim}Waiting for authorization...${COLORS.reset}`);
   console.log();
   
-  // Step 3: Poll for token
-  const maxAttempts = 60; // 5 minutes (5s interval)
+  const maxAttempts = 60;
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(resolve => setTimeout(resolve, 5000));
     
@@ -626,7 +554,6 @@ async function handleAddDeviceCodeConnection(providerId) {
       return;
     }
     
-    // Check if still pending (pending flag is at root level, not in data)
     const isPending = pollResult.pending || pollResult.error === "authorization_pending" || pollResult.error === "slow_down";
     if (!isPending) {
       showStatus(`\nFailed: ${pollResult.error || "Unknown error"}`, "error");
@@ -641,19 +568,10 @@ async function handleAddDeviceCodeConnection(providerId) {
   await pause();
 }
 
-// ============================================================================
-// CUSTOM PROVIDERS (provider nodes)
-// ============================================================================
 
 const CUSTOM_NODE_TYPES = ["openai-compatible", "anthropic-compatible"];
 const OPENAI_API_TYPES = ["chat", "responses"];
 
-/**
- * Show custom providers section in main providers menu
- * @param {Array} nodes - List of provider nodes
- * @param {Array} connections - All connections
- * @param {Array<string>} breadcrumb
- */
 async function showCustomProvidersMenu(breadcrumb = []) {
   const { showListMenu } = require("../utils/menuHelper");
 
@@ -679,9 +597,6 @@ async function showCustomProvidersMenu(breadcrumb = []) {
   });
 }
 
-/**
- * Show detail menu for a custom provider node
- */
 async function showCustomNodeDetail(node, breadcrumb = []) {
   await showMenuWithBack({
     title: `🔧 ${node.name}`,
@@ -727,9 +642,6 @@ async function showCustomNodeDetail(node, breadcrumb = []) {
   });
 }
 
-/**
- * Show connections for a custom provider node
- */
 async function showCustomNodeConnections(node, breadcrumb = []) {
   const { showListMenu } = require("../utils/menuHelper");
 
@@ -760,9 +672,6 @@ async function showCustomNodeConnections(node, breadcrumb = []) {
   });
 }
 
-/**
- * Add API key connection to a custom provider node
- */
 async function handleAddCustomNodeConnection(node) {
   clearScreen();
   console.log(`\n➕ Add Connection to ${node.name}\n`);
@@ -780,14 +689,10 @@ async function handleAddCustomNodeConnection(node) {
   await pause();
 }
 
-/**
- * Handle adding a new custom provider node
- */
 async function handleAddCustomNode() {
   clearScreen();
   console.log("\n➕ Add Custom Provider\n");
 
-  // Step 1: Select type
   const typeChoices = CUSTOM_NODE_TYPES.map((t, i) => `  ${i + 1}. ${t}`).join("\n");
   console.log(`Select type:\n${typeChoices}\n`);
   const typeInput = await prompt("Type (1/2): ");
@@ -797,7 +702,6 @@ async function handleAddCustomNode() {
   }
   const type = CUSTOM_NODE_TYPES[typeIdx];
 
-  // Step 2: Inputs
   const name = await prompt("Name: ");
   if (!name) { showStatus("Cancelled", "warning"); await pause(); return; }
 
@@ -807,7 +711,6 @@ async function handleAddCustomNode() {
   const baseUrl = await prompt("Base URL (e.g. https://api.example.com/v1): ");
   if (!baseUrl) { showStatus("Cancelled", "warning"); await pause(); return; }
 
-  // Step 3: API type (OpenAI only)
   let apiType;
   if (type === "openai-compatible") {
     const apiTypeChoices = OPENAI_API_TYPES.map((t, i) => `  ${i + 1}. ${t}`).join("\n");
@@ -825,9 +728,6 @@ async function handleAddCustomNode() {
   await pause();
 }
 
-/**
- * Handle editing a custom provider node
- */
 async function handleEditCustomNode(node) {
   clearScreen();
   console.log(`\n✏️  Edit ${node.name}\n`);

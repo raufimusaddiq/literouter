@@ -1,20 +1,9 @@
-// Cline free models (z-ai/glm-5.3-flash, deepseek-v4-flash) wrap non-stream
-// chat completions in {"success":true,"data":{...choices...}} on
-// https://api.cline.bot/api/v1/chat/completions. Both the UI model-test ping
-// (src/app/api/models/test/ping.js) and the proxy non-stream path
-// (open-sse/handlers/chatCore/nonStreamingHandler.js) read `choices` at the
-// top level, so enveloped choices are invisible ("Provider returned no
-// completion choices for this model"). These tests pin the unwrap behavior.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Mock the heavy Next.js-dependent imports BEFORE importing ping.js
-// (same pattern as tests/unit/ping-reasoning-models-3010.test.js).
 vi.mock("@/lib/localDb", () => ({ getApiKeys: vi.fn(async () => [{ key: "test-key", isActive: true }]) }));
 vi.mock("@/shared/constants/config", () => ({ UPDATER_CONFIG: { appPort: 20127 } }));
 vi.mock("@/shared/utils/machineId", () => ({ getConsistentMachineId: vi.fn(async () => "cli-token") }));
-// requestDetail.js imports from @/lib/usageDb.js too, so one mock covers both
-// the handler and its usage/detail helpers.
 vi.mock("@/lib/usageDb.js", () => ({
   appendRequestLog: vi.fn(async () => {}),
   saveRequestDetail: vi.fn(async () => {}),
@@ -24,10 +13,6 @@ vi.mock("@/lib/usageDb.js", () => ({
 const { pingModelByKind } = await import("../../src/app/api/models/test/ping.js");
 const { handleNonStreamingResponse } = await import("../../open-sse/handlers/chatCore/nonStreamingHandler.js");
 
-// The proxy adds a 2000-token headroom buffer to usage before returning it
-// to the client (addBufferToUsage), so response-body usage is input + 2000.
-// The usage recorded via saveRequestUsage is the unbuffered extraction —
-// asserting on it proves the unwrap ran before usage extraction.
 const { saveRequestUsage } = await import("@/lib/usageDb.js");
 
 describe("cline free-models {success,data} envelope", () => {
@@ -188,9 +173,6 @@ describe("cline free-models envelope in nonStreamingHandler", () => {
     expect(body.usage.prompt_tokens).toBe(3);
   });
 
-  // The unwrap is opt-in via transport.quirks.clineEnvelope so it can never
-  // rewrite another provider's body — including one that happens to return
-  // {"success":true,"data":...} for its own reasons.
   it("leaves an enveloped body untouched for a provider that did not opt in", async () => {
     const providerResponse = new Response(
       JSON.stringify({

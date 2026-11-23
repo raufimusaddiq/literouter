@@ -1,11 +1,5 @@
-// The free lane sheds load with 429 "The inference service is overloaded.
-// Please try again later." even after a request passes the TLS gate. The
-// OpenCode CLI retries that transient 429; 9router used to surface it. These
-// tests pin the executor-side retry so the CLI gets a response, while a real
-// free-tier quota 429 is still delivered without delay.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Keep the retry loop under test in isolation: no network, no credentials.
 const { baseExecuteMock } = vi.hoisted(() => ({ baseExecuteMock: vi.fn() }));
 
 vi.mock("../../open-sse/executors/base.js", () => ({
@@ -25,8 +19,6 @@ const OVERLOAD = JSON.stringify({
   },
 });
 
-// The other 429 on this route: the free-tier gate, which is not transient. It
-// also says "try again later", so the classifier must key on "overloaded".
 const FREE_USAGE = JSON.stringify({
   type: "error",
   error: { type: "FreeUsageLimitError", message: "Free usage limit reached. Please try again later." },
@@ -49,7 +41,6 @@ async function run(executor, log, credentials = {}) {
     credentials,
     log,
   });
-  // Let every backoff timer fire (8 attempts, ~20 s of backoff).
   await vi.advanceTimersByTimeAsync(60_000);
   return pending;
 }
@@ -76,7 +67,6 @@ describe("OpenCodeExecutor overload retry", () => {
     expect(baseExecuteMock).toHaveBeenCalledTimes(3);
     expect(result.response.status).toBe(200);
     expect(await result.response.text()).toBe("data: ok\n\n");
-    // The retry is observable to --debug users, like the base retry path.
     expect(log.debug).toHaveBeenCalledWith("RETRY", expect.stringContaining("overload"));
   });
 
@@ -87,8 +77,6 @@ describe("OpenCodeExecutor overload retry", () => {
 
     expect(baseExecuteMock).toHaveBeenCalledTimes(8);
     expect(result.response.status).toBe(429);
-    // Reading the cloned body to classify the retry must not consume the
-    // response the caller finally receives.
     expect(await result.response.text()).toBe(OVERLOAD);
   });
 
@@ -148,12 +136,8 @@ describe("OpenCodeExecutor overload retry", () => {
   });
 });
 
-// #5559: a minted session that upstream has spent or flagged used to be reused
-// until restart. A non-transient rejection must drop it so the next request
-// re-mints, while overload retries keep the same session.
 describe("OpenCodeExecutor session invalidation", () => {
   const sessionOf = (call) => call[0].credentials._opencodeSession;
-  // Unique identity per test so the module-level session cache does not leak.
   let creds;
   let n = 0;
 

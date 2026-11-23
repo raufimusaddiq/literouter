@@ -1,15 +1,3 @@
-/**
- * OpenAI → CommandCode request translator
- *
- * Upstream `/alpha/generate` schema (verified live with curl 2026-05-07):
- *  - params.system: STRING at top level (Anthropic-style; system messages NOT allowed in messages[])
- *  - params.messages[*].role ∈ {"user","assistant","tool"}
- *  - params.messages[*].content: Array of content blocks (NEVER a string)
- *  - image_url / image source → {type:"image", image:"data:...;base64,...", mimeType}
- *  - tool_use blocks (assistant): {type:"tool-call", toolCallId, toolName, input}
- *  - tool_result blocks (role=user): {type:"tool-result", toolCallId, toolName, output}
- *  - tools[*]: Anthropic plain {name, description, input_schema}
- */
 import { register } from "../index.js";
 import { resolveMaxTokens } from "../concerns/requestParams.js";
 import { FORMATS } from "../formats.js";
@@ -183,7 +171,7 @@ function convertTools(tools) {
   return result.length ? result : undefined;
 }
 
-export function openaiToCommandCodeRequest(model, body, stream /* , credentials */) {
+export function openaiToCommandCodeRequest(model, body, stream) {
   const { messages, system } = convertMessages(body.messages);
   const params = {
     model,
