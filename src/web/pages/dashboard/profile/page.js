@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, Toggle, Input, PageIntro } from "@/shared/components";
+import { Button, Toggle, Input, PageIntro, SegmentedControl } from "@/shared/components";
 import Modal from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import { useTheme } from "@/shared/hooks/useTheme";
@@ -19,8 +19,47 @@ function getLocaleFromCookie() {
   return normalizeLocale(value);
 }
 
+const THEME_OPTIONS = [
+  { value: "light", label: "Light", icon: "light_mode" },
+  { value: "dark", label: "Dark", icon: "dark_mode" },
+  { value: "system", label: "System", icon: "contrast" },
+];
+
+function Section({ title, description, children }) {
+  return (
+    <section className="grid gap-4 border-t border-line-strong py-6 md:grid-cols-[200px_minmax(0,1fr)] md:gap-10">
+      <div className="min-w-0">
+        <h2 className="text-sm font-semibold text-ink">{title}</h2>
+        {description ? <p className="mt-1 text-[12.5px] text-muted">{description}</p> : null}
+      </div>
+      <div className="flex min-w-0 flex-col">{children}</div>
+    </section>
+  );
+}
+
+function SettingRow({ title, description, children, className }) {
+  return (
+    <div className={cn("flex items-start justify-between gap-4 border-b border-line py-3.5 first:pt-0 last:border-b-0 last:pb-0 sm:items-center", className)}>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-ink">{title}</p>
+        {description ? <p className="mt-0.5 text-[12.5px] text-muted">{description}</p> : null}
+      </div>
+      {children ? <div className="flex shrink-0 items-center">{children}</div> : null}
+    </div>
+  );
+}
+
+function StatusLine({ status, className }) {
+  if (!status.message) return null;
+  return (
+    <p className={cn("text-[12.5px]", status.type === "error" ? "text-danger" : "text-ok", className)}>
+      {status.message}
+    </p>
+  );
+}
+
 export default function ProfilePage() {
-  const { theme, setTheme, isDark } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [locale, setLocale] = useState(() => getLocaleFromCookie());
   const [langOpen, setLangOpen] = useState(false);
   const [settings, setSettings] = useState({ fallbackStrategy: "fill-first" });
@@ -400,204 +439,93 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-5xl px-0">
       <div className="flex flex-col gap-6">
         <PageIntro title="Settings" description="Manage appearance, access, routing defaults, network behavior, and database backups." />
-        <Card>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="size-10 sm:size-12 rounded-lg bg-green-500/10 text-green-500 flex items-center justify-center shrink-0">
-                <span aria-hidden="true" className="material-symbols-outlined text-xl sm:text-2xl">computer</span>
-              </div>
-              <div>
-                <h2 className="text-lg sm:text-xl font-semibold">Local Mode</h2>
-                <p className="text-sm text-text-muted">Running on your machine</p>
-              </div>
-            </div>
-            <div className="inline-flex p-1 rounded-lg bg-black/5 dark:bg-white/5 w-full sm:w-auto">
-              {["light", "dark", "system"].map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setTheme(option)}
-                  className={cn(
-                    "flex min-h-11 items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 rounded-md font-medium transition-colors flex-1 sm:flex-initial",
-                    theme === option
-                      ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
-                      : "text-text-muted hover:text-text-main"
-                  )}
-                >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
-                    {option === "light" ? "light_mode" : option === "dark" ? "dark_mode" : "contrast"}
-                  </span>
-                  <span className="capitalize text-xs sm:text-sm">{option}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-3 pt-4 border-t border-border">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg bg-bg border border-border gap-2">
-              <div>
-                <p className="font-medium text-sm sm:text-base">Database Location</p>
-                <p className="text-xs sm:text-sm text-text-muted font-mono break-all">~/.9router/db/data.sqlite</p>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button
-                variant="secondary"
-                icon="download"
-                onClick={() => setDbAuth({ open: true, mode: "export", password: "" })}
-                loading={dbLoading}
-                className="w-full sm:w-auto"
-              >
-                Download Backup
-              </Button>
+
+        <div className="flex flex-col">
+          <Section title="Local Mode" description="Running on your machine">
+            <SettingRow title="Theme">
+              <SegmentedControl size="lg" value={theme} onChange={setTheme} options={THEME_OPTIONS} />
+            </SettingRow>
+          </Section>
+
+          <Section title="Language">
+            <SettingRow title="Display language">
               <Button
                 variant="outline"
-                icon="upload"
-                onClick={() => importFileRef.current?.click()}
-                disabled={dbLoading}
-                className="w-full sm:w-auto"
+                aria-label="Display language"
+                onClick={() => setLangOpen(true)}
+                data-i18n-skip="true"
               >
-                Import Backup
+                <span className="text-lg leading-none">{LOCALE_FLAGS[locale] || "🌐"}</span>
               </Button>
-              <input
-                ref={importFileRef}
-                type="file"
-                aria-label="Import database backup file"
-                accept="application/json,.json"
-                className="hidden"
-                onChange={handleImportDatabase}
-              />
-            </div>
-            {dbStatus.message && (
-              <p className={`text-sm ${dbStatus.type === "error" ? "text-red-500" : "text-green-600 dark:text-green-400"}`}>
-                {dbStatus.message}
-              </p>
-            )}
-          </div>
-        </Card>
+            </SettingRow>
+          </Section>
 
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="size-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
-              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">language</span>
-            </div>
-            <h3 className="text-base sm:text-lg font-semibold">Language</h3>
-          </div>
-          <button
-            onClick={() => setLangOpen(true)}
-            className="flex items-center justify-between w-full p-3 rounded-lg bg-bg border border-border hover:border-primary/50 transition-colors"
-            data-i18n-skip="true"
-          >
-            <span className="text-sm text-text-muted">Display language</span>
-            <span className="text-2xl">{LOCALE_FLAGS[locale] || "🌐"}</span>
-          </button>
-        </Card>
-
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">shield</span>
-            </div>
-            <h3 className="text-base sm:text-lg font-semibold">Security</h3>
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-start sm:items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">Require login</p>
-                <p className="text-xs sm:text-sm text-text-muted">
-                  When ON, dashboard requires password. When OFF, access without login.
-                </p>
-              </div>
+          <Section title="Security">
+            <SettingRow
+              title="Require login"
+              description="When ON, dashboard requires password. When OFF, access without login."
+            >
               <Toggle
                 aria-label="Require login"
                 checked={settings.requireLogin === true}
                 onChange={() => updateRequireLogin(!settings.requireLogin)}
                 disabled={loading}
               />
-            </div>
+            </SettingRow>
             {settings.requireLogin === true && (
-              <form onSubmit={handlePasswordChange} className="flex flex-col gap-4 pt-4 border-t border-border/50">
+              <form onSubmit={handlePasswordChange} className="flex flex-col gap-4 pt-4">
                 {settings.hasPassword && (
-                  <div className="flex flex-col gap-2">
-                    <Input
-                      label="Current Password"
-                      type="password"
-                      placeholder="Enter current password"
-                      value={passwords.current}
-                      onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                      required
-                    />
-                  </div>
+                  <Input
+                    label="Current Password"
+                    type="password"
+                    placeholder="Enter current password"
+                    value={passwords.current}
+                    onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+                    required
+                  />
                 )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-2">
-                    <Input
-                      label="New Password"
-                      type="password"
-                      placeholder="Enter new password"
-                      value={passwords.new}
-                      onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Input
-                      label="Confirm New Password"
-                      type="password"
-                      placeholder="Confirm new password"
-                      value={passwords.confirm}
-                      onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                      required
-                    />
-                  </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Input
+                    label="New Password"
+                    type="password"
+                    placeholder="Enter new password"
+                    value={passwords.new}
+                    onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="Confirm New Password"
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={passwords.confirm}
+                    onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                    required
+                  />
                 </div>
 
-                {passStatus.message && (
-                  <p className={`text-xs sm:text-sm ${passStatus.type === "error" ? "text-red-500" : "text-green-500"}`}>
-                    {passStatus.message}
-                  </p>
-                )}
+                <StatusLine status={passStatus} />
 
-                <div className="pt-2">
+                <div>
                   <Button type="submit" variant="primary" loading={passLoading} className="w-full sm:w-auto">
                     {settings.hasPassword ? "Update Password" : "Set Password"}
                   </Button>
                 </div>
               </form>
             )}
-          </div>
-        </Card>
+          </Section>
 
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
-              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">route</span>
-            </div>
-            <h3 className="text-base sm:text-lg font-semibold">Routing Strategy</h3>
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-start sm:items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">Round Robin</p>
-                <p className="text-xs sm:text-sm text-text-muted">
-                  Cycle through accounts to distribute load
-                </p>
-              </div>
+          <Section title="Routing Strategy">
+            <SettingRow title="Round Robin" description="Cycle through accounts to distribute load">
               <Toggle
                 aria-label="Round robin"
                 checked={settings.fallbackStrategy === "round-robin"}
                 onChange={() => updateFallbackStrategy(settings.fallbackStrategy === "round-robin" ? "fill-first" : "round-robin")}
                 disabled={loading}
               />
-            </div>
+            </SettingRow>
 
             {settings.fallbackStrategy === "round-robin" && (
-              <div className="flex items-start sm:items-center justify-between gap-4 pt-2 border-t border-border/50">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm sm:text-base">Sticky Limit</p>
-                  <p className="text-xs sm:text-sm text-text-muted">
-                    Calls per account before switching
-                  </p>
-                </div>
+              <SettingRow title="Sticky Limit" description="Calls per account before switching">
                 <Input
                   aria-label="Sticky round robin limit"
                   type="number"
@@ -606,34 +534,26 @@ export default function ProfilePage() {
                   value={settings.stickyRoundRobinLimit || 3}
                   onChange={(e) => updateStickyLimit(e.target.value)}
                   disabled={loading}
-                  className="w-16 sm:w-20 text-center shrink-0"
+                  className="w-16 shrink-0 sm:w-20"
+                  inputClassName="text-center"
                 />
-              </div>
+              </SettingRow>
             )}
 
-            <div className="flex items-start sm:items-center justify-between gap-4 pt-4 border-t border-border/50">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">Combo Round Robin</p>
-                <p className="text-xs sm:text-sm text-text-muted">
-                  Cycle through providers in combos instead of always starting with first
-                </p>
-              </div>
+            <SettingRow
+              title="Combo Round Robin"
+              description="Cycle through providers in combos instead of always starting with first"
+            >
               <Toggle
                 aria-label="Combo round robin"
                 checked={settings.comboStrategy === "round-robin"}
                 onChange={() => updateComboStrategy(settings.comboStrategy === "round-robin" ? "fallback" : "round-robin")}
                 disabled={loading}
               />
-            </div>
+            </SettingRow>
 
             {settings.comboStrategy === "round-robin" && (
-              <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                <div>
-                  <p className="font-medium">Combo Sticky Limit</p>
-                  <p className="text-sm text-text-muted">
-                    Calls per combo model before switching
-                  </p>
-                </div>
+              <SettingRow title="Combo Sticky Limit" description="Calls per combo model before switching">
                 <Input
                   aria-label="Combo sticky round robin limit"
                   type="number"
@@ -642,12 +562,13 @@ export default function ProfilePage() {
                   value={settings.comboStickyRoundRobinLimit || 1}
                   onChange={(e) => updateComboStickyLimit(e.target.value)}
                   disabled={loading}
-                  className="w-20 text-center"
+                  className="w-20"
+                  inputClassName="text-center"
                 />
-              </div>
+              </SettingRow>
             )}
 
-            <p className="text-xs text-text-muted italic pt-2 border-t border-border/50">
+            <p className="pt-4 text-[12.5px] text-muted">
               {settings.fallbackStrategy === "round-robin"
                 ? `Currently distributing requests across all available accounts with ${settings.stickyRoundRobinLimit || 3} calls per account.`
                 : "Currently using accounts in priority order (Fill First)."}
@@ -655,56 +576,39 @@ export default function ProfilePage() {
                 ? ` Combos rotate after ${settings.comboStickyRoundRobinLimit || 1} call${(settings.comboStickyRoundRobinLimit || 1) === 1 ? "" : "s"} per model.`
                 : " Combos always start with their first model."}
             </p>
-          </div>
-        </Card>
+          </Section>
 
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shrink-0">
-              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">wifi</span>
-            </div>
-            <h3 className="text-base sm:text-lg font-semibold">Network</h3>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="flex items-start sm:items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">Outbound Proxy</p>
-                <p className="text-xs sm:text-sm text-text-muted">Enable proxy for OAuth + provider outbound requests.</p>
-              </div>
+          <Section title="Network">
+            <SettingRow title="Outbound Proxy" description="Enable proxy for OAuth + provider outbound requests.">
               <Toggle
                 aria-label="Outbound proxy"
                 checked={settings.outboundProxyEnabled === true}
                 onChange={() => updateOutboundProxyEnabled(!(settings.outboundProxyEnabled === true))}
                 disabled={loading || proxyLoading}
               />
-            </div>
+            </SettingRow>
 
             {settings.outboundProxyEnabled === true && (
-              <form onSubmit={updateOutboundProxy} className="flex flex-col gap-4 pt-2 border-t border-border/50">
-                <div className="flex flex-col gap-2">
-                  <Input
-                    label="Proxy URL"
-                    placeholder="http://127.0.0.1:7897"
-                    value={proxyForm.outboundProxyUrl}
-                    onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundProxyUrl: e.target.value }))}
-                    disabled={loading || proxyLoading}
-                  />
-                  <p className="text-xs sm:text-sm text-text-muted">Leave empty to inherit existing env proxy (if any).</p>
-                </div>
+              <form onSubmit={updateOutboundProxy} className="flex flex-col gap-4 pt-4">
+                <Input
+                  label="Proxy URL"
+                  placeholder="http://127.0.0.1:7897"
+                  value={proxyForm.outboundProxyUrl}
+                  onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundProxyUrl: e.target.value }))}
+                  disabled={loading || proxyLoading}
+                  hint="Leave empty to inherit existing env proxy (if any)."
+                />
 
-                <div className="flex flex-col gap-2 pt-2 border-t border-border/50">
-                  <Input
-                    label="No Proxy"
-                    placeholder="localhost,127.0.0.1"
-                    value={proxyForm.outboundNoProxy}
-                    onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundNoProxy: e.target.value }))}
-                    disabled={loading || proxyLoading}
-                  />
-                  <p className="text-xs sm:text-sm text-text-muted">Comma-separated hostnames/domains to bypass the proxy.</p>
-                </div>
+                <Input
+                  label="No Proxy"
+                  placeholder="localhost,127.0.0.1"
+                  value={proxyForm.outboundNoProxy}
+                  onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundNoProxy: e.target.value }))}
+                  disabled={loading || proxyLoading}
+                  hint="Comma-separated hostnames/domains to bypass the proxy."
+                />
 
-                <div className="pt-2 border-t border-border/50 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                   <Button
                     type="button"
                     variant="secondary"
@@ -722,54 +626,71 @@ export default function ProfilePage() {
               </form>
             )}
 
-            {proxyStatus.message && (
-              <p className={`text-xs sm:text-sm ${proxyStatus.type === "error" ? "text-red-500" : "text-green-500"} pt-2 border-t border-border/50`}>
-                {proxyStatus.message}
-              </p>
-            )}
-          </div>
-        </Card>
+            <StatusLine status={proxyStatus} className="pt-4" />
+          </Section>
 
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-surface-2 text-text-muted shrink-0">
-              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">monitoring</span>
-            </div>
-            <h3 className="text-base sm:text-lg font-semibold">Observability</h3>
-          </div>
-          <div className="flex items-start sm:items-center justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm sm:text-base">Enable Observability</p>
-              <p className="text-xs sm:text-sm text-text-muted">
-                Record request details for inspection in the logs view
-              </p>
-            </div>
-            <Toggle
-              aria-label="Enable observability"
-              checked={observabilityEnabled}
-              onChange={updateObservabilityEnabled}
-              disabled={loading}
-            />
-          </div>
-        </Card>
+          <Section title="Observability">
+            <SettingRow title="Enable Observability" description="Record request details for inspection in the logs view">
+              <Toggle
+                aria-label="Enable observability"
+                checked={observabilityEnabled}
+                onChange={updateObservabilityEnabled}
+                disabled={loading}
+              />
+            </SettingRow>
+          </Section>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button
-            variant="outline"
-            fullWidth
-            icon="logout"
-            onClick={handleLogout}
-          >
-            Logout
-          </Button>
+          <Section title="Data">
+            <SettingRow title="Database Location">
+              <span className="break-all text-right font-mono text-[12.5px] text-muted">~/.9router/db/data.sqlite</span>
+            </SettingRow>
+            <div className="flex flex-col gap-3 pt-4">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="secondary"
+                  icon="download"
+                  onClick={() => setDbAuth({ open: true, mode: "export", password: "" })}
+                  loading={dbLoading}
+                  className="w-full sm:w-auto"
+                >
+                  Download Backup
+                </Button>
+                <Button
+                  variant="danger"
+                  icon="upload"
+                  onClick={() => importFileRef.current?.click()}
+                  disabled={dbLoading}
+                  className="w-full sm:w-auto"
+                >
+                  Import Backup
+                </Button>
+                <input
+                  ref={importFileRef}
+                  type="file"
+                  aria-label="Import database backup file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={handleImportDatabase}
+                />
+              </div>
+              <StatusLine status={dbStatus} />
+            </div>
+          </Section>
+
+          <Section title="Session">
+            <div>
+              <Button variant="outline" icon="logout" onClick={handleLogout} className="w-full sm:w-auto">
+                Logout
+              </Button>
+            </div>
+          </Section>
         </div>
 
-        <div className="text-center text-xs sm:text-sm text-text-muted py-4">
+        <div className="py-4 text-center text-[12.5px] text-muted">
           <p>{APP_CONFIG.name} v{APP_CONFIG.version}</p>
           <p className="mt-1">{isRemoteHost ? "Remote Mode" : "Local Mode - All data stored on your machine"}</p>
         </div>
       </div>
-
       <LanguageSwitcher
         hideTrigger
         isOpen={langOpen}
@@ -794,7 +715,7 @@ export default function ProfilePage() {
           </>
         }
       >
-        <p className="text-text-muted mb-3 text-sm">
+        <p className="mb-3 text-sm text-muted">
           Enter your current password to {dbAuth.mode === "export" ? "export" : "import"} the database.
         </p>
         <Input
