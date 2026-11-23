@@ -1,9 +1,3 @@
-/**
- * Background OAuth token-refresh scheduler.
- *
- * Covers pure selection (selectConnectionsNeedingRefresh) and a fake tick that
- * exercises checkAndRefreshToken dispatch + fail-open per connection.
- */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";

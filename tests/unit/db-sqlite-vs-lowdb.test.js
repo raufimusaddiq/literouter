@@ -1,5 +1,3 @@
-// Compare new SQLite-backed DB layer vs legacy lowdb behavior.
-// Verifies: same public API signatures + equivalent results for core operations.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -34,7 +32,7 @@ describe("DB SQLite layer — public API parity", () => {
     const updated = await sqliteDb.updateSettings({ cloudEnabled: true, customField: "x" });
     expect(updated.cloudEnabled).toBe(true);
     expect(updated.customField).toBe("x");
-    expect(updated.requireLogin).toBe(true); // default preserved
+    expect(updated.requireLogin).toBe(true);
 
     const re = await sqliteDb.getSettings();
     expect(re.cloudEnabled).toBe(true);
@@ -77,12 +75,10 @@ describe("DB SQLite layer — public API parity", () => {
     expect(list[1].priority).toBe(2);
     expect(list[2].priority).toBe(3);
 
-    // Update priority and reorder
     await sqliteDb.updateProviderConnection(c3.id, { priority: 1 });
     const reordered = await sqliteDb.getProviderConnections({ provider: "test" });
     expect(reordered[0].name).toBe("c");
 
-    // Delete reorders remaining
     await sqliteDb.deleteProviderConnection(c1.id);
     const after = await sqliteDb.getProviderConnections({ provider: "test" });
     expect(after).toHaveLength(2);
@@ -131,7 +127,6 @@ describe("DB SQLite layer — public API parity", () => {
       backoffLevel: 0,
       rateLimitedUntil: null,
     });
-    // Cleared locks are deleted, not stored as null.
     expect(back).not.toHaveProperty("modelLock_modelA");
     expect(back).not.toHaveProperty("modelLock_modelB");
   });
@@ -248,7 +243,7 @@ describe("DB SQLite layer — public API parity", () => {
     await new Promise((r) => setTimeout(r, 10));
     const p2 = await sqliteDb.createProxyPool({ name: "p2", proxyUrl: "http://b", type: "http" });
     const list = await sqliteDb.getProxyPools();
-    expect(list[0].id).toBe(p2.id); // newest first
+    expect(list[0].id).toBe(p2.id);
     await sqliteDb.deleteProxyPool(p1.id);
     await sqliteDb.deleteProxyPool(p2.id);
   });
@@ -288,7 +283,7 @@ describe("DB SQLite layer — public API parity", () => {
   });
 
   it("customModels: add is visible immediately after a cached read", async () => {
-    await sqliteDb.getCustomModels(); // prime the kv scope cache
+    await sqliteDb.getCustomModels();
     await sqliteDb.addCustomModel({ providerAlias: "p2", id: "m2", type: "llm", name: "Model 2" });
     expect((await sqliteDb.getCustomModels()).find((m) => m.id === "m2")?.name).toBe("Model 2");
     await sqliteDb.addCustomModel({ providerAlias: "p2", id: "m2", type: "llm", name: "Renamed" });
@@ -336,7 +331,6 @@ describe("DB SQLite layer — public API parity", () => {
   });
 
   it("requestDetails: save → query with paging", async () => {
-    // Enable observability first
     await sqliteDb.updateSettings({ enableObservability: true, observabilityBatchSize: 1 });
 
     await sqliteDb.saveRequestDetail({
@@ -345,7 +339,6 @@ describe("DB SQLite layer — public API parity", () => {
       request: { method: "POST" }, response: { status: 200 },
     });
 
-    // Wait for buffer flush
     await new Promise((r) => setTimeout(r, 200));
 
     const got = await sqliteDb.getRequestDetailById("d1");
@@ -363,7 +356,6 @@ describe("DB SQLite layer — public API parity", () => {
     expect(Array.isArray(exported.providerConnections)).toBe(true);
     expect(typeof exported.modelAliases).toBe("object");
 
-    // Add marker, export, import a different payload, verify reset
     await sqliteDb.setModelAlias("marker", "before");
     const snap = await sqliteDb.exportDb();
 

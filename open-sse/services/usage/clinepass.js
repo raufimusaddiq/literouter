@@ -1,14 +1,3 @@
-/**
- * ClinePass usage — GET /api/v1/users/me/plan/usage-limits
- *
- * Auth:
- * - API key: Authorization: Bearer <apiKey>
- * - OAuth: buildClineHeaders(accessToken) → Bearer workos:<JWT>
- *
- * Response shape (verified against app.cline.bot dashboard):
- *   { success: true, data: { limits: [{ type, percentUsed, resetsAt }] } }
- *   type ∈ five_hour | weekly | monthly
- */
 
 import { buildClineHeaders } from "../../shared/clineAuth.js";
 import { proxyAwareFetch } from "../../utils/proxyFetch.js";
@@ -46,11 +35,6 @@ function buildAuthHeaders(accessToken, apiKey) {
   return null;
 }
 
-/**
- * @param {string|null|undefined} accessToken
- * @param {string|null|undefined} apiKey
- * @param {object|null} proxyOptions
- */
 export async function getClinepassUsage(accessToken = null, apiKey = null, proxyOptions = null) {
   const headers = buildAuthHeaders(accessToken, apiKey);
   if (!headers) {

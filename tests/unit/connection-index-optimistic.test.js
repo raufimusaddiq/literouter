@@ -1,5 +1,3 @@
-// An optimistic (pre-commit) lock patch must be visible to indexed reads immediately,
-// otherwise a concurrent request can re-select the account that was just locked.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -20,7 +18,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  try { if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true }); } catch { /* windows EPERM */ }
+  try { if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });
@@ -29,12 +27,11 @@ describe("connection index vs optimistic patch", () => {
   it("lock patched before the first await is visible to the very next indexed read", async () => {
     const a = await repo.createProviderConnection({ provider: "openai", authType: "apikey", name: "a", apiKey: "k1", isActive: true });
     await repo.createProviderConnection({ provider: "openai", authType: "apikey", name: "b", apiKey: "k2", isActive: true });
-    // Warm the cache and build the index.
     await repo.getProviderConnections({ provider: "openai", isActive: true }, { clone: false });
     await repo.getProviderConnectionById(a.id);
 
     const until = new Date(Date.now() + 60_000).toISOString();
-    const pending = repo.updateProviderConnection(a.id, { modelLock___all: until }); // not awaited: pre-commit window
+    const pending = repo.updateProviderConnection(a.id, { modelLock___all: until });
     const list = await repo.getProviderConnections({ provider: "openai", isActive: true }, { clone: false });
     const seen = list.find((c) => c.id === a.id);
     expect(seen.modelLock___all).toBe(until);

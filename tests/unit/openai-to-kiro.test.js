@@ -1,18 +1,9 @@
-/**
- * Unit tests for open-sse/translator/request/openai-to-kiro.js
- *
- * Tests cover:
- *  - openaiToKiroRequest() - basic message conversion
- *  - Image forwarding fix: images in currentMessage must be included in payload
- */
 
 import { describe, it, expect } from "bun:test";
 import { openaiToKiroRequest } from "../../open-sse/translator/request/openai-to-kiro.js";
 
 const contentOf = (result) =>
   result.conversationState.currentMessage.userInputMessage.content;
-// The CodeWhisperer surface rejects a top-level `systemPrompt`, so the
-// translator carries the system text inside the first user turn's content.
 const systemPromptOf = (result) => contentOf(result) || "";
 
 describe("openaiToKiroRequest", () => {
@@ -144,16 +135,12 @@ describe("openaiToKiroRequest", () => {
       const result = openaiToKiroRequest("claude-sonnet-4.6", body, true, {});
 
       const currentMsg = result.conversationState.currentMessage;
-      // HTTP URLs are not supported by Kiro — converted to text placeholder
       expect(currentMsg.userInputMessage.images).toBeUndefined();
       expect(currentMsg.userInputMessage.content).toContain("[Image: https://example.com/photo.jpg]");
     });
   });
 
   describe("tool interaction without client-provided tools", () => {
-    // When the client omits `tools` (e.g. after compaction), structured tool
-    // content must be flattened to text so Kiro's "tools required" 400 never
-    // fires and no phantom tool-calling capability is advertised.
 
     it("should flatten OpenAI tool_calls + tool result into history text with no tools array", () => {
       const body = {
@@ -169,20 +156,16 @@ describe("openaiToKiroRequest", () => {
           { role: "tool", tool_call_id: "call_1", content: "file contents here" },
           { role: "user", content: "Summarize it" }
         ]
-        // note: no `tools`
       };
 
       const result = openaiToKiroRequest("claude-sonnet-4.6", body, true, {});
       const cs = result.conversationState;
 
-      // No structured tool content anywhere
       expect(cs.currentMessage.userInputMessage.userInputMessageContext).toBeUndefined();
       const allJson = JSON.stringify(cs);
       expect(allJson).not.toContain("toolUses");
       expect(allJson).not.toContain("toolResults");
 
-      // Tool call + result preserved as readable text (call lands in history,
-      // result merges into the final currentMessage — assert across both)
       expect(allJson).toContain("[Tool call: read_file(");
       expect(allJson).toContain("[Tool result: file contents here]");
     });
@@ -242,24 +225,19 @@ describe("openaiToKiroRequest", () => {
       const result = openaiToKiroRequest("claude-sonnet-4.6", body, true, {});
       const cs = result.conversationState;
 
-      // Structured tool spec carried on currentMessage
       const tools = cs.currentMessage.userInputMessage.userInputMessageContext?.tools;
       expect(tools).toBeDefined();
       expect(tools[0].toolSpecification.name).toBe("read_file");
 
-      // Structured tool history preserved (not flattened to text)
       const allJson = JSON.stringify(cs);
       expect(allJson).toContain("toolUses");
       expect(allJson).not.toContain("[Tool call:");
     });
 
     it("should salvage orphaned tool_result content as text instead of discarding it", () => {
-      // Client provides tools, but compaction removed the assistant tool_use
-      // message, leaving a tool_result whose tool_use_id matches nothing.
       const body = {
         messages: [
           { role: "user", content: "Start" },
-          // (assistant tool_use for "orphan_call" was compacted away)
           {
             role: "user",
             content: [
@@ -280,9 +258,7 @@ describe("openaiToKiroRequest", () => {
       const cs = result.conversationState;
       const allJson = JSON.stringify(cs);
 
-      // The dangling structured reference is gone (would trigger Kiro 400)...
       expect(allJson).not.toContain("orphan_call");
-      // ...but the content is preserved as salvaged text, not discarded.
       expect(allJson).toContain("[Tool result: important orphaned output]");
     });
   });

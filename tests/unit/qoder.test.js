@@ -1,13 +1,3 @@
-/**
- * Unit tests for Qoder encoding + COSY signing primitives.
- *
- * These cover the parts that would silently produce wrong-but-plausible
- * output if logic regressed:
- *   - body encoder boundary cases (empty input, lengths not divisible by 3)
- *   - COSY header production (signature deterministic given fixed inputs,
- *     all required headers present, sigPath correctly stripped)
- *   - device flow URL construction
- */
 
 import { describe, it, expect, beforeEach } from "bun:test";
 import crypto from "crypto";
@@ -30,9 +20,6 @@ import {
 } from "../../open-sse/shared/qoder/attachments.js";
 import { qoderInferenceBase } from "../../open-sse/shared/qoder/constants.js";
 
-// Convenience aliases — tests were originally written against module-level
-// helpers; the QoderService class wraps them so each test creates its own
-// instance to avoid hidden state.
 const generatePkcePair = () => new QoderService().generatePkcePair();
 const initiateDeviceFlow = () => new QoderService().initiateDeviceFlow();
 const parseExpiry = QoderService.parseExpiry;
@@ -49,13 +36,13 @@ describe("QODER_MODEL_MAP", () => {
 
 describe("qoderEncodeBody", () => {
   it("preserves base64 length (input length divisible by 3)", () => {
-    const input = Buffer.from("abcdef", "utf8"); // 6 bytes → 8 base64 chars
+    const input = Buffer.from("abcdef", "utf8");
     const encoded = qoderEncodeBody(input);
     expect(encoded.length).toBe(8);
   });
 
   it("preserves base64 length (input length not divisible by 3)", () => {
-    const input = Buffer.from("hello", "utf8"); // 5 bytes → 8 base64 chars (with padding)
+    const input = Buffer.from("hello", "utf8");
     const encoded = qoderEncodeBody(input);
     expect(encoded.length).toBe(8);
   });
@@ -72,9 +59,6 @@ describe("qoderEncodeBody", () => {
   });
 
   it("only emits characters from the custom alphabet", () => {
-    // The custom alphabet is "_doRTgHZBKcGVjlvpC,@aFSx#DPuNJme&i*MzLOEn)sUrthbf%Y^w.(kIQyXqWA!"
-    // plus "$" for the padding char. If the substitution step regresses,
-    // characters outside that set would leak into the output.
     const allowed = new Set(
       "_doRTgHZBKcGVjlvpC,@aFSx#DPuNJme&i*MzLOEn)sUrthbf%Y^w.(kIQyXqWA!$",
     );
@@ -102,7 +86,6 @@ describe("qoderEncodeBody", () => {
 describe("generatePkcePair", () => {
   it("produces base64url-safe verifier and challenge of the right length", () => {
     const { verifier, challenge } = generatePkcePair();
-    // 32 bytes → 43 base64url chars (no padding)
     expect(verifier.length).toBe(43);
     expect(challenge.length).toBe(43);
     expect(verifier).toMatch(/^[A-Za-z0-9_-]+$/);
@@ -112,7 +95,6 @@ describe("generatePkcePair", () => {
   it("verifier and challenge are different (challenge is sha256 of verifier)", () => {
     const { verifier, challenge } = generatePkcePair();
     expect(verifier).not.toBe(challenge);
-    // S256: challenge should be base64url(sha256(verifier))
     const expected = crypto
       .createHash("sha256")
       .update(verifier)
@@ -124,8 +106,6 @@ describe("generatePkcePair", () => {
   });
 
   it("returns codeVerifier (not verifier) on the higher-level helper", () => {
-    // Regression: the providers.js qoder entry once read flow.verifier (undefined)
-    // because initiateDeviceFlow returns the field as `codeVerifier`.
     const flow = initiateDeviceFlow();
     expect(typeof flow.codeVerifier).toBe("string");
     expect(flow.codeVerifier.length).toBe(43);
@@ -252,10 +232,6 @@ describe("buildCosyHeaders", () => {
   });
 
   it("two calls with identical inputs differ only in fields that include fresh randomness", () => {
-    // The signature fingerprints a fresh AES key + UUID per call, so the
-    // signature, Cosy-Key, X-Request-Id, and Cosy-Date (1s resolution)
-    // can differ — but Cosy-User, Cosy-Bodyhash, Cosy-Bodylength,
-    // Cosy-Sigpath, and the machineId-derived headers must be stable.
     const a = buildCosyHeaders(Buffer.from("payload", "utf8"), QODER_CHAT_URL_ENCODED, creds);
     const b = buildCosyHeaders(Buffer.from("payload", "utf8"), QODER_CHAT_URL_ENCODED, creds);
     expect(a["Cosy-User"]).toBe(b["Cosy-User"]);
@@ -268,8 +244,6 @@ describe("buildCosyHeaders", () => {
 });
 
 describe("parseExpiry", () => {
-  // Regression for review finding #2: numeric expires_at was silently
-  // dropped because the function only inspected strings.
   it("accepts ms-epoch as a JSON number", () => {
     const future = Date.now() + 60_000;
     expect(parseExpiry(future, undefined)).toBe(future);
@@ -285,15 +259,8 @@ describe("parseExpiry", () => {
     expect(parseExpiry(iso, undefined)).toBe(Date.parse(iso));
   });
 
-  // Regression for review finding #5: Date.parse("2026") returns Jan 1 2026,
-  // so a short numeric string like "2026" used to be interpreted as a year
-  // instead of falling through to the integer-ms branch. We now try the
-  // pure-numeric path first so this can't happen again.
   it("does not interpret short numeric strings as a year", () => {
-    // "1700000000" (Unix seconds) should NOT come out as Date.parse("1700000000")
     const result = parseExpiry("1700000000", undefined);
-    // 1.7e9 ms = 1970-01-20 — the function's contract is ms, so we expect
-    // exactly that value, not a year interpretation.
     expect(result).toBe(1_700_000_000);
   });
 
@@ -305,9 +272,6 @@ describe("parseExpiry", () => {
     expect(result).toBeLessThanOrEqual(after + 60_000);
   });
 
-  // Regression for review finding #7: expiresInSeconds=0 used to be treated
-  // as missing and silently fabricated 30-day default. We now honor 0 as
-  // "already expired".
   it("treats expires_in: 0 as already expired (now), not 30-day fallback", () => {
     const before = Date.now();
     const result = parseExpiry(undefined, 0);
@@ -320,7 +284,6 @@ describe("parseExpiry", () => {
     const before = Date.now();
     const result = parseExpiry(undefined, undefined);
     const expected = before + 30 * 24 * 60 * 60 * 1000;
-    // Allow a small skew to absorb test runtime.
     expect(result).toBeGreaterThanOrEqual(expected - 5_000);
     expect(result).toBeLessThanOrEqual(expected + 5_000);
   });
@@ -458,7 +421,6 @@ describe("normalizeMessages", () => {
 describe("wrapQoderSSE", () => {
   const { wrapQoderSSE } = qoderExecutorInternals;
 
-  // Helper: build a fake Response carrying the given lines as the body.
   function makeResponse(lines, { status = 200 } = {}) {
     const body = new ReadableStream({
       start(controller) {
@@ -470,7 +432,6 @@ describe("wrapQoderSSE", () => {
     return new Response(body, { status });
   }
 
-  // Helper: drain a wrapped response into an array of decoded SSE events.
   async function drain(response) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -493,21 +454,14 @@ describe("wrapQoderSSE", () => {
     expect(out).toContain("data: [DONE]\n\n");
   });
 
-  // Regression for review finding #4: a final data: line without a trailing
-  // newline used to be silently dropped from `buffer` in flush().
   it("drains a trailing partial line without a newline in flush()", async () => {
     const inner = JSON.stringify({ choices: [{ delta: { content: "tail" } }], finish_reason: "stop" });
-    // Note: NO trailing \n on the final line.
     const upstream = `data: ${JSON.stringify({ statusCodeValue: 200, body: inner })}`;
     const wrapped = await wrapQoderSSE(makeResponse([upstream]), "qoder/auto");
     const out = await drain(wrapped);
     expect(out).toContain(`data: ${inner}\n\n`);
   });
 
-  // Regression for review finding #3: chunks could leak past [DONE] when
-  // the success branch had no doneEmitted guard. We synthesize an error
-  // envelope after content (which sets doneEmitted=true), followed by a valid envelope
-  // and assert the second envelope is NOT forwarded.
   it("does not forward chunks after [DONE] has been emitted", async () => {
     const errorEnv = JSON.stringify({ statusCodeValue: 500, body: "boom" });
     const validInner = JSON.stringify({ choices: [{ delta: { content: "leak" } }] });
@@ -518,24 +472,17 @@ describe("wrapQoderSSE", () => {
     );
     const out = await drain(wrapped);
     expect(out).not.toContain("leak");
-    // Should still have a single [DONE].
     const doneCount = (out.match(/data: \[DONE\]/g) || []).length;
     expect(doneCount).toBe(1);
   });
 
-  // Regression for review finding #6: literal newlines inside the inner
-  // OpenAI body would split the SSE frame across multiple data: lines.
-  // We now strip them so the frame stays a single event.
   it("strips embedded newlines from inner body before forwarding", async () => {
     const innerWithNewlines = '{"choices":[{"delta":{"content":"a\nb"}}]}';
     const env = JSON.stringify({ statusCodeValue: 200, body: innerWithNewlines });
     const wrapped = await wrapQoderSSE(makeResponse([`data: ${env}\n\n`]), "qoder/auto");
     const out = await drain(wrapped);
-    // The forwarded data: line should be a single event terminated by \n\n
-    // and contain no internal \n other than the trailing pair.
     const dataLine = out.split("\n\n").find((l) => l.startsWith("data: ") && !l.includes("[DONE]"));
     expect(dataLine).toBeDefined();
-    // Body sans "data: " prefix should be valid JSON.
     expect(() => JSON.parse(dataLine.slice("data: ".length))).not.toThrow();
   });
 

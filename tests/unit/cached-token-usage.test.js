@@ -3,30 +3,21 @@ import { canonicalizeUsage, extractUsage, mergeUsage } from "../../open-sse/util
 import { calculateCostFromTokens } from "../../open-sse/providers/pricing.js";
 import { buildUsage, toOpenAIUsage } from "../../open-sse/translator/concerns/usage.js";
 
-// Canonical convention (single source of truth for storage + cost):
-//   prompt_tokens             = total input INCLUDING cache read + cache creation
-//   cached_tokens             = cache-read portion (subset of prompt_tokens)
-//   cache_creation_input_tokens = cache-write portion (subset of prompt_tokens)
-//   completion_tokens         = output
-// Discriminator: Claude reports cache separately (prompt EXCLUDES cache);
-// OpenAI/Gemini report prompt INCLUDING cached_tokens.
 describe("canonicalizeUsage", () => {
   it("folds Claude exclusive cache into an inclusive prompt count", () => {
-    // Claude: input_tokens excludes cache; cache_read + cache_creation are separate
     const out = canonicalizeUsage({
       prompt_tokens: 100,
       completion_tokens: 50,
       cache_read_input_tokens: 200,
       cache_creation_input_tokens: 30,
     });
-    expect(out.prompt_tokens).toBe(330); // 100 + 200 + 30
+    expect(out.prompt_tokens).toBe(330);
     expect(out.completion_tokens).toBe(50);
     expect(out.cached_tokens).toBe(200);
     expect(out.cache_creation_input_tokens).toBe(30);
   });
 
   it("passes through OpenAI inclusive prompt unchanged", () => {
-    // OpenAI: prompt_tokens already includes cached_tokens (a subset)
     const out = canonicalizeUsage({
       prompt_tokens: 330,
       completion_tokens: 50,
@@ -50,10 +41,6 @@ describe("canonicalizeUsage", () => {
   });
 
   it("reads cached_tokens from the nested buildUsage() shape", () => {
-    // buildUsage() only emits cache reads under prompt_tokens_details. The
-    // Responses translator overwrites state.usage with that shape on
-    // response.completed, so a top-level-only read silently drops the cache
-    // count for every Responses provider (codex, grok-cli, ...).
     const out = canonicalizeUsage(
       buildUsage({ promptTokens: 330, completionTokens: 50, totalTokens: 380, cachedTokens: 200 })
     );
@@ -88,15 +75,12 @@ describe("canonicalizeUsage", () => {
   });
 
   it("folds a Claude cache-miss first write (cache_creation only, no cache_read yet)", () => {
-    // Cache-miss on first write: upstream emits cache_creation_input_tokens but
-    // no cache_read_input_tokens at all (not even 0). Must still fold into prompt
-    // instead of falling through to the OpenAI passthrough branch.
     const out = canonicalizeUsage({
       prompt_tokens: 100,
       completion_tokens: 20,
       cache_creation_input_tokens: 500,
     });
-    expect(out.prompt_tokens).toBe(600); // 100 + 0 (no read) + 500
+    expect(out.prompt_tokens).toBe(600);
     expect(out.cached_tokens).toBe(0);
     expect(out.cache_creation_input_tokens).toBe(500);
   });
@@ -106,7 +90,6 @@ describe("calculateCostFromTokens (canonical inclusive convention)", () => {
   const pricing = { input: 3, output: 15, cached: 0.3, cache_creation: 3.75 };
 
   it("prices cached + cache_creation as subsets of an inclusive prompt without double-counting", () => {
-    // prompt=330 includes 200 cached + 30 cache_creation → 100 full-price input
     const cost = calculateCostFromTokens(
       { prompt_tokens: 330, completion_tokens: 50, cached_tokens: 200, cache_creation_input_tokens: 30 },
       pricing
@@ -117,7 +100,6 @@ describe("calculateCostFromTokens (canonical inclusive convention)", () => {
   });
 
   it("does not let cache_creation drive nonCached negative", () => {
-    // pathological: cached + creation exceeds prompt → nonCached clamps at 0
     const cost = calculateCostFromTokens(
       { prompt_tokens: 100, completion_tokens: 0, cached_tokens: 80, cache_creation_input_tokens: 40 },
       pricing
@@ -144,7 +126,6 @@ describe("Anthropic streaming usage (message_start carries cache, message_delta 
   });
 
   it("merges message_start cache with message_delta output without clobbering", () => {
-    // Real Anthropic SSE: cache only in message_start, real output only in message_delta.
     const start = extractUsage({
       type: "message_start",
       message: { usage: { input_tokens: 100, output_tokens: 1, cache_read_input_tokens: 200, cache_creation_input_tokens: 30 } },
@@ -156,17 +137,14 @@ describe("Anthropic streaming usage (message_start carries cache, message_delta 
     expect(merged.cache_creation_input_tokens).toBe(30);
     expect(merged.completion_tokens).toBe(50);
 
-    // And it canonicalizes to a cache-inclusive prompt for storage/cost.
     const canon = canonicalizeUsage(merged);
-    expect(canon.prompt_tokens).toBe(330); // 100 + 200 + 30
+    expect(canon.prompt_tokens).toBe(330);
     expect(canon.cached_tokens).toBe(200);
     expect(canon.cache_creation_input_tokens).toBe(30);
     expect(canon.completion_tokens).toBe(50);
   });
 
   it("does not let a NaN field poison the running max-merge", () => {
-    // typeof NaN === "number", so a naive Math.max(prev, NaN) is NaN — one
-    // malformed chunk must not wipe out an already-accumulated good value.
     const prev = { prompt_tokens: 100, cache_read_input_tokens: 200 };
     const bad = { prompt_tokens: NaN, completion_tokens: 50 };
     const merged = mergeUsage(prev, bad);
@@ -186,9 +164,6 @@ describe("Kiro usage pass-through", () => {
   });
 
   it("forward-compat: surfaces cache fields if Kiro event shape grows them", () => {
-    // ponytail: Amazon Q upstream doesn't expose cache today, but if it starts
-    // sending cache_read_input_tokens / cache_creation_input_tokens / cachedTokens,
-    // cost tracking should pick them up automatically without another change.
     const out = toOpenAIUsage(
       { inputTokens: 500, outputTokens: 100, cache_read_input_tokens: 200, cache_creation_input_tokens: 50 },
       "kiro"

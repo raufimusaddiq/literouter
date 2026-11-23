@@ -1,11 +1,3 @@
-// REAL integration test for thinking normalization: sends a reasoning prompt with
-// reasoning_effort to every thinking-capable provider that has an active credential,
-// then asserts the upstream accepted it (no 400) and emitted reasoning output.
-// Gated by RUN_REAL=1 so the default `vitest run` never touches the network.
-//
-//   RUN_REAL=1 npx vitest run -c tests/vitest.config.js "tests/translator/real/thinking"
-//   RUN_REAL=1 REAL_PROVIDERS=claude,glm,deepseek npx vitest run -c tests/vitest.config.js "tests/translator/real/thinking"
-//
 import { describe, it, expect } from "bun:test";
 import { getProviderCredentials } from "../../../src/sse/services/auth.js";
 import { checkAndRefreshToken } from "../../../src/sse/services/tokenRefresh.js";
@@ -20,7 +12,6 @@ const EFFORT = process.env.THINK_EFFORT || "high";
 const PROVIDER_FILTER = (process.env.REAL_PROVIDERS || "")
   .split(",").map((s) => s.trim()).filter(Boolean);
 
-// First plain llm model that the capability registry marks as reasoning-capable.
 function firstReasoningModel(providerId) {
   const models = getModelsByProviderId(providerId);
   for (const m of models) {
@@ -80,7 +71,6 @@ describe.skipIf(!RUN_REAL).concurrent("REAL thinking normalization", () => {
         });
 
         if (!result.success) {
-          // 400 = our thinking payload was rejected → real bug. Other codes = credential/quota.
           const credIssue = [401, 402, 403, 429].includes(Number(result.status));
           if (credIssue) {
             console.warn(`[skip] ${providerId}: ${result.status} (credential/quota)`);
@@ -93,7 +83,6 @@ describe.skipIf(!RUN_REAL).concurrent("REAL thinking normalization", () => {
         const raw = await drainSSE(result.response);
         expect(raw.length, `${providerId}: empty response`).toBeGreaterThan(0);
         const hasReasoning = /reasoning_content|"thinking"|reasoning_details|<think/.test(raw);
-        // Log so the operator can eyeball which providers actually streamed reasoning.
         console.log(`[ok] ${providerId}/${model} reasoning=${hasReasoning}`);
         expect(/data:|"delta"|"content"|finish_reason/.test(raw), `${providerId}: not SSE`).toBe(true);
       },

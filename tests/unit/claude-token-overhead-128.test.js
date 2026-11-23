@@ -1,6 +1,3 @@
-// #128: does LiteRouter add input tokens to Claude requests? These tests pin the
-// verified answer for each candidate, so the numbers are reproducible in CI and a
-// change that alters them shows up as a failure rather than a silent cost.
 import { describe, it, expect } from "bun:test";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
@@ -21,9 +18,6 @@ const tool = (name) => ({ name, description: "d", input_schema: { type: "object"
 const use = (id) => ({ role: "assistant", content: [text("Reading."), { type: "tool_use", id, name: "read_file", input: { path: "a" } }] });
 const result = (id) => ({ role: "user", content: [{ type: "tool_result", tool_use_id: id, content: "file" }] });
 
-// No credential is passed anywhere here: the OAuth gate (translator/index.js) is
-// covered by claude-tool-compat.test.js. cloakOAuth() reproduces what that gate
-// runs, in the same order: prepareClaudeRequest first, then cloakClaudeTools.
 const toClaude = (source, body) =>
   translateRequest(source, FORMATS.CLAUDE, MODEL, body, true, null, "claude", null, [], "conn-128", null);
 const cloakOAuth = (body) => cloakClaudeTools(toClaude(FORMATS.OPENAI, body)).body;

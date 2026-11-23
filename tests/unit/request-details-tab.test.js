@@ -1,6 +1,3 @@
-// Backend logic behind /dashboard/usage?tab=details.
-// Covers crash-risk edge cases in getRequestDetails() used by
-// /api/usage/request-details and /api/usage/providers.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -14,8 +11,6 @@ let adapter;
 
 async function saveDetail(detail) {
   await db.saveRequestDetail(detail);
-  // Deterministic drain. The repo buffers writes and flushes on an interval
-  // (default 5s), so a fixed sleep races the timer and reads back null.
   await db.flushRequestDetails();
 }
 
@@ -39,7 +34,6 @@ afterAll(() => {
 
 describe("request details — tab crash-risk cases", () => {
   it("corrupt data column → parseJson fallback {}, no throw", async () => {
-    // Inject a row with invalid JSON directly, bypassing save path
     adapter.run(
       `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?)`,
       ["corrupt-1", new Date().toISOString(), "openai", "gpt-4", null, "ok", "{not-valid-json"]
@@ -60,8 +54,6 @@ describe("request details — tab crash-risk cases", () => {
   });
 
   it("invalid startDate → Invalid Date ISO throws inside getRequestDetails is caught upstream", async () => {
-    // new Date("bad").toISOString() throws RangeError; verify it surfaces
-    // so the API route's try/catch returns 500 rather than silent corruption.
     await expect(db.getRequestDetails({ startDate: "not-a-date" })).rejects.toThrow();
   });
 
@@ -95,7 +87,6 @@ describe("request details — tab crash-risk cases", () => {
 
     const got = await db.getRequestDetailById("trunc-1");
     expect(got).toBeDefined();
-    // Truncated field is a plain object safe for JSON.stringify in the drawer
     expect(() => JSON.stringify(got)).not.toThrow();
     expect(got.request._truncated).toBe(true);
   });
@@ -107,13 +98,10 @@ describe("request details — tab crash-risk cases", () => {
     );
     const got = await db.getRequestDetailById("sparse-1");
     expect(got.tokens).toBeUndefined();
-    // Drawer reads tokens?.prompt_tokens — optional chaining tolerates undefined
     expect(got.tokens?.prompt_tokens || 0).toBe(0);
   });
 });
 
-// Mirror of RequestDetailsTab token helpers (component is "use client",
-// helpers are not exported). Keep in sync with the component.
 function getCachedTokens(tokens) {
   return tokens?.cached_tokens || tokens?.cache_read_input_tokens || 0;
 }
@@ -135,14 +123,11 @@ describe("backupDbLite — excludes requestDetails, keeps critical data", () => 
     const dest = backupDbLite(adapter, backupDir);
     expect(fs.existsSync(dest)).toBe(true);
 
-    // Open backup and assert requestDetails is empty, settings present
     const Database = (await import("better-sqlite3")).default;
     const bak = new Database(dest);
     try {
-      // requestDetails is fully excluded — table must not exist in the backup
       const rdTable = bak.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='requestDetails'").get();
       expect(rdTable).toBeUndefined();
-      // Critical data preserved
       const st = bak.prepare("SELECT COUNT(*) c FROM settings").get();
       expect(st.c).toBeGreaterThanOrEqual(1);
     } finally {
@@ -162,7 +147,6 @@ describe("getDistinctProviders — providers route (no full-row parse)", () => {
     expect(Array.isArray(list)).toBe(true);
     expect(list).toContain("openai");
     expect(list).toContain("anthropic");
-    // No duplicates
     expect(new Set(list).size).toBe(list.length);
   });
 

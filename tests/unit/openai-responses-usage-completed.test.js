@@ -3,17 +3,6 @@ import { describe, expect, it } from "bun:test";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { createSSETransformStreamWithLogger } from "../../open-sse/utils/stream.js";
 
-/**
- * Upstream chunks -> client Responses API events.
- *
- * The converter under test is openaiToOpenAIResponsesResponse(), reached through
- * the registered OPENAI:OPENAI_RESPONSES pair. Without it, /v1/responses never
- * reports usage and Responses clients (Codex CLI) keep their context gauge at 0,
- * so they never auto-compact and eventually hit the upstream context limit.
- *
- * Signature is (targetFormat, sourceFormat, ...) — targetFormat is what the
- * UPSTREAM speaks, sourceFormat is what the CLIENT speaks.
- */
 async function runTransform(chunks, targetFormat = FORMATS.OPENAI) {
   const encoder = new TextEncoder();
   const input = chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("");
@@ -78,8 +67,6 @@ const FINISH_CHUNK = {
   choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
 };
 
-// Usage-only trailer: `choices` is empty, exactly as OpenAI emits it when
-// stream_options.include_usage is set.
 const USAGE_ONLY_CHUNK = {
   id: "chatcmpl-test",
   object: "chat.completion.chunk",
@@ -101,9 +88,6 @@ const EXPECTED_USAGE = {
   input_tokens_details: { cached_tokens: 256 },
 };
 
-// Claude-shaped stream with NO usage anywhere: the only way the client gets a
-// terminal event is the finish_reason branch, because the pivot never reaches
-// flushEvents() with the terminal null chunk.
 const CLAUDE_CHUNKS = [
   { type: "message_start", message: { id: "msg_1", model: "claude-x" } },
   { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
@@ -149,10 +133,6 @@ describe("OpenAI Responses usage on response.completed", () => {
     expect(response).not.toHaveProperty("usage");
   });
 
-  // Regression guard for the pivot: with a Claude upstream the converter runs as
-  // the second hop, translateResponse() drops the terminal null chunk before it
-  // reaches this converter, so flushEvents() never runs. Deferring completion
-  // there would leave the client without any terminal event.
   it("completes on a pivoted stream whose upstream never reports usage", async () => {
     const output = await runTransform(CLAUDE_CHUNKS, FORMATS.CLAUDE);
 

@@ -1,6 +1,3 @@
-// providerThinking mode "on"/"off" must never leak into reasoning_effort.
-// Before the fix, a body that already carried `thinking` fell through to the
-// reasoning_effort branch and shipped the invalid value "on"/"off" upstream.
 import { beforeEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
@@ -46,8 +43,6 @@ vi.mock("../../open-sse/utils/streamHandler.js", () => ({
 
 vi.mock("../../open-sse/services/tokenRefresh.js", () => ({ refreshWithRetry: vi.fn(async (fn) => fn()) }));
 
-// Pass the body through untouched so we assert on the injected fields alone;
-// the real translator legitimately rewrites thinking into the target wire format.
 vi.mock("../../open-sse/translator/index.js", async (importOriginal) => ({
   ...(await importOriginal()),
   translateRequest: vi.fn((_s, _t, _m, body) => body),
@@ -104,7 +99,6 @@ vi.mock("@/lib/usageDb.js", () => ({
   saveRequestDetail: vi.fn(() => Promise.resolve()),
 }));
 
-// A non-user last turn so normalizeThinkingConfig keeps the client's `thinking`.
 function options(providerThinking, thinking) {
   const body = {
     model: "gpt-4.1",
@@ -130,7 +124,6 @@ const calledBody = () => executeMock.mock.calls[0][0].body;
 describe("providerThinking on/off never becomes reasoning_effort", () => {
   beforeEach(() => {
     executeMock.mockReset();
-    // Reject so the handler stops before any response handling; we only read the request body.
     executeMock.mockRejectedValue(new Error("boom"));
   });
 
@@ -160,8 +153,6 @@ describe("providerThinking on/off never becomes reasoning_effort", () => {
   });
 });
 
-// After a token refresh the retry is authoritative: its headers/body replace the
-// stale 401, and the reported failure comes from the retry, not the auth error.
 describe("post-refresh retry supersedes the stale 401", () => {
   const stubResponse = (status) => ({
     status,

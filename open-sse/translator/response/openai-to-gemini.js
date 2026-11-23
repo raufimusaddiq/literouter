@@ -5,11 +5,6 @@ import { fromOpenAIFinish } from "../concerns/finishReason.js";
 import { extractReasoningText } from "../concerns/reasoning.js";
 import { safeParseJSON } from "../concerns/json.js";
 
-// OpenAI Chat Completions -> Gemini GenerateContentResponse (native /v1beta clients).
-//
-// Streaming: OpenAI delivers tool-call arguments as fragments; Gemini delivers a
-// functionCall part whole. Fragments are accumulated per index and emitted once,
-// together with finishReason, when the choice finishes.
 
 function buildUsageMetadata(usage) {
   if (!usage) return null;
@@ -32,7 +27,6 @@ function functionCallPart(call, state) {
   return part;
 }
 
-// One streamed OpenAI chunk -> zero or one Gemini chunk.
 export function openaiToGeminiResponse(chunk, state) {
   if (!chunk || typeof chunk !== "object") return null;
   if (!state._toolCallAccum) state._toolCallAccum = {};
@@ -41,7 +35,6 @@ export function openaiToGeminiResponse(chunk, state) {
 
   const choice = chunk.choices?.[0];
   if (!choice) {
-    // Usage-only trailer (stream_options.include_usage) arriving after the finish chunk.
     const meta = buildUsageMetadata(chunk.usage);
     if (!meta) return null;
     if (!state._finishEmitted) {
@@ -94,7 +87,6 @@ export function openaiToGeminiResponse(chunk, state) {
   return result;
 }
 
-// Whole (non-streaming) OpenAI chat.completion -> Gemini GenerateContentResponse.
 export function openaiCompletionToGemini(body, model, toolNameMap = null) {
   const candidates = (body.choices || []).map((choice, i) => {
     const message = choice.message || {};

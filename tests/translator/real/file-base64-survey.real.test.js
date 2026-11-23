@@ -1,9 +1,3 @@
-// REAL survey: send PDF/DOCX as base64 to every active provider, using the file/document
-// shape NATIVE to each provider's format (claude=document, gemini=inlineData, openai=file).
-// Purpose: discover which providers actually accept inline base64 documents and how they
-// reject DOCX. Survey-only: logs a grouped table, never asserts on accept/reject outcome.
-//
-//   RUN_REAL=1 npx vitest run --config tests/vitest.config.js tests/translator/real/file-base64-survey.real.test.js
 import { describe, it, expect, afterAll } from "bun:test";
 import { getProviderCredentials } from "../../../src/sse/services/auth.js";
 import { checkAndRefreshToken } from "../../../src/sse/services/tokenRefresh.js";
@@ -26,8 +20,6 @@ const DOCX_B64 = "UEsDBBQAAAAIAMZiz1yRzx8FvQAAACkBAAATABwAW0NvbnRlbnRfVHlwZXNdLn
 const PDF_MIME = "application/pdf";
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-// Build a native-format request body carrying one base64 document.
-// fmt = provider target format; returns { sourceFormat, body } or null if format unsupported here.
 function buildFileBody(fmt, mime, b64) {
   const ask = "Summarize this document in one word.";
   if (fmt === "claude") {
@@ -51,7 +43,6 @@ function buildFileBody(fmt, mime, b64) {
       ? { sourceFormat: "antigravity", body: { request: gem, userAgent: "antigravity" } }
       : { sourceFormat: fmt, body: gem };
   }
-  // openai + openai-compat: Chat Completions file block (file_data data URI).
   return { sourceFormat: "openai", body: {
     max_tokens: 64, stream: true,
     messages: [{ role: "user", content: [
@@ -99,7 +90,6 @@ function targetProviders() {
   }
 }
 
-// One model per provider is enough to learn provider-level document support (saves quota).
 const FILE_TYPES = [["pdf", PDF_MIME, PDF_B64], ["docx", DOCX_MIME, DOCX_B64]];
 
 describe.skipIf(!RUN_REAL)("REAL file base64 survey", () => {

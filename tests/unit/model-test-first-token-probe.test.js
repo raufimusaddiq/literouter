@@ -1,12 +1,3 @@
-// The dashboard model test used to wait for a FULL generation (stream:false,
-// max_tokens:1024) under a hardcoded 15 s abort. On a heavy-tailed provider that
-// reported healthy-but-slow models as broken while the upstream call still
-// completed and was billed. It is now a first-token probe: stream, resolve on the
-// first token, cancel the rest, and report a 504 "may be slow" instead of a bare
-// 500 carrying a raw DOMException.
-//
-// The route module pulls in Next.js-only deps (@/lib/localDb, etc.) that don't
-// resolve under raw vitest, so we mock them and exercise the exported function.
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
@@ -19,7 +10,6 @@ const { pingModelByKind } = await import("../../src/app/api/models/test/ping.js"
 
 const BASE = "http://127.0.0.1:20127";
 
-/** Build a real streaming Response so the reader path is exercised, not faked. */
 function sseResponse(chunks, { status = 200 } = {}) {
   const encoder = new TextEncoder();
   return new Response(
@@ -64,7 +54,6 @@ describe("pingModelByKind first-token probe", () => {
             if (sent === 1) {
               return { done: false, value: encoder.encode('data: {"choices":[{"delta":{"content":"hi"}}]}\n\n') };
             }
-            // A real stream would keep producing here; the probe must stop first.
             return new Promise(() => {});
           },
           cancel: cancelled,
@@ -82,7 +71,6 @@ describe("pingModelByKind first-token probe", () => {
     expect(body.stream).toBe(true);
     expect(body.max_tokens).toBe(1024);
 
-    // The rest of the generation must not be read or paid for.
     expect(sent).toBe(1);
     expect(cancelled).toHaveBeenCalled();
   });
@@ -97,9 +85,6 @@ describe("pingModelByKind first-token probe", () => {
   });
 
   it("resolves on the first token of a CRLF-framed event without waiting for EOF", async () => {
-    // The router forwards upstream lines with their line endings intact, so a
-    // CRLF provider reaches this probe as `\r\n\r\n` boundaries. Only accepting
-    // `\n\n` made the probe read past the first token and eventually time out.
     const cancelled = vi.fn();
     const encoder = new TextEncoder();
     let sent = 0;
@@ -114,7 +99,7 @@ describe("pingModelByKind first-token probe", () => {
             if (sent === 1) {
               return { done: false, value: encoder.encode('data: {"choices":[{"delta":{"content":"hi"}}]}\r\n\r\n') };
             }
-            return new Promise(() => {}); // a real stream keeps producing
+            return new Promise(() => {});
           },
           cancel: cancelled,
         }),
@@ -131,7 +116,6 @@ describe("pingModelByKind first-token probe", () => {
   it("resolves on the first token when the event boundary is split across reads", async () => {
     const cancelled = vi.fn();
     const encoder = new TextEncoder();
-    // The terminating CRLF is split: "..." + "\r" then "\n\r\n".
     const parts = [
       'data: {"choices":[{"delta":{"content":"hi"}}]}\r',
       "\n\r\n",
@@ -161,8 +145,8 @@ describe("pingModelByKind first-token probe", () => {
   it("accepts mixed LF and CRLF boundaries in the same stream", async () => {
     fetchMock.mockResolvedValue(
       sseResponse([
-        'data: {"choices":[{"delta":{}}]}\n\n',                        // no token yet, LF framing
-        'data: {"choices":[{"delta":{"content":"hi"}}]}\r\n\r\n',      // first token, CRLF framing
+        'data: {"choices":[{"delta":{}}]}\n\n',
+        'data: {"choices":[{"delta":{"content":"hi"}}]}\r\n\r\n',
       ])
     );
 
@@ -189,8 +173,6 @@ describe("pingModelByKind first-token probe", () => {
   });
 
   it("classifies each data line of a multi-line event separately", async () => {
-    // An event may carry an empty delta followed by the one holding the token;
-    // each data line is its own complete JSON object and must be read on its own.
     fetchMock.mockResolvedValue(
       sseResponse([
         'data: {"choices":[{"delta":{}}]}\r\ndata: {"choices":[{"delta":{"content":"hi"}}]}\r\n\r\n',
@@ -202,8 +184,6 @@ describe("pingModelByKind first-token probe", () => {
   });
 
   it("counts content delivered together with the terminal finish_reason as a token", async () => {
-    // Providers may put content and finish_reason in the same event; that is a
-    // success, not an empty stream.
     fetchMock.mockResolvedValue(
       sseResponse(['data: {"choices":[{"delta":{"content":"hi"},"finish_reason":"stop"}]}\n\n'])
     );

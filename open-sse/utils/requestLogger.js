@@ -1,10 +1,8 @@
 import { redactUrlSecrets } from "./redactUrl.js";
 import { redactClientHeaders, redactUpstreamHeaders } from "./keyFingerprint.js";
 
-// Check if running in Node.js environment (has fs module)
 const isNode = typeof process !== "undefined" && process.versions?.node && typeof window === "undefined";
 
-// Check if logging is enabled via environment variable (default: false)
 const LOGGING_ENABLED = typeof process !== "undefined" && process.env?.ENABLE_REQUEST_LOGS === 'true';
 
 let fs = null;
@@ -16,7 +14,6 @@ const LOG_PRUNE_INTERVAL_MS = Math.max(0, Number.parseInt(process.env.REQUEST_LO
 let lastPruneAt = 0;
 let sessionCount = 0;
 
-// Lazy load Node.js modules (avoid top-level await)
 async function ensureNodeModules() {
   if (!isNode || !LOGGING_ENABLED || fs) return;
   try {
@@ -24,12 +21,9 @@ async function ensureNodeModules() {
     path = await import("path");
     LOGS_DIR = path.join(typeof process !== "undefined" && process.cwd ? process.cwd() : ".", "logs");
   } catch {
-    // Running in non-Node environment (Worker, Browser, etc.)
   }
 }
 
-// All fs work below is async: request logging must never block the event loop
-// (and with it every live stream). Only the lazy module load stays sync.
 async function getDirectorySize(directory) {
   const entries = await fs.promises.readdir(/* turbopackIgnore: true */ directory, { withFileTypes: true });
   const sizes = await Promise.all(entries.map(async (entry) => {
@@ -83,7 +77,6 @@ async function doPrune() {
   }
 }
 
-// Format timestamp for folder name: 20251228_143045_123
 function formatTimestamp(date = new Date()) {
   const pad = (n) => String(n).padStart(2, "0");
   const y = date.getFullYear();
@@ -96,7 +89,6 @@ function formatTimestamp(date = new Date()) {
   return `${y}${m}${d}_${h}${min}${s}_${ms}`;
 }
 
-// Create log session folder: {sourceFormat}_{targetFormat}_{model}_{timestamp}
 async function createLogSession(sourceFormat, targetFormat, model) {
   await ensureNodeModules();
   if (!fs || !LOGS_DIR) return null;
@@ -109,7 +101,6 @@ async function createLogSession(sourceFormat, targetFormat, model) {
 
     await fs.promises.mkdir(/* turbopackIgnore: true */ sessionPath, { recursive: true });
     sessionCount += 1;
-    // Session cap is enforced on the next write; the size cap waits for the interval.
     await pruneLogSessions(sessionCount > LOG_MAX_SESSIONS);
 
     return sessionPath;
@@ -119,14 +110,11 @@ async function createLogSession(sourceFormat, targetFormat, model) {
   }
 }
 
-// One long-lived append stream per (session, file) instead of an
-// appendFileSync per chunk. Streams close themselves after a quiet spell so a
-// finished request never holds a file descriptor.
 const STREAM_IDLE_CLOSE_MS = 2000;
 
 function createSessionWriter(sessionPath) {
-  const streams = new Map();   // filename -> { stream, timer }
-  const pending = new Set();   // in-flight JSON writes
+  const streams = new Map();
+  const pending = new Set();
 
   const closeEntry = (filename) => {
     const entry = streams.get(filename);
@@ -145,7 +133,7 @@ function createSessionWriter(sessionPath) {
       let entry = streams.get(filename);
       if (!entry) {
         const stream = fs.createWriteStream(/* turbopackIgnore: true */ path.join(sessionPath, filename), { flags: "a" });
-        stream.on("error", () => { streams.delete(filename); });  // ignore append errors
+        stream.on("error", () => { streams.delete(filename); });
         entry = { stream, timer: null };
         streams.set(filename, entry);
       }
@@ -172,13 +160,10 @@ function createSessionWriter(sessionPath) {
   };
 }
 
-// Client keys are fingerprinted and other credentials redacted before any
-// header reaches a log file (see keyFingerprint.js).
 function maskSensitiveHeaders(headers) {
   return redactClientHeaders(headers);
 }
 
-// No-op logger when logging is disabled
 function createNoOpLogger() {
   return {
     sessionPath: null,
@@ -196,30 +181,19 @@ function createNoOpLogger() {
   };
 }
 
-/**
- * Create a new log session and return logger functions
- * @param {string} sourceFormat - Source format from client (claude, openai, etc.)
- * @param {string} targetFormat - Target format to provider (antigravity, gemini-cli, etc.)
- * @param {string} model - Model name
- * @returns {Promise<object>} Promise that resolves to logger object with methods to log each stage
- */
 export async function createRequestLogger(sourceFormat, targetFormat, model) {
-  // Return no-op logger if logging is disabled
   if (!LOGGING_ENABLED) {
     return createNoOpLogger();
   }
   
-  // Wait for session to be created before returning logger
   const sessionPath = await createLogSession(sourceFormat, targetFormat, model);
   const writer = createSessionWriter(sessionPath);
   const writeJsonFile = (_sessionPath, filename, data) => writer.writeJson(filename, data);
 
   return {
-    // Resolves once every queued write has hit disk (tests, shutdown).
     flush: () => writer.flush(),
     get sessionPath() { return sessionPath; },
     
-    // 1. Log client raw request (before any conversion)
     logClientRawRequest(endpoint, body, headers = {}) {
       writeJsonFile(sessionPath, "1_req_client.json", {
         timestamp: new Date().toISOString(),
@@ -229,7 +203,6 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
       });
     },
     
-    // 2. Log raw request from client (after initial conversion like responsesApi)
     logRawRequest(body, headers = {}) {
       writeJsonFile(sessionPath, "2_req_source.json", {
         timestamp: new Date().toISOString(),
@@ -238,7 +211,6 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
       });
     },
     
-    // 3. Log OpenAI intermediate format (source → openai)
     logOpenAIRequest(body) {
       writeJsonFile(sessionPath, "3_req_openai.json", {
         timestamp: new Date().toISOString(),
@@ -246,7 +218,6 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
       });
     },
     
-    // 4. Log target format request (openai → target)
     logTargetRequest(url, headers, body) {
       writeJsonFile(sessionPath, "4_req_target.json", {
         timestamp: new Date().toISOString(),
@@ -256,7 +227,6 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
       });
     },
     
-    // 5. Log provider response (for non-streaming or error)
     logProviderResponse(status, statusText, headers, body) {
       const filename = "5_res_provider.json";
       writeJsonFile(sessionPath, filename, {
@@ -268,17 +238,14 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
       });
     },
     
-    // 5. Append streaming chunk to provider response
     appendProviderChunk(chunk) {
       writer.appendChunk("5_res_provider.txt", chunk);
     },
     
-    // 6. Append OpenAI intermediate chunks (target → openai)
     appendOpenAIChunk(chunk) {
       writer.appendChunk("6_res_openai.txt", chunk);
     },
     
-    // 7. Log converted response to client (for non-streaming)
     logConvertedResponse(body) {
       writeJsonFile(sessionPath, "7_res_client.json", {
         timestamp: new Date().toISOString(),
@@ -286,12 +253,10 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
       });
     },
     
-    // 7. Append streaming chunk to converted response
     appendConvertedChunk(chunk) {
       writer.appendChunk("7_res_client.txt", chunk);
     },
     
-    // 6. Log error
     logError(error, requestBody = null) {
       writeJsonFile(sessionPath, "6_error.json", {
         timestamp: new Date().toISOString(),

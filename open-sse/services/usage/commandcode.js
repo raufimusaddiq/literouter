@@ -1,7 +1,3 @@
-/**
- * Command Code usage — billing credits + 5h/weekly rate windows.
- * Mirrors ~/cc-usage.mjs: whoami → credits + subscriptions.
- */
 
 import { proxyAwareFetch } from "../../utils/proxyFetch.js";
 import { parseResetTime, toFiniteNumber } from "./shared.js";
@@ -51,10 +47,6 @@ function windowQuota(win) {
   };
 }
 
-/**
- * @param {string|null|undefined} apiKey
- * @param {object|null} proxyOptions
- */
 export async function getCommandCodeUsage(apiKey, proxyOptions = null) {
   if (!apiKey || typeof apiKey !== "string" || !apiKey.trim()) {
     return { message: "Command Code API key not available. Add a key to view usage." };

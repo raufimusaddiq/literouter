@@ -16,8 +16,6 @@ describe("minimal profile route boundary", () => {
     expect(hidden).not.toContain("/api/version/shutdown");
   });
 
-  // Basic Chat was deleted outright rather than hidden: nothing retained
-  // imported it, so the minimal profile carries no route and no guard entry.
   it("deletes Basic Chat instead of hiding a live route", () => {
     expect(hidden).not.toContain("/dashboard/basic-chat");
     expect(() =>
@@ -27,10 +25,6 @@ describe("minimal profile route boundary", () => {
     ).toThrow();
   });
 
-  // PRD section 4 lists media-provider management, image/video generation,
-  // speech/STT/TTS and embeddings surfaces as non-goals. The dashboard pages,
-  // the TTS voice routes they drove, and the /v1/audio/* proxy family are
-  // deleted rather than gated: nothing retained imported them.
   it("deletes the media surfaces instead of hiding them", () => {
     for (const path of [
       "../../src/app/(dashboard)/dashboard/media-providers/[kind]/page.js",
@@ -48,8 +42,6 @@ describe("minimal profile route boundary", () => {
     expect(hidden).not.toContain("/api/media-providers");
   });
 
-  // CLI-tools configuration writers, the MITM product page, and the
-  // mitmAlias sync cache were only reachable from their own routes.
   it("deletes the CLI-tools and MITM surfaces instead of hiding them", () => {
     for (const path of [
       "../../src/app/(dashboard)/dashboard/cli-tools/page.js",
@@ -85,9 +77,6 @@ describe("minimal profile route boundary", () => {
     }
   });
 
-  // PRD 18 removes Cloudflare Tunnel and Tailscale provisioning. The routes,
-  // the managers, and the MITM runtime they shared are deleted outright, and
-  // the retained Endpoint page no longer mentions either one.
   it("deletes tunnel, Tailscale, and the Endpoint page's tunnel UI", () => {
     const page = readFileSync(
       new URL("../../src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.js", import.meta.url),
@@ -166,8 +155,6 @@ describe("minimal profile route boundary", () => {
     expect(hidden).not.toContain("/api/proxy-pools");
   });
 
-  // The sidebar advertised the upstream 9english.net marketing site. Under the
-  // minimal profile the sidebar should carry only product navigation.
   it("deletes external promotional links from the sidebar", () => {
     const sidebar = readFileSync(
       new URL("../../src/shared/components/Sidebar.js", import.meta.url),
@@ -177,11 +164,6 @@ describe("minimal profile route boundary", () => {
     expect(sidebar).not.toContain("9Remote");
   });
 
-  // Console Log is retained: it is the only in-browser view of server-side
-  // console output, and the retained Usage/details pages show request records
-  // rather than the log stream. Its API also had to move off `/api/translator`,
-  // a hidden prefix, or hiding the translator playground silently took the log
-  // stream down with it.
   it("retains the Console Log page, its sidebar entry, and its API", () => {
     expect(hidden).not.toContain("/dashboard/console-log");
 
@@ -189,19 +171,15 @@ describe("minimal profile route boundary", () => {
       new URL("../../src/shared/components/Sidebar.js", import.meta.url),
       "utf8"
     );
-    // Sidebar is static now: no profile branching remains, so the entry is
-    // the whole contract.
     expect(sidebar).toContain('"/dashboard/console-log"');
     expect(sidebar).not.toContain("nonMinimal");
 
-    // The log API must not sit under a hidden prefix.
     const shadowed = hidden.some(
       (h) => "/api/console-logs" === h || "/api/console-logs".startsWith(h)
     );
     expect(shadowed, "/api/console-logs must not be hidden").toBe(false);
     expect(hidden).not.toContain("/api/translator");
 
-    // The console-log API remains protected in its own right.
     const protectedBlock = source.match(/const PROTECTED_API_PATHS = \[([\s\S]*?)\];/)?.[1] || "";
     expect(protectedBlock).toContain('"/api/console-logs"');
   });

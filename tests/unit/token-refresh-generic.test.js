@@ -1,10 +1,3 @@
-/**
- * Generic OAuth2 token refresh — config-driven profiles.
- *
- * Verifies refreshAccessToken() handles the 4 foldable providers
- * (iflow, github, kimi, claude) via a REFRESH_PROFILES table,
- * while preserving the legacy generic path for unknown providers.
- */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
@@ -60,7 +53,6 @@ describe("refreshAccessToken — config-driven profiles", () => {
     }, console);
 
     const headers = fm.mock.calls[0][1].headers;
-    // Kimi's buildKimiHeaders must contribute at least one X-Msh- header
     const mshKeys = Object.keys(headers).filter((k) => k.toLowerCase().startsWith("x-msh-"));
     expect(mshKeys.length).toBeGreaterThan(0);
   });

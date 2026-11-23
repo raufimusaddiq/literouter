@@ -29,7 +29,6 @@ export default {
       url: "https://api.z.ai/api/monitor/usage/quota/limit",
     },
   },
-  // Multi-endpoint: pick the transport matching client sourceFormat to skip translation.
   transports: [
     {
       format: "openai",

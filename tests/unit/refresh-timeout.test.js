@@ -1,4 +1,3 @@
-// T-35: a hung OAuth refresh endpoint must abort at REFRESH_TIMEOUT_MS and count as a failed refresh.
 import { describe, it, expect, afterAll } from "bun:test";
 import http from "node:http";
 
@@ -10,7 +9,7 @@ const { REFRESH_TIMEOUT_MS } = await import("../../open-sse/config/runtimeConfig
 const { refreshSignal } = await import("../../open-sse/utils/requestTimeouts.js");
 
 const sockets = new Set();
-const server = http.createServer(() => { /* never answers */ });
+const server = http.createServer(() => {});
 server.on("connection", (s) => { sockets.add(s); s.on("close", () => sockets.delete(s)); });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const hung = `http://127.0.0.1:${server.address().port}/token`;

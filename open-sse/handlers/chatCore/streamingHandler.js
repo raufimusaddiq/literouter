@@ -15,8 +15,6 @@ import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants.js";
 import { upstreamResponseHeaders } from "../../utils/upstreamHeaders.js";
 import { restoreToolNames } from "../../utils/opencodeFingerprint.js";
 
-// Codex returns Responses API SSE → which client format to translate INTO, by request sourceFormat.
-// Gemini-family all map to ANTIGRAVITY decoder; unknown sources fall back to OPENAI.
 const CODEX_SOURCE_TO_TARGET = {
   [FORMATS.OPENAI_RESPONSES]: FORMATS.OPENAI_RESPONSES,
   [FORMATS.CLAUDE]: FORMATS.CLAUDE,
@@ -25,9 +23,6 @@ const CODEX_SOURCE_TO_TARGET = {
   [FORMATS.GEMINI_CLI]: FORMATS.ANTIGRAVITY,
 };
 
-/**
- * Determine which SSE transform stream to use based on provider/format.
- */
 function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey, credentials }) {
   if (toolNameMap?.size && sourceFormat === targetFormat) {
     if (sourceFormat === FORMATS.OPENAI_RESPONSES) {
@@ -37,7 +32,6 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
     return createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider, reqLogger, toolNameMap, model, connectionId, body, onStreamComplete, apiKey, customToolNames, credentials);
   }
   const isDroidCLI = userAgent?.toLowerCase().includes("droid") || userAgent?.toLowerCase().includes("codex-cli");
-  // Responses-API providers (e.g. codex) emit Responses SSE → translate into client format
   const isResponsesProvider = PROVIDERS[provider]?.format === FORMATS.OPENAI_RESPONSES;
   const needsCodexTranslation = isResponsesProvider && targetFormat === FORMATS.OPENAI_RESPONSES && !isDroidCLI;
 
@@ -50,39 +44,22 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
     return createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider, reqLogger, toolNameMap, model, connectionId, body, onStreamComplete, apiKey, customToolNames, credentials);
   }
 
-  // Quirk providers (kenari /v1/responses): same-format Responses stream, but
-  // function_call events for converted custom tools must be rewritten back to
-  // Codex's native custom_tool_call events before re-emission.
   if (PROVIDERS[provider]?.quirks?.responsesFunctionToolsOnly && targetFormat === FORMATS.OPENAI_RESPONSES && sourceFormat === FORMATS.OPENAI_RESPONSES) {
     const rewriteEvent = createResponsesEventRewriter(customToolNames);
     return createResponsesRewriteStreamWithLogger(provider, reqLogger, model, connectionId, body, onStreamComplete, apiKey, rewriteEvent);
   }
 
-  // The passthrough path has no format translation, so the fingerprint's tool
-  // rename map (read -> read_client) has to be handed over explicitly —
-  // otherwise the client receives a call to a tool it never declared (#4986).
   return createPassthroughStreamWithLogger(provider, reqLogger, model, connectionId, body, onStreamComplete, apiKey, toolNameMap);
 }
 
 const FLASH_MODEL_RE = /deepseek.*flash/i;
-// Provider-level override wins; otherwise DeepSeek Flash gets the short budget.
 export function resolveStallTimeoutMs(provider, model) {
   const providerMs = PROVIDERS[provider]?.stallTimeoutMs;
   if (providerMs) return providerMs;
   return FLASH_MODEL_RE.test(String(model || "")) ? STREAM_STALL_TIMEOUT_FLASH_MS : STREAM_STALL_TIMEOUT_MS;
 }
 
-/**
- * Handle streaming response — pipe provider SSE through transform stream to client.
- */
 export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, onStreamAbort, streamDetailId, pxpipe, reqTag, log, credentials }) {
-  // When upstream returns HTML/text instead of SSE (e.g. Cloudflare 5xx error
-  // page), piping it through the SSE transform stream causes Next.js
-  // "failed to pipe response" and crashes the chat router. Read the body,
-  // pull a short human-readable message from the <title>, sanitize it, and
-  // return a clean JSON error instead. The message is stripped of HTML tags
-  // and clamped so untrusted upstream text never reaches the client verbatim
-  // (the UI may render error.message as HTML).
   const upstreamContentType = (providerResponse.headers.get('content-type') || '').toLowerCase();
   if (upstreamContentType && !upstreamContentType.includes('text/event-stream') && !upstreamContentType.includes('application/json')) {
     const bodyText = await providerResponse.text().catch(() => '');
@@ -90,10 +67,6 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     const sanitizedTitle = (titleMatch?.[1] || '').replace(/<[^>]*>/g, '').replace(/[\r\n]+/g, ' ').trim().slice(0, 160);
     const shortMsg = sanitizedTitle
       || (bodyText.length < 200 ? bodyText.replace(/<[^>]*>/g, '').trim().slice(0, 160) : `Upstream returned non-SSE response (${upstreamContentType})`);
-    // A 2xx that is not SSE is a broken upstream, never a success: surface a real 502
-    // (kept if the upstream already said 4xx/5xx) so the caller treats it as an upstream
-    // error. A login/auth page means the credential is bad (401 = account scope); anything
-    // else takes the short transient lock via the 502 default.
     const upstreamStatus = providerResponse.status;
     const looksLikeAuthPage = /log\s?in|sign\s?in|unauthori[sz]ed|authenticat/i.test(`${sanitizedTitle} ${bodyText.slice(0, 2000).replace(/<[^>]*>/g, ' ')}`);
     const status = upstreamStatus >= 400 ? upstreamStatus : (looksLikeAuthPage ? HTTP_STATUS.UNAUTHORIZED : HTTP_STATUS.BAD_GATEWAY);
@@ -105,14 +78,10 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     return createErrorResult(status, message);
   }
 
-  // Health bookkeeping (clear locks, reset backoff) is earned by finishing the stream,
-  // not by starting it: a stream that stalls or breaks mid-way must not reset backoff.
-  // A flush that races a prior abort stays a failure.
   let streamAborted = false;
   let successReported = false;
   const onStreamCompleteWrapped = (...args) => {
     try { onStreamComplete?.(...args); } finally {
-      // A client-cancelled finalize records usage but is not an upstream health success.
       if (onRequestSuccess && !streamAborted && !successReported && args[3]?.cancelled !== true) {
         successReported = true;
         Promise.resolve()
@@ -128,10 +97,6 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
 
   const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete: onStreamCompleteWrapped, apiKey, credentials });
 
-  // Terminal bytes when the stream aborts after HTTP 200 was already sent, so the
-  // client sees a real error instead of a silently truncated stream.
-  // Responses passthrough keeps its own response.failed shape; every other client
-  // format gets the OpenAI error frame + [DONE], or `event: error` for Claude.
   const isResponsesPassthrough = sourceFormat === FORMATS.OPENAI_RESPONSES && targetFormat === FORMATS.OPENAI_RESPONSES;
   const onAbortTerminal = isResponsesPassthrough
     ? buildAbortedResponsesTerminalBytes
@@ -143,8 +108,6 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     onCancel: () => transformStream.finalizeOnCancel?.(),
   });
 
-  // No placeholder row: each streamed request writes exactly once, when it ends
-  // (completed, aborted, or cancelled by the client).
 
   return {
     success: true,
@@ -152,16 +115,10 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
   };
 }
 
-/**
- * Build onStreamComplete callback for streaming usage tracking.
- */
 export function buildOnStreamComplete({ provider, model, connectionId, apiKey, requestStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log }) {
   const streamDetailId = randomUUID();
   let settled = false;
 
-  // The stall timer (or an upstream reset) won. Record the error row (the only
-  // write for this request) and keep a late flush from the
-  // transform from turning it back into a success.
   const onStreamAbort = (info) => {
     if (settled) return;
     settled = true;
@@ -208,7 +165,6 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
       console.error("[RequestDetail] Failed to save streaming request:", err.message);
     });
 
-    // Persist stream usage to DB (no console line; the "📊 done" line below is authoritative)
     saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, label: "STREAM USAGE", silent: true, latencyMs: latency.total, ttftMs: ttftAt ? latency.ttft : null });
     if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency }) + (cancelled ? " · CLIENT CANCELLED" : ""));
   };

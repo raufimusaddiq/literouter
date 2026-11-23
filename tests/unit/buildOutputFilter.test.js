@@ -1,5 +1,3 @@
-// Tests for PR #1175: build output filter + porcelain regex fix
-// Covers edge cases: porcelain workdir-only, cargo misdetection, false positives, compression
 import { describe, it, expect } from "bun:test";
 import { autoDetectFilter } from "../../open-sse/rtk/autodetect.js";
 import { buildOutput } from "../../open-sse/rtk/filters/buildOutput.js";
@@ -49,13 +47,11 @@ describe("PR #1175 - buildOutput compression behavior", () => {
       "Run `npm audit` for details."
     ].join("\n");
     const out = buildOutput(input);
-    // Minimal fix: keep first 3 deprecations verbatim (no truncation needed since count == 3)
     expect(out).toContain("har-validator@5.1.5");
     expect(out).toContain("uuid@3.4.0");
     expect(out).toContain("request@2.88.2");
     expect(out).toContain("added 47 packages");
     expect(out).toContain("4 vulnerabilities");
-    // 3 deprecations kept verbatim → no size win on this small input
     expect(out.length).toBeLessThanOrEqual(input.length);
   });
 
@@ -163,9 +159,7 @@ describe("PR #1175 - false positive risks", () => {
       "2026-05-16 10:00:15 INFO Connection restored"
     ].join("\n");
     const filter = autoDetectFilter(input);
-    // Document actual behavior — may detect as buildOutput
     console.log("[generic-error-log] detected:", filter?.filterName || "null");
-    // Whatever the detection, the filter should NOT corrupt the data
     if (filter === buildOutput) {
       const out = buildOutput(input);
       expect(out).toContain("ERROR: Database connection timeout");
@@ -183,7 +177,6 @@ describe("PR #1175 - false positive risks", () => {
     console.log("[compiling-templates] detected:", filter?.filterName || "null");
     if (filter === buildOutput) {
       const out = buildOutput(input);
-      // Should at least preserve structure (count compiling)
       expect(out).toContain("Compiled");
     }
   });
@@ -215,7 +208,6 @@ describe("PR #1175 - safety: no data corruption", () => {
   it("input with no recognized patterns returns input (fallback)", () => {
     const input = "random text\nmore random\nstill random";
     const out = buildOutput(input);
-    // When nothing matches, returns input via `|| input`
     expect(out).toBe(input);
   });
 

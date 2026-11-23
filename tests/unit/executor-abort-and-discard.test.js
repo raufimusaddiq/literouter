@@ -1,4 +1,3 @@
-// BaseExecutor: discarded retry responses are cancelled, retry sleeps honour the abort signal.
 import { describe, it, expect, beforeEach } from "bun:test";
 import { vi } from "#test/vi";
 

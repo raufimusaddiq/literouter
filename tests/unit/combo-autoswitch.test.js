@@ -50,11 +50,10 @@ describe("reorderByCapabilities", () => {
   });
 
   it("floats vision-capable model to front, keeps fallback", () => {
-    // deepseek-chat = no vision; claude-sonnet = vision
     const models = ["deepseek/deepseek-chat", "anthropic/claude-sonnet-4.6"];
     const out = reorderByCapabilities(models, new Set(["vision"]));
     expect(out[0]).toBe("anthropic/claude-sonnet-4.6");
-    expect(out).toContain("deepseek/deepseek-chat"); // not dropped
+    expect(out).toContain("deepseek/deepseek-chat");
     expect(out).toHaveLength(2);
   });
 

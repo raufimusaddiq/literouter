@@ -1,4 +1,3 @@
-// OpenAI → Kiro (AWS CodeWhisperer) request translation.
 import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
@@ -33,7 +32,6 @@ describe("OpenAI → Kiro", () => {
     expect(out.systemPrompt || "").not.toContain("<max_thinking_length>");
   });
 
-  // openai-to-kiro.js — safeJSONParse guards bad tool-call JSON (fixed in PR #1582)
   it("malformed tool arguments do not throw the whole request", () => {
     expect(() =>
       O2K({
@@ -48,15 +46,11 @@ describe("OpenAI → Kiro", () => {
     ).not.toThrow();
   });
 
-  // openai-to-kiro.js:309 — maxTokens hardcoded to 32000, ignores body.max_tokens
-  // KNOWN BUG
   it.failing("respects client max_tokens", () => {
     const out = O2K({ max_tokens: 100, messages: [{ role: "user", content: "hi" }] });
     expect(out.inferenceConfig?.maxTokens, "client max_tokens ignored").toBe(100);
   });
 
-  // openai-to-kiro.js:132-134 — remote http image becomes "[Image: url]" text (lost)
-  // KNOWN BUG
   it.failing("remote image url is preserved as an image, not text", () => {
     const out = O2K({
       messages: [{ role: "user", content: [

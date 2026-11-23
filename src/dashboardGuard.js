@@ -23,7 +23,6 @@ async function hasValidCliToken(request) {
   return safeEqual(token, await getCliToken());
 }
 
-// Public API paths — no auth required (LLM API has its own key auth inside handler).
 const PUBLIC_API_PATHS = [
   "/api/health",
   "/api/locale",
@@ -33,11 +32,8 @@ const PUBLIC_API_PATHS = [
   "/api/settings/require-login",
 ];
 
-// Public top-level prefixes (LLM API endpoints with their own API key auth).
-// Keep root-level rewrites here too: middleware runs before Next.js rewrites.
 const PUBLIC_PREFIXES = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex", "/responses"];
 
-// Always require JWT token regardless of requireLogin setting
 const ALWAYS_PROTECTED = [
   "/api/keys",
   "/api/settings/database",
@@ -45,7 +41,6 @@ const ALWAYS_PROTECTED = [
   "/api/oauth/kiro/auto-import",
 ];
 
-// Require auth, but allow through if requireLogin is disabled
 const PROTECTED_API_PATHS = [
   "/api/settings",
   "/api/keys",
@@ -62,7 +57,6 @@ const PROTECTED_API_PATHS = [
   "/api/translator",
 ];
 
-// Routes that spawn child processes or read host secrets — restrict to localhost.
 const LOCAL_ONLY_PATHS = [
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
@@ -75,22 +69,14 @@ const LOCAL_ONLY_PATHS = [
   "/api/pxpipe/start",
 ];
 
-// Local-only for mutating methods only: the GET side is a read the remote
-// dashboard renders (installed extras, install log tail).
 const LOCAL_ONLY_MUTATING_PATHS = ["/api/headroom/extras"];
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
-// Non-retained product surfaces (PRD section 18). Hidden only when
-// MINIMAL_PROFILE=true. Trace inbound references before adding an entry:
-// a surface nothing retained imports is deleted outright, not gated here.
 const MINIMAL_HIDDEN_PREFIXES = [
   "/api/headroom",
 ];
 
-// Accepts a Host header, a URL hostname or a raw socket address. Splitting on the first
-// colon only works for IPv4 and would reduce every IPv6 form to "", so a dual-stack
-// listener handing back ::ffff:127.0.0.1 would not read as loopback.
 function isLoopbackHostname(h) {
   if (!h) return false;
   let name = String(h).trim().toLowerCase();
@@ -109,19 +95,11 @@ function isLoopbackPeer(request) {
   if (hasTrustedPeerHeaders(request)) {
     return isLoopbackHostname(request.headers.get("x-9r-real-ip"));
   }
-  // Without the token there is nothing to prove the peer address. `npm start` and the
-  // published standalone both load custom-server.js and stamp it; a bare `next dev` /
-  // `next start` never does, and a request that skips the wrapper (another in-container
-  // client, or a directly-reached port) must not inherit local-operator access either.
   return false;
 }
 
 export function isLocalRequest(request) {
-  // Stamped by custom-server.js when forwarding headers exist: request came through
-  // a reverse proxy, so the loopback socket is the proxy hop, not the end-user.
   if (request.headers.get("x-9r-via-proxy")) return false;
-  // Operator opted out of loopback trust (proxy that sends no markers), or any proxy
-  // marker is present: the loopback peer is a proxy hop, never a local operator.
   if (!trustLoopbackAsLocal() || hasProxyMarker(request.headers)) return false;
   if (!isLoopbackPeer(request)) return false;
   const origin = request.headers.get("origin");
@@ -137,8 +115,6 @@ function isPublicLlmApi(pathname) {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-// Method-aware local-only gate: extras is a read from the dashboard but an
-// install/uninstall (spawns pip) on POST/DELETE.
 function isLocalOnlyRoute(request) {
   const { pathname } = request.nextUrl;
   if (LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p))) return true;
@@ -164,7 +140,6 @@ async function hasValidApiKey(request) {
 }
 
 function throttleKey(request) {
-  // x-9r-real-ip is only meaningful when custom-server stamped it (peer token proves it).
   if (hasTrustedPeerHeaders(request)) return request.headers.get("x-9r-real-ip") || null;
   return null;
 }
@@ -173,7 +148,6 @@ async function canAccessPublicLlmApi(request) {
   if (isLocalRequest(request)) return true;
   if (await hasValidCliToken(request)) return true;
   if (await hasValidApiKey(request)) return true;
-  // Only a presented-but-wrong key counts as a failed validation.
   const ip = throttleKey(request);
   if (ip && extractApiKey(request)) recordApiKeyFailure(ip);
   return false;
@@ -181,7 +155,6 @@ async function canAccessPublicLlmApi(request) {
 
 async function canAccessLocalOnlyRoute(request) {
   if (await hasValidCliToken(request)) return true;
-  // Browser on host: loopback Host + Origin (blocks tunnel/CSRF) + auth (JWT or requireLogin=false)
   if (isLocalRequest(request) && await isAuthenticated(request)) return true;
   return false;
 }
@@ -191,7 +164,6 @@ async function hasValidToken(request) {
   return await verifyDashboardAuthToken(token);
 }
 
-// Read settings directly from DB to avoid self-fetch deadlock in proxy
 async function loadSettings() {
   try {
     return await getSettings();
@@ -223,8 +195,6 @@ export const __test__ = {
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
 
-  // Minimal profile: non-retained product surfaces are not exposed. The routes
-  // still exist in the build so rollback is a config flip, not a redeploy.
   if (process.env.MINIMAL_PROFILE === "true" && MINIMAL_HIDDEN_PREFIXES.some((p) => pathname.startsWith(p))) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Not available in minimal profile" }, { status: 404 });
@@ -232,14 +202,12 @@ export async function proxy(request) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // Local-only gate for spawn-capable / host-secret routes.
   if (isLocalOnlyRoute(request)) {
     if (!(await canAccessLocalOnlyRoute(request))) {
       return NextResponse.json({ error: "Local only: CLI token required" }, { status: 403 });
     }
   }
 
-  // Always protected - require valid JWT or local CLI token (machineId-based)
   if (ALWAYS_PROTECTED.some((p) => pathname.startsWith(p))) {
     if (await hasValidCliToken(request) || await hasValidToken(request))
       return NextResponse.next();
@@ -248,9 +216,6 @@ export async function proxy(request) {
 
   if (isPublicLlmApi(pathname)) {
     if (await canAccessPublicLlmApi(request)) return NextResponse.next();
-    // Valid keys / CLI token always pass (shared edge IPs must not be locked out);
-    // only requests that failed validation are refused with 429 while the IP is blocked.
-    // Body shape follows the route protocol (Anthropic / Gemini / OpenAI).
     const format = resolveErrorFormat(pathname);
     const ip = throttleKey(request);
     const gate = ip ? checkApiKeyThrottle(ip) : { blocked: false };
@@ -263,7 +228,6 @@ export async function proxy(request) {
     return NextResponse.json(buildErrorBody(401, "API key required for remote API access", format), { status: 401 });
   }
 
-  // Deny-by-default for /api/* — public allow-list bypasses, everything else requires auth.
   if (pathname.startsWith("/api/")) {
     if (isPublicApi(pathname)) return NextResponse.next();
     if (await hasValidCliToken(request) || await isAuthenticated(request))
@@ -271,7 +235,6 @@ export async function proxy(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Protect all dashboard routes
   if (pathname.startsWith("/dashboard")) {
     let requireLogin = true;
 
@@ -281,13 +244,10 @@ export async function proxy(request) {
         requireLogin = settings.requireLogin !== false;
       }
     } catch {
-      // On error, keep the safe default (require login)
     }
 
-    // If login not required, allow through
     if (!requireLogin) return NextResponse.next();
 
-    // Verify JWT token
     const token = request.cookies.get("auth_token")?.value;
     if (token) {
       if (await verifyDashboardAuthToken(token)) {
@@ -300,7 +260,6 @@ export async function proxy(request) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Redirect / to /dashboard if logged in, or /dashboard if it's the root
   if (pathname === "/") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }

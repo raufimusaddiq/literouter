@@ -1,7 +1,3 @@
-// Route-level acceptance for CommandCode live-model discovery:
-//   GET /api/providers/[connectionId]/models  →  vendor catalog  →  UI rows
-// The catalog URL is public, but the route still requires a seeded connection.
-// Self-isolating: DATA_DIR points at a temp dir so seeding never touches ~/.9router.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -49,8 +45,6 @@ stub.catalog = {
 beforeEach(async () => {
   stub.mode = "ok";
   stub.calls.length = 0;
-  // The resolver keeps a success cache/backoff window; clear it per test so the
-  // stub's mode (ok / error / empty) actually reaches fetch.
   const { resetCommandCodeCache } = await import("open-sse/services/commandcodeModels.js");
   resetCommandCodeCache();
   vi.stubGlobal("fetch", async (url, options) => {
@@ -67,7 +61,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// Imports must be dynamic so DATA_DIR is set before the DB layer loads.
 const originalDataDir = process.env.DATA_DIR;
 let GET;
 let createProviderConnection;
@@ -80,11 +73,9 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  // Windows keeps the sqlite handle open, so the temp dir may refuse removal.
   try {
     fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true });
   } catch {
-    // best effort — the OS temp dir is cleaned up anyway
   }
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
@@ -157,7 +148,6 @@ describe("CommandCode catalog — failure handling", () => {
     stub.mode = "error";
     const conn = await seedCommandCode("e1");
     const res = await getModels(conn.id);
-    // The resolver falls back to the static catalog rather than failing the request.
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.warning).toMatch(/no live models/i);
@@ -188,7 +178,6 @@ describe("CommandCode catalog — failure handling", () => {
     stub.mode = "ok";
     await resolveCommandCodeModels({ forceRefresh: true });
     const afterFirst = stub.calls.length;
-    // A second forced refresh inside the window is served from cache.
     const again = await resolveCommandCodeModels({ forceRefresh: true });
     expect(stub.calls.length).toBe(afterFirst);
     expect(again.models.length).toBe(2);
@@ -199,7 +188,6 @@ describe("CommandCode catalog — failure handling", () => {
     stub.mode = "error";
     expect(await resolveCommandCodeModels({ forceRefresh: true })).toBeNull();
     const afterFailure = stub.calls.length;
-    // Forced or not, the backoff window is not a retry button.
     expect(await resolveCommandCodeModels({ forceRefresh: true })).toBeNull();
     expect(await resolveCommandCodeModels()).toBeNull();
     expect(stub.calls.length).toBe(afterFailure);

@@ -52,11 +52,9 @@ describe("convertResponsesCustomTools", () => {
     expect(exec.name).toBe("exec");
     expect(exec.parameters.properties.input.type).toBe("string");
     expect(exec.parameters.required).toEqual(["input"]);
-    // Lark grammar surfaced in the description so the model knows the input shape
     expect(exec.description).toContain("lark");
     expect(exec.description).toContain("start: SOURCE");
 
-    // Function tools pass through untouched
     expect(body.tools[1]).toEqual(WAIT_FUNCTION_TOOL);
   });
 

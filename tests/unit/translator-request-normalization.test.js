@@ -7,8 +7,6 @@ import { filterToOpenAIFormat } from "../../open-sse/translator/formats/openai.j
 import { parseSSELine } from "../../open-sse/utils/streamHelpers.js";
 
 describe("request normalization", () => {
-  // Text-only content arrays are kept as arrays: the per-block shape carries
-  // cache_control, and flattening to a string would drop it.
   it("claudeToOpenAIRequest keeps text-only content arrays", () => {
     const body = {
       messages: [
@@ -182,8 +180,6 @@ describe("request normalization", () => {
       done: false,
     });
 
-    // NDJSON is Ollama-only and gated on the explicit format argument — a bare
-    // JSON line must not be mistaken for an SSE `data:` frame.
     expect(parseSSELine(raw)).toBeNull();
     expect(parseSSELine(raw, FORMATS.OLLAMA)).toEqual({
       model: "gpt-oss:120b",

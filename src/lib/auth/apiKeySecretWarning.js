@@ -1,6 +1,5 @@
 export const DEFAULT_API_KEY_SECRET = "endpoint-proxy-api-key-secret";
 
-/** True when API_KEY_SECRET is unset or still the public .env.example value. */
 export function isWeakApiKeySecret(value = process.env.API_KEY_SECRET) {
   const v = String(value ?? "").trim();
   return !v || v === DEFAULT_API_KEY_SECRET;

@@ -1,4 +1,3 @@
-// T-5: Gemini key extraction, combo cycle guards, v1beta 400 on bad JSON.
 import { describe, it, expect, beforeEach } from "bun:test";
 import { vi } from "#test/vi";
 

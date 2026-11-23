@@ -28,8 +28,6 @@ export default {
   models: [
   ],
   serviceKinds: ["llm"],
-  // Async video jobs (POST /videos → { id, status }, GET /videos/{id} polls).
-  // Docs: https://openrouter.ai/docs/api/api-reference/videos
   modelsFetcher: { url: "https://openrouter.ai/api/v1/models", type: "openrouter-free" },
   passthroughModels: true,
 };

@@ -82,7 +82,6 @@ describe("stripUnsupportedParams", () => {
         content: "hello",
         tool_calls: [{ id: "c1", type: "function", function: { name: "f", arguments: "{}" } }],
       });
-      // only assistant turns are touched
       expect(body.messages[2].reasoning_content).toBe("user-side field stays");
     }
   });

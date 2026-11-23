@@ -15,7 +15,6 @@ export function resolveAntigravityRedirectUri(fallback) {
       url.pathname !== "/callback" || url.username || url.password || url.search || url.hash) {
     throw invalid();
   }
-  // Preserve the registered spelling for both authorization and token exchange.
   return configured;
 }
 
@@ -66,7 +65,6 @@ const antigravity = {
     };
     const metadata = getOAuthClientMetadata();
 
-    // Fetch user info
     const userInfoRes = await fetch(`${ANTIGRAVITY_CONFIG.userInfoUrl}?alt=json`, {
       headers: {
         Authorization: `Bearer ${tokens.access_token}`,
@@ -75,7 +73,6 @@ const antigravity = {
     });
     const userInfo = userInfoRes.ok ? await userInfoRes.json() : {};
 
-    // Load Code Assist to get project ID and tier
     let projectId = "";
     let tierId = "legacy-tier";
     try {
@@ -100,7 +97,6 @@ const antigravity = {
       console.log("Failed to load code assist:", e);
     }
 
-    // Fire-and-forget onboarding — does not block DB save
     if (projectId) {
       const doOnboard = async () => {
         for (let i = 0; i < 10; i++) {

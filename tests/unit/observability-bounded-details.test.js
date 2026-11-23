@@ -1,4 +1,3 @@
-// T-37: request-detail records are bounded at enqueue time and written once.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -19,7 +18,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch { /* windows file lock */ }
+  try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });
@@ -28,7 +27,7 @@ const queue = () => globalThis.__liteRouterDetailBuffer.writeBuffer;
 
 describe("bounded request details", () => {
   it("a 5 MB base64 body is a tiny record once enqueued", async () => {
-    const b64 = "QUJD".repeat(1_310_720); // 5 MiB
+    const b64 = "QUJD".repeat(1_310_720);
     const body = { model: "m", messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/png", data: b64 } }] }] };
     const url = { model: "m", messages: [{ role: "user", content: [{ type: "image_url", image_url: { url: `data:image/png;base64,${b64}` } }] }] };
     const before = queue().length;

@@ -1,15 +1,3 @@
-/**
- * opencode-go DeepSeek models on the claude→claude /messages passthrough need
- * the same thinking-block handling as the official deepseek provider (#3332):
- * keep existing thinking blocks verbatim, and inject an UNSIGNED placeholder
- * on tool_use turns that carry none while thinking is enabled — upstream 400s
- * with "The content[].thinking in the thinking mode must be passed back to the
- * API" otherwise. The gate is model-based because opencode-go also serves
- * non-DeepSeek models over /messages (minimax, qwen) that must stay untouched.
- *
- * Signed placeholders were also accepted live (2026-08-15, opencode.go /messages),
- * but unsigned mirrors the official deepseek provider behavior exactly.
- */
 import { describe, it, expect } from "bun:test";
 import { prepareClaudeRequest } from "../../open-sse/translator/formats/claude.js";
 
@@ -56,7 +44,7 @@ describe("prepareClaudeRequest — opencode-go DeepSeek thinking pass-back", () 
     const block = firstBlock(out);
     expect(block.type).toBe("thinking");
     expect(block.signature).toBeUndefined();
-    expect(out.messages[0].content).toHaveLength(2); // placeholder + tool_use
+    expect(out.messages[0].content).toHaveLength(2);
   });
 
   it("does not inject a thinking placeholder when thinking is disabled", () => {
@@ -90,7 +78,7 @@ describe("prepareClaudeRequest — opencode-go DeepSeek thinking pass-back", () 
       "opencode-go",
     );
 
-    expect(out.messages[0].content).toHaveLength(1); // tool_use only
+    expect(out.messages[0].content).toHaveLength(1);
     expect(firstBlock(out).type).toBe("tool_use");
   });
 

@@ -1,7 +1,6 @@
 export const PLACEHOLDER_KEY = "sk-...your-key";
 const MODEL = "your-model-or-combo";
 
-// Pure builder: snippets use the real base URL and a placeholder key only.
 export function buildSnippets(baseUrl) {
   return [
     {

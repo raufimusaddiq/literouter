@@ -1,4 +1,3 @@
-// Dead keep-alive sockets (edge drops them without a RST) hung kenari for ~249s then 502.
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
@@ -14,7 +13,6 @@ describe("stale socket classification", () => {
     expect(isStaleSocketError(Object.assign(new Error("x"), { code: "ECONNREFUSED" }))).toBe(false);
     expect(isStaleSocketError(Object.assign(new Error("x"), { name: "AbortError" }))).toBe(false);
     expect(isStaleSocketError(new TypeError("fetch failed"))).toBe(false);
-    // Headers timeout fires after the request was delivered: the upstream may be generating.
     expect(isStaleSocketError(Object.assign(new Error("x"), { cause: { code: "UND_ERR_HEADERS_TIMEOUT" } }))).toBe(false);
   });
 });

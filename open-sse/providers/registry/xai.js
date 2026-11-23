@@ -38,6 +38,4 @@ export default {
     { id: "grok-3", name: "Grok 3" },
   ],
   serviceKinds: ["llm"],
-  // Async video jobs (POST returns { request_id }, GET polls until done/failed).
-  // Docs: https://docs.x.ai/developers/rest-api-reference/inference/videos
 };

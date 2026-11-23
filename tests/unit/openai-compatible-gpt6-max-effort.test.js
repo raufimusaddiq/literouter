@@ -3,9 +3,6 @@ import { applyThinking } from "../../open-sse/translator/concerns/thinkingUnifie
 import { getThinkingLevels } from "../../open-sse/providers/thinkingLevels.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 
-// #5186: OpenAI publishes "max" as a reasoning.effort value for GPT-5.6 and GPT-6.
-// The codex provider already keeps it; an OpenAI Compatible node pointing at the
-// same models silently clamped it to "xhigh".
 const NODE = "openai-compatible-chat-test";
 const MAX_MODELS = ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"];
 

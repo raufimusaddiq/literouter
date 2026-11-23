@@ -1,13 +1,3 @@
-// Kenari is a first-class registry provider (category "apikey", transport.validateUrl
-// and transport.usage.url declared) but had no case in testApiKeyConnection, so the
-// connection-level test fell through to `default:` and answered
-// "Provider test not supported" for a perfectly good provider.
-//
-// The obvious fix — probe transport.validateUrl — would be wrong: kenari's
-// /v1/models answers 200 for ANY key (verified against the live endpoint with a
-// garbage key), so it cannot distinguish a valid key from a revoked one. The
-// quota endpoint is the one getKenariUsage already trusts for auth and answers
-// 401 "invalid key", so that is what the connection test probes.
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
@@ -91,7 +81,6 @@ describe("testSingleConnection — kenari connection test", () => {
   });
 
   it("leaves an already-handled provider on its own endpoint", async () => {
-    // deepseek has its own case; the new kenari branch must not shadow it.
     getProviderConnectionById.mockResolvedValue({
       id: "conn-deepseek",
       provider: "deepseek",

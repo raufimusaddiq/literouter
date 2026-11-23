@@ -14,7 +14,7 @@ describe("bench stats helper", () => {
     expect(percentile(v, 0)).toBe(10);
     expect(percentile(v, 50)).toBe(25);
     expect(percentile(v, 100)).toBe(40);
-    expect(v).toEqual([40, 10, 30, 20]); // not mutated
+    expect(v).toEqual([40, 10, 30, 20]);
   });
   it("clamps out-of-range p", () => {
     expect(percentile([1, 2, 3], -5)).toBe(1);

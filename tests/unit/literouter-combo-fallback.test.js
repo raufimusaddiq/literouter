@@ -39,8 +39,6 @@ describe("combo fallback", () => {
     const attempts = [];
     const handleSingleModel = vi.fn(async (body, model) => {
       attempts.push(model);
-      // 500 has no transient cooldown wait, so this asserts the retry bound
-      // without depending on the deliberate 503 backoff sleep.
       return response(500, { error: { message: "upstream exploded" } });
     });
 
@@ -77,7 +75,6 @@ describe("combo fallback", () => {
       autoSwitch: false,
     });
 
-    // 3 candidates => at most 2 inter-candidate waits, each capped at 5000ms.
     expect(attempts).toEqual(["a/1", "b/2", "c/3"]);
     expect(Date.now() - startedAt).toBeLessThanOrEqual(2 * 5000 + 2000);
   }, 20000);

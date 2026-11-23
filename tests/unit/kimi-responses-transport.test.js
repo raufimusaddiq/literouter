@@ -1,10 +1,3 @@
-// Offline routing matrix for the Kimi Code /responses transport.
-//
-// Drives the REAL handleChatCore guard + targetFormat resolution; only the executor's HTTP
-// response is mocked. The assertion target is credentials.runtimeTransport — the field
-// DefaultExecutor.buildUrl/buildHeaders read — so a wrong routing decision shows up as the
-// wrong baseUrl here, same as on the wire. Executor-level cells check URL and auth
-// without any network.
 import { describe, it, expect, beforeEach } from "bun:test";
 import { vi } from "#test/vi";
 
@@ -46,8 +39,6 @@ vi.mock("@/lib/usageDb.js", () => ({
   saveRequestUsage: vi.fn(async () => {}),
 }));
 
-// image.js imports Agent from "undici" (not installed in some dev envs); the
-// prefetch path is irrelevant to routing assertions.
 vi.mock("../../open-sse/translator/concerns/image.js", () => ({
   encodeDataUri: (mimeType, base64) => `data:${mimeType};base64,${base64}`,
   parseDataUri: (url) => {
@@ -64,7 +55,6 @@ const { resolveTransport } = await import("../../open-sse/services/provider.js")
 const { PROVIDERS } = await import("../../open-sse/config/providers.js");
 const { getProviderModels } = await import("../../open-sse/config/providerModels.js");
 
-// Everything below derives from the registry: no model id or host is hardcoded.
 const MODELS = getProviderModels("kimi").map((m) => m.id);
 const transportFor = (format) => PROVIDERS.kimi.transports.find((t) => t.format === format);
 const urlOf = (t) => (t.urlSuffix ? `${t.baseUrl}${t.urlSuffix}` : t.baseUrl);
@@ -142,8 +132,6 @@ describe("kimi /responses transport routing (via real handleChatCore)", () => {
     expect(MODELS.length).toBeGreaterThan(0);
   });
 
-  // Registry models only; an id without declared supportedFormats uses the
-  // sourceFormat-matched transport, so each must follow its client's wire format.
   for (const model of MODELS) {
     it(`routes ${model} + responses client to the Responses endpoint without translation`, async () => {
       const { result, runtimeTransport, effectiveUrl } = await route(model, "openai-responses");

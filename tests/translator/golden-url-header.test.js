@@ -1,11 +1,7 @@
-// P0 GOLDEN: lock buildUrl + buildHeaders cho mọi provider trên code CŨ.
-// Sinh snapshot lần đầu (baseline) → sau refactor chạy lại phải khớp y hệt.
-// Mock proxyFetch + uuid-heavy executors KHÔNG cần ở đây vì chỉ gọi buildUrl/buildHeaders (pure).
 import { describe, it, expect } from "bun:test";
 import { PROVIDERS } from "../../open-sse/config/providers.js";
 import { DefaultExecutor } from "../../open-sse/executors/default.js";
 
-// Credentials mẫu cố định (deterministic) — KHÔNG dùng Date.now/random.
 const API_KEY_CRED = { apiKey: "sk-test-APIKEY", providerSpecificData: {} };
 const OAUTH_CRED = { accessToken: "tok-test-ACCESS", providerSpecificData: {} };
 const SPECIAL_CRED = {
@@ -14,8 +10,6 @@ const SPECIAL_CRED = {
   providerSpecificData: { accountId: "ACC123", region: "sgp", baseUrl: "https://custom.example.com/v1", orgId: "ORG9" },
 };
 
-// Provider cần executor riêng (buildUrl/buildHeaders không nằm ở DefaultExecutor) → bỏ qua ở golden này.
-// Chúng được lock riêng ở 11-provider edge tests / unit test chuyên biệt.
 const SPECIALIZED = new Set([
   "antigravity", "azure", "gemini-cli", "github", "iflow", "qoder", "kiro",
   "codex", "cursor", "vertex", "vertex-partner", "opencode",
@@ -23,16 +17,12 @@ const SPECIALIZED = new Set([
   "xiaomi-tokenplan", "mimo-free",
 ]);
 
-// Sanitize header: khử token + field thời gian động (kimi X-Msh-Device-Id) để snapshot ổn định.
-// Cũng khử các field phụ thuộc môi trường (hostname, phiên bản Node/app) để
-// snapshot khớp giữa máy local và CI runner.
 const ENV_DEPENDENT = new Set([
-  "X-Msh-Device-Name", // hostname của máy đang chạy
-  "X-Msh-Device-Model", // os + arch của máy đang chạy
-  "X-Msh-Version",     // phiên bản package, đổi mỗi lần release
-  "X-PLATFORM-VERSION", // phiên bản Node runtime
+  "X-Msh-Device-Name",
+  "X-Msh-Device-Model",
+  "X-Msh-Version",
+  "X-PLATFORM-VERSION",
 ]);
-// Fresh randomUUID per request (CodeBuddy channel-check ids): keep the key, mask the value.
 const PER_REQUEST_IDS = new Set([
   "X-Request-ID",
   "X-Conversation-ID",

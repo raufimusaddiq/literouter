@@ -24,8 +24,6 @@ function buildInfo({ alias, providerId, model, kind, providerInfo }) {
   return out;
 }
 
-// id format: "{alias}/{modelId}" - alias may also be providerId
-// requestedKind: optional, disambiguates duplicate ids across kinds (e.g. gemini-2.5-pro llm vs stt)
 function lookup(fullId, requestedKind) {
   if (!fullId || !fullId.includes("/")) return null;
   const slash = fullId.indexOf("/");
@@ -34,7 +32,6 @@ function lookup(fullId, requestedKind) {
   const providerId = ALIAS_TO_ID[alias] || alias;
   const providerInfo = AI_PROVIDERS[providerId];
 
-  // PROVIDER_MODELS lookup (by alias key, fallback to providerId)
   const list = PROVIDER_MODELS[alias] || PROVIDER_MODELS[providerId] || [];
   const m = requestedKind
     ? list.find((x) => x.id === modelId && getModelKind(x, "llm") === requestedKind)
@@ -54,7 +51,6 @@ export async function OPTIONS() {
   });
 }
 
-// GET /v1/models/info?id={alias}/{modelId} — metadata for a single model
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
@@ -72,7 +68,6 @@ export async function GET(request) {
       { status: 404, headers: { "Access-Control-Allow-Origin": "*" } },
     );
   }
-  // A restricted key must not see metadata for a model it cannot call (same 404 as unknown).
   const ctx = await getKeyAccessContext(request);
   if (ctx && !(await filterModelsListForKey(ctx, [info])).length) {
     return Response.json(

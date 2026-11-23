@@ -1,4 +1,3 @@
-// Locks edge cases flagged in docs 11 §1/§4 that were only covered indirectly.
 import { describe, it, expect } from "bun:test";
 import { normalizeClaudePassthrough } from "../../open-sse/translator/formats/claude.js";
 import { parseDataUri, encodeDataUri } from "../../open-sse/translator/concerns/image.js";
@@ -15,9 +14,6 @@ describe("normalizeClaudePassthrough — haiku adaptive thinking (docs 11 §1)",
   });
 
   it("folds mid-conversation system messages into the neighbouring turn", () => {
-    // System text is folded in place rather than hoisted into body.system:
-    // hoisting injects volatile content ahead of the whole conversation and
-    // invalidates the prefix cache on every request.
     const out = normalizeClaudePassthrough({
       messages: [
         { role: "user", content: "hi" },

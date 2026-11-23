@@ -2,10 +2,6 @@ function modelType(model) {
   return model?.kind || model?.type || "llm";
 }
 
-// Qoder's live catalog renames models between releases (the key stays stable,
-// e.g. qmodel_latest). The saved custom-model record carries the upstream
-// display name so the static fallback shows the current name too. IDs and
-// capabilities are untouched.
 export function applyQoderModelNames(models, customModels, providerAlias) {
   if (providerAlias !== "qd" && providerAlias !== "qdcn") return models;
   const names = new Map((customModels || [])

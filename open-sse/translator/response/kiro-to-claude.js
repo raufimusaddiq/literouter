@@ -1,18 +1,3 @@
-/**
- * Kiro → Claude Response Translator (DIRECT route, no OpenAI pivot)
- *
- * IMPORTANT: This translator does NOT receive raw Kiro AWS-EventStream frames.
- * KiroExecutor.transformEventStreamToSSE() (open-sse/executors/kiro.js) already
- * parses the binary EventStream and emits OpenAI-shaped
- * `chat.completion.chunk` objects. So the chunks arriving here are OpenAI
- * streaming chunks, and our job is OpenAI-chunk → Claude SSE events — the same
- * transformation openai-to-claude.js performs. We re-implement it here so the
- * direct `kiro:claude` route is self-contained and lossless (reasoning_content
- * → thinking blocks, tool_calls → tool_use blocks, usage → message_delta).
- *
- * Registered on the direct route by ../index.js; reached only when source
- * format is Claude and target is Kiro.
- */
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
 import { CLAUDE_EVENT } from "../schema/index.js";
@@ -43,12 +28,6 @@ function convertFinishReason(reason) {
   }
 }
 
-/**
- * Convert one OpenAI-format chunk (from KiroExecutor) into Claude SSE events.
- * Returns an array of Claude events, or null when the chunk yields nothing.
- */
-// Kiro only accepts sanitized tool names; the request translator leaves the
-// reverse map on the stream state so calls come back under the client's names.
 function restoreToolName(stateOrData, name) {
   const raw = name || "";
   const map = stateOrData?.toolNameMap || stateOrData?._toolNameMap;
@@ -56,8 +35,6 @@ function restoreToolName(stateOrData, name) {
 }
 
 export function kiroToClaudeResponse(chunk, state) {
-  // KiroExecutor emits chat.completion.chunk objects; tolerate string chunks
-  // by attempting a parse (defensive — the direct path is always objects).
   let data = chunk;
   if (typeof chunk === "string") {
     const trimmed = chunk.trim();
@@ -75,7 +52,6 @@ export function kiroToClaudeResponse(chunk, state) {
   const choice = data.choices[0];
   const delta = choice.delta || {};
 
-  // Track usage if present on the chunk.
   if (data.usage && typeof data.usage === "object") {
     const promptTokens =
       typeof data.usage.prompt_tokens === "number" ? data.usage.prompt_tokens : 0;
@@ -84,9 +60,6 @@ export function kiroToClaudeResponse(chunk, state) {
         ? data.usage.completion_tokens
         : 0;
     state.usage = { input_tokens: promptTokens, output_tokens: outputTokens };
-    // Claude clients read cache_read/cache_creation to price a turn and to size
-    // their prompt cache. Both spellings are accepted because the Kiro executor
-    // emits the Chat shape and passthrough responses use the nested details form.
     const cacheRead = data.usage.cache_read_input_tokens
       ?? data.usage.prompt_tokens_details?.cached_tokens;
     const cacheCreation = data.usage.cache_creation_input_tokens
@@ -95,7 +68,6 @@ export function kiroToClaudeResponse(chunk, state) {
     if (typeof cacheCreation === "number") state.usage.cache_creation_input_tokens = cacheCreation;
   }
 
-  // First chunk → emit message_start.
   if (!state.messageStartSent) {
     state.messageStartSent = true;
     state.messageId =
@@ -118,7 +90,6 @@ export function kiroToClaudeResponse(chunk, state) {
     });
   }
 
-  // Reasoning / thinking content (Kiro reasoningContentEvent → reasoning_content).
   const reasoningContent = delta.reasoning_content || delta.reasoning;
   if (reasoningContent) {
     stopTextBlock(state, results);
@@ -138,7 +109,6 @@ export function kiroToClaudeResponse(chunk, state) {
     });
   }
 
-  // Regular text content.
   if (delta.content) {
     stopThinkingBlock(state, results);
     if (!state.textBlockStarted) {
@@ -158,7 +128,6 @@ export function kiroToClaudeResponse(chunk, state) {
     });
   }
 
-  // Tool calls.
   if (delta.tool_calls) {
     if (!state.toolCalls) state.toolCalls = new Map();
     if (!state.toolArgBuffers) state.toolArgBuffers = new Map();
@@ -196,7 +165,6 @@ export function kiroToClaudeResponse(chunk, state) {
     }
   }
 
-  // Finish.
   if (choice.finish_reason) {
     stopThinkingBlock(state, results);
     stopTextBlock(state, results);
@@ -228,11 +196,6 @@ export function kiroToClaudeResponse(chunk, state) {
   return results.length > 0 ? results : null;
 }
 
-/**
- * Non-streaming Kiro → Claude. KiroExecutor only produces a stream, so this is
- * a defensive helper for any non-streaming caller that hands us an aggregated
- * OpenAI-shaped completion.
- */
 export function kiroToClaudeNonStreaming(data) {
   const content = [];
   const choice = data?.choices?.[0];
@@ -272,7 +235,6 @@ export function kiroToClaudeNonStreaming(data) {
     usage: {
       input_tokens: usage.prompt_tokens || 0,
       output_tokens: usage.completion_tokens || 0,
-      // Same cache preservation as the streaming path above.
       ...(typeof (usage.cache_read_input_tokens ?? usage.prompt_tokens_details?.cached_tokens) === "number"
         ? { cache_read_input_tokens: usage.cache_read_input_tokens ?? usage.prompt_tokens_details.cached_tokens }
         : {}),

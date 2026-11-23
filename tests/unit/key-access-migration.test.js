@@ -1,7 +1,3 @@
-// Per-API-key access control: a DB written by the previous schema (apiKeys
-// without the access columns, schemaVersion 1) upgrades in place; every existing
-// key stays unrestricted. Backup export/import carries access, and older backups restore
-// as unrestricted.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -13,7 +9,6 @@ let tempDir;
 const originalDataDir = process.env.DATA_DIR;
 
 function writeLegacyDb(dir) {
-  // The DDL from the previous schema, before the access columns and kv table.
   fs.mkdirSync(path.join(dir, "db"), { recursive: true });
   const db = new DatabaseSync(path.join(dir, "db", "data.sqlite"));
   db.exec(`CREATE TABLE _meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
@@ -62,7 +57,6 @@ describe("apiKeys access columns: upgrade from the previous schema", () => {
     expect(await db.validateApiKey("sk-legacy-one")).toBe(true);
     expect((await db.getApiKeyByKey("sk-legacy-one")).access.restricted).toBe(false);
 
-    // The schema bump took the pre-change safety backup.
     const backups = fs.readdirSync(path.join(tempDir, "db", "backups"));
     expect(backups.some((d) => d.startsWith("schema-1-to-3"))).toBe(true);
   });
@@ -73,7 +67,6 @@ describe("apiKeys access columns: upgrade from the previous schema", () => {
     const updated = await db.updateApiKey("k1", { access: { restricted: true, allow: ["Main", "cx/gpt-5"] } });
     expect(updated.access).toEqual({ restricted: true, allow: ["Main", "cx/gpt-5"] });
     expect((await db.getApiKeyById("k1")).access).toEqual({ restricted: true, allow: ["Main", "cx/gpt-5"] });
-    // Unrelated updates (pause/resume) keep the access.
     await db.updateApiKey("k1", { isActive: false });
     expect((await db.getApiKeyById("k1")).access.restricted).toBe(true);
 
@@ -98,7 +91,6 @@ describe("apiKeys access columns: upgrade from the previous schema", () => {
 
     const bad = { ...dump, apiKeys: [{ ...dump.apiKeys[0], access: { restricted: "yes", allow: [] } }] };
     await expect(db.importDb(bad)).rejects.toThrow(/access/);
-    // The failed import rolled back: the previous rows are still there.
     expect((await db.getApiKeys()).length).toBe(2);
   });
 });

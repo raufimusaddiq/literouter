@@ -1,12 +1,3 @@
-/**
- * Unit tests for open-sse/translator/request/openai-to-commandcode.js
- *
- * Verified live against upstream `/alpha/generate` (curl, 2026-05-07):
- *  - params.system: STRING at top level (Anthropic-style; "system" role NOT in messages[])
- *  - params.messages[*].role ∈ {"user","assistant","tool"}
- *  - params.messages[*].content: Array<content_block> (NEVER string)
- *  - tools[*]: Anthropic plain {name, description, input_schema}
- */
 
 import { describe, it, expect } from "bun:test";
 import { openaiToCommandCodeRequest } from "../../open-sse/translator/request/openai-to-commandcode.js";
@@ -197,7 +188,6 @@ describe("openaiToCommandCodeRequest — native image blocks", () => {
 
     expect(out.params.messages[0].content).toEqual([
       { type: "text", text: "what color?" },
-      // CommandCode accepts either spelling; the translator emits both.
       { type: "image", image: DATA_URI, mimeType: "image/png", mediaType: "image/png" },
     ]);
   });

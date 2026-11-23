@@ -1,14 +1,8 @@
-// OpencodeGoExecutor sanitization + all-model regression.
-// Verifies that the bug we fixed — Codex-style multi-turn requests with
-// previous_response_id and server-generated item IDs (rs_/fc_/resp_/msg_) —
-// no longer reach OpenCode Go's /responses endpoint, while chat-completion
-// requests for non-Luna models still pass through untouched.
 import { describe, expect, it, beforeEach } from "bun:test";
 import { OpenCodeGoExecutor } from "../../open-sse/executors/opencode-go.js";
 
 const executor = new OpenCodeGoExecutor();
 
-// Mirror of PROVIDER_MODELS["opencode-go"]
 const ALL_MODELS = [
   "gpt-5.6-luna",
   "ox-alpha-free",
@@ -38,7 +32,7 @@ describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
         { type: "message", role: "user", content: [{ type: "input_text", text: "hello" }] },
         { id: "rs_resp_chatcmpl-1787986603139_0", type: "message", role: "assistant", content: [{ type: "output_text", text: "previous turn" }] },
         { type: "function_call", id: "fc_abc123", call_id: "call_1", name: "f", arguments: "{}" },
-        { type: "item_reference", id: "resp_ref_1" }, // bare reference should be dropped entirely
+        { type: "item_reference", id: "resp_ref_1" },
         { id: "msg_user2", type: "message", role: "user", content: [{ type: "input_text", text: "next" }] },
       ],
     };
@@ -159,11 +153,6 @@ describe("OpencodeGoExecutor — every model accepted (no breakage)", () => {
 });
 
 describe("OpencodeGoExecutor — chat-completion regression (non-Luna models)", () => {
-  // Chat-only models (DeepSeek, GLM, Kimi, MiMo, MiniMax, Qwen) use
-  // /v1/chat/completions. Our executor only fires on /responses; chat bodies
-  // arrive as {messages:[...]} which we must leave alone when present.
-  // We test the same sanitization only runs when input[] exists, otherwise
-  // the executor simply forwards {messages} to the chat transport.
   it("preserves messages[] for chat-completion models", () => {
     const body = {
       model: "glm-5.2",

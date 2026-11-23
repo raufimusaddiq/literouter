@@ -1,44 +1,3 @@
-/**
- * Five Kiro defects, all on the OAuth/social Kiro route (kr/claude-sonnet-4.5
- * with a >100k context). Production shape: 402 of 2156 usageHistory rows for
- * Kiro recorded completionTokens 0, and the 25 newest rows all sat pinned at
- * exactly 1 output token against prompts of 80k-103k -- i.e. the router was not
- * measuring the answer, it was measuring nothing and rounding up.
- *
- * A. OUT 0 / OUT 1. finish() estimates completion tokens as
- *    totalContentLength / 4, but tool-call bytes were never added to
- *    totalContentLength. A turn whose entire answer is a tool call therefore
- *    measured as an empty answer (Math.max(1, ...) is where the 1 comes from).
- *
- * B. Truncation threw away a complete-enough answer. stopDisposition() maps
- *    model_context_window_exceeded (and max_tokens alongside tool calls) to
- *    terminal_incomplete, which hard-fails the turn -- even when the model had
- *    already streamed text. A truncated turn is what finish_reason "length" is
- *    for. Both disposition gates needed the bypass: the declared-stop-reason
- *    gate runs first and returns, so patching only finish() would be dead code.
- *
- * C. One bad tool fragment killed every good one. Three separate latches:
- *    emitTools() validated per turn and threw out of the loop; the frame-loop
- *    catch cleared state.tools wholesale; and the toolUseEvent branch returned
- *    early forever once toolValidationError was set. Net effect for the client:
- *    a turn that answered nothing.
- *
- * D. Cache tokens dropped on the kiro:claude route. kiro-to-claude built usage
- *    from prompt_tokens/completion_tokens only, so Claude clients lost
- *    cache_read_input_tokens / cache_creation_input_tokens and could neither
- *    price the turn nor size their prompt cache.
- *
- * E. Defence-in-depth only: both request translators discarded canonical.valid.
- *    canonicalizeKiroConversation() self-heals every failure mode it can detect
- *    (see the test below), so the guard is unreachable by construction today --
- *    it exists so a future validator rule cannot ship an unusable body silently.
- *
- * Kiro also answers an unusable conversation with 400 {"message":"Improperly
- * formed request.","reason":"REQUEST_BODY_INVALID"}, which cools down every
- * account that reports it. That is a property of ERROR_RULES rather than of this
- * executor -- the same body fails identically on any account -- so it belongs to
- * the request-scoped `fallback: false` rule kind, not here.
- */
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
@@ -141,16 +100,11 @@ async function execute(executor = new KiroExecutor(), overrides = {}) {
   });
 }
 
-// Output is held behind the ": kiro-validation" heartbeat until clean EOF, so
-// every executor assertion has to drain the whole response.
 async function run(frames) {
   fetchMock.mockResolvedValueOnce(response(frames));
   return await (await execute()).response.text();
 }
 
-// Same as run(), but with the bounded tool-call repair retry disabled, so a
-// hard failure is surfaced from the first attempt instead of triggering a
-// second upstream fetch.
 async function runNoRepair(frames) {
   fetchMock.mockResolvedValueOnce(response(frames));
   const result = await execute(new KiroExecutor(), {
@@ -159,8 +113,6 @@ async function runNoRepair(frames) {
   return await result.response.text();
 }
 
-// The estimator only runs when metering and context usage both arrived and the
-// upstream reported no token totals of its own -- the exact production shape.
 const METERED = [
   frame("meteringEvent", { usage: 2, unit: "credit" }),
   frame("contextUsageEvent", { contextUsagePercentage: 10 })
@@ -197,7 +149,6 @@ describe("A: tool-call bytes count as output tokens", () => {
 
     const usage = usageFrom(body);
     expect(usage).toBeDefined();
-    // Was 1: the Math.max floor over a totalContentLength of 0.
     expect(usage.completion_tokens).toBeGreaterThan(10);
     expect(usage.total_tokens).toBe(usage.prompt_tokens + usage.completion_tokens);
   });
@@ -220,7 +171,6 @@ describe("C: one unusable tool fragment does not take the whole turn with it", (
         name: "tool_call",
         input: { name: "mcp_search", arguments: { q: "router" } }
       }),
-      // No nested MCP name -> unusable, cannot be forwarded to the client.
       frame("toolUseEvent", { toolUseId: "bad", name: "tool_call", input: { arguments: { q: "router" } } }),
       frame("metadataEvent", { stopReason: "tool_use" }),
       ...METERED
@@ -282,7 +232,6 @@ describe("D: cache tokens survive the kiro -> claude translation", () => {
 
   function finalUsage(usage) {
     const state = {};
-    // Usage rides an earlier chunk in the real stream; feed it the same way.
     kiroToClaudeResponse({ choices: [{ index: 0, delta: { content: "hi" } }], usage }, state);
     const events = kiroToClaudeResponse(finishChunk(usage), state) || [];
     return events.find(e => e.type === "message_delta")?.usage;
@@ -338,8 +287,6 @@ describe("E: the translator valid-guard is defence-in-depth", () => {
   const SPECS = [{ toolSpecification: { name: "read_file", inputSchema: { json: { type: "object" } } } }];
 
   it("validateKiroConversation names the offending turn", () => {
-    // Hand-built, NOT normalized: assistant first, then a tool call with no
-    // matching result and a name no spec declares.
     const result = validateKiroConversation(
       [{ assistantResponseMessage: { content: "hi", toolUses: [{ toolUseId: "t1", name: "ghost" }] } }],
       { userInputMessage: { content: "go" } },
@@ -352,9 +299,6 @@ describe("E: the translator valid-guard is defence-in-depth", () => {
   });
 
   it("canonicalizeKiroConversation heals that same conversation", () => {
-    // This is why the guard cannot fire today: normalizeTurns() forces
-    // user-first/user-last alternation and non-empty content, and the
-    // second-chance pass flattens every structured tool turn to text.
     const out = canonicalizeKiroConversation({
       history: [{ assistantResponseMessage: { content: "hi", toolUses: [{ toolUseId: "t1", name: "ghost" }] } }],
       currentMessage: { userInputMessage: { content: "" } },

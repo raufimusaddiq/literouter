@@ -9,10 +9,6 @@ vi.mock("@/lib/usageDb.js", () => ({
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { createSSETransformStreamWithLogger } from "../../open-sse/utils/stream.js";
 
-// A chat->responses stream defers response.completed when finish_reason arrives
-// without usage (PR #4476). If the upstream then stalls — no usage trailer, no
-// [DONE], connection held open — that deferral must not wait forever: the
-// watchdog flushes the terminal event after PENDING_COMPLETION_FLUSH_MS.
 const encoder = new TextEncoder();
 
 const FINISH_CHUNK = {
@@ -63,7 +59,6 @@ describe("pending response.completed watchdog", () => {
 
       expect(completedResponses(liveText)).toHaveLength(0);
 
-      // No trailer, no [DONE] — only the watchdog can close this out.
       await vi.advanceTimersByTimeAsync(3000);
       expect(completedResponses(liveText)).toHaveLength(1);
       source.close();
@@ -87,7 +82,6 @@ describe("pending response.completed watchdog", () => {
       source.enqueue(encoder.encode(`data: ${JSON.stringify(USAGE_TRAILER)}\n\n`));
       await vi.advanceTimersByTimeAsync(20);
 
-      // Well past the watchdog window: nothing more may be emitted.
       await vi.advanceTimersByTimeAsync(10000);
       source.close();
 

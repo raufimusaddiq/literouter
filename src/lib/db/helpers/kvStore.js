@@ -28,7 +28,6 @@ export function makeKv(scope) {
       const all = await getScope(scope);
       return Object.hasOwn(all, key) ? structuredClone(all[key]) : fallback;
     },
-    // { clone: false } returns the shared cached snapshot: read-only, hot paths only.
     async getAll(options = {}) {
       const all = await getScope(scope);
       return options.clone === false ? all : structuredClone(all);

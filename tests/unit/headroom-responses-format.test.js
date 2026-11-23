@@ -1,7 +1,3 @@
-// #1998 — Headroom compression treated a Codex (openai-responses) body.input
-// array as OpenAI messages: it sent Responses items to /v1/compress and then
-// assigned the returned OpenAI messages back to body.input, violating the
-// Responses format contract. body.input must stay Responses-shaped.
 import { describe, it, expect, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 import { compressWithHeadroom } from "../../open-sse/rtk/headroom.js";
@@ -12,7 +8,6 @@ describe("compressWithHeadroom openai-responses format (#1998)", () => {
   });
 
   it("keeps body.input in Responses format after compressing an openai-responses request", async () => {
-    // Headroom always returns compressed OpenAI-style messages.
     global.fetch = vi.fn(async () => ({
       ok: true,
       json: async () => ({
@@ -41,8 +36,6 @@ describe("compressWithHeadroom openai-responses format (#1998)", () => {
     });
 
     expect(data).not.toBeNull();
-    // body.input must remain Responses items (type:"message" + content array),
-    // NOT the raw OpenAI messages ({ role, content: "<string>" }) the bug produced.
     expect(Array.isArray(body.input)).toBe(true);
     expect(body.input[0]).toMatchObject({ type: "message", role: "user" });
     expect(Array.isArray(body.input[0].content)).toBe(true);

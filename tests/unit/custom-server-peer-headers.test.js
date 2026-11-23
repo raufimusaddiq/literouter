@@ -1,5 +1,3 @@
-// custom-server.js is the only thing that makes x-9r-real-ip trustworthy. Boot a real
-// HTTP server through it and confirm a client cannot smuggle its own peer headers in.
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { createRequire } from "node:module";
 import http from "node:http";
@@ -64,14 +62,10 @@ describe("custom-server peer header sanitizing", () => {
     const headers = await get({ "x-forwarded-for": "203.0.113.9, 10.0.0.1" });
 
     expect(headers["x-9r-via-proxy"]).toBe("1");
-    // Rightmost hop: the entry the trusted loopback proxy appended for the peer it
-    // accepted. The leftmost entry is client-supplied and spoofable.
     expect(headers["x-9r-real-ip"]).toBe("10.0.0.1");
     expect(headers["x-forwarded-for"]).toBeUndefined();
   });
 
-  // chat.js snapshots every client header into the request detail. Anything that grants
-  // access must not survive into a record the dashboard renders and cloud sync uploads.
   it("keeps the peer token out of persisted request details", () => {
     const sanitized = requestDetails.sanitizeHeaders({
       "x-9r-peer-token": "secret",

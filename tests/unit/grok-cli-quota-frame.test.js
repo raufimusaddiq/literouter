@@ -4,10 +4,6 @@ import {
   probeFrameHeader,
 } from "../../open-sse/services/usage/grokCliQuotaFrame.js";
 
-/**
- * Minimal protobuf encoder for fixtures — real GetGrokCreditsConfig wire shape
- * (nested field 1 / fixed32 ratio / Timestamp reset + optional trailer 0x80).
- */
 
 function encodeVarint(value) {
   const bytes = [];

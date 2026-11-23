@@ -4,10 +4,8 @@ import { validateCombo } from "./validate.js";
 
 export const dynamic = "force-dynamic";
 
-// Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
 
-// GET /api/combos - Get all combos
 export async function GET() {
   try {
     const combos = await getCombos();
@@ -18,7 +16,6 @@ export async function GET() {
   }
 }
 
-// POST /api/combos - Create new combo
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -28,12 +25,10 @@ export async function POST(request) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    // Validate name format
     if (!VALID_NAME_REGEX.test(name)) {
       return NextResponse.json({ error: "Name can only contain letters, numbers, -, _ and ." }, { status: 400 });
     }
 
-    // Check if name already exists
     const existing = await getComboByName(name);
     if (existing) {
       return NextResponse.json({ error: "Combo name already exists" }, { status: 400 });

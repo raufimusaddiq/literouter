@@ -1,5 +1,3 @@
-// T-39: protocol compatibility — Gemini /v1beta tools, max_completion_tokens,
-// stop/params mapping, per-protocol error shapes, Anthropic model list.
 import { beforeEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
@@ -220,7 +218,6 @@ describe("/v1beta route", () => {
     ].join("");
     const enc = new TextEncoder();
     const bytes = enc.encode(lines);
-    // Split at awkward byte offsets, mid-line.
     const cuts = [7, 40, 95, 150, bytes.length];
     const stream = new ReadableStream({
       start(c) { let prev = 0; for (const cut of cuts) { c.enqueue(bytes.slice(prev, cut)); prev = cut; } c.close(); },

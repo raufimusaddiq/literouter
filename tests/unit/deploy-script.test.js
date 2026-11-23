@@ -10,8 +10,6 @@ const sha = (letter) => letter.repeat(40);
 const tag = (letter) => `production-${sha(letter)}`;
 const image = (letter) => `${repository}:${tag(letter)}`;
 
-// Synthetic docker/curl only: no real container, image or tag is touched. Every
-// invocation is recorded so the test can assert on exactly what was removed.
 const docker = `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$TEST_LOG"
 case "$1" in
@@ -65,8 +63,6 @@ const removed = (result) => [...result.calls.matchAll(/^REMOVED (.+)$/gm)].map((
 const composeCall = (result) => result.calls.split("\n").find((line) => line.startsWith("compose ")) ?? "";
 
 it("waits for health before checking it", () => {
-  // `up -d` alone returns while the healthcheck is still `starting`, which made
-  // a successful deploy exit before the prune. The deploy must block on health.
   const result = run({ args: [sha("b")], running: image("a") });
 
   expect(result.status, result.stderr).toBe(0);
@@ -75,8 +71,6 @@ it("waits for health before checking it", () => {
 });
 
 it("prunes once the replacement reports healthy after starting", () => {
-  // The stub reports healthy on the first inspect, which is what --wait
-  // guarantees; the prune must still target the tag this deploy replaced.
   const result = run({ args: [sha("b")], running: image("a"), health: "healthy" });
 
   expect(result.status, result.stderr).toBe(0);
@@ -84,8 +78,6 @@ it("prunes once the replacement reports healthy after starting", () => {
 });
 
 it("keeps the replaced tag when health never arrives", () => {
-  // --wait-timeout expiring leaves the container unhealthy: no prune, and the
-  // pre-deploy tag is still there to roll back to.
   const result = run({ args: [sha("b")], running: image("a"), health: "unhealthy" });
 
   expect(result.status).not.toBe(0);
@@ -98,14 +90,11 @@ it("removes exactly the replaced tag after health and the endpoint pass", () => 
 
   expect(result.status, result.stderr).toBe(0);
   expect(removed(result)).toEqual([image("a")]);
-  // The new tag is deployed, never removed.
   expect(removed(result)).not.toContain(image("b"));
   expect(result.calls).toContain("compose");
 });
 
 it("keeps the previous tag when the container is not healthy", () => {
-  // The dangerous regression: removing the old tag before verifying would leave
-  // a failed deploy with nothing to roll back to.
   const result = run({ args: [sha("b")], running: image("a"), health: "starting" });
 
   expect(result.status).not.toBe(0);
@@ -140,21 +129,18 @@ it("refuses a missing, short or malformed SHA without touching docker", () => {
 });
 
 it("aborts without deploying when the running tag cannot be determined", () => {
-  // Missing container.
   const missing = run({ args: [sha("b")], running: "" });
   expect(missing.status).toBe(1);
   expect(missing.stderr).toContain("cannot inspect");
   expect(missing.calls).not.toContain("compose");
   expect(removed(missing)).toEqual([]);
 
-  // Right repository, wrong tag shape: never guessed into a removal.
   const wrongTag = run({ args: [sha("b")], running: `${repository}:latest` });
   expect(wrongTag.status).toBe(1);
   expect(wrongTag.stderr).toContain("unexpected tag");
   expect(wrongTag.calls).not.toContain("compose");
   expect(removed(wrongTag)).toEqual([]);
 
-  // A foreign repository is never deployed over or pruned.
   const foreign = run({ args: [sha("b")], running: "ghcr.io/raufimusaddiq/richmod-web:sha-abc" });
   expect(foreign.status).toBe(1);
   expect(foreign.stderr).toContain("not on");

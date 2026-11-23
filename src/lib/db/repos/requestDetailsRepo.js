@@ -1,11 +1,6 @@
 import { getAdapter, getAdapterSync } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
-// #147: 15,000 rows. At ~11k requests/day that is ~33 h, so a stall is still
-// readable the next day (the 361-551 s stalls are never the oldest row).
-// Worst-case disk: 4 JSON fields x 5 KiB cap + envelope ~= 21 KiB/row -> ~315 MB.
-// Override with OBSERVABILITY_MAX_RECORDS (a positive integer, wins over the
-// dashboard setting so ops can pin it); clamped to MAX_RECORDS_CEILING.
 const DEFAULT_MAX_RECORDS = 15000;
 const MAX_RECORDS_CEILING = 100000;
 const DEFAULT_BATCH_SIZE = 20;
@@ -71,9 +66,6 @@ async function getObservabilityConfig() {
   return cachedConfig;
 }
 
-// Next bundles this module once per route/entry, so module-level state is NOT
-// shared. Anchor the queue on globalThis so every instance drains the same
-// buffer and a shutdown flush sees rows written by request handlers.
 const bufferState = (globalThis.__liteRouterDetailBuffer ||= {
   writeBuffer: [],
   flushTimer: null,
@@ -94,7 +86,6 @@ function sanitizeHeaders(headers) {
 
 export const __test__ = { sanitizeHeaders, boundField };
 
-// Read-only hook for the bounded-buffer check.
 export const __buffer__ = { size: () => bufferState.writeBuffer.length };
 
 function generateDetailId(model) {
@@ -104,14 +95,7 @@ function generateDetailId(model) {
   return `${timestamp}-${random}-${modelPart}`;
 }
 
-// ---- Bounded, single-pass field measurement -------------------------------
-// Records are bounded when they are ENQUEUED so the write buffer holds small
-// objects only (a 5 MB base64 image body must not sit in memory until a flush).
-// Strings are measured by .length; objects by one walk that never stringifies.
 const BASE64_MIN_LEN = 1024;
-// Keys that carry raw binary as base64 in provider payloads (Claude `source.data`,
-// Gemini `inlineData.data`, OpenAI `b64_json`, ...). A plain long string under any
-// other key is text and is left to the size limit.
 const BINARY_KEYS = new Set(["data", "b64_json", "base64", "bytes", "image", "audio", "file_data"]);
 const BASE64_SNIFF = /^[A-Za-z0-9+/=\r\n_-]{256}/;
 const PREVIEW_CHARS = 200;
@@ -127,8 +111,6 @@ function imageMarker(str) {
   return `[image ${str.length} bytes]`;
 }
 
-// Estimated serialized size, counting bulk base64 at marker length. Stops early
-// once `limit` is exceeded; the caller then only needs "too big" (+ a lower bound).
 function estimateSize(value, limit, depth = 0, key) {
   if (value === null || value === undefined) return 4;
   const t = typeof value;
@@ -150,8 +132,6 @@ function estimateSize(value, limit, depth = 0, key) {
   return size;
 }
 
-// Copy with bulk base64 swapped for a marker. Only called for values already
-// known to fit the limit, so the copy is small.
 function copyWithoutImages(value, depth = 0, key) {
   if (typeof value === "string") return isBulkBase64(value, key) ? imageMarker(value) : value;
   if (value === null || typeof value !== "object" || depth > MAX_WALK_DEPTH) return value;
@@ -161,7 +141,6 @@ function copyWithoutImages(value, depth = 0, key) {
   return out;
 }
 
-// Small skeleton for the truncated-marker preview (clipped strings, few items).
 function skeleton(value, depth = 0, key) {
   if (typeof value === "string") return isBulkBase64(value, key) ? imageMarker(value) : value.slice(0, 80);
   if (value === null || typeof value !== "object" || depth > 4) return value;
@@ -171,8 +150,6 @@ function skeleton(value, depth = 0, key) {
   return out;
 }
 
-// Exported for tests. Measures `obj` once; returns it (images replaced by a
-// marker) when it fits `maxSize`, else a tiny `_truncated` stub.
 export function boundField(obj, maxSize) {
   if (obj === null || obj === undefined) return {};
   if (typeof obj === "string") {
@@ -184,7 +161,7 @@ export function boundField(obj, maxSize) {
   const size = estimateSize(obj, maxSize);
   if (size <= maxSize) return copyWithoutImages(obj);
   let preview = "";
-  try { preview = JSON.stringify(skeleton(obj)).substring(0, PREVIEW_CHARS); } catch { /* keep empty */ }
+  try { preview = JSON.stringify(skeleton(obj)).substring(0, PREVIEW_CHARS); } catch {}
   return { _truncated: true, _originalSize: size, _preview: preview };
 }
 
@@ -210,8 +187,6 @@ function buildDetailRecord(item, maxJsonSize) {
   };
 }
 
-// Put a failed batch back at the head of the buffer, bounded by maxBuffered
-// (newest rows win, matching the drop-oldest policy of saveRequestDetail).
 function requeueFailed(items, maxBuffered) {
   const merged = items.concat(bufferState.writeBuffer);
   const cap = maxBuffered > 0 ? maxBuffered : DEFAULT_MAX_BUFFERED;
@@ -221,7 +196,6 @@ function requeueFailed(items, maxBuffered) {
 const UPSERT_SQL = `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`;
 const FLUSH_CHUNK = 20;
 
-// Queue entries are already-bounded records (see saveRequestDetail).
 function writeRecords(db, records, maxRecords) {
   db.transaction(() => {
     for (const record of records) {
@@ -242,8 +216,6 @@ async function flushToDatabase() {
   if (bufferState.writeBuffer.length === 0) return;
   bufferState.isFlushing = true;
   try {
-    // Small transactions with a macrotask yield between them, so a backlog never
-    // freezes the event loop for every live stream.
     while (bufferState.writeBuffer.length > 0) {
       const items = bufferState.writeBuffer.splice(0, FLUSH_CHUNK);
       let config = null;
@@ -270,17 +242,13 @@ export async function saveRequestDetail(detail) {
 
   ensureShutdownHandler();
 
-  // Cache a sync handle + record cap so the exit drain needs no await.
   try {
     if (!bufferState.syncAdapter) bufferState.syncAdapter = getAdapterSync();
     bufferState.maxRecords = config.maxRecords || DEFAULT_MAX_RECORDS;
     bufferState.maxJsonSize = config.maxJsonSize || DEFAULT_MAX_JSON_SIZE;
   } catch {
-    /* sync adapter unavailable (node:sqlite path) — async drain still applies */
   }
 
-  // ponytail: drop-oldest on overflow; switch to a Redis stream/disk spool if
-  // losing observability rows under sustained DB stall becomes unacceptable.
   if (bufferState.writeBuffer.length >= config.maxBuffered) {
     const dropped = bufferState.writeBuffer.shift();
     if (!dropped.__overflowLogged) {
@@ -291,15 +259,11 @@ export async function saveRequestDetail(detail) {
     }
   }
 
-  // Bound once, here: the queue holds small records, never request bodies.
   const record = buildDetailRecord(detail, config.maxJsonSize || DEFAULT_MAX_JSON_SIZE);
-  // Same id queued twice (e.g. progress row then final row): keep one entry.
   const existing = bufferState.writeBuffer.findIndex((r) => r.id === record.id);
   if (existing !== -1) bufferState.writeBuffer[existing] = record;
   else bufferState.writeBuffer.push(record);
 
-  // Trigger immediate flush if batch threshold reached.
-  // flushToDatabase() drains entire buffer in a loop, so all pushes during await are persisted.
   if (bufferState.writeBuffer.length >= config.batchSize) {
     if (bufferState.flushTimer) { clearTimeout(bufferState.flushTimer); bufferState.flushTimer = null; }
     flushToDatabase().catch((e) => console.error("[requestDetailsRepo] flush err:", e));
@@ -311,13 +275,9 @@ export async function saveRequestDetail(detail) {
   }
 }
 
-// Fixed-timeout drain for shutdown. Never blocks exit indefinitely; the caller
-// gets false when the deadline hits with rows still buffered.
 export async function flushRequestDetails() {
   if (bufferState.writeBuffer.length === 0) return true;
   if (bufferState.flushTimer) { clearTimeout(bufferState.flushTimer); bufferState.flushTimer = null; }
-  // Synchronous: better-sqlite3 is sync, so a drain needs no await and cannot
-  // lose a race against a shutdown that closes the connection.
   drainSync();
   return bufferState.writeBuffer.length === 0;
 }
@@ -367,8 +327,6 @@ export async function getRequestDetailById(id) {
   return row ? parseJson(row.data, null) : null;
 }
 
-// Next's own SIGTERM cleanup closes the DB ("connection is not open") though it
-// does not exit immediately, so the drain must run synchronously and first.
 function drainSync() {
   if (bufferState.writeBuffer.length === 0) return;
   try {
@@ -385,21 +343,15 @@ function drainSync() {
   }
 }
 
-// The SQLite adapter closes the connection on SIGTERM/SIGINT, so it calls this
-// before `db.close()` to give buffered rows their last chance to persist.
 globalThis.__liteRouterDrainSync = drainSync;
 
 function writeDetailsSync(db, items) {
   writeRecords(db, items, bufferState.maxRecords || DEFAULT_MAX_RECORDS);
 }
 
-// Exported (not just called inline) so bundlers keep the handler reachable;
-// an unreferenced module-level side effect gets tree-shaken out of the route.
 export function ensureShutdownHandler() {
   if (globalThis.__liteRouterDetailShutdownHook) return;
   globalThis.__liteRouterDetailShutdownHook = true;
-  // Synchronous and registered first: Next also listens on these signals and
-  // closes the DB, so any async drain would find a dead connection.
   process.on("beforeExit", drainSync);
   process.on("SIGINT", drainSync);
   process.on("SIGTERM", drainSync);

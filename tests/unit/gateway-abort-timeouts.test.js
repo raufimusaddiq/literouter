@@ -1,4 +1,3 @@
-// T-35: client abort propagation + bounded, non-replaying timeouts.
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 

@@ -86,10 +86,8 @@ describe("getThinkingLevels for kenari", () => {
     install({ "muse-ember-1-0": MUSE, "glm-4-7-flash:free": { contextWindow: 200000 } });
     expect(getCapabilitiesForModel("kenari", "muse-ember-1-0:max")).toMatchObject({ contextWindow: 1048576, maxOutput: 524288, reasoning: true });
     expect(getThinkingLevels("kenari", "muse-ember-1-0:minimal")).toEqual(LEVELS);
-    // Not an advertised level, or no listed base: no match.
     expect(getCapabilitiesForModel("kenari", "muse-ember-1-0:turbo").contextWindow).not.toBe(1048576);
     expect(getCapabilitiesForModel("kenari", "glm-4-7-flash:free").contextWindow).toBe(200000);
-    // A client effort alongside the suffix is kept, not stripped.
     expect(applyThinking("openai", "muse-ember-1-0:max", { model: "muse-ember-1-0:max", reasoning_effort: "high" }, "kenari").reasoning_effort).toBe("high");
   });
 

@@ -1,4 +1,3 @@
-// A5 (cases #7/#9/#10): lock hardcode->config no-op values.
 import { describe, it, expect } from "bun:test";
 import {
   OPENAI_COMPAT_BASE,

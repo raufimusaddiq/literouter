@@ -1,26 +1,21 @@
-// P0 GOLDEN: lock OUTPUT của translateResponse (stream) cho các concern đặc biệt.
-// Feed chuỗi chunk THẬT (shape provider) → snapshot mảng chunk openai emit.
-// Sau refactor chạy lại phải khớp y hệt (chunk/usage/thinking/tool/finish).
 import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateResponse, initState } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 
-// Chuẩn hoá field động (Date.now trong created + id) để snapshot ổn định.
 function stripVolatile(chunks) {
   return JSON.parse(JSON.stringify(chunks), (key, val) => {
     if (key === "created") return 0;
     if (key === "id" && typeof val === "string") {
       return val
-        .replace(/-\d{10,}-(\d+)$/, "-<TS>-$1")   // gemini: name-<ts>-idx
-        .replace(/^chatcmpl-\d{10,}$/, "chatcmpl-<TS>")  // kiro/ollama stream id
-        .replace(/^call_(\d+)_\d{10,}$/, "call_$1_<TS>"); // ollama tool id
+        .replace(/-\d{10,}-(\d+)$/, "-<TS>-$1")
+        .replace(/^chatcmpl-\d{10,}$/, "chatcmpl-<TS>")
+        .replace(/^call_(\d+)_\d{10,}$/, "call_$1_<TS>");
     }
     return val;
   });
 }
 
-// Chạy 1 chuỗi event qua translateResponse, gom toàn bộ chunk emit.
 function runStream(targetFormat, sourceFormat, events) {
   const state = initState(sourceFormat);
   const all = [];

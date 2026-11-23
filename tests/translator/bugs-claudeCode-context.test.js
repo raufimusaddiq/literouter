@@ -1,6 +1,3 @@
-// Real Claude Code CLI requests (Claude format) → non-Claude provider via OpenAI bridge.
-// Focuses on context components a real CLI sends: system arrays w/ cache_control, thinking
-// signatures, tool_result with images, audio. KNOWN BUG = it.fails (source file:line in comments).
 import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
@@ -10,7 +7,6 @@ const T = (src, tgt, body, provider = null) =>
   translateRequest(src, tgt, "m", body, true, null, provider);
 
 describe("Claude Code CLI context → OpenAI", () => {
-  // claude-to-openai.js:24-27 — system array only maps .text; cache_control/non-text dropped
   it("system array keeps all text parts", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       system: [
@@ -24,8 +20,6 @@ describe("Claude Code CLI context → OpenAI", () => {
     expect(sys?.content).toContain("repo conventions");
   });
 
-  // claude→claude is passthrough (same format) → thinking preserved. Guards against
-  // accidental routing through the OpenAI bridge for same-format requests.
   it("assistant thinking block survives Claude→Claude passthrough", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.CLAUDE, {
       messages: [
@@ -39,8 +33,6 @@ describe("Claude Code CLI context → OpenAI", () => {
     expect(JSON.stringify(out)).toContain("step-by-step plan");
   });
 
-  // claude-to-openai.js:128 — redacted_thinking also dropped
-  // KNOWN BUG
   it.failing("redacted_thinking block is not silently dropped", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       messages: [
@@ -54,9 +46,6 @@ describe("Claude Code CLI context → OpenAI", () => {
     expect(JSON.stringify(out)).toContain("ENCRYPTED_BLOB");
   });
 
-  // The OpenAI tool role is text-only, so the translator keeps the tool message
-  // empty and re-attaches a tool_result image as an image_url block on the
-  // following user turn, tagged with the originating tool_use_id.
   it("tool_result image block is preserved", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       messages: [
@@ -69,9 +58,7 @@ describe("Claude Code CLI context → OpenAI", () => {
       ],
     });
     const tool = out.messages.find((m) => m.role === "tool");
-    // The tool row itself is text-only, never a stringified block array.
     expect(tool?.content, "image turned into raw JSON").not.toMatch(/^\[/);
-    // The image survives on a user turn, tagged with the call it came from.
     const json = JSON.stringify(out.messages);
     expect(json, "tool_result image lost").toContain("data:image/png;base64,IMG");
     expect(json).toContain("[Image from tool result call_1]");

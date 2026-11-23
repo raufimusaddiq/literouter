@@ -1,8 +1,5 @@
 #!/usr/bin/env node
 
-// Postinstall: warm-up runtime deps into ~/.9router/runtime so the first
-// `9router` start doesn't need network. Failure here is non-fatal; cli.js
-// retries in the background (with backoff) at runtime.
 const { ensureRuntime } = require("./runtime");
 
 ensureRuntime({ silent: false })

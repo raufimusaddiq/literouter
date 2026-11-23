@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
-// Mock DNS lookup so we control which host resolves to what IP.
 const lookupMock = vi.fn();
 vi.mock("node:dns/promises", () => ({ lookup: (...a) => lookupMock(...a) }));
 
@@ -24,7 +23,7 @@ function mockFetchOnce(bytes, ok = true) {
 
 beforeEach(() => {
   lookupMock.mockReset();
-  lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]); // public by default
+  lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
 });
 afterEach(() => { vi.restoreAllMocks(); });
 

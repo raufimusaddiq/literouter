@@ -24,12 +24,6 @@ export function extractRequestConfig(body, stream) {
 export function extractUsageFromResponse(responseBody) {
   if (!responseBody || typeof responseBody !== "object") return null;
 
-  // Claude format
-  // Note: OpenAI Responses usage ({input_tokens, input_tokens_details:{cached_tokens}})
-  // also matches this branch. Its prompt is cache-INCLUSIVE and its cache rides in
-  // input_tokens_details, so emit it as cached_tokens — the convention
-  // canonicalizeUsage() passes through without folding. Reading it here keeps
-  // cache accounting correct for /v1/responses and codex traffic.
   if (responseBody.usage?.input_tokens !== undefined) {
     return {
       prompt_tokens: responseBody.usage.input_tokens || 0,
@@ -40,7 +34,6 @@ export function extractUsageFromResponse(responseBody) {
     };
   }
 
-  // OpenAI format
   if (responseBody.usage?.prompt_tokens !== undefined) {
     return {
       prompt_tokens: responseBody.usage.prompt_tokens || 0,
@@ -50,7 +43,6 @@ export function extractUsageFromResponse(responseBody) {
     };
   }
 
-  // Gemini format. Antigravity / gemini-cli wrap the payload in { response: {...} }.
   const usageMetadata = responseBody.usageMetadata || responseBody.response?.usageMetadata;
   if (usageMetadata) {
     return {
@@ -61,8 +53,6 @@ export function extractUsageFromResponse(responseBody) {
     };
   }
 
-  // Ollama format: prompt_eval_count/eval_count at top level (not nested under usage).
-  // prompt_eval_cached_count is a cache-read subset of prompt_eval_count (cache-INCLUSIVE).
   if (responseBody.done === true &&
       (responseBody.prompt_eval_count !== undefined || responseBody.eval_count !== undefined)) {
     const prompt = responseBody.prompt_eval_count || 0;
@@ -97,7 +87,6 @@ export function buildRequestDetail(base, overrides = {}) {
   };
 }
 
-// Build the "done" summary: duration, ttft, in/out tokens with cache breakdown
 export function formatDoneLine({ usage, latency }) {
   const u = usage || {};
   const inTok = u.prompt_tokens ?? u.input_tokens ?? 0;
@@ -115,8 +104,6 @@ export function formatDoneLine({ usage, latency }) {
   return `DONE ${latency?.total ?? 0}ms${ttftStr} · ${inStr} · OUT ${outTok}`;
 }
 
-// `error` marks a request that failed after producing no usable usage (stall,
-// reset). It is the only case that persists with zero tokens.
 const USAGE_ERROR_MAX = 500;
 
 export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, label = "USAGE", silent = false, latencyMs = null, ttftMs = null, status = "ok", error = null }) {
@@ -134,8 +121,6 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
     console.log(`${COLORS.green}[${time}] 📊 [${label}] ${provider.toUpperCase()} | in=${inTokens} | out=${outTokens}${accountSuffix}${COLORS.reset}`);
   }
 
-  // Canonicalize to one storage convention (prompt_tokens cache-inclusive) so
-  // cached/cache-creation tokens survive to cost calc + stats. See canonicalizeUsage.
   const normalized = canonicalizeUsage(tokens) || {
     prompt_tokens: tokens.prompt_tokens ?? tokens.input_tokens ?? 0,
     completion_tokens: tokens.completion_tokens ?? tokens.output_tokens ?? 0

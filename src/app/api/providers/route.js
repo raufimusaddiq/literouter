@@ -46,14 +46,10 @@ async function normalizeProxyPoolId(proxyPoolId) {
   return { proxyPoolId: normalizedId };
 }
 
-// GET /api/providers - List all connections
 export async function GET() {
   try {
-    // The map below builds fresh top-level objects and nothing is mutated, so
-    // skip the per-row deep clone of the whole cached pool.
     const connections = await getProviderConnections({}, { clone: false });
 
-    // Build nodeNameMap for compatible providers (id → name)
     let nodeNameMap = {};
     try {
       const nodes = await getProviderNodes();
@@ -62,7 +58,6 @@ export async function GET() {
       }
     } catch { }
 
-    // Hide sensitive fields, enrich name for compatible providers
     const safeConnections = connections.map(c => {
       const isCompatible = isOpenAICompatibleProvider(c.provider) || isAnthropicCompatibleProvider(c.provider);
       const name = isCompatible
@@ -85,7 +80,6 @@ export async function GET() {
   }
 }
 
-// POST /api/providers - Create new connection (API Key only, OAuth via separate flow)
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -102,10 +96,7 @@ export async function POST(request) {
     }
     const proxyPoolId = proxyPoolResult.proxyPoolId;
 
-    // Validation
     const isWebCookieProvider = !!WEB_COOKIE_PROVIDERS[provider];
-    // Dual-auth providers (e.g. codebuddy-cn, xai) live under category "oauth" but also
-    // accept an API key via authModes — they aren't in APIKEY_PROVIDERS, so allow them here.
     const supportsApiKeyMode = !!AI_PROVIDERS[provider]?.authModes?.includes("apikey");
     const isValidProvider = APIKEY_PROVIDERS[provider] ||
       FREE_TIER_PROVIDERS[provider] ||
@@ -128,8 +119,6 @@ export async function POST(request) {
 
     let providerSpecificData = normalizeProviderSpecificData(provider, body, body.providerSpecificData);
 
-    // Compatible LLM nodes support multiple API-key connections (key pool); runtime
-    // rotates/fails over via getProviderCredentials.
     if (isOpenAICompatibleProvider(provider)) {
       const node = await getProviderNodeById(provider);
       if (!node) {
@@ -187,11 +176,9 @@ export async function POST(request) {
       providerSpecificData: mergedProviderSpecificData,
       isActive: true,
       testStatus: testStatus || "unknown",
-      // Edits use /api/providers/[id]; creation must explicitly opt into overwrite.
       allowOverwrite: body.allowOverwrite === true || body.overwrite === true,
     });
 
-    // Hide sensitive fields
     const result = { ...newConnection };
     delete result.apiKey;
 

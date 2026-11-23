@@ -30,9 +30,6 @@ function json(data, options = {}) {
   });
 }
 
-/**
- * GET /v1/models/{kind} - OpenAI-compatible models list filtered by capability.
- */
 export async function GET(request, { params }) {
   try {
     const { kind } = await params;

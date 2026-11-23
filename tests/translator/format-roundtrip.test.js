@@ -1,5 +1,3 @@
-// Tier 2 — Format-pair: for each CLI source format, translate to openai and verify
-// core parts (text, tool, system) survive. Exposes bridge data loss.
 import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
@@ -50,7 +48,6 @@ describe("roundtrip: OpenAI tools → Claude → keeps tool name", () => {
 });
 
 describe("roundtrip: parallel tool calls keep distinct ids", () => {
-  // Claude assistant with 2 parallel tool_use → openai must keep 2 distinct ids
   const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
     messages: [
       { role: "assistant", content: [

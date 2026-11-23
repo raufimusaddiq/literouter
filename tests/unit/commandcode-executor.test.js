@@ -162,7 +162,6 @@ describe("inspectAndWrapCommandCodeResponse", () => {
     let callCount = 0;
     const executor = new CommandCodeExecutor();
 
-    // Override execute on instance to test retry behavior
     executor.execute = async (opts) => {
       const maxRetries = 2;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -209,7 +208,6 @@ describe("CommandCode in Combo Fallback", () => {
 
     const handleSingleModel = vi.fn(async (body, modelStr) => {
       if (modelStr === "commandcode/poolside/laguna-s-2.1-free") {
-        // Simulated failed CommandCode response
         return new Response(
           JSON.stringify({
             error: {
@@ -223,7 +221,6 @@ describe("CommandCode in Combo Fallback", () => {
       }
 
       if (modelStr === "openai/gpt-4o-mini") {
-        // Fallback model succeeds
         return new Response(
           JSON.stringify({
             id: "chatcmpl-test",

@@ -2,15 +2,6 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 import { KiroService } from "../../src/lib/oauth/services/kiro.js";
 
-/**
- * Regression tests for Kiro API-key auth.
- *
- * KiroService.validateApiKey validates against the Amazon Q model catalog and
- * returns an account-bound credential without inventing a profileArn.
- *
- * Note: OAuth (Builder ID / IDC) profileArn resolution is handled upstream by
- * fetchKiroProfileArn in providers.js and is covered there — not here.
- */
 describe("kiro API-key auth (KiroService.validateApiKey)", () => {
   beforeEach(() => vi.restoreAllMocks());
   afterEach(() => vi.restoreAllMocks());

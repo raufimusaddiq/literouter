@@ -39,7 +39,6 @@ describe("thinking intent on OpenAI tool-result turns", () => {
   it("maps a budget to effort on permanently adaptive models", () => {
     const out = translate("claude-opus-5-5", toolTurn({ thinking: { type: "enabled", budget_tokens: 10000 } }));
     expect(out.output_config).toEqual({ effort: "medium" });
-    // LiteRouter resolves Opus 5.5 to adaptive thinking (ccd0677d) rather than omitting it.
     expect(out.thinking).toEqual({ type: "adaptive" });
   });
 

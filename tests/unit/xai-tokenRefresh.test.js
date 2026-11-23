@@ -1,12 +1,9 @@
 import { describe, it, expect } from "bun:test";
 import { vi } from "#test/vi";
 
-// We can't easily import the open-sse switch logic without real PROVIDERS config,
-// so verify the wrapper function shape directly via dynamic import.
 
 describe("xai/token-refresh wrapper", () => {
   it("refreshXaiToken module loads without throwing", async () => {
-    // Just verify the file imports cleanly. The actual wrapper is internal.
     const mod = await import("../../open-sse/services/tokenRefresh.js");
     expect(typeof mod.refreshTokenByProvider).toBe("function");
     expect(typeof mod.formatProviderCredentials).toBe("function");

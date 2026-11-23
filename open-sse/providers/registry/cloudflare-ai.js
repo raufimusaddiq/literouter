@@ -28,7 +28,6 @@ export default {
   },
   systemOneTransport: {
     baseUrl: "https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/run/{model}",
-    // Cloudflare Workers AI wraps System One responses in { result, success }.
     responseWrapper: "result",
   },
   models: [

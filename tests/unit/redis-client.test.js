@@ -31,7 +31,6 @@ describe("redis client", () => {
   });
 });
 
-// A tiny RESP server so the socket lifecycle is exercised without a real Redis.
 function startFakeRedis() {
   const store = new Map();
   const sockets = new Set();
@@ -39,7 +38,6 @@ function startFakeRedis() {
     sockets.add(socket);
     socket.on("close", () => sockets.delete(socket));
     socket.on("data", (chunk) => {
-      // Commands arrive one per write from the client, so a crude parse is enough.
       const parts = chunk.toString().split("\r\n").filter((l) => l.startsWith("$") === false && l !== "" && l[0] !== "*");
       const [cmd, key, value] = parts;
       if (cmd === "GET") {
@@ -66,16 +64,11 @@ describe("redis client — connection reuse", () => {
 
   afterEach(async () => {
     if (!fake) return;
-    // close() waits for open connections to end, and the client holds one, so
-    // drop them first.
     for (const socket of fake.sockets) socket.destroy();
     await new Promise((r) => fake.server.close(r));
     fake = undefined;
   });
 
-  // Regression: the socket timeout was armed once at connect time, so an idle
-  // but healthy connection was destroyed after REDIS_TIMEOUT_MS and the next
-  // command returned null instead of its value.
   it("keeps serving commands after an idle period longer than the timeout", async () => {
     fake = await startFakeRedis();
     process.env.REDIS_URL = `redis://127.0.0.1:${fake.port}`;
@@ -86,7 +79,7 @@ describe("redis client — connection reuse", () => {
     await redisSet("k", "v");
     expect(await redisGet("k")).toBe("v");
 
-    await new Promise((r) => setTimeout(r, 150)); // 3x the per-command timeout
+    await new Promise((r) => setTimeout(r, 150));
     expect(await redisGet("k")).toBe("v");
   });
 });

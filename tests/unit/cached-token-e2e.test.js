@@ -1,6 +1,3 @@
-// End-to-end: a cache-bearing request flows through canonicalizeUsage →
-// saveRequestUsage → getUsageStats, proving cached tokens are persisted,
-// aggregated, and cost is computed correctly (the bug this branch fixes).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -28,14 +25,13 @@ afterAll(() => {
 
 describe("cached-token end-to-end (persist + aggregate + cost)", () => {
   it("Claude cache usage: canonical prompt is inclusive, cached persisted, cost correct", async () => {
-    // Raw Claude usage (cache-EXCLUSIVE prompt): input 100, cache_read 200, cache_creation 30, output 50
     const canonical = canonicalizeUsage({
       prompt_tokens: 100,
       completion_tokens: 50,
       cache_read_input_tokens: 200,
       cache_creation_input_tokens: 30,
     });
-    expect(canonical.prompt_tokens).toBe(330); // inclusive
+    expect(canonical.prompt_tokens).toBe(330);
 
     await db.saveRequestUsage({
       provider: "anthropic",
@@ -51,7 +47,6 @@ describe("cached-token end-to-end (persist + aggregate + cost)", () => {
     expect(stats.totalPromptTokens).toBe(330);
     expect(stats.byProvider.anthropic.cachedTokens).toBe(200);
 
-    // Cost: nonCached=330-200-30=100 @3 + cached 200 @0.30 + creation 30 @3.75 + output 50 @15
     const expected = (100 * 3 + 200 * 0.3 + 30 * 3.75 + 50 * 15) / 1_000_000;
     const hist = (await (await import("@/lib/db/driver.js")).getAdapter()).all(`SELECT cost, tokens FROM usageHistory WHERE provider = ?`, ["anthropic"]).map((r) => ({ cost: r.cost, tokens: JSON.parse(r.tokens) }));
     expect(hist.length).toBe(1);
@@ -62,7 +57,7 @@ describe("cached-token end-to-end (persist + aggregate + cost)", () => {
 
   it("OpenAI cache usage: inclusive prompt passes through, cached counted once", async () => {
     const canonical = canonicalizeUsage({
-      prompt_tokens: 1000,        // already includes cached
+      prompt_tokens: 1000,
       completion_tokens: 200,
       cached_tokens: 600,
     });

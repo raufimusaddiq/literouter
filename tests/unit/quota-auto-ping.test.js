@@ -365,7 +365,6 @@ describe("quota auto-ping", () => {
       quotas: { "session (5h)": { resetAt: "2026-01-01T22:00:00.000Z" } },
     });
 
-    // A 60-second scheduler tick can miss the entire five-second lead window.
     vi.setSystemTime(new Date(`2026-01-01T11:59:${String(seconds).padStart(2, "0")}.000Z`));
     await runQuotaAutoPingTick(deps, state);
     expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
@@ -380,7 +379,6 @@ describe("quota auto-ping", () => {
     await runQuotaAutoPingTick(deps, state);
     expect(deps.proxyAwareFetch).toHaveBeenCalledTimes(1);
 
-    // Catching up must not mark the *next* window as already pinged.
     vi.setSystemTime(new Date("2026-01-01T17:00:30.000Z"));
     await runQuotaAutoPingTick(deps, state);
     expect(deps.proxyAwareFetch).toHaveBeenCalledTimes(2);

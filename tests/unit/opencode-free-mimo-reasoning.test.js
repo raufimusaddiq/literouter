@@ -1,13 +1,3 @@
-// oc/mimo-v2.6-flash-free (OpenCode Zen free lane) reasoning support.
-//
-// The free lane's MiMo route is OpenRouter-backed: it validates reasoning_effort
-// against the plain OpenAI enum (none|minimal|low|medium|high|xhigh|max — anything
-// else 400 "Invalid option"), honours "none" by dropping thinking, and streams the
-// thinking text as `reasoning` + `reasoning_details[]` instead of reasoning_content.
-// The Xiaomi-family pattern this model used to inherit (always-on DeepSeek `thinking`
-// object, max rejected) and the OpenAI passthrough (which only surfaces upstream
-// fields verbatim) both missed that, so the level list, the off switch and the
-// client-visible reasoning field are pinned here.
 import { describe, expect, it } from "bun:test";
 import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";
 import { getThinkingLevels } from "../../open-sse/providers/thinkingLevels.js";
@@ -23,7 +13,6 @@ import { translateRequest } from "../../open-sse/translator/index.js";
 
 const MODEL = "mimo-v2.6-flash-free";
 const PROVIDER = "opencode";
-// Every value the lane accepts, probed live (200 vs 400 "Invalid option").
 const LEVELS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 function effortOnWire(level) {
@@ -70,14 +59,10 @@ describe("oc/mimo-v2.6-flash-free reasoning levels", () => {
 
     expect(getThinkingLevels(PROVIDER, MODEL)).toEqual(LEVELS);
     expect(getThinkingLevels(PROVIDER, `oc/${MODEL}`)).toEqual(LEVELS);
-    // Runtime callers hand getThinkingLevels the clean id (applyThinking's
-    // parseSuffix / the executor's baseModelId), so the "model(level)" form is
-    // covered by the end-to-end wire test below rather than here.
   });
 
   it("forwards every level verbatim and disables via reasoning_effort none", () => {
     for (const level of LEVELS) expect(effortOnWire(level).reasoning_effort).toBe(level);
-    // The family's DeepSeek shape would emit a `thinking` object the lane ignores.
     expect(effortOnWire("none").thinking).toBeUndefined();
     expect(effortOnWire("high").thinking).toBeUndefined();
   });
@@ -85,7 +70,6 @@ describe("oc/mimo-v2.6-flash-free reasoning levels", () => {
   it("sends the requested level to the free chat endpoint end to end", () => {
     const executor = new OpenCodeExecutor();
     for (const level of LEVELS) {
-      // The handler strips the provider prefix before dispatch (oc/… → bare id).
       const body = { model: MODEL, messages: [{ role: "user", content: "hi" }], max_tokens: 1024 };
       const translated = translateRequest(
         FORMATS.OPENAI,
@@ -97,7 +81,6 @@ describe("oc/mimo-v2.6-flash-free reasoning levels", () => {
         PROVIDER,
       );
       const out = executor.transformRequest(MODEL, translated, true, { connectionId: "oc-mimo-levels-test" });
-      // LiteRouter keeps the free lane on /zen/v1 (the /inference/v1 move was deferred).
       expect(executor.buildUrl(MODEL)).toBe("https://opencode.ai/zen/v1/chat/completions");
       expect(out.reasoning_effort).toBe(level);
       expect(out.thinking).toBeUndefined();
@@ -112,7 +95,6 @@ describe("oc/mimo-v2.6-flash-free reasoning levels", () => {
     const out = new OpenCodeExecutor().transformRequest(MODEL, translated, true, { connectionId: "oc-mimo-auto-test" });
     expect(out.reasoning_effort).toBeUndefined();
 
-    // A named level still rides through untouched.
     const kept = translateRequest(
       FORMATS.OPENAI,
       FORMATS.OPENAI,
@@ -145,7 +127,6 @@ describe("OpenCode free reasoning aliases reach OpenAI-shaped clients", () => {
   it("lifts reasoning/reasoning_details into reasoning_content and keeps the aliases", () => {
     expect(liftReasoningAliases({ reasoning: "abc" })).toEqual({ reasoning: "abc", reasoning_content: "abc" });
     expect(liftReasoningAliases({ reasoning_details: [{ text: "ab" }, { content: "c" }] }).reasoning_content).toBe("abc");
-    // Never rewrites a delta that already carries the canonical field.
     expect(liftReasoningAliases({ reasoning_content: "kept", reasoning: "other" })).toEqual({ reasoning_content: "kept", reasoning: "other" });
     expect(liftReasoningAliases({ content: "no thinking" })).toEqual({ content: "no thinking" });
   });
@@ -161,8 +142,6 @@ describe("OpenCode free reasoning aliases reach OpenAI-shaped clients", () => {
     expect(first.reasoning_content).toBe("17*23 = 391");
     expect(first.reasoning).toBe("17*23 = 391");
     expect(out.map((e) => e.choices[0].delta.content || "").join("")).toBe("391");
-    // Usage/thinking accounting reads reasoning_content, so the dashboard would
-    // have recorded no thinking for this lane before the lift.
     expect(settled).toEqual({ content: "391", thinking: "17*23 = 391" });
   });
 
@@ -187,8 +166,6 @@ describe("OpenCode free reasoning aliases reach OpenAI-shaped clients", () => {
     expect(parsed.choices[0].message.reasoning_content).toBe("17*23 = 391");
     expect(parsed.choices[0].message.content).toBe("391");
 
-    // Reasoning-only output (token cap hit before the answer) survives as well —
-    // handleForcedSSEToJson strips reasoning_content only when content is non-empty.
     const reasoningOnly = parseSSEToOpenAIResponse(`data: ${JSON.stringify(aliasDelta)}\n\n`, MODEL);
     expect(reasoningOnly.choices[0].message.content).toBe("");
     expect(reasoningOnly.choices[0].message.reasoning_content).toBe("17*23 = 391");

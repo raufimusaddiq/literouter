@@ -1,18 +1,3 @@
-/**
- * Regression test for issue #2546: Grok CLI (xAI) token refresh not used,
- * session dies 40-45 min after login.
- *
- * Root cause: grok-cli mapTokens stored `expiresIn` but never `expiresAt`.
- * shouldRefreshCredentials() only reads expiresAt/tokenExpiresAt, so the
- * proactive refresh path never fired and only the reactive 401 path could
- * refresh — causing intermittent "token expired" failures.
- *
- * This test exercises the proactive-refresh decision path for grok-cli with
- * an absolute expiresAt. (The mapTokens unit portion cannot run in this
- * checkout because src/lib/oauth/providers.js self-imports the bare
- * "open-sse/index.js" specifier which vitest here does not resolve — a
- * pre-existing harness gap unrelated to this fix.)
- */
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 

@@ -1,4 +1,3 @@
-// T-35: raw proxyAwareFetch callers with no signal/timer (token refresh etc.) must still be bounded.
 import { describe, it, expect, afterAll } from "bun:test";
 import http from "node:http";
 
@@ -9,7 +8,6 @@ const { UNDICI_BACKSTOP_MS } = await import("../../open-sse/config/runtimeConfig
 const sockets = new Set();
 const server = http.createServer((req, res) => {
   if (req.url === "/stall") { res.writeHead(200, { "content-type": "text/event-stream" }); res.write("data: x\n\n"); }
-  // "/hang": never answers
 });
 server.on("connection", (s) => { sockets.add(s); s.on("close", () => sockets.delete(s)); });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));

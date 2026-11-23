@@ -1,4 +1,3 @@
-// T-36: stream success bookkeeping happens at completion; non-SSE 200 is a 502.
 import { describe, it, expect } from "bun:test";
 import { vi } from "#test/vi";
 

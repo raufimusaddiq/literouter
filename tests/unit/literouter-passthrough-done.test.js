@@ -2,9 +2,6 @@ import { describe, expect, it } from "bun:test";
 import { FORMATS } from "open-sse/translator/formats.js";
 import { createPassthroughStreamWithLogger } from "open-sse/utils/stream.js";
 
-// PRD 20: a passthrough stream must terminate with exactly one OpenAI sentinel.
-// Upstreams commonly send their own `data: [DONE]`; forwarding that plus a
-// synthesized one is invalid SSE for strict clients.
 async function collect(chunks) {
   const upstream = new ReadableStream({
     start(controller) {

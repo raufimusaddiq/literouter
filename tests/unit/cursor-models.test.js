@@ -1,11 +1,6 @@
-// services/cursorModels.js backs the live Cursor model catalog used by
-// /api/v1/models and /api/providers/[id]/models. The protobuf decode is the
-// part worth locking: it reads field numbers out of an upstream payload the
-// repo does not control.
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
-// agent.api5.cursor.sh is HTTP/2-only, so the fetcher uses node:http2, not fetch.
 const h2 = vi.hoisted(() => ({ connect: vi.fn() }));
 vi.mock("node:http2", () => ({ default: h2 }));
 
@@ -19,7 +14,6 @@ const DISPLAY_NAME_FIELD = 4;
 const DISPLAY_NAME_SHORT_FIELD = 5;
 const RESPONSE_MODELS_FIELD = 1;
 
-// agent.v1.ModelDetails, then wrapped in the repeated field of the response.
 function modelDetail({ id, displayName, displayNameShort, displayModelId }) {
   const parts = [Buffer.from(encodeField(MODEL_ID_FIELD, LEN, Buffer.from(id)))];
   if (displayModelId) {
@@ -80,7 +74,6 @@ describe("parseCursorUsableModels", () => {
 });
 
 describe("Cursor live model catalog", () => {
-  // Minimal fake client: emit the response headers + body the fetcher reads.
   function stubHttp2({ status = 200, body = Buffer.alloc(0), onRequest } = {}) {
     h2.connect.mockImplementation(() => ({
       close() {},

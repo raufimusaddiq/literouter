@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
-// Minimal DOM stubs: the runtime only needs cookies, a body, a tree walker,
-// and a MutationObserver constructor.
 function installDom(cookie) {
   const walker = { nextNode: () => null };
   const doc = {

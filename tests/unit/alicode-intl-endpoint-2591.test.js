@@ -1,8 +1,3 @@
-// #2591 — Alibaba Intl key types split across two hosts:
-//   - alicode-intl: Coding Plan keys (sk-sp-...) → coding-intl.dashscope.aliyuncs.com
-//   - alims-intl:   standard DashScope API keys (sk-...) → dashscope-intl.aliyuncs.com/compatible-mode
-// The two key types are NOT interchangeable across hosts. Split into two providers
-// so each key type reaches its own host.
 import { describe, it, expect } from "bun:test";
 import alicodeIntl from "../../open-sse/providers/registry/alicode-intl.js";
 import alimsIntl from "../../open-sse/providers/registry/alims-intl.js";

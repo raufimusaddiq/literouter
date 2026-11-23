@@ -1,14 +1,11 @@
 import pkg from "../../../package.json" with { type: "json" };
 
-// App configuration
 export const APP_CONFIG = {
   name: "LiteRouter",
   description: "Lean AI routing control plane",
   version: pkg.version,
 };
 
-// GitHub configuration
-// Updater configuration
 export const UPDATER_CONFIG = {
   npmPackageName: "9router",
   installCmd: "npm i -g 9router",
@@ -26,10 +23,9 @@ export const UPDATER_CONFIG = {
   appPort: 20128,
 };
 
-// Theme configuration
 export const THEME_CONFIG = {
   storageKey: "theme",
-  defaultTheme: "system", // "light" | "dark" | "system"
+  defaultTheme: "system",
 };
 
 export const CONSOLE_LOG_CONFIG = {
@@ -37,16 +33,15 @@ export const CONSOLE_LOG_CONFIG = {
   pollIntervalMs: 1000,
 };
 
-// Quota auto-ping: keep 5h windows warm by sending a tiny request right after reset.
 export const QUOTA_AUTOPING_CONFIG = {
-  tickIntervalMs: 60000,                // scheduler tick
-  pingLeadMs: 5000,                     // fire once reset passes (within tolerance)
-  refreshAheadMs: 300000,               // refetch usage when within 5min of reset
-  failureCooldownMs: 900000,            // avoid failed ping spam while upstream/auth is unhealthy
+  tickIntervalMs: 60000,
+  pingLeadMs: 5000,
+  refreshAheadMs: 300000,
+  failureCooldownMs: 900000,
   providers: {
     claude: {
-      settingsKey: "claudeAutoPing",    // preserve existing settings contract
-      quotaKey: "session (5h)",         // quota key returned by usage handler
+      settingsKey: "claudeAutoPing",
+      quotaKey: "session (5h)",
       pingModel: "claude-haiku-4-5-20251001",
       pingText: "hi",
       pingMaxTokens: 1,
@@ -58,7 +53,6 @@ export const QUOTA_AUTOPING_CONFIG = {
       resetAtDriftMs: 30000,
       minPingIntervalMs: 600000,
       skipWhenBlockingQuotaExhausted: true,
-      // gpt-5.6-terra is the lightweight model for auto-pinging Codex 5h reset window.
       pingModel: "gpt-5.6-terra",
       pingText: "hi",
       pingInstructions: "Reply with OK.",
@@ -67,7 +61,6 @@ export const QUOTA_AUTOPING_CONFIG = {
   },
 };
 
-// Re-export from providers.js for backward compatibility
 export {
   FREE_PROVIDERS,
   OAUTH_PROVIDERS,
@@ -77,7 +70,6 @@ export {
   AUTH_METHODS,
 } from "./providers.js";
 
-// Re-export from models.js for backward compatibility
 export {
   PROVIDER_MODELS,
   AI_MODELS,

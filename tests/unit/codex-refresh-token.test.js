@@ -1,11 +1,3 @@
-/**
- * Unit tests for Codex (OpenAI) refresh token mechanism
- *
- * Verifies that:
- * - Early refresh lead times are configured per provider (synced with CLIProxyAPI)
- * - New refresh_token from response is persisted (token rotation)
- * - Falls back to old refresh_token when server doesn't return new one
- */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
@@ -148,13 +140,12 @@ describe("Codex Refresh Token", () => {
     it("should return provider-specific lead time for OAuth providers", async () => {
       const { getRefreshLeadMs } = await import("../../open-sse/services/tokenRefresh.js");
 
-      // Synced with CLIProxyAPI refresh_registry
       expect(getRefreshLeadMs("codex")).toBe(10 * 60 * 1000);
-      expect(getRefreshLeadMs("claude")).toBe(4 * 60 * 60 * 1000);       // 4 hours
-      expect(getRefreshLeadMs("iflow")).toBe(24 * 60 * 60 * 1000);       // 24 hours
-      expect(getRefreshLeadMs("kimi")).toBe(5 * 60 * 1000);              // 5 minutes
-      expect(getRefreshLeadMs("kimi-coding")).toBe(5 * 60 * 1000);       // legacy alias
-      expect(getRefreshLeadMs("antigravity")).toBe(5 * 60 * 1000);       // 5 minutes
+      expect(getRefreshLeadMs("claude")).toBe(4 * 60 * 60 * 1000);
+      expect(getRefreshLeadMs("iflow")).toBe(24 * 60 * 60 * 1000);
+      expect(getRefreshLeadMs("kimi")).toBe(5 * 60 * 1000);
+      expect(getRefreshLeadMs("kimi-coding")).toBe(5 * 60 * 1000);
+      expect(getRefreshLeadMs("antigravity")).toBe(5 * 60 * 1000);
     });
 
     it("should fallback to default buffer for unknown providers", async () => {

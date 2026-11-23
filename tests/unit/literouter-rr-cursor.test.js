@@ -1,12 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from "bun:test";
 
-// PRD 9.3: round-robin state must not require a synchronous database operation
-// per request. The account cursor is now persisted in the background, so the
-// correctness question is freshness: the next selection must not read a stale
-// cached row, or rotation sticks on one account.
-//
-// Imports are direct (no catch-and-return) so a setup failure fails the suite
-// instead of silently passing with zero assertions.
 import * as db from "@/lib/db/index.js";
 import * as auth from "@/sse/services/auth.js";
 
@@ -37,9 +30,6 @@ describe("round-robin account selection", () => {
     const cache = global.__liteRouterConnectionCache;
     expect(cache?.rows, "cache should be populated before the write").toBeTruthy();
 
-    // Kick off the write without awaiting: this is what the routing path does
-    // now. The cached row must already carry the patch when this returns, because
-    // getAdapter() is async and the request path does not wait for it.
     const pending = db.updateProviderConnection(created[0].id, {
       lastUsedAt: new Date().toISOString(),
       consecutiveUseCount: 2,
@@ -60,8 +50,6 @@ describe("round-robin account selection", () => {
       expect(creds, `selection ${i} returned no credentials`).toBeTruthy();
       seen.push(creds.connectionId);
     }
-    // stickyRoundRobinLimit is 1, so consecutive picks must differ and all three
-    // accounts must be reached within six attempts.
     expect(seen[0]).not.toBe(seen[1]);
     expect(new Set(seen).size).toBe(3);
   });

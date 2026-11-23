@@ -1,5 +1,3 @@
-// Pricing + capability rows for the models this intake introduces or exposes.
-// Closes the "routes but bills $0" gap: every advertised id has an explicit row.
 import { describe, expect, it } from "bun:test";
 
 import { getPricingForModel, setRuntimePricing, clearRuntimePricing } from "../../open-sse/providers/pricing.js";
@@ -12,8 +10,6 @@ const staticIds = (providerId) =>
   (REGISTRY.find((entry) => entry.id === providerId)?.models || []).map((m) => m.id);
 
 describe("synthetic pricing", () => {
-  // Source: https://synthetic.new/pricing/models (usage-based column) and the
-  // per-token figures in GET https://api.synthetic.new/openai/v1/models.
   it("prices the datacenter models at the vendor's usage-based rate", () => {
     expect(getPricingForModel("synthetic", "hf:zai-org/GLM-5.3")).toMatchObject({ input: 1.4, output: 4.4, cached: 0.26 });
     expect(getPricingForModel("synthetic", "hf:zai-org/GLM-5.3-Flash")).toMatchObject({ input: 0.15, output: 0.5, cached: 0.04 });
@@ -31,9 +27,6 @@ describe("synthetic pricing", () => {
   });
 
   it("does not carry a row for an id that is neither in the registry nor the live catalog", () => {
-    // 'hf:zai-org/GLM-5.3Beta' was dropped: unsourced (the vendor page and the
-    // live catalog list no such id). The generic glm-5 pattern may still price it,
-    // but there must be no synthetic-specific row.
     const id = "hf:zai-org/GLM-5.3Beta";
     expect(Object.hasOwn(PROVIDER_CAPABILITIES.synthetic, id)).toBe(false);
     expect(staticIds("synthetic")).not.toContain(id);
@@ -59,7 +52,6 @@ describe("sensenova-intl pricing + capabilities", () => {
 
 describe("Claude live-catalog rows", () => {
   it("prices the new Claude ids the OAuth catalog advertises", () => {
-    // Source: https://www.anthropic.com/pricing
     expect(getPricingForModel("claude", "claude-sonnet-5-5")).toMatchObject({ input: 2, output: 10, cached: 0.1, cache_creation: 2.5 });
     expect(getPricingForModel("claude", "claude-sonnet-5")).toMatchObject({ input: 2, output: 10, cached: 0.2 });
     expect(getPricingForModel("claude", "claude-opus-5-5")).toMatchObject({ input: 4, output: 20, cached: 0.2, cache_creation: 5 });
@@ -114,7 +106,6 @@ describe("CommandCode live catalog pricing", () => {
       ],
     });
     expect(Object.keys(out)).toEqual(["badcache"]);
-    // A bad optional field is dropped; the required rates still price the model.
     expect(out.badcache).toEqual({ input: 1, output: 2, reasoning: 2 });
   });
 });
@@ -127,14 +118,10 @@ describe("runtime pricing overlay hardening", () => {
       toString: { input: 1, output: 2 },
       prototype: { input: 1, output: 2 },
     });
-    // '__proto__' as an object-literal key sets the prototype, so it is not an own
-    // entry. The other three are legitimate catalog ids and must resolve to their
-    // own price, never to a prototype member.
     expect(getPricingForModel("commandcode", "__proto__")).toBeNull();
     for (const key of ["constructor", "toString", "prototype"]) {
       expect(getPricingForModel("commandcode", key), key).toEqual({ input: 1, output: 2 });
     }
-    // A prototype member that was never registered is a miss, not a price object.
     expect(getPricingForModel("commandcode", "hasOwnProperty")).toBeNull();
     expect(getPricingForModel("commandcode", "valueOf")).toBeNull();
     clearRuntimePricing("commandcode");
@@ -164,8 +151,6 @@ describe("runtime pricing overlay hardening", () => {
   });
 
   it("caps a hostile but structurally valid catalog id in capabilities lookups", () => {
-    // The CommandCode branch answers with its own defaults for every id; the point
-    // is that a prototype key does not leak a non-capability object into the spread.
     for (const key of ["constructor", "toString", "__proto__"]) {
       const caps = getCapabilitiesForModel("commandcode", key);
       expect(caps.tools, key).toBe(true);

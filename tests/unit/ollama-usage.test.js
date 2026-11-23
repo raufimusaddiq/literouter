@@ -107,7 +107,6 @@ describe("getUsageForProvider(ollama)", () => {
       remainingPercentage: 0,
       unlimited: false,
     });
-    // Must not set absolute remaining — UI treats remaining as %
     expect(usage.quotas["Session (5h)"].remaining).toBeUndefined();
     expect(usage.quotas["Weekly (7d)"].remaining).toBeUndefined();
 

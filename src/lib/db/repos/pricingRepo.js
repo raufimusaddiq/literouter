@@ -58,7 +58,6 @@ export async function getPricingForModel(provider, model) {
   return resolveConst(provider, model);
 }
 
-// Atomic merge inside transaction (per-provider read-modify-write)
 export async function updatePricing(pricingData) {
   const db = await getAdapter();
   db.transaction(() => {

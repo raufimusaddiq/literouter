@@ -1,8 +1,3 @@
-// Parallel function_calls from a Responses upstream must stay on separate
-// chat tool_calls indices. Regression: response/openai-responses.js attributed
-// every arguments delta to the positional toolCallIndex (advanced only on
-// output_item.done), so all-added-then-deltas ordering concatenated N JSON
-// payloads into index 0 and clients failed with InputValidationError.
 import { describe, expect, it } from "bun:test";
 import "../translator/registerAll.js";
 import { openaiResponsesToOpenAIResponse } from "../../open-sse/translator/response/openai-responses.js";
@@ -24,7 +19,6 @@ const done = (id, call_id, name) => ({
   item: { id, type: "function_call", call_id, name },
 });
 
-// Reassemble translated chunks the way an OpenAI client accumulator does.
 function accumulate(calls, chunks) {
   for (const chunk of chunks) {
     if (!chunk) continue;
@@ -59,8 +53,6 @@ const PAYLOADS = [
 
 function hostileOrdering() {
   const events = PAYLOADS.map((_, i) => added(`fc_${i}`, `call_${i}`, "read_file"));
-  // Interleaved deltas AFTER all addeds — the ordering that used to merge all
-  // four payloads into index 0.
   PAYLOADS.forEach((p, i) => events.push(delta(`fc_${i}`, p.slice(0, 20)), delta(`fc_${i}`, p.slice(20))));
   PAYLOADS.forEach((_, i) => events.push(done(`fc_${i}`, `call_${i}`, "read_file")));
   return events;

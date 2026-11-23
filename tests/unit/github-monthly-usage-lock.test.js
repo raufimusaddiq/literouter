@@ -5,8 +5,6 @@ const dbMocks = vi.hoisted(() => ({
   getProviderConnections: vi.fn(),
   getProviderConnectionById: vi.fn(),
   updateProviderConnection: vi.fn(),
-  // Run the mutator against the stored row like the real transactional repo call,
-  // and record the resulting patch through updateProviderConnection.
   mutateProviderConnection: vi.fn(async (id, mutate) => {
     const existing = await dbMocks.getProviderConnectionById(id);
     const patch = mutate(existing);

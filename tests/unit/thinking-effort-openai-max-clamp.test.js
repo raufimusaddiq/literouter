@@ -2,11 +2,6 @@ import { describe, expect, it } from "bun:test";
 import { applyThinking } from "../../open-sse/translator/concerns/thinkingUnified.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 
-// Regression: Claude Code sends thinking effort "max" (its top level). When
-// 9router routes to an OpenAI-format provider, applyThinking() case "openai"
-// must clamp "max"→"xhigh" because OpenAI's reasoning_effort enum has no "max"
-// (L.openai caps at "xhigh"). Without the clamp, upstream returns HTTP 400
-// "max effort not support". See open-sse/providers/thinkingLevels.js:10.
 describe("applyThinking (openai): clamp max effort to xhigh", () => {
   it("client output_config.effort:\"max\" → reasoning_effort:\"xhigh\" (not \"max\")", () => {
     const body = { output_config: { effort: "max" } };

@@ -1,19 +1,9 @@
-/**
- * Unit tests for grok-web & perplexity-web cookie validation logic
- *
- * Covers:
- *  - Cookie prefix stripping (sso=, __Secure-next-auth.session-token=)
- *  - 401/403 → invalid with error message
- *  - Non-auth responses (200, 400, 429) → valid (Cloudflare-bypass probe)
- *  - Required browser-fingerprint headers sent to Grok
- */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
 const originalFetch = global.fetch;
 
-// Replicates the validation logic from app/src/app/api/providers/validate/route.js
 async function validateGrokWeb(apiKey) {
   const token = apiKey.startsWith("sso=") ? apiKey.slice(4) : apiKey;
   const randomHex = (n) => {

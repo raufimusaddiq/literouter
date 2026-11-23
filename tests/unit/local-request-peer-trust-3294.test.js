@@ -1,6 +1,3 @@
-// GHSA-pjm4-8fpg-f9p6 (#3294): `next start` leaves custom-server.js out of the request
-// path, so x-9r-real-ip arrives straight from the client and a remote caller can claim to
-// be loopback. Host is spoofable the same way, so it cannot be the production fallback.
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
@@ -115,8 +112,6 @@ describe("peer header trust", () => {
     expect(mocks.validateApiKey).not.toHaveBeenCalled();
   });
 
-  // A dual-stack listener reports loopback as ::ffff:127.0.0.1, which the old
-  // split-on-first-colon check reduced to "".
   it.each(["::ffff:127.0.0.1", "::1", "[::1]", "127.0.0.1", "::FFFF:127.0.0.1"])(
     "treats %s as a loopback peer",
     async (peerIp) => {
@@ -158,8 +153,6 @@ describe("peer header trust", () => {
 
     const response = await proxy(request("/api/v1/models", { host: "localhost:20127" }));
 
-    // A client can set any Host value, so it must not unlock the local-operator
-    // exemptions (SSRF guard bypass, localhost-only routes).
     expect(response.status).toBe(401);
   });
 
@@ -170,12 +163,8 @@ describe("peer header trust", () => {
       "x-9r-peer-token": PEER_TOKEN,
     }));
 
-    // `npm start` / `docker run` reach the gateway over loopback, so this is the
-    // request shape the dashboard itself has; the documented local workflow.
     expect(response).toBe(mocks.nextResponse);
   });
-  // These two prove the @/lib/db/index.js mock really intercepts the guard: the
-  // outcome flips with the mocked value, so a stale mock path would fail here.
   it("lets a remote caller through only when the mocked validateApiKey accepts the key", async () => {
     const headers = { host: "172.18.192.1:20140", authorization: "Bearer router-key" };
     mocks.validateApiKey.mockResolvedValue(true);
@@ -229,7 +218,6 @@ describe("login limiter client IP", () => {
 
     const ip = getClientIp(request("/api/auth/login", { "x-forwarded-for": "198.51.100.7, 10.0.0.1" }));
 
-    // Rightmost hop: the one the single trusted proxy appended; leftmost is client-controlled.
     expect(ip).toBe("10.0.0.1");
   });
 });

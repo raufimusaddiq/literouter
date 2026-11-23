@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 
-// PRD 24: a signal must drain buffered request details to SQLite, not just log.
 describe("request detail signal drain", () => {
   it("persists buffered rows when the process handles SIGTERM", async () => {
     process.env.ENABLE_REQUEST_LOGS = "true";
@@ -15,8 +14,6 @@ describe("request detail signal drain", () => {
     await repo.saveRequestDetail({ id: `drain-${Date.now()}`, model: "drain-model", status: "success" });
     expect(repo.__buffer__.size()).toBeGreaterThan(0);
 
-    // Emit the adapter's shutdown path, which closes the DB then exits. The
-    // drain must win that race, so simulate it the way the adapter does.
     globalThis.__liteRouterDrainSync();
 
     const db = driver.getAdapterSync();

@@ -1,4 +1,3 @@
-// A3: locks toOpenAIUsage per-provider token math (claude/gemini/kiro/ollama/commandcode).
 import { describe, it, expect } from "bun:test";
 import { toOpenAIUsage } from "../../open-sse/translator/concerns/usage.js";
 
@@ -37,7 +36,6 @@ describe("toOpenAIUsage", () => {
       { promptTokenCount: 100, candidatesTokenCount: 0, thoughtsTokenCount: 10, totalTokenCount: 150 },
       "gemini"
     );
-    // candidates derived = 150 - 100 - 10 = 40 ; completion = 40 + 10
     expect(u.completion_tokens).toBe(50);
   });
 
@@ -53,7 +51,6 @@ describe("toOpenAIUsage", () => {
     expect(u.prompt_tokens).toBe(7);
     expect(u.completion_tokens).toBe(4);
     expect(u.total_tokens).toBe(11);
-    // no cache fields -> no prompt_tokens_details
     expect(u.prompt_tokens_details).toBeUndefined();
   });
 
@@ -62,7 +59,7 @@ describe("toOpenAIUsage", () => {
       { prompt_eval_count: 100, eval_count: 20, prompt_eval_cached_count: 80 },
       "ollama"
     );
-    expect(u.prompt_tokens).toBe(100); // cache-INCLUSIVE: prompt already contains cached
+    expect(u.prompt_tokens).toBe(100);
     expect(u.completion_tokens).toBe(20);
     expect(u.total_tokens).toBe(120);
     expect(u.prompt_tokens_details.cached_tokens).toBe(80);

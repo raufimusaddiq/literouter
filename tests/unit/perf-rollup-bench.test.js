@@ -2,7 +2,6 @@ import { describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 import { DatabaseSync } from "node:sqlite";
 
-// Seeded-fixture benchmark for the 24h stats query. Opt-in: BENCH=1 npx vitest run unit/perf-rollup-bench
 const state = vi.hoisted(() => ({ db: null }));
 vi.mock("@/lib/db/driver.js", () => ({ getAdapter: vi.fn(async () => state.db), getAdapterSync: vi.fn(() => state.db) }));
 vi.mock("@/lib/db/repos/connectionsRepo.js", () => ({ getProviderConnections: vi.fn(async () => []) }));

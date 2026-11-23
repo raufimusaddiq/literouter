@@ -1,12 +1,3 @@
-/**
- * Unit tests for open-sse/translator/response/commandcode-to-openai.js
- *
- * Verified live against upstream stream (curl, 2026-05-07):
- *  - tool-input-start: { id, toolName }   (id, NOT toolCallId)
- *  - tool-input-delta: { id, delta }      (id, NOT toolCallId; delta, NOT inputTextDelta)
- *  - tool-input-end:   { id }
- *  - tool-call (final): { toolCallId, toolName, input }
- */
 
 import { describe, it, expect } from "bun:test";
 import { commandCodeToOpenAIResponse } from "../../open-sse/translator/response/commandcode-to-openai.js";
@@ -51,12 +42,10 @@ describe("commandcode-to-openai — tool-input-* with id field (live schema)", (
       { type: "tool-input-delta", id: "call_X", delta: "\":\"ls\"}" },
     ]);
 
-    // First chunk emits tool_calls with id
     const startChunk = chunks[0].choices[0].delta.tool_calls[0];
     expect(startChunk.id).toBe("call_X");
     expect(startChunk.function.name).toBe("Bash");
 
-    // Subsequent deltas accumulate arguments
     expect(chunks[1].choices[0].delta.tool_calls[0].function.arguments).toBe("{\"cmd");
     expect(chunks[2].choices[0].delta.tool_calls[0].function.arguments).toBe("\":\"ls\"}");
   });
@@ -76,7 +65,6 @@ describe("commandcode-to-openai — final tool-call event", () => {
       { type: "tool-input-delta", id: "call_Y", delta: "{\"file\":\"a\"}" },
       { type: "tool-call", toolCallId: "call_Y", toolName: "Write", input: { file: "a" } },
     ]);
-    // Should be exactly 2 chunks (start + delta), no duplicate from final tool-call
     expect(chunks.length).toBe(2);
   });
 
@@ -117,8 +105,6 @@ describe("commandcode-to-openai — finish", () => {
 
 describe("commandcode-to-openai — error event", () => {
   it("throws a readable error instead of emitting it as content", () => {
-    // A mid-stream error must abort the stream, not masquerade as assistant
-    // text with finish_reason "stop".
     expect(() => feed([
       { type: "error", error: { type: "server_error", message: "Boom" } },
     ])).toThrow(/\[CommandCode error: .*Boom/);

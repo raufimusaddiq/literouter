@@ -50,20 +50,15 @@ function translatedSession(sessionId, clientTool) {
   return `ses_${digest}`;
 }
 
-// Strip the thinking suffix "model(level)" so checks hit the base id.
 function baseModelId(model) {
   return String(model || "").replace(/\([^()]+\)\s*$/, "").trim();
 }
 
-// Responses-only per the provider registry (grok-4.6, gpt-5.6-luna, muse-spark, …).
-// Reading the registry keeps this in sync with config — never hardcode model ids here.
 function isResponsesModel(model) {
   const entry = getProviderModels("opencode-go").find((m) => m.id === baseModelId(model));
   return modelTargetFormat(entry) === "openai-responses";
 }
 
-// Flatten Chat Completions tool declarations into the Responses flat shape and
-// drop hosted/nameless tools the /responses endpoint rejects.
 function normalizeResponsesTools(body) {
   if (!Array.isArray(body.tools)) return;
   const validNames = new Set();
@@ -77,8 +72,6 @@ function normalizeResponsesTools(body) {
     let parameters = (tool.parameters && typeof tool.parameters === "object" && !Array.isArray(tool.parameters))
       ? tool.parameters
       : (fn?.parameters && typeof fn.parameters === "object" && !Array.isArray(fn.parameters) ? fn.parameters : { type: "object", properties: {} });
-    // Mirror the request translator: {type:"object"} without properties is rejected
-    // by strict Responses backends, so fill in the empty properties map.
     if (parameters.type === "object" && !parameters.properties) parameters = { ...parameters, properties: {} };
     for (const k of Object.keys(tool)) delete tool[k];
     tool.type = "function";
@@ -96,16 +89,10 @@ function normalizeResponsesTools(body) {
   }
 }
 
-// Last line of defense for native Responses clients (sourceFormat === targetFormat
-// skips translation): coerce items in place so malformed tool payloads 400 here
-// with a clear shape instead of upstream as InputValidationError.
 function sanitizeResponsesItems(body) {
   if (!Array.isArray(body.input)) return;
   body.input = body.input.filter((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return true;
-    // Strip prior-turn reasoning items: Muse Spark contributor models route to
-    // an upstream Console backend where encrypted_content cannot be validated across
-    // rotated accounts or sessions, causing 400 "reasoning encrypted_content was not issued to this caller".
     if (item.type === "reasoning") return false;
     delete item.encrypted_content;
     delete item.reasoning_encrypted_content;
@@ -131,7 +118,6 @@ export class OpenCodeGoExecutor extends DefaultExecutor {
   }
 
   buildUrl(model, stream, urlIndex = 0, credentials = null) {
-    // Muse Spark lives on /responses even when a stale runtimeTransport leaks in.
     if (isResponsesModel(model)) return RESPONSES_BASE_URL;
     return super.buildUrl(model, stream, urlIndex, credentials);
   }
@@ -172,9 +158,6 @@ export class OpenCodeGoExecutor extends DefaultExecutor {
 
   transformRequest(model, body, stream, credentials) {
     const out = super.transformRequest(model, body);
-    // Never let a client-scoped prior response id reach upstream: both
-    // transports run with store=false, so the id can never resolve and the
-    // backend answers 400. Strip it before any other normalization.
     delete out.previous_response_id;
     if (!isResponsesModel(model || body?.model)) return out;
     const normalized = normalizeResponsesInput(out.input);
@@ -182,7 +165,6 @@ export class OpenCodeGoExecutor extends DefaultExecutor {
     if (!Array.isArray(out.input) || out.input.length === 0) {
       out.input = [{ type: "message", role: "user", content: [{ type: "input_text", text: "..." }] }];
     }
-    // Responses names the output cap max_output_tokens, not max_tokens.
     if (out.max_output_tokens === undefined) {
       if (out.max_completion_tokens !== undefined) out.max_output_tokens = out.max_completion_tokens;
       else if (out.max_tokens !== undefined) out.max_output_tokens = out.max_tokens;

@@ -13,7 +13,6 @@ import { translateRequest } from "../../open-sse/translator/index.js";
 const MODEL = "muse-spark-1.3-contributor";
 const PROVIDER = "opencode-go";
 
-// Mirror of chatCore's per-model transport guard
 function pickTransport(provider, sourceFormat, alias, model) {
   const supported = getModelSupportedFormats(alias, model);
   const rt = resolveTransport(provider, sourceFormat);
@@ -68,7 +67,6 @@ describe("OpenCodeGoExecutor routing + sanitization", () => {
     expect(getExecutor("opencode-go")).toBeInstanceOf(OpenCodeGoExecutor);
     const ex = new OpenCodeGoExecutor();
     expect(ex.buildUrl(MODEL)).toBe("https://opencode.ai/inference/go/openai/v1/responses");
-    // Even a stale runtimeTransport must not drag muse-spark onto chat/messages
     expect(ex.buildUrl(MODEL, true, 0, {
       runtimeTransport: { baseUrl: "https://opencode.ai/inference/go/openai/v1/chat/completions" },
     })).toBe("https://opencode.ai/inference/go/openai/v1/responses");
@@ -108,14 +106,11 @@ describe("OpenCodeGoExecutor routing + sanitization", () => {
     expect(out.reasoning).toEqual({ effort: "high", summary: "auto" });
     expect(out.stream).toBe(true);
     expect(out.store).toBe(false);
-    // nameless declaration dropped, nameless call dropped
     expect(out.tools.map((t) => t.name)).toEqual(["read"]);
     const calls = out.input.filter((i) => i.type === "function_call");
     expect(calls.map((c) => c.name)).toEqual(["read", "exec"]);
-    // overlong id clamped, object args stringified exactly once
     expect(calls[0].call_id).toHaveLength(64);
     expect(JSON.parse(calls[0].arguments)).toEqual(args);
-    // invalid fragment coerced, never double-encoded
     expect(calls[1].arguments).toBe("{}");
     const outputs = out.input.filter((i) => i.type === "function_call_output");
     expect(JSON.parse(outputs[0].output)).toEqual({ ok: true, text: "héllo \"w\"" });

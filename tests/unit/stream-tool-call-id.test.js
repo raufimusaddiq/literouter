@@ -1,10 +1,3 @@
-// Regression for #4992 — a streamed tool_call fragment that opens a new index
-// without an `id` aborts strict OpenAI-compatible clients
-// (@ai-sdk/openai-compatible: "Expected 'id' to be a string.").
-//
-// The gateway forwards openai→openai chunks as-is, so the missing id has to be
-// filled in on the response path — the request-side ensureToolCallIds() never
-// sees it.
 import { describe, it, expect } from "bun:test";
 
 import { ensureStreamToolCallIds } from "../../open-sse/utils/streamHelpers.js";
@@ -33,9 +26,6 @@ async function readAll(stream) {
   return out;
 }
 
-// OpenAI-style client accumulation: tool calls are keyed by `index`, and every
-// string delta field — `id` included — is concatenated. A gateway that repeats
-// the id on continuation fragments therefore corrupts it (call_abccall_abc).
 function accumulateToolCalls(chunks) {
   const calls = new Map();
   for (const c of chunks) {

@@ -1,12 +1,3 @@
-// REAL matrix test: every active provider in DB x every inbound client format x 4 scenarios.
-// Goal: maximize translation-path coverage to surface real bugs (system, multimodal image,
-// tool-call/tool-result, reasoning) across all source formats.
-//
-//   RUN_REAL=1 npx vitest run --config tests/vitest.config.js tests/translator/real/all-formats.real.test.js
-//   RUN_REAL=1 REAL_PROVIDERS=gemini,kiro,codex npx vitest run ... (optional filter)
-//
-// Skips (console.warn + pass) when: no credential/model, auth/quota status (401/402/403/429),
-// or the model rejects a capability (e.g. image on a non-vision model).
 import { describe, it, expect } from "bun:test";
 import { getProviderCredentials } from "../../../src/sse/services/auth.js";
 import { checkAndRefreshToken } from "../../../src/sse/services/tokenRefresh.js";
@@ -16,18 +7,15 @@ import { getModelsByProviderId } from "../../../open-sse/config/providerModels.j
 const RUN_REAL = process.env.RUN_REAL === "1";
 const TIMEOUT_MS = 90000;
 const CRED_ISSUE = [401, 402, 403, 429];
-// Account/plan/capability rejections -> skip (not a translate bug). Kept specific to avoid masking real bugs.
 const SKIP_MSG_RE = /image|multimodal|vision|modality|unsupported|not support|reasoning_effort|deprecated|temperature|subscription|valid.*plan|embedding|quota|insufficient|model not found|context length|organization policy|disallowed|allowedmodels|failed_precondition/i;
 
 const PROVIDER_FILTER = (process.env.REAL_PROVIDERS || "")
   .split(",").map((s) => s.trim()).filter(Boolean);
 
-// Tiny 1x1 transparent PNG (data URI body + raw base64) for multimodal scenarios.
 const PNG_B64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 const PNG_DATA_URI = `data:image/png;base64,${PNG_B64}`;
 
-// Pick first chat LLM, excluding non-chat kinds (embedding/image/tts/stt/...).
 const NON_CHAT_KINDS = new Set(["embedding", "image", "imageToText", "tts", "stt", "video", "music"]);
 function firstLlmModel(providerId) {
   const models = getModelsByProviderId(providerId);
@@ -60,7 +48,6 @@ async function prepare(providerId) {
   return { model, credentials, refreshed };
 }
 
-// Run one request. Returns { raw } | "skip" | throws (real translate/runtime bug).
 async function runChat(providerId, prep, body, sourceFormatOverride) {
   const result = await handleChatCore({
     body: { ...body, model: `${providerId}/${prep.model}` },
@@ -72,16 +59,13 @@ async function runChat(providerId, prep, body, sourceFormatOverride) {
   if (!result.success) {
     const status = Number(result.status);
     if (CRED_ISSUE.includes(status)) return "skip";
-    // Upstream 5xx and 406 are provider-side issues, not translate bugs.
     if (status >= 500 || status === 406) return "skip";
-    // Account/plan/capability rejection (e.g. non-vision model + image) is not a translate bug.
     if (status === 400 && SKIP_MSG_RE.test(String(result.error || ""))) return "skip";
     throw new Error(`${providerId} [${result.status}]: ${result.error}`);
   }
   return { raw: await drainSSE(result.response) };
 }
 
-// SSE validity marker per inbound format (response is re-encoded back to source format).
 const SSE_MARKER = {
   openai: /chat\.completion\.chunk|"delta"|\[DONE\]/,
   "openai-responses": /response\.|"type"\s*:\s*"response|\[DONE\]/,
@@ -91,13 +75,10 @@ const SSE_MARKER = {
   antigravity: /"candidates"|"content"|data:/,
 };
 
-// ---- Body builders: per format x scenario (full, spec-correct shapes) ----
 
 const COMMON = { temperature: 0.3, top_p: 0.9, max_tokens: 256 };
-// Reasoning models often reject custom temperature (must be default/1) -> omit sampling.
 const REASON_TOK = { max_tokens: 1024 };
 
-// OpenAI Chat Completions
 const openaiBody = {
   basic: () => ({
     ...COMMON, stream: true, stream_options: { include_usage: true },
@@ -132,7 +113,6 @@ const openaiBody = {
   }),
 };
 
-// OpenAI Responses API
 const responsesBody = {
   basic: () => ({
     ...COMMON, stream: true, max_output_tokens: 256,
@@ -163,7 +143,6 @@ const responsesBody = {
   }),
 };
 
-// Anthropic Messages (Claude)
 const claudeBody = {
   basic: () => ({
     ...COMMON, stream: true,
@@ -194,7 +173,6 @@ const claudeBody = {
   }),
 };
 
-// Gemini generateContent
 const geminiBody = {
   basic: () => ({
     systemInstruction: { parts: [{ text: "You are concise." }] },
@@ -225,7 +203,6 @@ const geminiBody = {
   }),
 };
 
-// Antigravity = Gemini body wrapped in { request, userAgent }.
 const wrapAntigravity = (fn) => () => ({ request: fn(), userAgent: "antigravity" });
 const antigravityBody = {
   basic: wrapAntigravity(geminiBody.basic),
@@ -246,7 +223,6 @@ const BUILDERS = {
 const FORMATS = Object.keys(BUILDERS);
 const SCENARIOS = ["basic", "multimodal", "tools", "reasoning"];
 
-// Read active providers from DB at module-eval time (one test per provider/format/scenario).
 function targetProviders() {
   try {
     const Database = require("better-sqlite3");

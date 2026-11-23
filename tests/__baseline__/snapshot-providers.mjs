@@ -1,5 +1,3 @@
-// Snapshot current PROVIDERS output to JSON (run on OLD code before refactor).
-// Usage: node tests/__baseline__/snapshot-providers.mjs
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";

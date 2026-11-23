@@ -174,7 +174,6 @@ describe("gitLog filter", () => {
     const out = gitLog(input);
     expect(out).toContain("commit abc1234def5678abc1234def5678abc1234def5");
     expect(out).toContain("Add auth middleware");
-    // graph decoration dropped, pure-graph branch connectors dropped
     expect(out).not.toContain("|\\");
     expect(out).not.toContain("|/");
   });
@@ -184,7 +183,6 @@ describe("gitLog filter", () => {
     const out = gitLog(input);
     expect(out).toContain("commit abc1234def5678abc1234def5678abc1234def5");
     expect(out).toContain("Merge branch 'feature'");
-    // "Merge:" line should be dropped (not in output)
     expect(out).not.toContain("Merge:");
   });
 
@@ -198,12 +196,10 @@ describe("gitLog filter", () => {
     const input = makeGitLogWithEmbeddedDiff();
     const out = gitLog(input);
     expect(out).toContain("diff body omitted");
-    // Original diff line replaced
     expect(out).not.toContain("diff --git a/src/main.js b/src/main.js");
   });
 
   it("truncates beyond maxLines and reports skipped count", () => {
-    // Generate 50 commit lines but cap at 20
     const lines = [];
     for (let i = 0; i < 50; i++) {
       lines.push(`commit ${String(i).padStart(40, "0")}`);
@@ -211,12 +207,11 @@ describe("gitLog filter", () => {
     const input = lines.join("\n");
     const out = gitLog(input, 20);
     const outLines = out.split("\n").filter(l => l.length > 0);
-    expect(outLines.length).toBeLessThanOrEqual(21); // 20 commits + optional skipped note
+    expect(outLines.length).toBeLessThanOrEqual(21);
     expect(out).toContain("more lines");
   });
 
   it("preserves input when compressed output inflates", () => {
-    // Input shorter than output would be — e.g. tiny log
     const input = "abc\ndef";
     const out = gitLog(input, 10);
     expect(out).toBe(input);
@@ -247,7 +242,7 @@ describe("RTK filters", () => {
     expect(out).toContain("50 matches in 2F:");
     expect(out).toContain("[file] src/foo.js (40):");
     expect(out).toContain("[file] src/bar.js (10):");
-    expect(out).toMatch(/\+\d+/); // overflow marker
+    expect(out).toMatch(/\+\d+/);
     expect(out.length).toBeLessThan(input.length);
   });
 
@@ -459,7 +454,6 @@ describe("compressMessages (enabled)", () => {
     const stats = compressMessages(body, true);
     expect(stats.hits.length).toBeGreaterThan(0);
     expect(body.messages[0].content[0].content[0].text.length).toBeLessThan(big.length);
-    // short part unchanged
     expect(body.messages[0].content[0].content[1].text).toBe("unchanged short");
   });
 

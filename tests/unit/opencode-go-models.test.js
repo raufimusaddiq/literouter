@@ -3,17 +3,12 @@ import { PROVIDER_MODELS, getModelSupportedFormats, getModelTargetFormat } from 
 import { PROVIDERS } from "../../open-sse/config/providers.js";
 import { resolveTransport } from "../../open-sse/services/provider.js";
 
-// Chat-only models (no /messages, no /responses support on opencode-go)
 const CHAT_ONLY = ["glm-5.3", "glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6", "kimi-k3",
   "deepseek-flash", "longcat-2.0", "mimo-v2.5", "mimo-v2.5-pro", "hy4-preview", "hy3"];
-// Models that also expose the Anthropic /messages endpoint
 const CLAUDE_CAPABLE = ["minimax-m3", "minimax-m2.7", "minimax-m2.5",
   "qwen3.8-max", "qwen3.8-flash", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus"];
-// Models that also expose the OpenAI /responses endpoint
 const RESPONSES_CAPABLE = ["deepseek-v4-pro", "deepseek-v4-flash"];
 
-// Mirror of chatCore's per-model transport guard: use the sourceFormat-matched
-// transport only when the model declares support for that sourceFormat.
 function pickTransport(provider, sourceFormat, alias, model) {
   const supported = getModelSupportedFormats(alias, model);
   const rt = resolveTransport(provider, sourceFormat);

@@ -1,11 +1,3 @@
-/**
- * Some providers (e.g. codebuddy / cbcn) attach `tool_calls: []` to every
- * streaming chunk. An empty array is truthy in JS, so the guard
- * `if (delta.tool_calls)` closed the message on the first content token,
- * emitting `output_text.done` early and truncating the answer. This mirrors
- * the real repro: `codex exec -m cbcn/kimi-k3` answered only "cod" instead
- * of "codex-ok".
- */
 import { describe, it, expect } from "bun:test";
 import { openaiToOpenAIResponsesResponse } from "../../open-sse/translator/response/openai-responses.js";
 import { initState } from "../../open-sse/translator/index.js";
@@ -30,7 +22,6 @@ describe("OpenAI Chat stream → Responses: empty tool_calls arrays", () => {
     expect(textDone).toHaveLength(1);
     expect(textDone[0].data.text).toBe("codex-ok");
     expect(textDeltas.map((e) => e.data.delta).join("")).toBe("codex-ok");
-    // done must come after every delta
     expect(events.indexOf(textDone[0])).toBe(events.indexOf(textDeltas[textDeltas.length - 1]) + 1);
   });
 

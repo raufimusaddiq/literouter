@@ -1,10 +1,3 @@
-/**
- * Cursor live model catalog fetcher.
- *
- * Cursor exposes the account-specific model picker through the AgentService
- * `GetUsableModels` Connect RPC. Unlike the static provider registry, this
- * includes models newly enabled for the account and omits unavailable ones.
- */
 
 import crypto from "crypto";
 import http2 from "http2";
@@ -15,16 +8,12 @@ import { decodeMessage } from "../utils/cursorProtobuf.js";
 const FETCH_TIMEOUT_MS = 10_000;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-// agent.v1.ModelDetails protobuf field numbers.
 const MODEL_ID_FIELD = 1;
 const DISPLAY_MODEL_ID_FIELD = 3;
 const DISPLAY_NAME_FIELD = 4;
 const DISPLAY_NAME_SHORT_FIELD = 5;
 const RESPONSE_MODELS_FIELD = 1;
 
-// agent.v1.AvailableModels (response field 2) carries the model-picker flags
-// AgentService honours: agent support, chat-only, hidden, and the account's
-// default-on pick used to resolve the "Auto (Server Picks)" entry.
 const RESPONSE_AVAILABLE_MODELS_FIELD = 2;
 const AVAILABLE_MODEL_NAME_FIELD = 1;
 const AVAILABLE_MODEL_DEFAULT_ON_FIELD = 2;
@@ -32,7 +21,6 @@ const AVAILABLE_MODEL_IS_CHAT_ONLY_FIELD = 4;
 const AVAILABLE_MODEL_SUPPORTS_AGENT_FIELD = 5;
 const AVAILABLE_MODEL_IS_HIDDEN_FIELD = 35;
 
-/** @type {Map<string, { expiresAt: number, models: { id: string, name: string }[] }>} */
 const catalogCache = new Map();
 
 function getCursorModelsUrl() {
@@ -61,10 +49,6 @@ function firstBool(fields, fieldNumber) {
   return value === 1;
 }
 
-/**
- * Decode Cursor's `agent.v1.GetUsableModelsResponse` protobuf payload.
- * The response contains repeated `agent.v1.ModelDetails` messages in field 1.
- */
 export function parseCursorUsableModels(payload) {
   const response = decodeMessage(payload);
   const seen = new Set();
@@ -89,10 +73,6 @@ export function parseCursorUsableModels(payload) {
   return models;
 }
 
-/**
- * agent.api5.cursor.sh is HTTP/2-only; Node fetch/undici cannot speak h2.
- * Unary GetUsableModels uses an unframed protobuf body (application/proto).
- */
 function http2PostProto(url, headers, body, signal, timeoutMs) {
   return new Promise((resolve, reject) => {
     const urlObj = new URL(url);
@@ -151,8 +131,6 @@ async function fetchCursorCatalog(credentials, signal) {
 
   const headers = {
     ...buildCursorHeaders(accessToken, machineId, credentials?.providerSpecificData?.ghostMode !== false),
-    // Connect unary calls use an unframed protobuf body, unlike Cursor chat's
-    // streaming `application/connect+proto` endpoint.
     accept: "application/proto",
     "content-type": "application/proto",
   };
@@ -169,12 +147,6 @@ async function fetchCursorCatalog(credentials, signal) {
   return mergeCursorModelFlags(parseCursorUsableModels(new Uint8Array(response.body)), response.body);
 }
 
-/**
- * Attach model-picker flags (supportsAgent/defaultOn/…) from the response's
- * AvailableModels onto the usable-models list so callers can resolve the
- * auto/default entry. Only mutates when the server sent field 2, keeping the
- * parsed shape backward compatible.
- */
 export function mergeCursorModelFlags(models, payload) {
   const available = parseCursorAvailableModels(payload);
   if (!available.length || !Array.isArray(models)) return models;
@@ -185,11 +157,6 @@ export function mergeCursorModelFlags(models, payload) {
   });
 }
 
-/**
- * Decode the current Cursor model-picker catalog (response field 2,
- * agent.v1.AvailableModels): the canonical AgentService model name plus the
- * picker flags needed to resolve "Auto (Server Picks)" to a real model.
- */
 export function parseCursorAvailableModels(payload) {
   const response = decodeMessage(payload);
   const seen = new Set();
@@ -214,12 +181,6 @@ export function parseCursorAvailableModels(payload) {
   return models;
 }
 
-/**
- * "Auto (Server Picks)" / "default" is not a real AgentService model id —
- * sending it verbatim makes Run come back empty. Resolve it to the account's
- * default agent-capable model so the server picks like the IDE does. Prefers
- * the picker's defaultOn model, then the first usable agent model.
- */
 export function resolveAutoModelSelection(models) {
   if (!Array.isArray(models) || models.length === 0) return null;
   const usable = models.filter((model) => model.supportsAgent && !model.isChatOnly && !model.isHidden);
@@ -232,10 +193,6 @@ export function resolveAutoModelSelection(models) {
   };
 }
 
-/**
- * Resolve the live Cursor catalog for the authenticated account.
- * Returns null on any failure so callers can fall back to static models.
- */
 export async function resolveCursorModels(credentials, options = {}) {
   if (!credentials?.accessToken || !credentials?.providerSpecificData?.machineId) {
     options.log?.debug?.("CURSOR_MODELS", "No Cursor access token or machine ID; skipping live fetch");

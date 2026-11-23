@@ -49,7 +49,6 @@ describe("kimi registry usage flags", () => {
   });
 
   it("registers transport.usage url when present (optional)", () => {
-    // Provider may or may not put usage url on transport; handler has its own constant.
     expect(PROVIDERS.kimi).toBeTruthy();
   });
 });
@@ -148,7 +147,6 @@ describe("getUsageForProvider(kimi) auth selection", () => {
       accessToken: "tok",
     });
 
-    // Absolute remaining would break getRemainingPercentage (treats it as 0-100 %)
     expect(usage.quotas.Weekly.remaining).toBeUndefined();
     expect(usage.quotas.Weekly.remainingPercentage).toBe(65);
     expect(usage.quotas.Ratelimit).toMatchObject({
@@ -188,8 +186,6 @@ describe("getUsageForProvider(kimi) auth selection", () => {
   });
 
   it("maps 403 REASON_FEATURE_NO_PERMISSION to subscribe message (not expired)", async () => {
-    // Live capture: valid OAuth JWT still returns 403 permission_denied when
-    // the account has no Kimi Code usage entitlement.
     proxyAwareFetch.mockResolvedValueOnce(
       jsonResponse(
         {
@@ -220,7 +216,6 @@ describe("getUsageForProvider(kimi) auth selection", () => {
 
     expect(usage.message).toMatch(/permission|subscribe/i);
     expect(usage.message).not.toMatch(/expired|re-authorize/i);
-    // Must not trip usage-route AUTH_EXPIRED_PATTERNS force-refresh loop
     expect(usage.message.toLowerCase()).not.toMatch(/expired|re-authorize|unauthorized|401/);
   });
 

@@ -1,4 +1,3 @@
-// getApiKeyUsageRows: new split/indexed query must equal the old full-scan one, and be fast.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -31,12 +30,10 @@ beforeAll(async () => {
   const step = Math.floor((NOW - start) / ROWS);
   db.run("BEGIN");
   for (let i = 0; i < ROWS; i++) {
-    // Rows 0/1/2 of the cycle: a key, no key (NULL), empty-string key.
     const m = i % 8;
     const apiKey = m === 6 ? null : m === 7 ? "" : KEYS[i % 6];
     db.run(`INSERT INTO usageHistory(timestamp, provider, model, apiKey) VALUES(?, 'p', 'm', ?)`, [new Date(start + i * step).toISOString(), apiKey]);
   }
-  // A key whose only traffic is older than 24h.
   db.run(`INSERT INTO usageHistory(timestamp, provider, model, apiKey) VALUES(?, 'p', 'm', 'fp_old')`, [new Date(NOW - 5 * 24 * 3600 * 1000).toISOString()]);
   db.run("COMMIT");
 }, 120_000);
@@ -58,7 +55,7 @@ describe("getApiKeyUsageRows", () => {
   it("matches the old full-scan query and is fast", async () => {
     const since = new Date(NOW - 24 * 3600 * 1000).toISOString();
     const [oldRows, oldMs] = await time(() => db.all(OLD_SQL, [since]));
-    await getApiKeyUsageRows(NOW); // warm
+    await getApiKeyUsageRows(NOW);
     const [newRows, newMs] = await time(() => getApiKeyUsageRows(NOW));
     process.stderr.write(`[bench] ${ROWS} rows: old=${oldMs.toFixed(1)}ms new=${newMs.toFixed(1)}ms
 `);

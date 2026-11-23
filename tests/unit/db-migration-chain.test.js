@@ -1,4 +1,3 @@
-// Verify schema migration chain runs correctly across versions.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -11,13 +10,11 @@ const originalDataDir = process.env.DATA_DIR;
 beforeEach(() => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-mig-"));
   process.env.DATA_DIR = tempDir;
-  // Reset global singleton so each test gets fresh adapter pointed at tempDir
   delete global._dbAdapter;
   vi.resetModules();
 });
 
 afterEach(() => {
-  // Close adapter to release file handles before rm
   try { global._dbAdapter?.instance?.close?.(); } catch {}
   delete global._dbAdapter;
   if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
@@ -41,14 +38,12 @@ describe("Schema migrations", () => {
   });
 
   it("existing DB at older schemaVersion → re-applies pending migrations on restart", async () => {
-    // 1st boot
     const { getAdapter } = await import("@/lib/db/driver.js");
     const db = await getAdapter();
     db.run(`INSERT INTO settings(id, data) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`, ['{"foo":"bar"}']);
     db.run(`UPDATE _meta SET value = '0' WHERE key = 'schemaVersion'`);
     db.close?.();
 
-    // 2nd boot: full reset to simulate process restart
     delete global._dbAdapter;
     vi.resetModules();
     const { getAdapter: getAdapter2 } = await import("@/lib/db/driver.js");
@@ -80,7 +75,6 @@ describe("Schema migrations", () => {
   });
 
   it("fresh DB + legacy db.json → imports data automatically", async () => {
-    // Simulate user upgrading: place legacy JSON in DATA_DIR before first boot
     const legacy = {
       settings: { foo: "legacy-value" },
       apiKeys: [{ id: "k1", key: "abc", name: "test", createdAt: new Date().toISOString() }],
@@ -96,7 +90,6 @@ describe("Schema migrations", () => {
 
     const keys = db.all(`SELECT * FROM apiKeys`);
     expect(keys).toHaveLength(1);
-    // apiKeys.key is the live credential, so it stays usable (plaintext).
     expect(keys[0].key).toBe("abc");
 
     const aliases = db.all(`SELECT * FROM kv WHERE scope='modelAliases'`);

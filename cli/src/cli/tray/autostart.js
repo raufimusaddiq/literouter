@@ -7,23 +7,6 @@ const { buildTrayArgs } = require("../utils/serverProc");
 const APP_NAME = "9router";
 const APP_LABEL = "com.9router.autostart";
 
-/**
- * Resolve the absolute path to this package's cli.js.
- *
- * Order of preference:
- *   1. Explicit `cliPath` argument — cleanest, used when called from running
- *      cli.js with `__filename`.
- *   2. `process.argv[1]` if it's our cli.js — true when 9router is currently
- *      running and the tray menu fires this code path.
- *   3. Compute relative to this file's own location. autostart.js lives at
- *      `<pkg>/src/cli/tray/autostart.js`, so cli.js is three levels up.
- *      This works for any global install layout (nvm, Volta, asdf, Homebrew,
- *      /usr/local, etc.) without depending on `npm bin -g` (removed in npm 9)
- *      or a hardcoded `/usr/local/...` path.
- *
- * Returns null if no candidate exists — callers should not write an autostart
- * entry pointing at a non-existent script.
- */
 function getCliJsPath(cliPath) {
   if (cliPath) {
     const resolved = path.resolve(cliPath);
@@ -40,12 +23,6 @@ function getCliJsPath(cliPath) {
   return null;
 }
 
-/**
- * Enable auto startup on OS boot
- * @param {string} cliPath - Optional path to cli.js (defaults to auto-detect)
- * @param {{host?: string, port?: number}} [opts] - Bound host/port to persist
- * @returns {boolean} success
- */
 function enableAutoStart(cliPath, opts = {}) {
   const platform = process.platform;
 
@@ -57,15 +34,10 @@ function enableAutoStart(cliPath, opts = {}) {
     if (platform === "win32") return enableWindows(cliPath, opts);
     if (platform === "linux") return enableLinux(cliPath, opts);
   } catch (err) {
-    // Silent fail — autostart is optional
   }
   return false;
 }
 
-/**
- * Disable auto startup
- * @returns {boolean} success
- */
 function disableAutoStart() {
   const platform = process.platform;
   try {
@@ -76,13 +48,6 @@ function disableAutoStart() {
   return false;
 }
 
-/**
- * Check if autostart is enabled.
- *
- * On macOS, both the plist file and the launchd registration must be present —
- * otherwise the tray menu would lie about the state (showing "✓ Enabled" even
- * when launchd has the agent in a failed state or hasn't loaded it).
- */
 function isAutoStartEnabled() {
   const platform = process.platform;
 
@@ -110,22 +75,7 @@ function isAutoStartEnabled() {
   return false;
 }
 
-// ============ macOS ============
 
-/**
- * Returns true when the current Node process IS the running instance that
- * launchd is managing under our agent label.
- *
- * `launchctl unload <plist>` (and `load`) for an Aqua user-domain agent sends
- * SIGTERM to the running process. When the running 9router cli.js was itself
- * spawned by the autostart launchd agent (i.e. user enabled autostart at
- * some point, then rebooted, then clicked the tray icon's "Disable
- * Auto-start" menu item), an unload would kill the very process executing
- * the click handler — and the tray icon would disappear instead of the menu
- * label flipping back to "Enable Auto-start". This helper lets the enable
- * and disable paths sidestep that by skipping launchctl when we'd otherwise
- * be killing ourselves.
- */
 function isAgentSelfMacOS() {
   try {
     const output = execSync(`launchctl list ${APP_LABEL}`, {
@@ -150,15 +100,8 @@ function enableMacOS(cliPath, opts = {}) {
 
   const nodePath = process.execPath;
   const routerScript = getCliJsPath(cliPath);
-  // Don't write a broken plist that references a non-existent script.
   if (!routerScript) return false;
 
-  // Invoke node + cli.js directly with absolute paths — no shell wrapper.
-  // The previous design ran `zsh -l -c "..."` so a login shell would source
-  // nvm/.zshrc and set PATH; that's fragile (nvm.sh sourcing varies by user,
-  // some setups don't put node on PATH from a non-interactive login shell).
-  // EnvironmentVariables.PATH explicitly includes node's bin dir so child
-  // processes spawned by cli.js (npm install at runtime, etc.) resolve.
   const launchPath = `${path.dirname(nodePath)}:/usr/local/bin:/usr/bin:/bin`;
   const argLines = buildTrayArgs(opts)
     .map((a) => `        <string>${a}</string>`)
@@ -194,26 +137,16 @@ ${argLines}
 
   fs.writeFileSync(plistPath, plistContent);
 
-  // If we're the running agent already, launchctl unload/load would send
-  // ourselves SIGTERM. Skip it — the plist file is updated on disk and
-  // launchd will pick it up at next login. isAutoStartEnabled() will still
-  // return true because launchctl already has the agent loaded.
   if (isAgentSelfMacOS()) {
     return true;
   }
 
-  // Register with launchd in the current session. Without this, the agent
-  // only takes effect on the next user login and the user has no signal that
-  // anything actually happened. `unload` first defends against re-enable
-  // replacing an existing plist.
   try {
     execSync(`launchctl unload "${plistPath}"`, { stdio: "ignore" });
   } catch (e) {}
   try {
     execSync(`launchctl load -w "${plistPath}"`, { stdio: "ignore" });
   } catch (e) {
-    // Even if load fails, the plist is on disk and will be picked up at next
-    // login; report success based on the file write.
   }
   return true;
 }
@@ -221,11 +154,6 @@ ${argLines}
 function disableMacOS() {
   const plistPath = path.join(os.homedir(), "Library", "LaunchAgents", `${APP_LABEL}.plist`);
 
-  // Don't kill ourselves: when the current process is the running agent,
-  // `launchctl unload` would send SIGTERM and the user clicking
-  // "Disable Auto-start" from the tray menu would lose their tray icon
-  // instead of just flipping the menu label. Skip the unload — removing the
-  // plist file is enough to prevent the agent from starting on next login.
   if (!isAgentSelfMacOS()) {
     try {
       execSync(`launchctl unload "${plistPath}"`, { stdio: "ignore" });
@@ -238,7 +166,6 @@ function disableMacOS() {
   return true;
 }
 
-// ============ Windows ============
 
 function enableWindows(cliPath, opts = {}) {
   const startupDir = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
@@ -250,8 +177,6 @@ function enableWindows(cliPath, opts = {}) {
   const routerScript = getCliJsPath(cliPath);
   if (!routerScript) return false;
 
-  // Run node + cli.js directly, hidden window. Avoids the fragile
-  // `9router.cmd` lookup that depended on the npm prefix path.
   const vbsArgs = buildTrayArgs(opts).map((a) => `""${a}""`).join(" ");
   const vbsContent = `Set WshShell = CreateObject("WScript.Shell")
 WshShell.Run """${nodePath}"" ""${routerScript}"" ${vbsArgs}", 0, False
@@ -268,7 +193,6 @@ function disableWindows() {
   return true;
 }
 
-// ============ Linux ============
 
 function enableLinux(cliPath, opts = {}) {
   const autostartDir = path.join(os.homedir(), ".config", "autostart");
@@ -283,8 +207,6 @@ function enableLinux(cliPath, opts = {}) {
   const routerScript = getCliJsPath(cliPath);
   if (!routerScript) return false;
 
-  // Desktop Entry Exec quoting: every path/value is double-quoted so spaces
-  // in the install path (or a weird host) don't split the command line.
   const execArgs = buildTrayArgs(opts).map((a) => `"${a}"`).join(" ");
   const desktopContent = `[Desktop Entry]
 Type=Application

@@ -10,8 +10,6 @@ vi.mock("@/lib/usageDb.js", () => ({
 const { stripContinuityFields } = await import("../../open-sse/handlers/chatCore.js");
 const { openaiResponsesToOpenAIRequest } = await import("../../open-sse/translator/request/openai-responses.js");
 
-// Multi-turn Codex-style Responses input: reasoning item carrying a
-// store=false encrypted_content continuity blob between tool turns.
 const makeResponsesBody = () => ({
   model: "x",
   instructions: "You are Codex.",
@@ -52,7 +50,6 @@ describe("stripContinuityFields (outbound boundary)", () => {
     const assistant = body.messages[1];
     expect(assistant).not.toHaveProperty("encrypted_content");
     expect(assistant).not.toHaveProperty("reasoning_encrypted_content");
-    // legitimate fields survive
     expect(assistant.reasoning_content).toBe("thinking");
     expect(assistant.tool_calls[0].function.name).toBe("shell");
   });
@@ -65,10 +62,8 @@ describe("stripContinuityFields (outbound boundary)", () => {
 
   it("end-to-end: Responses multi-turn translation stripped before dispatch", () => {
     const translated = openaiResponsesToOpenAIRequest("x", makeResponsesBody(), false, {});
-    // The translator stashes the blob for internal round-trip symmetry...
     const assistantBefore = translated.messages.find((m) => m.role === "assistant");
     expect(assistantBefore.encrypted_content).toBe("B".repeat(5000));
-    // ...and the outbound boundary removes it before it reaches any upstream.
     stripContinuityFields(translated);
     expect(JSON.stringify(translated)).not.toContain("encrypted_content");
     expect(JSON.stringify(translated)).not.toContain("B".repeat(100));

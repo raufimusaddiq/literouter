@@ -1,7 +1,3 @@
-// cursorProtobuf.js is live (imported by executors/cursor.js and
-// services/cursorModels.js), so its codec keeps a direct test. Only the exports
-// that actually exist are exercised here — the previous suite imported ten
-// functions of which nine were never implemented.
 import { describe, it, expect } from "bun:test";
 import {
   encodeVarint,
@@ -15,7 +11,6 @@ const LEN = 2;
 const VARINT = 0;
 
 describe("cursorProtobuf — varint round-trip", () => {
-  // decodeVarint returns [value, nextOffset].
   it.each([0, 1, 127, 128, 300, 16384])("encodes and decodes %i", (value) => {
     const buf = Buffer.from(encodeVarint(value));
     expect(decodeVarint(buf, 0)).toEqual([value, buf.length]);
@@ -25,7 +20,6 @@ describe("cursorProtobuf — varint round-trip", () => {
 describe("cursorProtobuf — field round-trip", () => {
   it("decodes a length-delimited string field", () => {
     const encoded = Buffer.from(encodeField(1, LEN, Buffer.from("hello")));
-    // decodeField returns [fieldNumber, wireType, value, nextOffset].
     const [fieldNumber, wireType, value] = decodeField(encoded, 0);
     expect(fieldNumber).toBe(1);
     expect(wireType).toBe(LEN);

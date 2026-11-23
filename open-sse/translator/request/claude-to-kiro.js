@@ -1,20 +1,3 @@
-/**
- * Claude → Kiro Request Translator (DIRECT route, no OpenAI pivot)
- *
- * Converts Anthropic Messages API requests straight to Kiro / AWS
- * CodeWhisperer `GenerateAssistantResponse` payloads. This is the function the
- * direct `claude:kiro` route in ../index.js uses; it is NOT reached through the
- * claude→openai→kiro pivot.
- *
- * After session replay it delegates to the shared Kiro conversation
- * canonicalizer. That layer enforces adjacent one-to-one tool use/results,
- * repairs partial parallel calls, and flattens compacted structured references
- * that can no longer be represented safely.
- *
- * It also handles the 9router-synthetic `-agentic` / `-thinking` suffixes and
- * the `<thinking_mode>enabled</thinking_mode>` reasoning trigger, matching
- * buildKiroPayload.
- */
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
 import { applyKiroSessionReplay } from "../../utils/kiroSessionReplay.js";
@@ -37,11 +20,6 @@ import {
   kiroEmptyUserContent,
 } from "../concerns/kiroConversation.js";
 
-/**
- * Convert Claude messages to Kiro history + currentMessage.
- * Kiro requires alternating user/assistant turns; consecutive same-role
- * messages are merged.
- */
 function convertClaudeMessagesToKiro(messages, model) {
   const history = [];
   let currentMessage = null;
@@ -99,8 +77,6 @@ function convertClaudeMessagesToKiro(messages, model) {
             if (typeof block.content === "string") {
               resultContent = block.content;
             } else if (Array.isArray(block.content)) {
-              // Images a tool returned (screenshots) ride along as user images;
-              // Kiro tool results are text-only.
               let hasImage = false;
               for (const c of block.content) {
                 if (c?.type === CLAUDE_BLOCK.IMAGE && c.source?.type === "base64") {
@@ -158,7 +134,6 @@ function convertClaudeMessagesToKiro(messages, model) {
 
   if (currentRole !== null) flushPending();
 
-  // Pop the last user turn as currentMessage (skip trailing assistant turns).
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i].userInputMessage) {
       currentMessage = history.splice(i, 1)[0];
@@ -178,7 +153,6 @@ function convertClaudeMessagesToKiro(messages, model) {
     }
   });
 
-  // Merge consecutive user turns (Kiro requires alternating roles).
   const mergedHistory = [];
   for (const current of history) {
     const prev = mergedHistory[mergedHistory.length - 1];
@@ -225,9 +199,6 @@ function extractClaudeSystemText(system) {
   return "";
 }
 
-/**
- * Build a Kiro payload directly from a Claude Messages API request body.
- */
 export function claudeToKiroRequest(model, body, stream, credentials) {
   const messages = Array.isArray(body.messages) ? body.messages : [];
   const tools = Array.isArray(body.tools) ? body.tools : [];
@@ -245,8 +216,6 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
   const { specs: toolSpecs, nameMap } = normalizeKiroToolSpecs(tools);
   const { history, currentMessage } = convertClaudeMessagesToKiro(messages, upstreamModel);
 
-  // api_key / idc / external_idp must never use the shared default ARN (belongs
-  // to another account → 403 "bearer token invalid"); OAuth/social fall back to it.
   const authMethod = credentials?.providerSpecificData?.authMethod;
   const accountBoundAuth =
     authMethod === "api_key" || authMethod === "idc" || authMethod === "external_idp";
@@ -254,9 +223,6 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
     ? (credentials?.providerSpecificData?.profileArn || "")
     : (credentials?.providerSpecificData?.profileArn || resolveDefaultProfileArn(authMethod));
 
-  // The system prompt travels inside the first user turn's content (contentPrefix):
-  // the CodeWhisperer surface rejects a top-level `systemPrompt` with
-  // 400 REQUEST_BODY_INVALID, so the value below is only a replay cache key.
   const timestamp = new Date().toISOString();
   const systemPromptParts = [];
   if (thinkingBudget !== null && !usesNativeGptEffort) {
@@ -299,14 +265,6 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
     toolSpecs,
     nameMap,
   });
-  // canonicalizeKiroConversation() already ran its second-chance repair (flatten
-  // every structured tool turn to text, then re-validate). A body that is STILL
-  // invalid here cannot be made shippable, and Kiro answers it with
-  // 400 {"message":"Improperly formed request.","reason":"REQUEST_BODY_INVALID"}.
-  // Fail locally instead: chatCore turns a falsy return into a 400 without
-  // spending an upstream call or a per-account cooldown. The taxonomy
-  // (role:N | pair:N | id:N | spec:N | orphan:0 | current) names the offending
-  // turn so the shape can be diagnosed from the log alone.
   if (!canonical.valid) {
     console.error(`[Kiro] refusing invalid conversation (claude → kiro): ${(canonical.errors || []).join(", ") || "unknown"} | turns=${(canonical.history || []).length + 1}`);
     return null;
@@ -347,14 +305,11 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
     if (topP !== undefined) payload.inferenceConfig.topP = topP;
   }
 
-  // Non-enumerable hint so the executor can route the upstream model id.
   Object.defineProperty(payload, "_kiroUpstreamModel", {
     value: upstreamModel,
     enumerable: false,
   });
 
-  // Kiro tool specs get sanitized names (`mcp__a__b` → `mcp_a_b`); keep the
-  // reverse map so tool calls stream back under the client's own names.
   const restoredToolNames = new Map();
   for (const [original, sanitized] of nameMap) {
     if (original !== sanitized) restoredToolNames.set(sanitized, original);

@@ -1,5 +1,3 @@
-// Verify OAuth/token URLs resolve byte-for-byte vs snapshot (backend open-sse).
-// Captures every URL executors/tokenRefresh actually use, to guard DRY dedup.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -9,7 +7,6 @@ import { PROVIDERS } from "../../open-sse/config/providers.js";
 const here = dirname(fileURLToPath(import.meta.url));
 const snapPath = join(here, "oauth-urls-baseline.json");
 
-// Collect resolved URLs that backend code depends on
 const resolved = {
   oauthEndpoints: OAUTH_ENDPOINTS,
   tokenUrls: {
@@ -18,7 +15,6 @@ const resolved = {
     iflow: PROVIDERS.iflow?.tokenUrl,
     kiro: PROVIDERS.kiro?.tokenUrl,
     xai: PROVIDERS.xai?.tokenUrl,
-    // Grok CLI injects oauth.tokenUrl onto PROVIDERS via OAUTH_INJECT_FIELDS
     "grok-cli": PROVIDERS["grok-cli"]?.tokenUrl,
     cline: PROVIDERS.cline?.tokenUrl,
     kimi: PROVIDERS.kimi?.tokenUrl,

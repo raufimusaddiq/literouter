@@ -1,5 +1,3 @@
-// T-35 review fixes: every body read / prefetch stays bounded, and the
-// non-stream request signal is disposed once the body is consumed.
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 

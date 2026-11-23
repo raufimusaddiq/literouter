@@ -5,7 +5,6 @@ import { handleFusionChat } from "../../open-sse/services/combo.js";
 
 const log = { info: () => {}, warn: () => {}, debug: () => {} };
 
-// Minimal OpenAI-chat Response stub with the .ok + .clone().json() surface the engine uses.
 function okResponse(content, { delayMs = 0 } = {}) {
   const json = { choices: [{ message: { role: "assistant", content } }] };
   const make = () => ({ ok: true, status: 200, clone: make, json: async () => json });
@@ -47,19 +46,16 @@ describe("fusion combo", () => {
       judgeModel: "p/judge",
     });
 
-    // 3 panel calls + 1 judge call.
     expect(handleSingleModel).toHaveBeenCalledTimes(4);
     expect(seen.slice(0, 3).sort()).toEqual(["p/a", "p/b", "p/c"]);
     expect(seen[3]).toBe("p/judge");
 
-    // Panel calls are non-streaming with tools stripped.
     for (const [body, model, isPanel] of handleSingleModel.mock.calls.filter(([, m]) => m !== "p/judge")) {
       expect(body.stream).toBe(false);
       expect(body.tools).toBeUndefined();
       expect(isPanel).toBe(true);
     }
 
-    // Judge call carries every panel answer + keeps the client's stream flag.
     const [judgeBody, , isPanel] = handleSingleModel.mock.calls.find(([, m]) => m === "p/judge");
     const judgeText = judgeBody.messages.at(-1).content;
     expect(judgeText).toContain("ans-p/a");
@@ -81,7 +77,6 @@ describe("fusion combo", () => {
       handleSingleModel,
       log,
     });
-    // Last call is the judge; defaults to panel[0].
     expect(seen.at(-1)).toBe("p/first");
   });
 
@@ -103,7 +98,6 @@ describe("fusion combo", () => {
     });
     const elapsed = Date.now() - t0;
 
-    // Two fast answers reach quorum; grace is 50ms, so we never wait ~5s for p/slow.
     expect(elapsed).toBeLessThan(2000);
 
     const judgeCall = handleSingleModel.mock.calls.find(([, m]) => m === "p/judge");
@@ -126,7 +120,6 @@ describe("fusion combo", () => {
       judgeModel: "p/judge",
       tuning: { minPanel: 2, stragglerGraceMs: 50, panelHardTimeoutMs: 5000 },
     });
-    // No judge call — single answer means there is nothing to fuse.
     const judged = handleSingleModel.mock.calls.some(([, m]) => m === "p/judge");
     expect(judged).toBe(false);
   });
@@ -161,7 +154,6 @@ describe("fusion combo", () => {
       judgeModel: "p/judge"
     });
 
-    // Panel calls keep every turn but tool turns are flattened to assistant prose.
     const panelCalls = handleSingleModel.mock.calls.filter(([,, isPanel]) => isPanel === true);
     expect(panelCalls.length).toBe(2);
     for (const [panelBody] of panelCalls) {
@@ -175,11 +167,10 @@ describe("fusion combo", () => {
       expect(panelBody.messages[3]).toEqual({ role: "user", content: "describe it" });
     }
 
-    // Judge call still receives the unmodified history + synthesis prompt.
     const judgeCall = handleSingleModel.mock.calls.find(([, m]) => m === "p/judge");
     expect(judgeCall).toBeDefined();
     const judgeBody = judgeCall[0];
-    expect(judgeBody.messages.length).toBe(5); // original 4 + judge prompt turn
+    expect(judgeBody.messages.length).toBe(5);
     expect(judgeBody.messages[1].tool_calls).toBeDefined();
     expect(judgeBody.messages[2].role).toBe("tool");
   });
@@ -208,10 +199,8 @@ describe("fusion combo", () => {
     expect(panelBody.tools).toBeUndefined();
     expect(panelBody.messages.length).toBe(3);
     
-    // Flattened tool_use
     expect(panelBody.messages[1].content).toBe("ok\n[Called tools: run]");
     
-    // Flattened tool_result
     expect(panelBody.messages[2].content).toBe("[Tool result: done]");
   });
 });

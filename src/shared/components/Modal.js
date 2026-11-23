@@ -37,7 +37,6 @@ export default function Modal({
   const titleId = useId();
   const dialogRef = useRef(null);
 
-  // Initial focus + restore focus to the trigger on close.
   useEffect(() => {
     if (!isOpen) return undefined;
     const trigger = document.activeElement;
@@ -68,13 +67,11 @@ export default function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Overlay */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-[2px] fade-in"
         onClick={closeOnOverlay ? onClose : undefined}
       />
 
-      {/* Modal content */}
       <div
         ref={dialogRef}
         role="dialog"
@@ -91,11 +88,9 @@ export default function Modal({
           className
         )}
       >
-        {/* Header */}
         {(title || showTrafficLights) && (
           <div className="flex items-center justify-between p-2 border-b border-border-subtle">
             <div className="flex items-center">
-              {/* Traffic lights — desktop only */}
               {showTrafficLights && (
                 <div className="hidden md:flex items-center gap-2 mr-4 ml-2">
                   <Tooltip text="Close" position="top" color="#FF5F56">
@@ -116,7 +111,6 @@ export default function Modal({
                 <h2 id={titleId} className="text-lg font-semibold text-text-main">{title}</h2>
               )}
             </div>
-            {/* X button — mobile only */}
             <button
               onClick={onClose}
               aria-label="Close"
@@ -127,10 +121,8 @@ export default function Modal({
           </div>
         )}
 
-        {/* Body */}
         <div data-modal-body className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">{children}</div>
 
-        {/* Footer */}
         {footer && (
           <div className="flex items-center justify-end gap-3 p-6 border-t border-border-subtle">
             {footer}

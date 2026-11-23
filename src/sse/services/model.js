@@ -1,9 +1,7 @@
-// Re-export from open-sse with localDb integration
 import { getModelAliases, getComboByName, getProviderNodes, getProviderConnections } from "@/lib/db/index.js";
 import { parseModel as parseModelCore, getModelInfoCore } from "open-sse/services/model.js";
 import REGISTRY from "open-sse/providers/registry/index.js";
 
-// Local provider alias overrides (HMR-friendly, applied on top of open-sse map)
 const LOCAL_PROVIDER_ALIASES = {
   xmtp: "xiaomi-tokenplan",
   "xiaomi-tokenplan": "xiaomi-tokenplan",
@@ -24,15 +22,10 @@ export function parseModel(modelStr) {
   return parsed;
 }
 
-/**
- * Get full model info (parse or resolve)
- */
 export async function getModelInfo(modelStr) {
   const parsed = parseModel(modelStr);
 
   if (!parsed.isAlias) {
-    // Provider-node prefixes are user-defined. They must not override built-in
-    // provider ids/aliases such as `cf`, `cloudflare-ai`, `openai`, or `hf`.
     if (!RESERVED_PROVIDER_PREFIXES.has(parsed.providerAlias)) {
       const openaiNodes = await getProviderNodes({ type: "openai-compatible" });
       const matchedOpenAI = openaiNodes.find((node) => node.prefix === parsed.providerAlias);
@@ -53,24 +46,15 @@ export async function getModelInfo(modelStr) {
     };
   }
 
-  // Check if this is a combo name before resolving as alias
-  // This prevents combo names from being incorrectly routed to providers
   const combo = await getComboByName(parsed.model, { clone: false });
   if (combo) {
-    // Return null provider to signal this should be handled as combo
-    // The caller (handleChat) will detect this and handle it as combo
     return { provider: null, model: parsed.model };
   }
 
   return fallbackToClaudeOAuth(await getModelInfoCore(modelStr, () => getModelAliases({ clone: false })));
 }
 
-/**
- * Check if model is a combo and get models list
- * @returns {Promise<string[]|null>} Array of models or null if not a combo
- */
 export async function getComboModels(modelStr) {
-  // Only check if it's not in provider/model format
   if (modelStr.includes("/")) return null;
 
   const combo = await getComboByName(modelStr, { clone: false });
@@ -80,10 +64,6 @@ export async function getComboModels(modelStr) {
   return null;
 }
 
-// A bare `claude-*` id infers provider "anthropic" (API key). When no anthropic
-// connection is active but a Claude OAuth connection is, use "claude" instead of
-// failing with "No active credentials for provider: anthropic" (same idea as the
-// Codex-only gpt-* rules in open-sse/services/model.js).
 async function fallbackToClaudeOAuth(info) {
   if (info?.provider !== "anthropic") return info;
   const hasActive = async (provider) =>

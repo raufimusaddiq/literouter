@@ -24,8 +24,6 @@ describe("POST /api/provider-nodes/validate SSRF guard", () => {
     lookupMock.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
   });
 
-  // The peer token is a per-process secret; leaking it into sibling test files
-  // would make every remote caller in them look like the local operator.
   afterEach(() => {
     delete process.env.NINEROUTER_PEER_TOKEN;
   });
@@ -62,7 +60,6 @@ describe("POST /api/provider-nodes/validate SSRF guard", () => {
 
     const res = await POST(local);
 
-    // 200 pins the contract: a 500 from a throwing guard would satisfy `not.toBe(400)`.
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ valid: true });
     expect(fetchMock).toHaveBeenCalled();
@@ -82,8 +79,6 @@ describe("POST /api/provider-nodes/validate SSRF guard", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  // `allowPrivate` is a per-hop decision, not a one-time gate: a LAN node that
-  // 30x-redirects inside the LAN must still be reachable by the local operator.
   it("lets the local operator follow a redirect between LAN hosts", async () => {
     process.env.NINEROUTER_PEER_TOKEN = "test-peer";
     fetchMock

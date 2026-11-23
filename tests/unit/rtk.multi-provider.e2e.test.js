@@ -1,6 +1,3 @@
-// E2E test: verify RTK compression runs for every configured provider/route.
-// Each test covers a different source→target translator path.
-// Run with: RUN_E2E=1 RTK_E2E_PORT=... RTK_E2E_KEY=... RTK_E2E_LOG=<server stdout file> npm test rtk.multi-provider.e2e.test.js
 import { describe, it, expect } from "bun:test";
 import fs from "node:fs";
 
@@ -52,7 +49,6 @@ async function sendChat(body) {
   });
 }
 
-// Wait for server to emit a matching [RTK] log line (race-safe against concurrent traffic).
 async function waitForRtkLine({ minBytes, filterName, timeoutMs = 5000 }) {
   const start = Date.now();
   const startOffset = logOffset();
@@ -74,7 +70,6 @@ async function waitForRtkLine({ minBytes, filterName, timeoutMs = 5000 }) {
   return null;
 }
 
-// Build a chat request with OpenAI-style tool_result carrying large content.
 function chatBodyWithDiff(model, diff) {
   return {
     model,
@@ -93,7 +88,6 @@ function chatBodyWithDiff(model, diff) {
   };
 }
 
-// Matrix of routes to cover — one entry per translator target format.
 const ROUTES = [
   { name: "claude (cc/* → openai→claude)",        model: "cc/claude-opus-4-7" },
   { name: "codex (cx/* → openai→openai-responses)", model: "cx/gpt-5.4" },
@@ -119,8 +113,6 @@ maybe("RTK multi-provider E2E", () => {
       expect(diff.length).toBeGreaterThan(500);
 
       const res = await sendChat(chatBodyWithDiff(route.model, diff));
-      // Provider may respond with 200/400/401/402/404/429/500 depending on account state.
-      // The important thing: proxy must NOT crash (we just need status code).
       expect(res.status).toBeGreaterThanOrEqual(200);
       expect(res.status).toBeLessThan(600);
 
@@ -130,7 +122,6 @@ maybe("RTK multi-provider E2E", () => {
       expect(hit.saved).toBeGreaterThan(500);
       expect(hit.filters).toContain("git-diff");
 
-      // Log actual savings for visibility
       console.log(`  ✓ ${route.name}: saved ${hit.saved}B / ${hit.total}B (${hit.pct}%) filters=${hit.filters}`);
     }, 20000);
   }

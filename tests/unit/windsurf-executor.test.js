@@ -8,7 +8,6 @@ import {
 } from "open-sse/executors/windsurf.js";
 import { PROVIDERS } from "open-sse/config/providers.js";
 
-// ─── Protobuf helpers for building expected wire bytes in tests ──────────────
 
 function encodeVarint(value) {
   const bytes = [];
@@ -52,7 +51,7 @@ describe("grpcWebFrame", () => {
     const frame = grpcWebFrame(payload);
     expect(frame[0]).toBe(0x00);
     const view = new DataView(frame.buffer);
-    expect(view.getUint32(1, false)).toBe(5); // big-endian length
+    expect(view.getUint32(1, false)).toBe(5);
     expect(Array.from(frame.slice(5))).toEqual([1, 2, 3, 4, 5]);
   });
   it("encodes empty payload as a 5-byte frame", () => {
@@ -68,22 +67,18 @@ describe("buildGetChatMessageRequest", () => {
       { role: "user", content: "hello" },
     ]);
     expect(payload.length).toBeGreaterThan(10);
-    // First byte 0x0a = field 1, wire type 2 (length-delimited) → metadata present
     expect(payload[0]).toBe(0x0a);
   });
 
   it("embeds the apiKey inside the metadata sub-message", () => {
     const payload = buildGetChatMessageRequest("sk-ws-secret", "gpt-5", []);
-    // The metadata bytes are the first length-delimited field — should contain the key.
     const asString = new TextDecoder().decode(payload);
     expect(asString).toContain("sk-ws-secret");
-    // And the IDE identification fields.
     expect(asString).toContain("windsurf");
     expect(asString).toContain("3.14.0");
   });
 
   it("appends one field-4 message per chat message", () => {
-    // Proper top-level protobuf field counter (byte 0x22 collides with content bytes).
     const countField = (buf, target) => {
       let offset = 0;
       let count = 0;
@@ -146,7 +141,6 @@ describe("decodeCompletionChunk", () => {
   });
 
   it("decodes a DoneChunk (field 3 → UsageStats with prompt/completion tokens)", () => {
-    // UsageStats: field 1 = prompt_tokens (varint), field 2 = completion_tokens (varint)
     const usage = new Uint8Array([...encodeVarint((1 << 3) | 0), ...encodeVarint(42), ...encodeVarint((2 << 3) | 0), ...encodeVarint(99)]);
     const doneChunk = encodeLenField(3, encodeLenField(1, usage));
     const decoded = decodeCompletionChunk(doneChunk);
@@ -165,8 +159,6 @@ describe("WindsurfExecutor class", () => {
     const ex = new WindsurfExecutor();
     expect(ex.provider).toBe("windsurf");
     expect(ex.config).toBeDefined();
-    // windsurf is not registered in PROVIDERS (hidden for lacking tool-call
-    // support), so the executor falls back to its own base URL.
     expect(ex.config.baseUrl).toContain("server.codeium.com");
     expect(typeof ex.execute).toBe("function");
   });
@@ -193,8 +185,6 @@ describe("WindsurfExecutor class", () => {
   });
 
   it("the registry entry, when present, points at the same chat endpoint", () => {
-    // The provider stays hidden from PROVIDERS until it supports tool calls;
-    // this asserts the two never drift apart once it is re-enabled.
     if (!PROVIDERS.windsurf) return;
     expect(PROVIDERS.windsurf.baseUrl).toBe(
       "https://server.codeium.com/exa.language_server_pb.LanguageServerService/GetChatMessage"

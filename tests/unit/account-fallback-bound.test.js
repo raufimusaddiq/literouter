@@ -1,9 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "bun:test";
 
-// The account fallback loop must stay explicitly bounded (PRD 24: no unbounded
-// retry loop). Assert the guard exists in the request path rather than mocking
-// the whole handler.
 describe("account fallback bound", () => {
   const source = readFileSync(new URL("../../src/sse/handlers/chat.js", import.meta.url), "utf8");
 

@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
-// Spy on the real classifier so the combo path's own call arguments and the
-// cooldown it receives are observable without changing its behaviour.
 vi.mock("../../open-sse/services/accountFallback.js", async () => {
   const actual = await vi.importActual("../../open-sse/services/accountFallback.js");
   return { ...actual, checkFallbackError: vi.fn(actual.checkFallbackError) };
@@ -58,8 +56,6 @@ describe("combo fallback passes the seat provider id to checkFallbackError", () 
       autoSwitch: false,
     });
 
-    // The NVIDIA seat fails with a 400 "degraded"; before the provider id was
-    // passed this looked like a plain 400 and the combo returned it as-is.
     expect(attempts).toEqual(models);
     expect(result).toBe(ok);
 
@@ -88,8 +84,6 @@ describe("combo fallback passes the seat provider id to checkFallbackError", () 
       autoSwitch: false,
     });
 
-    // No provider-scoped rule matches, and a 400 with no matching rule is a
-    // request-scoped client error: return it instead of rotating seats.
     expect(attempts).toEqual([models[0]]);
     expect(result).toBe(failure);
 

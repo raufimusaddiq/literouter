@@ -80,7 +80,6 @@ describe("parseGrokCliBilling", () => {
       total: 100,
       remainingPercentage: 65,
     });
-    // Prepaid is remaining-balance style: 0 used of current pot
     expect(parsed.quotas.Prepaid).toMatchObject({
       used: 0,
       total: 12.5,
@@ -138,7 +137,6 @@ describe("parseGrokCliBilling", () => {
       },
       { subscriptionTier: "XPremiumPlus", hasGrokCodeAccess: true },
     );
-    // Single shared-pool bar from creditUsagePercent
     expect(parsed.quotas["Weekly SuperGrok"]).toMatchObject({
       used: 99,
       total: 100,
@@ -146,7 +144,6 @@ describe("parseGrokCliBilling", () => {
       resetAt: "2026-07-24T12:42:26.494Z",
       unlimited: false,
     });
-    // productUsage must NOT become independent quota bars
     expect(Object.keys(parsed.quotas)).toEqual(["Weekly SuperGrok"]);
     expect(parsed.exhausted).toBe(false);
   });
@@ -207,7 +204,6 @@ function encodeTimestampField(fieldNumber, seconds, nanos) {
   return encodeLengthDelimited(fieldNumber, Buffer.concat(parts));
 }
 
-/** Framed GetGrokCreditsConfig response for a usage ratio 0..1. */
 function buildCreditsResponseBuffer(usageRatio, resetSeconds = 1784825940, resetNanos = 867850000) {
   const creditsInfo = Buffer.concat([
     encodeFixed32Field(1, usageRatio),
@@ -268,7 +264,6 @@ describe("getUsageForProvider(grok-cli)", () => {
       remainingPercentage: 100,
     });
 
-    // Official CLI fingerprint headers
     const billingCall = proxyAwareFetch.mock.calls[0];
     expect(billingCall[0]).toContain("/v1/billing");
     expect(billingCall[1].headers.Authorization).toBe("Bearer test-token");
@@ -278,7 +273,6 @@ describe("getUsageForProvider(grok-cli)", () => {
     expect(billingCall[1].headers["x-userid"]).toBe(
       "d84768dd-224d-4052-ba49-0d336fa9160c",
     );
-    // REST already has numeric quotas — do not hit gRPC fallback
     expect(proxyAwareFetch.mock.calls).toHaveLength(2);
   });
 
@@ -293,7 +287,6 @@ describe("getUsageForProvider(grok-cli)", () => {
     });
 
     expect(usage.message).toMatch(/expired|re-authorize/i);
-    // Auth failure must not attempt gRPC fallback
     expect(proxyAwareFetch.mock.calls).toHaveLength(2);
   });
 
@@ -307,12 +300,9 @@ describe("getUsageForProvider(grok-cli)", () => {
       accessToken: "test-token",
     });
 
-    // Dashboard hides QuotaTable when `message` is set — keep message empty
-    // so the 0% bar still renders for exhausted free/promo accounts.
     expect(usage.message).toBeUndefined();
     expect(usage.quotas["On-demand"].remainingPercentage).toBe(0);
     expect(usage.quotas["On-demand"].total).toBe(1);
-    // Exhausted free already has a quota bar — no gRPC fallback
     expect(proxyAwareFetch.mock.calls).toHaveLength(2);
   });
 
@@ -355,7 +345,6 @@ describe("getUsageForProvider(grok-cli)", () => {
     expect(grpcCall[1].headers.Authorization).toBe(`Bearer ${accessToken}`);
     expect(grpcCall[1].headers["Content-Type"]).toBe("application/grpc-web+proto");
     expect(grpcCall[1].headers["X-Grpc-Web"]).toBe("1");
-    // Empty gRPC-web request frame is required (flag 0 + length 0)
     expect(Buffer.from(grpcCall[1].body)).toEqual(EMPTY_GRPC_WEB_FRAME);
   });
 

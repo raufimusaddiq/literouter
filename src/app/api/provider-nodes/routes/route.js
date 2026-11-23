@@ -4,7 +4,6 @@ import { nodeRoutes } from "@/shared/constants/compatibleNodeRoutes";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/provider-nodes/routes?id=<nodeId> — derived native transport map
 export async function GET(request) {
   try {
     const id = new URL(request.url).searchParams.get("id");

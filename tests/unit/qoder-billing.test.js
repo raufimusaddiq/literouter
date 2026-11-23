@@ -1,10 +1,3 @@
-/**
- * Unit tests for qoder billing error detection.
- *
- * Ensures that billing blocks (code 112, 10605, pricingUrl) are detected
- * on the first SSE frame and returned as 403 responses so chatCore can
- * mark the connection unavailable and trigger combo failover.
- */
 
 import { describe, it, expect } from "bun:test";
 import { __test__ as qoderExecutorInternals } from "../../open-sse/executors/qoder.js";

@@ -1,12 +1,6 @@
-// GET /api/oauth/cursor/auto-import — locates Cursor's state.vscdb per
-// platform, reads cursorAuth/accessToken + storage.serviceMachineId via
-// better-sqlite3, and falls back to the sqlite3 CLI when native bindings
-// are unavailable. Mirrors the route in
-// src/app/api/oauth/cursor/auto-import/route.js.
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
-// Mock next/server
 vi.mock("next/server", () => ({
   NextResponse: {
     json: vi.fn((body, init) => ({
@@ -41,7 +35,6 @@ vi.mock("better-sqlite3", () => ({
 
 let GET;
 
-// The route reads keys one at a time via prepare(...).get().
 function mockRows(rows) {
   mockDbInstance.prepare.mockImplementation(() => ({
     get: (key) => rows.find((r) => r.key === key),
@@ -107,8 +100,6 @@ describe("GET /api/oauth/cursor/auto-import", () => {
 
     const response = await GET();
 
-    // better-sqlite3 failed and the sqlite3 CLI is absent in the test env,
-    // so the route asks the caller to paste the tokens by hand.
     expect(response.body.found).toBe(false);
     expect(response.body.windowsManual).toBe(true);
     expect(response.body.dbPath).toContain("state.vscdb");

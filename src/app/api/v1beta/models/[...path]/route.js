@@ -18,12 +18,8 @@ import { getKeyAccessContext, enforceKeyAccessResolved, extractClientApiKey } fr
 
 let initialized = false;
 const GEMINI_NATIVE_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-// Gemini model id charset (matches sanitizeGeminiFunctionName); blocks path traversal in upstream URL.
 const GEMINI_NATIVE_MODEL_PATTERN = /^[a-zA-Z0-9_.:-]+$/;
 
-/**
- * Initialize translators once
- */
 async function ensureInitialized() {
   if (!initialized) {
     await initTranslators();
@@ -31,9 +27,6 @@ async function ensureInitialized() {
   }
 }
 
-/**
- * Handle CORS preflight
- */
 export async function OPTIONS() {
   return new Response(null, {
     headers: {
@@ -44,30 +37,16 @@ export async function OPTIONS() {
   });
 }
 
-/**
- * POST /v1beta/models/{model}:generateContent        — non-streaming
- * POST /v1beta/models/{model}:streamGenerateContent  — streaming (SSE)
- *
- * Streaming intent is determined by the URL action suffix (canonical Gemini API
- * convention), NOT by a body field. generationConfig.stream is not a real
- * Gemini API field and Gemini CLI never sets it.
- *
- * The @google/genai SDK always uses :streamGenerateContent?alt=sse for chat.
- * The upstream handleChat returns OpenAI SSE format; we transform it to
- * Gemini SSE format on the fly via transformOpenAISSEToGeminiSSE().
- */
 export async function POST(request, { params }) {
   await ensureInitialized();
 
   try {
     const { path } = await params;
-    // path = ["provider", "model:action"] or ["model:action"]
 
     let model;
-    let action; // ":generateContent" | ":streamGenerateContent"
+    let action;
 
     if (path.length >= 2) {
-      // Format: /v1beta/models/provider/model:generateContent
       const provider = path[0];
       const modelAction = path[1];
       action = modelAction.includes(":streamGenerateContent")
@@ -78,7 +57,6 @@ export async function POST(request, { params }) {
         .replace(":generateContent", "");
       model = provider + "/" + modelName;
     } else {
-      // Format: /v1beta/models/model:generateContent
       const modelAction = path[0];
       action = modelAction.includes(":streamGenerateContent")
         ? ":streamGenerateContent"
@@ -99,15 +77,10 @@ export async function POST(request, { params }) {
       return await forwardGeminiNativeRequest(request, body, model, action);
     }
 
-    // Streaming is determined by URL action suffix:
-    //   :streamGenerateContent => stream: true  (SSE)
-    //   :generateContent       => stream: false (plain JSON)
     const stream = action === ":streamGenerateContent";
 
-    // Convert Gemini request format to OpenAI/internal format
     const convertedBody = convertGeminiToInternal(body, model, stream);
 
-    // Create new request with converted body
     const newRequest = new Request(request.url, {
       method: "POST",
       headers: request.headers,
@@ -118,12 +91,8 @@ export async function POST(request, { params }) {
     const response = await handleChat(newRequest);
 
     if (stream) {
-      // Transform OpenAI SSE => Gemini SSE on the fly.
-      // The @google/genai SDK always uses :streamGenerateContent?alt=sse and
-      // expects Gemini SSE chunks (no [DONE] sentinel — stream just closes).
       return transformOpenAISSEToGeminiSSE(response, model);
     } else {
-      // Convert OpenAI JSON response => Gemini GenerateContentResponse
       return await convertOpenAIResponseToGemini(response, model);
     }
   } catch (error) {
@@ -132,7 +101,6 @@ export async function POST(request, { params }) {
   }
 }
 
-/** Gemini-shaped {error:{code,message,status}} JSON error with CORS. */
 function geminiErrorResponse(status, message) {
   return Response.json(buildErrorBody(status, message, FORMATS.GEMINI), {
     status,
@@ -208,8 +176,6 @@ function buildGeminiNativeAuthHeaders(credentials) {
 
 function corsHeadersFrom(response) {
   const headers = new Headers(response.headers);
-  // Node fetch may expose a decoded body while preserving upstream compression
-  // headers. Forwarding those headers makes clients decompress plain bytes again.
   headers.delete("content-encoding");
   headers.delete("content-length");
   headers.delete("transfer-encoding");
@@ -253,8 +219,6 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
     return geminiErrorResponse(400, "Invalid model");
   }
 
-  // Per-key access control: this path calls Gemini directly (not via handleChat),
-  // so restricted keys are checked here, before any credential lookup.
   const keyAccessDenied = await enforceKeyAccessResolved(await getKeyAccessContext(request), model, "gemini", modelId);
   if (keyAccessDenied) return keyAccessDenied;
   const excludeConnectionIds = new Set();
@@ -375,21 +339,10 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
   }
 }
 
-/**
- * Convert a Gemini generateContent request into the internal OpenAI Chat shape
- * by reusing the registered gemini→openai request translator, so tools,
- * function call/response parts, inlineData images, stopSequences, response
- * schema and toolConfig all survive.
- *
- * @param {object} geminiBody  - parsed Gemini request body
- * @param {string} model       - resolved model string (e.g. "gemini-pro-high")
- * @param {boolean} stream     - whether to stream (from URL action)
- */
 function convertGeminiToInternal(geminiBody, model, stream) {
   return geminiToOpenAIRequest(model, geminiBody, stream);
 }
 
-// HTTP status for an in-stream OpenAI error frame (frames carry type/code, not a status).
 const STREAM_ERROR_STATUS_BY_TYPE = {
   invalid_request_error: 400,
   authentication_error: 401,
@@ -403,22 +356,6 @@ function streamErrorStatus(error) {
   return STREAM_ERROR_STATUS_BY_TYPE[error?.type] || 500;
 }
 
-/**
- * Transform an OpenAI SSE stream into a Gemini SSE stream.
- *
- * OpenAI SSE format (what handleChat returns):
- *   data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":null}]}
- *   data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{...}}
- *   data: [DONE]
- *
- * Gemini SSE format (what @google/genai SDK expects):
- *   data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Hi"}]},"index":0}]}
- *   data: {"candidates":[{"content":{"role":"model","parts":[{"functionCall":{...}}]},"finishReason":"STOP","index":0}],"usageMetadata":{...}}
- *   (stream closes — no [DONE])
- *
- * Chunk boundaries are arbitrary, so bytes are buffered until a full line is
- * available; a trailing partial line is carried over to the next chunk.
- */
 function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
   if (!upstreamResponse.ok || !upstreamResponse.body) {
     return upstreamResponse;
@@ -439,8 +376,6 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
     if (!trimmed.startsWith("data:")) return;
     const data = trimmed.slice(5).trim();
 
-    // Drop empty lines and the OpenAI [DONE] sentinel.
-    // Gemini SSE ends by stream close, no sentinel needed.
     if (!data || data === "[DONE]") return;
 
     let parsed;
@@ -450,7 +385,6 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
       return;
     }
 
-    // Mid-stream error frame from the pipeline: re-emit in Gemini's error shape.
     if (parsed.error) {
       const status = streamErrorStatus(parsed.error);
       emit(controller, buildErrorBody(status, parsed.error.message, FORMATS.GEMINI));
@@ -483,10 +417,6 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
   });
 }
 
-/**
- * Convert an OpenAI chat.completion JSON response into a Gemini
- * GenerateContentResponse so that Gemini CLI can parse it.
- */
 async function convertOpenAIResponseToGemini(response, model) {
   if (!response.ok) return response;
 

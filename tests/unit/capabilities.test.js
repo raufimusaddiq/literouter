@@ -8,8 +8,6 @@ describe("getCapabilitiesForModel", () => {
     expect(getCapabilitiesForModel(undefined, "deepseek-v4.1-flash")).toMatchObject(v41);
     expect(getCapabilitiesForModel("opencode-go", "deepseek-v4.1-flash")).toMatchObject(v41);
     expect(getCapabilitiesForModel("openrouter", "deepseek/deepseek-v4.1-flash")).toMatchObject(v41);
-    // "deepseek-flash" is the GA id for V4.1-Flash on the DeepSeek API; models.dev
-    // publishes the full 1M window / 384k output for it, which the exact entry keeps.
     expect(getCapabilitiesForModel("opencode-go", "deepseek-flash")).toMatchObject({
       vision: true,
       reasoning: true,
@@ -17,7 +15,6 @@ describe("getCapabilitiesForModel", () => {
       contextWindow: 1000000,
       maxOutput: 384000,
     });
-    // the superseded text-only Flash id stays text-only
     expect(getCapabilitiesForModel("opencode-go", "deepseek-v4-flash").vision).toBe(false);
   });
   const claudeSonnet5Expected = {
@@ -131,9 +128,6 @@ describe("getCapabilitiesForModel", () => {
 });
 
 describe("OpenCode Free ids newer than the capability tables", () => {
-  // ids missing here fall through to DEFAULT_CAPABILITIES (reasoning: false),
-  // and applyThinking() then deletes the client's reasoning_effort — see #2690.
-  // Modalities/limits are taken verbatim from models.dev.
   it("reports reasoning and the models.dev limits for space-bunny", () => {
     expect(getCapabilitiesForModel(undefined, "space-bunny-free")).toMatchObject({
       reasoning: true,
@@ -150,18 +144,13 @@ describe("OpenCode Free ids newer than the capability tables", () => {
 
   it("caps oc/deepseek-v4.1-flash-free at the real backend limit (~330k) instead of 1M", () => {
     const caps = getCapabilitiesForModel("opencode", "deepseek-v4.1-flash-free");
-    // The OpenCode Free backend rejects requests above ~330k prompt tokens (issue #5097).
-    // The published context_length must not exceed the real window, otherwise clients
-    // (VS Code Copilot etc.) never compact and hard-fail mid-session.
     expect(caps.contextWindow).toBeLessThanOrEqual(330000);
     expect(caps.maxOutput).toBeLessThanOrEqual(caps.contextWindow);
-    // Vision and reasoning should still be reported correctly.
     expect(caps.vision).toBe(true);
     expect(caps.reasoning).toBe(true);
   });
 
   it("keeps per-id modalities and limits instead of a generic floor", () => {
-    // text-only, small context — a shared pattern rule would overstate both.
     expect(getCapabilitiesForModel(undefined, "big-pickle")).toMatchObject({
       reasoning: true,
       vision: false,

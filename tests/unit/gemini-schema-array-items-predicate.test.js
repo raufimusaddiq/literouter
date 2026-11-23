@@ -27,7 +27,6 @@ describe("cleanJSONSchemaForAntigravity handles array items and type predicates"
     const cleaned = cleanJSONSchemaForAntigravity(structuredClone(schema));
     const items = cleaned.properties.source_paths.items;
 
-    // Items element itself must not have an "items" property unless it is an array
     expect(items.type).not.toBe("boolean");
     expect(items.type).toBe("string");
     expect(items).not.toHaveProperty("items");

@@ -30,7 +30,6 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.restoreAllMocks(); try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {} });
 
-// Reference: the previous per-row JS aggregation.
 function jsAggregate(rows) {
   const out = { prompt: 0, completion: 0, cached: 0, cost: 0, byProvider: {}, byModel: {} };
   for (const r of rows) {
@@ -69,11 +68,9 @@ describe("getUsageStats 24h aggregates in SQL", () => {
       state.db.run(`INSERT INTO usageHistory(timestamp, provider, model, tokens, promptTokens, completionTokens, cost) VALUES(?,?,?,?,?,?,?)`,
         [r.timestamp, r.provider, r.model, r.tokens, r.promptTokens, r.completionTokens, r.cost]);
     }
-    // outside window: must be excluded
     state.db.run(`INSERT INTO usageHistory(timestamp, provider, model, tokens) VALUES(?,?,?,?)`,
       [new Date(now - 3 * 86400000).toISOString(), "old", "old", "{}"]);
 
-    // Rollup path: rows inserted raw are folded in by the migration backfill.
     backfillUsageRollup(state.db, new Date(now - 3 * 86400000 - 1000).toISOString());
     const ref = jsAggregate(fixture);
     const stats = await usage.getUsageStats("24h");
@@ -94,8 +91,8 @@ describe("getUsageStats 24h aggregates in SQL", () => {
   });
 
   it("counts the partial cutoff bucket from raw rows exactly once", async () => {
-    const edge = new Date(Date.now() - 24 * 3600000 + 90000).toISOString(); // inside the cutoff's 10-min bucket
-    const before = new Date(Date.now() - 24 * 3600000 - 90000).toISOString(); // just outside the window
+    const edge = new Date(Date.now() - 24 * 3600000 + 90000).toISOString();
+    const before = new Date(Date.now() - 24 * 3600000 - 90000).toISOString();
     for (const ts of [edge, before]) {
       state.db.run(`INSERT INTO usageHistory(timestamp, provider, model, tokens, promptTokens) VALUES(?,?,?,?,?)`, [ts, "p", "m", JSON.stringify({ prompt_tokens: 5, cached_tokens: 2 }), 5]);
     }
@@ -113,12 +110,10 @@ describe("getUsageStats 24h aggregates in SQL", () => {
     const isAgg = ([sql]) => /FROM usageRollup WHERE bucket/.test(sql);
     await usage.getUsageStats("24h");
     expect(spy.mock.calls.filter(isAgg)).toHaveLength(1);
-    // a batch persists (what the SSE feed reacts to) -> a refetch must not re-query inside the floor
     await usage.saveRequestUsage({ provider: "p", model: "m", tokens: { prompt_tokens: 1 }, timestamp: new Date().toISOString() });
     await usage.getUsageStats("24h");
     await usage.getUsageStats("24h");
     expect(spy.mock.calls.filter(isAgg)).toHaveLength(1);
-    // after the floor passes, the new row shows up
     vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 3500 });
     try {
       const stats = await usage.getUsageStats("24h");

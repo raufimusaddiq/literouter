@@ -25,28 +25,16 @@ export const OPENCODE_SESSION_RE = /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/;
 export const OPENCODE_REQUEST_RE = /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/;
 const BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-// Free-lane load shedding: total attempts (first try + retries) and backoff.
-// Live bursts last ~20 s (a request that kept failing for 8 s succeeded at 19 s),
-// so the schedule below covers 800+1600+2400+3200+4000*3 = ~20 s.
 const OPENCODE_OVERLOAD_ATTEMPTS = 8;
 const OPENCODE_OVERLOAD_BASE_MS = 800;
 const OPENCODE_OVERLOAD_MAX_MS = 4000;
 const OPENCODE_OVERLOAD_RE = /overloaded/i;
 
-/**
- * Classify a rejected free-lane request:
- * - "overload": transient 429 load shedding, worth retrying.
- * - "session":  any other 429 (FreeUsageLimitError) or 403, which can mean the
- *               session id itself is spent or flagged.
- * - null:       anything else.
- */
 async function classifyRejection(response) {
   const status = response?.status;
   if (status !== 429 && status !== 403) return null;
   if (status === 403) return "session";
   try {
-    // The body is the response stream; clone it so a non-retryable 429 is still
-    // delivered intact to the caller.
     return OPENCODE_OVERLOAD_RE.test(await response.clone().text()) ? "overload" : "session";
   } catch {
     return "session";
@@ -57,8 +45,6 @@ function sleep(ms, signal) {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve();
     let timer;
-    // One cleanup path for both the timeout and the abort: the listener is
-    // always removed, so retries never accumulate handlers on the signal.
     function cleanup() {
       clearTimeout(timer);
       signal?.removeEventListener?.("abort", cleanup);
@@ -76,7 +62,6 @@ function hasValidOpencodeVersion(ua) {
   const minor = parseInt(m[2], 10);
   return major > 1 || (major === 1 && minor >= 17);
 }
-// Models served by /zen/v1/responses; every other model stays on /chat/completions.
 const RESPONSES_MODELS = new Set([
   "muse-spark-1.2-contributor-free",
   "muse-spark-1.3-contributor-free",
@@ -173,12 +158,6 @@ function nativeSession(headers) {
   return null;
 }
 
-// Upstream free-tier quota is accounted per session. Minting a fresh
-// x-opencode-session on every request burns through it and surfaces as
-// 429 FreeUsageLimitError with growing reset-after delays, while the real
-// CLI reuses one long-lived canonical session per conversation. Mirror
-// that: one stable canonical session per downstream identity, evicted
-// after MEMORY_CONFIG.sessionTtlMs like the other session stores.
 const stableOpencodeSessions = new Map();
 const MAX_STABLE_SESSIONS = 1000;
 const stableSessionCleanup = setInterval(() => {
@@ -249,9 +228,6 @@ function lastUserText(body) {
   return "";
 }
 
-// The real CLI sends the current user message id (stable per turn, same on
-// retries) as x-opencode-request. Derive it deterministically from the
-// session plus the last user message so retries share the id.
 export function deriveRequestId(sessionId, body) {
   const text = lastUserText(body);
   if (!text) return generateRequestId();
@@ -275,11 +251,6 @@ function normalizeRequestId(value) {
   return OPENCODE_REQUEST_RE.test(normalized) ? normalized : null;
 }
 
-// The memoized sessions above are never refreshed on failure, so once upstream
-// spends or flags one, every later request reuses it and fails the same way
-// until restart (#5559). Drop the rejected id so the next request mints a fresh
-// one. Match by value, not identity key: a concurrent request may already have
-// minted a replacement, which must survive.
 export function forgetOpencodeSession(sessionId) {
   if (!sessionId) return false;
   let removed = false;
@@ -326,7 +297,6 @@ function bodyHasSessionHints(body) {
   }
 }
 
-// Strip the thinking suffix "model(level)" so registry lookups hit the base id.
 function baseModelId(model) {
   return String(model || "").replace(/\([^()]+\)\s*$/, "").trim();
 }
@@ -420,16 +390,6 @@ function sanitizeResponsesItems(body) {
   if (!Array.isArray(body.input)) return;
   body.input = body.input.filter((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return true;
-    // Strip prior-turn reasoning items: OpenCode Free uses public/pooled credentials
-    // (`Bearer public`) routing to an upstream OpenAI/Console account pool.
-    // OpenAI Responses API strictly enforces that reasoning `encrypted_content`
-    // can only be decrypted by the exact caller/account that issued it; sending it
-    // across different accounts or rotating proxy relays triggers:
-    // [invalid_request_error] reasoning `encrypted_content` was not issued to this caller (400).
-    // Furthermore, under stateless mode (store=false), omitting encrypted_content
-    // causes OpenAI to reject the referenced reasoning item as "not found or was deleted".
-    // Dropping prior reasoning items allows multi-turn conversations and tool-calling
-    // loops to succeed cleanly.
     if (item.type === "reasoning") return false;
     delete item.encrypted_content;
     delete item.reasoning_encrypted_content;
@@ -472,12 +432,6 @@ function normalizeOpencodeReasoning(model, body) {
   delete body.reasoning_effort;
 }
 
-// Chat Completions lane: the free backend validates reasoning_effort against the
-// plain OpenAI enum (none|minimal|low|medium|high|xhigh|max) and answers 400
-// "Invalid option" for anything else — including "auto", which adaptive thinking
-// (Claude Code's thinking:{type:"adaptive"}) arrives as. Omitting the field lets
-// the upstream pick its own default, which is what adaptive means; same rationale
-// as the Responses path above, which rejects "unknown variant `auto`".
 function dropAdaptiveReasoningEffort(body) {
   if (body?.reasoning_effort === "auto") delete body.reasoning_effort;
 }
@@ -500,11 +454,8 @@ export class OpenCodeExecutor extends BaseExecutor {
 
   transformRequest(model, body, stream, credentials) {
     if (body && typeof body === "object" && model && !body.model) body.model = model;
-    // Zen rejects non-streaming requests on free models with 403 FreeTierError;
-    // always stream upstream and let the handler layer aggregate for non-stream clients.
     if (body && typeof body === "object") body.stream = true;
     if (isResponsesModel(model || body?.model) && body && typeof body === "object") {
-      // ponytail: chỉ model đã xác nhận auto-only; mở allowlist khi có bằng chứng.
       if ("tool_choice" in body && body.tool_choice !== "auto"
         && this.config.quirks?.forceAutoToolChoiceModels?.includes(baseModelId(model))) {
         body.tool_choice = "auto";
@@ -514,8 +465,6 @@ export class OpenCodeExecutor extends BaseExecutor {
       if (!Array.isArray(body.input) || body.input.length === 0) {
         body.input = [{ type: "message", role: "user", content: [{ type: "input_text", text: "..." }] }];
       }
-      // Responses API names the output cap max_output_tokens and takes thinking
-      // as reasoning:{effort,summary} — normalize the Chat fields at this boundary.
       if (body.max_output_tokens === undefined) {
         if (body.max_completion_tokens !== undefined) body.max_output_tokens = body.max_completion_tokens;
         else if (body.max_tokens !== undefined) body.max_output_tokens = body.max_tokens;
@@ -527,9 +476,6 @@ export class OpenCodeExecutor extends BaseExecutor {
       body.store = false;
       normalizeResponsesTools(body);
       sanitizeResponsesItems(body);
-      // Free-tier fingerprint tools are required even when an agent client
-      // already supplied tools. ZCode/Claude Code requests normally have
-      // non-empty tool arrays; skipping cloaking here triggers 403 FreeTierError.
       applyFingerprintTools(body, true);
     } else if (body && typeof body === "object") {
       dropAdaptiveReasoningEffort(body);
@@ -542,33 +488,22 @@ export class OpenCodeExecutor extends BaseExecutor {
     const credentials = this.prepareRequestCredentials(args);
     const run = () => super.execute({ ...args, credentials });
 
-    // The free lane sheds load with 429 "The inference service is overloaded.
-    // Please try again later." even after the request is accepted, and the
-    // OpenCode CLI retries it. Match that behaviour here: inspect a clone of
-    // the body (a stream, so never read the original), retry transient overloads
-    // with backoff, and hand back every other response untouched.
     for (let attempt = 1; ; attempt++) {
       const result = await run();
       const rejection = await classifyRejection(result?.response);
       if (rejection === "session") {
-        // A client-supplied native session is not ours to replace; this only
-        // drops ids we minted, so the next request starts on a fresh one.
         if (forgetOpencodeSession(credentials[SESSION_FIELD])) {
           args.log?.debug?.("SESSION", `OpenCode ${result.response.status}: dropped cached session, next request re-mints`);
         }
         return result;
       }
-      // A disconnected client should not keep the retry loop (and the free lane)
-      // busy for another ~20 s.
       if (rejection !== "overload" || attempt >= OPENCODE_OVERLOAD_ATTEMPTS || args.signal?.aborted) {
         return result;
       }
-      // Release the discarded 429 instead of leaving its stream half-read.
       result.response.body?.cancel?.().catch?.(() => {});
       args.log?.debug?.("RETRY", `OpenCode free lane overloaded, retry ${attempt}/${OPENCODE_OVERLOAD_ATTEMPTS - 1}`);
       const backoff = Math.min(OPENCODE_OVERLOAD_BASE_MS * attempt, OPENCODE_OVERLOAD_MAX_MS);
       await sleep(backoff + Math.random() * 250, args.signal);
-      // Aborted mid-backoff: surface it the way a disconnect during the fetch does.
       if (args.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
     }
   }

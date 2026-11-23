@@ -17,7 +17,6 @@ describe("combo error body never exposes stack traces", () => {
     expect(text).not.toMatch(/\n\s+at |\.js:\d+|node_modules|boom secret/);
     expect(text).not.toContain(err.stack);
     expect(JSON.parse(text).error.message).toBe("All combo models failed");
-    // stack kept server-side only
     expect(log.warn.mock.calls.some((c) => c[2]?.stack === err.stack)).toBe(true);
   });
 });

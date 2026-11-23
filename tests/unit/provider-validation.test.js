@@ -1,17 +1,7 @@
-/**
- * Unit tests for /api/provider-nodes/validate endpoint
- *
- * Tests cover:
- *  - OpenAI-compatible validation via /models
- *  - Anthropic-compatible validation via /models
- *  - Fallback to /chat/completions when modelId provided
- *  - Error message handling
- */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
-// Mock fetch globally
 const originalFetch = global.fetch;
 
 describe("Provider Validation API", () => {
@@ -30,7 +20,6 @@ describe("Provider Validation API", () => {
         json: () => Promise.resolve({ data: [] }),
       });
 
-      // Simulate the validation logic
       const baseUrl = "https://api.openai.com/v1";
       const apiKey = "test-key";
       const modelsUrl = `${baseUrl}/models`;
@@ -55,12 +44,10 @@ describe("Provider Validation API", () => {
         return Promise.reject(new Error("Unknown URL"));
       });
 
-      // Simulate validation flow
       const baseUrl = "https://custom-provider.com/v1";
       const modelsRes = await fetch(`${baseUrl}/models`);
       expect(modelsRes.ok).toBe(false);
 
-      // Fallback to chat
       const chatRes = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -80,7 +67,6 @@ describe("Provider Validation API", () => {
       const res = await fetch(`${baseUrl}/models`);
 
       expect(res.ok).toBe(false);
-      // Expected error: "/models unavailable - provide model ID for chat validation"
     });
   });
 

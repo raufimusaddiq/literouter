@@ -37,7 +37,6 @@ describe("standalone build assets", () => {
       .toBe("static asset");
   });
 
-  // Without the wrapper beside server.js nothing can prove a request is local.
   it("copies the request-sanitizing server wrapper into the standalone output", () => {
     const projectRoot = createBuildFixture(".next");
     writeFileSync(join(projectRoot, "custom-server.js"), "wrapper");

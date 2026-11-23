@@ -1,14 +1,7 @@
-// Issue #3010 — Dashboard "Test" button fails for reasoning models because of a
-// tiny max_tokens probe. pingModelByKind must use a sane budget (1024) and treat a
-// reasoning-only (length-limited) response as a successful connection.
-//
-// The route module pulls in Next.js-only deps (@/lib/localDb, etc.) that don't
-// resolve under raw vitest, so we mock them and exercise the exported function.
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
-// Mock the heavy Next.js-dependent imports BEFORE importing ping.js.
 vi.mock("@/lib/localDb", () => ({ getApiKeys: vi.fn(async () => [{ key: "test-key", isActive: true }]) }));
 vi.mock("@/shared/constants/config", () => ({ UPDATER_CONFIG: { appPort: 20127 } }));
 vi.mock("@/shared/utils/machineId", () => ({ getConsistentMachineId: vi.fn(async () => "cli-token") }));

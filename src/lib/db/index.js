@@ -1,16 +1,13 @@
-// Public API barrel — all DB functions
 import { getAdapter } from "./driver.js";
 import { bumpConfigVersion } from "./configVersion.js";
 import { stringifyJson, parseJson } from "./helpers/jsonCol.js";
 import { keyAccessFromColumns, keyAccessToColumns, validateKeyAccessInput } from "@/shared/utils/keyAccess.js";
 import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
 
-// Settings
 export {
   getSettings, updateSettings, isCloudEnabled, getCloudUrl, exportSettings,
 } from "./repos/settingsRepo.js";
 
-// Provider connections
 export {
   getProviderConnections, getProviderConnectionById,
   createProviderConnection, updateProviderConnection, mutateProviderConnection,
@@ -18,60 +15,50 @@ export {
   reorderProviderConnections, cleanupProviderConnections,
 } from "./repos/connectionsRepo.js";
 
-// Provider nodes
 export {
   getProviderNodes, getProviderNodeById,
   createProviderNode, updateProviderNode, deleteProviderNode,
 } from "./repos/nodesRepo.js";
 
-// Proxy pools
 export {
   getProxyPools, getProxyPoolById,
   createProxyPool, updateProxyPool, deleteProxyPool,
 } from "./repos/proxyPoolsRepo.js";
 
-// API keys
 export {
   getApiKeys, getApiKeyById, getApiKeyByKey, createApiKey, updateApiKey, deleteApiKey, validateApiKey,
 } from "./repos/apiKeysRepo.js";
 
-// Combos
 export {
   getCombos, getComboById, getComboByName,
   createCombo, updateCombo, deleteCombo,
 } from "./repos/combosRepo.js";
 
-// Aliases (model + custom)
 export {
   getModelAliases, setModelAlias, deleteModelAlias,
   getCustomModels, addCustomModel, deleteCustomModel,
 } from "./repos/aliasRepo.js";
 
-// Pricing
 export {
   getPricing, getPricingForModel, updatePricing, resetPricing, resetAllPricing,
 } from "./repos/pricingRepo.js";
 
-// Disabled models
 export {
   getDisabledModels, getDisabledByProvider, disableModels, enableModels,
 } from "./repos/disabledModelsRepo.js";
 
-// Usage
 export {
   statsEmitter, trackPendingRequest, getActiveRequests,
   saveRequestUsage, flushUsageQueue, getUsageStats, getChartData,
   getRecentLogs, getApiKeyUsageRows,
 } from "./repos/usageRepo.js";
 
-// Request details
 export {
   saveRequestDetail, getRequestDetails, getRequestDetailById, getDistinctProviders,
   flushRequestDetails,
   ensureShutdownHandler as ensureRequestDetailShutdownHandler,
 } from "./repos/requestDetailsRepo.js";
 
-// Export/import full DB
 export async function exportDb() {
   const db = await getAdapter();
   const { exportSettings } = await import("./repos/settingsRepo.js");
@@ -102,7 +89,6 @@ export async function importDb(payload) {
   const db = await getAdapter();
 
   db.transaction(() => {
-    // Wipe all tables (keep _meta)
     db.run(`DELETE FROM settings`);
     db.run(`DELETE FROM providerConnections`);
     db.run(`DELETE FROM providerNodes`);
@@ -111,7 +97,6 @@ export async function importDb(payload) {
     db.run(`DELETE FROM combos`);
     db.run(`DELETE FROM kv WHERE scope IN ('modelAliases', 'customModels', 'pricing')`);
 
-    // Settings
     if (payload.settings) {
       const settings = { ...payload.settings };
       for (const key of ["tunnelEnabled", "tunnelUrl", "tunnelProvider", "tailscaleEnabled", "tailscaleUrl", "tunnelDashboardAccess", "mitmRouterBaseUrl", "mitmSudoEncrypted"]) delete settings[key];
@@ -140,8 +125,6 @@ export async function importDb(payload) {
       );
     }
     for (const k of payload.apiKeys || []) {
-      // Per-key access: a backup without `access` (older version) restores
-      // unrestricted, exactly as before; a malformed `access` is refused.
       let access = KEY_ACCESS_UNRESTRICTED;
       if (k.access !== undefined) {
         const checked = validateKeyAccessInput(k.access);
@@ -177,8 +160,6 @@ export async function importDb(payload) {
   return await exportDb();
 }
 
-// Caches live in repo modules; a raw SQL import bypasses their writers.
-// Drop them here so a restore is visible to routing immediately.
 function invalidateRuntimeCaches() {
   bumpConfigVersion();
   if (global.__liteRouterSettingsCache) { global.__liteRouterSettingsCache.raw = null; global.__liteRouterSettingsCache.merged = null; }
@@ -191,7 +172,6 @@ function invalidateRuntimeCaches() {
   if (global.__liteRouterPricingCache) { global.__liteRouterPricingCache.value = null; global.__liteRouterPricingCache.expiresAt = 0; }
 }
 
-// Eager init helper (optional)
 export async function initDb() {
   await getAdapter();
 }

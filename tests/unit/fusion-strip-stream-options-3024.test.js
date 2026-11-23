@@ -1,12 +1,8 @@
-// Issue #3024 — Fusion combo must strip `stream_options` from panel requests
-// when running non-streaming, or DeepSeek rejects with
-// "stream_options should be set along with stream = true".
 
 import { describe, it, expect } from "bun:test";
 import { vi } from "#test/vi";
 import { handleFusionChat } from "../../open-sse/services/combo.js";
 
-// Minimal logger stub (combo.js calls log.info/warn).
 const log = { info: () => {}, warn: () => {}, error: () => {} };
 
 function makeBody(extra = {}) {
@@ -24,14 +20,12 @@ describe("Fusion strips stream_options (#3024)", () => {
     let capturedPanelBody = null;
     const handleSingleModel = vi.fn(async (panelBody, model, isPanel) => {
       if (isPanel) capturedPanelBody = panelBody;
-      // Simulate a successful non-stream JSON answer for the panel.
       if (isPanel) {
         return new Response(JSON.stringify({ choices: [{ message: { content: `ans-${model}` } }] }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
       }
-      // Judge leg: return a final answer.
       return new Response(JSON.stringify({ choices: [{ message: { content: "final" } }] }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -49,10 +43,8 @@ describe("Fusion strips stream_options (#3024)", () => {
 
     expect(res).toBeInstanceOf(Response);
     expect(capturedPanelBody).not.toBeNull();
-    // Critical assertion: stream_options must NOT leak into panel requests.
     expect(capturedPanelBody.stream_options).toBeUndefined();
     expect(capturedPanelBody.stream).toBe(false);
-    // Ensure the original client body still had it (proves we stripped deliberately).
     expect(makeBody().stream_options).toBeDefined();
   });
 

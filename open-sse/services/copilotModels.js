@@ -1,14 +1,3 @@
-/**
- * GitHub Copilot model catalog fetcher.
- *
- * Calls Copilot's `GET /models` endpoint to get the live catalog for an
- * authenticated account, so `/v1/models` reflects what the account can
- * actually use (e.g. newly shipped `claude-opus-4.8`, `gpt-5.5`) instead of
- * the hand-maintained static registry, which inevitably lags behind.
- *
- * Returns chat-capable models the account's policy allows. Embeddings and
- * disabled models are filtered out.
- */
 
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { GITHUB_COPILOT } from "../config/appConstants.js";
@@ -16,9 +5,8 @@ import { refreshCopilotToken } from "./tokenRefresh.js";
 
 const MODELS_URL = "https://api.githubcopilot.com/models";
 const FETCH_TIMEOUT_MS = 10_000;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes per credential
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
-/** @type {Map<string, { expiresAt: number, models: any[] }>} */
 const catalogCache = new Map();
 
 function cacheKey(credentials) {
@@ -61,8 +49,6 @@ async function fetchCatalogRaw(token, signal) {
   }
 }
 
-// Keep only chat models the account is allowed to use. The static registry
-// surfaced disabled/embedding entries inconsistently; here we trust upstream.
 function expandCatalog(raw) {
   const seen = new Set();
   const models = [];
@@ -78,19 +64,6 @@ function expandCatalog(raw) {
   return models;
 }
 
-/**
- * Resolve the live Copilot model catalog for a connection.
- *
- * @param {object} credentials Connection record (accessToken, refreshToken,
- *   providerSpecificData {copilotToken, copilotTokenExpiresAt}).
- * @param {object} [options]
- * @param {boolean} [options.forceRefresh] Bypass the per-credential cache.
- * @param {object}  [options.log] Logger.
- * @param {function} [options.onCredentialsRefreshed] Persist a refreshed
- *   Copilot token back to your store. Called with `{ copilotToken,
- *   copilotTokenExpiresAt }` whenever a 401 triggers a refresh.
- * @returns {Promise<{ models: object[] } | null>}
- */
 export async function resolveCopilotModels(credentials, options = {}) {
   const token = credentials?.providerSpecificData?.copilotToken || credentials?.accessToken;
   if (!token) {
@@ -111,8 +84,6 @@ export async function resolveCopilotModels(credentials, options = {}) {
   try {
     raw = await fetchCatalogRaw(token, options.signal);
   } catch (err) {
-    // A 401/403 means the Copilot token is stale — refresh from the GitHub
-    // access token and retry once.
     if (err && (err.status === 401 || err.status === 403) && credentials.accessToken) {
       options.log?.info?.("COPILOT_MODELS", `Got ${err.status}; refreshing Copilot token`);
       const refreshed = await refreshCopilotToken(credentials.accessToken);

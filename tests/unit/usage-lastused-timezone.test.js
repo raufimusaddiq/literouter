@@ -4,13 +4,10 @@ import path from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
-// lastUsed must be the real ISO timestamp of the latest request, never a local
-// date key ("YYYY-MM-DD"), even in the window between local and UTC midnight.
 const ORIGINAL_TZ = process.env.TZ;
 let tempDir;
 
 const CASES = [
-  // [tz, label, instant]
   ["Asia/Jakarta", "just after local midnight (before UTC midnight)", "2026-11-19T17:05:00.000Z"],
   ["Asia/Jakarta", "just before UTC midnight", "2026-11-19T23:55:00.000Z"],
   ["America/Los_Angeles", "just after UTC midnight (local evening)", "2026-11-20T00:05:00.000Z"],
@@ -58,9 +55,6 @@ describe("usage lastUsed across the local/UTC midnight gap", () => {
   }
 });
 
-// Legacy usageDaily rows have no lastTs. lastUsed must then fall back to a real
-// ISO instant at local end-of-day of the day key (never a bare date, never null),
-// and a real lastTs on the same key always wins over the synthetic fallback.
 describe("usage lastUsed fallback for legacy day rows", () => {
   const localDate = (iso) => {
     const d = new Date(iso);
@@ -70,11 +64,10 @@ describe("usage lastUsed fallback for legacy day rows", () => {
     requests: 1, promptTokens: 1, completionTokens: 1, cachedTokens: 0, cost: 0,
     rawModel: "gpt-4", provider: "openai", connectionId: "c1", endpoint: "/v1/chat", ...extra,
   });
-  // The adapter and daily cache are process-global; start each case clean.
   const resetUsage = (adapter) => {
     adapter.run(`DELETE FROM usageDaily`);
     adapter.run(`DELETE FROM usageHistory`);
-    try { adapter.run(`DELETE FROM usageRollup`); } catch { /* optional table */ }
+    try { adapter.run(`DELETE FROM usageRollup`); } catch {}
     globalThis.__liteRouterUsageDailyState?.days.clear();
   };
   const dayData = (extra) => JSON.stringify({
@@ -120,7 +113,7 @@ describe("usage lastUsed fallback for legacy day rows", () => {
       const { getAdapter } = await import("@/lib/db/driver.js");
       const adapter = await getAdapter();
       resetUsage(adapter);
-      const real = new Date(2026, 10, 15, 3, 0, 0).toISOString(); // early in the day
+      const real = new Date(2026, 10, 15, 3, 0, 0).toISOString();
       adapter.run(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?)`, ["2026-11-15", dayData({ lastTs: real })]);
       adapter.run(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?)`, ["2026-11-16", dayData()]);
 

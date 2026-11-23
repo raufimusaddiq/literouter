@@ -1,17 +1,7 @@
-/**
- * Codex executor: verify remote image URLs are fetched and inlined as
- * base64 data URIs BEFORE the request body reaches the upstream API.
- *
- * Covers bug #575:
- *  - prefetchImages must await async image fetches
- *  - execute() must run prefetchImages before super.execute so the body
- *    sent to upstream contains base64 data, not remote URLs
- */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
-// Mock DNS so the SSRF guard treats example.com as public.
 vi.mock("node:dns/promises", () => ({ lookup: async () => [{ address: "93.184.216.34", family: 4 }] }));
 
 import { CodexExecutor } from "../../open-sse/executors/codex.js";
@@ -20,7 +10,6 @@ import * as proxyFetchModule from "../../open-sse/utils/proxyFetch.js";
 const IMAGE_1MB_BYTES = 1024 * 1024;
 const REMOTE_URL = "https://example.com/big.jpg";
 const DATA_URI = "data:image/png;base64,iVBORw0KGgo=";
-// JPEG magic bytes (FF D8 FF) so magic-byte verification passes.
 const JPEG_MAGIC = [0xff, 0xd8, 0xff];
 
 function makeImageBuffer(sizeBytes) {
@@ -30,7 +19,6 @@ function makeImageBuffer(sizeBytes) {
   return buf;
 }
 
-// Mock a streaming Response body (getReader) as the hardened fetcher expects.
 function mockImageFetch(sizeBytes) {
   const bytes = makeImageBuffer(sizeBytes);
   return {

@@ -4,8 +4,6 @@ import { getPricingForModel } from "open-sse/providers/pricing.js";
 import { CodexExecutor } from "open-sse/executors/codex.js";
 import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
 
-// gpt-6-sol / gpt-6-luna were reachable on the Codex endpoint but missing from the
-// registry, so isValidModel() rejected them and they only worked as custom models.
 describe("Codex gpt-6 models", () => {
   const codex = PROVIDER_MODELS.cx || [];
   const byId = (id) => codex.find((m) => m.id === id);
@@ -36,9 +34,6 @@ describe("Codex gpt-6 models", () => {
   });
 
   it("does not register review variants for gpt-6", () => {
-    // withCodexReviewModels() is imported but never applied to this array, and the
-    // gpt-6 review variants were dropped on purpose. Guard against a stray line
-    // re-adding one without the upstreamModelId wiring.
     expect(codex.filter((m) => m.id.startsWith("gpt-6") && m.id.endsWith("-review"))).toEqual([]);
   });
 
@@ -57,7 +52,6 @@ describe("Codex gpt-6 models", () => {
   });
 
   it("keeps the gpt-6 generation cheaper than gpt-5.6 on the same tier", () => {
-    // sol was repriced from 5/30 (gpt-5.6) down to 2/10 in the gpt-6 generation.
     const sol = getPricingForModel("cx", "gpt-6-sol");
     const sol56 = getPricingForModel("cx", "gpt-5.6-sol");
     expect(sol.input).toBeLessThan(sol56.input);

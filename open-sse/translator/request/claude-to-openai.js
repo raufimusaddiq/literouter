@@ -11,7 +11,6 @@ function stripAnthropicBillingHeader(text) {
   return text.replace(/^x-anthropic-billing-header:[^\n]*(?:\r?\n)?/i, "");
 }
 
-// Convert Claude request to OpenAI format
 export function claudeToOpenAIRequest(model, body, stream) {
   const result = {
     model: model,
@@ -19,25 +18,21 @@ export function claudeToOpenAIRequest(model, body, stream) {
     stream: stream
   };
 
-  // Max tokens
   if (body.max_tokens) {
     result.max_tokens = adjustMaxTokens(body);
   }
 
-  // Temperature
   if (body.temperature !== undefined) {
     result.temperature = body.temperature;
   }
   if (body.top_p !== undefined) {
     result.top_p = body.top_p;
   }
-  // Claude stop_sequences -> OpenAI stop
   const stop = toOpenAIStop(body.stop_sequences);
   if (stop !== undefined) {
     result.stop = stop;
   }
 
-  // System message
   if (body.system) {
     const systemContent = Array.isArray(body.system)
       ? body.system.map(s => stripAnthropicBillingHeader(s.text || "")).filter(Boolean).join("\n")
@@ -51,13 +46,11 @@ export function claudeToOpenAIRequest(model, body, stream) {
     }
   }
 
-  // Convert messages
   if (body.messages && Array.isArray(body.messages)) {
     for (let i = 0; i < body.messages.length; i++) {
       const msg = body.messages[i];
       const converted = convertClaudeMessage(msg);
       if (converted) {
-        // Handle array of messages (multiple tool results)
         if (Array.isArray(converted)) {
           result.messages.push(...converted);
         } else {
@@ -67,12 +60,8 @@ export function claudeToOpenAIRequest(model, body, stream) {
     }
   }
 
-  // Fix missing tool responses - OpenAI requires every tool_call to have a response.
-  // Local variant: scans contiguous tool replies + inserts "[No response received]"
-  // (distinct from the global immediate-next check in concerns/toolCall, runs on the openai leg).
   fixMissingToolResponsesOpenAI(result.messages);
 
-  // Tools
   if (body.tools && Array.isArray(body.tools)) {
     result.tools = body.tools.map(tool => ({
       type: OPENAI_BLOCK.FUNCTION,
@@ -84,12 +73,10 @@ export function claudeToOpenAIRequest(model, body, stream) {
     }));
   }
 
-  // Tool choice
   if (body.tool_choice) {
     result.tool_choice = convertToolChoice(body.tool_choice);
   }
 
-  // tool_choice.disable_parallel_tool_use -> parallel_tool_calls:false
   if (body.tool_choice?.disable_parallel_tool_use === true) {
     result.parallel_tool_calls = false;
   }
@@ -107,14 +94,12 @@ export function claudeToOpenAIRequest(model, body, stream) {
   return result;
 }
 
-// Fix missing tool responses - add empty responses for tool_calls without responses
 function fixMissingToolResponsesOpenAI(messages) {
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     if (msg.role === ROLE.ASSISTANT && msg.tool_calls && msg.tool_calls.length > 0) {
       const toolCallIds = msg.tool_calls.map(tc => tc.id);
       
-      // Collect all tool response IDs that IMMEDIATELY follow this assistant message
       const respondedIds = new Set();
       let insertPosition = i + 1;
       for (let j = i + 1; j < messages.length; j++) {
@@ -127,7 +112,6 @@ function fixMissingToolResponsesOpenAI(messages) {
         }
       }
       
-      // Find missing responses and insert them
       const missingIds = toolCallIds.filter(id => !respondedIds.has(id));
       
       if (missingIds.length > 0) {
@@ -143,8 +127,6 @@ function fixMissingToolResponsesOpenAI(messages) {
   }
 }
 
-// Wrap mid-conversation system text so it ends as a user turn (avoids Anthropic prefill 400).
-// Uses <instructions> tags that Claude models treat as authoritative directives.
 function systemReminderText(content) {
   const parts = Array.isArray(content)
     ? content.filter(c => c?.type === CLAUDE_BLOCK.TEXT).map(c => c.text || "")
@@ -154,16 +136,10 @@ function systemReminderText(content) {
   return `<instructions>\n${text}\n</instructions>`;
 }
 
-// Convert single Claude message - returns single message or array of messages
 function convertClaudeMessage(msg) {
-  // Some clients send content as a single block object; normalize to the
-  // one-element array every branch below (the system-reminder fold included)
-  // expects. Must run BEFORE the role branch: systemReminderText only reads
-  // arrays and strings, so a bare-object system turn was dropped outright.
   if (msg.content && typeof msg.content === "object" && !Array.isArray(msg.content)) {
     msg.content = [msg.content];
   }
-  // Mid-conversation system message -> user (per Anthropic placement rules)
   if (msg.role === ROLE.SYSTEM) {
     const text = systemReminderText(msg.content);
     return text ? { role: ROLE.USER, content: text } : null;
@@ -171,12 +147,10 @@ function convertClaudeMessage(msg) {
 
   const role = msg.role === ROLE.USER || msg.role === ROLE.TOOL ? ROLE.USER : ROLE.ASSISTANT;
   
-  // Simple string content
   if (typeof msg.content === "string") {
     return { role, content: msg.content };
   }
 
-  // Array content
   if (Array.isArray(msg.content)) {
     const parts = [];
     const toolCalls = [];
@@ -236,9 +210,6 @@ function convertClaudeMessage(msg) {
             tool_call_id: block.tool_use_id,
             content: resultContent
           });
-          // The OpenAI tool role is text-only, so a screenshot or any other image a
-          // tool returned would otherwise vanish. Hand it to the model in the user
-          // turn that follows the tool messages, tagged with the call it came from.
           if (resultImages.length) {
             parts.push({ type: OPENAI_BLOCK.TEXT, text: `[Image from tool result ${block.tool_use_id}]` });
             parts.push(...resultImages);
@@ -248,7 +219,6 @@ function convertClaudeMessage(msg) {
       }
     }
 
-    // If has tool results, return array of tool messages
     if (toolResults.length > 0) {
       if (parts.length > 0) {
         return [...toolResults, { role: ROLE.USER, content: collapseTextParts(parts) }];
@@ -256,7 +226,6 @@ function convertClaudeMessage(msg) {
       return toolResults;
     }
 
-    // If has tool calls, return assistant message with tool_calls
     if (toolCalls.length > 0) {
       const result = { role: ROLE.ASSISTANT };
       if (parts.length > 0) {
@@ -266,7 +235,6 @@ function convertClaudeMessage(msg) {
       return result;
     }
 
-    // Return content
     if (parts.length > 0) {
       return {
         role,
@@ -274,7 +242,6 @@ function convertClaudeMessage(msg) {
       };
     }
     
-    // Empty content array
     if (msg.content.length === 0) {
       return { role, content: "" };
     }
@@ -283,7 +250,6 @@ function convertClaudeMessage(msg) {
   return null;
 }
 
-// Convert tool choice
 function convertToolChoice(choice) {
   if (!choice) return "auto";
   if (typeof choice === "string") return choice;
@@ -297,5 +263,4 @@ function convertToolChoice(choice) {
   }
 }
 
-// Register
 register(FORMATS.CLAUDE, FORMATS.OPENAI, claudeToOpenAIRequest, null);

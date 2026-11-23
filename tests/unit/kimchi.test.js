@@ -1,9 +1,6 @@
 import { describe, it, beforeAll } from "bun:test";
 import assert from "node:assert/strict";
 
-// Load the registry entry once for the suite so a load failure is reported
-// next to the failing test instead of cascading as "undefined" in every
-// later assertion.
 let kimchiEntry;
 
 describe("kimchi registry entry", () => {
@@ -21,8 +18,6 @@ describe("kimchi registry entry", () => {
       kimchiEntry.transport.baseUrl,
       "https://llm.kimchi.dev/openai/v1/chat/completions",
     );
-    // UA must be a non-empty string the gateway can identify; the value
-    // itself is owned by the Kimchi CLI release and may change upstream.
     const ua = kimchiEntry.transport.headers["User-Agent"];
     assert.ok(typeof ua === "string" && ua.length > 0, `User-Agent missing: ${ua}`);
   });
@@ -48,10 +43,7 @@ describe("kimchi registry entry", () => {
   });
 });
 
-// ── kimchiModels service (pure mapping logic, tested in isolation) ──
 
-// Clone of the metadata→model mapper so node --test resolves without the
-// open-sse/Webpack alias chain the real module imports.
 function mapKimchiMetadata(raw) {
   if (!Array.isArray(raw)) return [];
   return raw.map((m) => ({
@@ -95,9 +87,6 @@ describe("kimchiModels", () => {
   });
 });
 
-// ── OAuth dedup logic (pure clone of connectionsRepo matcher) ──
-// Mimics the find() predicate in createProviderConnection for OAuth
-// connections, so we can test the IdP-collision fix in isolation.
 function findExistingOAuth(all, incoming) {
   const incomingEmail = incoming.email;
   const incomingUsername = incoming.providerSpecificData?.username;

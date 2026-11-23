@@ -12,7 +12,6 @@ const { translateNonStreamingResponse } = await import("../../open-sse/handlers/
 const { handleForcedSSEToJson } = await import("../../open-sse/handlers/chatCore/sseToJsonHandler.js");
 const { openaiToOpenAIResponsesRequest } = await import("../../open-sse/translator/request/openai-responses.js");
 
-// A chat.completion body as returned by a chat-native upstream (e.g. op-ericding)
 const CHAT_TOOL_BODY = {
   id: "chatcmpl-abc123",
   object: "chat.completion",
@@ -32,7 +31,6 @@ const CHAT_TOOL_BODY = {
 
 describe("non-stream Chat upstream for a Responses-API client (op-ericding bug)", () => {
   it("translates chat.completion tool_calls into Responses function_call output", () => {
-    // translateNonStreamingResponse(body, targetFormat=PROVIDER format, sourceFormat=CLIENT format)
     const out = translateNonStreamingResponse(CHAT_TOOL_BODY, FORMATS.OPENAI, FORMATS.OPENAI_RESPONSES);
     expect(out.object).toBe("response");
     expect(out).not.toHaveProperty("choices");

@@ -1,6 +1,3 @@
-// #2071 — CodeBuddy forced reasoning_effort:"medium" + reasoning_summary:"auto"
-// on requests where the client never asked for reasoning, tripping CodeBuddy's
-// content filter ("model return error"). Reasoning params must be opt-in.
 import { describe, it, expect } from "bun:test";
 import { CodeBuddyExecutor } from "../../open-sse/executors/codebuddy-cn.js";
 

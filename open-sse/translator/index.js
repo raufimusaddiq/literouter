@@ -13,13 +13,9 @@ import { PROVIDERS } from "../providers/index.js";
 import { ROLE, GEMINI_ROLE } from "./schema/roles.js";
 import { assertTargetSupportsParams } from "./concerns/requestParams.js";
 
-// Registry for translators. Lazy-init guards against circular-import order:
-// translator modules call register() (side-effect) before this module's body runs.
-// var (not let): hoisted as undefined so register() can run during circular import (no TDZ).
 var requestRegistry;
 var responseRegistry;
 
-// Register translator
 export function register(from, to, requestFn, responseFn) {
   requestRegistry ??= new Map();
   responseRegistry ??= new Map();
@@ -32,7 +28,6 @@ export function register(from, to, requestFn, responseFn) {
   }
 }
 
-// Strip specific content types from messages (explicit opt-in via strip[] in PROVIDER_MODELS)
 function stripContentTypes(body, stripList = []) {
   if (!stripList.length || !body.messages || !Array.isArray(body.messages)) return;
   const imageTypes = new Set(["image_url", "image"]);
@@ -49,12 +44,6 @@ function stripContentTypes(body, stripList = []) {
   }
 }
 
-// Role the client's conversation actually ended on, in the source format's own
-// shape — not every source uses messages[] (Gemini/Antigravity: contents[],
-// Responses/Codex: input[]). Only an explicit trailing model/assistant turn is
-// real prefill and must reach ensureTrailingUserTurn as ROLE.ASSISTANT; every
-// other tail (including no role, e.g. a function output) stays undefined so
-// the emptied-turn fix still applies.
 function detectClientLastRole(body) {
   if (Array.isArray(body?.messages)) return body.messages[body.messages.length - 1]?.role;
   const items = Array.isArray(body?.contents) ? body.contents : Array.isArray(body?.input) ? body.input : null;
@@ -63,67 +52,41 @@ function detectClientLastRole(body) {
   return role === ROLE.ASSISTANT || role === GEMINI_ROLE.MODEL ? ROLE.ASSISTANT : undefined;
 }
 
-// Translate request: source -> openai -> target
 export function translateRequest(sourceFormat, targetFormat, model, body, stream = true, credentials = null, provider = null, reqLogger = null, stripList = [], connectionId = null, clientTool = null) {
   let result = body;
-  // Reject (400) n>1 / logprobs only when the request is actually TRANSLATED to a
-  // non-OpenAI target (the response translator would keep only choice/candidate 0).
-  // Same-format requests (Gemini->Gemini, OpenAI->OpenAI, ...) skip translation
-  // entirely (see the `sourceFormat !== targetFormat` branch below), so the
-  // upstream response reaches the client intact and multi-candidate is allowed.
-  // Gemini->Gemini does NOT pivot through OpenAI. Throws RequestParamError.
   if (sourceFormat !== targetFormat && targetFormat !== FORMATS.OPENAI) {
     assertTargetSupportsParams(body, provider || targetFormat);
   }
-  // Role the client actually ended on, before any translator drops an emptied turn.
   const clientLastRole = detectClientLastRole(body);
 
-  // Strip explicit content types (opt-in via strip[] in PROVIDER_MODELS entry)
   stripContentTypes(result, stripList);
 
-  // Normalize thinking config while preserving user and tool-result turns.
   normalizeThinkingConfig(result);
 
-  // Always ensure tool_calls have id (some providers require it)
   ensureToolCallIds(result);
   
-  // Kiro performs stricter source-aware reconciliation after session replay.
-  // The generic helper inserts OpenAI `role: tool` messages, which a direct
-  // Claude→Kiro translator cannot consume and which cannot repair partial
-  // parallel tool results.
   if (targetFormat !== FORMATS.KIRO) {
     fixMissingToolResponses(result);
   }
 
-  // Capture thinking intent from the original (pre-translation) body, before any
-  // format conversion strips/renames the fields. Applied after translation.
   const thinkingIntent = captureThinking(result);
 
-  // Capture session id from the original body (envelope still intact, e.g. antigravity request.sessionId)
   const clientSessionId = captureSessionId(result, credentials, connectionId, targetFormat);
-  // Expose to downstream translators (gemini-cli/antigravity envelopes) that run after envelope is stripped
   if (credentials) credentials._clientSessionId = clientSessionId;
 
-  // If same format, skip translation steps
   if (sourceFormat !== targetFormat) {
-    // Direct route: if a translator is registered for this exact source:target
-    // pair, use it instead of pivoting through OpenAI. This is lossless for
-    // pairs like claude:kiro (avoids the claude->openai->kiro double-hop).
     const directFn = requestRegistry.get(`${sourceFormat}:${targetFormat}`);
     if (directFn) {
       result = directFn(model, result, stream, credentials);
     } else {
-      // Step 1: source -> openai (if source is not openai)
       if (sourceFormat !== FORMATS.OPENAI) {
         const toOpenAI = requestRegistry.get(`${sourceFormat}:${FORMATS.OPENAI}`);
         if (toOpenAI) {
           result = toOpenAI(model, result, stream, credentials);
-          // Log OpenAI intermediate format
           reqLogger?.logOpenAIRequest?.(result);
         }
       }
 
-      // Step 2: openai -> target (if target is not openai)
       if (targetFormat !== FORMATS.OPENAI) {
         const fromOpenAI = requestRegistry.get(`${FORMATS.OPENAI}:${targetFormat}`);
         if (fromOpenAI) {
@@ -133,17 +96,10 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
     }
   }
 
-  // Keep Responses passthrough tolerant of compatible clients that send one
-  // content block as an object, and normalize Chat's token-limit field after
-  // translation. OpenAI-compatible Responses providers reject both shapes.
   if (targetFormat === FORMATS.OPENAI_RESPONSES) {
     result = normalizeResponsesRequest(result);
   }
 
-  // Normalize thinking to the target provider-native format (config-driven, capability-aware).
-  // Kiro's GenerateAssistantResponse request does not accept the generic top-level
-  // `thinking` field; its translators map thinking intent to KAS-compatible
-  // systemPrompt/additionalModelRequestFields instead.
   const kiroThinkingMappedByTranslator =
     targetFormat === FORMATS.KIRO &&
     (sourceFormat === FORMATS.OPENAI || sourceFormat === FORMATS.CLAUDE);
@@ -151,23 +107,18 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
     applyThinking(targetFormat, model, result, provider, thinkingIntent);
   }
 
-  // Always normalize to clean OpenAI format when target is OpenAI
-  // This handles hybrid requests (e.g., OpenAI messages + Claude tools)
   if (targetFormat === FORMATS.OPENAI) {
     result = filterToOpenAIFormat(result, {
       preserveCacheControl: !!PROVIDERS[provider]?.quirks?.preserveCacheControl,
     });
   }
 
-  // Final step: prepare request for Claude format endpoints
   if (targetFormat === FORMATS.CLAUDE) {
     const apiKey = credentials?.accessToken || credentials?.apiKey || null;
     result = prepareClaudeRequest(result, provider, apiKey, connectionId, credentials?.rawHeaders, clientSessionId);
     if (Array.isArray(result?.messages)) result.messages = ensureTrailingUserTurn(result.messages, clientLastRole);
   }
 
-  // Claude cloaking: rename client tools with CLAUDE_TOOL_SUFFIX (anti-ban)
-  // quirk: only providers flagged cloakToolsOnOAuth, and only with an OAuth token
   if (PROVIDERS[provider]?.quirks?.cloakToolsOnOAuth) {
     const apiKey = credentials?.accessToken || credentials?.apiKey || null;
     if (apiKey?.includes("sk-ant-oat")) {
@@ -175,7 +126,6 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
       const { body: cloakedBody, toolNameMap } = cloakClaudeTools(result);
       result = cloakedBody;
       if (toolNameMap?.size > 0) {
-        // cloaked → sanitized → original (e.g. "a_b_cc" → "a_b" → "a.b")
         result._toolNameMap = new Map([...toolNameMap].map(([cloaked, name]) => [cloaked, sanitizedNames?.get(name) ?? name]));
       }
     }
@@ -184,16 +134,8 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
   return result;
 }
 
-// Translate response chunk: target -> openai -> source
 export function translateResponse(targetFormat, sourceFormat, chunk, state) {
-  // If same format, return as-is — except the tool name may still be cloaked:
-  // translateRequest() suffixes client tools for OAuth-cloaked Claude providers
-  // even when no format conversion is needed, so streamed tool_use blocks must
-  // be decloaked here or the client sees an unknown ("_ide"-suffixed) tool.
   if (sourceFormat === targetFormat) {
-    // Same-format (openai→openai) passthrough: the upstream chunk reaches the
-    // client as-is. A fragment that opens a new tool-call index without an id
-    // aborts strict OpenAI-compatible clients (#4992) — mint/reuse one first.
     if (state && chunk && typeof chunk === "object") {
       if (!state.streamToolCallIds) state.streamToolCallIds = new Map();
       ensureStreamToolCallIds(chunk, state.streamToolCallIds);
@@ -202,21 +144,13 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
   }
 
   let results = [chunk];
-  let openaiResults = null; // Store OpenAI intermediate results
+  let openaiResults = null;
 
-  // Cross-format: the intermediate OpenAI shape is the upstream contract, so a
-  // fragment that opens a tool-call index with no id must get one before any
-  // translator sees it (Anthropic tool_use requires an id; OpenAI clients expect
-  // one). Without this, openai-to-claude dropped such a call and its arguments.
   if (state && chunk && typeof chunk === "object") {
     if (!state.streamToolCallIds) state.streamToolCallIds = new Map();
     ensureStreamToolCallIds(chunk, state.streamToolCallIds);
   }
 
-  // Direct route: if a response translator is registered for this exact
-  // target:source pair, use it instead of pivoting through OpenAI. Mirrors the
-  // request-side direct route (e.g. kiro:claude — KiroExecutor already emits
-  // OpenAI-shaped chunks, so this converts them straight to Claude SSE).
   const directFn = responseRegistry.get(`${targetFormat}:${sourceFormat}`);
   if (directFn) {
     const converted = directFn(chunk, state);
@@ -224,7 +158,6 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
     return restoreToolNames(directResults, state?.toolNameMap);
   }
 
-  // Step 1: target -> openai (if target is not openai)
   if (targetFormat !== FORMATS.OPENAI) {
     const toOpenAI = responseRegistry.get(`${targetFormat}:${FORMATS.OPENAI}`);
     if (toOpenAI) {
@@ -232,12 +165,11 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
       const converted = toOpenAI(chunk, state);
       if (converted) {
         results = Array.isArray(converted) ? converted : [converted];
-        openaiResults = results; // Store OpenAI intermediate
+        openaiResults = results;
       }
     }
   }
 
-  // Step 2: openai -> source (if source is not openai)
   if (sourceFormat !== FORMATS.OPENAI) {
     const fromOpenAI = responseRegistry.get(`${FORMATS.OPENAI}:${sourceFormat}`);
     if (fromOpenAI) {
@@ -254,7 +186,6 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
 
   results = restoreToolNames(results, state?.toolNameMap);
 
-  // Attach OpenAI intermediate results for logging
   if (openaiResults && sourceFormat !== FORMATS.OPENAI && targetFormat !== FORMATS.OPENAI) {
     results._openaiIntermediate = openaiResults;
   }
@@ -262,14 +193,11 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
   return results;
 }
 
-// Check if translation needed
 export function needsTranslation(sourceFormat, targetFormat) {
   return sourceFormat !== targetFormat;
 }
 
-// Initialize state for streaming response based on format
 export function initState(sourceFormat) {
-  // Base state for all formats
   const base = {
     messageId: null,
     model: null,
@@ -278,9 +206,6 @@ export function initState(sourceFormat) {
     inThinkingBlock: false,
     currentBlockIndex: null,
     toolCalls: new Map(),
-    // Tool-call ids already emitted to the client, keyed by tool-call index.
-    // A fragment that opens a NEW index without an id breaks strict
-    // OpenAI-compatible clients (#4992).
     streamToolCallIds: new Map(),
     finishReason: null,
     finishReasonSent: false,
@@ -288,7 +213,6 @@ export function initState(sourceFormat) {
     contentBlockIndex: -1
   };
 
-  // Add openai-responses specific fields
   if (sourceFormat === FORMATS.OPENAI_RESPONSES) {
     return {
       ...base,
@@ -313,10 +237,7 @@ export function initState(sourceFormat) {
       funcArgsDone: {},
       funcItemDone: {},
       customToolNames: new Set(),
-      // Chat Completions usage for response.completed. Not state.usage: other translators in
-      // the same pipeline overwrite that in their own shapes.
       responsesUsage: null,
-      // finish_reason arrived before usage; response.completed waits for the usage chunk.
       completionPending: false,
       completedSent: false
     };
@@ -325,11 +246,9 @@ export function initState(sourceFormat) {
   return base;
 }
 
-// Kept for backward compatibility; translators are already registered at import time.
 export function initTranslators() {
 }
 
-// Static side-effect imports: each module calls register() at load (works in ESM + bundler).
 import "./request/claude-to-openai.js";
 import "./request/openai-to-claude.js";
 import "./request/gemini-to-openai.js";

@@ -13,7 +13,6 @@ export default function LoginPage() {
   const [mustChange, setMustChange] = useState(false);
   const [newPassword, setNewPassword] = useState("");
 
-  // Countdown for rate-limit
   useEffect(() => {
     if (retryAfter <= 0) return;
     const id = setInterval(() => setRetryAfter((s) => (s > 0 ? s - 1 : 0)), 1000);
@@ -81,7 +80,6 @@ export default function LoginPage() {
     }
   };
 
-  // Force a new password before entering the dashboard (default + remote).
   const handleSetNewPassword = async (e) => {
     e.preventDefault();
     setLoading(true);

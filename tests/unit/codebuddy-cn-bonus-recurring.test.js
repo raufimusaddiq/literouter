@@ -1,7 +1,3 @@
-// CodeBuddy CN mixes recurring refill packs with one-shot bonus packs.
-// Bonus packs ("Bonus Pack N") must surface recurring:false so the dashboard
-// shows "Expires in" instead of implying a monthly refill. The usage handler
-// tags the flag and parseQuotaData must forward it.
 import { describe, it, expect } from "bun:test";
 import { parseQuotaData } from "@/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js";
 

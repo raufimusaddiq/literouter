@@ -1,17 +1,7 @@
-/**
- * Unit tests for Anthropic header forwarding pipeline
- *
- * Tests cover:
- *  - default.js buildHeaders(): static provider defaults + model-gated anthropic-beta
- *  - default.js buildHeaders(): anthropic-compatible non-Anthropic host stripping
- *  - default.js buildHeaders(): anthropic-compatible official host keeps headers
- *  - proxyFetch.js: api.anthropic.com uses native fetch while JA3 spoofing is disabled
- */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
-// ─── DefaultExecutor.buildHeaders() ──────────────────────────────────────────
 
 describe("DefaultExecutor.buildHeaders() — claude provider", () => {
   let DefaultExecutor;
@@ -130,7 +120,6 @@ describe("DefaultExecutor.buildHeaders() — claude provider", () => {
   });
 });
 
-// ─── anthropic-compatible header stripping ────────────────────────────────────
 
 describe("DefaultExecutor.buildHeaders() — anthropic-compatible stripping", () => {
   let DefaultExecutor;
@@ -173,8 +162,6 @@ describe("DefaultExecutor.buildHeaders() — anthropic-compatible stripping", ()
 
   it("keeps other beta flags intact after stripping", () => {
     const executor = new DefaultExecutor("anthropic-compatible-custom");
-    // The static CLAUDE_API_HEADERS used by anthropic-compatible providers include
-    // 'interleaved-thinking-2025-05-14' — check it survives stripping
     const headers = executor.buildHeaders(
       {
         apiKey: "key",
@@ -184,7 +171,6 @@ describe("DefaultExecutor.buildHeaders() — anthropic-compatible stripping", ()
     );
 
     const betaVal = headers["anthropic-beta"] || headers["Anthropic-Beta"] || "";
-    // If any beta value remains it should not be empty and should not have the stripped value
     if (betaVal) {
       expect(betaVal).not.toContain("claude-code-20250219");
     }
@@ -200,7 +186,6 @@ describe("DefaultExecutor.buildHeaders() — anthropic-compatible stripping", ()
       true
     );
 
-    // No stripping — anthropic-version should survive
     const hasVersion =
       headers["Anthropic-Version"] || headers["anthropic-version"];
     expect(hasVersion).toBeDefined();
@@ -221,11 +206,6 @@ describe("DefaultExecutor.buildHeaders() — anthropic-compatible stripping", ()
     expect(hasVersion).toBeDefined();
   });
 
-  // A node fronting Anthropic (rotating multi-account proxy, corporate gateway)
-  // needs the same beta flags the `claude` provider sends. Without
-  // context-management-2025-06-27 upstream answers HTTP 400
-  // "context_management: Extra inputs are not permitted" and the combo falls
-  // through to the next model without anyone noticing.
   it("sends context-management beta for a Claude model on a custom host", () => {
     const executor = new DefaultExecutor("anthropic-compatible-custom");
     const headers = executor.buildHeaders(
@@ -241,7 +221,6 @@ describe("DefaultExecutor.buildHeaders() — anthropic-compatible stripping", ()
     const betaFlags = (headers["Anthropic-Beta"] || headers["anthropic-beta"] || "")
       .split(",").map(s => s.trim());
     expect(betaFlags).toContain("context-management-2025-06-27");
-    // The first-party identity flag is still stripped for a non-Anthropic host.
     expect(betaFlags).not.toContain("claude-code-20250219");
   });
 
@@ -262,7 +241,6 @@ describe("DefaultExecutor.buildHeaders() — anthropic-compatible stripping", ()
   });
 });
 
-// ─── proxyFetch anthropicFetch routing ────────────────────────────────────────
 
 describe("proxyAwareFetch — api.anthropic.com routing", () => {
   afterEach(() => {
@@ -281,7 +259,6 @@ describe("proxyAwareFetch — api.anthropic.com routing", () => {
 
     const res = await proxyAwareFetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      // No Accept: text/event-stream → non-streaming path
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: "claude-3-5-sonnet-20241022", messages: [] }),
     });

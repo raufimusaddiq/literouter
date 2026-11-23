@@ -19,10 +19,10 @@ describe("proxy dispatcher LRU", () => {
     const max = MEMORY_CONFIG.proxyDispatchersMaxSize;
     expect(max).toBeGreaterThanOrEqual(64);
     for (let i = 0; i < max; i++) await getDispatcher(`http://127.0.0.1:${9000 + i}`);
-    const first = await getDispatcher("http://127.0.0.1:9000"); // hit => becomes MRU
-    expect(await getDispatcher("http://127.0.0.1:9000")).toBe(first); // same instance, no churn
-    await getDispatcher("http://127.0.0.1:19999"); // forces one eviction
-    expect(closed).toEqual(["http://127.0.0.1:9001"]); // 9000 survived because it was touched
+    const first = await getDispatcher("http://127.0.0.1:9000");
+    expect(await getDispatcher("http://127.0.0.1:9000")).toBe(first);
+    await getDispatcher("http://127.0.0.1:19999");
+    expect(closed).toEqual(["http://127.0.0.1:9001"]);
     vi.doUnmock("undici");
   });
 });
@@ -68,7 +68,6 @@ describe("RTK memo", () => {
       const rtk = await import("../../open-sse/rtk/index.js");
       const body = mkBody(bigDiff());
       expect(() => rtk.compressMessages(body, true)).not.toThrow();
-      // compression still applied via the uncached path
       expect(body.messages[0].content.length).toBeLessThan(bigDiff().length);
     } finally { vi.doUnmock("node:crypto"); vi.resetModules(); }
   });
@@ -104,7 +103,7 @@ describe("connection snapshot index", () => {
 
   it("returns the same order as filter + stable priority sort", async () => {
     seed("c", "openai", 2); seed("a", "openai", 1); seed("z", "claude", 1);
-    seed("b", "openai", 2); seed("d", "openai", 0 /* falsy => 999 */); seed("off", "openai", 1, 0);
+    seed("b", "openai", 2); seed("d", "openai", 0); seed("off", "openai", 1, 0);
     const expected = [...rows.values()]
       .filter((r) => r.provider === "openai" && r.isActive === 1)
       .sort((x, y) => (x.priority || 999) - (y.priority || 999)).map((r) => r.id);

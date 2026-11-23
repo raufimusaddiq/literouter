@@ -7,16 +7,10 @@ import { stringifyWellFormed } from "../utils/wellFormedJson.js";
 import { ANTHROPIC_API_VERSION, OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE } from "../providers/shared.js";
 import { resolveOpenAICompatibleApiType } from "../services/provider.js";
 
-/**
- * Release a response we are throwing away so the socket is not held until GC.
- */
 export function discardResponse(response) {
   response?.body?.cancel?.().catch?.(() => {});
 }
 
-/**
- * BaseExecutor - Base class for provider executors
- */
 export class BaseExecutor {
   constructor(provider, config) {
     this.provider = provider;
@@ -59,7 +53,6 @@ export class BaseExecutor {
     };
 
     if (this.provider?.startsWith?.("anthropic-compatible-")) {
-      // Anthropic-compatible providers use x-api-key header
       if (credentials.apiKey) {
         headers["x-api-key"] = credentials.apiKey;
       } else if (credentials.accessToken) {
@@ -69,7 +62,6 @@ export class BaseExecutor {
         headers["anthropic-version"] = ANTHROPIC_API_VERSION;
       }
     } else {
-      // Standard Bearer token auth for other providers
       if (credentials.accessToken) {
         headers["Authorization"] = `Bearer ${credentials.accessToken}`;
       } else if (credentials.apiKey) {
@@ -84,7 +76,6 @@ export class BaseExecutor {
     return headers;
   }
 
-  // Override in subclass for provider-specific transformations
   transformRequest(model, body, stream, credentials) {
     return body;
   }
@@ -93,7 +84,6 @@ export class BaseExecutor {
     return status === HTTP_STATUS.RATE_LIMITED && urlIndex + 1 < this.getFallbackCount();
   }
 
-  // Override in subclass for provider-specific refresh
   async refreshCredentials(credentials, log, proxyOptions = null) {
     return null;
   }
@@ -113,24 +103,19 @@ export class BaseExecutor {
     const retryAttemptsByUrl = {};
     const forceFreshSocketByUrl = {};
 
-    // Merge default retry config with provider-specific config
     const retryConfig = { ...DEFAULT_RETRY_CONFIG, ...this.config.retry };
 
-    // Schedule retry via retryConfig[statusKey]. Returns true when caller should `urlIndex--; continue`
-    // response (optional) lets a subclass hook compute a dynamic delay (e.g. antigravity Retry-After).
     const tryRetry = async (urlIndex, statusKey, reason, response = null) => {
       const { attempts, delayMs } = resolveRetryEntry(retryConfig[statusKey]);
       if (attempts <= 0 || retryAttemptsByUrl[urlIndex] >= attempts) return false;
-      // Hook: subclass may derive delay from the response (headers/body). null → skip retry, use fallback.
       let waitMs = delayMs;
       if (response && this.computeRetryDelay) {
         const dynamic = await this.computeRetryDelay(response, retryAttemptsByUrl[urlIndex] + 1, delayMs);
-        if (dynamic === false) return false; // hook vetoes retry (e.g. Retry-After too long)
+        if (dynamic === false) return false;
         if (dynamic != null) waitMs = dynamic;
       }
       retryAttemptsByUrl[urlIndex]++;
       log?.debug?.("RETRY", `${reason} retry ${retryAttemptsByUrl[urlIndex]}/${attempts} after ${waitMs / 1000}s`);
-      // Cancel the stale response first so an abort during the sleep can't leave it open.
       discardResponse(response);
       await abortableSleep(waitMs, signal);
       return true;
@@ -144,9 +129,6 @@ export class BaseExecutor {
       if (!retryAttemptsByUrl[urlIndex]) retryAttemptsByUrl[urlIndex] = 0;
 
       throwIfAborted(signal);
-      // Streaming: bound time-to-headers. Non-stream: bound the whole call (upstreams
-      // send headers only once the completion is done). A timeout is never retried.
-      // A provider-specific timeoutMs bounds both: headers (stream) or the whole call (non-stream).
       const providerTimeoutMs = this.config?.timeoutMs;
       const timeoutMs = providerTimeoutMs || FETCH_CONNECT_TIMEOUT_MS;
       const totalTimeoutMs = providerTimeoutMs || NON_STREAM_TOTAL_TIMEOUT_MS;
@@ -170,7 +152,6 @@ export class BaseExecutor {
 
         if (await tryRetry(urlIndex, response.status, `status ${response.status}`, response)) {
           reqSignal.dispose();
-          // A 502 from an edge is typically a poisoned keep-alive socket - retry on a fresh one.
           if (response.status === HTTP_STATUS.BAD_GATEWAY || response.status === HTTP_STATUS.REQUEST_TIMEOUT) forceFreshSocketByUrl[urlIndex] = true;
           urlIndex--;
           continue;
@@ -184,20 +165,15 @@ export class BaseExecutor {
           continue;
         }
 
-        // Non-stream: the total timer must outlive this call (body is read by the caller),
-        // so hand dispose() back instead of clearing it here.
         return { response, url, headers, transformedBody, dispose: reqSignal.dispose };
       } catch (error) {
         reqSignal.dispose();
         lastError = error;
-        // A gateway timeout says nothing about account health and the request may already
-        // be billed upstream: surface it (504) instead of replaying the POST.
         const timeout = reqSignal.timeoutError();
         dbg("FETCH", `${this.provider.toUpperCase()} ✖ ${error.name}: ${error.message}${timeout ? ` (${timeout.phase} timeout)` : ""}`);
         if (timeout) throw timeout;
         if (error.name === "AbortError") throw error;
 
-        // Map network/fetch exceptions to 502 retry config
         if (await tryRetry(urlIndex, HTTP_STATUS.BAD_GATEWAY, `network "${error.message}"`)) {
           forceFreshSocketByUrl[urlIndex] = true;
           urlIndex--;

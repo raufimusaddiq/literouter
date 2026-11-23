@@ -1,4 +1,3 @@
-// Guards C2: regex name fallback (no catalog). Terse entries derive name; existing names untouched.
 import { describe, it, expect } from "bun:test";
 import { deriveModelName } from "../../open-sse/providers/models/namePatterns.js";
 import { normalizeModel, normalizeModelId } from "../../open-sse/providers/models/schema.js";

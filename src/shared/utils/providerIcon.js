@@ -1,5 +1,3 @@
-// Provider icon paths under /public/providers.
-// Alias related brands; session-cache 404s so one miss never spams again.
 
 import { PROVIDER_ICON_IDS } from "@/shared/constants/providerIconManifest.js";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers.js";
@@ -10,7 +8,6 @@ const ICON_ALIASES = {
   "vercel-ai-gateway": "vercel",
 };
 
-// Runtime only — first 404 remembers id for the whole session
 const failedIds = new Set();
 
 function normalizeId(providerId) {
@@ -18,11 +15,9 @@ function normalizeId(providerId) {
   return providerId.trim().toLowerCase();
 }
 
-/** Resolve icon file id (after alias). Empty if no logo ships for it or it failed this session. */
 export function resolveProviderIconId(providerId) {
   const id = normalizeId(providerId);
   if (!id) return "";
-  // Custom compatible nodes (prefix + uuid) never ship a logo.
   if (isOpenAICompatibleProvider(id) || isAnthropicCompatibleProvider(id)) return "";
   if (failedIds.has(id)) return "";
   const aliased = ICON_ALIASES[id] || id;
@@ -30,13 +25,11 @@ export function resolveProviderIconId(providerId) {
   return aliased;
 }
 
-/** `/providers/{id}.png` or null when previously failed. */
 export function getProviderIconSrc(providerId) {
   const id = resolveProviderIconId(providerId);
   return id ? `/providers/${id}.png` : null;
 }
 
-/** Call from img onError so later mounts skip the request. */
 export function markProviderIconMissing(providerId) {
   const id = normalizeId(providerId);
   if (id) failedIds.add(id);

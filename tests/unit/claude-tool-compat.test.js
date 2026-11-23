@@ -62,8 +62,6 @@ describe("Claude-native named tool_choice", () => {
   });
 });
 
-// Runs the production translator state; each emitted chunk is cloned because the
-// first tool-call chunk shares its mutable object with the state.
 function streamToolArguments(events) {
   const state = initState(FORMATS.OPENAI);
   const out = [];
@@ -114,7 +112,6 @@ describe("Claude OAuth cloaking keeps the original tool name", () => {
     expect(declared).toMatch(/^[a-zA-Z0-9_-]+$/);
     expect(out._toolNameMap.get(declared)).toBe("mcp.srv.list");
 
-    // Response side: the model calls the declared (cloaked) name; the client must see its own.
     const state = { ...initState(FORMATS.OPENAI), toolNameMap: out._toolNameMap };
     const chunks = [
       { type: "message_start", message: { id: "m", model: "claude", role: "assistant", content: [], usage: { input_tokens: 1, output_tokens: 0 } } },

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
-// Isolate URL construction from token minting and network dependencies.
 vi.mock("../../open-sse/executors/base.js", () => ({
   BaseExecutor: class { constructor(provider) { this.provider = provider; } },
 }));

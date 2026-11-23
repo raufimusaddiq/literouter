@@ -1,13 +1,3 @@
-// #4316: a user message whose only content block is `container_upload`
-// (Anthropic Files API) was dropped whole, so the provider received
-// `messages: []` and the request still returned 200 with no indication that
-// the user turn had vanished.
-//
-// hasValidContent() enumerated the block types that count as content, and any
-// type outside that list made the message look empty — prepareClaudeRequest
-// then filtered it out. container_upload is valid Anthropic input on its own,
-// and on the Claude→Claude route no translation runs at all, so the block
-// should reach the provider untouched.
 import { describe, expect, it } from "bun:test";
 
 import { hasValidContent, prepareClaudeRequest } from "../../open-sse/translator/formats/claude.js";

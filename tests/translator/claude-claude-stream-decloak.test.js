@@ -1,9 +1,3 @@
-// Regression test: claude → claude streaming passthrough must still decloak
-// tool names. translateRequest() cloaks client tool names with CLAUDE_TOOL_SUFFIX
-// for OAuth-cloaked Claude providers (cloakToolsOnOAuth) even when source and
-// target formats match; the same-format fast path in translateResponse() used
-// to return chunks untouched, leaking the suffixed name (e.g. "run_code_ide")
-// to the client, which then rejected the call as an unknown tool.
 import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateResponse } from "../../open-sse/translator/index.js";
@@ -27,7 +21,7 @@ describe("Claude → Claude streaming passthrough (OAuth tool cloak)", () => {
   });
 
   it("leaves uncloaked chunks untouched (identity passthrough)", () => {
-    const chunk = toolUseStart("Bash"); // decoy name, not in the map
+    const chunk = toolUseStart("Bash");
     const [out] = translateResponse(FORMATS.CLAUDE, FORMATS.CLAUDE, chunk, state);
     expect(out).toBe(chunk);
 

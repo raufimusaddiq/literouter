@@ -99,7 +99,6 @@ describe("OpenCode Free Session ID Format", () => {
     const timestampMask = (1n << 36n) - 1n;
     expect((timestamp - before) & timestampMask).toBeLessThanOrEqual((after - before) & timestampMask);
 
-    // Stability across repeated translations of the same input
     const repeated = translateSessionId(raw, "claude");
     expect(repeated).toBe(translated);
   });

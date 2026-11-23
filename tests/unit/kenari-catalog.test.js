@@ -136,7 +136,6 @@ describe("capability precedence for kenari", () => {
     writeCatalog();
     install();
     expect(getCapabilitiesForModel("kenari", "glm-4-7-flash:free").maxOutput).toBe(117964);
-    // Not in Kenari's list as a bare id: the tables decide, not the :free entry.
     expect(getCapabilitiesForModel("kenari", "glm-4-7-flash").maxOutput).not.toBe(117964);
   });
 

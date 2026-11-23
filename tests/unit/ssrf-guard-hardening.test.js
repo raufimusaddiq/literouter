@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
-// Regression coverage for #3714: the SSRF guard's literal-hostname/IP checks
-// matched specific textual representations rather than the underlying address,
-// so a different (but equivalent) representation slipped through. Each case
-// below is a bypass the issue reported, or one found while fixing it.
 
 const { lookupMock } = vi.hoisted(() => ({ lookupMock: vi.fn() }));
 vi.mock("node:dns", () => ({
@@ -22,16 +18,14 @@ describe("assertPublicUrl: literal hostname/IP bypasses from #3714", () => {
   });
 
   it("blocks IPv4-mapped IPv6 loopback regardless of which textual form the URL parser picks", () => {
-    // WHATWG URL parsing normalizes dotted-decimal IPv4-in-IPv6 to hex form —
-    // the original regex only matched the dotted form.
     expect(() => assertPublicUrl("http://[::ffff:127.0.0.1]/")).toThrow();
-    expect(() => assertPublicUrl("http://[::ffff:7f00:1]/")).toThrow(); // hex form directly
+    expect(() => assertPublicUrl("http://[::ffff:7f00:1]/")).toThrow();
     expect(() => assertPublicUrl("http://[0000::ffff:127.0.0.1]/")).toThrow();
   });
 
   it("blocks IPv4-mapped IPv6 cloud metadata address (169.254.169.254)", () => {
     expect(() => assertPublicUrl("http://[::ffff:169.254.169.254]/")).toThrow();
-    expect(() => assertPublicUrl("http://[::ffff:a9fe:a9fe]/")).toThrow(); // hex form
+    expect(() => assertPublicUrl("http://[::ffff:a9fe:a9fe]/")).toThrow();
   });
 
   it("blocks other loopback/private/link-local/ULA IPv6 forms", () => {
@@ -41,7 +35,7 @@ describe("assertPublicUrl: literal hostname/IP bypasses from #3714", () => {
       "http://[fe80::1]/",
       "http://[fc00::1]/",
       "http://[fd12:3456::1]/",
-      "http://[64:ff9b::127.0.0.1]/", // NAT64 well-known prefix embedding a private IPv4
+      "http://[64:ff9b::127.0.0.1]/",
     ]) {
       expect(() => assertPublicUrl(url), url).toThrow();
     }
@@ -83,14 +77,6 @@ describe("assertPublicUrlResolved: DNS-resolving hostname bypass from #3714", ()
     await expect(assertPublicUrlResolved("https://example.com/")).resolves.not.toThrow();
   });
 
-  // Note: "fails open when the DNS lookup itself rejects" is deliberately not
-  // covered here as a vitest case — a mocked node:dns rejection in this file
-  // trips what looks like a vitest 4 / rolldown-transform source-map bug
-  // (the same rejection pattern passes in an isolated single-function probe
-  // module; only reproduces once mocked against this larger file). Verified
-  // instead with a standalone Node script exercising the real try/catch
-  // directly: dns.promises.lookup rejecting resolves assertPublicUrlResolved
-  // with undefined rather than propagating, exactly as the source shows.
 
   it("skips DNS lookup entirely for literal IP hosts (already covered by the sync check)", async () => {
     await expect(assertPublicUrlResolved("http://127.0.0.1/")).rejects.toThrow();
@@ -103,10 +89,6 @@ describe("fetchPublic: redirect-target re-validation from #3714", () => {
   afterEach(() => { global.fetch = originalFetch; });
   beforeEach(() => {
     lookupMock.mockReset();
-    // These tests exercise redirect-chasing, not DNS behavior — give every
-    // synthetic *.example.test hostname a default public resolution so it
-    // doesn't get blocked (or throw on an unmocked undefined return) before
-    // reaching the redirect logic under test.
     lookupMock.mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
   });
 
@@ -117,7 +99,7 @@ describe("fetchPublic: redirect-target re-validation from #3714", () => {
     }));
 
     await expect(fetchPublic("https://public.example.test/redirect")).rejects.toThrow();
-    expect(global.fetch).toHaveBeenCalledTimes(1); // never followed the redirect
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("follows a redirect chain of public URLs, re-validating each hop", async () => {

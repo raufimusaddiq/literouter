@@ -1,5 +1,3 @@
-// Form state <-> TypeSafe System One request body. Plain JS so unit tests can
-// import it without a React runtime.
 
 export const QUESTION_TYPES = [
   { value: "noul", label: "Yes / No", icon: "toggle_on", description: "One probability between 0 and 1." },
@@ -63,8 +61,6 @@ export const TEMPLATES = [
 ];
 
 let sequence = 0;
-// Random per-page-load token so ids restored from localStorage never collide
-// with ids generated after a reload (the counter restarts at 0).
 const sessionToken = Math.random().toString(36).slice(2, 8);
 
 export function makeId(prefix = "q") {
@@ -143,8 +139,6 @@ export function validateKey(key, questions, ignoreId) {
   return duplicate ? "Key must be unique." : "";
 }
 
-// Field-level key errors stay hidden until the user has touched that question
-// (or the server flagged it), so a fresh lab never opens with red text.
 export function visibleKeyError(question, questions, touchedIds) {
   return touchedIds && touchedIds.has(question.id) ? validateKey(question.key, questions, question.id) : "";
 }

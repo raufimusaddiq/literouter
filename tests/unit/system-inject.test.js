@@ -45,7 +45,6 @@ describe("system-inject chat messages", () => {
     injectSystemPrompt(body, FORMATS.OPENAI, P1);
     injectSystemPrompt(body, FORMATS.OPENAI, P1);
     expect(body.messages[0].content).toBe(`hello${SEP}${P1}`);
-    // different prompt both apply
     injectSystemPrompt(body, FORMATS.OPENAI, P2);
     expect(body.messages[0].content).toBe(`hello${SEP}${P1}${SEP}${P2}`);
   });
@@ -68,7 +67,6 @@ describe("system-inject chat messages", () => {
     injectSystemPrompt(body, FORMATS.OPENAI, longB);
     expect(body.messages[0].content).toContain(longA);
     expect(body.messages[0].content).toContain(longB);
-    // retry same longA is idempotent
     injectSystemPrompt(body, FORMATS.OPENAI, longA);
     const countA = body.messages[0].content.split(longA).length - 1;
     expect(countA).toBe(1);
@@ -87,12 +85,10 @@ describe("system-inject responses input[]", () => {
     };
     const before = JSON.parse(JSON.stringify(body.input));
     injectSystemPrompt(body, FORMATS.OPENAI, P1);
-    // length unchanged except injection inside message
     expect(body.input.length).toBe(before.length);
     expect(body.input[0]).toEqual(before[0]);
     expect(body.input[2]).toEqual(before[2]);
     expect(body.input[3]).toEqual(before[3]);
-    // system message got INPUT_TEXT appended
     const sys = body.input[1];
     expect(sys.content[sys.content.length - 1]).toEqual({ type: RESPONSES_ITEM.INPUT_TEXT, text: P1 });
   });
@@ -151,7 +147,6 @@ describe("system-inject instructions", () => {
 
   it("creates instructions when empty", () => {
     const body = { instructions: "" };
-    // empty string still taken as string field, should become prompt
     injectSystemPrompt(body, FORMATS.OPENAI, P1);
     expect(body.instructions).toBe(P1);
   });
@@ -161,7 +156,6 @@ describe("system-inject dispatch by wire shape", () => {
   it("messages[] means Chat even when format is openai-responses label", () => {
     const body = { messages: [{ role: ROLE.SYSTEM, content: "hi" }] };
     injectSystemPrompt(body, FORMATS.OPENAI_RESPONSES, P1);
-    // should still treat as Chat because messages present
     expect(body.messages[0].content).toBe(`hi${SEP}${P1}`);
   });
   it("input[] means Responses even when format is openai", () => {
@@ -186,7 +180,6 @@ describe("system-inject claude", () => {
   it("array system uses CLAUDE_BLOCK.TEXT and inserts before last cache_control", () => {
     const body = { system: [{ type: CLAUDE_BLOCK.TEXT, text: "a" }, { type: CLAUDE_BLOCK.TEXT, text: "b", cache_control: { type: "ephemeral" } }, { type: CLAUDE_BLOCK.TEXT, text: "c", cache_control: { type: "ephemeral" } }] };
     injectSystemPrompt(body, FORMATS.CLAUDE, P1);
-    // should be inserted before last cache_control (index 2)
     expect(body.system[2]).toEqual({ type: CLAUDE_BLOCK.TEXT, text: P1 });
     expect(body.system[3].text).toBe("c");
     expect(body.system[3].cache_control).toBeDefined();
@@ -261,8 +254,6 @@ describe("system-inject gemini", () => {
 });
 
 describe("system-inject kiro", () => {
-  // The kiro.dev gateway rejects any body carrying a top-level `systemPrompt`
-  // with 400 REQUEST_BODY_INVALID, so the prompt goes into the user turn only.
   it("appends to first history user, leaves systemPrompt untouched", () => {
     const timeCtx = "[Context: Current time is 2026-01-01T00:00:00.000Z]";
     const tail = "user tail content";
@@ -276,7 +267,6 @@ describe("system-inject kiro", () => {
     injectSystemPrompt(body, FORMATS.KIRO, P1);
     expect(body.systemPrompt).toBeUndefined();
     expect(body.conversationState.history[0].userInputMessage.content).toBe(`${historyUserContent}${SEP}${P1}`);
-    // currentMessage must stay untouched
     expect(body.conversationState.currentMessage.userInputMessage.content).toBe("current " + tail);
   });
 
@@ -327,7 +317,6 @@ describe("system-inject kiro", () => {
     const after1 = body.conversationState.history[0].userInputMessage.content;
     injectSystemPrompt(body, FORMATS.KIRO, P1);
     expect(body.conversationState.history[0].userInputMessage.content).toBe(after1);
-    // different prompt both apply, in injection order
     injectSystemPrompt(body, FORMATS.KIRO, P2);
     expect(body.conversationState.history[0].userInputMessage.content).toBe(`tail${SEP}${P1}${SEP}${P2}`);
   });
@@ -366,10 +355,8 @@ describe("system-inject regression fixes", () => {
     });
     const body = { conversationState: { history: [{ userInputMessage: proxiedUm }] } };
     injectSystemPrompt(body, FORMATS.KIRO, P1);
-    // nothing half-applied
     expect(um.content).toBe("tail");
     expect(body.systemPrompt).toBeUndefined();
-    // retry converges
     injectSystemPrompt(body, FORMATS.KIRO, P1);
     expect(um.content).toBe(`tail${SEP}${P1}`);
   });

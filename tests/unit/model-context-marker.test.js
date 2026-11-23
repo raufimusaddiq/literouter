@@ -1,16 +1,3 @@
-/**
- * Regression: Claude Code appends `[1m]` to the model name when the
- * 1M-context beta is on, so `/v1/messages` arrives with
- * `model: "claude-opus-5[1m]"`. Nothing in 9router knows about the marker:
- * it matches no combo, no alias and no `provider/model` pair, so the request
- * is rejected at model resolution and the client reports
- *
- *   There's an issue with the selected model (claude-opus-5[1m]).
- *   It may not exist or you may not have access to it.
- *
- * The capability itself rides in the `anthropic-beta` header, which is
- * forwarded untouched, so stripping the marker is all that is needed.
- */
 
 import { describe, it, expect } from "bun:test";
 import { stripModelContextMarker } from "../../open-sse/utils/modelMarkers.js";
