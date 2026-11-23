@@ -95,6 +95,15 @@ describe("fetchImageAsBase64 IP pin", () => {
     expect(calls[0].o.tls).toEqual({ serverName: "v6.example" });
   });
 
+  it("strips the brackets of an IPv6 literal host for tls.serverName", async () => {
+    lookupMock.mockResolvedValue([{ address: "2606:4700:4700::1111", family: 6 }]);
+    const realFetch = globalThis.fetch;
+    const calls = [];
+    globalThis.fetch = async (u, o) => { calls.push({ u: String(u), o }); return new Response(null, { status: 404 }); };
+    try { await fetchImageAsBase64("https://[2606:4700:4700::1111]/a.png"); } finally { globalThis.fetch = realFetch; }
+    expect(calls[0].o.tls).toEqual({ serverName: "2606:4700:4700::1111" });
+  });
+
   it("does not follow redirects", async () => {
     lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
     const realFetch = globalThis.fetch;

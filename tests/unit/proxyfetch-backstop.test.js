@@ -23,7 +23,7 @@ const liveBackstopTimers = new Set();
 const realSetTimeout = globalThis.setTimeout;
 const realClearTimeout = globalThis.clearTimeout;
 globalThis.setTimeout = (fn, ms, ...rest) => {
-  if (ms !== 300) return realSetTimeout(fn, ms, ...rest);
+  if (ms !== UNDICI_BACKSTOP_MS) return realSetTimeout(fn, ms, ...rest);
   const h = realSetTimeout(() => { liveBackstopTimers.delete(h); fn(...rest); }, ms);
   liveBackstopTimers.add(h);
   return h;

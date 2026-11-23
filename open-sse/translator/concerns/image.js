@@ -86,7 +86,7 @@ export async function fetchImageAsBase64(imageUrl, options = {}) {
   const pinnedHost = pinned.family === 6 || isIP(pinned.address) === 6 ? `[${pinned.address}]` : pinned.address;
   const pinnedUrl = `${url.protocol}//${pinnedHost}${url.port ? `:${url.port}` : ""}${url.pathname}${url.search}`;
   const init = { headers: { Host: url.host }, signal: fetchSignal, redirect: "manual" };
-  if (url.protocol === "https:") init.tls = { serverName: url.hostname };
+  if (url.protocol === "https:") init.tls = { serverName: url.hostname.replace(/^\[|\]$/g, "") };
 
   try {
     const response = await fetch(pinnedUrl, init);
