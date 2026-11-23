@@ -6,8 +6,10 @@ import { buildRequestContext } from "./trust.js";
 import { guard } from "./guard.js";
 import { notFound } from "./notFound.js";
 import { runBootOnce } from "./boot.js";
+import { parseBodyLimit } from "./bodyLimit.js";
+import { useSystemCaStore } from "./ca.js";
+import { installShutdownHandlers } from "./shutdown.js";
 
-const MAX_BODY_BYTES = 128 * 1024 * 1024;
 const IDLE_TIMEOUT_SECONDS = 255;
 const STRIPPED_HEADERS = ["x-9r-real-ip", "x-9r-peer-token", "x-9r-via-proxy", "x-forwarded-for"];
 
@@ -91,13 +93,14 @@ export async function startServer({
   port = Number(process.env.PORT) || 20128,
   hostname = process.env.HOSTNAME || "0.0.0.0",
   routes: extra = {},
+  idleTimeout = IDLE_TIMEOUT_SECONDS,
 } = {}) {
   await runBootOnce();
   const options = {
     port,
     hostname,
-    idleTimeout: IDLE_TIMEOUT_SECONDS,
-    maxRequestBodySize: MAX_BODY_BYTES,
+    idleTimeout,
+    maxRequestBodySize: parseBodyLimit(process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE || "128mb"),
     routes: buildRoutes(extra),
     fetch: (req, server) => serve(req, server, async (r) => maybeCompress(r, await fallback(r))),
     error: onError,
@@ -112,6 +115,15 @@ export async function startServer({
 }
 
 if (import.meta.main) {
+  installShutdownHandlers();
+  if (process.env.LITEROUTER_SYSTEM_CA === "1") {
+    try {
+      console.log(`[CA trust] using ${useSystemCaStore()} system CA certificates`);
+    } catch (e) {
+      console.error(e.message);
+      process.exit(1);
+    }
+  }
   const server = await startServer();
   console.log(`LiteRouter listening on http://${server.hostname}:${server.port}`);
 }

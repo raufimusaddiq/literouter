@@ -36,7 +36,27 @@ function streamResponse(frames, { pauseMs = 0, done = true } = {}) {
   return new Response(body, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache" } });
 }
 
-function scenario(model) {
+function endlessStream(stats) {
+  let timer;
+  const body = new ReadableStream({
+    start(controller) {
+      let n = 0;
+      timer = setInterval(() => controller.enqueue(sse(chunk({ role: "assistant", content: `t${n++}` }))), 100);
+    },
+    cancel() {
+      clearInterval(timer);
+      stats.cancelled++;
+    },
+  });
+  return new Response(body, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache" } });
+}
+
+async function slowJson() {
+  await new Promise((r) => setTimeout(r, Number(process.env.MOCK_JSON_DELAY_MS) || 12000));
+  return Response.json(completion);
+}
+
+function scenario(model, stats) {
   const frames = [chunk({ role: "assistant", content: "par" }), chunk({ content: "ity" }), chunk({}, "stop")];
   switch (model) {
     case "mock-stream":
@@ -45,6 +65,10 @@ function scenario(model) {
       return streamResponse(frames.slice(0, 1), { done: false });
     case "mock-slow-stream":
       return streamResponse(frames, { pauseMs: Number(process.env.MOCK_STREAM_PAUSE_MS) || 16000 });
+    case "mock-slow-json":
+      return slowJson();
+    case "mock-endless-stream":
+      return endlessStream(stats);
     case "mock-429":
       return Response.json({ error: { message: "rate limited", type: "rate_limit_error" } }, { status: 429, headers: { "retry-after": "7" } });
     case "mock-500":
@@ -58,6 +82,7 @@ function scenario(model) {
 
 export async function startMockUpstream({ port = 0, outDir } = {}) {
   const requests = [];
+  const stats = { cancelled: 0 };
   let seq = 0;
   const jsonl = outDir ? path.join(outDir, "upstream-requests.jsonl") : null;
   if (jsonl) {
@@ -94,7 +119,7 @@ export async function startMockUpstream({ port = 0, outDir } = {}) {
         } catch {
           model = undefined;
         }
-        return scenario(model);
+        return scenario(model, stats);
       }
       return Response.json({ error: { message: "not found" } }, { status: 404 });
     },
@@ -103,6 +128,7 @@ export async function startMockUpstream({ port = 0, outDir } = {}) {
   return {
     url: `http://127.0.0.1:${server.port}`,
     requests,
+    stats,
     reset() {
       requests.length = 0;
     },
