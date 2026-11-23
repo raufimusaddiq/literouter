@@ -175,7 +175,7 @@ describe("executor case table", () => {
 });
 
 describe("executors against the mock upstream", () => {
-  test.each(cases.map((c) => [c.provider, c]))("%s executor round-trips against the mock upstream", async (_provider, c) => {
+  test.each(cases.map((c) => [c.provider, c]))("%p executor round-trips against the mock upstream", async (_provider, c) => {
     if (c.transport === "stdio") {
       const { result, text } = await execute(c);
       expect(result.response.status).toBe(200);
@@ -358,7 +358,7 @@ describe("content encodings", () => {
     for (const required of ["gzip", "deflate", "br"]) expect(ACCEPT_ENCODING).toContain(required);
   });
 
-  test.each(["zstd", "br", "gzip"])("%s body from the mock decodes through proxyAwareFetch", async (encoding) => {
+  test.each(["zstd", "br", "gzip"])("%p body from the mock decodes through proxyAwareFetch", async (encoding) => {
     mock.on("POST", `/enc/${encoding}`, () => new Response(compress(encoding, `payload-${encoding}`), { headers: { "content-encoding": encoding, "content-type": "text/plain" } }));
     const response = await proxyAwareFetch(`${mock.url}/enc/${encoding}`, { method: "POST", headers: { "accept-encoding": ACCEPT_ENCODING }, body: "{}" });
     expect(await response.text()).toBe(`payload-${encoding}`);
