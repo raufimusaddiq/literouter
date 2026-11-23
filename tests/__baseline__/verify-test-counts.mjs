@@ -23,12 +23,10 @@ export function checkCounts(baselineFiles, cases, deleted = {}) {
     .filter(r => r.actual < r.expected);
 }
 
-const UNNAMED = /(^| )\(unnamed\)$/;
-
 export function checkSkips(baselineSkipped, cases, waivers = {}) {
   const actual = {};
   for (const c of cases) {
-    if (c.status === "skipped" && !UNNAMED.test(c.fullName)) actual[c.file] = (actual[c.file] ?? 0) + 1;
+    if (c.status === "skipped" && !c.placeholder) actual[c.file] = (actual[c.file] ?? 0) + 1;
   }
   return Object.entries(actual)
     .filter(([file, n]) => !(file in waivers) && n > (baselineSkipped[file] ?? 0))

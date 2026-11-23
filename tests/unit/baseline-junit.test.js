@@ -166,9 +166,33 @@ describe("skip gate", () => {
   test("a waiver for another file does not hide the offender", () => {
     expect(checkSkips({}, sk("tests/a.test.js", 1), { "tests/b.test.js": "r" })).toEqual([{ file: "tests/a.test.js", allowed: 0, actual: 1 }]);
   });
-  test("ignores Bun's unnamed placeholder for a skipped describe", () => {
-    const cases = [{ file: "tests/a.test.js", fullName: "REAL (unnamed)", status: "skipped" }, ...sk("tests/a.test.js", 1)];
-    expect(checkSkips({ "tests/a.test.js": 1 }, cases)).toEqual([]);
+  test("ignores Bun's real unnamed placeholder for a skipped describe", () => {
+    const xml = String.raw`<testsuites name="bun test"><testsuite name="translator\real\file-base64-survey.real.test.js" file="translator\real\file-base64-survey.real.test.js" tests="2" assertions="0" failures="0" skipped="2" time="0.05" hostname="">
+    <testsuite name="REAL file base64 survey" file="translator\real\file-base64-survey.real.test.js" line="95" tests="2" assertions="0" failures="0" skipped="2" time="0" hostname="">
+      <testcase name="has active providers in DB" classname="REAL file base64 survey" time="0" file="translator\real\file-base64-survey.real.test.js" line="98" assertions="0">
+        <skipped />
+      </testcase>
+      <testcase name="(unnamed)" classname="REAL file base64 survey" time="0" file="translator\real\file-base64-survey.real.test.js" assertions="0">
+        <skipped />
+      </testcase>
+    </testsuite>
+  </testsuite></testsuites>`;
+    const { cases } = parseJunit(xml);
+    expect(cases).toHaveLength(2);
+    expect(checkSkips({ "tests/translator/real/file-base64-survey.real.test.js": 1 }, cases)).toEqual([]);
+    expect(checkSkips({}, cases)).toEqual([{ file: "tests/translator/real/file-base64-survey.real.test.js", allowed: 0, actual: 1 }]);
+  });
+  test("catches a real skipped test named exactly (unnamed)", () => {
+    const xml = `<testsuites><testsuite name="a.test.js" file="tests/a.test.js"><testsuite name="d" file="tests/a.test.js" line="1" tests="1" skipped="1"><testcase name="(unnamed)" classname="d" file="tests/a.test.js" line="2"><skipped /></testcase></testsuite></testsuite></testsuites>`;
+    expect(checkSkips({}, parseJunit(xml).cases)).toEqual([{ file: "tests/a.test.js", allowed: 0, actual: 1 }]);
+  });
+  test("catches a real skipped test whose name ends in (unnamed)", () => {
+    const xml = `<testsuites><testsuite name="a.test.js" file="tests/a.test.js"><testsuite name="d" file="tests/a.test.js" line="1" tests="1" skipped="1"><testcase name="case (unnamed)" classname="d" file="tests/a.test.js" line="2"><skipped /></testcase></testsuite></testsuite></testsuites>`;
+    expect(checkSkips({}, parseJunit(xml).cases)).toEqual([{ file: "tests/a.test.js", allowed: 0, actual: 1 }]);
+  });
+  test("a placeholder-shaped case in a suite with non-skipped cases is still counted", () => {
+    const xml = `<testsuites><testsuite name="a.test.js" file="tests/a.test.js"><testsuite name="d" file="tests/a.test.js" line="1" tests="2" skipped="1"><testcase name="ok" file="tests/a.test.js" line="2"/><testcase name="(unnamed)" file="tests/a.test.js"><skipped /></testcase></testsuite></testsuite></testsuites>`;
+    expect(checkSkips({}, parseJunit(xml).cases)).toEqual([{ file: "tests/a.test.js", allowed: 0, actual: 1 }]);
   });
   test("failed and passed cases never count as skips", () => {
     expect(checkSkips({}, [ok("tests/a.test.js"), { file: "tests/a.test.js", fullName: "f", status: "failed" }])).toEqual([]);

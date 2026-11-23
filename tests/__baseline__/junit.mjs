@@ -37,7 +37,7 @@ export function parseJunit(xml) {
       if (close) stack.pop();
       else {
         const a = attrs(rawAttrs);
-        stack.push({ name: a.name ?? "", file: a.file });
+        stack.push({ name: a.name ?? "", file: a.file, tests: Number(a.tests), skipped: Number(a.skipped) });
         if (selfClose) stack.pop();
       }
     } else if (tag === "testcase" && !close) {
@@ -45,6 +45,8 @@ export function parseJunit(xml) {
       const file = relativeFile(stack[0]?.file ?? a.file ?? "");
       const names = [...stack.slice(1).map(s => s.name), a.name ?? ""];
       current = { file, fullName: names.join(" "), status: "passed" };
+      const parent = stack[stack.length - 1];
+      if (a.name === "(unnamed)" && a.line === undefined && stack.length > 1 && parent.tests > 0 && parent.tests === parent.skipped) current.placeholder = true;
       cases.push(current);
       if (selfClose) current = null;
     } else if (tag === "testcase" && close) {
