@@ -42,12 +42,12 @@ function seedLegacy(platform) {
 describe("legacy 9router autostart entry", () => {
   test.each(["darwin", "win32", "linux"])("removeLegacyAutoStart deletes the old %s entry", (platform) => {
     const file = seedLegacy(platform);
-    expect(removeLegacyAutoStart(platform)).toBe(true);
+    expect(removeLegacyAutoStart(platform, { home, appData: process.env.APPDATA })).toBe(true);
     expect(existsSync(file)).toBe(false);
   });
 
   test("removeLegacyAutoStart is a no-op without an old entry", () => {
-    expect(removeLegacyAutoStart("linux")).toBe(false);
+    expect(removeLegacyAutoStart("linux", { home, appData: process.env.APPDATA })).toBe(false);
   });
 
   test.skipIf(!["win32", "linux"].includes(process.platform))("enable writes the new entry and drops the old one", () => {
