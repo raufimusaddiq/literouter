@@ -177,28 +177,15 @@ describe("Provider Validation API", () => {
       return `Unexpected response (${status})`;
     };
 
-    it("should return auth error for 401", () => {
-      expect(getModelsErrorMessage(401)).toBe("API key unauthorized");
-    });
-
-    it("should return auth error for 403", () => {
-      expect(getModelsErrorMessage(403)).toBe("API key unauthorized");
-    });
-
-    it("should return not found for 404", () => {
-      expect(getModelsErrorMessage(404)).toBe("/models endpoint not found - try chat validation with model ID");
-    });
-
-    it("should return server error for 500", () => {
-      expect(getModelsErrorMessage(500)).toBe("Server error - try again later");
-    });
-
-    it("should return server error for 502", () => {
-      expect(getModelsErrorMessage(502)).toBe("Server error - try again later");
-    });
-
-    it("should return unexpected for other codes", () => {
-      expect(getModelsErrorMessage(418)).toBe("Unexpected response (418)");
+    it.each([
+      [401, "API key unauthorized"],
+      [403, "API key unauthorized"],
+      [404, "/models endpoint not found - try chat validation with model ID"],
+      [500, "Server error - try again later"],
+      [502, "Server error - try again later"],
+      [418, "Unexpected response (418)"],
+    ])("/models: HTTP %i maps to %p", (status, expected) => {
+      expect(getModelsErrorMessage(status)).toBe(expected);
     });
   });
 
@@ -211,24 +198,14 @@ describe("Provider Validation API", () => {
       return `Chat request failed (${status})`;
     };
 
-    it("should return auth error for 401", () => {
-      expect(getChatErrorMessage(401)).toBe("API key unauthorized");
-    });
-
-    it("should return invalid model for 400", () => {
-      expect(getChatErrorMessage(400)).toBe("Invalid model or bad request");
-    });
-
-    it("should return not found for 404", () => {
-      expect(getChatErrorMessage(404)).toBe("Chat endpoint not found");
-    });
-
-    it("should return server error for 503", () => {
-      expect(getChatErrorMessage(503)).toBe("Server error - try again later");
-    });
-
-    it("should return failed for other codes", () => {
-      expect(getChatErrorMessage(429)).toBe("Chat request failed (429)");
+    it.each([
+      [401, "API key unauthorized"],
+      [400, "Invalid model or bad request"],
+      [404, "Chat endpoint not found"],
+      [503, "Server error - try again later"],
+      [429, "Chat request failed (429)"],
+    ])("/chat/completions: HTTP %i maps to %p", (status, expected) => {
+      expect(getChatErrorMessage(status)).toBe(expected);
     });
   });
 

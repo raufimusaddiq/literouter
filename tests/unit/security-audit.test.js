@@ -92,52 +92,18 @@ describe("AUDIT-003: Proxy URL validation", () => {
     expect(process.env.ALL_PROXY).toBe("socks5://proxy.example.com:1080");
   });
 
-  it("should reject URLs with shell metacharacters (newline)", async () => {
+  it.each([
+    ["should reject URLs with shell metacharacters (newline)", "http://proxy.example.com:8080\nmalicious"],
+    ["should reject URLs with shell metacharacters (backtick)", "http://`whoami`.example.com:8080"],
+    ["should reject URLs with shell metacharacters (dollar)", "http://$(whoami).example.com:8080"],
+    ["should reject non-allowed schemes (file://)", "file:///etc/passwd"],
+    ["should reject non-allowed schemes (javascript:)", "javascript:alert(1)"],
+  ])("%s", async (_label, outboundProxyUrl) => {
     vi.resetModules();
     const { applyOutboundProxyEnv } = await import("../../src/lib/network/outboundProxy.js");
     applyOutboundProxyEnv({
       outboundProxyEnabled: true,
-      outboundProxyUrl: "http://proxy.example.com:8080\nmalicious",
-    });
-    expect(process.env.HTTP_PROXY).toBeUndefined();
-  });
-
-  it("should reject URLs with shell metacharacters (backtick)", async () => {
-    vi.resetModules();
-    const { applyOutboundProxyEnv } = await import("../../src/lib/network/outboundProxy.js");
-    applyOutboundProxyEnv({
-      outboundProxyEnabled: true,
-      outboundProxyUrl: "http://`whoami`.example.com:8080",
-    });
-    expect(process.env.HTTP_PROXY).toBeUndefined();
-  });
-
-  it("should reject URLs with shell metacharacters (dollar)", async () => {
-    vi.resetModules();
-    const { applyOutboundProxyEnv } = await import("../../src/lib/network/outboundProxy.js");
-    applyOutboundProxyEnv({
-      outboundProxyEnabled: true,
-      outboundProxyUrl: "http://$(whoami).example.com:8080",
-    });
-    expect(process.env.HTTP_PROXY).toBeUndefined();
-  });
-
-  it("should reject non-allowed schemes (file://)", async () => {
-    vi.resetModules();
-    const { applyOutboundProxyEnv } = await import("../../src/lib/network/outboundProxy.js");
-    applyOutboundProxyEnv({
-      outboundProxyEnabled: true,
-      outboundProxyUrl: "file:///etc/passwd",
-    });
-    expect(process.env.HTTP_PROXY).toBeUndefined();
-  });
-
-  it("should reject non-allowed schemes (javascript:)", async () => {
-    vi.resetModules();
-    const { applyOutboundProxyEnv } = await import("../../src/lib/network/outboundProxy.js");
-    applyOutboundProxyEnv({
-      outboundProxyEnabled: true,
-      outboundProxyUrl: "javascript:alert(1)",
+      outboundProxyUrl,
     });
     expect(process.env.HTTP_PROXY).toBeUndefined();
   });

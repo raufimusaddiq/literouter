@@ -83,8 +83,14 @@ describe("dashboard guard public LLM API access", () => {
     expect((await gemini.json()).error).toMatchObject({ code: 401, status: "UNAUTHENTICATED" });
   });
 
-  it("rejects remote rewritten public LLM API without API key", async () => {
-    const response = await guard(request("/api/v1/chat/completions", { host: "router.example.com" }));
+  it.each([
+    ["rejects remote rewritten public LLM API without API key", "/api/v1/chat/completions"],
+    ["rejects remote beta public LLM API without API key", "/v1beta/models"],
+    ["rejects remote rewritten beta public LLM API without API key", "/api/v1beta/models"],
+    ["rejects remote codex rewrite without API key", "/codex/x"],
+    ["rejects remote /responses rewrite without API key", "/responses"],
+  ])("%s", async (_label, path) => {
+    const response = await guard(request(path, { host: "router.example.com" }));
 
     expect(response.status).toBe(401);
     expect((await response.json()).error.message).toBe("API key required for remote API access");
@@ -97,77 +103,18 @@ describe("dashboard guard public LLM API access", () => {
     expect(mocks.validateApiKey).not.toHaveBeenCalled();
   });
 
-  it("rejects remote beta public LLM API without API key", async () => {
-    const response = await guard(request("/v1beta/models", { host: "router.example.com" }));
-
-    expect(response.status).toBe(401);
-    expect((await response.json()).error.message).toBe("API key required for remote API access");
-  });
-
-  it("rejects remote rewritten beta public LLM API without API key", async () => {
-    const response = await guard(request("/api/v1beta/models", { host: "router.example.com" }));
-
-    expect(response.status).toBe(401);
-    expect((await response.json()).error.message).toBe("API key required for remote API access");
-  });
-
-  it("rejects remote codex rewrite without API key", async () => {
-    const response = await guard(request("/codex/x", { host: "router.example.com" }));
-
-    expect(response.status).toBe(401);
-    expect((await response.json()).error.message).toBe("API key required for remote API access");
-  });
-
-  it("rejects remote /responses rewrite without API key", async () => {
-    const response = await guard(request("/responses", { host: "router.example.com" }));
-
-    expect(response.status).toBe(401);
-    expect((await response.json()).error.message).toBe("API key required for remote API access");
-  });
-
-  it("allows remote /responses rewrite with a valid API key", async () => {
+  it.each([
+    ["allows remote /responses rewrite with a valid API key", "/responses", { authorization: "Bearer sk-valid" }],
+    ["allows remote codex rewrite with valid API key", "/codex/x", { authorization: "Bearer sk-valid" }],
+    ["allows remote public LLM API with valid bearer API key", "/api/v1/chat/completions", { authorization: "Bearer sk-valid" }],
+    ["allows remote public LLM API with valid x-api-key", "/v1/responses", { "x-api-key": "sk-valid" }],
+    ["allows remote rewritten beta public LLM API with valid API key", "/api/v1beta/models", { "x-api-key": "sk-valid" }],
+    ["allows remote beta public LLM API with valid Google API key header", "/v1beta/models", { "x-goog-api-key": "sk-valid" }],
+    ["allows remote beta public LLM API with valid Google key query parameter", "/v1beta/models?key=sk-valid", {}],
+  ])("%s", async (_label, path, headers) => {
     mocks.validateApiKey.mockResolvedValue(true);
 
-    const response = await guard(request("/responses", {
-      host: "router.example.com",
-      authorization: "Bearer sk-valid",
-    }));
-
-    expect(response).toBeNull();
-    expect(mocks.validateApiKey).toHaveBeenCalledWith("sk-valid");
-  });
-
-  it("allows remote codex rewrite with valid API key", async () => {
-    mocks.validateApiKey.mockResolvedValue(true);
-
-    const response = await guard(request("/codex/x", {
-      host: "router.example.com",
-      authorization: "Bearer sk-valid",
-    }));
-
-    expect(response).toBeNull();
-    expect(mocks.validateApiKey).toHaveBeenCalledWith("sk-valid");
-  });
-
-  it("allows remote public LLM API with valid bearer API key", async () => {
-    mocks.validateApiKey.mockResolvedValue(true);
-
-    const response = await guard(request("/api/v1/chat/completions", {
-      host: "router.example.com",
-      authorization: "Bearer sk-valid",
-    }));
-
-    expect(response).toBeNull();
-    expect(mocks.validateApiKey).toHaveBeenCalledWith("sk-valid");
-  });
-
-  it("allows remote public LLM API with valid x-api-key", async () => {
-    mocks.validateApiKey.mockResolvedValue(true);
-
-    const response = await guard(request("/v1/responses", {
-      host: "router.example.com",
-      "x-api-key": "sk-valid",
-    }));
+    const response = await guard(request(path, { host: "router.example.com", ...headers }));
 
     expect(response).toBeNull();
     expect(mocks.validateApiKey).toHaveBeenCalledWith("sk-valid");
@@ -216,40 +163,6 @@ describe("dashboard guard public LLM API access", () => {
     expect(response).toBeNull();
   });
 
-  it("allows remote rewritten beta public LLM API with valid API key", async () => {
-    mocks.validateApiKey.mockResolvedValue(true);
-
-    const response = await guard(request("/api/v1beta/models", {
-      host: "router.example.com",
-      "x-api-key": "sk-valid",
-    }));
-
-    expect(response).toBeNull();
-    expect(mocks.validateApiKey).toHaveBeenCalledWith("sk-valid");
-  });
-
-  it("allows remote beta public LLM API with valid Google API key header", async () => {
-    mocks.validateApiKey.mockResolvedValue(true);
-
-    const response = await guard(request("/v1beta/models", {
-      host: "router.example.com",
-      "x-goog-api-key": "sk-valid",
-    }));
-
-    expect(response).toBeNull();
-    expect(mocks.validateApiKey).toHaveBeenCalledWith("sk-valid");
-  });
-
-  it("allows remote beta public LLM API with valid Google key query parameter", async () => {
-    mocks.validateApiKey.mockResolvedValue(true);
-
-    const response = await guard(request("/v1beta/models?key=sk-valid", {
-      host: "router.example.com",
-    }));
-
-    expect(response).toBeNull();
-    expect(mocks.validateApiKey).toHaveBeenCalledWith("sk-valid");
-  });
 });
 
 describe("dashboard guard local-only routes", () => {
