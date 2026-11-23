@@ -34,7 +34,7 @@ API-only servers never render `app/layout.js`, so background bootstrap (token re
 
 `TZ` is a runtime environment variable, so the dashboard layout never bakes the build machine's zone into the page. The console-log page is forced dynamic so the standalone build includes its server-side JS file. The standalone asset copy script used to place a sanitizing wrapper (`custom-server.js`) beside `server.js`, because without it the standalone build served requests unsanitized. That part is superseded: Next's server is no longer the entry point, `custom-server.js` is deleted, and request sanitizing now lives in `src/server/index.js` and `src/server/trust.js` (ADR 0001), which run for every request in the one Bun server. `scripts/copy-standalone-assets.mjs` still copies static assets and the generated server tree, copies no wrapper, and `tests/unit/standalone-assets.test.js` asserts that.
 
-**Where:** `src/app/(dashboard)/layout.js`; `src/app/(dashboard)/dashboard/console-log/page.js`; `scripts/copy-standalone-assets.mjs`; `src/server/index.js`; `src/server/trust.js`; `tests/unit/standalone-assets.test.js`
+**Where:** `src/web/App.jsx`; `src/web/pages/dashboard/console-log/page.js`; `scripts/copy-standalone-assets.mjs`; `src/server/index.js`; `src/server/trust.js`; `tests/unit/standalone-assets.test.js`
 
 ### D5. Deploy must block on health and never remove the old tag before verifying
 

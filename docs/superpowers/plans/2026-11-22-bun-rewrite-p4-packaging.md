@@ -25,6 +25,7 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) wins over this plan wh
   - Re-check whether the cwd dependence still exists once there's no HTML import. Keep the clear-failure guard only if it does.
 - **Task 3 (`ca.js`):** replace the mechanism that Plan 2's `useSystemCaStore()` uses, and keep the name. The new signature, `(tlsApi = tls, fetchHost = globalThis)`, stays call-compatible.
 - **Task 13:** add the new image jobs to the required checks on `staging`. **The owner applies that branch-protection change; prepare it, but don't apply it yourself.**
+- **ESLint migration already landed.** The ESLint migration off `eslint-config-next` landed in Plan 3 Task 6 (`eslint-config-next` needs the `next` package to load); Plan 4 verifies it rather than redoing it.
 
 ## Global Constraints
 

@@ -14,31 +14,31 @@ The dashboard is a Next.js app rendered on the server and hydrated on the client
 
 The server's effective zone (`TZ`) is handed to the client by the dashboard layout through `TimezoneProvider`, which sets the app timezone synchronously during render (before children) so the SSR pass and hydration format dates in the same zone and every viewer sees the deployment's zone. `useOrigin` renders an empty origin on the server and during the hydration pass so markup matches, then re-renders with the real origin right after. The persisted theme is applied before first paint by an inline script in the root layout, mirroring the zustand-persist `theme` key and the `dark` class `applyTheme()` sets, so a reload does not flash the default light theme before the client store hydrates.
 
-**Where:** `src/shared/utils/dateTime.js`; `src/shared/components/TimezoneProvider.js`; `src/shared/hooks/useOrigin.js`; `src/app/layout.js`
+**Where:** `src/shared/utils/dateTime.js`; `src/shared/components/TimezoneProvider.js`; `src/shared/hooks/useOrigin.js`; `src/web/App.jsx`
 
 ### D2. Provider card counts use the same auth rules as the detail page
 
 Dual-auth providers (oauth plus apikey) store API keys as authType `apikey` and sometimes `api_key`, so card stats count both so totals match the detail page. Kiro has no `authModes` in the registry but accepts both (headless uses `api_key`). Free-tier and API-key providers default to supporting apikey even when the registry entry omits `authModes` (for example cloudflare-ai, byteplus, ollama, vertex), otherwise their keys are invisible on the grid card. Free Tier cards may be oauth-only (kimchi) or dual-auth, so counting uses `dualAuthTypes` per provider instead of a fixed "apikey". The enable/disable toggle follows the same rule. Providers with no auth (`noAuth`, such as free proxies) are always usable even though they never have a stored connection, so they never fall into the "none" status.
 
-**Where:** `src/app/(dashboard)/dashboard/providers/page.js`; `src/app/(dashboard)/dashboard/providers/utils.js`
+**Where:** `src/web/pages/dashboard/providers/page.js`; `src/web/pages/dashboard/providers/utils.js`
 
 ### D3. Heavy libraries are lazy-loaded and the layout renders one Sidebar
 
 `@dnd-kit` is lazy-loaded so it stays out of the combos page chunk until the form modal opens, and `@xyflow/react` plus recharts are lazy-loaded so they stay out of the shared bundle until rendered. `DashboardLayout` renders a single `<Sidebar>` that is the static column on desktop and the off-canvas drawer on mobile; rendering it twice doubled RSC prefetches and duplicated nav, aside and h1 in the accessibility tree. The provider topology uses a particle beam instead of the built-in animated edge, because the built-in animation uses `stroke-dasharray`, which is CPU-heavy.
 
-**Where:** `src/app/(dashboard)/dashboard/combos/page.js`; `src/shared/components/UsageStats.js`; `src/shared/components/layouts/DashboardLayout.js`; `src/app/(dashboard)/dashboard/usage/components/ProviderTopology.js`
+**Where:** `src/web/pages/dashboard/combos/page.js`; `src/shared/components/UsageStats.js`; `src/shared/components/layouts/DashboardLayout.js`; `src/web/pages/dashboard/usage/components/ProviderTopology.js`
 
 ### D4. Drag and drop avoids CSS transitions on drop
 
 The sortable item in the combo form has no transition so the CSS settle animation does not fight React's re-render on drop.
 
-**Where:** `src/app/(dashboard)/dashboard/combos/ComboFormModal.js`
+**Where:** `src/web/pages/dashboard/combos/ComboFormModal.js`
 
 ### D5. A provider test records its result against the tested model
 
 At `LOG_LEVEL=WARN` a passing probe emits no server log line, so the row recorded against that model is the only trace a successful test leaves.
 
-**Where:** `src/app/(dashboard)/dashboard/providers/[id]/page.js`: model test handler
+**Where:** `src/web/pages/dashboard/providers/[id]/page.js`: model test handler
 
 ## Consequences
 

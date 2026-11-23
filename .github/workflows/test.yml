@@ -52,7 +52,7 @@ jobs:
 
       - run: bun scripts/gen-route-table.mjs --check
 
-      - run: bun scripts/port-next-routes.mjs --check src/app/api src/server
+      - run: bun scripts/port-next-routes.mjs --check src
 
       - run: bun tests/parity/run.mjs --target bun --out parity-actual
 

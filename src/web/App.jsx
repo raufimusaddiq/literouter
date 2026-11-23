@@ -4,8 +4,8 @@ import { RuntimeI18nProvider } from "@/i18n/RuntimeI18nProvider";
 import TimezoneProvider from "@/shared/components/TimezoneProvider";
 import DashboardLayout from "@/shared/components/layouts/DashboardLayout";
 import { CardSkeleton } from "@/shared/components/Loading";
-import { Link, ParamsProvider, matchRoute, redirect, usePathname } from "./router.js";
-import { routes } from "./routes.js";
+import { Link, ParamsProvider, redirect, usePathname } from "./router.js";
+import { findRoute, routes } from "./routes.js";
 import { getBoot } from "./boot.js";
 
 const lazyPages = new WeakMap();
@@ -17,14 +17,6 @@ function lazyPage(route) {
     lazyPages.set(route, page);
   }
   return page;
-}
-
-function pick(list, pathname) {
-  for (const route of list) {
-    const params = matchRoute(route.path, pathname);
-    if (params) return { route, params };
-  }
-  return null;
 }
 
 export function NotFound() {
@@ -74,7 +66,7 @@ function RedirectRoute({ to }) {
 
 export function Routes({ routesOverride }) {
   const pathname = usePathname();
-  const match = pick(routesOverride ?? routes, pathname);
+  const match = findRoute(pathname, routesOverride ?? routes);
   if (!match) return <NotFound />;
   const { route, params } = match;
   if (route.redirect) return <RedirectRoute to={route.redirect} />;
