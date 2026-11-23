@@ -52,3 +52,11 @@ Next's `router.refresh()` re-fetched server components; with no server component
 - Serving the SPA through a `Bun.serve` HTML import (an opaque `HTMLBundle`) instead of `serveSpa` would bypass the boot injection and the guard.
 - Two dev servers on one checkout are safe; a crashed dev server leaves a `dist/web-dev/<pid>` that the next start prunes.
 - Plan 4 verifies the ESLint config and adds nothing to it unless it decides to turn on `@eslint/js` recommended, which would raise new findings on today's code.
+
+## 404 page title (Plan 5 parity)
+
+`src/server/notFound.js` emits two `<title>` elements in the head: the site title (`LiteRouter — AI routing control plane`) followed by `404: This page could not be found.`. This is deliberate. The Node image's 404 page, which came from Next, carries both (the root layout's metadata title and the not-found page's own title), and the cutover parity run compares the production Node image's 404 byte for byte. A browser shows the first `<title>`; collapsing the two into one would pass for a bug fix and then fail the parity diff. Treat the duplicate as part of the contract until the parity goldens are retired.
+
+`src/server/http.js` also replaces `Response.json` globally with `responseJson`. Bun's `Response.json` answers `application/json;charset=utf-8`, while Node's (undici) answers `application/json`. API clients and the parity goldens compare the header exactly (spec section 4), so the patch rewrites only that exact Bun default back to `application/json` and leaves any content type a caller set explicitly alone. Do not remove it without re-recording the goldens.
+
+**Where:** `src/server/notFound.js`; `src/server/http.js`; `tests/parity/`

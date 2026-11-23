@@ -39,7 +39,7 @@ if (typeof Bun === "undefined" || compareVersions(Bun.version, "1.4.4") < 0) {
   process.exit(1);
 }
 
-const { exec, execSync } = require("child_process");
+const { exec } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const net = require("net");
@@ -111,7 +111,6 @@ const {
   readServerPid,
   clearServerPid,
   isTrackedServerAlive,
-
   buildTrayArgs,
 } = require("./src/cli/utils/serverProc");
 const { parseCommand, awaitTrayRuntime } = require("./src/cli/utils/launch");
@@ -237,7 +236,8 @@ async function claimPort() {
     const holder = legacy.pid ? `pid ${legacy.pid}` : "a process that could not be identified";
     console.error(`
 ❌ Port ${legacy.port} is held by ${holder}, which may be an old 9router server. ${APP_NAME} will not start a second server on the same data directory.
-   If it is the old 9router server, stop it yourself (quit its tray icon or terminal, then remove the old global 9router package with the package manager you installed it with), then run ${APP_NAME} again.`);
+   If it is the old 9router server, stop it yourself (quit its tray icon or terminal, then remove the old global 9router package with the package manager you installed it with), then run ${APP_NAME} again.
+   To use a different port instead, run ${APP_NAME} --port <n>.`);
     process.exit(1);
   }
   if (legacy && legacy.respawned) {
