@@ -80,7 +80,7 @@ describe("Qoder signed inference transport", () => {
     const executor = await loadExecutor(fetchMock);
     await expect(executor.execute({ ...request, proxyOptions })).rejects.toThrow("response lost");
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][1].dispatcher).toBeDefined();
+    expect(fetchMock.mock.calls[0][1].proxy).toBe("http://proxy.test:3128");
     if (proxyOptions) expect(proxyOptions.strictProxy).toBe(false);
   });
 
@@ -107,7 +107,7 @@ describe("Qoder signed inference transport", () => {
     expect(result.response.ok).toBe(true);
     await result.response.text();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(!!fetchMock.mock.calls[0][1].dispatcher).toBe(true);
+    expect(fetchMock.mock.calls[0][1].proxy).toBe(useProxy ? "http://proxy.test:3128" : undefined);
   });
 
   it("preserves caller cancellation without replaying the request", async () => {

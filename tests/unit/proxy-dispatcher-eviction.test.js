@@ -1,22 +1,13 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { vi } from "#test/vi";
 
-const closed = [];
-vi.mock("undici", async (orig) => {
-  const actual = await orig();
-  class ProxyAgent {
-    constructor(o) { this.uri = o.uri; }
-    async close() { closed.push(this.uri); }
-  }
-  return { ...actual, ProxyAgent };
-});
+describe("proxied fetch", () => {
+  beforeEach(() => { vi.resetModules(); });
 
-describe("proxy dispatcher eviction", () => {
-  beforeEach(() => { closed.length = 0; vi.resetModules(); });
-
-  it("closes the evicted ProxyAgent", async () => {
+  it("passes each normalized proxy URL to fetch without leaking state across many proxies", async () => {
     const realFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn(async () => new Response("ok"));
+    const calls = [];
+    globalThis.fetch = vi.fn(async (_u, o) => { calls.push(o.proxy); return new Response("ok"); });
     try {
       const { MEMORY_CONFIG } = await import("../../open-sse/config/runtimeConfig.js");
       const { proxyAwareFetch } = await import("../../open-sse/utils/proxyFetch.js");
@@ -24,7 +15,8 @@ describe("proxy dispatcher eviction", () => {
       for (let i = 0; i <= max; i++) {
         await proxyAwareFetch("https://example.invalid/x", {}, { enabled: true, url: `http://127.0.0.1:${9000 + i}` });
       }
-      expect(closed).toEqual(["http://127.0.0.1:9000"]);
+      expect(calls).toHaveLength(max + 1);
+      expect(calls.every((p, i) => p === `http://127.0.0.1:${9000 + i}`)).toBe(true);
     } finally { globalThis.fetch = realFetch; }
   });
 });

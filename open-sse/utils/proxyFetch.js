@@ -1,10 +1,7 @@
 import {
-  MEMORY_CONFIG,
-  FRESH_RETRY_KEEPALIVE_TIMEOUT_MS,
   STALE_SOCKET_ERROR_CODES,
   NON_STALE_SOCKET_ERROR_CODES,
   STALE_SOCKET_ERROR_SUBSTRINGS,
-  resolveKeepAliveTimeouts,
   isFreshSocketReplayEnabled,
   UNDICI_BACKSTOP_MS,
 } from "../config/runtimeConfig.js";
@@ -19,13 +16,6 @@ function hasClaudeCliHeader(headers) {
 }
 
 const originalFetch = globalThis.fetch;
-const proxyDispatchers = new Map();
-const directDispatchers = new Map();
-
-export function resetDirectDispatchersForTests() {
-  directDispatchers.clear();
-  proxyDispatchers.clear();
-}
 
 export function isStaleSocketError(error) {
   if (!error || error.name === "AbortError") return false;
@@ -36,37 +26,47 @@ export function isStaleSocketError(error) {
   return STALE_SOCKET_ERROR_SUBSTRINGS.some((sub) => msg.includes(sub));
 }
 
-async function getOrCreateDirectAgent(key, keepAliveTimeout, keepAliveMaxTimeout) {
-  const cached = directDispatchers.get(key);
-  if (cached) return cached;
-  const { Agent } = await import("undici");
-  if (directDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
-    const oldestKey = directDispatchers.keys().next().value;
-    directDispatchers.get(oldestKey)?.close?.().catch?.(() => {});
-    directDispatchers.delete(oldestKey);
-  }
-  const agent = new Agent({ keepAliveTimeout, keepAliveMaxTimeout, headersTimeout: UNDICI_BACKSTOP_MS, bodyTimeout: UNDICI_BACKSTOP_MS });
-  directDispatchers.set(key, agent);
-  return agent;
-}
-
-export function getDirectDispatcher() {
-  const { keepAliveTimeout, keepAliveMaxTimeout } = resolveKeepAliveTimeouts();
-  return getOrCreateDirectAgent(`direct::${keepAliveTimeout}::${keepAliveMaxTimeout}`, keepAliveTimeout, keepAliveMaxTimeout);
-}
-
-export function getFreshRetryDispatcher() {
-  return getOrCreateDirectAgent("fresh", FRESH_RETRY_KEEPALIVE_TIMEOUT_MS, FRESH_RETRY_KEEPALIVE_TIMEOUT_MS);
-}
-
 function isBodyReplaySafe(body) {
   return body == null || typeof body === "string" || body instanceof URLSearchParams;
 }
 
-async function directFetch(url, options, forceFreshSocket = false) {
-  const dispatcher = await (forceFreshSocket ? getFreshRetryDispatcher() : getDirectDispatcher());
+function backstopTimeoutError() {
+  return new DOMException(`Upstream produced no data for ${UNDICI_BACKSTOP_MS}ms`, "TimeoutError");
+}
+
+function wrapBodyWithIdleBackstop(response, rearm, clear) {
+  if (!(response instanceof Response) || !response.body) {
+    clear();
+    return response;
+  }
+  const body = response.body.pipeThrough(new TransformStream({
+    transform(chunk, controller) { rearm(); controller.enqueue(chunk); },
+    flush() { clear(); },
+  }));
+  const wrapped = new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
+  try { Object.defineProperty(wrapped, "url", { value: response.url }); } catch {}
+  return wrapped;
+}
+
+async function fetchWithBackstop(url, options) {
+  const controller = new AbortController();
+  let timer = null;
+  const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  const rearm = () => { clear(); timer = setTimeout(() => controller.abort(backstopTimeoutError()), UNDICI_BACKSTOP_MS); };
+  const signal = options?.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
+  rearm();
   try {
-    return await originalFetch(url, { ...options, dispatcher });
+    const response = await originalFetch(url, { ...options, signal });
+    return wrapBodyWithIdleBackstop(response, rearm, clear);
+  } catch (err) {
+    clear();
+    throw err;
+  }
+}
+
+async function directFetch(url, options, forceFreshSocket = false) {
+  try {
+    return await fetchWithBackstop(url, forceFreshSocket ? { ...options, keepalive: false } : options);
   } catch (err) {
     if (
       !forceFreshSocket
@@ -144,35 +144,8 @@ function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
   return normalizeProxyUrl(proxyUrlRaw);
 }
 
-export async function getDispatcher(proxyUrl) {
-  const normalized = normalizeProxyUrl(proxyUrl);
-  if (!normalized) return null;
-
-  if (proxyDispatchers.has(normalized)) {
-    const hit = proxyDispatchers.get(normalized);
-    proxyDispatchers.delete(normalized);
-    proxyDispatchers.set(normalized, hit);
-    return hit;
-  }
-
-  {
-    if (proxyDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
-      const oldestKey = proxyDispatchers.keys().next().value;
-      const evicted = proxyDispatchers.get(oldestKey);
-      proxyDispatchers.delete(oldestKey);
-      try { Promise.resolve(evicted?.close?.()).catch(() => {}); } catch {}
-    }
-    const { ProxyAgent } = await import("undici");
-    if (!proxyDispatchers.has(normalized)) {
-      proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized, headersTimeout: UNDICI_BACKSTOP_MS, bodyTimeout: UNDICI_BACKSTOP_MS }));
-    }
-  }
-
-  return proxyDispatchers.get(normalized);
-}
-
 export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
-  if (options?.dispatcher) return originalFetch(url, options);
+  if (options?.proxy) return originalFetch(url, options);
 
   if (hasClaudeCliHeader(options?.headers)) {
     ensureClaudeCliVersion();
@@ -200,8 +173,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
 
   if (proxyUrl) {
     try {
-      const dispatcher = await getDispatcher(proxyUrl);
-      return await originalFetch(url, { ...options, dispatcher });
+      return await fetchWithBackstop(url, { ...options, proxy: proxyUrl });
     } catch (proxyError) {
       if (proxyOptions?.strictProxy === true) {
         throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyError.message}`);

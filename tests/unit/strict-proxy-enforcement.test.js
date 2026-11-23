@@ -30,6 +30,8 @@ vi.mock("@/lib/db/index.js", () => ({
   getProxyPools: vi.fn(),
   updateProviderConnection: vi.fn(),
   validateApiKey: vi.fn(async () => true),
+  getProviderConnectionById: vi.fn(),
+  mutateProviderConnection: vi.fn(),
 }));
 
 vi.mock("../../src/sse/services/model.js", () => ({
@@ -66,6 +68,7 @@ vi.mock("@/lib/usageDb.js", () => ({
   trackPendingRequest: vi.fn(),
   appendRequestLog: vi.fn(async () => {}),
   saveRequestDetail: vi.fn(async () => {}),
+  saveRequestUsage: vi.fn(),
 }));
 
 const { getProxyPoolById } = await import("@/models");
