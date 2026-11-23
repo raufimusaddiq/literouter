@@ -77,8 +77,8 @@ export const NETLIFY_RELAY_FUNCTION_CODE = `exports.handler = async (event) => {
 };
 `;
 export const NETLIFY_INDEX_HTML = `<!doctype html>
-<html><head><meta charset="utf-8"><title>9Router Relay</title></head>
-<body><p>9Router relay function lives at <code>/.netlify/functions/relay</code>.</p></body></html>
+<html><head><meta charset="utf-8"><title>LiteRouter Relay</title></head>
+<body><p>LiteRouter relay function lives at <code>/.netlify/functions/relay</code>.</p></body></html>
 `;
 export function sha1Hex(bytes) {
   return createHash("sha1").update(bytes).digest("hex");
