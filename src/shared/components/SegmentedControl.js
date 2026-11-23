@@ -7,6 +7,7 @@ export default function SegmentedControl({
   value,
   onChange,
   size = "md",
+  disabled = false,
   className,
 }) {
   const sizes = {
@@ -18,8 +19,10 @@ export default function SegmentedControl({
   return (
     <div
       role="group"
+      aria-disabled={disabled || undefined}
       className={cn(
         "inline-flex items-center p-0.5 rounded-md border border-line-strong bg-transparent overflow-x-auto",
+        disabled && "opacity-50",
         className
       )}
     >
@@ -29,14 +32,20 @@ export default function SegmentedControl({
           <button
             key={option.value}
             type="button"
+            disabled={disabled}
             aria-pressed={active}
-            onClick={() => onChange(option.value)}
+            onClick={() => {
+              if (!disabled) onChange(option.value);
+            }}
             className={cn(
-              "shrink-0 inline-flex items-center justify-center rounded-[4px] font-semibold transition-colors cursor-pointer",
+              "shrink-0 inline-flex items-center justify-center rounded-[4px] font-semibold transition-colors",
+              disabled ? "cursor-not-allowed" : "cursor-pointer",
               sizes[size] || sizes.md,
               active
                 ? "bg-ink text-bg"
-                : "text-muted hover:text-ink"
+                : disabled
+                  ? "text-muted"
+                  : "text-muted hover:text-ink"
             )}
           >
             {option.icon && (

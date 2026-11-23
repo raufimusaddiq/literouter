@@ -181,8 +181,79 @@ describe("Usage page (Route Sheet)", () => {
     await unmount();
 
     const withTitle = await mount(React.createElement(UsageTable, { ...props, title: "By model" }));
-    expect(withTitle.container.querySelector("h3")?.textContent).toBe("By model");
+    const heading = withTitle.container.querySelector("h3");
+    expect(heading?.textContent).toBe("By model");
+    expect(heading?.parentElement?.className).toContain("px-3");
+    expect(heading?.parentElement?.className).toContain("sm:px-4");
     await withTitle.unmount();
+  });
+
+  it("UsageStats disables its period SegmentedControl visibly while refetching", async () => {
+    let resolveSecond;
+    let statsCall = 0;
+    const statsPayload = {
+      totalRequests: 10,
+      totalPromptTokens: 1200,
+      totalCachedTokens: 0,
+      totalCompletionTokens: 300,
+      totalCost: 0.05,
+      byModel: {},
+      byAccount: {},
+      byApiKey: {},
+      byEndpoint: {},
+      activeRequests: [],
+      recentRequests: [],
+    };
+    globalThis.fetch = (url) => {
+      const u = String(url);
+      if (u.startsWith("/api/usage/stats")) {
+        statsCall += 1;
+        if (statsCall === 2) {
+          return new Promise((resolve) => {
+            resolveSecond = () => resolve({ ok: true, status: 200, json: () => Promise.resolve(statsPayload) });
+          });
+        }
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(statsPayload) });
+      }
+      if (u.startsWith("/api/usage/chart")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve([{ label: "00:00", tokens: 1500, cost: 0.05, requests: 10 }]),
+        });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ connections: [], nodes: [] }) });
+    };
+
+    const { default: UsageStats } = await import("../../src/shared/components/UsageStats.js");
+    const { container, unmount } = await mount(React.createElement(UsageStats));
+
+    const periodGroup = container.querySelector('[role="group"]');
+    expect(periodGroup?.getAttribute("aria-disabled")).toBeNull();
+
+    const btn7d = [...periodGroup.querySelectorAll("button")].find((b) => b.textContent === "7D");
+    await act(async () => {
+      btn7d.click();
+    });
+
+    expect(periodGroup.getAttribute("aria-disabled")).toBe("true");
+    expect(periodGroup.className).toContain("opacity-50");
+    expect([...periodGroup.querySelectorAll("button")].every((b) => b.disabled)).toBe(true);
+
+    const btn30d = [...periodGroup.querySelectorAll("button")].find((b) => b.textContent === "30D");
+    await act(async () => {
+      btn30d.click();
+    });
+    expect(statsCall).toBe(2);
+
+    await act(async () => {
+      resolveSecond();
+    });
+    await flush();
+    expect(periodGroup.getAttribute("aria-disabled")).toBeNull();
+    expect([...periodGroup.querySelectorAll("button")].every((b) => !b.disabled)).toBe(true);
+
+    await unmount();
   });
 
   it("UsagePage renders PageHeader and switches tabs and period windows", async () => {

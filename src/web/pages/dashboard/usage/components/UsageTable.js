@@ -134,7 +134,7 @@ export default function UsageTable({
   return (
     <Card padding="none" className="overflow-hidden">
       {title ? (
-        <div className="border-b border-line py-3">
+        <div className="border-b border-line px-3 py-3 sm:px-4">
           <h3 className="text-sm font-semibold text-ink">{title}</h3>
         </div>
       ) : null}

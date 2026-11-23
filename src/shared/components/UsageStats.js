@@ -484,9 +484,8 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           <SegmentedControl
             options={PERIODS}
             value={period}
-            onChange={(val) => {
-              if (!fetching) setPeriod(val);
-            }}
+            onChange={setPeriod}
+            disabled={fetching}
             size="sm"
             className="max-w-full"
           />
