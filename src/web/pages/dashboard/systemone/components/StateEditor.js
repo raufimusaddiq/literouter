@@ -51,7 +51,7 @@ export default function StateEditor({ form, onChange, error }) {
                 value={row.key}
                 onChange={(event) => updateField(row.id, { key: event.target.value })}
                 placeholder="name"
-                className={fieldClass({ className: "w-2/5 min-w-0 px-2.5 py-2 font-mono text-xs" })}
+                className={fieldClass({ fill: false, className: "w-2/5 min-w-0 px-2.5 py-2 font-mono text-xs" })}
               />
               <label htmlFor={`state-value-${row.id}`} className="sr-only">Field {index + 1} value</label>
               <input
@@ -59,7 +59,7 @@ export default function StateEditor({ form, onChange, error }) {
                 value={row.value}
                 onChange={(event) => updateField(row.id, { value: event.target.value })}
                 placeholder="value"
-                className={fieldClass({ className: "min-w-0 flex-1 px-2.5 py-2 text-sm" })}
+                className={fieldClass({ fill: false, className: "min-w-0 flex-1 px-2.5 py-2 text-sm" })}
               />
               <button
                 type="button"

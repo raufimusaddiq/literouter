@@ -15,10 +15,10 @@ function MenuItem({ icon, label, onClick, trailing, danger }) {
       className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors ${
         danger
           ? "text-red-500 hover:bg-red-500/10"
-          : "text-text-main hover:bg-black/5 dark:hover:bg-white/5"
+          : "text-ink hover:bg-black/5 dark:hover:bg-white/5"
       }`}
     >
-      <span aria-hidden="true" className={`material-symbols-outlined text-[20px] ${danger ? "" : "text-text-muted"}`}>
+      <span aria-hidden="true" className={`material-symbols-outlined text-[20px] ${danger ? "" : "text-muted"}`}>
         {icon}
       </span>
       <span className="flex-1 text-left">{label}</span>
@@ -57,7 +57,7 @@ export default function HeaderMenu({ onLogout }) {
         aria-label="Open menu"
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        className="flex size-8 items-center justify-center rounded-md border border-transparent text-muted transition-colors hover:border-line hover:text-ink"
+        className="flex size-8 max-sm:size-11 items-center justify-center rounded-md border border-transparent text-muted transition-colors hover:border-line hover:text-ink"
         title="Menu"
       >
         <span aria-hidden="true" className="material-symbols-outlined text-[18px]">more_vert</span>

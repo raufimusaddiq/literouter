@@ -38,7 +38,7 @@ export default function SegmentedControl({
               if (!disabled) onChange(option.value);
             }}
             className={cn(
-              "shrink-0 inline-flex items-center justify-center rounded-[4px] font-semibold transition-colors",
+              "shrink-0 inline-flex items-center justify-center max-sm:min-h-11 rounded-[4px] font-semibold transition-colors",
               disabled ? "cursor-not-allowed" : "cursor-pointer",
               sizes[size] || sizes.md,
               active

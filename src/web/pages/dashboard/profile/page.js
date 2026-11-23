@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Button, Toggle, Input, PageIntro, SegmentedControl } from "@/shared/components";
+import { Button, Toggle, Input, SegmentedControl } from "@/shared/components";
+import PageHeader from "@/shared/components/shell/PageHeader";
 import Modal from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import { useTheme } from "@/shared/hooks/useTheme";
@@ -438,7 +439,7 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto max-w-5xl px-0">
       <div className="flex flex-col gap-6">
-        <PageIntro title="Settings" description="Manage appearance, access, routing defaults, network behavior, and database backups." />
+        <PageHeader title="Settings" description="Manage appearance, access, routing defaults, network behavior, and database backups." />
 
         <div className="flex flex-col">
           <Section title="Local Mode" description="Running on your machine">
@@ -642,7 +643,7 @@ export default function ProfilePage() {
 
           <Section title="Data">
             <SettingRow title="Database Location">
-              <span className="break-all text-right font-mono text-[12.5px] text-muted">~/.literouter/db/data.sqlite</span>
+              <span className="text-right text-[12.5px] text-muted">the data dir (<span className="font-mono">DATA_DIR</span>)</span>
             </SettingRow>
             <div className="flex flex-col gap-3 pt-4">
               <div className="flex flex-col gap-2 sm:flex-row">

@@ -36,6 +36,6 @@ export const AI_MODELS = Object.entries(MODELS).flatMap(([alias, models]) =>
 export const getModelKind = (m, fallback = null) => m?.kind || m?.type || fallback;
 
 export const CAPACITY_META = {
-  vision: { icon: "visibility", label: "Vision", desc: "Supports image input", color: "text-blue-500" },
-  reasoning: { icon: "neurology", label: "Reasoning", desc: "Supports reasoning / thinking", color: "text-warning" },
+  vision: { icon: "visibility", label: "Vision", desc: "Supports image input" },
+  reasoning: { icon: "neurology", label: "Reasoning", desc: "Supports reasoning / thinking" },
 };

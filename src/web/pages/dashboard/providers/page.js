@@ -9,7 +9,7 @@ import {
   Modal,
   Toggle,
 } from "@/shared/components";
-import { HeaderControls } from "@/shared/components/Header";
+import { HeaderControls } from "@/shared/components/shell/HeaderControls";
 import PageHeader from "@/shared/components/shell/PageHeader";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
@@ -17,7 +17,6 @@ import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import {
   FREE_PROVIDERS,
   FREE_TIER_PROVIDERS,
-  WEB_COOKIE_PROVIDERS,
   OPENAI_COMPATIBLE_PREFIX,
   ANTHROPIC_COMPATIBLE_PREFIX,
   supportsServiceKind,
@@ -431,7 +430,7 @@ export default function ProvidersPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 rounded-md border border-line-strong bg-raise px-2.5 text-xs font-medium text-ink outline-none transition-colors hover:border-ink/40 focus:border-mark-line focus:ring-2 focus:ring-mark-line"
+              className="h-9 max-sm:min-h-11 rounded-md border border-line-strong bg-raise px-2.5 text-xs font-medium text-ink outline-none transition-colors hover:border-ink/40 focus:border-mark-line focus:ring-2 focus:ring-mark-line"
               aria-label="Filter providers by connection status"
             >
               {STATUS_FILTER_OPTIONS.map((option) => (

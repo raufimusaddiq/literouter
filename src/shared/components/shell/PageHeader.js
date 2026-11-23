@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Link, usePathname } from "@/web/router";
-import { getPageInfo } from "@/shared/components/Header";
+import { getPageInfo } from "@/shared/components/shell/pageInfo";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { translate } from "@/i18n/runtime";
 import { cn } from "@/shared/utils/cn";

@@ -14,7 +14,6 @@ export default function Modal({
   footer,
   size = "md",
   closeOnOverlay = true,
-  showTrafficLights: _showTrafficLights = false,
   className,
 }) {
   const sizes = {

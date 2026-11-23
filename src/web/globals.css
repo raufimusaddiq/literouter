@@ -9,17 +9,6 @@
 .material-symbols-outlined { animation: ms-fallback 0s linear 2s forwards; }
 
 :root {
-  --color-brand-50: #f3f4f4;
-  --color-brand-100: #eaeced;
-  --color-brand-200: #dfe1e2;
-  --color-brand-300: #bfc3c6;
-  --color-brand-400: #62676c;
-  --color-brand-500: #121314;
-  --color-brand-600: #23262a;
-  --color-brand-700: #18191a;
-  --color-brand-800: #121314;
-  --color-brand-900: #0a0b0b;
-
   --color-bg: #f3f4f4;
   --color-raise: #ffffff;
   --color-line: #dfe1e2;
@@ -36,28 +25,12 @@
   --color-wire-live: #6d7378;
   --color-grid: #e1e3e5;
 
-  --color-primary: var(--color-ink);
-  --color-primary-hover: #23262a;
-  --color-primary-foreground: var(--color-bg);
-
   --color-bg-alt: #eaeced;
-  --color-surface: var(--color-raise);
   --color-surface-2: #eaeced;
   --color-surface-3: var(--color-line);
-  --color-sidebar: #eaeced;
-
-  --color-border: var(--color-line-strong);
-  --color-border-subtle: var(--color-line);
-
-  --color-text: var(--color-ink);
-  --color-text-main: var(--color-ink);
-  --color-text-muted: var(--color-muted);
-  --color-text-subtle: var(--color-faint);
 
   --color-danger: #c4242a;
-  --color-success: var(--color-ok);
   --color-warning: #92400e;
-  --color-info: var(--color-muted);
 
   --shadow-float: 0 16px 40px -12px rgba(18, 19, 20, 0.16);
 
@@ -65,17 +38,6 @@
 }
 
 .dark {
-  --color-brand-50: #18191a;
-  --color-brand-100: #25282a;
-  --color-brand-200: #3b3f42;
-  --color-brand-300: #50555a;
-  --color-brand-400: #868b90;
-  --color-brand-500: #ecedee;
-  --color-brand-600: #ffffff;
-  --color-brand-700: #f3f4f4;
-  --color-brand-800: #f8f9f9;
-  --color-brand-900: #ffffff;
-
   --color-bg: #111212;
   --color-raise: #18191a;
   --color-line: #25282a;
@@ -92,28 +54,12 @@
   --color-wire-live: #8a9095;
   --color-grid: #2a2d30;
 
-  --color-primary: var(--color-ink);
-  --color-primary-hover: #ffffff;
-  --color-primary-foreground: var(--color-bg);
-
   --color-bg-alt: var(--color-raise);
-  --color-surface: var(--color-raise);
   --color-surface-2: #202224;
   --color-surface-3: var(--color-line);
-  --color-sidebar: var(--color-raise);
-
-  --color-border: var(--color-line-strong);
-  --color-border-subtle: var(--color-line);
-
-  --color-text: var(--color-ink);
-  --color-text-main: var(--color-ink);
-  --color-text-muted: var(--color-muted);
-  --color-text-subtle: var(--color-faint);
 
   --color-danger: #f06a6a;
-  --color-success: var(--color-ok);
   --color-warning: #e0a43a;
-  --color-info: var(--color-muted);
 
   --shadow-float: 0 20px 48px -12px rgba(0, 0, 0, 0.6);
 
@@ -134,38 +80,12 @@ select {
 }
 
 @theme inline {
-  --color-brand-50: var(--color-brand-50);
-  --color-brand-100: var(--color-brand-100);
-  --color-brand-200: var(--color-brand-200);
-  --color-brand-300: var(--color-brand-300);
-  --color-brand-400: var(--color-brand-400);
-  --color-brand-500: var(--color-brand-500);
-  --color-brand-600: var(--color-brand-600);
-  --color-brand-700: var(--color-brand-700);
-  --color-brand-800: var(--color-brand-800);
-  --color-brand-900: var(--color-brand-900);
-
-  --color-primary: var(--color-primary);
-  --color-primary-hover: var(--color-primary-hover);
-  --color-primary-foreground: var(--color-primary-foreground);
-
   --color-bg: var(--color-bg);
   --color-bg-alt: var(--color-bg-alt);
-  --color-surface: var(--color-surface);
   --color-surface-2: var(--color-surface-2);
   --color-surface-3: var(--color-surface-3);
-  --color-sidebar: var(--color-sidebar);
-  --color-border: var(--color-border);
-  --color-border-subtle: var(--color-border-subtle);
-  --color-text: var(--color-text);
-  --color-text-main: var(--color-text-main);
-  --color-text-muted: var(--color-text-muted);
-  --color-text-subtle: var(--color-text-subtle);
-  --color-accent: var(--color-ink);
   --color-danger: var(--color-danger);
-  --color-success: var(--color-success);
   --color-warning: var(--color-warning);
-  --color-info: var(--color-info);
 
   --color-raise: var(--color-raise);
   --color-line: var(--color-line);
@@ -200,20 +120,9 @@ body {
   background-color: var(--color-bg);
 }
 
-.page-kicker {
-  color: var(--color-muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.25;
-}
-
 .metric-value {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
-}
-
-.landing-grid {
-  background: none;
 }
 
 button,
@@ -329,18 +238,6 @@ button:disabled,
   cursor: not-allowed;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-.animate-spin { animation: spin 1s linear infinite; }
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-
 @keyframes slideInFromRight {
   from { transform: translateX(100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
@@ -349,17 +246,12 @@ button:disabled,
   from { opacity: 0; }
   to { opacity: 1; }
 }
-@keyframes slideInFromTop {
-  from { transform: translateY(-10px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
 @keyframes sheetSlideUp {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
 .slide-in-right { animation: slideInFromRight 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 .fade-in { animation: fadeIn 0.2s ease-out forwards; }
-.slide-in-top { animation: slideInFromTop 0.18s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 .sheet-slide-up { animation: sheetSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
 
 @keyframes lr-wire-march {
@@ -476,47 +368,4 @@ button:disabled,
 
 .react-flow-controls-custom button:hover {
   background: var(--color-bg-alt);
-}
-
-.changelog-body h1 {
-  font-size: 1.4rem;
-  font-weight: 700;
-  margin: 1.5rem 0 0.75rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--color-line);
-}
-.changelog-body h1:first-child { margin-top: 0; }
-.changelog-body h2 {
-  font-size: 1.05rem;
-  font-weight: 600;
-  margin: 1rem 0 0.5rem;
-  color: var(--color-ink);
-}
-.changelog-body h3 {
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin: 0.75rem 0 0.4rem;
-}
-.changelog-body ul {
-  list-style: disc;
-  padding-left: 1.5rem;
-  margin: 0.5rem 0;
-}
-.changelog-body li { margin: 0.25rem 0; line-height: 1.6; }
-.changelog-body p { margin: 0.5rem 0; line-height: 1.6; }
-.changelog-body code {
-  background: var(--color-bg-alt);
-  padding: 0.1rem 0.35rem;
-  border-radius: 4px;
-  font-size: 0.875em;
-  font-family: var(--font-mono);
-}
-.changelog-body a {
-  color: var(--color-ink);
-  text-decoration: underline;
-}
-.changelog-body hr {
-  border: none;
-  border-top: 1px solid var(--color-line);
-  margin: 1.5rem 0;
 }

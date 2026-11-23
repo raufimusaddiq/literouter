@@ -49,7 +49,7 @@ function RecentRequests({ requests = [], onOpenDetails }) {
           <button
             type="button"
             onClick={onOpenDetails}
-            className="text-[12.5px] font-semibold text-ink underline underline-offset-[3px] transition-opacity hover:opacity-80"
+            className="inline-flex items-center text-[12.5px] font-semibold text-ink underline underline-offset-[3px] transition-opacity hover:opacity-80 max-sm:min-h-11 max-sm:-mr-2 max-sm:px-2"
           >
             View details
           </button>
@@ -527,7 +527,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
             aria-label="Breakdown view"
             value={tableView}
             onChange={(e) => setTableView(e.target.value)}
-            className="h-9 w-full rounded-md border border-line-strong bg-raise px-3 text-sm font-medium text-ink focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line sm:w-auto"
+            className="h-9 max-sm:min-h-11 w-full rounded-md border border-line-strong bg-raise px-3 text-sm font-medium text-ink focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line sm:w-auto"
           >
             {TABLE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>

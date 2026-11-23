@@ -35,7 +35,7 @@ export default function Select({
           onChange={onChange}
           disabled={disabled}
           className={cn(
-            "w-full h-9 px-3 pr-9 text-[16px] sm:text-sm text-ink",
+            "w-full h-9 max-sm:min-h-11 px-3 pr-9 text-[16px] sm:text-sm text-ink",
             "bg-raise border border-line-strong rounded-md appearance-none",
             "focus:outline-none focus:ring-2 focus:ring-mark-line focus:border-mark-line",
             "transition-[background-color,border-color,box-shadow] duration-150 disabled:opacity-50 disabled:cursor-not-allowed",

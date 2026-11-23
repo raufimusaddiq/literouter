@@ -212,7 +212,7 @@ export default function DashboardOverview() {
         <h1 className="text-[24px] leading-[30px] font-semibold tracking-[-0.025em] text-ink sm:text-[30px] sm:leading-[36px]">
           Overview
         </h1>
-        <div className="inline-flex h-8 w-full min-w-0 items-center overflow-hidden rounded-md border border-line-strong sm:w-auto sm:max-w-full">
+        <div className="inline-flex h-8 max-sm:h-[46px] w-full min-w-0 items-center overflow-hidden rounded-md border border-line-strong sm:w-auto sm:max-w-full">
           <code className="min-w-0 flex-1 truncate px-2.5 font-mono text-[11.5px] tracking-[-0.01em] text-ink sm:flex-initial sm:px-3 sm:text-[12.5px]">
             {endpoint}
           </code>

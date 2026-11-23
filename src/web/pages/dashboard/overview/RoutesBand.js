@@ -89,19 +89,19 @@ export default function RoutesBand({
     <section className="border-t border-line pt-5" aria-label="Routes">
       <div className="relative grid grid-cols-1 gap-y-7 min-[860px]:grid-cols-[minmax(0,1fr)_200px_minmax(0,1fr)] min-[860px]:gap-y-0">
         <div className="min-w-0">
-          <div data-col-head="" className="flex h-[46px] items-baseline justify-between gap-3">
-            <div className="flex min-w-0 items-baseline gap-3">
+          <div data-col-head="" className="flex h-[46px] items-baseline justify-between gap-3 max-sm:items-center">
+            <div className="flex min-w-0 items-baseline gap-3 max-sm:items-center">
               <h2 className="shrink-0 text-base font-semibold tracking-[-0.01em] text-ink">Recent requests</h2>
               <Link
                 href="/dashboard/endpoint"
-                className="truncate text-[12.5px] text-muted transition-colors hover:text-ink"
+                className="inline-flex items-center truncate text-[12.5px] text-muted transition-colors hover:text-ink max-sm:min-h-11"
               >
                 from {activeKeys} active {activeKeys === 1 ? "key" : "keys"}
               </Link>
             </div>
             <Link
               href="/dashboard/usage"
-              className="shrink-0 text-[12.5px] font-semibold text-ink underline underline-offset-[3px] transition-opacity hover:opacity-80"
+              className="inline-flex shrink-0 items-center text-[12.5px] font-semibold text-ink underline underline-offset-[3px] transition-opacity hover:opacity-80 max-sm:min-h-11"
             >
               View all
             </Link>
@@ -195,8 +195,8 @@ export default function RoutesBand({
         </div>
 
         <div className="min-w-0">
-          <div data-col-head="" className="flex h-[46px] items-baseline justify-between gap-2">
-            <div className="flex min-w-0 items-baseline gap-2.5">
+          <div data-col-head="" className="flex h-[46px] items-baseline justify-between gap-2 max-sm:items-center">
+            <div className="flex min-w-0 items-baseline gap-2.5 max-sm:items-center">
               <h2 className="shrink-0 text-base font-semibold tracking-[-0.01em] text-ink">Providers</h2>
               <span className="min-w-0 truncate text-[12.5px] text-muted">
                 {health.total} {health.total === 1 ? "connection" : "connections"} · {health.ready} ready ·{" "}
@@ -214,7 +214,7 @@ export default function RoutesBand({
             </div>
             <Link
               href="/dashboard/providers"
-              className="shrink-0 text-[12.5px] font-semibold text-ink underline underline-offset-[3px] transition-opacity hover:opacity-80"
+              className="inline-flex shrink-0 items-center text-[12.5px] font-semibold text-ink underline underline-offset-[3px] transition-opacity hover:opacity-80 max-sm:min-h-11"
             >
               View all
             </Link>
