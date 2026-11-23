@@ -24,6 +24,7 @@ const {
   useParams,
   ParamsProvider,
   Link,
+  useScrollReset,
 } = await import("../../src/web/router.js");
 
 async function mount(element) {
@@ -220,5 +221,76 @@ describe("redirect", () => {
     redirect("/login");
     expect(window.location.pathname).toBe("/login");
     expect(window.history.length).toBe(before);
+  });
+});
+
+describe("push to the current URL", () => {
+  it("replaces instead of adding a history entry, and still pushes for a different URL", () => {
+    window.history.replaceState(null, "", "/dashboard/usage?tab=logs#top");
+    const before = window.history.length;
+    navigate("/dashboard/usage?tab=logs#top", "push");
+    expect(window.history.length).toBe(before);
+    navigate("/dashboard/usage?tab=logs", "push");
+    expect(window.history.length).toBe(before + 1);
+    navigate("/dashboard/usage?tab=logs", "push");
+    expect(window.history.length).toBe(before + 1);
+  });
+});
+
+describe("useScrollReset", () => {
+  async function setup(url) {
+    window.history.replaceState(null, "", url);
+    const holder = { el: null };
+    function Probe() {
+      const ref = React.useRef(null);
+      holder.el = ref;
+      useScrollReset(ref);
+      usePathname();
+      return React.createElement("div", { id: "scroller", ref });
+    }
+    const view = await mount(React.createElement(Probe));
+    const el = view.container.querySelector("#scroller");
+    el.scrollTop = 240;
+    return { view, el };
+  }
+
+  it("resets scrollTop on a pathname change but not on a query-only change", async () => {
+    const { view, el } = await setup("/dashboard/providers");
+    await act(async () => navigate("/dashboard/providers?sortBy=name", "push"));
+    expect(el.scrollTop).toBe(240);
+    await act(async () => navigate("?tab=details", "replace"));
+    expect(el.scrollTop).toBe(240);
+    await act(async () => navigate("/dashboard/quota", "push"));
+    expect(el.scrollTop).toBe(0);
+    await view.unmount();
+  });
+
+  it("does not reset on popstate", async () => {
+    const { view, el } = await setup("/dashboard/providers");
+    await act(async () => {
+      window.history.pushState(null, "", "/dashboard/quota");
+      window.dispatchEvent(new window.PopStateEvent("popstate"));
+    });
+    expect(el.scrollTop).toBe(240);
+    await view.unmount();
+  });
+
+  it("scrolls the window when no element is given", async () => {
+    window.history.replaceState(null, "", "/pricing");
+    const calls = [];
+    const original = window.scrollTo;
+    window.scrollTo = (...args) => calls.push(args);
+    function Probe() {
+      useScrollReset(null);
+      usePathname();
+      return null;
+    }
+    const view = await mount(React.createElement(Probe));
+    await act(async () => navigate("/pricing?x=1", "push"));
+    expect(calls).toEqual([]);
+    await act(async () => navigate("/login", "push"));
+    expect(calls).toEqual([[0, 0]]);
+    window.scrollTo = original;
+    await view.unmount();
   });
 });

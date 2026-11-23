@@ -4,7 +4,7 @@ import { RuntimeI18nProvider } from "@/i18n/RuntimeI18nProvider";
 import TimezoneProvider from "@/shared/components/TimezoneProvider";
 import DashboardLayout from "@/shared/components/layouts/DashboardLayout";
 import { CardSkeleton } from "@/shared/components/Loading";
-import { Link, ParamsProvider, redirect, usePathname } from "./router.js";
+import { Link, ParamsProvider, redirect, usePathname, useScrollReset } from "./router.js";
 import { findRoute, routes } from "./routes.js";
 import { getBoot } from "./boot.js";
 
@@ -67,11 +67,12 @@ function RedirectRoute({ to }) {
 export function Routes({ routesOverride }) {
   const pathname = usePathname();
   const match = findRoute(pathname, routesOverride ?? routes);
+  useScrollReset(null, !match?.route.shell);
   if (!match) return <NotFound />;
   const { route, params } = match;
   if (route.redirect) return <RedirectRoute to={route.redirect} />;
   const body = (
-    <RouteErrorBoundary key={route.path}>
+    <RouteErrorBoundary key={pathname}>
       <Suspense fallback={<CardSkeleton />}>
         {createElement(lazyPage(route))}
       </Suspense>

@@ -15,6 +15,7 @@ afterAll(async () => {
 
 const { routes } = await import("../../src/web/routes.js");
 const { default: App, Routes } = await import("../../src/web/App.jsx");
+const { navigate } = await import("../../src/web/router.js");
 
 async function mount(element) {
   const container = document.createElement("div");
@@ -70,6 +71,71 @@ describe("App shell", () => {
     } finally {
       console.error = originalError;
     }
+  });
+
+  it("remounts the page when only the dynamic param changes, keeping the lazy cache per route", async () => {
+    window.history.replaceState(null, "", "/p/a");
+    let mounts = 0;
+    function Page() {
+      React.useEffect(() => {
+        mounts += 1;
+      }, []);
+      return <span id="page" />;
+    }
+    const override = [{ path: "/p/:id", load: () => Promise.resolve({ default: Page }), shell: false }];
+    const view = await mount(<Routes routesOverride={override} />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(mounts).toBe(1);
+    await act(async () => navigate("/p/b", "push"));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(mounts).toBe(2);
+    await act(async () => navigate("/p/b?x=1", "push"));
+    expect(mounts).toBe(2);
+    await view.unmount();
+  });
+
+  it("scrolls the shell container to the top on a pathname change only", async () => {
+    window.history.replaceState(null, "", "/s/one");
+    const Page = () => <span id="page" />;
+    const override = [
+      { path: "/s/one", load: () => Promise.resolve({ default: Page }), shell: true },
+      { path: "/s/two", load: () => Promise.resolve({ default: Page }), shell: true },
+    ];
+    const view = await mount(<Routes routesOverride={override} />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    const scroller = view.container.querySelector("main .overflow-y-auto");
+    expect(scroller).not.toBeNull();
+    scroller.scrollTop = 300;
+    await act(async () => navigate("/s/one?tab=x", "push"));
+    expect(scroller.scrollTop).toBe(300);
+    await act(async () => navigate("/s/two", "push"));
+    expect(scroller.scrollTop).toBe(0);
+    await view.unmount();
+  });
+
+  it("scrolls the window on a pathname change for routes without a shell", async () => {
+    window.history.replaceState(null, "", "/n/one");
+    const calls = [];
+    const original = window.scrollTo;
+    window.scrollTo = (...args) => calls.push(args);
+    const Page = () => <span id="page" />;
+    const override = [
+      { path: "/n/one", load: () => Promise.resolve({ default: Page }), shell: false },
+      { path: "/n/two", load: () => Promise.resolve({ default: Page }), shell: false },
+    ];
+    const view = await mount(<Routes routesOverride={override} />);
+    await act(async () => navigate("/n/one?x=1", "push"));
+    expect(calls).toEqual([]);
+    await act(async () => navigate("/n/two", "push"));
+    expect(calls).toEqual([[0, 0]]);
+    window.scrollTo = original;
+    await view.unmount();
   });
 
   it("every route page module loads and has a default export", async () => {

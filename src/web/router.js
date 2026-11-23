@@ -1,6 +1,7 @@
-import { createContext, createElement, useContext, useMemo, useSyncExternalStore } from "react";
+import { createContext, createElement, useContext, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
 const listeners = new Set();
+let navigationId = 0;
 const EMPTY_PARAMS = Object.freeze({});
 const ParamsContext = createContext(EMPTY_PARAMS);
 
@@ -78,8 +79,11 @@ export function navigate(href, mode = "push") {
     assignExternal(String(href));
     return;
   }
-  if (mode === "replace") window.history.replaceState(null, "", target);
+  const previousPath = window.location.pathname;
+  const current = previousPath + window.location.search + window.location.hash;
+  if (mode === "replace" || target === current) window.history.replaceState(null, "", target);
   else window.history.pushState(null, "", target);
+  if (window.location.pathname !== previousPath) navigationId += 1;
   notify();
 }
 
@@ -113,6 +117,18 @@ export function useSearchParams() {
   const queryStart = snapshot.indexOf("?");
   const search = queryStart === -1 ? "" : snapshot.slice(queryStart);
   return useMemo(() => new URLSearchParams(search), [search]);
+}
+
+export function useScrollReset(ref, enabled = true) {
+  const pathname = usePathname();
+  const seen = useRef(navigationId);
+  useEffect(() => {
+    if (seen.current === navigationId) return;
+    seen.current = navigationId;
+    if (!enabled) return;
+    if (ref?.current) ref.current.scrollTop = 0;
+    else if (!ref) window.scrollTo(0, 0);
+  }, [pathname, ref, enabled]);
 }
 
 export function useParams() {

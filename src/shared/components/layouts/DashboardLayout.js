@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
-import { usePathname } from "@/web/router";
+import { useRef, useState, useSyncExternalStore } from "react";
+import { usePathname, useScrollReset } from "@/web/router";
 import { useNotificationStore } from "@/store/notificationStore";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
@@ -44,6 +44,8 @@ export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isDesktop = useSyncExternalStore(subscribeDesktop, getDesktop, getServerDesktop);
   const pathname = usePathname();
+  const scrollRef = useRef(null);
+  useScrollReset(scrollRef);
   const notifications = useNotificationStore((state) => state.notifications);
   const removeNotification = useNotificationStore((state) => state.removeNotification);
 
@@ -107,7 +109,7 @@ export default function DashboardLayout({ children }) {
 
         <main id="main-content" className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg transition-colors duration-300">
           <Header key={pathname} onMenuClick={() => setSidebarOpen(true)} />
-          <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-4 py-7 sm:px-7 lg:px-12 lg:py-10">
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-4 py-7 sm:px-7 lg:px-12 lg:py-10">
             <div className="mx-auto w-full max-w-[110rem]">{children}</div>
           </div>
         </main>
