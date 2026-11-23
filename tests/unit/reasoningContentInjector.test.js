@@ -1,5 +1,5 @@
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { injectReasoningContent } from "../../open-sse/utils/reasoningContentInjector.js";
 import { OpenCodeExecutor } from "../../open-sse/executors/opencode.js";
 

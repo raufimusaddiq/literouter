@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-oauth-codex-bulk-import-post",
+  "method": "POST",
+  "path": "/api/oauth/codex/bulk-import",
+  "json": {}
+}

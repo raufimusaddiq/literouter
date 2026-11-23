@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-pxpipe-health-noauth",
+  "method": "POST",
+  "path": "/api/pxpipe/health",
+  "json": {}
+}

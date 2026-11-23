@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-provider-nodes-validate-post",
+  "method": "POST",
+  "path": "/api/provider-nodes/validate",
+  "json": {}
+}

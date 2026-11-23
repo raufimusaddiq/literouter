@@ -1,4 +1,4 @@
-import { describe, it, beforeAll } from "vitest";
+import { describe, it, beforeAll } from "bun:test";
 import assert from "node:assert/strict";
 
 let kimchiEntry;

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { openaiToOllamaRequest } from "../../open-sse/translator/request/openai-to-ollama.js";
 
 function reqWith(args) {

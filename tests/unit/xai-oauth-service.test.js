@@ -1,4 +1,5 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 describe("xai/oauth service", { timeout: 30000 }, () => {
   beforeAll(async () => {

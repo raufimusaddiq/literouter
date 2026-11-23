@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 import { drainRuntimeBuffersSync } from "@/lib/db/shutdown.js";
 

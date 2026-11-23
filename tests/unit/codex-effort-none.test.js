@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { CodexExecutor } from "../../open-sse/executors/codex.js";
 import { convertResponsesStreamToJson } from "../../open-sse/transformer/streamToJsonConverter.js";

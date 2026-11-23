@@ -1,0 +1,7 @@
+{
+  "peer": "proxied",
+  "auth": "none",
+  "id": "api-oauth-kiro-social-authorize-noauth-proxied",
+  "method": "GET",
+  "path": "/api/oauth/kiro/social-authorize"
+}

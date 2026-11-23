@@ -1,10 +1,7 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "bun:test";
 import http from "node:http";
-import { createRequire } from "node:module";
+import compression from "compression";
 import { SSE_HEADERS, SSE_HEADERS_CORS, SSE_HEADERS_NO_BUFFER, sseResponseHeaders } from "open-sse/utils/sseConstants.js";
-
-const require = createRequire(import.meta.url);
-const compression = require("../../node_modules/next/dist/compiled/compression");
 
 const servers = [];
 afterEach(() => { while (servers.length) servers.pop().close(); });
@@ -55,7 +52,7 @@ async function fetchChunks(port) {
 
 describe("SSE responses survive Next's response compression", () => {
   it.each([["SSE_HEADERS", SSE_HEADERS], ["SSE_HEADERS_CORS", SSE_HEADERS_CORS], ["SSE_HEADERS_NO_BUFFER", SSE_HEADERS_NO_BUFFER]])(
-    "%s: not compressed, chunks arrive incrementally",
+    "%p: not compressed, chunks arrive incrementally",
     async (_n, headers) => {
       const port = await serve(() => slowSse(headers));
       const { res, chunks, times, text } = await fetchChunks(port);

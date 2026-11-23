@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 import { pipeWithDisconnect, createStreamController } from "../../open-sse/utils/streamHandler.js";
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });

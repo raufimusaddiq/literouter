@@ -1,14 +1,12 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { runHealthCheck } from "@/lib/pxpipe/service.js";
-
-export const dynamic = "force-dynamic";
 
 export async function POST() {
   try {
     const result = await runHealthCheck();
-    return NextResponse.json(result);
+    return json(result);
   } catch (error) {
-    return NextResponse.json({ healthy: false, checks: [], error: error.message }, { status: 500 });
+    return json({ healthy: false, checks: [], error: error.message }, { status: 500 });
   }
 }
 

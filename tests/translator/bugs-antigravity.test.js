@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateRequest, translateResponse, initState } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
@@ -76,7 +76,7 @@ describe("Antigravity → Claude", () => {
 });
 
 describe("Antigravity executor", () => {
-  it.each(["optional", "~optional"])("strips %s from nested tool schemas", (annotation) => {
+  it.each(["optional", "~optional"])("strips %p from nested tool schemas", (annotation) => {
     const out = new AntigravityExecutor().transformRequest("gemini-2.5-pro", {
       request: {
         contents: [{ role: "user", parts: [{ text: "hi" }] }],

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { openaiToOpenAIResponsesRequest } from "../../open-sse/translator/request/openai-responses.js";
 
 const fn = (name) => ({ type: "function", function: { name, description: "d", parameters: { type: "object", properties: {} } } });
@@ -9,7 +9,7 @@ const convert = (extra) => openaiToOpenAIResponsesRequest("gpt-6.1-sol", {
 }, true, {});
 
 describe("Chat tool_choice -> Responses", () => {
-  it.each(["auto", "required", "none"])("forwards string tool_choice %s", (choice) => {
+  it.each(["auto", "required", "none"])("forwards string tool_choice %p", (choice) => {
     expect(convert({ tool_choice: choice }).tool_choice).toBe(choice);
   });
 
@@ -63,7 +63,7 @@ describe("Responses tool name sanitizing", () => {
   it.each([
     ["valid name declared first", ["a_b", "a.b"]],
     ["valid name declared last", ["a.b", "a_b"]],
-  ])("never maps a real tool onto an alias: %s", (_label, names) => {
+  ])("never maps a real tool onto an alias: %p", (_label, names) => {
     const out = openaiToOpenAIResponsesRequest("gpt-6.1-sol", {
       messages: [
         { role: "user", content: "hi" },

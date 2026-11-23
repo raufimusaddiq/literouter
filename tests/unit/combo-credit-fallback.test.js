@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { handleComboChat } from "../../open-sse/services/combo.js";
 
 describe("combo credit fallback", () => {
@@ -6,7 +7,7 @@ describe("combo credit fallback", () => {
     ["You have insufficient credits to make this request.", true],
     ["Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.", true],
     ["Bad request", false],
-  ])("routes a 400 response correctly: %s", async (message, shouldContinue) => {
+  ])("routes a 400 response correctly: %p", async (message, shouldContinue) => {
     const body = { messages: [{ role: "user", content: "Hello" }] };
     const models = ["cmc/deepseek/deepseek-v4-pro", "mistral/mistral-medium-latest"];
     const failure = Response.json({ error: { message } }, { status: 400 });

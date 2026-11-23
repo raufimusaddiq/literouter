@@ -56,7 +56,7 @@ Luna is exposed only through the Responses API, so both the target format and su
 
 OpenCode reports region blocks as `RegionError`, so the model row offers its workspace opt-in link.
 
-**Where:** `src/app/(dashboard)/dashboard/providers/[id]/ModelRow.js`: `regionOptInUrl`
+**Where:** `src/web/pages/dashboard/providers/[id]/ModelRow.js`: `regionOptInUrl`
 
 ## Consequences
 

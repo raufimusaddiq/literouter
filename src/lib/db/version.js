@@ -1,18 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
-
-let cachedVersion = null;
+import { version } from "../../../package.json" with { type: "json" };
 
 export function getAppVersion() {
-  if (cachedVersion) return cachedVersion;
-  try {
-    const pkgPath = path.join(process.cwd(), "package.json");
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-    cachedVersion = pkg.version || "0.0.0";
-  } catch {
-    cachedVersion = "0.0.0";
-  }
-  return cachedVersion;
+  return version || "0.0.0";
 }
 
 export function timestampSlug(date = new Date()) {

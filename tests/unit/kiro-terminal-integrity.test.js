@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const fetchMock = vi.fn();
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
@@ -208,7 +209,7 @@ describe("Kiro terminal integrity recovery", () => {
     expect(body).not.toContain("kiro_missing_terminal");
   });
 
-  it.each(["...", "…"])("repairs exact ellipsis final %s without leaking it", async (ellipsis) => {
+  it.each(["...", "…"])("repairs exact ellipsis final %p without leaking it", async (ellipsis) => {
     fetchMock
       .mockResolvedValueOnce(response([frame("assistantResponseEvent", { content: ellipsis })]))
       .mockResolvedValueOnce(response([frame("assistantResponseEvent", { content: "Recovered answer." })]));
@@ -226,7 +227,7 @@ describe("Kiro terminal integrity recovery", () => {
     "目前證據顯示只在 **03:48:30–03:49:00 TPE** 出現少量 NonKA 504；主池 106/106、副池 50/50，且兩池都沒有重啟。最後補查 504 access log，確認 host／路徑與是否為集中流量。",
     "Next I'll verify the deployment logs.",
     "Let me check the remaining failures."
-  ])("repairs conservative future-action final: %s", async (progress) => {
+  ])("repairs conservative future-action final: %p", async (progress) => {
     fetchMock
       .mockResolvedValueOnce(response([frame("assistantResponseEvent", { content: progress })]))
       .mockResolvedValueOnce(response([frame("assistantResponseEvent", { content: "Verification completed." })]));
@@ -254,7 +255,7 @@ describe("Kiro terminal integrity recovery", () => {
     "目前證據顯示只有少量 504。最後補查 504 access log，確認 host／路徑與是否為集中流量（答案是否定的）。",
     "目前證據顯示只有少量 504。最後補充兩點已確認的結果。",
     "The verification is complete and all tests passed."
-  ])("does not retry legitimate final: %s", async (finalText) => {
+  ])("does not retry legitimate final: %p", async (finalText) => {
     fetchMock.mockResolvedValueOnce(response([
       frame("assistantResponseEvent", { content: finalText })
     ]));
@@ -404,7 +405,7 @@ describe("Kiro terminal integrity recovery", () => {
     ["pause_turn", "kiro_terminal_incomplete"],
     ["content_filtered", "kiro_terminal_refusal"],
     ["novel_reason", "kiro_unknown_stop_reason"]
-  ])("fails closed for stop reason %s", async (stopReason, code) => {
+  ])("fails closed for stop reason %p", async (stopReason, code) => {
     fetchMock.mockResolvedValueOnce(response([
       frame("assistantResponseEvent", { content: `private-${stopReason}` }),
       frame("metadataEvent", { stopReason })
@@ -427,7 +428,7 @@ describe("Kiro terminal integrity recovery", () => {
       frame("metadataEvent", { stopReason: "end_turn" }),
       frame("messageStopEvent", { stopReason: "content_filtered" })
     ]
-  ])("preserves the most restrictive conflicting stop reason", async (...stopFrames) => {
+  ])("preserves the most restrictive conflicting stop reason (case %#)", async (...stopFrames) => {
     fetchMock.mockResolvedValueOnce(response([
       frame("assistantResponseEvent", { content: "private filtered output" }),
       ...stopFrames
@@ -476,7 +477,7 @@ describe("Kiro terminal integrity recovery", () => {
     ["cancelled", "kiro_terminal_incomplete"],
     ["content_filtered", "kiro_terminal_refusal"],
     ["novel_reason", "kiro_unknown_stop_reason"]
-  ])("does not let a valid tool override failure stop reason %s", async (stopReason, code) => {
+  ])("does not let a valid tool override failure stop reason %p", async (stopReason, code) => {
     fetchMock.mockResolvedValueOnce(response([
       frame("toolUseEvent", {
         toolUseId: "blocked-tool",
@@ -494,7 +495,7 @@ describe("Kiro terminal integrity recovery", () => {
   });
 
   it.each(["content_filtered", "cancelled", "max_tokens"])(
-    "classifies failure %s before validating a malformed deferred tool",
+    "classifies failure %p before validating a malformed deferred tool",
     async (stopReason) => {
       fetchMock.mockResolvedValueOnce(response([
         frame("toolUseEvent", { toolUseId: "bad-tool", name: "read_file" }),
@@ -526,7 +527,7 @@ describe("Kiro terminal integrity recovery", () => {
       frame("toolUseEvent", { toolUseId: "changing", name: "read_file" }),
       frame("toolUseEvent", { toolUseId: "changing", name: "write_file" })
     ], "kiro_terminal_incomplete"]
-  ])("continues past eager tool-shape errors to authoritative stop %s", async (stopReason, toolFrames, code) => {
+  ])("continues past eager tool-shape errors to authoritative stop %p", async (stopReason, toolFrames, code) => {
     fetchMock.mockResolvedValueOnce(response([
       ...toolFrames,
       frame("metadataEvent", { stopReason })
@@ -616,7 +617,7 @@ describe("Kiro terminal integrity recovery", () => {
         [":event-type", "metadataEvent"]
       ], { content: "duplicate" })
     ]]
-  ])("retries %s and releases only the valid attempt", async (_name, invalidFrames) => {
+  ])("retries %p and releases only the valid attempt", async (_name, invalidFrames) => {
     fetchMock
       .mockResolvedValueOnce(response([
         frame("assistantResponseEvent", { content: "must stay private" }),
@@ -689,7 +690,7 @@ describe("Kiro terminal integrity recovery", () => {
     expect(terminal.terminal_provenance).toBe("corrupt_eventstream_frame");
   });
 
-  it.each(["error", "exception"])("propagates EventStream %s without retry or leakage", async (messageType) => {
+  it.each(["error", "exception"])("propagates EventStream %p without retry or leakage", async (messageType) => {
     fetchMock.mockResolvedValueOnce(response([
       frame("assistantResponseEvent", { content: "must stay private" }),
       frameFromEntries([

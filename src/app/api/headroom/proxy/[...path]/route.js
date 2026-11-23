@@ -1,8 +1,6 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { getSettings } from "@/lib/localDb";
 import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
-
-export const dynamic = "force-dynamic";
 
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
@@ -37,7 +35,7 @@ function buildTargetUrl(base, path, search) {
 
 function forwardedHeaders(request, target) {
   const headers = new Headers(request.headers);
-  for (const header of headers.keys()) {
+  for (const header of [...headers.keys()]) {
     if (HOP_BY_HOP_HEADERS.has(header.toLowerCase())) headers.delete(header);
   }
   headers.delete("host");
@@ -73,7 +71,7 @@ async function proxy(request, { params }) {
     });
 
     const headers = new Headers(response.headers);
-    for (const header of headers.keys()) {
+    for (const header of [...headers.keys()]) {
       if (HOP_BY_HOP_HEADERS.has(header.toLowerCase())) headers.delete(header);
     }
 
@@ -81,16 +79,16 @@ async function proxy(request, { params }) {
       const contentType = response.headers.get("content-type") || "";
       if (contentType.includes("text/html")) {
         headers.delete("content-length");
-        return new NextResponse(rewriteDashboardHtml(await response.text()), {
+        return new Response(rewriteDashboardHtml(await response.text()), {
           status: response.status,
           headers,
         });
       }
     }
 
-    return new NextResponse(response.body, { status: response.status, headers });
+    return new Response(response.body, { status: response.status, headers });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return json({ error: error.message }, { status: 500 });
   }
 }
 

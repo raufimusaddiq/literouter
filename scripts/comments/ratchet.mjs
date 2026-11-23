@@ -3,7 +3,7 @@ import path from "node:path";
 import { findComments, listSourceFiles, repoRoot } from "./lib.mjs";
 
 export const BASELINE_FILE = ".comment-baseline.json";
-export const WRITE_HINT = "node scripts/comments/ratchet.mjs --write";
+export const WRITE_HINT = "bun scripts/comments/ratchet.mjs --write";
 
 export function countComments(root) {
   const counts = {};

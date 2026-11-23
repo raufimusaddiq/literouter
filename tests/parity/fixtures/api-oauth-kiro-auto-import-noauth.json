@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-oauth-kiro-auto-import-noauth",
+  "method": "GET",
+  "path": "/api/oauth/kiro/auto-import"
+}

@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "edge-root-redirect",
+  "method": "GET",
+  "path": "/"
+}

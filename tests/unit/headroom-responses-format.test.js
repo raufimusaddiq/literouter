@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 import { compressWithHeadroom } from "../../open-sse/rtk/headroom.js";
 
 describe("compressWithHeadroom openai-responses format (#1998)", () => {

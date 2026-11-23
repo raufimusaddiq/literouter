@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { Database } from "bun:sqlite";
+import { describe, it, expect, beforeAll } from "bun:test";
+import { useTempDataDir } from "#test/tempDataDir";
 
-const originalDataDir = process.env.DATA_DIR;
-let tempDir;
+useTempDataDir("9router-details-tab-", { scope: "all" });
 let db;
 let adapter;
 
@@ -14,21 +15,12 @@ async function saveDetail(detail) {
 }
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-details-tab-"));
-  process.env.DATA_DIR = tempDir;
-  vi.resetModules();
   db = await import("@/lib/db/index.js");
   await db.initDb();
   await db.updateSettings({ enableObservability: true, observabilityBatchSize: 1 });
 
   const { getAdapter } = await import("@/lib/db/driver.js");
   adapter = await getAdapter();
-});
-
-afterAll(() => {
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
 });
 
 describe("request details — tab crash-risk cases", () => {
@@ -122,15 +114,14 @@ describe("backupDbLite — excludes requestDetails, keeps critical data", () => 
     const dest = backupDbLite(adapter, backupDir);
     expect(fs.existsSync(dest)).toBe(true);
 
-    const Database = (await import("better-sqlite3")).default;
-    const bak = new Database(dest);
+    const bak = new Database(dest, { readonly: true });
     try {
       const rdTable = bak.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='requestDetails'").get();
-      expect(rdTable).toBeUndefined();
+      expect(rdTable).toBeNull();
       const st = bak.prepare("SELECT COUNT(*) c FROM settings").get();
       expect(st.c).toBeGreaterThanOrEqual(1);
     } finally {
-      bak.close();
+      bak.close(true);
       fs.rmSync(backupDir, { recursive: true, force: true });
     }
   });

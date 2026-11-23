@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { claudeToOpenAIResponse } from "../../open-sse/translator/response/claude-to-openai.js";
 
 const EXPLANATION =

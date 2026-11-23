@@ -1,0 +1,73 @@
+import fs from "node:fs";
+import path from "node:path";
+
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+export function diffValues(expected, actual, at = "") {
+  if (same(expected, actual)) return [];
+  const bothArrays = Array.isArray(expected) && Array.isArray(actual);
+  const bothObjects = !bothArrays && expected && actual && typeof expected === "object" && typeof actual === "object" && !Array.isArray(expected) && !Array.isArray(actual);
+  if (bothArrays) {
+    const out = [];
+    for (let i = 0; i < Math.max(expected.length, actual.length); i++) out.push(...diffValues(expected[i], actual[i], `${at}[${i}]`));
+    return out;
+  }
+  if (bothObjects) {
+    const out = [];
+    for (const k of new Set([...Object.keys(expected), ...Object.keys(actual)])) out.push(...diffValues(expected[k], actual[k], at ? `${at}.${k}` : k));
+    return out;
+  }
+  return [{ path: at, expected, actual }];
+}
+
+const listFixtures = (dir) => (fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(".json")).sort() : []);
+
+export function compareDirs(expectedDir, actualDir, known = []) {
+  const diffs = [];
+  const files = new Set([...listFixtures(expectedDir), ...listFixtures(actualDir)]);
+  for (const file of [...files].sort()) {
+    const read = (dir) => {
+      const p = path.join(dir, file);
+      return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : undefined;
+    };
+    for (const d of diffValues(read(expectedDir), read(actualDir))) diffs.push({ file: file.replace(/\.json$/, ""), ...d });
+  }
+  const pinnedValue = (k, d) => (k.any === true ? d.actual !== undefined : k.absent ? d.actual === undefined : !("actual" in k) || same(k.actual, d.actual));
+  const matches = (k, d) => k.file === d.file && k.path === d.path && pinnedValue(k, d);
+  const unlisted = diffs.filter((d) => !known.some((k) => matches(k, d)));
+  const stale = known.filter((k) => !diffs.some((d) => matches(k, d)));
+  return { diffs, unlisted, stale };
+}
+
+export function validateKnownDiffs(known) {
+  return known.flatMap((k, i) => {
+    const problems = [];
+    if (typeof k.file !== "string" || typeof k.path !== "string") problems.push("file and path must be strings");
+    if (typeof k.reason !== "string" || k.reason.length < 10) problems.push("reason of at least 10 characters is required");
+    if (k.any === true && ("actual" in k || k.absent === true)) problems.push("any cannot be combined with actual or absent");
+    return problems.map((problem) => `known-diffs[${i}]: ${problem}`);
+  });
+}
+
+export function loadKnownDiffs(file = new URL("./known-diffs.json", import.meta.url)) {
+  const known = JSON.parse(fs.readFileSync(file, "utf8"));
+  const problems = validateKnownDiffs(known);
+  if (problems.length) throw new Error(problems.join(String.fromCharCode(10)));
+  return known;
+}
+
+if (import.meta.main) {
+  const args = process.argv.slice(2);
+  const at = args.indexOf("--known");
+  const knownFile = at < 0 ? undefined : args.splice(at, 2)[1];
+  const [expectedDir, actualDir] = args;
+  if (!expectedDir || !actualDir) {
+    console.error("usage: bun tests/parity/compare.mjs <expectedDir> <actualDir> [--known <file>]");
+    process.exit(2);
+  }
+  const { diffs, unlisted, stale } = compareDirs(expectedDir, actualDir, loadKnownDiffs(knownFile && path.resolve(knownFile)));
+  for (const d of unlisted) console.error(`DIFF ${d.file} ${d.path || "(root)"}\n  expected: ${JSON.stringify(d.expected)}\n  actual:   ${JSON.stringify(d.actual)}`);
+  for (const k of stale) console.error(`STALE known-diff ${k.file} ${k.path}: no longer occurs`);
+  console.log(`${diffs.length} diffs (${unlisted.length} unlisted, ${stale.length} stale known)`);
+  process.exit(unlisted.length || stale.length ? 1 : 0);
+}

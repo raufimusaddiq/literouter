@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-usage-connectionId-get",
+  "method": "GET",
+  "path": "/api/usage/parity-conn-1"
+}

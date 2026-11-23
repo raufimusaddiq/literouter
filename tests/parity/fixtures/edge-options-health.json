@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "edge-options-health",
+  "method": "OPTIONS",
+  "path": "/api/health"
+}

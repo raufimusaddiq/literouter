@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-health-get",
+  "method": "GET",
+  "path": "/api/health"
+}

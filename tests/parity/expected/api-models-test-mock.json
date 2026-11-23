@@ -1,0 +1,30 @@
+{
+  "status": 200,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "ok": false,
+    "latencyMs": "<MS>",
+    "status": 200,
+    "error": "Provider closed the stream without sending any tokens"
+  },
+  "upstream": [
+    {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "body": {
+        "model": "mock-ok",
+        "max_tokens": 1024,
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    }
+  ]
+}

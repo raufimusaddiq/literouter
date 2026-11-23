@@ -1,0 +1,43 @@
+{
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "chatcmpl-<ID>",
+    "type": "message",
+    "role": "assistant",
+    "model": "mock-model",
+    "content": [
+      {
+        "type": "text",
+        "text": "parity ok"
+      }
+    ],
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "usage": {
+      "input_tokens": 3,
+      "output_tokens": 2
+    }
+  },
+  "upstream": [
+    {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "body": {
+        "model": "mock-ok",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "stream": false,
+        "max_tokens": 16
+      }
+    }
+  ]
+}

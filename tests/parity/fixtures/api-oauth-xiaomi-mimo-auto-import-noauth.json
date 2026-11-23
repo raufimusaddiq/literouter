@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-oauth-xiaomi-mimo-auto-import-noauth",
+  "method": "GET",
+  "path": "/api/oauth/xiaomi-mimo/auto-import"
+}

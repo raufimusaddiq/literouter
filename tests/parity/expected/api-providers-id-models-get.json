@@ -1,0 +1,28 @@
+{
+  "status": 200,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "provider": "openai-compatible-chat-parity",
+    "connectionId": "parity-conn-1",
+    "models": [
+      {
+        "id": "mock-ok",
+        "object": "model"
+      },
+      {
+        "id": "mock-stream",
+        "object": "model"
+      }
+    ]
+  },
+  "upstream": [
+    {
+      "method": "GET",
+      "path": "/v1/models",
+      "body": ""
+    }
+  ]
+}

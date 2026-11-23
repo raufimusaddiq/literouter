@@ -1,10 +1,7 @@
 import {
-  MEMORY_CONFIG,
-  FRESH_RETRY_KEEPALIVE_TIMEOUT_MS,
   STALE_SOCKET_ERROR_CODES,
   NON_STALE_SOCKET_ERROR_CODES,
   STALE_SOCKET_ERROR_SUBSTRINGS,
-  resolveKeepAliveTimeouts,
   isFreshSocketReplayEnabled,
   UNDICI_BACKSTOP_MS,
 } from "../config/runtimeConfig.js";
@@ -18,13 +15,48 @@ function hasClaudeCliHeader(headers) {
   return values.some((v) => typeof v === "string" && CLAUDE_UA_PROBE.test(v));
 }
 
-const originalFetch = globalThis.fetch;
-const proxyDispatchers = new Map();
-const directDispatchers = new Map();
+const nativeFetch = globalThis.fetch;
+const SYSTEM_CA = Symbol.for("literouter.systemCaList");
 
-export function resetDirectDispatchersForTests() {
-  directDispatchers.clear();
-  proxyDispatchers.clear();
+export const NODE_FETCH_DEFAULT_HEADERS = Object.freeze({
+  "accept-encoding": "gzip, deflate",
+  "accept-language": "*",
+  "sec-fetch-mode": "cors",
+  "user-agent": "node",
+});
+
+const CACHE_MODE_HEADERS = {
+  "no-store": { "cache-control": "no-cache", pragma: "no-cache" },
+  reload: { "cache-control": "no-cache", pragma: "no-cache" },
+  "no-cache": { "cache-control": "max-age=0" },
+};
+
+function isPlainHeaders(headers) {
+  return headers === undefined || headers === null || (typeof headers === "object" && !Array.isArray(headers) && !(headers instanceof Headers));
+}
+
+function withNodeDefaults(url, options) {
+  const cache = options?.cache ?? (url instanceof Request ? url.cache : undefined);
+  const defaults = Object.entries({ ...NODE_FETCH_DEFAULT_HEADERS, ...CACHE_MODE_HEADERS[cache] });
+  if (!(url instanceof Request) && isPlainHeaders(options?.headers)) {
+    const headers = { ...options?.headers };
+    const present = new Set(Object.keys(headers).map((k) => k.toLowerCase()));
+    for (const [name, value] of defaults) if (!present.has(name)) headers[name] = value;
+    return { ...options, headers };
+  }
+  const headers = new Headers(url instanceof Request ? url.headers : undefined);
+  if (options?.headers) new Headers(options.headers).forEach((value, name) => headers.set(name, value));
+  for (const [name, value] of defaults) if (!headers.has(name)) headers.set(name, value);
+  return { ...options, headers };
+}
+
+function originalFetch(url, rawOptions) {
+  const options = withNodeDefaults(url, rawOptions);
+  const system = globalThis[SYSTEM_CA];
+  const ca = options?.tls?.ca;
+  const callerCa = Array.isArray(ca) ? ca.length > 0 : Boolean(ca);
+  if (!system || callerCa) return nativeFetch(url, options);
+  return nativeFetch(url, { ...options, tls: { ...options?.tls, ca: system } });
 }
 
 export function isStaleSocketError(error) {
@@ -36,37 +68,75 @@ export function isStaleSocketError(error) {
   return STALE_SOCKET_ERROR_SUBSTRINGS.some((sub) => msg.includes(sub));
 }
 
-async function getOrCreateDirectAgent(key, keepAliveTimeout, keepAliveMaxTimeout) {
-  const cached = directDispatchers.get(key);
-  if (cached) return cached;
-  const { Agent } = await import("undici");
-  if (directDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
-    const oldestKey = directDispatchers.keys().next().value;
-    directDispatchers.get(oldestKey)?.close?.().catch?.(() => {});
-    directDispatchers.delete(oldestKey);
-  }
-  const agent = new Agent({ keepAliveTimeout, keepAliveMaxTimeout, headersTimeout: UNDICI_BACKSTOP_MS, bodyTimeout: UNDICI_BACKSTOP_MS });
-  directDispatchers.set(key, agent);
-  return agent;
-}
-
-export function getDirectDispatcher() {
-  const { keepAliveTimeout, keepAliveMaxTimeout } = resolveKeepAliveTimeouts();
-  return getOrCreateDirectAgent(`direct::${keepAliveTimeout}::${keepAliveMaxTimeout}`, keepAliveTimeout, keepAliveMaxTimeout);
-}
-
-export function getFreshRetryDispatcher() {
-  return getOrCreateDirectAgent("fresh", FRESH_RETRY_KEEPALIVE_TIMEOUT_MS, FRESH_RETRY_KEEPALIVE_TIMEOUT_MS);
-}
-
 function isBodyReplaySafe(body) {
   return body == null || typeof body === "string" || body instanceof URLSearchParams;
 }
 
-async function directFetch(url, options, forceFreshSocket = false) {
-  const dispatcher = await (forceFreshSocket ? getFreshRetryDispatcher() : getDirectDispatcher());
+const BACKSTOP_PHASES = {
+  headers: { name: "HeadersTimeoutError", code: "UND_ERR_HEADERS_TIMEOUT", message: "Headers Timeout Error" },
+  body: { name: "BodyTimeoutError", code: "UND_ERR_BODY_TIMEOUT", message: "Body Timeout Error" },
+};
+
+function backstopTimeoutError(phase) {
+  const { name, code, message } = BACKSTOP_PHASES[phase];
+  const cause = Object.assign(new Error(message), { name, code });
+  return Object.assign(new TypeError("fetch failed"), { cause });
+}
+
+function wrapBodyWithIdleBackstop(response, arm, disarm) {
+  if (!(response instanceof Response) || !response.body) {
+    disarm();
+    return response;
+  }
+  disarm();
+  const reader = response.body.getReader();
+  const body = new ReadableStream({
+    async pull(controller) {
+      arm("body");
+      try {
+        const { done, value } = await reader.read();
+        disarm();
+        if (done) controller.close();
+        else controller.enqueue(value);
+      } catch (err) {
+        disarm();
+        try { controller.error(err); } catch {}
+      }
+    },
+    async cancel(reason) {
+      disarm();
+      try { await reader.cancel(reason); } catch {}
+    },
+  }, { highWaterMark: 0 });
+  const wrapped = new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
+  try { Object.defineProperty(wrapped, "url", { value: response.url }); } catch {}
+  return wrapped;
+}
+
+async function fetchWithBackstop(url, options) {
+  const controller = new AbortController();
+  let timer = null;
+  const callerSignal = options?.signal;
+  const disarm = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  const arm = (phase) => { disarm(); timer = setTimeout(() => controller.abort(backstopTimeoutError(phase)), UNDICI_BACKSTOP_MS); };
+  const onCallerAbort = () => disarm();
+  callerSignal?.addEventListener("abort", onCallerAbort, { once: true });
+  const signal = callerSignal ? AbortSignal.any([callerSignal, controller.signal]) : controller.signal;
+  arm("headers");
   try {
-    return await originalFetch(url, { ...options, dispatcher });
+    const response = await originalFetch(url, { ...options, signal });
+    return wrapBodyWithIdleBackstop(response, arm, disarm);
+  } catch (err) {
+    disarm();
+    throw err;
+  } finally {
+    callerSignal?.removeEventListener("abort", onCallerAbort);
+  }
+}
+
+async function directFetch(url, options, forceFreshSocket = false) {
+  try {
+    return await fetchWithBackstop(url, forceFreshSocket ? { ...options, keepalive: false } : options);
   } catch (err) {
     if (
       !forceFreshSocket
@@ -144,35 +214,19 @@ function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
   return normalizeProxyUrl(proxyUrlRaw);
 }
 
-export async function getDispatcher(proxyUrl) {
-  const normalized = normalizeProxyUrl(proxyUrl);
-  if (!normalized) return null;
+let nodeProxyWarned = false;
 
-  if (proxyDispatchers.has(normalized)) {
-    const hit = proxyDispatchers.get(normalized);
-    proxyDispatchers.delete(normalized);
-    proxyDispatchers.set(normalized, hit);
-    return hit;
-  }
-
-  {
-    if (proxyDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
-      const oldestKey = proxyDispatchers.keys().next().value;
-      const evicted = proxyDispatchers.get(oldestKey);
-      proxyDispatchers.delete(oldestKey);
-      try { Promise.resolve(evicted?.close?.()).catch(() => {}); } catch {}
-    }
-    const { ProxyAgent } = await import("undici");
-    if (!proxyDispatchers.has(normalized)) {
-      proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized, headersTimeout: UNDICI_BACKSTOP_MS, bodyTimeout: UNDICI_BACKSTOP_MS }));
-    }
-  }
-
-  return proxyDispatchers.get(normalized);
+function guardProxyRuntime(proxyOptions) {
+  if (process.versions.bun) return;
+  const message = "[ProxyFetch] Proxy routing requires the Bun runtime; fetch ignores the proxy option on Node";
+  if (proxyOptions?.strictProxy === true) throw new Error(`${message} (strictProxy=true)`);
+  if (nodeProxyWarned) return;
+  nodeProxyWarned = true;
+  console.warn(`${message}; sending direct`);
 }
 
 export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
-  if (options?.dispatcher) return originalFetch(url, options);
+  if (options?.proxy) return originalFetch(url, options);
 
   if (hasClaudeCliHeader(options?.headers)) {
     ensureClaudeCliVersion();
@@ -199,9 +253,9 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   const proxyUrl = connectionProxyUrl || envProxyUrl;
 
   if (proxyUrl) {
+    guardProxyRuntime(proxyOptions);
     try {
-      const dispatcher = await getDispatcher(proxyUrl);
-      return await originalFetch(url, { ...options, dispatcher });
+      return await fetchWithBackstop(url, { ...options, proxy: proxyUrl });
     } catch (proxyError) {
       if (proxyOptions?.strictProxy === true) {
         throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyError.message}`);

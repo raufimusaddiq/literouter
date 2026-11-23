@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const fx = vi.hoisted(() => ({ fetch: vi.fn(), pending: vi.fn(), execute: vi.fn() }));
 
@@ -52,27 +53,27 @@ describe("BaseExecutor timeouts", () => {
     fx.fetch.mockImplementation(slowFetch(10 * 60_000));
     const e = new BaseExecutor("typesafe", { baseUrl: "https://example.test/v1/chat/completions", timeoutMs: 10_000 });
     const p = e.execute({ model: "m", body: { messages: [] }, stream: false, credentials: { apiKey: "k" } });
-    const assertion = expect(p).rejects.toMatchObject({ code: "GATEWAY_TIMEOUT", status: 504, phase: "total" });
+    const settled = p.then(() => null, (e) => e);
     await vi.advanceTimersByTimeAsync(11_000);
-    await assertion;
+    expect(await settled).toMatchObject({ code: "GATEWAY_TIMEOUT", status: 504, phase: "total" });
     expect(fx.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("stream with no headers inside the headers timeout -> GatewayTimeout, single attempt (no replay)", async () => {
     fx.fetch.mockImplementation(slowFetch(10 * 60_000));
     const p = run(true);
-    const assertion = expect(p).rejects.toMatchObject({ code: "GATEWAY_TIMEOUT", status: 504, phase: "headers" });
+    const settled = p.then(() => null, (e) => e);
     await vi.advanceTimersByTimeAsync(61_000);
-    await assertion;
+    expect(await settled).toMatchObject({ code: "GATEWAY_TIMEOUT", status: 504, phase: "headers" });
     expect(fx.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("non-stream past the total budget -> GatewayTimeout, single attempt", async () => {
     fx.fetch.mockImplementation(slowFetch(60 * 60_000));
     const p = run(false);
-    const assertion = expect(p).rejects.toMatchObject({ code: "GATEWAY_TIMEOUT", phase: "total" });
+    const settled = p.then(() => null, (e) => e);
     await vi.advanceTimersByTimeAsync(10 * 60_000 + 1000);
-    await assertion;
+    expect(await settled).toMatchObject({ code: "GATEWAY_TIMEOUT", phase: "total" });
     expect(fx.fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -80,9 +81,9 @@ describe("BaseExecutor timeouts", () => {
     fx.fetch.mockImplementation(slowFetch(60_000));
     const ctrl = new AbortController();
     const p = run(true, ctrl.signal);
-    const assertion = expect(p).rejects.toMatchObject({ name: "AbortError" });
+    const settled = p.then(() => null, (e) => e);
     ctrl.abort();
-    await assertion;
+    expect(await settled).toMatchObject({ name: "AbortError" });
     expect(fx.fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -90,10 +91,10 @@ describe("BaseExecutor timeouts", () => {
     fx.fetch.mockResolvedValue(new Response("bad", { status: 502 }));
     const ctrl = new AbortController();
     const p = run(false, ctrl.signal);
-    const assertion = expect(p).rejects.toMatchObject({ name: "AbortError" });
+    const settled = p.then(() => null, (e) => e);
     await vi.advanceTimersByTimeAsync(100);
     ctrl.abort();
-    await assertion;
+    expect(await settled).toMatchObject({ name: "AbortError" });
     expect(fx.fetch).toHaveBeenCalledTimes(1);
   });
 });

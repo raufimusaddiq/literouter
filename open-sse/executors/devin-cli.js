@@ -5,6 +5,7 @@ import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
 import { BaseExecutor } from "./base.js";
+import { bunCommand } from "@/lib/runtimeBun.js";
 
 
 function resolveDevinBin() {
@@ -95,12 +96,13 @@ function buildClientToolsMcp(tools, resultMap) {
     });
   }
   if (!mcpTools.length) return null;
-  const env = { DEVIN_MCP_TOOLS: JSON.stringify(mcpTools) };
+  const bun = bunCommand();
+  const env = { ...bun.env, DEVIN_MCP_TOOLS: JSON.stringify(mcpTools) };
   if (resultMap && Object.keys(resultMap).length) {
     env.DEVIN_MCP_RESULTS = JSON.stringify(resultMap);
   }
   return {
-    command: process.execPath,
+    command: bun.command,
     args: [ensureClientToolsScript()],
     env,
   };

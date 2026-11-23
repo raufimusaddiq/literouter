@@ -1,0 +1,7 @@
+{
+  "peer": "proxied",
+  "auth": "session",
+  "id": "trust-headroom-start-proxied-session",
+  "method": "POST",
+  "path": "/api/headroom/start"
+}

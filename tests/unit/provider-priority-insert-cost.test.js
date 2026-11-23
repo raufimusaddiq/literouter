@@ -1,34 +1,23 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it } from "bun:test";
+import { useTempDataDir } from "#test/tempDataDir";
 
-const originalDataDir = process.env.DATA_DIR;
-const originalAdapter = global._dbAdapter;
-const tempDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "literouter-provider-priority-"));
-process.env.DATA_DIR = tempDataDir;
-global._dbAdapter = { instance: null, initPromise: null, logged: false };
-vi.resetModules();
-const { getAdapter } = await import("../../src/lib/db/driver.js");
+useTempDataDir("literouter-provider-priority-", { scope: "all" });
 
-const {
-  createProviderConnection,
-  getProviderConnections,
-  deleteProviderConnection,
-  updateProviderConnection,
-} = await import("../../src/lib/db/index.js");
+let getAdapter;
+let createProviderConnection;
+let getProviderConnections;
+let deleteProviderConnection;
+let updateProviderConnection;
 
-afterAll(() => {
-  try {
-    global._dbAdapter.instance?.close();
-  } finally {
-    global._dbAdapter = originalAdapter;
-    if (originalDataDir === undefined) delete process.env.DATA_DIR;
-    else process.env.DATA_DIR = originalDataDir;
-    fs.rmSync(tempDataDir, { recursive: true, force: true });
-  }
+beforeAll(async () => {
+  ({ getAdapter } = await import("../../src/lib/db/driver.js"));
+  ({
+    createProviderConnection,
+    getProviderConnections,
+    deleteProviderConnection,
+    updateProviderConnection,
+  } = await import("../../src/lib/db/index.js"));
 });
-
 
 async function seed(provider, n) {
   for (let i = 0; i < n; i++) {
@@ -45,7 +34,7 @@ describe("provider insert is O(1) in pool size (#4311)", () => {
   it.each([
     ["gaps", [2, 7, 11]],
     ["duplicates", [7, 7, 11]],
-  ])("appends above legacy %s without rewriting the pool", async (label, priorities) => {
+  ])("appends above legacy %p without rewriting the pool", async (label, priorities) => {
     const provider = `openai-compatible-legacy-${label}-${Date.now()}`;
     await seed(provider, priorities.length);
     const db = await getAdapter();
@@ -103,13 +92,17 @@ describe("provider insert is O(1) in pool size (#4311)", () => {
 
 describe("name collision no longer destroys a key silently (#4311)", () => {
   const P = `openai-compatible-clash-${Date.now()}`;
-  const original = (async () => {
-    await seed(P, 1);
-    return (await getProviderConnections({ provider: P }))[0];
-  })();
+  let originalPromise;
+  const original = () => {
+    originalPromise ??= (async () => {
+      await seed(P, 1);
+      return (await getProviderConnections({ provider: P }))[0];
+    })();
+    return originalPromise;
+  };
 
   it("throws a typed conflict instead of overwriting, when overwrite is refused", async () => {
-    const orig = await original;
+    const orig = await original();
     await expect(
       createProviderConnection({
         provider: P,
@@ -125,7 +118,7 @@ describe("name collision no longer destroys a key silently (#4311)", () => {
   });
 
   it("still overwrites when the caller opts in", async () => {
-    const orig = await original;
+    const orig = await original();
     const updated = await createProviderConnection({
       provider: P,
       authType: "apikey",
@@ -139,7 +132,7 @@ describe("name collision no longer destroys a key silently (#4311)", () => {
   });
 
   it("rejects an omitted overwrite flag without changing credentials", async () => {
-    const orig = await original;
+    const orig = await original();
     const before = (await getProviderConnections({ provider: P }))[0];
     await expect(createProviderConnection({
       provider: P,
@@ -151,7 +144,7 @@ describe("name collision no longer destroys a key silently (#4311)", () => {
   });
 
   it("does not collide across different providers", async () => {
-    const orig = await original;
+    const orig = await original();
     const other = await createProviderConnection({
       provider: `openai-compatible-other-${Date.now()}`,
       authType: "apikey",

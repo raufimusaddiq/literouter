@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const dbMocks = vi.hoisted(() => ({
   getProviderConnections: vi.fn(),
@@ -13,7 +14,10 @@ const dbMocks = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock("@/lib/db/index.js", () => dbMocks);
+vi.mock("@/lib/db/index.js", async () => ({
+  ...(await import("@/lib/db/index.js?actual")),
+  ...dbMocks,
+}));
 vi.mock("@/lib/network/connectionProxy", () => ({
   pickProxyPoolId: vi.fn(),
   resolveConnectionProxyConfig: vi.fn(),

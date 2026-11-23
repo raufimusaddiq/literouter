@@ -38,7 +38,7 @@ Usage is forwarded to the client exactly as the upstream sent it: no buffering a
 
 Legacy Claude rows may have stored the prompt cache-exclusive, so `tokenDisplay` falls back to the cache count when it is larger, to avoid under-reporting input. The cost split in `UsageStats` is a token-share allocation of the rate-accurate server total, not a per-rate recompute; cached is a subset of the prompt so it is peeled out of the input share. A stored per-component cost breakdown would be needed for an exact cached-rate display. `saveRequestUsage` intentionally collapses rows sharing (timestamp, provider, model, connectionId, apiKey, tokens) so a retried or duplicated write does not double count.
 
-**Where:** `src/app/(dashboard)/dashboard/usage/components/tokenDisplay.js`; `src/shared/components/UsageStats.js`; `src/lib/db/repos/usageRepo.js`: `saveRequestUsage`; `tests/unit/db-concurrent.test.js`
+**Where:** `src/web/pages/dashboard/usage/components/tokenDisplay.js`; `src/shared/components/UsageStats.js`; `src/lib/db/repos/usageRepo.js`: `saveRequestUsage`; `tests/unit/db-concurrent.test.js`
 
 ## Consequences
 

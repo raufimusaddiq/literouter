@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
@@ -8,7 +8,7 @@ const O2R = (body) => translateRequest(FORMATS.OPENAI, FORMATS.OPENAI_RESPONSES,
 const R2R = (body) => translateRequest(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI_RESPONSES, "m", body, true, null, null);
 
 describe("Codex CLI Responses → OpenAI", () => {
-  it.fails("assistant has no empty tool_calls array when all names are empty", () => {
+  it.failing("assistant has no empty tool_calls array when all names are empty", () => {
     const out = R2O({
       input: [
         { type: "function_call", call_id: "c1", name: "", arguments: "{}" },
@@ -26,7 +26,7 @@ describe("Codex CLI Responses → OpenAI", () => {
     expect(typeof asst.tool_calls[0].function.arguments).toBe("string");
   });
 
-  it.fails("input_image with file_id is not used as a raw url", () => {
+  it.failing("input_image with file_id is not used as a raw url", () => {
     const out = R2O({
       input: [{ type: "message", role: "user", content: [
         { type: "input_image", file_id: "file-abc" },

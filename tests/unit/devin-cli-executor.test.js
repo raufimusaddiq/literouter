@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "bun:test";
+import { vi } from "#test/vi";
 import { EventEmitter } from "node:events";
 import os from "node:os";
 
@@ -262,6 +263,8 @@ describe("DevinCliExecutor ACP session/new", () => {
       if (done) break;
     }
     expect(capturedCfg).toBeTruthy();
+    expect(capturedCfg.mcpServers.clientTools.env.BUN_BE_BUN).toBe("1");
+    expect(capturedCfg.mcpServers.clientTools.command).toBe(process.execPath);
     const results = JSON.parse(capturedCfg.mcpServers.clientTools.env.DEVIN_MCP_RESULTS);
     expect(results.mcp_get_weather).toBe("28C sunny");
     expect(capturedPrompt).toContain("get_weather");

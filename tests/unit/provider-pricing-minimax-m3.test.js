@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { MODEL_PRICING } from "../../open-sse/providers/pricing.js";
 
 describe("MiniMax-M3 pricing", () => {
@@ -8,11 +8,9 @@ describe("MiniMax-M3 pricing", () => {
 
   it("MiniMax-M3 pricing has numeric shape (input, output, cached)", () => {
     const pricing = MODEL_PRICING["MiniMax-M3"];
-    expect(pricing).toMatchObject({
-      input: expect.any(Number),
-      output: expect.any(Number),
-      cached: expect.any(Number),
-    });
+    for (const key of ["input", "output", "cached"]) {
+      expect(typeof pricing[key]).toBe("number");
+    }
   });
 
   it("MiniMax-M3 input price matches the design spec (0.30)", () => {

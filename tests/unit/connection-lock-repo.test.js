@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "bun:test";
+import { vi } from "#test/vi";
 
 const originalDataDir = process.env.DATA_DIR;
 let tempDir;

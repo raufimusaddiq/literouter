@@ -1,28 +1,31 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const IMPORT_OPEN = /(?:from\s+|require\(\s*|import\(\s*)["']open["']/;
 
-describe("open must not be bundled into the server build", () => {
-  const config = readFileSync(path.join(repoRoot, "next.config.mjs"), "utf8");
-
-  it("is declared in serverExternalPackages", () => {
-    const match = config.match(/serverExternalPackages:\s*\[([^\]]*)\]/);
-    expect(match, "serverExternalPackages not found in next.config.mjs").toBeTruthy();
-    const packages = match[1].split(",").map((s) => s.trim().replace(/^["']|["']$/g, ""));
-    expect(packages).toContain("open");
+describe("the open package is replaced by openBrowser", () => {
+  it("is not imported by any server source file", () => {
+    const glob = new Bun.Glob("{src,open-sse}/**/*.{js,jsx,mjs}");
+    const offenders = [];
+    for (const file of glob.scanSync({ cwd: repoRoot })) {
+      if (IMPORT_OPEN.test(readFileSync(path.join(repoRoot, file), "utf8"))) offenders.push(file);
+    }
+    expect(offenders).toEqual([]);
   });
 
-  it("stays a runtime dependency so the standalone output can resolve it", async () => {
+  it("is no longer a runtime dependency", () => {
     const pkg = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8"));
-    expect(pkg.dependencies?.open).toBeTruthy();
+    expect(pkg.dependencies?.open).toBeUndefined();
+    expect(pkg.devDependencies?.open).toBeUndefined();
   });
 
-  it("resolves its own directory from import.meta.url, which is why it must stay external", async () => {
-    const entry = path.join(repoRoot, "node_modules", "open", "index.js");
-    const source = readFileSync(entry, "utf8");
-    expect(source).toMatch(/import\.meta\.url/);
+  it("is replaced by a launcher built on Bun.spawn, so there is nothing left to keep external", () => {
+    const source = readFileSync(path.join(repoRoot, "src/shared/utils/openBrowser.js"), "utf8");
+    expect(source).not.toMatch(IMPORT_OPEN);
+    expect(source).toMatch(/Bun\.spawn/);
+    expect(source).not.toMatch(/import\.meta\.url/);
   });
 });

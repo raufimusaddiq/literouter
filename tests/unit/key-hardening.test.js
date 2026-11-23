@@ -1,19 +1,13 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
+import { useTempDataDir } from "#test/tempDataDir";
 import crypto from "node:crypto";
 
 const mocks = vi.hoisted(() => ({
   validateApiKey: vi.fn(),
   getSettings: vi.fn(),
-}));
-vi.mock("next/server", () => ({
-  NextResponse: {
-    next: vi.fn(() => "next"),
-    json: vi.fn((body, init) => ({ status: init?.status || 200, body, headers: init?.headers })),
-    redirect: vi.fn(),
-  },
 }));
 vi.mock("@/lib/db/index.js", () => ({ getSettings: mocks.getSettings, validateApiKey: mocks.validateApiKey }));
 vi.mock("@/shared/utils/machineId", () => ({ getConsistentMachineId: vi.fn(async () => "cli-token") }));
@@ -23,17 +17,20 @@ const { generateApiKeyWithMachine, parseApiKey } = await import("@/shared/utils/
 const { safeEqual } = await import("@/shared/utils/safeEqual.js");
 const throttle = await import("@/lib/auth/apiKeyThrottle.js");
 const { isWeakApiKeySecret } = await import("@/lib/auth/apiKeySecretWarning.js");
-const { proxy, __test__ } = await import("../../src/dashboardGuard.js");
-
-const PEER = "peer-token-fixture";
-const req = (pathname, headers = {}) => ({
-  nextUrl: { pathname, searchParams: new URL(`http://localhost${pathname}`).searchParams },
-  headers: new Headers(headers),
-  cookies: { get: () => undefined },
-  url: `http://localhost${pathname}`,
-  method: "GET",
-});
-const loop = (headers = {}) => ({ "x-9r-peer-token": PEER, "x-9r-real-ip": "127.0.0.1", ...headers });
+const { guard, __test__ } = await import("../../src/server/guard.js");
+const { setRequestContext } = await import("../../src/server/context.js");
+const { buildRequestContext } = await import("../../src/server/trust.js");
+const req = (pathname, headers = {}, peerIp = null) => {
+  const r = {
+    headers: new Headers(headers),
+    cookies: { get: () => undefined },
+    url: `http://localhost${pathname}`,
+    method: "GET",
+  };
+  if (peerIp !== null) setRequestContext(r, buildRequestContext(peerIp, r.headers));
+  return r;
+};
+const loop = (pathname, headers = {}) => req(pathname, headers, "127.0.0.1");
 
 describe("key format", () => {
   it("generates 192-bit keys without machineId and parses them", () => {
@@ -64,13 +61,7 @@ describe("key format", () => {
 });
 
 describe("api key repo: legacy keys keep validating", () => {
-  let dir;
-  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "key-hard-")); process.env.DATA_DIR = dir; });
-  afterEach(() => {
-    try { global._dbAdapter?.instance?.close?.(); } catch {}
-    delete global._dbAdapter; delete process.env.DATA_DIR;
-    fs.rmSync(dir, { recursive: true, force: true });
-  });
+  useTempDataDir("key-hard-");
   it("validates new and legacy keys, rejects unknown", async () => {
     vi.resetModules();
     const repo = await import("@/lib/db/repos/apiKeysRepo.js");
@@ -112,64 +103,74 @@ describe("failed-auth throttle", () => {
     expect(throttle.throttleSize()).toBeLessThanOrEqual(MAX_ENTRIES);
   });
   it("proxy returns 429 + Retry-After and counts only presented bad keys", async () => {
-    process.env.NINEROUTER_PEER_TOKEN = PEER;
     mocks.validateApiKey.mockResolvedValue(false);
-    const remote = (h = {}) => req("/v1/models", { "x-9r-peer-token": PEER, "x-9r-real-ip": "9.9.9.9", ...h });
+    const remote = (h = {}) => req("/v1/models", h, "9.9.9.9");
     for (let i = 0; i < throttle.__limits.MAX_FAILS - 1; i++) {
-      expect((await proxy(remote({ authorization: "Bearer sk-bad" }))).status).toBe(401);
+      expect((await guard(remote({ authorization: "Bearer sk-bad" }))).status).toBe(401);
     }
-    const blocked = await proxy(remote({ authorization: "Bearer sk-bad" }));
+    const blocked = await guard(remote({ authorization: "Bearer sk-bad" }));
     expect(blocked.status).toBe(429);
-    expect(Number(blocked.headers["Retry-After"])).toBeGreaterThan(0);
-    const keyless = () => req("/v1/models", { "x-9r-peer-token": PEER, "x-9r-real-ip": "8.8.8.8" });
-    for (let i = 0; i < 30; i++) await proxy(keyless());
-    expect((await proxy(keyless())).status).toBe(401);
+    expect(Number(blocked.headers.get("Retry-After"))).toBeGreaterThan(0);
+    const keyless = () => req("/v1/models", {}, "8.8.8.8");
+    for (let i = 0; i < 30; i++) await guard(keyless());
+    expect((await guard(keyless())).status).toBe(401);
   });
   it("blocked IP: valid key and CLI token still pass; bad/absent key gets 429", async () => {
-    process.env.NINEROUTER_PEER_TOKEN = PEER;
-    const remote = (h = {}) => req("/v1/models", { "x-9r-peer-token": PEER, "x-9r-real-ip": "7.7.7.7", ...h });
+    const remote = (h = {}) => req("/v1/models", h, "7.7.7.7");
     for (let i = 0; i < throttle.__limits.MAX_FAILS; i++) throttle.recordApiKeyFailure("7.7.7.7");
     expect(throttle.checkApiKeyThrottle("7.7.7.7").blocked).toBe(true);
     mocks.validateApiKey.mockImplementation(async (k) => k === "sk-good");
-    expect(await proxy(remote({ authorization: "Bearer sk-good" }))).toBe("next");
-    expect(await proxy(remote({ "x-9r-cli-token": "cli-token" }))).toBe("next");
-    const bad = await proxy(remote({ authorization: "Bearer sk-bad" }));
+    expect(await guard(remote({ authorization: "Bearer sk-good" }))).toBeNull();
+    expect(await guard(remote({ "x-9r-cli-token": "cli-token" }))).toBeNull();
+    const bad = await guard(remote({ authorization: "Bearer sk-bad" }));
     expect(bad.status).toBe(429);
-    expect(Number(bad.headers["Retry-After"])).toBeGreaterThan(0);
-    expect((await proxy(remote())).status).toBe(429);
+    expect(Number(bad.headers.get("Retry-After"))).toBeGreaterThan(0);
+    expect((await guard(remote())).status).toBe(429);
   });
   it("unknown peer IP skips the throttle (no shared bucket)", async () => {
-    process.env.NINEROUTER_PEER_TOKEN = PEER;
     mocks.validateApiKey.mockResolvedValue(false);
     const anon = () => req("/v1/models", { authorization: "Bearer sk-bad" });
-    for (let i = 0; i < throttle.__limits.MAX_FAILS + 5; i++) expect((await proxy(anon())).status).toBe(401);
+    for (let i = 0; i < throttle.__limits.MAX_FAILS + 5; i++) expect((await guard(anon())).status).toBe(401);
     expect(throttle.throttleSize()).toBe(0);
   });
 });
 
 describe("loopback classification", () => {
-  beforeEach(() => { process.env.NINEROUTER_PEER_TOKEN = PEER; delete process.env.TRUST_LOOPBACK_AS_LOCAL; });
+  beforeEach(() => { delete process.env.TRUST_LOOPBACK_AS_LOCAL; });
   afterEach(() => { delete process.env.TRUST_LOOPBACK_AS_LOCAL; });
   it("bare loopback is local", () => {
-    expect(__test__.isLocalRequest(req("/v1/models", loop()))).toBe(true);
+    expect(__test__.isLocalRequest(loop("/v1/models"))).toBe(true);
   });
   it("Caddy and CDN headers are remote", () => {
     for (const h of [{ "x-forwarded-proto": "https" }, { "x-forwarded-host": "ai.musaddiqr.com" },
-      { "x-9r-via-proxy": "1" }, { via: "1.1 caddy" }, { forwarded: "for=1.2.3.4" },
+      { via: "1.1 caddy" }, { forwarded: "for=1.2.3.4" },
       { "cf-connecting-ip": "1.2.3.4" }, { "true-client-ip": "1.2.3.4" }, { "x-real-ip": "1.2.3.4" }]) {
-      expect(__test__.isLocalRequest(req("/v1/models", loop(h)))).toBe(false);
+      expect(__test__.isLocalRequest(loop("/v1/models", h))).toBe(false);
     }
   });
   it("TRUST_LOOPBACK_AS_LOCAL=false makes loopback remote", () => {
     process.env.TRUST_LOOPBACK_AS_LOCAL = "false";
-    expect(__test__.isLocalRequest(req("/v1/models", loop()))).toBe(false);
+    expect(__test__.isLocalRequest(loop("/v1/models"))).toBe(false);
   });
 });
 
-describe("custom-server marker list", () => {
-  it("mirrors src/lib/auth/proxyMarkers.js", async () => {
+describe("Bun server marker list", () => {
+  it("trust.js decides locality from every header in src/lib/auth/proxyMarkers.js", async () => {
     const { PROXY_MARKER_HEADERS } = await import("@/lib/auth/proxyMarkers.js");
-    const src = fs.readFileSync(path.resolve(__dirname, "../../custom-server.js"), "utf8");
-    for (const h of PROXY_MARKER_HEADERS) expect(src).toContain(`"${h}"`);
+    const src = fs.readFileSync(path.resolve(__dirname, "../../src/server/trust.js"), "utf8");
+    expect(src).toContain("hasProxyMarker");
+    for (const h of PROXY_MARKER_HEADERS) {
+      expect(buildRequestContext("127.0.0.1", new Headers({ [h]: "1.2.3.4" })).isLocal).toBe(false);
+    }
+    expect(buildRequestContext("127.0.0.1", new Headers()).isLocal).toBe(true);
+  });
+
+  it("the strip list in src/server/index.js drops the retired peer headers and forwarded-for", () => {
+    const src = fs.readFileSync(path.resolve(__dirname, "../../src/server/index.js"), "utf8");
+    const list = /const STRIPPED_HEADERS = \[([^\]]*)\]/.exec(src);
+    expect(list).not.toBeNull();
+    for (const h of ["x-9r-real-ip", "x-9r-peer-token", "x-9r-via-proxy", "x-forwarded-for"]) {
+      expect(list[1]).toContain(`"${h}"`);
+    }
   });
 });

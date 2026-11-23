@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 
 const { lookupMock } = vi.hoisted(() => ({ lookupMock: vi.fn() }));
@@ -73,7 +74,7 @@ describe("assertPublicUrlResolved: DNS-resolving hostname bypass from #3714", ()
 
   it("allows a hostname that resolves only to public addresses", async () => {
     lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
-    await expect(assertPublicUrlResolved("https://example.com/")).resolves.not.toThrow();
+    await expect(assertPublicUrlResolved("https://example.com/")).resolves.toBeUndefined();
   });
 
 

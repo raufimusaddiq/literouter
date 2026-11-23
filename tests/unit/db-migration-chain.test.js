@@ -1,25 +1,10 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect } from "bun:test";
+import { vi } from "#test/vi";
+import { useTempDataDir } from "#test/tempDataDir";
 
-let tempDir;
-const originalDataDir = process.env.DATA_DIR;
-
-beforeEach(() => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-mig-"));
-  process.env.DATA_DIR = tempDir;
-  delete global._dbAdapter;
-  vi.resetModules();
-});
-
-afterEach(() => {
-  try { global._dbAdapter?.instance?.close?.(); } catch {}
-  delete global._dbAdapter;
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
-});
+const temp = useTempDataDir("9router-mig-");
 
 describe("Schema migrations", () => {
   it("fresh DB → applies migrations & stamps schemaVersion", async () => {
@@ -79,7 +64,7 @@ describe("Schema migrations", () => {
       apiKeys: [{ id: "k1", key: "abc", name: "test", createdAt: new Date().toISOString() }],
       modelAliases: { "gpt-4": "gpt-4-turbo" },
     };
-    fs.writeFileSync(path.join(tempDir, "db.json"), JSON.stringify(legacy));
+    fs.writeFileSync(path.join(temp.dir, "db.json"), JSON.stringify(legacy));
 
     const { getAdapter } = await import("@/lib/db/driver.js");
     const db = await getAdapter();

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { prepareClaudeRequest } from "../../open-sse/translator/formats/claude.js";
 
 function makeBody(model) {
@@ -33,7 +33,7 @@ function firstBlock(body) {
 }
 
 describe("prepareClaudeRequest — opencode-go DeepSeek thinking pass-back", () => {
-  it.each(["enabled", "adaptive"])("injects an unsigned thinking placeholder when thinking is %s", (type) => {
+  it.each(["enabled", "adaptive"])("injects an unsigned thinking placeholder when thinking is %p", (type) => {
     const body = makeBody("opencode-go/deepseek-v4.1-flash");
     body.thinking = type === "adaptive" ? { type } : body.thinking;
     const out = prepareClaudeRequest(

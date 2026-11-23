@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const fx = vi.hoisted(() => ({
   combos: [
@@ -10,13 +11,14 @@ const fx = vi.hoisted(() => ({
   keys: {},
 }));
 
-vi.mock("@/lib/db/index.js", () => ({
+vi.mock("@/lib/db/index.js", async () => ({
+  ...(await import("@/lib/db/index.js?actual")),
   getModelAliases: async () => fx.aliases,
   getComboByName: async (name) => fx.combos.find((c) => c.name === name) || null,
   getProviderNodes: async (filter = {}) => fx.nodes.filter((n) => !filter.type || n.type === filter.type),
 }));
-vi.mock("@/lib/db/repos/combosRepo.js", () => ({ getCombos: async () => fx.combos }));
-vi.mock("@/lib/db/repos/apiKeysRepo.js", () => ({ getApiKeyByKey: async (k) => fx.keys[k] || null }));
+vi.mock("@/lib/db/repos/combosRepo.js", async () => ({ ...(await import("@/lib/db/repos/combosRepo.js?actual")), getCombos: async () => fx.combos }));
+vi.mock("@/lib/db/repos/apiKeysRepo.js", async () => ({ ...(await import("@/lib/db/repos/apiKeysRepo.js?actual")), getApiKeyByKey: async (k) => fx.keys[k] || null }));
 vi.mock("@/sse/utils/logger.js", () => ({ warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn() }));
 
 const engine = await import("../../src/sse/services/keyAccess.js");

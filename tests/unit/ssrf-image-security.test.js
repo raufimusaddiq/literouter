@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const lookupMock = vi.fn();
 vi.mock("node:dns/promises", () => ({ lookup: (...a) => lookupMock(...a) }));
@@ -30,10 +31,10 @@ describe("isPrivateIp (BlockList)", () => {
     "192.0.0.5", "192.168.1.1", "198.18.0.1", "198.19.255.255", "224.0.0.1", "239.255.255.255", "240.0.0.1", "255.255.255.255",
     "::", "::1", "::ffff:127.0.0.1", "::ffff:7f00:1", "::ffff:10.0.0.1", "64:ff9b::7f00:1", "fc00::1", "fd12::1",
     "fe80::1", "fec0::1", "ff02::1", "fe80::1%eth0", "not-an-ip", "",
-  ])("blocks %s", (ip) => { expect(isPrivateIp(ip)).toBe(true); });
+  ])("blocks %p", (ip) => { expect(isPrivateIp(ip)).toBe(true); });
 
   it.each(["93.184.216.34", "8.8.8.8", "172.32.0.1", "100.63.255.255", "198.20.0.1", "2606:4700:4700::1111", "2001:4860:4860::8888"])(
-    "allows public %s", (ip) => { expect(isPrivateIp(ip)).toBe(false); });
+    "allows public %p", (ip) => { expect(isPrivateIp(ip)).toBe(false); });
 });
 
 describe("fetchImageAsBase64 redirects + pin", () => {
@@ -45,24 +46,25 @@ describe("fetchImageAsBase64 redirects + pin", () => {
     expect(f.mock.calls[0][1].redirect).toBe("manual");
   });
 
-  it("passes a pinned dispatcher to fetch", async () => {
+  it("connects to the validated IP and keeps the original Host header", async () => {
     const f = vi.fn(async () => ({ ok: true, body: streamOf(PNG) }));
     globalThis.fetch = f;
-    expect(await fetchImageAsBase64("http://public.example/a.png")).not.toBeNull();
-    expect(f.mock.calls[0][1].dispatcher).toBeDefined();
+    expect(await fetchImageAsBase64("http://public.example:8080/a.png?v=1")).not.toBeNull();
+    expect(f.mock.calls[0][0]).toBe("http://93.184.216.34:8080/a.png?v=1");
+    expect(f.mock.calls[0][1].headers.Host).toBe("public.example:8080");
   });
 });
 
-describe("proxyAwareFetch dispatcher", () => {
-  it("does not override a caller-supplied dispatcher", async () => {
+describe("proxyAwareFetch proxy option", () => {
+  it("does not override a caller-supplied proxy", async () => {
     vi.resetModules();
     const f = vi.fn(async () => new Response("ok"));
     globalThis.fetch = f;
     const { proxyAwareFetch } = await import("../../open-sse/utils/proxyFetch.js");
-    const dispatcher = { pinned: true };
-    await proxyAwareFetch("https://example.com/x", { dispatcher });
+    const proxy = "http://caller-proxy.invalid:3128";
+    await proxyAwareFetch("https://example.com/x", { proxy });
     expect(f).toHaveBeenCalledTimes(1);
-    expect(f.mock.calls[0][1].dispatcher).toBe(dispatcher);
+    expect(f.mock.calls[0][1].proxy).toBe(proxy);
   });
 });
 
@@ -103,5 +105,5 @@ describe("redactUrlSecrets", () => {
     ["https://x/y?api_key=S&access_token=T", "https://x/y?api_key=[REDACTED]&access_token=[REDACTED]"],
     ["→ https://x/y?KEY=S | body=3B", "→ https://x/y?KEY=[REDACTED] | body=3B"],
     ["https://x/y?monkey=1", "https://x/y?monkey=1"],
-  ])("%s", (i, o) => { expect(redactUrlSecrets(i)).toBe(o); });
+  ])("%p", (i, o) => { expect(redactUrlSecrets(i)).toBe(o); });
 });

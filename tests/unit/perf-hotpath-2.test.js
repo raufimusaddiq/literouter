@@ -1,28 +1,23 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
-describe("proxy dispatcher LRU", () => {
-  const closed = [];
-  beforeEach(() => { closed.length = 0; vi.resetModules(); });
+const realCrypto = { ...(await import("node:crypto")) };
 
-  it("evicts the least-recently-used dispatcher, not the oldest-inserted", async () => {
-    vi.doMock("undici", async (orig) => {
-      const actual = await orig();
-      class ProxyAgent {
-        constructor(o) { this.uri = o.uri; }
-        async close() { closed.push(this.uri); }
-      }
-      return { ...actual, ProxyAgent };
-    });
-    const { MEMORY_CONFIG } = await import("../../open-sse/config/runtimeConfig.js");
-    const { getDispatcher } = await import("../../open-sse/utils/proxyFetch.js");
-    const max = MEMORY_CONFIG.proxyDispatchersMaxSize;
-    expect(max).toBeGreaterThanOrEqual(64);
-    for (let i = 0; i < max; i++) await getDispatcher(`http://127.0.0.1:${9000 + i}`);
-    const first = await getDispatcher("http://127.0.0.1:9000");
-    expect(await getDispatcher("http://127.0.0.1:9000")).toBe(first);
-    await getDispatcher("http://127.0.0.1:19999");
-    expect(closed).toEqual(["http://127.0.0.1:9001"]);
-    vi.doUnmock("undici");
+describe("proxy URL handling", () => {
+  beforeEach(() => { vi.resetModules(); });
+
+  it("adds http:// to a bare host:port and leaves full URLs unchanged", async () => {
+    for (const name of ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy"]) vi.stubEnv(name, "");
+    const realFetch = globalThis.fetch;
+    const seen = [];
+    globalThis.fetch = vi.fn(async (_u, o) => { seen.push(o.proxy); return new Response("ok"); });
+    try {
+      const { proxyAwareFetch } = await import("../../open-sse/utils/proxyFetch.js");
+      await proxyAwareFetch("https://example.invalid/x", {}, { enabled: true, url: "127.0.0.1:9000" });
+      await proxyAwareFetch("https://example.invalid/x", {}, { enabled: true, url: "http://user:pw@127.0.0.1:9001" });
+      await proxyAwareFetch("https://example.invalid/x", {}, null);
+      expect(seen).toEqual(["http://127.0.0.1:9000", "http://user:pw@127.0.0.1:9001", undefined]);
+    } finally { globalThis.fetch = realFetch; vi.unstubAllEnvs(); }
   });
 });
 
@@ -62,13 +57,13 @@ describe("RTK memo", () => {
 
   it("is fail-open when hashing throws", async () => {
     vi.resetModules();
-    vi.doMock("node:crypto", () => ({ createHash: () => { throw new Error("nope"); } }));
+    vi.mock("node:crypto", () => ({ ...realCrypto, default: { ...realCrypto }, createHash: () => { throw new Error("nope"); } }));
     try {
       const rtk = await import("../../open-sse/rtk/index.js");
       const body = mkBody(bigDiff());
       expect(() => rtk.compressMessages(body, true)).not.toThrow();
       expect(body.messages[0].content.length).toBeLessThan(bigDiff().length);
-    } finally { vi.doUnmock("node:crypto"); vi.resetModules(); }
+    } finally { vi.mock("node:crypto", () => ({ ...realCrypto, default: realCrypto })); vi.resetModules(); }
   });
 });
 
@@ -94,7 +89,7 @@ describe("connection snapshot index", () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    vi.doMock("@/lib/db/driver.js", () => ({ getAdapter: vi.fn(async () => db), getAdapterSync: vi.fn(() => db) }));
+    vi.mock("@/lib/db/driver.js", () => ({ getAdapter: vi.fn(async () => db), getAdapterSync: vi.fn(() => db) }));
     global.__liteRouterConnectionCache = { rows: null, expiresAt: 0, versionCheckedAt: 0 };
     rows.clear(); db.all.mockClear();
     repo = await import("@/lib/db/repos/connectionsRepo.js");

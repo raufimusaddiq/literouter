@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-usage-chart-noauth",
+  "method": "GET",
+  "path": "/api/usage/chart"
+}

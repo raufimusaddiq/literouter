@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 import { mergeAnthropicBeta } from "open-sse/providers/shared.js";
 import { upstreamResponseHeaders } from "open-sse/utils/upstreamHeaders.js";
 import { createErrorResult, unavailableResponse } from "open-sse/utils/error.js";

@@ -1,15 +1,15 @@
-import pkg from "../../../package.json" with { type: "json" };
+import { version } from "../../../package.json" with { type: "json" };
 
 export const APP_CONFIG = {
   name: "LiteRouter",
   description: "Lean AI routing control plane",
-  version: pkg.version,
+  version: version,
 };
 
 export const UPDATER_CONFIG = {
-  npmPackageName: "9router",
-  installCmd: "npm i -g 9router",
-  installCmdLatest: "npm i -g 9router@latest --prefer-online",
+  npmPackageName: "literouter",
+  installCmd: "bun add -g literouter",
+  installCmdLatest: "bun add -g literouter@latest",
   exitDelayMs: 500,
   statusPort: 20129,
   statusPollIntervalMs: 1000,

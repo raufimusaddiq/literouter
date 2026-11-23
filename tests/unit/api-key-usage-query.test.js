@@ -1,12 +1,11 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll } from "bun:test";
+import { useTempDataDir } from "#test/tempDataDir";
 
-let tempDir;
+useTempDataDir("9router-keyusage-", { scope: "all" });
 let db;
 let getApiKeyUsageRows;
-const originalDataDir = process.env.DATA_DIR;
 const NOW = Date.parse("2026-06-01T12:00:00.000Z");
 const ROWS = 200_000;
 const KEYS = Array.from({ length: 6 }, (_, i) => `fp_key${i}`);
@@ -18,10 +17,6 @@ const byKey = (rows) => Object.fromEntries(rows.map((r) => [r.apiKey, { requests
 const time = async (fn) => { const t = performance.now(); const r = await fn(); return [r, performance.now() - t]; };
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-keyusage-"));
-  process.env.DATA_DIR = tempDir;
-  delete global._dbAdapter;
-  vi.resetModules();
   const { getAdapter } = await import("@/lib/db/driver.js");
   ({ getApiKeyUsageRows } = await import("@/lib/db/repos/usageRepo.js"));
   db = await getAdapter();
@@ -37,13 +32,6 @@ beforeAll(async () => {
   db.run("COMMIT");
 }, 120_000);
 
-afterAll(() => {
-  try { global._dbAdapter?.instance?.close?.(); } catch {}
-  delete global._dbAdapter;
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
-});
 
 describe("getApiKeyUsageRows", () => {
   it("creates the apiKey/timestamp index", () => {

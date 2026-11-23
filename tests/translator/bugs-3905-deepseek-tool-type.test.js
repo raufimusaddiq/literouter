@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { PROVIDERS } from "../../open-sse/providers/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { shouldDefaultClaudeToolType } from "../../open-sse/translator/concerns/toolCall.js";

@@ -1,13 +1,13 @@
 
 import crypto from "crypto";
-import { v5 as uuidv5 } from "uuid";
+import { uuidv5, UUID_NS_DNS } from "./uuidv5.js";
 
 export function generateHashed64Hex(input, salt = "") {
   return crypto.createHash("sha256").update(input + salt).digest("hex");
 }
 
 export function generateSessionId(authToken) {
-  return uuidv5(authToken, uuidv5.DNS);
+  return uuidv5(authToken, UUID_NS_DNS);
 }
 
 export function generateCursorChecksum(machineId) {

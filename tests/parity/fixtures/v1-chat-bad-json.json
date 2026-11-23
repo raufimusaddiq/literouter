@@ -1,0 +1,17 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "v1-chat-bad-json",
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "json": {
+    "model": "pm/mock-bad-json",
+    "messages": [
+      {
+        "role": "user",
+        "content": "hi"
+      }
+    ],
+    "stream": false
+  }
+}

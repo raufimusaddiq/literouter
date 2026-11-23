@@ -1,0 +1,11 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "edge-usage-stream-sse",
+  "method": "GET",
+  "path": "/api/usage/stream",
+  "sse": {
+    "maxFrames": 3,
+    "maxMs": 1500
+  }
+}

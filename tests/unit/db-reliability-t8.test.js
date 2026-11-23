@@ -1,24 +1,31 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 afterEach(() => { vi.useRealTimers(); vi.resetModules(); });
 
-describe("sql.js adapter durability", () => {
-  it("saves at least every max-wait under steady writes, atomically", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "t8-sqljs-"));
-    process.env.SQLJS_SAVE_MAX_WAIT_MS = "1000";
+describe("bun:sqlite adapter durability", () => {
+  it("checkpoint folds committed writes into the main file a second connection can read", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "t8-bun-"));
+    process.env.DATA_DIR = dir;
+    delete global._dbAdapter;
     vi.resetModules();
-    const { createSqlJsAdapter } = await import("@/lib/db/adapters/sqljsAdapter.js");
-    const file = path.join(dir, "x.sqlite");
-    const a = await createSqlJsAdapter(file);
+    const { Database } = await import("bun:sqlite");
+    const { getAdapter } = await import("@/lib/db/driver.js");
+    const a = await getAdapter();
     a.exec("CREATE TABLE t(i INTEGER)");
-    vi.useFakeTimers();
-    for (let i = 0; i < 30; i++) { a.run("INSERT INTO t VALUES(?)", [i]); await vi.advanceTimersByTimeAsync(50); }
-    expect(fs.existsSync(file)).toBe(true);
-    expect(fs.readdirSync(dir).filter((f) => f.endsWith(".tmp"))).toEqual([]);
-    delete process.env.SQLJS_SAVE_MAX_WAIT_MS;
+    for (let i = 0; i < 30; i++) a.run("INSERT INTO t VALUES(?)", [i]);
+    a.checkpoint();
+    const file = path.join(dir, "db", "data.sqlite");
+    const reader = new Database(file, { readonly: true });
+    expect(reader.query("SELECT COUNT(*) AS n FROM t").get().n).toBe(30);
+    reader.close(true);
+    expect(fs.readdirSync(path.join(dir, "db")).filter((f) => f.endsWith(".tmp"))).toEqual([]);
+    a.close();
+    delete global._dbAdapter;
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });
 
@@ -37,23 +44,25 @@ describe("driver init retry", () => {
   });
 });
 
-describe("sqljs save retry", () => {
-  it("reschedules a save with backoff after persist fails", async () => {
+describe("bun:sqlite close after a failed checkpoint", () => {
+  it("still finalizes statements and releases the file", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "t8-retry-"));
-    const file = path.join(dir, "r.db");
-    const { createSqlJsAdapter } = await import("@/lib/db/adapters/sqljsAdapter.js");
-    const a = await createSqlJsAdapter(file);
-    vi.useFakeTimers();
-    const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    const rename = vi.spyOn(fs, "renameSync").mockImplementation(() => { throw new Error("disk"); });
+    process.env.DATA_DIR = dir;
+    delete global._dbAdapter;
+    vi.resetModules();
+    const { getAdapter } = await import("@/lib/db/driver.js");
+    const a = await getAdapter();
     a.exec("CREATE TABLE t(i INTEGER)");
-    await vi.advanceTimersByTimeAsync(150);
-    expect(fs.existsSync(file)).toBe(false);
-    rename.mockRestore();
-    await vi.advanceTimersByTimeAsync(1100);
-    expect(fs.existsSync(file)).toBe(true);
-    err.mockRestore();
-    vi.useRealTimers();
+    a.run("INSERT INTO t VALUES(?)", [1]);
+    const realExec = a.raw.exec.bind(a.raw);
+    const exec = vi.spyOn(a.raw, "exec").mockImplementation((sql) => {
+      if (String(sql).includes("wal_checkpoint")) throw new Error("disk");
+      return realExec(sql);
+    });
+    expect(() => a.close()).not.toThrow();
+    exec.mockRestore();
+    delete global._dbAdapter;
+    expect(() => fs.rmSync(dir, { recursive: true })).not.toThrow();
   });
 });
 

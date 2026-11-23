@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { deriveModelName } from "../../open-sse/providers/models/namePatterns.js";
 import { normalizeModel, normalizeModelId } from "../../open-sse/providers/models/schema.js";
 

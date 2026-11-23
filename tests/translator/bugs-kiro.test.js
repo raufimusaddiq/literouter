@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
@@ -19,7 +19,7 @@ describe("OpenAI → Kiro", () => {
     ["high", "gpt-5.6-sol"],
     ["medium", "gpt-5.6-terra"],
     ["low", "gpt-5.6-luna"],
-  ])("preserves Responses reasoning.effort %s through the full Kiro route", (effort, model) => {
+  ])("preserves Responses reasoning.effort %p through the full Kiro route", (effort, model) => {
     const out = R2K(model, {
       input: "Use the requested effort",
       reasoning: { effort },
@@ -46,12 +46,12 @@ describe("OpenAI → Kiro", () => {
     ).not.toThrow();
   });
 
-  it.fails("respects client max_tokens", () => {
+  it.failing("respects client max_tokens", () => {
     const out = O2K({ max_tokens: 100, messages: [{ role: "user", content: "hi" }] });
     expect(out.inferenceConfig?.maxTokens, "client max_tokens ignored").toBe(100);
   });
 
-  it.fails("remote image url is preserved as an image, not text", () => {
+  it.failing("remote image url is preserved as an image, not text", () => {
     const out = O2K({
       messages: [{ role: "user", content: [
         { type: "text", text: "see" },

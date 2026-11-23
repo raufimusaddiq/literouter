@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { stripUnsupportedParams } from "../../open-sse/translator/concerns/paramSupport.js";
 import nvidiaConfig from "../../open-sse/providers/registry/nvidia.js";
 import { DefaultExecutor } from "../../open-sse/executors/default.js";

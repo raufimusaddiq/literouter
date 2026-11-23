@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { mapUsageToKeys } from "../../src/lib/keyUsage.js";
 import { fingerprintKey } from "../../open-sse/utils/keyFingerprint.js";
 

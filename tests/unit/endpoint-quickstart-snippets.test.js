@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { buildSnippets, PLACEHOLDER_KEY } from "../../src/app/(dashboard)/dashboard/endpoint/quickstartSnippets.js";
-import { sortKeysByLastUsed } from "../../src/app/(dashboard)/dashboard/endpoint/keyFormat.js";
+import { describe, it, expect } from "bun:test";
+import { buildSnippets, PLACEHOLDER_KEY } from "../../src/web/pages/dashboard/endpoint/quickstartSnippets.js";
+import { sortKeysByLastUsed } from "../../src/web/pages/dashboard/endpoint/keyFormat.js";
 
 describe("buildSnippets", () => {
   const base = "http://localhost:20128/v1";

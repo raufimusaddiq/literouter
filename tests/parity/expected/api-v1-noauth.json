@@ -1,0 +1,15 @@
+{
+  "status": 401,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "error": {
+      "message": "API key required for remote API access",
+      "type": "authentication_error",
+      "code": "invalid_api_key"
+    }
+  },
+  "upstream": []
+}

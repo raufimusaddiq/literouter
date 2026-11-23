@@ -1,0 +1,8 @@
+{
+  "peer": "proxied",
+  "auth": "none",
+  "id": "api-pxpipe-install-noauth-proxied",
+  "method": "POST",
+  "path": "/api/pxpipe/install",
+  "json": {}
+}

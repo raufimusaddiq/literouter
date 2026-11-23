@@ -1,29 +1,14 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect } from "bun:test";
+import { vi } from "#test/vi";
+import { useTempDataDir } from "#test/tempDataDir";
 import { stripNullBytes } from "@/lib/db/helpers/nullBytes.js";
 
 const NUL = String.fromCharCode(0);
 const DIRTY = `before${NUL}after`;
 
-let tempDir;
-const originalDataDir = process.env.DATA_DIR;
-
-beforeEach(() => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-nul-"));
-  process.env.DATA_DIR = tempDir;
-  delete global._dbAdapter;
-  vi.resetModules();
-});
-
-afterEach(() => {
-  try { global._dbAdapter?.instance?.close?.(); } catch {}
-  delete global._dbAdapter;
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
-});
+useTempDataDir("9router-nul-");
 
 describe("stripNullBytes", () => {
   it("removes NUL bytes and keeps the rest of the text", () => {
@@ -73,7 +58,10 @@ describe("driver binds NUL-containing strings safely", () => {
     const { getAdapter } = await import("@/lib/db/driver.js");
     const db = await getAdapter();
 
-    expect(["better-sqlite3", "node:sqlite", "sql.js", "bun:sqlite"]).toContain(db.driver);
+    expect(db.driver).toBe("bun:sqlite");
+    db.run("CREATE TABLE IF NOT EXISTS nulWrap (v TEXT)");
+    db.run("INSERT INTO nulWrap (v) VALUES (?)", [DIRTY]);
+    expect(db.raw.query("SELECT v FROM nulWrap").get().v).toBe("beforeafter");
     expect(typeof db.exec).toBe("function");
     expect(typeof db.transaction).toBe("function");
   });

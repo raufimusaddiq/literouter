@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const getUsage = vi.fn();
 vi.mock("open-sse/index.js", () => ({}));
@@ -37,9 +38,14 @@ describe("/api/usage/[connectionId] cache", () => {
     expect(getUsage).toHaveBeenCalledTimes(2);
   });
   it("returns 504 when upstream hangs past the timeout", async () => {
+    await import("@/app/api/usage/[connectionId]/route.js");
     vi.useFakeTimers();
     getUsage.mockImplementation(() => new Promise(() => {}));
     const p = call("c1");
+    for (let i = 0; i < 1_500_000 && getUsage.mock.calls.length === 0; i++) {
+      await new Promise((r) => setImmediate(r));
+    }
+    expect(getUsage).toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(13_000);
     const r = await p;
     vi.useRealTimers();

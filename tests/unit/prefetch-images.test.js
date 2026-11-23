@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
-vi.mock("../../open-sse/translator/concerns/image.js", async (orig) => {
-  const actual = await orig();
+vi.mock("../../open-sse/translator/concerns/image.js", async () => {
+  const actual = await import("../../open-sse/translator/concerns/image.js?actual");
   return {
     ...actual,
     fetchImageAsBase64: vi.fn(async () => ({ url: "data:image/png;base64,QUJD", mimeType: "image/png" })),

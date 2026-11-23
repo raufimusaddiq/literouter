@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from "uuid";
 import { bumpConfigVersion } from "../configVersion.js";
 import { getAdapter } from "../driver.js";
 import { invalidateKvScope } from "../helpers/kvStore.js";
@@ -73,7 +72,7 @@ export async function createProviderNode(data) {
   const db = await getAdapter();
   const now = new Date().toISOString();
   const node = {
-    id: data.id || uuidv4(),
+    id: data.id || crypto.randomUUID(),
     type: data.type,
     name: data.name,
     prefix: data.prefix,

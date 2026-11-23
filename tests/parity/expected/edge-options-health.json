@@ -1,0 +1,9 @@
+{
+  "status": 204,
+  "headers": {
+    "access-control-allow-headers": "*",
+    "access-control-allow-methods": "GET, OPTIONS",
+    "access-control-allow-origin": "*"
+  },
+  "upstream": []
+}

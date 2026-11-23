@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import {
   filterQuotasByVisibility,
   getHiddenQuotaRows,
   parseQuotaData,
   trimHiddenQuotaKeys,
-} from "@/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js";
+} from "@/web/pages/dashboard/usage/components/ProviderLimits/utils.js";
 
 describe("provider quota visibility", () => {
   const data = {

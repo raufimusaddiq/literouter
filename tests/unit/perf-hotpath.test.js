@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -12,7 +13,7 @@ vi.mock("@/lib/db/repos/connectionsRepo.js", () => ({ getProviderConnections: vi
 vi.mock("@/lib/db/repos/apiKeysRepo.js", () => ({ getApiKeys: vi.fn(async () => []) }));
 vi.mock("@/lib/db/repos/nodesRepo.js", () => ({ getProviderNodes: vi.fn(async () => []) }));
 
-const { createSqlJsAdapter } = await import("@/lib/db/adapters/sqljsAdapter.js");
+const { createBunSqliteAdapter } = await import("@/lib/db/adapters/bunSqliteAdapter.js");
 const usage = await import("@/lib/db/repos/usageRepo.js");
 const { backfillUsageRollup, ensureRollupTables } = await import("@/lib/db/usageRollup.js");
 
@@ -20,14 +21,14 @@ let tmp;
 beforeEach(async () => {
   vi.spyOn(console, "warn").mockImplementation(() => {});
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "perf-hotpath-"));
-  state.db = await createSqlJsAdapter(path.join(tmp, "t.db"));
+  state.db = await createBunSqliteAdapter(path.join(tmp, "t.db"));
   state.db.exec(`CREATE TABLE usageHistory (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT NOT NULL, provider TEXT, model TEXT, connectionId TEXT, apiKey TEXT, endpoint TEXT, promptTokens INTEGER DEFAULT 0, completionTokens INTEGER DEFAULT 0, cost REAL DEFAULT 0, status TEXT, tokens TEXT, meta TEXT, latencyMs INTEGER, ttftMs INTEGER, errorText TEXT);
     CREATE TABLE usageDaily (dateKey TEXT PRIMARY KEY, data TEXT);
     CREATE TABLE _meta (key TEXT PRIMARY KEY, value TEXT);`);
   ensureRollupTables(state.db);
   usage._resetLiveStatsCache();
 });
-afterEach(() => { vi.restoreAllMocks(); try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {} });
+afterEach(() => { vi.restoreAllMocks(); try { state.db?.close(); } catch {} try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {} });
 
 function jsAggregate(rows) {
   const out = { prompt: 0, completion: 0, cached: 0, cost: 0, byProvider: {}, byModel: {} };
@@ -122,14 +123,14 @@ describe("getUsageStats 24h aggregates in SQL", () => {
   });
 });
 
-describe("sql.js statement cache", () => {
+describe("bun:sqlite statement cache", () => {
   it("returns correct rows across repeated cached statements", async () => {
     state.db.run(`INSERT INTO _meta(key, value) VALUES(?, ?)`, ["a", "1"]);
     state.db.run(`INSERT INTO _meta(key, value) VALUES(?, ?)`, ["b", "2"]);
     for (let i = 0; i < 3; i++) {
       expect(state.db.get(`SELECT value FROM _meta WHERE key = ?`, ["a"]).value).toBe("1");
       expect(state.db.get(`SELECT value FROM _meta WHERE key = ?`, ["b"]).value).toBe("2");
-      expect(state.db.get(`SELECT value FROM _meta WHERE key = ?`, ["zz"])).toBeUndefined();
+      expect(state.db.get(`SELECT value FROM _meta WHERE key = ?`, ["zz"])).toBeNull();
       expect(state.db.all(`SELECT key FROM _meta ORDER BY key`)).toHaveLength(2);
     }
   });

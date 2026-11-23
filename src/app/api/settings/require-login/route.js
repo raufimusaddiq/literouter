@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { getSettings } from "@/lib/localDb";
 
 export async function GET() {
   try {
     const settings = await getSettings();
     const requireLogin = settings.requireLogin !== false;
-    return NextResponse.json({ requireLogin });
+    return json({ requireLogin });
   } catch (error) {
-    return NextResponse.json({ requireLogin: true }, { status: 200 });
+    return json({ requireLogin: true }, { status: 200 });
   }
 }

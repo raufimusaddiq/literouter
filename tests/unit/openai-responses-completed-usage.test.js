@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 vi.mock("@/lib/usageDb.js", () => ({
   trackPendingRequest: vi.fn(),
@@ -146,7 +147,7 @@ describe("Responses response.completed reports token usage", () => {
     [undefined, 320],
     [320, 320],
     [999, 999],
-  ])("normalizes upstream total_tokens=%s to %i", async (totalTokens, expectedTotal) => {
+  ])("normalizes upstream total_tokens=%p to %i", async (totalTokens, expectedTotal) => {
     const events = parseEvents(await runTransform(FORMATS.OPENAI, [
       ...sse({ id: "c4", object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content: "Hi" } }] }),
       ...sse({

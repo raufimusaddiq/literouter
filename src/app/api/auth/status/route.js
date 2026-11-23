@@ -1,19 +1,18 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { json, cookies } from "@/server/http.js";
 import { getSettings } from "@/lib/localDb";
 import { getDashboardAuthSession } from "@/lib/auth/dashboardSession";
 
-export async function GET() {
+export async function GET(request) {
   try {
     const settings = await getSettings();
-    const cookieStore = await cookies();
-    const session = await getDashboardAuthSession(cookieStore.get("auth_token")?.value);
-    return NextResponse.json({
+    const cookieStore = cookies(request);
+    const session = await getDashboardAuthSession(cookieStore.get("auth_token"));
+    return json({
       requireLogin: settings.requireLogin !== false,
       hasPassword: !!settings.password,
       authenticated: !!session,
     });
   } catch {
-    return NextResponse.json({ requireLogin: true, hasPassword: false, authenticated: false });
+    return json({ requireLogin: true, hasPassword: false, authenticated: false });
   }
 }

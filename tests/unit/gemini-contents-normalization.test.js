@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { normalizeGeminiContents, sanitizeFunctionResponsePayload } from "../../open-sse/translator/formats/gemini.js";
 import { openaiToGeminiRequest } from "../../open-sse/translator/request/openai-to-gemini.js";
 
@@ -196,7 +196,7 @@ describe("functionResponse `$ref` sanitization", () => {
 
 
 describe("Gemini 4 request compatibility", () => {
-  it.each([false, true])("puts function responses last, merged=%s", (merged) => {
+  it.each([false, true])("puts function responses last, merged=%p", (merged) => {
     const response = { functionResponse: { name: "lookup", response: { result: "ok" } } };
     const text = { text: "Follow-up" };
     const contents = merged
@@ -208,7 +208,7 @@ describe("Gemini 4 request compatibility", () => {
     expect(JSON.stringify(contents)).toBe(before);
   });
 
-  it.each(["gemini-4-argon", "publishers/google/models/gemini-4-argon"])("drops obsolete sampling parameters for %s", (model) => {
+  it.each(["gemini-4-argon", "publishers/google/models/gemini-4-argon"])("drops obsolete sampling parameters for %p", (model) => {
     const body = { messages: [{ role: "user", content: "hi" }], temperature: 0.7, top_p: 0.9, top_k: 20 };
     const current = openaiToGeminiRequest(model, body, false).generationConfig;
     expect(current).not.toHaveProperty("temperature");

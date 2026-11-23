@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "edge-unknown-api",
+  "method": "GET",
+  "path": "/api/nope"
+}

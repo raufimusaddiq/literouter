@@ -1,5 +1,5 @@
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { openaiToClaudeRequest } from "../../open-sse/translator/request/openai-to-claude.js";
 import { openaiToClaudeResponse } from "../../open-sse/translator/response/openai-to-claude.js";
 

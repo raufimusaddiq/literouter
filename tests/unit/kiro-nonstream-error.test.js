@@ -1,9 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 vi.mock("@/lib/usageDb.js", () => ({
   appendRequestLog: vi.fn(async () => {}),
   saveRequestDetail: vi.fn(async () => {}),
-  saveRequestUsage: vi.fn(async () => {})
+  saveRequestUsage: vi.fn(async () => {}),
+  statsEmitter: {},
+  trackPendingRequest: vi.fn(),
+  getActiveRequests: vi.fn(),
+  flushUsageQueue: vi.fn(),
+  getUsageStats: vi.fn(),
+  getChartData: vi.fn(),
+  getRecentLogs: vi.fn(),
+  getRequestDetails: vi.fn(),
+  getRequestDetailById: vi.fn(),
+  flushRequestDetails: vi.fn(),
+  ensureRequestDetailShutdownHandler: vi.fn()
 }));
 
 const { FORMATS } = await import("../../open-sse/translator/formats.js");

@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 vi.mock("open-sse/index.js", () => ({}), { virtual: true });
 
@@ -351,7 +352,7 @@ describe("quota auto-ping", () => {
     expect(deps.getExecutor).not.toHaveBeenCalled();
   });
 
-  it.each([10, 30, 54])("catches a Claude reset when the next tick is %s seconds late", async (seconds) => {
+  it.each([10, 30, 54])("catches a Claude reset when the next tick is %p seconds late", async (seconds) => {
     const connection = { id: "claude-1", provider: "claude", authType: "oauth", accessToken: "token" };
     deps.getSettings.mockResolvedValue({ claudeAutoPing: { connections: { "claude-1": true } } });
     deps.getProviderConnections.mockImplementation(async ({ provider }) => provider === "claude" ? [connection] : []);
@@ -384,7 +385,7 @@ describe("quota auto-ping", () => {
     expect(connection.lastPingedResetKey).toBe("2026-01-01T17:00:00.000Z");
   });
 
-  it.each(["HTTP error", "network error"])("retries a missed Claude reset after cooldown on %s", async (failure) => {
+  it.each(["HTTP error", "network error"])("retries a missed Claude reset after cooldown on %p", async (failure) => {
     deps.getSettings.mockResolvedValue({ claudeAutoPing: { connections: { "claude-1": true } } });
     deps.getProviderConnections.mockImplementation(async ({ provider }) => provider === "claude" ? [{
       id: "claude-1", provider: "claude", authType: "oauth", accessToken: "token",

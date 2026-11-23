@@ -1,0 +1,86 @@
+{
+  "status": 200,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "settings": {
+      "requireLogin": true,
+      "password": "$2b$10$L4mOsQ1VtXDMve3tli17K.fE2eD0VCplMb0TMTbqjW0mur9g8j0.m"
+    },
+    "providerConnections": [
+      {
+        "apiKey": "sk-upstream-parity",
+        "defaultModel": "mock-ok",
+        "providerSpecificData": {
+          "prefix": "pm",
+          "apiType": "chat",
+          "baseUrl": "http://<UPSTREAM_HOST>/v1",
+          "nodeName": "Parity Mock"
+        },
+        "testStatus": "active",
+        "lastError": null,
+        "lastErrorAt": null,
+        "errorCode": null,
+        "rateLimitedUntil": null,
+        "backoffLevel": 0,
+        "id": "parity-conn-1",
+        "provider": "openai-compatible-chat-parity",
+        "authType": "apikey",
+        "name": "Parity Key",
+        "email": null,
+        "priority": 1,
+        "isActive": true,
+        "createdAt": "<ISO>",
+        "updatedAt": "<ISO>"
+      }
+    ],
+    "providerNodes": [
+      {
+        "prefix": "pm",
+        "apiType": "chat",
+        "baseUrl": "http://<UPSTREAM_HOST>/v1",
+        "id": "openai-compatible-chat-parity",
+        "type": "openai-compatible",
+        "name": "Parity Mock",
+        "createdAt": "<ISO>",
+        "updatedAt": "<ISO>"
+      }
+    ],
+    "proxyPools": [],
+    "apiKeys": [
+      {
+        "id": "parity-key-1",
+        "key": "sk-parity-valid",
+        "name": "Parity",
+        "machineId": null,
+        "isActive": true,
+        "createdAt": "<ISO>",
+        "access": {
+          "restricted": false,
+          "allow": []
+        }
+      }
+    ],
+    "combos": [
+      {
+        "id": "parity-combo-id",
+        "name": "parity-combo",
+        "kind": null,
+        "models": [
+          "pm/mock-429",
+          "pm/mock-ok"
+        ],
+        "createdAt": "<ISO>",
+        "updatedAt": "<ISO>"
+      }
+    ],
+    "modelAliases": {
+      "parity-alias": "openai-compatible-chat-parity/mock-ok"
+    },
+    "customModels": [],
+    "pricing": {}
+  },
+  "upstream": []
+}

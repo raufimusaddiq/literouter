@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import antigravity, { resolveAntigravityRedirectUri } from "../../src/lib/oauth/providers/antigravity.js";
 import { generateAuthData, exchangeTokens } from "../../src/lib/oauth/providers.js";
 import { matchesOAuthState } from "../../src/shared/utils/oauthCallback.js";
@@ -60,13 +61,13 @@ describe("Antigravity OAuth callbacks", () => {
     "https://ai.example.com/other",
     "https://ai.example.com/callback?code=old",
     "https://ai.example.com/callback#fragment",
-  ])("fails closed for invalid configuration: %s", async (configured) => {
+  ])("fails closed for invalid configuration: %p", async (configured) => {
     vi.stubEnv("ANTIGRAVITY_REDIRECT_URI", configured);
     await expect(generateAuthData("antigravity", fallback)).rejects.toThrow("ANTIGRAVITY_REDIRECT_URI");
   });
 
   it.each(["http://localhost:8080/callback", "http://127.0.0.1:8080/callback", "http://[::1]:8080/callback"])(
-    "allows explicit loopback overrides: %s", (configured) => {
+    "allows explicit loopback overrides: %p", (configured) => {
       vi.stubEnv("ANTIGRAVITY_REDIRECT_URI", configured);
       expect(resolveAntigravityRedirectUri(fallback)).toBe(configured);
     }

@@ -13,9 +13,6 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/.next-cli-build/
 /out/
 cli/.build-home/
 product
@@ -42,7 +39,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
 
 .bin/*
 data/
@@ -88,7 +84,6 @@ graphify-out/*
 .script/
 .codegraph/
 .PR/
-.next-analyze/*
 
 # Kiro local workspace state
 .kiro/
@@ -107,3 +102,12 @@ debug.log
 
 # benchmark output
 bench-results/
+test-results.xml
+
+!tests/parity/fixtures/tls/*.pem
+
+# parity run output
+/parity-actual/
+/parity-out/
+/dist/
+cli/app/

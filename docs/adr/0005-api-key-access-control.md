@@ -22,9 +22,9 @@ Access is decided on the outer requested target. Nested combos (a combo member t
 
 **Where:** `src/sse/services/keyAccess.js`: `filterAdapterModels`; `src/sse/handlers/chat.js`: nested-combo chain expansion
 
-### D3. The key is read from every place the middleware reads it
+### D3. The key is read from every place the guard reads it
 
-The access context reads the client key from Bearer, `x-api-key`, `x-goog-api-key` and `?key=`, in the same order as the middleware in `src/dashboardGuard.js`. The handlers' own `extractApiKey()` reads only the first two, so using it would make a restricted key sent as `x-goog-api-key` look like "no key", which means unrestricted. The context is null only for no key, an unknown key, or an unrestricted key; authentication itself happens elsewhere.
+The access context reads the client key from Bearer, `x-api-key`, `x-goog-api-key` and `?key=`, in the same order as the guard in `src/server/guard.js`. The handlers' own `extractApiKey()` reads only the first two, so using it would make a restricted key sent as `x-goog-api-key` look like "no key", which means unrestricted. The context is null only for no key, an unknown key, or an unrestricted key; authentication itself happens elsewhere.
 
 **Where:** `src/sse/services/keyAccess.js`: `extractClientApiKey`, `getKeyAccessContext`
 
@@ -62,7 +62,7 @@ Usage rows and daily buckets carry a non-reversible fingerprint (`fp_` plus 16 h
 
 - Matching on raw request strings instead of resolved identities lets a restricted key reach targets by alias or spelling, or wrongly denies valid ones.
 - Checking per member instead of on the combo, or after credential lookup, lets failover bypass the allow list or touches provider accounts for denied requests.
-- Reading the key from fewer places than the middleware makes restricted keys look unrestricted.
+- Reading the key from fewer places than the guard makes restricted keys look unrestricted.
 - Direct-to-provider routes added without an access check become a bypass for restricted keys.
 - Storing client keys in usage data, or returning fingerprints to the browser, re-opens issue #136.
 - Failing open on bad allow-list data silently turns restricted keys into unrestricted ones.

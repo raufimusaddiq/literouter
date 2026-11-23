@@ -24,21 +24,21 @@ IPv6 literals are parsed into eight 16-bit groups and judged by value, so `::fff
 
 ### D3. Every caller-supplied URL goes through fetchPublic; the local operator is exempted by allowing the address
 
-Provider-node create, provider-node validate and provider validate all use the same gate. In `providers/validate` the gate sits at the top of the handler, one check for every caller-controlled URL, because guarding each branch (provider node, Azure endpoint, Ollama host) separately kept missing sinks. `fetchPublic` still re-resolves and re-validates each redirect on top of that. Remote callers are blocked from private and metadata hosts. A trusted local operator (decided per request by `isLocalRequest`) reaches LAN nodes by passing `allowPrivate`, which permits the resolved private address; the guard is never skipped. `allowPrivate` is a per-hop decision, so a LAN node that 30x-redirects inside the LAN remains reachable. It never weakens validation for remote callers. `isLocalRequest` depends on the proxy-stamped peer token from `custom-server.js`.
+Provider-node create, provider-node validate and provider validate all use the same gate. In `providers/validate` the gate sits at the top of the handler, one check for every caller-controlled URL, because guarding each branch (provider node, Azure endpoint, Ollama host) separately kept missing sinks. `fetchPublic` still re-resolves and re-validates each redirect on top of that. Remote callers are blocked from private and metadata hosts. A trusted local operator (decided per request by `isLocalRequest`) reaches LAN nodes by passing `allowPrivate`, which permits the resolved private address; the guard is never skipped. `allowPrivate` is a per-hop decision, so a LAN node that 30x-redirects inside the LAN remains reachable. It never weakens validation for remote callers. `isLocalRequest` reads the request context that `src/server/trust.js` builds from the socket peer and stores through `src/server/context.js` (ADR 0001), so it is never derived from client-sent headers.
 
 **Where:** `src/app/api/provider-nodes/route.js`, `src/app/api/provider-nodes/validate/route.js`, `src/app/api/providers/validate/route.js` (including the `azureEndpoint` branch), `src/app/api/oauth/xiaomi-mimo/api-key/route.js` (caller `baseUrl`: http(s) only, every caller goes through `fetchPublic` (remote callers are blocked from private hosts, local operators pass `allowPrivate`, so the guard is never skipped); trailing slashes are trimmed with a linear loop, not a regex, to avoid polynomial ReDoS); `tests/unit/provider-node-validate-ssrf.test.js`, `tests/unit/provider-validate-ssrf.test.js`
 
 ### D4. Remote image fetch: pinned IP, manual redirects, byte cap
 
-The image translator resolves the host once, requires every returned record to be public (defeating multi-A tricks), and fails closed. It pins the connection to the validated IP with a dedicated undici Agent so a second DNS lookup cannot rebind (TOCTOU). It uses `redirect: "manual"` so a public URL cannot redirect to a private one, and stream-reads the body with a hard byte cap, then verifies magic bytes. IPv4-mapped IPv6 is judged by the embedded IPv4; an `::ffff:0:0/96` rule cannot be used because Node's BlockList maps every IPv4 into that range. Failures return null.
+The image translator resolves the host once, requires every returned record to be public (defeating multi-A tricks), and fails closed. It pins the connection to the validated IP by fetching `protocol//<validatedIp>[:port]/path?query` (IPv6 bracketed) with a `Host: <original host>` header and, for https, `tls.serverName = <original hostname>`, so a second DNS lookup cannot rebind (TOCTOU) while the certificate is still verified against the original hostname. A URL carrying userinfo (`user:pw@`) is rejected (null) rather than fetched unauthenticated. The fetch goes through the patched global `fetch`, so env proxies (`HTTPS_PROXY`/`HTTP_PROXY`/`ALL_PROXY`) apply, and `NO_PROXY` is matched against the pinned IP, not the hostname: a hostname-based `NO_PROXY` entry no longer bypasses the proxy for remote images, and the proxy sees the IP URL plus the `Host` header. It uses `redirect: "manual"` so a public URL cannot redirect to a private one, and stream-reads the body with a hard byte cap, then verifies magic bytes. IPv4-mapped IPv6 is judged by the embedded IPv4; an `::ffff:0:0/96` rule cannot be used because Node's BlockList maps every IPv4 into that range. Failures return null.
 
 **Where:** `open-sse/translator/concerns/image.js`: the reserved-range list, the private-address check, the resolve-once helper, and the remote image fetch function
 
-### D5. A caller-supplied dispatcher must not be overridden
+### D5. A caller-supplied proxy must not be overridden
 
-`proxyFetch` bypasses proxy/relay handling when the caller passes its own `dispatcher`. Overriding it would drop the DNS pin from D4 and reopen rebinding.
+`proxyFetch` bypasses env/pool proxy and relay handling when the caller passes its own `proxy` option (Bun's replacement for undici's `dispatcher`, which Bun ignores). The DNS pin from D4 lives in the URL and `Host` header rather than the transport, so it does not depend on this; the rule keeps explicit caller routing (for example the proxy test) from being rerouted by environment settings.
 
-**Where:** `open-sse/utils/proxyFetch.js`: the patched fetch entry (`options?.dispatcher` branch)
+**Where:** `open-sse/utils/proxyFetch.js`: the patched fetch entry (`options?.proxy` branch)
 
 ### D6. Bound remote media: size, count and blocked hosts
 
@@ -64,10 +64,16 @@ A GitLab PAT (`pt-...`) must be exchanged for a job token before it can sign any
 
 **Where:** `src/app/api/providers/validate/route.js`: the GitLab branch
 
+### Bun-only IP pin until Plan 4
+
+The image fetch pins the validated IP and passes `tls.serverName` so the certificate is verified against the original hostname. Only Bun's `fetch` honors `tls`. On Node the option is ignored, the pinned https request fails certificate verification, and `fetchImageAsBase64` returns null. That is fail-safe: no request reaches an unvalidated address, so no guard is added and the image is simply dropped. Plain http pins work on both runtimes. Because the Dockerfile still runs Node until Plan 4 and staging is never deployed before cutover, https image inlining requires Bun. The bracket-stripped IPv6 literal is used as `serverName`.
+
+**Where:** `open-sse/translator/concerns/image.js`: `fetchImageAsBase64`
+
 ## Consequences
 
 - Dropping the resolve step or the per-hop redirect check lets wildcard-DNS names and 30x redirects reach metadata and loopback.
 - Matching text forms instead of numeric addresses reintroduces bypasses via hex IPv4-mapped IPv6, NAT64 and trailing-dot hostnames.
-- Overriding a caller's dispatcher in `proxyFetch`, or resolving the image host a second time, reopens DNS rebinding.
+- Resolving the image host a second time (instead of fetching the validated IP) reopens DNS rebinding; overriding a caller's `proxy` in `proxyFetch` reroutes traffic the caller pinned.
 - Skipping the guard for the local operator (instead of passing `allowPrivate`) removes redirect validation for LAN nodes.
 - Putting API keys in URLs or echoing upstream bodies leaks credentials and internals through logs and responses.

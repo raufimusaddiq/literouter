@@ -1,0 +1,31 @@
+{
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-type": "application/x-ndjson"
+  },
+  "body": {
+    "model": "pm/mock-ok",
+    "message": {
+      "role": "assistant",
+      "content": ""
+    },
+    "done": true
+  },
+  "upstream": [
+    {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "body": {
+        "model": "mock-ok",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "stream": false
+      }
+    }
+  ]
+}

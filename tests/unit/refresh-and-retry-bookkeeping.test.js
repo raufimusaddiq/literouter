@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const fx = vi.hoisted(() => ({
   refresh: vi.fn(),
@@ -14,8 +15,8 @@ vi.mock("open-sse/services/projectId.js", () => ({
   getProjectIdForConnection: vi.fn(),
   invalidateProjectId: vi.fn(),
 }));
-vi.mock("open-sse/services/tokenRefresh.js", async (importOriginal) => ({
-  ...(await importOriginal()),
+vi.mock("open-sse/services/tokenRefresh.js", async () => ({
+  ...(await import("open-sse/services/tokenRefresh.js?actual")),
   refreshTokenByProvider: fx.refresh,
 }));
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({

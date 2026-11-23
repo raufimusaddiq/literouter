@@ -1,0 +1,43 @@
+{
+  "settings": { "requireLogin": true, "password": "$2b$10$L4mOsQ1VtXDMve3tli17K.fE2eD0VCplMb0TMTbqjW0mur9g8j0.m" },
+  "providerNodes": [
+    {
+      "id": "openai-compatible-chat-parity",
+      "type": "openai-compatible",
+      "name": "Parity Mock",
+      "prefix": "pm",
+      "apiType": "chat",
+      "baseUrl": "__UPSTREAM__/v1",
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "providerConnections": [
+    {
+      "id": "parity-conn-1",
+      "provider": "openai-compatible-chat-parity",
+      "authType": "apikey",
+      "name": "Parity Key",
+      "priority": 1,
+      "isActive": true,
+      "apiKey": "sk-upstream-parity",
+      "defaultModel": "mock-ok",
+      "providerSpecificData": { "prefix": "pm", "apiType": "chat", "baseUrl": "__UPSTREAM__/v1", "nodeName": "Parity Mock" },
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "combos": [
+    {
+      "id": "parity-combo-id",
+      "name": "parity-combo",
+      "models": ["pm/mock-429", "pm/mock-ok"],
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "modelAliases": { "parity-alias": "openai-compatible-chat-parity/mock-ok" },
+  "apiKeys": [
+    { "id": "parity-key-1", "key": "sk-parity-valid", "name": "Parity", "isActive": true, "createdAt": "2025-01-01T00:00:00.000Z" }
+  ]
+}

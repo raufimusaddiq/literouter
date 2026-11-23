@@ -1,0 +1,13 @@
+{
+  "status": 200,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "aliases": {
+      "parity-alias": "openai-compatible-chat-parity/mock-ok"
+    }
+  },
+  "upstream": []
+}

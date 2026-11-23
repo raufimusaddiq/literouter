@@ -1,0 +1,7 @@
+{
+  "peer": "proxied",
+  "auth": "session",
+  "id": "api-providers-client-session-proxied",
+  "method": "GET",
+  "path": "/api/providers/client"
+}

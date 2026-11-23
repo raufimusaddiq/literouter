@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const fx = vi.hoisted(() => ({
   chatCore: vi.fn(),
@@ -7,7 +8,8 @@ const fx = vi.hoisted(() => ({
   patches: [],
 }));
 
-vi.mock("@/lib/db/index.js", () => ({
+vi.mock("@/lib/db/index.js", async () => ({
+  ...(await import("@/lib/db/index.js?actual")),
   getSettings: async () => ({ requireApiKey: false, comboStrategy: "fallback" }),
   getModelAliases: async () => ({}),
   getComboByName: async () => null,
@@ -35,9 +37,12 @@ vi.mock("@/lib/db/index.js", () => ({
   },
 }));
 vi.mock("@/lib/disabledModelsDb", () => ({ getDisabledModels: async () => ({}) }));
-vi.mock("@/lib/db/repos/combosRepo.js", () => ({ getCombos: async () => [] }));
-vi.mock("@/lib/db/repos/apiKeysRepo.js", () => ({ getApiKeyByKey: async () => null }));
-vi.mock("@/lib/usageDb.js", () => ({
+vi.mock("@/lib/db/repos/combosRepo.js", async () => ({
+  ...(await import("@/lib/db/repos/combosRepo.js?actual")), getCombos: async () => [] }));
+vi.mock("@/lib/db/repos/apiKeysRepo.js", async () => ({
+  ...(await import("@/lib/db/repos/apiKeysRepo.js?actual")), getApiKeyByKey: async () => null }));
+vi.mock("@/lib/usageDb.js", async () => ({
+  ...(await import("@/lib/usageDb.js?actual")),
   saveRequestUsage: vi.fn(),
   trackPendingRequest: vi.fn(),
   appendRequestLog: vi.fn(async () => {}),
@@ -49,8 +54,8 @@ vi.mock("@/sse/services/tokenRefresh.js", () => ({
 }));
 vi.mock("open-sse/handlers/chatCore.js", () => ({ handleChatCore: fx.chatCore }));
 vi.mock("@/lib/network/connectionProxy", () => ({ pickProxyPoolId: vi.fn(), resolveConnectionProxyConfig: vi.fn() }));
-vi.mock("../../src/sse/services/auth.js", async (importOriginal) => ({
-  ...(await importOriginal()),
+vi.mock("../../src/sse/services/auth.js", async () => ({
+  ...(await import("../../src/sse/services/auth.js?actual")),
   getProviderCredentials: fx.getCreds,
 }));
 vi.mock("../../src/sse/services/model.js", () => ({
@@ -96,7 +101,7 @@ describe("error-rule scope classification", () => {
     [429, "slow down", "account", true],
     [503, "upstream exploded", "account", true],
     [400, "rate limit reached", "account", true],
-  ])("%i %s -> scope=%s combo-fallback=%s", (status, text, scope, comboFallback) => {
+  ])("%i %p -> scope=%p combo-fallback=%p", (status, text, scope, comboFallback) => {
     const r = checkFallbackError(status, text);
     expect(r.scope).toBe(scope);
     expect(r.shouldFallback).toBe(comboFallback);
@@ -108,7 +113,7 @@ describe("request-scoped errors skip failover", () => {
   it.each([
     ["Kiro improperly formed request", "Improperly formed request."],
     ["context overflow", "This model's maximum context length is 8192 tokens"],
-  ])("%s: executor called once, no lock/testStatus write, error returned", async (_n, msg) => {
+  ])("%p: executor called once, no lock/testStatus write, error returned", async (_n, msg) => {
     fx.chatCore.mockResolvedValue(createErrorResult(400, msg));
     const res = await handleChat(chatReq());
     expect(res.status).toBe(400);

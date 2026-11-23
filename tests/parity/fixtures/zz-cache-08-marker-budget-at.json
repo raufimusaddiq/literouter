@@ -1,0 +1,82 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "zz-cache-08-marker-budget-at",
+  "method": "POST",
+  "path": "/v1/messages",
+  "json": {
+    "model": "pa/claude-sonnet-5-5",
+    "max_tokens": 1024,
+    "stream": false,
+    "system": [
+      {
+        "type": "text",
+        "text": "S",
+        "cache_control": {
+          "type": "ephemeral",
+          "ttl": "1h"
+        }
+      }
+    ],
+    "tools": [
+      {
+        "name": "t1",
+        "description": "t1 tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "q"
+          ]
+        },
+        "cache_control": {
+          "type": "ephemeral",
+          "ttl": "1h"
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "a",
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "b",
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "c"
+          }
+        ]
+      }
+    ]
+  },
+  "headers": {
+    "anthropic-version": "2023-06-01",
+    "user-agent": "claude-cli/2.0.0 (external, cli)"
+  }
+}

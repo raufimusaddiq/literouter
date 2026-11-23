@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { getThinkingLevels } from "../../open-sse/providers/thinkingLevels.js";
 
 const db = vi.hoisted(() => ({
@@ -8,7 +9,7 @@ const db = vi.hoisted(() => ({
   getModelAliases: vi.fn(async () => ({})),
 }));
 
-vi.mock("@/lib/localDb", () => db);
+vi.mock("@/lib/localDb", async () => ({ ...(await import("@/lib/localDb.js?actual")), ...db }));
 vi.mock("@/lib/disabledModelsDb", () => ({
   getDisabledModels: vi.fn(async () => ({})),
 }));

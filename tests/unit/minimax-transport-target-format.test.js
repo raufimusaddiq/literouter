@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const {
   executeMock,
@@ -22,7 +23,9 @@ vi.mock("../../open-sse/executors/index.js", () => ({
   })),
 }));
 
+const actualTranslator = await import("../../open-sse/translator/index.js");
 vi.mock("../../open-sse/translator/index.js", () => ({
+  ...actualTranslator,
   translateRequest: translateRequestMock,
 }));
 
@@ -48,7 +51,8 @@ vi.mock("../../open-sse/utils/bypassHandler.js", () => ({
   handleBypassRequest: vi.fn(() => null),
 }));
 
-vi.mock("../../open-sse/utils/streamHandler.js", () => ({
+vi.mock("../../open-sse/utils/streamHandler.js", async () => ({
+  ...(await import("../../open-sse/utils/streamHandler.js?actual")),
   createStreamController: vi.fn(() => ({
     signal: undefined,
     handleComplete: vi.fn(),
@@ -56,7 +60,8 @@ vi.mock("../../open-sse/utils/streamHandler.js", () => ({
   })),
 }));
 
-vi.mock("../../open-sse/services/tokenRefresh.js", () => ({
+vi.mock("../../open-sse/services/tokenRefresh.js", async () => ({
+  ...(await import("../../open-sse/services/tokenRefresh.js?actual")),
   refreshWithRetry: vi.fn(),
 }));
 
@@ -94,18 +99,21 @@ vi.mock("../../open-sse/translator/concerns/prefetch.js", () => ({
   prefetchRemoteImages: vi.fn(async () => 0),
 }));
 
-vi.mock("../../open-sse/handlers/chatCore/requestDetail.js", () => ({
+vi.mock("../../open-sse/handlers/chatCore/requestDetail.js", async () => ({
+  ...(await import("../../open-sse/handlers/chatCore/requestDetail.js?actual")),
   buildRequestDetail: vi.fn((detail) => detail),
   extractRequestConfig: vi.fn((body, stream) => ({ body, stream })),
 }));
 
-vi.mock("../../open-sse/utils/error.js", () => ({
+vi.mock("../../open-sse/utils/error.js", async () => ({
+  ...(await import("../../open-sse/utils/error.js?actual")),
   createErrorResult: vi.fn((status, message) => ({ success: false, status, error: message })),
   formatProviderError: vi.fn((error) => error.message),
   parseUpstreamError: vi.fn(),
 }));
 
-vi.mock("@/lib/usageDb.js", () => ({
+vi.mock("@/lib/usageDb.js", async () => ({
+  ...(await import("@/lib/usageDb.js?actual")),
   trackPendingRequest: vi.fn(),
   appendRequestLog: vi.fn(() => Promise.resolve()),
   saveRequestDetail: vi.fn(() => Promise.resolve()),

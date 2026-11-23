@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const { executeMock } = vi.hoisted(() => ({
   executeMock: vi.fn(),
@@ -29,7 +30,8 @@ vi.mock("../../open-sse/utils/bypassHandler.js", () => ({
   handleBypassRequest: vi.fn(() => null),
 }));
 
-vi.mock("../../open-sse/utils/streamHandler.js", () => ({
+vi.mock("../../open-sse/utils/streamHandler.js", async () => ({
+  ...(await import("../../open-sse/utils/streamHandler.js?actual")),
   createStreamController: vi.fn(() => ({
     signal: undefined,
     handleComplete: vi.fn(),
@@ -37,7 +39,8 @@ vi.mock("../../open-sse/utils/streamHandler.js", () => ({
   })),
 }));
 
-vi.mock("../../open-sse/services/tokenRefresh.js", () => ({
+vi.mock("../../open-sse/services/tokenRefresh.js", async () => ({
+  ...(await import("../../open-sse/services/tokenRefresh.js?actual")),
   refreshWithRetry: vi.fn(),
 }));
 
@@ -46,8 +49,8 @@ vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
   proxyAwareFetch: vi.fn(),
 }));
 
-vi.mock("../../open-sse/translator/formats/claude.js", async (importOriginal) => ({
-  ...await importOriginal(),
+vi.mock("../../open-sse/translator/formats/claude.js", async () => ({
+  ...(await import("../../open-sse/translator/formats/claude.js?actual")),
   normalizeClaudePassthrough: vi.fn(),
   anchorClaudeCache: vi.fn(),
   prepareClaudeRequest: vi.fn((body) => body),
@@ -70,13 +73,15 @@ vi.mock("../../open-sse/rtk/index.js", () => ({
   formatRtkLog: vi.fn(() => ""),
 }));
 
-vi.mock("../../open-sse/rtk/headroom.js", () => ({
+vi.mock("../../open-sse/rtk/headroom.js", async () => ({
+  ...(await import("../../open-sse/rtk/headroom.js?actual")),
   compressWithHeadroom: vi.fn(async () => null),
   formatHeadroomLog: vi.fn(() => ""),
   formatHeadroomSizeLog: vi.fn(() => ""),
 }));
 
-vi.mock("../../open-sse/providers/capabilities.js", () => ({
+vi.mock("../../open-sse/providers/capabilities.js", async () => ({
+  ...(await import("../../open-sse/providers/capabilities.js?actual")),
   getCapabilitiesForModel: vi.fn(() => ({})),
 }));
 
@@ -88,18 +93,21 @@ vi.mock("../../open-sse/translator/concerns/prefetch.js", () => ({
   prefetchRemoteImages: vi.fn(async () => 0),
 }));
 
-vi.mock("../../open-sse/handlers/chatCore/requestDetail.js", () => ({
+vi.mock("../../open-sse/handlers/chatCore/requestDetail.js", async () => ({
+  ...(await import("../../open-sse/handlers/chatCore/requestDetail.js?actual")),
   buildRequestDetail: vi.fn((detail) => detail),
   extractRequestConfig: vi.fn((body, stream) => ({ body, stream })),
 }));
 
-vi.mock("../../open-sse/utils/error.js", () => ({
+vi.mock("../../open-sse/utils/error.js", async () => ({
+  ...(await import("../../open-sse/utils/error.js?actual")),
   createErrorResult: vi.fn((status, message) => ({ success: false, status, error: message })),
   formatProviderError: vi.fn((error) => error.message),
   parseUpstreamError: vi.fn(),
 }));
 
-vi.mock("@/lib/usageDb.js", () => ({
+vi.mock("@/lib/usageDb.js", async () => ({
+  ...(await import("@/lib/usageDb.js?actual")),
   trackPendingRequest: vi.fn(),
   appendRequestLog: vi.fn(() => Promise.resolve()),
   saveRequestDetail: vi.fn(() => Promise.resolve()),
@@ -153,7 +161,7 @@ describe("forceStream provider config", () => {
     }
   });
 
-  it.each([undefined, false])( "keeps forced-stream providers streaming for JSON clients when body.stream is %s", async (bodyStream) => {
+  it.each([undefined, false])( "keeps forced-stream providers streaming for JSON clients when body.stream is %p", async (bodyStream) => {
     const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
 
     await handleChatCore(makeOptions(bodyStream));
@@ -162,7 +170,7 @@ describe("forceStream provider config", () => {
     expect(executeMock.mock.calls[0][0].stream).toBe(true);
   });
 
-  it.each([undefined, false])("defaults Claude clients to non-streaming when body.stream is %s", async (bodyStream) => {
+  it.each([undefined, false])("defaults Claude clients to non-streaming when body.stream is %p", async (bodyStream) => {
     const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
 
     await handleChatCore(makeClaudeOptions(bodyStream));

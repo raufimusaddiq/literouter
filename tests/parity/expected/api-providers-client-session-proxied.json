@@ -1,0 +1,22 @@
+{
+  "status": 200,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "connections": [],
+    "providerOptions": [],
+    "pagination": {
+      "page": 1,
+      "pageSize": 20,
+      "total": 0,
+      "totalPages": 1
+    },
+    "totals": {
+      "eligibleConnections": 0,
+      "providerFilteredConnections": 0
+    }
+  },
+  "upstream": []
+}

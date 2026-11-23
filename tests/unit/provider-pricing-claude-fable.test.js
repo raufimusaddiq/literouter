@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { getPricingForModel } from "../../open-sse/providers/pricing.js";
 
 describe("Claude Fable pricing", () => {

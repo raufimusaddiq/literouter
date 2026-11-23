@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "bun:test";
+import { vi } from "#test/vi";
 
 
 describe("xai/token-refresh wrapper", () => {
@@ -26,7 +27,7 @@ describe("xai/token-refresh wrapper", () => {
 
   it("refreshTokenByProvider returns expiresIn for refreshed xai tokens", async () => {
     vi.resetModules();
-    vi.doMock("../../src/lib/oauth/services/xai.js", () => ({
+    vi.mock("../../src/lib/oauth/services/xai.js", () => ({
       XaiService: class {
         async refreshAccessToken(refreshToken) {
           return {
@@ -54,7 +55,6 @@ describe("xai/token-refresh wrapper", () => {
     });
     expect(out).not.toHaveProperty("expiresAt");
 
-    vi.doUnmock("../../src/lib/oauth/services/xai.js");
     vi.resetModules();
   });
 });

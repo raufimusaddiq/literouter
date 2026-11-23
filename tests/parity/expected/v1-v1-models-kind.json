@@ -1,0 +1,13 @@
+{
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "object": "list",
+    "data": []
+  },
+  "upstream": []
+}

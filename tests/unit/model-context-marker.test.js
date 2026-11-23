@@ -1,5 +1,5 @@
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { stripModelContextMarker } from "../../open-sse/utils/modelMarkers.js";
 
 describe("model context marker", () => {

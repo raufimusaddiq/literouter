@@ -11,7 +11,6 @@ export function parseDataUri(url) {
 
 import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
-import { Agent } from "undici";
 import { MAX_IMAGE_BYTES, MAX_REMOTE_IMAGES_PER_REQUEST, MAX_TOTAL_IMAGE_BYTES, FETCH_TIMEOUT_MS, IMAGE_SIGNATURES, BLOCKED_HOSTS } from "../../config/mediaConfig.js";
 
 const blockList = new BlockList();
@@ -75,6 +74,7 @@ export async function fetchImageAsBase64(imageUrl, options = {}) {
 
   let url;
   try { url = new URL(imageUrl); } catch { return null; }
+  if (url.username || url.password) return null;
   const pinnedIps = await resolvePinnedIps(url.hostname);
   if (!pinnedIps) return null;
 
@@ -82,12 +82,14 @@ export async function fetchImageAsBase64(imageUrl, options = {}) {
   const timeout = signal ? null : setTimeout(() => controller.abort(), timeoutMs);
   const fetchSignal = signal || controller.signal;
 
-  const dispatcher = new Agent({
-    connect: { lookup: (_h, _o, cb) => cb(null, [{ address: pinnedIps[0].address, family: pinnedIps[0].family }]) },
-  });
+  const pinned = pinnedIps[0];
+  const pinnedHost = pinned.family === 6 || isIP(pinned.address) === 6 ? `[${pinned.address}]` : pinned.address;
+  const pinnedUrl = `${url.protocol}//${pinnedHost}${url.port ? `:${url.port}` : ""}${url.pathname}${url.search}`;
+  const init = { headers: { Host: url.host }, signal: fetchSignal, redirect: "manual" };
+  if (url.protocol === "https:") init.tls = { serverName: url.hostname.replace(/^\[|\]$/g, "") };
 
   try {
-    const response = await fetch(imageUrl, { signal: fetchSignal, redirect: "manual", dispatcher });
+    const response = await fetch(pinnedUrl, init);
     if (!response.ok || !response.body) return null;
 
     const reader = response.body.getReader();
@@ -110,7 +112,6 @@ export async function fetchImageAsBase64(imageUrl, options = {}) {
     return null;
   } finally {
     if (timeout) clearTimeout(timeout);
-    dispatcher.close().catch(() => {});
   }
 }
 

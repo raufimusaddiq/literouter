@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import {
   TEMPLATES,
   addAsset,
@@ -13,7 +14,7 @@ import {
   insertPlaceholder,
   requestHeaders,
   validateKey,
-} from "../../src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js";
+} from "../../src/web/pages/dashboard/systemone/lib/requestBuilder.js";
 
 const mocks = vi.hoisted(() => ({
   getSettings: vi.fn().mockResolvedValue({ requireApiKey: false }),
@@ -29,7 +30,7 @@ const mocks = vi.hoisted(() => ({
   trackPendingRequest: vi.fn(),
 }));
 
-vi.mock("@/lib/db/index.js", () => ({ getSettings: mocks.getSettings, getProviderNodes: mocks.getProviderNodes, getProviderNodeById: mocks.getProviderNodeById }));
+vi.mock("@/lib/db/index.js", async () => ({ ...(await import("@/lib/db/index.js?actual")), getSettings: mocks.getSettings, getProviderNodes: mocks.getProviderNodes, getProviderNodeById: mocks.getProviderNodeById }));
 vi.mock("@/sse/services/auth.js", () => ({
   getProviderCredentials: mocks.getProviderCredentials,
   markAccountUnavailable: mocks.markAccountUnavailable,
@@ -39,10 +40,24 @@ vi.mock("@/sse/services/auth.js", () => ({
 }));
 vi.mock("open-sse/utils/proxyFetch.js", () => ({ proxyAwareFetch: mocks.proxyAwareFetch }));
 vi.mock("open-sse/handlers/chatCore/requestDetail.js", async () => {
-  const actual = await vi.importActual("open-sse/handlers/chatCore/requestDetail.js");
+  const actual = await import("open-sse/handlers/chatCore/requestDetail.js?actual");
   return { ...actual, saveUsageStats: mocks.saveUsageStats };
 });
-vi.mock("@/lib/usageDb.js", () => ({ trackPendingRequest: mocks.trackPendingRequest }));
+vi.mock("@/lib/usageDb.js", () => ({
+  trackPendingRequest: mocks.trackPendingRequest,
+  statsEmitter: {},
+  getActiveRequests: vi.fn(),
+  saveRequestUsage: vi.fn(),
+  flushUsageQueue: vi.fn(),
+  getUsageStats: vi.fn(),
+  getChartData: vi.fn(),
+  getRecentLogs: vi.fn(),
+  saveRequestDetail: vi.fn(),
+  getRequestDetails: vi.fn(),
+  getRequestDetailById: vi.fn(),
+  flushRequestDetails: vi.fn(),
+  ensureRequestDetailShutdownHandler: vi.fn()
+}));
 
 const { handleSystemOne, FORWARDED_REQUEST_HEADERS, pickForwardedHeaders } = await import("@/sse/handlers/systemOne.js");
 
@@ -229,10 +244,10 @@ describe("System One header allowlist", () => {
 
 describe("localStorage restore", () => {
   it("restored ids do not collide with ids generated after a reload", async () => {
-    const first = await import("../../src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js");
+    const first = await import("../../src/web/pages/dashboard/systemone/lib/requestBuilder.js");
     const stored = JSON.stringify({ ...first.blankForm(), questions: [first.blankQuestion("noul"), first.blankQuestion("choice")] });
     vi.resetModules();
-    const second = await import("../../src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js");
+    const second = await import("../../src/web/pages/dashboard/systemone/lib/requestBuilder.js");
     const restored = second.parseStoredForm(stored);
     const ids = [...restored.questions.map((q) => q.id)];
     for (let i = 0; i < 5; i += 1) ids.push(second.blankQuestion().id);
@@ -240,7 +255,7 @@ describe("localStorage restore", () => {
   });
 
   it("parseStoredForm falls back to a blank form on bad input", async () => {
-    const { parseStoredForm } = await import("../../src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js");
+    const { parseStoredForm } = await import("../../src/web/pages/dashboard/systemone/lib/requestBuilder.js");
     expect(parseStoredForm(null).questions).toEqual([]);
     expect(parseStoredForm("{nope").questions).toBeDefined();
     expect(parseStoredForm('{"questions":"x"}').questions).toBeInstanceOf(Array);

@@ -1,0 +1,15 @@
+{
+  "status": 200,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "sha256": "4510f3475d5860cdad31b45f393bc46b2e2faba1d54caa4f22d0994ac86b4578",
+    "bytes": 223666,
+    "shape": {
+      "models": "array(804)"
+    }
+  },
+  "upstream": []
+}

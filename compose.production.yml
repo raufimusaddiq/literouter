@@ -33,11 +33,7 @@ services:
       REDIS_URL: redis://idx-redis:6379
       REDIS_KEY_PREFIX: "literouter:prod:"
       MINIMAL_PROFILE: "true"
-      # #147: V8 heap ceiling chosen, not inherited from the cgroup heuristic
-      # (2026-11-04T19:31:30 "Reached heap limit"). 512 MiB old space inside the
-      # 768m limit leaves ~256 MiB for buffers, SQLite, undici and the Node
-      # runtime, so V8 hits its own limit before the kernel OOM-kills the container.
-      NODE_OPTIONS: "--max-old-space-size=512"
+      # #147: V8's --max-old-space-size does not apply on Bun (JavaScriptCore). The ceiling is mem_limit; BUN_OPTIONS=--smol is the opt-in knob if Plan 5's RSS gate needs it.
     expose:
       - "20128"
     volumes:
@@ -62,7 +58,9 @@ services:
     healthcheck:
       test:
         - CMD
-        - node
+        - env
+        - BUN_BE_BUN=1
+        - /app/literouter
         - -e
         - "fetch('http://127.0.0.1:20128/api/auth/status').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
       interval: 30s

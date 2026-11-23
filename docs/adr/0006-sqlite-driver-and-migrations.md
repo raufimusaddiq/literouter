@@ -1,6 +1,6 @@
 # ADR-0006: SQLite driver chain, migrations and data directory
 
-- Status: Accepted
+- Status: Accepted. The driver chain is superseded: `src/lib/db/driver.js` now uses `bun:sqlite` only and the better-sqlite3, node:sqlite and sql.js adapters are gone. D2, D8 and D9 (and the better-sqlite3/node:sqlite parts of D1 and D7) are kept as history; the NUL-safe wrapper, migrations, data directory, cache and shutdown-ordering decisions still apply.
 - Date: 2026-11-23
 - Origin: recovered from code comments in the 2026-11-23 comment audit
 
@@ -93,6 +93,12 @@ On Windows, a Unix-style absolute DATA_DIR (e.g. /var/lib/...) coming from a Lin
 RESP replies on one socket are ordered, so the Redis client serializes only within a socket (lane), not across the whole client; other lanes stay concurrent.
 
 **Where:** `src/lib/redis.js`
+
+### D15. The bun:sqlite adapter finalizes cached statements before close
+
+The adapter caches prepared statements and must finalize every one before `close(true)`. Otherwise Windows keeps the database file locked and removing it fails with EBUSY.
+
+**Where:** `src/lib/db/adapters/bunSqliteAdapter.js`
 
 ## Consequences
 

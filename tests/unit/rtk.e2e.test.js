@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import fs from "node:fs";
 
 const PORT = process.env.RTK_E2E_PORT || "20128";

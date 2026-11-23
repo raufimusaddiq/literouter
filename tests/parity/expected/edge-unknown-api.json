@@ -1,0 +1,13 @@
+{
+  "status": 404,
+  "headers": {
+    "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+    "content-encoding": "gzip",
+    "content-type": "text/html; charset=utf-8"
+  },
+  "body": {
+    "html": true,
+    "title": "LiteRouter — AI routing control plane"
+  },
+  "upstream": []
+}

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { PROVIDERS } from "../../open-sse/config/providers.js";
 import { DefaultExecutor } from "../../open-sse/executors/default.js";
 
@@ -64,6 +64,14 @@ describe("GOLDEN buildUrl (default executor providers)", () => {
 });
 
 describe("GOLDEN buildHeaders (default executor providers)", () => {
+  const realPlatform = Object.getOwnPropertyDescriptor(process, "platform");
+  beforeAll(() => {
+    Object.defineProperty(process, "platform", { ...realPlatform, value: "linux" });
+  });
+  afterAll(() => {
+    Object.defineProperty(process, "platform", realPlatform);
+  });
+
   for (const pid of providerIds) {
     it(`${pid} → headers (apiKey / oauth)`, () => {
       const ex = new DefaultExecutor(pid);

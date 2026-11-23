@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "bun:test";
+import { vi } from "#test/vi";
 import { withTimeout, runWithConcurrency, createTtlCache, TimeoutError } from "@/lib/asyncLimits.js";
 
 describe("runWithConcurrency", () => {

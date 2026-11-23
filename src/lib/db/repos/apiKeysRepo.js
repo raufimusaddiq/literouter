@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from "uuid";
 import { bumpConfigVersion } from "../configVersion.js";
 import { safeEqual } from "@/shared/utils/safeEqual.js";
 import { getAdapter } from "../driver.js";
@@ -61,7 +60,7 @@ export async function createApiKey(name, machineId) {
   const { generateApiKeyWithMachine } = await import("@/shared/utils/apiKey");
   const result = generateApiKeyWithMachine(machineId);
   const apiKey = {
-    id: uuidv4(),
+    id: crypto.randomUUID(),
     name,
     key: result.key,
     machineId,

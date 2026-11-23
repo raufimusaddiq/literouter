@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "v1-models",
+  "method": "GET",
+  "path": "/v1/models"
+}

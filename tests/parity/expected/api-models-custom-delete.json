@@ -1,0 +1,11 @@
+{
+  "status": 400,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "error": "providerAlias and id required"
+  },
+  "upstream": []
+}

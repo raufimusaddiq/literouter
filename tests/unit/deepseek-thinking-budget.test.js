@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { applyThinking, captureThinking } from "../../open-sse/translator/concerns/thinkingUnified.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
@@ -7,7 +7,7 @@ const customProvider = "openai-compatible-chat-budget-test";
 const model = "deepseek-v4-flash";
 
 describe("DeepSeek thinking budgets (#5108)", () => {
-  it.each([2048, 98304])("preserves explicit budget_tokens=%s on a custom DeepSeek host", (budget) => {
+  it.each([2048, 98304])("preserves explicit budget_tokens=%p on a custom DeepSeek host", (budget) => {
     const body = { thinking: { type: "enabled", budget_tokens: budget }, max_tokens: 131072 };
     applyThinking(FORMATS.OPENAI, model, body, customProvider);
     expect(body.thinking).toEqual({ type: "enabled", budget_tokens: budget });

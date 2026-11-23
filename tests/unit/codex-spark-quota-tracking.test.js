@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { parseQuotaData } from "@/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js";
+import { describe, it, expect } from "bun:test";
+import { parseQuotaData } from "@/web/pages/dashboard/usage/components/ProviderLimits/utils.js";
 
 describe("Codex Spark Quota Tracking (#3431)", () => {
   it("correctly normalizes spark_session and spark_weekly quotas with display labels", () => {

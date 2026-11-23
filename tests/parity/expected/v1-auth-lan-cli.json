@@ -1,0 +1,16 @@
+{
+  "status": 401,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "error": {
+      "message": "Missing API key",
+      "type": "authentication_error",
+      "code": "invalid_api_key"
+    }
+  },
+  "upstream": []
+}

@@ -1,0 +1,85 @@
+services:
+  app:
+    image: ${GATE_IMAGE:?image ref}
+    environment:
+      JWT_SECRET: gate-jwt-secret-gate-jwt-secret-0001
+      INITIAL_PASSWORD: gate-password
+      API_KEY_SECRET: gate-api-key-secret
+      MACHINE_ID_SALT: gate-machine-salt
+      PORT: "20128"
+      HOSTNAME: "0.0.0.0"
+      TRUST_LOOPBACK_AS_LOCAL: ${TRUST_LOOPBACK_AS_LOCAL:-true}
+      MINIMAL_PROFILE: ${MINIMAL_PROFILE:-true}
+    networks:
+      - default
+      - pub
+
+  caddy-a:
+    image: caddy:2.8.4-alpine
+    environment:
+      UPSTREAM: app:20128
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - app
+
+  caddy-b:
+    image: caddy:2.8.4-alpine
+    network_mode: "service:app"
+    environment:
+      UPSTREAM: 127.0.0.1:20128
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - app
+
+  client-remote:
+    image: curlimages/curl:8.11.1
+    entrypoint: ["sleep", "3600"]
+    networks:
+      - default
+      - pub
+
+  client-loopback:
+    image: curlimages/curl:8.11.1
+    entrypoint: ["sleep", "3600"]
+    network_mode: "service:app"
+    depends_on:
+      - app
+
+  mock:
+    image: oven/bun:1.4.4
+    command: ["bun", "/mock.mjs"]
+    environment:
+      MOCK_PORT: "9000"
+    volumes:
+      - ./mock.mjs:/mock.mjs:ro
+
+  mock-pub:
+    image: oven/bun:1.4.4
+    command: ["bun", "/mock.mjs"]
+    environment:
+      MOCK_PORT: "9000"
+      REDIR_TARGET: http://mock:9000/target.png
+    volumes:
+      - ./mock.mjs:/mock.mjs:ro
+    networks:
+      pub:
+        ipv4_address: 11.0.0.10
+
+  mock-loop:
+    image: oven/bun:1.4.4
+    command: ["bun", "/mock.mjs"]
+    environment:
+      MOCK_PORT: "9001"
+    volumes:
+      - ./mock.mjs:/mock.mjs:ro
+    network_mode: "service:app"
+    depends_on:
+      - app
+
+networks:
+  pub:
+    ipam:
+      config:
+        - subnet: 11.0.0.0/24

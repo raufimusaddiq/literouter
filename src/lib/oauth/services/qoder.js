@@ -4,7 +4,6 @@ import {
   QODER_USERINFO_URL,
 } from "../../qoder/constants.js";
 import crypto from "crypto";
-import { v4 as uuidv4 } from "uuid";
 
 
 const FETCH_TIMEOUT_MS = 15_000;
@@ -36,8 +35,8 @@ export class QoderService {
 
   initiateDeviceFlow() {
     const { verifier, challenge } = this.generatePkcePair();
-    const nonce = uuidv4();
-    const machineId = uuidv4();
+    const nonce = crypto.randomUUID();
+    const machineId = crypto.randomUUID();
 
     const params = new URLSearchParams({
       challenge,

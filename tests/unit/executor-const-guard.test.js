@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import {
   OPENAI_COMPAT_BASE,
   ANTHROPIC_COMPAT_BASE,

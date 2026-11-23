@@ -1,7 +1,7 @@
 import { platform, arch, hostname } from "os";
 import { PROVIDERS, PROVIDER_OAUTH } from "./providers.js";
 import { ANTIGRAVITY_IDE_USER_AGENT } from "../providers/shared.js";
-import { createRequire } from "module";
+import { version } from "../../package.json" with { type: "json" };
 
 export const GEMINI_CLI_VERSION = PROVIDERS["gemini-cli"]?.cliVersion;
 export const GEMINI_CLI_API_CLIENT = PROVIDERS["gemini-cli"]?.apiClient;
@@ -170,16 +170,8 @@ export const OAUTH_ENDPOINTS = {
   github:    { token: PROVIDER_OAUTH["github"]?.tokenUrl, auth: PROVIDER_OAUTH["github"]?.authorizeUrl, deviceCode: PROVIDER_OAUTH["github"]?.deviceCodeUrl },
 };
 
-let _appVersion;
-function getAppPackageVersion() {
-  if (_appVersion) return _appVersion;
-  try {
-    const require = createRequire(import.meta.url);
-    _appVersion = require("../../package.json").version || "0.0.0";
-  } catch {
-    _appVersion = process.env.npm_package_version || "0.0.0";
-  }
-  return _appVersion;
+export function getAppPackageVersion() {
+  return version || "0.0.0";
 }
 
 export function buildKimiHeaders(deviceId) {

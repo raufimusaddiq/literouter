@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { anchorClaudeCache, prepareClaudeRequest } from "../../open-sse/translator/formats/claude.js";
 
 const CC = { type: "ephemeral" };

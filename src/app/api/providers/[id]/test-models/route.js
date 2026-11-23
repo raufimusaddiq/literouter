@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { getProviderConnectionById } from "@/lib/localDb";
 import { getProviderModels, PROVIDER_ID_TO_ALIAS } from "open-sse/config/providerModels.js";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
@@ -10,7 +10,7 @@ export async function POST(request, { params }) {
     const { id } = await params;
     const connection = await getProviderConnectionById(id);
     if (!connection) {
-      return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+      return json({ error: "Connection not found" }, { status: 404 });
     }
 
     const providerId = connection.provider;
@@ -32,7 +32,7 @@ export async function POST(request, { params }) {
     }
 
     if (models.length === 0) {
-      return NextResponse.json({ error: "No models configured for this provider" }, { status: 400 });
+      return json({ error: "No models configured for this provider" }, { status: 400 });
     }
 
     const [first, ...rest] = models;
@@ -50,9 +50,9 @@ export async function POST(request, { params }) {
       results.push(...restResults);
     }
 
-    return NextResponse.json({ provider: providerId, connectionId: id, results });
+    return json({ provider: providerId, connectionId: id, results });
   } catch (error) {
     console.log("Error testing models:", error);
-    return NextResponse.json({ error: "Test failed" }, { status: 500 });
+    return json({ error: "Test failed" }, { status: 500 });
   }
 }

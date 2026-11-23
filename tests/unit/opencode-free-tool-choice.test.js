@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { PROVIDERS } from "../../open-sse/config/providers.js";
 import { OpenCodeExecutor } from "../../open-sse/executors/opencode.js";
 import { proxyAwareFetch } from "../../open-sse/utils/proxyFetch.js";
@@ -34,7 +35,7 @@ describe("opencode Free 1.3 tool_choice auto-only", () => {
     ["Claude tool named", { type: "tool", name: "get_weather" }],
     ["required", "required"],
     ["none", "none"],
-  ])("demote %s sang auto (plain và max)", (_label, choice) => {
+  ])("demote %p sang auto (plain và max)", (_label, choice) => {
     for (const model of [FREE_13, `${FREE_13}(max)`]) {
       const body = responsesBody(model, structuredClone(choice));
       const out = new OpenCodeExecutor().transformRequest(model, body, true, CREDS);
@@ -65,7 +66,7 @@ describe("opencode Free 1.3 tool_choice auto-only", () => {
     ["future 1.4-Free", "muse-spark-1.4-contributor-free"],
     ["Go id", "muse-spark-1.3-contributor"],
     ["non-Muse", "big-pickle"],
-  ])("không đổi tool_choice của %s", (_label, model) => {
+  ])("không đổi tool_choice của %p", (_label, model) => {
     const choice = { type: "function", name: "get_weather" };
     const body = responsesBody(model, structuredClone(choice));
     const out = new OpenCodeExecutor().transformRequest(model, body, true, CREDS);

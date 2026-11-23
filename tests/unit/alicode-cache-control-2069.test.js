@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { filterToOpenAIFormat } from "../../open-sse/translator/formats/openai.js";
 
 const msgWithCache = [

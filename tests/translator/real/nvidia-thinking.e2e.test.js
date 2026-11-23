@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll } from "bun:test";
 import { getApiKeys } from "../../../src/lib/db/repos/apiKeysRepo.js";
 
 const PORT = process.env.NV_E2E_PORT || "20127";
@@ -34,7 +34,7 @@ maybe("nvidia thinking e2e", () => {
     apiKey = keys.find((k) => k.isActive)?.key || process.env.NV_E2E_KEY || "";
   });
 
-  it.each(MODELS)("%s with reasoning_effort -> no 'thinking' 400", async (model) => {
+  it.each(MODELS)("%p with reasoning_effort -> no 'thinking' 400", async (model) => {
     if (!apiKey) return expect(true).toBe(true);
     const res = await fetch(`${BASE}/v1/chat/completions`, {
       method: "POST",

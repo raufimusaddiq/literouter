@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { classifyOAuthProbeResult } from "../../src/app/api/providers/[id]/test/testUtils.js";
 import { PROVIDERS } from "../../open-sse/providers/index.js";
 
