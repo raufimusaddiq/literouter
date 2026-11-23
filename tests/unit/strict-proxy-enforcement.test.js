@@ -1,5 +1,8 @@
 import { afterAll, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
+import { useTempDataDirAtLoad } from "#test/tempDataDir";
+
+useTempDataDirAtLoad("9r-strict-proxy-");
 
 const originalFetch = globalThis.fetch;
 const networkFetch = vi.fn().mockRejectedValue(new Error("network stub"));

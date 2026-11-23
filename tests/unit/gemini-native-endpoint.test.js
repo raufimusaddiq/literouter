@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
+import { useTempDataDirAtLoad } from "#test/tempDataDir";
+
+useTempDataDirAtLoad("9r-gemini-native-");
 
 const mocks = vi.hoisted(() => ({
   handleChat: vi.fn(), getSettings: vi.fn(), isValidApiKey: vi.fn(),
@@ -12,9 +15,9 @@ vi.mock("@/sse/services/auth.js", () => ({
 }));
 vi.mock("@/lib/localDb", () => ({ getSettings: mocks.getSettings }));
 
-import { GET, OPTIONS } from "../../src/app/api/v1beta/models/route.js";
-import { POST } from "../../src/app/api/v1beta/models/[...path]/route.js";
-import { PROVIDER_MODELS } from "../../open-sse/config/providerModels.js";
+const { GET, OPTIONS } = await import("../../src/app/api/v1beta/models/route.js");
+const { POST } = await import("../../src/app/api/v1beta/models/[...path]/route.js");
+const { PROVIDER_MODELS } = await import("../../open-sse/config/providerModels.js");
 
 function audioBody() {
   return { contents: [{ parts: [{ text: "hello" }] }], generationConfig: { responseModalities: ["AUDIO"] } };

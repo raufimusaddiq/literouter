@@ -29,6 +29,14 @@ jobs:
       - run: CI=true bun test --parallel --reporter=junit --reporter-outfile=../test-results.xml
         working-directory: tests
 
+      - name: Tests must not write the real data dir
+        run: |
+          if [ -e "$HOME/.9router" ]; then
+            echo "a test wrote $HOME/.9router"
+            find "$HOME/.9router" -maxdepth 3
+            exit 1
+          fi
+
       - run: git diff --exit-code -- tests
       - run: test -z "$(git status --porcelain -- tests)"
 

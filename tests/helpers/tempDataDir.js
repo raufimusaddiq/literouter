@@ -33,3 +33,23 @@ export function useTempDataDir(prefix, { scope = "each" } = {}) {
     },
   };
 }
+
+export function useTempDataDirAtLoad(prefix) {
+  const original = process.env.DATA_DIR;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  process.env.DATA_DIR = dir;
+  delete global._dbAdapter;
+
+  afterAll(async () => {
+    try {
+      await global._dbAdapter?.instance?.close?.();
+    } finally {
+      delete global._dbAdapter;
+      if (original === undefined) delete process.env.DATA_DIR;
+      else process.env.DATA_DIR = original;
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+
+  return dir;
+}

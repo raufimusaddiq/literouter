@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
+import { useTempDataDir } from "#test/tempDataDir";
 
 describe("API key cache", () => {
+  useTempDataDir("9r-api-key-cache-", { scope: "all" });
   it("serves repeated lookups without requerying, and invalidates on mutation", async () => {
     const mod = await import("../../src/lib/db/repos/apiKeysRepo.js").catch(() => null);
     if (!mod) return;

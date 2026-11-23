@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
+import { useTempDataDirAtLoad } from "#test/tempDataDir";
+
+useTempDataDirAtLoad("9r-node-validate-");
 
 const { lookupMock, fetchMock } = vi.hoisted(() => ({ lookupMock: vi.fn(), fetchMock: vi.fn() }));
 vi.mock("node:dns", () => ({

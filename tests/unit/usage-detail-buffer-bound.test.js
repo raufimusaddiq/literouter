@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
+import { useTempDataDir } from "#test/tempDataDir";
 
 describe("request details buffer", () => {
+  useTempDataDir("9r-detail-buffer-", { scope: "all" });
   it("drops oldest instead of growing without bound", async () => {
     const mod = await import("../../src/lib/db/repos/requestDetailsRepo.js").catch(() => null);
     if (!mod) return;

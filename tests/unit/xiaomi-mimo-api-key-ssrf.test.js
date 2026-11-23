@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { vi } from "#test/vi";
+import { useTempDataDirAtLoad } from "#test/tempDataDir";
+
+useTempDataDirAtLoad("9r-mimo-key-");
 
 const { lookupMock, fetchMock, createMock } = vi.hoisted(() => ({
   lookupMock: vi.fn(),

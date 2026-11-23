@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
+import { useTempDataDir } from "#test/tempDataDir";
 
 describe("request detail signal drain", () => {
+  useTempDataDir("9r-detail-drain-", { scope: "all" });
   it("persists buffered rows when the process handles SIGTERM", async () => {
     process.env.ENABLE_REQUEST_LOGS = "true";
     process.env.OBSERVABILITY_BATCH_SIZE = "100000";
