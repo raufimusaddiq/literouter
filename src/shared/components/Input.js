@@ -24,15 +24,15 @@ export default function Input({
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
-        <label htmlFor={inputId} className="text-sm font-medium text-text-main">
+        <label htmlFor={inputId} className="text-[13px] font-medium text-ink">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-danger ml-1">*</span>}
         </label>
       )}
       <div className="relative">
         {icon && (
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-text-muted">
-            <span aria-hidden="true" className="material-symbols-outlined text-[20px]">{icon}</span>
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted">
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{icon}</span>
           </div>
         )}
         <input
@@ -43,13 +43,12 @@ export default function Input({
           onChange={onChange}
           disabled={disabled}
           className={cn(
-            "w-full px-3 py-2.5 text-sm text-text-main bg-surface-2 rounded-[10px]",
-            "ring-1 ring-border-subtle placeholder-text-muted/70",
-            "focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/40",
+            "w-full h-9 px-3 text-[16px] sm:text-sm text-ink bg-raise rounded-md",
+            "border border-line-strong placeholder:text-faint",
+            "focus:outline-none focus:ring-2 focus:ring-mark-line focus:border-mark-line",
             "transition-[background-color,border-color,box-shadow] duration-150 ease-out disabled:opacity-50 disabled:cursor-not-allowed",
-            "text-[16px] sm:text-sm",
-            icon && "pl-10",
-            error && "ring-1 ring-red-500 focus:ring-2 focus:ring-red-500/40 border-red-500/40",
+            icon && "pl-9",
+            error && "border-danger focus:ring-2 focus:ring-danger focus:border-danger",
             inputClassName
           )}
           aria-invalid={error ? "true" : undefined}
@@ -58,13 +57,13 @@ export default function Input({
         />
       </div>
       {error && (
-        <p id={messageId} role="alert" className="flex items-center gap-1 text-xs text-red-500">
+        <p id={messageId} role="alert" className="flex items-center gap-1 text-xs text-danger">
           <span aria-hidden="true" className="material-symbols-outlined text-[14px]">error</span>
           {error}
         </p>
       )}
       {hint && !error && (
-        <p id={messageId} className="text-xs text-text-muted">{hint}</p>
+        <p id={messageId} className="text-xs text-muted">{hint}</p>
       )}
     </div>
   );

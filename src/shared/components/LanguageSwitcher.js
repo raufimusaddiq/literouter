@@ -125,24 +125,25 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
       )}
 
       {isOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-i18n-skip="true">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" data-i18n-skip="true">
           <div
-            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/50"
             onClick={() => setIsOpen(false)}
           />
 
           <div
             ref={modalRef}
-            className="relative w-full bg-surface border border-black/10 dark:border-white/10 rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-w-2xl flex flex-col max-h-[80vh]"
+            className="relative w-full bg-raise border border-line-strong rounded-[10px] shadow-[var(--shadow-float)] fade-in max-w-2xl flex flex-col max-h-[80vh]"
           >
-            <div className="flex items-center justify-between p-3 border-b border-black/5 dark:border-white/5">
-              <h2 className="text-lg font-semibold text-text-main">Select Language</h2>
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-line">
+              <h2 className="text-base font-semibold tracking-[-0.01em] text-ink">Select Language</h2>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-text-muted hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                className="inline-flex size-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-ink transition-colors"
                 aria-label="Close"
               >
-                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
 

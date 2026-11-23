@@ -37,31 +37,30 @@ export default function Pagination({
   return (
     <div
       className={cn(
-        "flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-2",
+        "flex flex-col sm:flex-row items-center justify-between gap-4 py-3 border-t border-line",
         className
       )}
     >
       {totalItems > 0 && (
-        <div className="text-sm text-text-muted">
-          Showing <span className="font-medium text-text-main">{startItem}</span> to{" "}
-          <span className="font-medium text-text-main">{endItem}</span> of{" "}
-          <span className="font-medium text-text-main">{totalItems}</span> results
+        <div className="text-[12.5px] text-muted tabular-nums">
+          Showing <span className="font-mono text-ink">{startItem}</span> to{" "}
+          <span className="font-mono text-ink">{endItem}</span> of{" "}
+          <span className="font-mono text-ink">{totalItems}</span> results
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
+      <div className="flex flex-wrap items-center justify-center gap-3">
         {onPageSizeChange && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-text-muted">Rows:</span>
+            <span className="text-[12.5px] text-muted">Rows:</span>
             <select
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
               className={cn(
-                "h-9 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20",
+                "h-7 rounded-md border border-line-strong bg-raise px-2",
+                "text-xs text-ink focus:outline-none focus:ring-2 focus:ring-mark-line",
                 "cursor-pointer"
               )}
-              style={{ colorScheme: 'auto' }}
             >
               {[10, 20, 50].map((size) => (
                 <option key={size} value={size}>
@@ -75,14 +74,14 @@ export default function Pagination({
         {totalPages > 1 && (
           <div className="flex items-center gap-1">
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => onPageChange(currentPage - 1)}
               disabled={currentPage === 1}
               aria-label="Previous page"
-              className="w-9 px-0"
+              className="px-2"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chevron_left</span>
+              Prev
             </Button>
 
             {pageNumbers[0] > 1 && (
@@ -91,12 +90,12 @@ export default function Pagination({
                   variant="ghost"
                   size="sm"
                   onClick={() => onPageChange(1)}
-                  className="w-9 px-0 hidden sm:inline-flex"
+                  className="min-w-7 px-2 hidden sm:inline-flex font-mono"
                 >
                   1
                 </Button>
                 {pageNumbers[0] > 2 && (
-                  <span className="text-text-muted px-1 hidden sm:inline">...</span>
+                  <span className="text-faint px-1 hidden sm:inline">…</span>
                 )}
               </>
             )}
@@ -107,8 +106,9 @@ export default function Pagination({
                 variant={currentPage === page ? "primary" : "ghost"}
                 size="sm"
                 onClick={() => onPageChange(page)}
+                aria-current={currentPage === page ? "page" : undefined}
                 className={cn(
-                  "w-9 px-0",
+                  "min-w-7 px-2 font-mono",
                   currentPage === page ? "inline-flex" : "hidden sm:inline-flex"
                 )}
               >
@@ -119,13 +119,13 @@ export default function Pagination({
             {pageNumbers[pageNumbers.length - 1] < totalPages && (
               <>
                 {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && (
-                  <span className="text-text-muted px-1 hidden sm:inline">...</span>
+                  <span className="text-faint px-1 hidden sm:inline">…</span>
                 )}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onPageChange(totalPages)}
-                  className="w-9 px-0 hidden sm:inline-flex"
+                  className="min-w-7 px-2 hidden sm:inline-flex font-mono"
                 >
                   {totalPages}
                 </Button>
@@ -133,14 +133,14 @@ export default function Pagination({
             )}
 
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => onPageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
               aria-label="Next page"
-              className="w-9 px-0"
+              className="px-2"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chevron_right</span>
+              Next
             </Button>
           </div>
         )}

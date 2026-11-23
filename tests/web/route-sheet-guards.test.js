@@ -4,7 +4,9 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dir, "../..");
 
-export const GUARDED_PATHS = [];
+export const GUARDED_PATHS = ["src/shared/components"];
+
+const EXCLUDED_FILES = new Set(["src/shared/components/Sidebar.js"]);
 
 const FORBIDDEN = [
   /backdrop-blur/,
@@ -65,8 +67,9 @@ describe("Route Sheet guards", () => {
     const violations = [];
     for (const guarded of GUARDED_PATHS) {
       for (const file of collectJsFiles(guarded)) {
-        const content = fs.readFileSync(file, "utf8");
         const rel = path.relative(ROOT, file).split("\\").join("/");
+        if (EXCLUDED_FILES.has(rel)) continue;
+        const content = fs.readFileSync(file, "utf8");
         for (const pattern of FORBIDDEN) {
           if (pattern.test(content)) {
             violations.push(`${rel} matched ${pattern}`);

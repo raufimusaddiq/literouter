@@ -8,16 +8,15 @@ export default function ThemeToggle({ className, variant = "default" }) {
 
   const variants = {
     default: cn(
-      "flex items-center justify-center size-11 rounded-full",
-      "text-text-muted hover:text-text-main",
-      "hover:bg-surface-2 transition-colors"
+      "flex items-center justify-center size-8 rounded-md border border-transparent",
+      "text-muted hover:text-ink hover:border-line",
+      "transition-colors"
     ),
     card: cn(
-      "flex items-center justify-center size-11 rounded-full",
-      "bg-surface/60 hover:bg-surface",
-      "border border-border",
-      "backdrop-blur-md shadow-sm hover:shadow-[var(--shadow-warm)]",
-      "text-text-muted hover:text-brand-500",
+      "flex items-center justify-center size-9 rounded-md",
+      "bg-raise hover:bg-surface-2",
+      "border border-line-strong",
+      "text-muted hover:text-ink",
       "transition-colors group"
     ),
   };
@@ -26,16 +25,13 @@ export default function ThemeToggle({ className, variant = "default" }) {
     <button
       type="button"
       onClick={toggleTheme}
-      className={cn(variants[variant], className)}
+      className={cn(variants[variant] || variants.default, className)}
       aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
       title={`Switch to ${isDark ? "light" : "dark"} mode`}
     >
-        <span
-          aria-hidden="true"
-        className={cn(
-          "material-symbols-outlined text-[22px]",
-          variant === "card" && "transition-transform duration-300 group-hover:rotate-12"
-        )}
+      <span
+        aria-hidden="true"
+        className="material-symbols-outlined text-[18px]"
       >
         {isDark ? "light_mode" : "dark_mode"}
       </span>

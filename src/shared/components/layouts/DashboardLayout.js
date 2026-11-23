@@ -18,24 +18,28 @@ const getServerDesktop = () => false;
 function getToastStyle(type) {
   if (type === "success") {
     return {
-      wrapper: "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400",
+      wrapper: "border-l-ok",
+      iconClass: "text-ok",
       icon: "check_circle",
     };
   }
   if (type === "error") {
     return {
-      wrapper: "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400",
+      wrapper: "border-l-danger",
+      iconClass: "text-danger",
       icon: "error",
     };
   }
   if (type === "warning") {
     return {
-      wrapper: "border-warning/30 bg-warning/10 text-warning",
+      wrapper: "border-l-warning",
+      iconClass: "text-warning",
       icon: "warning",
     };
   }
   return {
-    wrapper: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    wrapper: "border-l-ink",
+    iconClass: "text-muted",
     icon: "info",
   };
 }
@@ -63,19 +67,19 @@ export default function DashboardLayout({ children }) {
           return (
             <div
               key={n.id}
-              className={`rounded-lg border px-3 py-2 shadow-lg backdrop-blur-sm ${style.wrapper}`}
+              className={`rounded-md border border-line-strong border-l-[3px] bg-raise text-ink px-3 py-2.5 shadow-[var(--shadow-float)] ${style.wrapper}`}
             >
               <div className="flex items-start gap-2">
-                <span aria-hidden="true" className="material-symbols-outlined text-[18px] leading-5">{style.icon}</span>
+                <span aria-hidden="true" className={`material-symbols-outlined text-[18px] leading-5 ${style.iconClass}`}>{style.icon}</span>
                 <div className="min-w-0 flex-1">
-                  {n.title ? <p className="text-xs font-semibold mb-0.5">{n.title}</p> : null}
-                  <p className="text-xs whitespace-pre-wrap break-words">{n.message}</p>
+                  {n.title ? <p className="text-xs font-semibold mb-0.5 text-ink">{n.title}</p> : null}
+                  <p className="text-xs text-muted whitespace-pre-wrap break-words">{n.message}</p>
                 </div>
                 {n.dismissible ? (
                   <button
                     type="button"
                     onClick={() => removeNotification(n.id)}
-                    className="flex size-8 items-center justify-center rounded text-current/70 hover:bg-black/5 hover:text-current dark:hover:bg-white/5"
+                    className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-ink"
                     aria-label="Dismiss notification"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
