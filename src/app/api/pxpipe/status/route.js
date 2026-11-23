@@ -1,14 +1,12 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { getSettings } from "@/lib/localDb";
 import { getPxpipeStatus } from "@/lib/pxpipe/service.js";
-
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const settings = await getSettings();
     const status = getPxpipeStatus();
-    return NextResponse.json({
+    return json({
       ...status,
       enabled: !!settings.pxpipeEnabled,
       autoInstall: !!settings.pxpipeAutoInstall,
@@ -16,6 +14,6 @@ export async function GET() {
       timeoutMs: settings.pxpipeTimeoutMs,
     });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return json({ error: error.message }, { status: 500 });
   }
 }

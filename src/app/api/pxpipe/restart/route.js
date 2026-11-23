@@ -1,15 +1,13 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { unloadPxpipe, loadPxpipe } from "@/lib/pxpipe/loader.js";
 import { getPxpipeStatus } from "@/lib/pxpipe/service.js";
-
-export const dynamic = "force-dynamic";
 
 export async function POST() {
   try {
     unloadPxpipe();
     await loadPxpipe();
-    return NextResponse.json(getPxpipeStatus());
+    return json(getPxpipeStatus());
   } catch (error) {
-    return NextResponse.json({ error: error.message, code: error.code || null }, { status: 500 });
+    return json({ error: error.message, code: error.code || null }, { status: 500 });
   }
 }

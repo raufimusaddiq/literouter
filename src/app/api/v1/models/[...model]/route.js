@@ -1,5 +1,6 @@
 import { buildModelsList, LLM_KIND } from "../route.js";
 import { getKeyAccessContext, filterModelsListForKey } from "@/sse/services/keyAccess.js";
+import { nextUrl } from "@/server/http.js";
 
 export async function OPTIONS() {
   return new Response(null, {
@@ -26,7 +27,7 @@ export async function GET(request, { params }) {
     const { model } = await params;
     const path = Array.isArray(model) ? model : [model];
     const identifier = path.filter(Boolean).join("/");
-    const kind = request.nextUrl?.searchParams?.get("kind");
+    const kind = nextUrl(request).searchParams?.get("kind");
     if (kind) {
       const data = await filterModelsListForKey(
         await getKeyAccessContext(request),
