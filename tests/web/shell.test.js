@@ -349,7 +349,7 @@ describe("Route Sheet shell", () => {
     await view.unmount();
   });
 
-  it("bottom sheet closes on downward swipe of its handle", async () => {
+  it("bottom sheet tracks drag transform, snaps back below threshold, and closes past 64px", async () => {
     stubViewport(390);
     window.history.replaceState(null, "", "/dashboard/combos");
     const { default: NavSheet } = await import("../../src/shared/components/shell/NavSheet.js");
@@ -364,15 +364,60 @@ describe("Route Sheet shell", () => {
       />,
     );
 
+    const dialog = view.container.querySelector('[role="dialog"]');
     const handle = view.container.querySelector("[data-sheet-handle]");
+    expect(dialog).not.toBeNull();
     expect(handle).not.toBeNull();
+    expect(handle.contains(dialog.querySelector("h2"))).toBe(true);
+    expect(dialog.className).not.toContain("sheet-slide-up");
+    expect(dialog.parentElement.className).toContain("sheet-slide-up");
 
     await act(async () => {
       handle.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: [{ clientY: 100 }] }));
-      handle.dispatchEvent(new TouchEvent("touchmove", { bubbles: true, touches: [{ clientY: 220 }] }));
-      handle.dispatchEvent(new TouchEvent("touchend", { bubbles: true, changedTouches: [{ clientY: 220 }] }));
+      handle.dispatchEvent(new TouchEvent("touchmove", { bubbles: true, touches: [{ clientY: 130 }] }));
+    });
+    expect(dialog.style.transform).toBe("translateY(30px)");
+    expect(closed).toBe(0);
+
+    await act(async () => {
+      handle.dispatchEvent(new TouchEvent("touchend", { bubbles: true, changedTouches: [{ clientY: 130 }] }));
+    });
+    expect(dialog.style.transform).toBe("");
+    expect(closed).toBe(0);
+
+    await act(async () => {
+      handle.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: [{ clientY: 100 }] }));
+      handle.dispatchEvent(new TouchEvent("touchmove", { bubbles: true, touches: [{ clientY: 180 }] }));
+    });
+    expect(dialog.style.transform).toBe("translateY(80px)");
+
+    await act(async () => {
+      handle.dispatchEvent(new TouchEvent("touchend", { bubbles: true, changedTouches: [{ clientY: 180 }] }));
     });
     expect(closed).toBe(1);
+
+    const closeBtn = dialog.querySelector('button[aria-label="Close"]');
+    expect(closeBtn).not.toBeNull();
+    await act(async () => {
+      closeBtn.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: [{ clientY: 100 }] }));
+      closeBtn.dispatchEvent(new TouchEvent("touchmove", { bubbles: true, touches: [{ clientY: 130 }] }));
+    });
+    expect(dialog.style.transform).toBe("");
+    await click(closeBtn);
+    expect(closed).toBe(2);
+
+    await view.unmount();
+  });
+
+  it("bottom sheet skips entry animation under prefers-reduced-motion", async () => {
+    stubViewport(390, { reduced: true });
+    window.history.replaceState(null, "", "/dashboard/combos");
+    const { default: NavSheet } = await import("../../src/shared/components/shell/NavSheet.js");
+    const view = await mount(<NavSheet open onClose={() => {}} variant="bottom" />);
+
+    const dialog = view.container.querySelector('[role="dialog"]');
+    expect(dialog.className).not.toContain("sheet-slide-up");
+    expect(dialog.parentElement.className).not.toContain("sheet-slide-up");
 
     await view.unmount();
   });

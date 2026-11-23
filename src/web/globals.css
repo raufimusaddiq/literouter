@@ -360,7 +360,7 @@ button:disabled,
 .slide-in-right { animation: slideInFromRight 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 .fade-in { animation: fadeIn 0.2s ease-out forwards; }
 .slide-in-top { animation: slideInFromTop 0.18s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-.sheet-slide-up { animation: sheetSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.sheet-slide-up { animation: sheetSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
 
 @keyframes topology-router-pulse {
   0%, 100% {

@@ -126,7 +126,11 @@ export default function NavSheet({ open, onClose, variant = "full", onLogout = d
     }
   };
 
+  const isInteractiveTarget = (target) =>
+    Boolean(target && typeof target.closest === "function" && target.closest("button, a, input, select, textarea"));
+
   const handlePointerDown = (event) => {
+    if (isInteractiveTarget(event.target)) return;
     startDrag(event.clientY);
     if (typeof event.currentTarget.setPointerCapture === "function") {
       try {
@@ -148,6 +152,7 @@ export default function NavSheet({ open, onClose, variant = "full", onLogout = d
   };
 
   const handleTouchStart = (event) => {
+    if (isInteractiveTarget(event.target)) return;
     const touch = event.touches?.[0];
     if (touch) startDrag(touch.clientY);
   };
@@ -166,6 +171,136 @@ export default function NavSheet({ open, onClose, variant = "full", onLogout = d
 
   const isBottom = variant === "bottom";
 
+  const dialogContent = (
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      tabIndex={-1}
+      style={
+        isBottom && dragOffset > 0
+          ? { transform: `translateY(${dragOffset}px)`, transition: dragging ? "none" : undefined }
+          : undefined
+      }
+      className={cn(
+        "relative flex flex-col bg-raise text-ink outline-none shadow-[var(--shadow-float)]",
+        isBottom
+          ? cn(
+              "w-full max-h-[85vh] rounded-t-[10px] border-t border-line-strong pb-[env(safe-area-inset-bottom)]",
+              !prefersReducedMotion && !dragging && "transition-transform duration-200 ease-out",
+            )
+          : "h-full w-full max-w-[520px] border-l border-line-strong",
+      )}
+    >
+      <div
+        data-sheet-handle={isBottom ? "" : undefined}
+        onPointerDown={isBottom ? handlePointerDown : undefined}
+        onPointerMove={isBottom ? handlePointerMove : undefined}
+        onPointerUp={isBottom ? handlePointerUp : undefined}
+        onPointerCancel={isBottom ? handlePointerUp : undefined}
+        onTouchStart={isBottom ? handleTouchStart : undefined}
+        onTouchMove={isBottom ? handleTouchMove : undefined}
+        onTouchEnd={isBottom ? handleTouchEnd : undefined}
+        onTouchCancel={isBottom ? handleTouchEnd : undefined}
+        className={cn(
+          "shrink-0 border-b border-line",
+          isBottom && "min-h-[44px] cursor-grab touch-none select-none active:cursor-grabbing",
+        )}
+      >
+        {isBottom ? (
+          <div className="flex justify-center pt-3 pb-1">
+            <span aria-hidden="true" className="h-1 w-9 rounded-full bg-line-strong" />
+          </div>
+        ) : null}
+
+        <div className="flex items-center justify-between px-4 py-2.5">
+          <h2 id={titleId} className="text-base font-semibold tracking-[-0.01em] text-ink">
+            All pages
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
+              close
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
+        <nav aria-label="All pages" className="pb-2">
+          {NAV_GROUPS.map((group) => {
+            const items = NAV_ITEMS.filter((item) => item.group === group.id);
+            return (
+              <div key={group.id} className="pt-3 first:pt-2">
+                <p className="px-4 pb-1 text-xs font-semibold text-faint">
+                  {group.label}
+                </p>
+                {items.map((item) => {
+                  const active = isNavActive(item.href, pathname);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onClose}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "flex min-h-[48px] items-center gap-3 border-b border-line border-l-[3px] px-4 text-[15px] no-underline transition-colors",
+                        active
+                          ? "border-l-mark bg-bg-alt/60 font-semibold text-ink"
+                          : "border-l-transparent text-muted hover:bg-bg-alt/40 hover:text-ink",
+                      )}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="material-symbols-outlined text-[20px]"
+                      >
+                        {item.icon}
+                      </span>
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </nav>
+
+        <div className="mt-2 border-t border-line-strong">
+          <button
+            type="button"
+            onClick={() => setLangOpen(true)}
+            data-i18n-skip="true"
+            className="flex min-h-[48px] w-full items-center gap-3 border-b border-line px-4 text-left text-[15px] text-ink transition-colors hover:bg-bg-alt/40"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined text-[20px] text-muted">
+              language
+            </span>
+            <span className="flex-1">Language</span>
+            <span className="text-base leading-none">{LOCALE_FLAGS[locale] || "🌐"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onLogout();
+            }}
+            className="flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[15px] text-danger transition-colors hover:bg-danger/10"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
+              logout
+            </span>
+            <span>Logout</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div
       id="nav-sheet"
@@ -181,128 +316,13 @@ export default function NavSheet({ open, onClose, variant = "full", onLogout = d
         aria-hidden="true"
       />
 
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        style={
-          isBottom && dragOffset > 0
-            ? { transform: `translateY(${dragOffset}px)`, transition: dragging ? "none" : undefined }
-            : undefined
-        }
-        className={cn(
-          "relative flex flex-col bg-raise text-ink outline-none shadow-[var(--shadow-float)]",
-          isBottom
-            ? cn(
-                "w-full max-h-[85vh] rounded-t-[10px] border-t border-line-strong pb-[env(safe-area-inset-bottom)]",
-                !prefersReducedMotion && "sheet-slide-up",
-              )
-            : "h-full w-full max-w-[520px] border-l border-line-strong",
-        )}
-      >
-        {isBottom ? (
-          <div
-            data-sheet-handle
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
-            className="flex shrink-0 cursor-grab touch-none justify-center pt-3 pb-2 active:cursor-grabbing"
-          >
-            <span aria-hidden="true" className="h-1 w-9 rounded-full bg-line-strong" />
-          </div>
-        ) : null}
-
-        <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
-          <h2 id={titleId} className="text-base font-semibold tracking-[-0.01em] text-ink">
-            All pages
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-ink"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
-              close
-            </span>
-          </button>
+      {isBottom ? (
+        <div className={cn("relative w-full", !prefersReducedMotion && "sheet-slide-up")}>
+          {dialogContent}
         </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
-          <nav aria-label="All pages" className="pb-2">
-            {NAV_GROUPS.map((group) => {
-              const items = NAV_ITEMS.filter((item) => item.group === group.id);
-              return (
-                <div key={group.id} className="pt-3 first:pt-2">
-                  <p className="px-4 pb-1 text-xs font-semibold text-faint">
-                    {group.label}
-                  </p>
-                  {items.map((item) => {
-                    const active = isNavActive(item.href, pathname);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={onClose}
-                        aria-current={active ? "page" : undefined}
-                        className={cn(
-                          "flex min-h-[48px] items-center gap-3 border-b border-line border-l-[3px] px-4 text-[15px] no-underline transition-colors",
-                          active
-                            ? "border-l-mark bg-bg-alt/60 font-semibold text-ink"
-                            : "border-l-transparent text-muted hover:bg-bg-alt/40 hover:text-ink",
-                        )}
-                      >
-                        <span
-                          aria-hidden="true"
-                          className="material-symbols-outlined text-[20px]"
-                        >
-                          {item.icon}
-                        </span>
-                        <span className="truncate">{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </nav>
-
-          <div className="mt-2 border-t border-line-strong">
-            <button
-              type="button"
-              onClick={() => setLangOpen(true)}
-              data-i18n-skip="true"
-              className="flex min-h-[48px] w-full items-center gap-3 border-b border-line px-4 text-left text-[15px] text-ink transition-colors hover:bg-bg-alt/40"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[20px] text-muted">
-                language
-              </span>
-              <span className="flex-1">Language</span>
-              <span className="text-base leading-none">{LOCALE_FLAGS[locale] || "🌐"}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onLogout();
-              }}
-              className="flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[15px] text-danger transition-colors hover:bg-danger/10"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
-                logout
-              </span>
-              <span>Logout</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      ) : (
+        dialogContent
+      )}
 
       <LanguageSwitcher
         hideTrigger
