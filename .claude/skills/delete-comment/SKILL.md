@@ -1,6 +1,6 @@
 ---
 name: delete-comment
-description: Audit and delete code comments in LiteRouter. Classify each comment as tautology, stale, excuse or decision record. Delete tautologies and stale comments, file a GitHub issue for each excuse, move decision records into docs/adr/, then tighten the no-comments ratchet. Use when the user says /delete-comment, asks to clean up comments, or the no-comments lint or ratchet check fails because comments crept back in.
+description: Audit and delete code comments in LiteRouter. Classify each comment as tautology, stale, excuse or decision record. Delete tautologies and stale comments, file a GitHub issue for each excuse, move the decisions that matter into the short topic files in docs/adr/, then tighten the no-comments ratchet. Use when the user says /delete-comment, asks to clean up comments, or the no-comments lint or ratchet check fails because comments crept back in.
 ---
 
 # /delete-comment
@@ -11,7 +11,7 @@ Comments are banned in this repo. The `local/no-comments` ESLint rule enforces t
 
 ## Rules
 
-- **Delegate the coding.** Classification, ADR writing and code changes go to Sonnet subagents (`model: "sonnet"`). The orchestrating session plans, verifies and handles git, PRs and issues.
+- **Delegate the coding.** Classification, decision writing and code changes go to Sonnet subagents (`model: "sonnet"`). The orchestrating session plans, verifies and handles git, PRs and issues.
 - **Directives are never comments for this purpose.** That covers `eslint-*`, `@ts-*`, `istanbul`/`c8`, webpack and turbopack magic comments, `@vite-ignore`, `#__PURE__`, `@license` and `@preserve`. `scripts/comments/lib.mjs` (`isDirective`) already skips them.
 - **Keep is rare.** A comment stays only when it must physically stay in the file: a template whose comments are its documentation (`open-sse/providers/REGISTRY_TEMPLATE.js`), a banner in a generated file, or text that a tool parses. Kept comments remain in the baseline.
 - **Issues go to `raufimusaddiq/literouter`, never to the upstream fork.** Always pass `--repo raufimusaddiq/literouter`. Use the labels `comment-audit`, `tech-debt` and `status:backlog`.
@@ -39,11 +39,11 @@ Comments are banned in this repo. The `local/no-comments` ESLint rule enforces t
    - Before creating an issue, search for an existing open `comment-audit` issue with the same root cause, and comment on it if there is one.
    - If `gh issue create` fails with HTTP 499 or a timeout, check whether the issue was created anyway before retrying.
 
-5. **Decisions become ADRs.**
+5. **Decisions go into topic files.**
    - Merge contiguous `//` lines of the same comment into blocks.
-   - Map topics onto ADRs: reuse the existing `docs/adr/NNNN-*.md` where the topic fits, and create new ones numbered after the highest.
-   - Start Sonnet writers that follow `references/adr-brief.md`. They verify every block against the current code and drop stale ones.
-   - Update `docs/adr/README.md`, the index.
+   - Map each decision onto the matching `docs/adr/<topic>.md`. Never create numbered ADRs; add a new topic file only when none fits.
+   - Start Sonnet writers that follow `references/adr-brief.md`. They verify every block against the current code and drop stale ones, obvious ones and ones a test pins.
+   - Update `docs/adr/README.md` only when a topic file is added.
 
 6. **Apply the deletions.** Build one decisions file, `{ id, category }` per comment, from the final classifications. Then run:
    ```bash
@@ -66,7 +66,7 @@ Comments are banned in this repo. The `local/no-comments` ESLint rule enforces t
    Commit `.comment-baseline.json` together with the deletions. The baseline must only shrink.
 
 9. **Land it.**
-   - Open a PR to `main` with auto-merge. Its description lists the counts per category, the lines removed, the issue numbers and the new or updated ADRs.
+   - Open a PR to `main` with auto-merge. Its description lists the counts per category, the lines removed, the issue numbers and the topic files updated.
    - Open a PR from `main` to `staging`.
    - If `staging` has diverged (the Bun rewrite), resolve conflicts by keeping both the deletion and the staging change, then re-run `ratchet --write` on `staging`.
 
