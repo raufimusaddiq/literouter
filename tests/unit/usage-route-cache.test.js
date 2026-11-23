@@ -38,11 +38,11 @@ describe("/api/usage/[connectionId] cache", () => {
     expect(getUsage).toHaveBeenCalledTimes(2);
   });
   it("returns 504 when upstream hangs past the timeout", async () => {
+    await import("@/app/api/usage/[connectionId]/route.js");
     vi.useFakeTimers();
     getUsage.mockImplementation(() => new Promise(() => {}));
     const p = call("c1");
-    const startedAt = process.hrtime.bigint();
-    while (getUsage.mock.calls.length === 0 && process.hrtime.bigint() - startedAt < 3_000_000_000n) {
+    for (let i = 0; i < 1_500_000 && getUsage.mock.calls.length === 0; i++) {
       await new Promise((r) => setImmediate(r));
     }
     expect(getUsage).toHaveBeenCalled();
