@@ -152,15 +152,12 @@ describe("web build", () => {
     expect(total).toBeLessThan(BUDGET_BYTES);
   });
 
-  it("fonts and variables", () => {
+  it("fonts are emitted as files, not inlined", () => {
     const cssKey = [...initial].find((key) => key.endsWith(".css"));
     expect(cssKey).toBeDefined();
     const css = readOutput(cssKey);
     expect(css).toContain("@font-face");
-    expect(css).toContain("Schibsted Grotesk Variable");
-    expect(css).toContain("JetBrains Mono Variable");
     expect(css).not.toContain("data:font/woff2");
-    expect(css).not.toContain("IBM Plex Sans");
     const assets = fs.readdirSync(path.join(outdir, "assets"));
     expect(assets.some((n) => /schibsted.*\.woff2$/i.test(n))).toBe(true);
     expect(assets.some((n) => /jetbrains.*\.woff2$/i.test(n))).toBe(true);

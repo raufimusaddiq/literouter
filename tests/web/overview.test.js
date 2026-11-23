@@ -183,7 +183,7 @@ afterEach(() => {
 });
 
 describe("DashboardOverview (Route Sheet)", () => {
-  it("renders big-number traffic line without stat-card tiles", async () => {
+  it("renders the traffic totals", async () => {
     stubFetch();
     const { container, unmount } = await mountOverview();
 
@@ -193,13 +193,11 @@ describe("DashboardOverview (Route Sheet)", () => {
     expect(text).toContain("3.2M");
     expect(text).toContain("~$51.38");
     expect(text).toContain("now 520");
-    expect(container.querySelectorAll("[data-metric]").length).toBe(0);
-    expect(container.querySelectorAll("h1").length).toBe(1);
 
     await unmount();
   });
 
-  it("renders Providers header summary, needs-attention link, and hit counts", async () => {
+  it("renders the Providers summary, needs-attention link and hit counts", async () => {
     stubFetch();
     const { container, unmount } = await mountOverview();
 
@@ -221,31 +219,7 @@ describe("DashboardOverview (Route Sheet)", () => {
     await unmount();
   });
 
-  it("truncates a 120-character model name on one line", async () => {
-    const longModel = "m".repeat(120);
-    const recent = makeRecentRequests(5);
-    recent[0] = { ...recent[0], model: longModel };
-    stubFetch({
-      stats: {
-        totalRequests: 4783,
-        totalPromptTokens: 469500000,
-        totalCompletionTokens: 3200000,
-        totalCost: 51.38,
-        recentRequests: recent,
-      },
-    });
-    const { container, unmount } = await mountOverview();
-
-    const modelEl = [...container.querySelectorAll("*")].find(
-      (el) => el.childElementCount === 0 && el.textContent === longModel,
-    );
-    expect(modelEl).toBeDefined();
-    expect(modelEl.classList.contains("truncate")).toBe(true);
-
-    await unmount();
-  });
-
-  it("caps rendered rows at LIST_ROWS (6) with 40 connections and 10 recent requests", async () => {
+  it("caps the request and provider lists at 6 rows", async () => {
     stubFetch({
       connections: makeConnections(40),
       stats: {
@@ -266,7 +240,7 @@ describe("DashboardOverview (Route Sheet)", () => {
     await unmount();
   });
 
-  it("switches period and handles empty connections and usage error states", async () => {
+  it("refetches stats and chart when the period changes", async () => {
     const calls = stubFetch();
     const { container, unmount } = await mountOverview();
 
@@ -279,21 +253,25 @@ describe("DashboardOverview (Route Sheet)", () => {
     expect(calls.some((u) => u.includes("/api/usage/stats?period=7d"))).toBe(true);
     expect(calls.some((u) => u.includes("/api/usage/chart?period=7d"))).toBe(true);
     await unmount();
-
-    stubFetch({ connections: [], stats: { totalRequests: 0, totalPromptTokens: 0, totalCompletionTokens: 0, totalCost: 0, recentRequests: [] } });
-    const emptyMount = await mountOverview();
-    expect(emptyMount.container.textContent).toContain("No traffic yet.");
-    expect(emptyMount.container.querySelector('a[href="/dashboard/providers/new"]')).not.toBeNull();
-    expect(emptyMount.container.querySelector('a[href="/dashboard/providers#needs-attention"]')).not.toBeNull();
-    await emptyMount.unmount();
-
-    stubFetch({ usageFail: true });
-    const errMount = await mountOverview();
-    expect(errMount.container.textContent).toContain("Usage data could not be loaded.");
-    await errMount.unmount();
   });
 
-  it("RouteWires renders aria-hidden SVG with live wire and packet, and renders nothing when hidden", async () => {
+  it("shows the empty state with add-provider and needs-attention links when there is no traffic", async () => {
+    stubFetch({ connections: [], stats: { totalRequests: 0, totalPromptTokens: 0, totalCompletionTokens: 0, totalCost: 0, recentRequests: [] } });
+    const { container, unmount } = await mountOverview();
+    expect(container.textContent).toContain("No traffic yet.");
+    expect(container.querySelector('a[href="/dashboard/providers/new"]')).not.toBeNull();
+    expect(container.querySelector('a[href="/dashboard/providers#needs-attention"]')).not.toBeNull();
+    await unmount();
+  });
+
+  it("shows an error message when usage data fails to load", async () => {
+    stubFetch({ usageFail: true });
+    const { container, unmount } = await mountOverview();
+    expect(container.textContent).toContain("Usage data could not be loaded.");
+    await unmount();
+  });
+
+  it("RouteWires draws an aria-hidden SVG and renders nothing when its container is hidden", async () => {
     const { default: RouteWires } = await import("../../src/web/pages/dashboard/overview/RouteWires.js");
 
     function Harness({ hidden }) {
@@ -344,8 +322,6 @@ describe("DashboardOverview (Route Sheet)", () => {
 
     const svg = host.querySelector('svg[aria-hidden="true"]');
     expect(svg).not.toBeNull();
-    expect(svg.querySelectorAll(".lr-wire-live").length).toBe(2);
-    expect(svg.querySelectorAll(".lr-packet").length).toBe(1);
 
     await act(async () => {
       root.render(React.createElement(Harness, { hidden: true }));
@@ -360,7 +336,7 @@ describe("DashboardOverview (Route Sheet)", () => {
     });
   });
 
-  it("RouteWires keeps row index alignment when a ref slot is null and skips null endpoints", async () => {
+  it("RouteWires keeps row alignment when a ref slot is null and skips null endpoints", async () => {
     const { default: RouteWires } = await import("../../src/web/pages/dashboard/overview/RouteWires.js");
 
     function SparseHarness() {

@@ -13,19 +13,15 @@ afterAll(async () => {
   delete globalThis.IS_REACT_ACT_ENVIRONMENT;
 });
 
-const { default: Card } = await import("../../src/shared/components/Card.js");
-const { default: Button } = await import("../../src/shared/components/Button.js");
-const { default: Modal, ConfirmModal } = await import("../../src/shared/components/Modal.js");
+const { default: Modal } = await import("../../src/shared/components/Modal.js");
 const { default: PricingModal } = await import("../../src/shared/components/PricingModal.js");
+const { default: Card } = await import("../../src/shared/components/Card.js");
 const { default: Drawer } = await import("../../src/shared/components/Drawer.js");
 const { default: Input } = await import("../../src/shared/components/Input.js");
 const { default: Select } = await import("../../src/shared/components/Select.js");
 const { default: Toggle } = await import("../../src/shared/components/Toggle.js");
 const { default: Badge } = await import("../../src/shared/components/Badge.js");
-const { default: SegmentedControl } = await import("../../src/shared/components/SegmentedControl.js");
-const { default: Tooltip } = await import("../../src/shared/components/Tooltip.js");
 const { default: Pagination } = await import("../../src/shared/components/Pagination.js");
-const { Skeleton, CardSkeleton } = await import("../../src/shared/components/Loading.js");
 
 async function mount(element) {
   const container = document.createElement("div");
@@ -44,38 +40,188 @@ async function mount(element) {
   };
 }
 
-describe("Route Sheet base components", () => {
-  it("Card raised renders a bordered raise surface", async () => {
-    const view = await mount(
-      <Card variant="raised" title="T">
-        x
-      </Card>,
-    );
-    const root = view.container.firstElementChild;
-    expect(root.className).toContain("bg-raise");
-    expect(root.className).toContain("border");
-    expect(root.className).toContain("border-line-strong");
-    expect(root.className).not.toMatch(/shadow/);
-    expect(view.container.querySelector("h2")?.textContent).toBe("T");
+async function withView(element, run) {
+  const view = await mount(element);
+  try {
+    await run(view.container);
+  } finally {
     await view.unmount();
-  });
+  }
+}
 
-  it("Card section default has no shadow class", async () => {
-    const view = await mount(
-      <Card title="Section" elev>
+async function pressEscape() {
+  await act(async () => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  });
+}
+
+describe("Route Sheet base components", () => {
+  it("Card renders its title as an h2 with subtitle, action and children", async () => {
+    await withView(
+      <Card title="Section" subtitle="Sub" icon="info" action={<button type="button">Act</button>}>
         body
       </Card>,
+      (container) => {
+        expect(container.querySelector("h2")?.textContent).toBe("Section");
+        expect(container.textContent).toContain("Sub");
+        expect(container.textContent).toContain("Act");
+        expect(container.textContent).toContain("body");
+      },
     );
-    const root = view.container.firstElementChild;
-    expect(root.className).not.toMatch(/shadow/);
-    expect(root.className).toContain("border-t");
-    expect(root.className).toContain("border-line-strong");
-    expect(root.className).not.toContain("bg-surface");
-    expect(root.className).not.toContain("rounded");
-    await view.unmount();
   });
 
-  it("Modal renders no traffic lights and keeps dialog semantics", async () => {
+  it("Drawer closes from Escape, the Close button and the backdrop", async () => {
+    let closed = 0;
+    await withView(
+      <Drawer isOpen onClose={() => { closed += 1; }} title="Details">
+        body
+      </Drawer>,
+      async (container) => {
+        expect(container.querySelector('[role="dialog"]')?.getAttribute("aria-label")).toBe("Details");
+        expect(container.textContent).toContain("body");
+        await pressEscape();
+        await act(async () => {
+          container.querySelector('button[aria-label="Close"]').click();
+        });
+        await act(async () => {
+          container.firstElementChild.firstElementChild.click();
+        });
+        expect(closed).toBe(3);
+      },
+    );
+  });
+
+  it("Drawer renders nothing while closed", async () => {
+    await withView(<Drawer isOpen={false} onClose={() => {}} title="Details">body</Drawer>, (container) => {
+      expect(container.innerHTML).toBe("");
+    });
+  });
+
+  it.each([
+    ["Input", "input", (props) => <Input {...props} />],
+    ["Select", "select", (props) => <Select options={[{ value: "a", label: "A" }]} {...props} />],
+  ])("%s labels its field and flags errors", async (_name, tag, render) => {
+    await withView(
+      render({ label: "Field", value: "", onChange: () => {}, error: "Bad value", required: true }),
+      (container) => {
+        const field = container.querySelector(tag);
+        expect(container.querySelector("label")?.getAttribute("for")).toBe(field.id);
+        expect(container.querySelector("label")?.textContent).toContain("*");
+        expect(field.getAttribute("aria-invalid")).toBe("true");
+        const alert = container.querySelector('[role="alert"]');
+        expect(alert?.textContent).toContain("Bad value");
+        expect(field.getAttribute("aria-describedby")).toBe(alert.id);
+      },
+    );
+  });
+
+  it("Select reports the chosen option through onChange", async () => {
+    const changes = [];
+    await withView(
+      <Select label="Mode" value="" onChange={(e) => changes.push(e.target.value)} options={[{ value: "a", label: "A" }]} />,
+      async (container) => {
+        const select = container.querySelector("select");
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(Object.getPrototypeOf(select), "value").set.call(select, "a");
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        expect(changes).toEqual(["a"]);
+      },
+    );
+  });
+
+  it.each([
+    ["Input", (props) => <Input icon="search" {...props} />],
+    ["Select", (props) => <Select {...props} />],
+  ])("%s shows its hint only when there is no error", async (_name, render) => {
+    await withView(render({ label: "F", value: "", onChange: () => {}, hint: "A hint" }), (container) => {
+      expect(container.textContent).toContain("A hint");
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+    });
+  });
+
+  it("Toggle reports the flipped value and ignores clicks while disabled", async () => {
+    const values = [];
+    await withView(
+      <div>
+        <Toggle checked={false} onChange={(v) => values.push(v)} label="Enabled" description="Turns it on" />
+        <Toggle checked disabled onChange={(v) => values.push(v)} aria-label="Locked" />
+      </div>,
+      async (container) => {
+        const [enabled, locked] = container.querySelectorAll('[role="switch"]');
+        expect(enabled.getAttribute("aria-checked")).toBe("false");
+        expect(container.textContent).toContain("Turns it on");
+        await act(async () => {
+          enabled.click();
+          locked.click();
+        });
+        expect(values).toEqual([true]);
+      },
+    );
+  });
+
+  it("Badge renders its label and an optional icon", async () => {
+    await withView(
+      <div>
+        <Badge variant="success">Ready</Badge>
+        <Badge icon="check" pill size="sm">Done</Badge>
+      </div>,
+      (container) => {
+        expect(container.textContent).toContain("Ready");
+        expect(container.textContent).toContain("check");
+        expect(container.textContent).toContain("Done");
+      },
+    );
+  });
+
+  it("Pagination reports page changes, jumps to the first and last page and changes the page size", async () => {
+    const pages = [];
+    const sizes = [];
+    await withView(
+      <Pagination
+        currentPage={10}
+        pageSize={10}
+        totalItems={200}
+        onPageChange={(page) => pages.push(page)}
+        onPageSizeChange={(size) => sizes.push(size)}
+      />,
+      async (container) => {
+        expect(container.textContent).toContain("Showing 91 to 100 of 200 results");
+        const buttons = [...container.querySelectorAll("button")];
+        const byText = (text) => buttons.find((b) => b.textContent.trim() === text);
+        await act(async () => {
+          container.querySelector('button[aria-label="Previous page"]').click();
+          container.querySelector('button[aria-label="Next page"]').click();
+          byText("1").click();
+          byText("20").click();
+        });
+        expect(pages).toEqual([9, 11, 1, 20]);
+        const select = container.querySelector("select");
+        await act(async () => {
+          select.value = "50";
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        expect(sizes).toEqual([50]);
+      },
+    );
+  });
+
+  it("Pagination disables Prev on the first page and Next on the last", async () => {
+    await withView(
+      <div>
+        <Pagination currentPage={1} pageSize={10} totalItems={30} onPageChange={() => {}} />
+        <Pagination currentPage={3} pageSize={10} totalItems={30} onPageChange={() => {}} />
+      </div>,
+      (container) => {
+        expect(container.querySelector('button[aria-label="Previous page"]').disabled).toBe(true);
+        const nexts = container.querySelectorAll('button[aria-label="Next page"]');
+        expect(nexts[0].disabled).toBe(false);
+        expect(nexts[1].disabled).toBe(true);
+      },
+    );
+  });
+
+  it("Modal is a modal dialog and closes on Escape", async () => {
     let closed = 0;
     const view = await mount(
       <Modal
@@ -84,161 +230,17 @@ describe("Route Sheet base components", () => {
         onClose={() => {
           closed += 1;
         }}
-        showTrafficLights
       >
         content
       </Modal>,
     );
-    const dialog = view.container.querySelector('[role="dialog"][aria-modal="true"]');
-    expect(dialog).not.toBeNull();
-    expect(view.container.querySelector(".traffic-light")).toBeNull();
-    expect(view.container.innerHTML).not.toContain("#FF5F56");
-    expect(view.container.firstElementChild.className).toContain("z-[60]");
-    expect(dialog.className).toContain("bg-raise");
-    expect(dialog.className).toContain("shadow-[var(--shadow-float)]");
-    await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    });
-    expect(closed).toBe(1);
-    await view.unmount();
-  });
-
-  it("Button primary is the inverted ink style", async () => {
-    const view = await mount(<Button variant="primary">Save</Button>);
-    const btn = view.container.querySelector("button");
-    expect(btn.className).toContain("bg-ink");
-    expect(btn.className).toContain("text-bg");
-    expect(btn.className).toContain("h-8");
-    expect(btn.className).not.toMatch(/shadow/);
-    await view.unmount();
-  });
-
-  it("Button danger is outlined by default and filled inside ConfirmModal", async () => {
-    const plain = await mount(<Button variant="danger">Delete</Button>);
-    const plainBtn = plain.container.querySelector("button");
-    expect(plainBtn.className).toContain("border-danger");
-    expect(plainBtn.className).toContain("text-danger");
-    expect(plainBtn.className).not.toContain("bg-danger ");
-    await plain.unmount();
-
-    const confirm = await mount(
-      <ConfirmModal isOpen onClose={() => {}} onConfirm={() => {}} message="Sure?" confirmText="Delete now" />,
-    );
-    const buttons = [...confirm.container.querySelectorAll("button")];
-    const confirmBtn = buttons.find((b) => b.textContent.includes("Delete now"));
-    expect(confirmBtn).not.toBeUndefined();
-    expect(confirmBtn.className).toContain("bg-danger");
-    await confirm.unmount();
-  });
-
-  it("Input and Select use 36px raise fields with mark-line focus ring", async () => {
-    const view = await mount(
-      <div>
-        <Input label="Name" value="" onChange={() => {}} />
-        <Select label="Mode" value="" onChange={() => {}} options={[{ value: "a", label: "A" }]} />
-      </div>,
-    );
-    const input = view.container.querySelector("input");
-    const select = view.container.querySelector("select");
-    for (const el of [input, select]) {
-      expect(el.className).toContain("h-9");
-      expect(el.className).toContain("bg-raise");
-      expect(el.className).toContain("border-line-strong");
-      expect(el.className).toContain("focus:ring-mark-line");
+    try {
+      expect(view.container.querySelector('[role="dialog"][aria-modal="true"]')).not.toBeNull();
+      await pressEscape();
+      expect(closed).toBe(1);
+    } finally {
+      await view.unmount();
     }
-    await view.unmount();
-  });
-
-  it("Toggle uses ink when checked", async () => {
-    const view = await mount(<Toggle checked onChange={() => {}} label="Enabled" />);
-    const sw = view.container.querySelector('[role="switch"]');
-    expect(sw.className).toContain("bg-ink");
-    expect(sw.innerHTML).not.toMatch(/shadow/);
-    await view.unmount();
-  });
-
-  it("Badge renders dot plus text by default with semantic ok colour", async () => {
-    const view = await mount(
-      <Badge variant="success" size="sm">
-        Ready
-      </Badge>,
-    );
-    const badge = view.container.firstElementChild;
-    expect(badge.className).toContain("text-ok");
-    expect(badge.className).toContain("text-[11px]");
-    expect(badge.querySelector(".bg-ok")).not.toBeNull();
-    await view.unmount();
-  });
-
-  it("SegmentedControl uses a 1px track and inverted ink active segment", async () => {
-    const view = await mount(
-      <SegmentedControl
-        value="24h"
-        onChange={() => {}}
-        options={[
-          { value: "today", label: "Today" },
-          { value: "24h", label: "24h" },
-        ]}
-      />,
-    );
-    const track = view.container.firstElementChild;
-    expect(track.className).toContain("border");
-    expect(track.className).toContain("border-line-strong");
-    const active = [...track.querySelectorAll("button")].find((b) => b.textContent === "24h");
-    expect(active.className).toContain("bg-ink");
-    expect(active.className).toContain("text-bg");
-    await view.unmount();
-  });
-
-  it("Drawer uses z-60, raise surface, float shadow and no backdrop blur", async () => {
-    const view = await mount(
-      <Drawer isOpen onClose={() => {}} title="Details">
-        body
-      </Drawer>,
-    );
-    expect(view.container.firstElementChild.className).toContain("z-[60]");
-    expect(view.container.innerHTML).not.toContain("backdrop-blur");
-    expect(view.container.innerHTML).toContain("bg-raise");
-    expect(view.container.innerHTML).toContain("shadow-[var(--shadow-float)]");
-    await view.unmount();
-  });
-
-  it("Tooltip uses a raise box with no arrow", async () => {
-    const view = await mount(
-      <Tooltip text="Hint">
-        <button type="button">Trigger</button>
-      </Tooltip>,
-    );
-    const tip = view.container.querySelector('[role="tooltip"]');
-    expect(tip).not.toBeNull();
-    expect(tip.className).toContain("bg-raise");
-    expect(tip.className).toContain("border-line-strong");
-    expect(tip.children.length).toBe(0);
-    await view.unmount();
-  });
-
-  it("Pagination renders text navigation buttons", async () => {
-    const view = await mount(
-      <Pagination currentPage={2} pageSize={10} totalItems={50} onPageChange={() => {}} />,
-    );
-    const prev = view.container.querySelector('button[aria-label="Previous page"]');
-    const next = view.container.querySelector('button[aria-label="Next page"]');
-    expect(prev.textContent.trim()).toBe("Prev");
-    expect(next.textContent.trim()).toBe("Next");
-    await view.unmount();
-  });
-
-  it("Skeleton and CardSkeleton are flat bg-surface-2 with no shimmer or shadow", async () => {
-    const view = await mount(
-      <div>
-        <Skeleton className="h-4 w-20" />
-        <CardSkeleton />
-      </div>,
-    );
-    expect(view.container.innerHTML).toContain("bg-surface-2");
-    expect(view.container.innerHTML).not.toContain("animate-pulse");
-    expect(view.container.innerHTML).not.toMatch(/shadow/);
-    await view.unmount();
   });
 
   it.each([
@@ -252,23 +254,26 @@ describe("Route Sheet base components", () => {
     };
     let calls = 0;
     const view = await mount(<PricingModal isOpen onClose={() => { calls += 1; }} onSave={() => {}} />);
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 30));
-    });
-    if (saving) {
-      const save = [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Save Changes"));
+    try {
       await act(async () => {
-        save.click();
+        await new Promise((r) => setTimeout(r, 30));
       });
+      if (saving) {
+        const save = [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Save Changes"));
+        await act(async () => {
+          save.click();
+        });
+      }
+      await act(async () => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      });
+      await act(async () => {
+        document.querySelector('button[aria-label="Close"]').click();
+      });
+      expect(calls).toBe(expectedCalls);
+    } finally {
+      globalThis.fetch = originalFetch;
+      await view.unmount();
     }
-    await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    });
-    await act(async () => {
-      document.querySelector('button[aria-label="Close"]').click();
-    });
-    expect(calls).toBe(expectedCalls);
-    globalThis.fetch = originalFetch;
-    await view.unmount();
   });
 });

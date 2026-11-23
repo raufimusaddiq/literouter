@@ -89,7 +89,7 @@ afterEach(() => {
 });
 
 describe("Usage page (Route Sheet)", () => {
-  it("OverviewCards renders the big-number line with all 5 figures and labels", async () => {
+  it("OverviewCards renders every usage figure", async () => {
     const { default: OverviewCards } = await import(
       "../../src/web/pages/dashboard/usage/components/OverviewCards.js"
     );
@@ -104,18 +104,15 @@ describe("Usage page (Route Sheet)", () => {
 
     const text = container.textContent;
     expect(text).toContain("4,783");
-    expect(text).toContain("Total requests");
-    expect(text).toContain("Input tokens");
-    expect(text).toContain("Cached tokens");
-    expect(text).toContain("Output tokens");
-    expect(text).toContain("Estimated cost");
+    expect(text).toContain("469.5M");
+    expect(text).toContain("12M");
+    expect(text).toContain("3.2M");
     expect(text).toContain("~$51.38");
-    expect(container.querySelectorAll("strong").length).toBe(5);
 
     await unmount();
   });
 
-  it("UsageTable renders no heading when title is empty and expands grouped rows", async () => {
+  it("UsageTable expands grouped rows and renders a heading only when titled", async () => {
     const { default: UsageTable } = await import(
       "../../src/web/pages/dashboard/usage/components/UsageTable.js"
     );
@@ -183,12 +180,10 @@ describe("Usage page (Route Sheet)", () => {
     const withTitle = await mount(React.createElement(UsageTable, { ...props, title: "By model" }));
     const heading = withTitle.container.querySelector("h3");
     expect(heading?.textContent).toBe("By model");
-    expect(heading?.parentElement?.className).toContain("px-3");
-    expect(heading?.parentElement?.className).toContain("sm:px-4");
     await withTitle.unmount();
   });
 
-  it("UsageStats disables its period SegmentedControl visibly while refetching", async () => {
+  it("UsageStats disables its period control while refetching", async () => {
     let resolveSecond;
     let statsCall = 0;
     const statsPayload = {
@@ -237,7 +232,6 @@ describe("Usage page (Route Sheet)", () => {
     });
 
     expect(periodGroup.getAttribute("aria-disabled")).toBe("true");
-    expect(periodGroup.className).toContain("opacity-50");
     expect([...periodGroup.querySelectorAll("button")].every((b) => b.disabled)).toBe(true);
 
     const btn30d = [...periodGroup.querySelectorAll("button")].find((b) => b.textContent === "30D");
@@ -256,7 +250,7 @@ describe("Usage page (Route Sheet)", () => {
     await unmount();
   });
 
-  it("UsagePage renders PageHeader and switches tabs and period windows", async () => {
+  it("UsagePage refetches on a period change and loads request details on the Details tab", async () => {
     const calls = [];
     globalThis.fetch = (url) => {
       const u = String(url);
@@ -306,7 +300,6 @@ describe("Usage page (Route Sheet)", () => {
 
     const h1 = container.querySelector("h1");
     expect(h1?.textContent).toBe("Usage");
-    expect(h1?.className).toContain("text-[24px]");
 
     const btn7d = [...container.querySelectorAll("button")].find((b) => b.textContent === "7D");
     expect(btn7d).toBeDefined();

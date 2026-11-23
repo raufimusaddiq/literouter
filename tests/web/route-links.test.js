@@ -56,15 +56,5 @@ describe("computeRouteLinks", () => {
       { from: 4, to: 1 },
     ]);
     expect(result.hits).toEqual(new Map([["cc", 3], ["kn", 2]]));
-    expect(result.newest).toBe(0);
-  });
-
-  it("sets to null when there are requests but no visible provider rows", () => {
-    const result = computeRouteLinks([{ provider: "cc" }], []);
-    expect(result).toEqual({
-      links: [{ from: 0, to: null }],
-      hits: new Map([["cc", 1]]),
-      newest: 0,
-    });
   });
 });

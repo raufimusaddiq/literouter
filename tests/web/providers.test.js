@@ -52,7 +52,7 @@ afterEach(() => {
 });
 
 describe("Providers pages (Route Sheet)", () => {
-  it("ProviderDetailPage links the breadcrumb and Back to Providers", async () => {
+  it("ProviderDetailPage keeps the title as the only h1 and links the breadcrumb and Back to Providers", async () => {
     window.history.replaceState({}, "", "/dashboard/providers/claude");
     globalThis.fetch = (url) => {
       const u = String(url);
@@ -89,7 +89,7 @@ describe("Providers pages (Route Sheet)", () => {
 
     const crumb = container.querySelector('nav[aria-label="Breadcrumb"]');
     expect(crumb).not.toBeNull();
-    expect(crumb.textContent).toContain("Providers");
+    expect(crumb.querySelector('a[href="/dashboard/providers"]')?.textContent).toContain("Providers");
     expect(crumb.textContent).toContain("Claude");
     expect(crumb.querySelector("h1")).toBeNull();
 

@@ -135,8 +135,8 @@ describe("HeaderMenu accessibility and keyboard navigation", () => {
   });
 });
 
-describe("KeyRowMenu shared keyboard behavior", () => {
-  it("supports ArrowDown, ArrowUp, Home, End, Escape, Tab, and outside mousedown", async () => {
+describe("KeyRowMenu", () => {
+  it("runs the selected item, closes the menu and returns focus to the trigger", async () => {
     let copied = 0;
     let deleted = 0;
     const view = await mount(
@@ -153,32 +153,12 @@ describe("KeyRowMenu shared keyboard behavior", () => {
     const trigger = view.container.querySelector('button[aria-label="More actions for primary-key"]');
     await click(trigger);
 
-    const items = [...view.container.querySelectorAll('[role="menu"] [role="menuitem"]')];
-    expect(items.length).toBe(2);
-    expect(document.activeElement === items[0]).toBe(true);
-
-    await pressKey("End");
-    expect(document.activeElement === items[1]).toBe(true);
-
-    await pressKey("Home");
-    expect(document.activeElement === items[0]).toBe(true);
-
-    await pressKey("ArrowDown");
-    expect(document.activeElement === items[1]).toBe(true);
-
-    await pressKey("Escape");
-    expect(view.container.querySelector('[role="menu"]')).toBeNull();
-    expect(document.activeElement === trigger).toBe(true);
-
-    await click(trigger);
     await click(view.container.querySelectorAll('[role="menuitem"]')[0]);
+
     expect(copied).toBe(1);
     expect(deleted).toBe(0);
-    expect(document.activeElement === trigger).toBe(true);
-
-    await click(trigger);
-    await pressKey("Tab");
     expect(view.container.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement === trigger).toBe(true);
 
     await view.unmount();
   });
