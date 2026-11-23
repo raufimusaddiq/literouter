@@ -39,15 +39,80 @@ Checked on `staging` at `92d1aa5e`, 2026-11-23.
 
 ## Parity
 
+`bun scripts/cutover/parity-images.mjs` runs both images against one host mock:
+- the Node image is `production-90ac4b20`, started through `scripts/cutover/node-baseline.sh`;
+- the Bun image is built from the fixed tree;
+- the seeded data dir and production env are the same for both.
+
+It then runs `tests/parity/compare.mjs` (status, headers, body and SSE framing) and
+`tests/parity/compare-upstream.mjs` (the upstream request bytes, with every header).
+
 | Item | Result |
 | --- | --- |
-| pending | |
+| Fixtures | 407 per image. All 125 `routeTable` entries have a fixture, and 32 of them are guard-only (oauth, headroom, pxpipe, deploy, provider validate). |
+| Prompt-cache cases (PRD §19.4) | Covered by `zz-cache-00`…`30`: stable system and tools with a growing conversation, first and later turn, `defer_loading` tail, client markers, marker budget at and beyond the cap, varying mid-conversation system block, thinking and redacted thinking, token-saver off, RTK, caveman and ponytail each on its own, account and combo fallback, OpenAI-compatible receiver, and a streaming passthrough |
+| `/v1` chat, messages, responses | Stream and non-stream; 401 bad key, 404 unknown model, upstream 429 and 500, mid-stream close, malformed JSON |
+| First run (Bun image `staging-92d1aa5e`) | **FAIL.** Upstream request bodies were 0 diffs, byte for byte, but there were 298 response diffs and 260 upstream header diffs (below) |
+| After the fixes (PR #255) | Image compare exits 0 with only the 5 ledgered diffs below. Image upstream compare exits 0 with 0 diffs. Source-run compare against the goldens (the CI step) exits 0. |
+| `runtime-header-allowlist.json` | `[]`: no header is allowlisted |
+
+Differences found on the first run, and what was done:
+
+| Difference | Fixtures | Fix |
+| --- | --- | --- |
+| JSON `content-type`: Node `application/json`, Bun `application/json;charset=utf-8` | 291 | `src/server/http.js` answers Node's value |
+| Upstream `accept-encoding`: Node `gzip, deflate`, Bun `gzip, deflate, br, zstd` | 62 | The outbound fetch (`open-sse/utils/proxyFetch.js`) fills Node's undici defaults when the caller didn't set the header |
+| Upstream `user-agent` (`node` vs `Bun/1.4.4`), `accept-language: *`, `sec-fetch-mode: cors` | 62 | Same fix as `accept-encoding` |
+| Upstream `cache-control`/`pragma: no-cache` on `GET /v1/models` | 6 | Same fix; Node's mapping of `cache: "no-store"` |
+| Unknown `/api/*` 404 page title | 2 | Matches the Node image's title |
+| V8 vs JSC exception text in two `/api` 500 bodies (`api-auth-login-3-bad-json`, `api-settings-database-post-null`) | 2 | **Accepted, ledgered.** The text is engine-specific and can't be matched without emulating V8. Status and shape match, and neither is a `/v1` route |
+| `api-auth-login-noauth`: Node 500 (bcryptjs throw), Bun 401 | 1 | **Accepted, ledgered**, as an existing Plan 2 behaviour change (`known-diffs.json`) |
+
+Goldens: `tests/parity/expected/` holds recordings from the Node production image, refreshed by
+`scripts/cutover/refresh-goldens.mjs`. Records map by fixture id through `upstream-fixtures.jsonl`.
+324 fixtures were refreshed from the Node image. The other 83 fixtures depend on peer locality,
+because inside a container the peer is never loopback (`*-lan`, `trust-*`, throttle), or on
+production-only env. Those keep their earlier golden, corrected only for the runtime defaults
+above. `scripts/cutover/golden-keep.json` lists them with a reason each.
+
+Not exercised by the image-vs-image run: loopback-local behaviour (the 44 `*-lan` fixtures can't
+connect to a container on either side). It is covered by the CI source run against the goldens,
+and by the Security gate's T1/T9.
 
 ## Performance
 
+Node `production-90ac4b20` against Bun `staging-b3a4da447c6e33762f70f08882e56947ffbb83e1` (includes
+the parity fixes), measured with `scripts/cutover/measure.mjs` on the dev box (Docker Desktop, WSL2,
+4 GB, 2 CPUs). Each container ran with `--memory 768m --cpus 2`, the production env, a fresh copy of
+the same seeded data dir and the same host mock. Three rounds alternated Node, Bun ×3, and the
+value per side is the median (`perf-gate.mjs --median`). No other container ran during any round
+(`docker ps` recorded at each round start). Idle RSS is `VmRSS` of PID 1, taken 60 s after health
+as the median of 3 reads 10 s apart. The burst is stream, c20 × 400 with 200 chunks, and post-burst
+RSS is read 30 s after it. Latency is non-stream, c1 × 300.
+
 | Metric | Node | Bun | Rule | Verdict |
 | --- | --- | --- | --- | --- |
-| pending | | | | |
+| Idle RSS (MiB) | 115.78 | 57.36 | Bun < Node | PASS |
+| Post-burst RSS (MiB) | 123.02 | 89.55 | Bun < Node | PASS |
+| p50 latency (ms) | 7.61 | 3.46 | Bun ≤ Node × 1.05 | PASS |
+| p95 latency (ms) | 20.21 | 11.24 | Bun ≤ Node × 1.05 | PASS |
+| Image bytes, linux/amd64 | | 116 307 046 | ≤ 150 000 000 | PASS |
+| Image bytes, linux/arm64 | | 117 759 217 | ≤ 150 000 000 | PASS |
+
+`bun scripts/cutover/perf-gate.mjs node.json bun.json` → `perf gate: pass`, exit 0.
+
+| Round | Node idle / post-burst / p50 / p95 | Bun idle / post-burst / p50 / p95 |
+| --- | --- | --- |
+| 1 | 115.67 / 122.88 / 7.61 / 20.21 | 56.98 / 89.98 / 3.49 / 11.18 |
+| 2 | 115.83 / 124.27 / 8.97 / 22.49 | 57.36 / 89.55 / 3.36 / 13.45 |
+| 3 | 115.78 / 123.02 / 6.99 / 18.43 | 57.43 / 89.32 / 3.46 / 11.24 |
+
+Notes:
+- The historical 72.3 MiB post-burst figure (`phase-latency-resource.md`) is a reference only, not
+  a gate. Bun settles at 89.6 MiB under this heavier burst, and Node at 123.0 MiB under the same one.
+- The production image was about 1.03 GB (Phase 1 baseline). The Bun image is 116 MB (amd64).
+- The arm64 image was pulled and inspected, not run here. Its start-up smoke ran in CI under QEMU (Plan 4).
+- An earlier attempt was discarded, because a CLI test container overlapped round 1.
 
 ## Security
 
@@ -127,15 +192,53 @@ Re-walk only the affected pages if later `staging` commits touch `src/web/`.
 
 ## CLI matrix
 
-| OS | Install | Scenario | Result |
-| --- | --- | --- | --- |
-| pending | | | |
+Runner: `bun scripts/cutover/cli-smoke.mjs <start-stop|update-while-running|replace-old-node-server> --spec <tarball>`.
+It uses a throwaway `DATA_DIR`, Bun global dir, `HOME` and `APPDATA` under one temp root, and
+asserts that the global install resolves inside that root before installing. It uses ports ≥ 20190,
+kills only by PID, and snapshots for leaks before teardown.
+
+The "old Node CLI" in §9.8 is this fork's own pre-rewrite CLI (`origin/main` `cli/`, which writes
+`server.pid`), staged with `--legacy-src`. The npm package `9router` belongs to the upstream
+maintainer. Its `0.5.81` (no pidfile) is tested as a second variant, because users may have had it
+installed. Tarballs were packed from the Plan 5 tree with the CLI fixes below.
+
+| OS | Install | start-stop | update-while-running | replace, fork old CLI | replace, upstream `9router@0.5.81` |
+| --- | --- | --- | --- | --- | --- |
+| Windows 11 | `bun add -g` | PASS | PASS (no EBUSY) | PASS | PASS (taken over) |
+| Windows 11 | `bunx` | PASS | PASS | PASS | PASS (taken over) |
+| Linux (`oven/bun:1.4.4`, with lsof/procps) | `bun add -g` | PASS | PASS | PASS | PASS (taken over; key check skipped†) |
+| Linux, same | `bunx` | PASS | PASS | PASS | PASS (taken over; key check skipped†) |
+| Linux (`oven/bun:1.4.4`, no lsof/ps) | `bun add -g` | PASS | PASS | PASS | PASS (taken over; key check skipped†) |
+| Linux, same | `bunx` | PASS | PASS | PASS | PASS (taken over; key check skipped†) |
+| macOS | | owner | owner | owner | owner |
+| Tray (Windows NotifyIcon, macOS/Linux `systray2`) by eye | | owner | | | |
+
+† The upstream old server has no SQLite driver in that container, so the seeded-key survival
+check ran on Windows for both variants and on Linux for the fork variant only.
+
+CLI defects the matrix found, fixed on `staging` (Task 6b):
+- **Takeover without a pidfile.** A server from the old CLI was missed, and the new CLI started on
+  port+1 against the same data dir. Identification now uses the port's live listener, which is
+  re-checked before any kill, plus a positive legacy marker: the old cmdline, the `next-server`
+  title with a legacy launcher parent or 9router cwd, or `/proc/<pid>/cmdline`. On Linux, Next
+  renames the process title to `next-server (vX)`. Anything not positively identified is refused
+  with exit 1 and a "stop it yourself" message, and nothing is killed.
+- **Open port with an unknown listener.** It no longer falls through to port+1 on the same data
+  dir; it refuses with exit 1.
+- **`literouter stop` without `lsof`.** On a minimal Linux image it printed "not running", removed
+  the pidfile and left the server up. It now looks the listener up with `lsof`, then `ss`, then
+  `/proc/net/tcp{,6}` mapped through `/proc/<pid>/fd`. If the pid is alive and the port is open but
+  the listener is unknown, it keeps the pidfile and exits 1. This was proven live in a bare
+  container.
+- CLI tests: 71 → 111 pass.
 
 ## Soak
 
-| Item | Result |
-| --- | --- |
-| pending | |
+Skipped by the owner's decision (2026-11-23). The DB-compatibility proof the soak's mid-point
+check would have given (the Node image opens a DB the Bun build has touched) is part of the
+rollback rehearsal below instead. `scripts/cutover/sanitize-soak-db.mjs` is kept. It deactivates
+every non-API-key connection in a DB copy, so a copy's refresh tokens can't rotate production's
+copy.
 
 ## Rollback rehearsal
 
