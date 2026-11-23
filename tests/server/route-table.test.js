@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { join, resolve, relative } from "node:path";
 import { tmpdir } from "node:os";
+import { pathToFileURL } from "node:url";
 import { Glob } from "bun";
 
 const repoRoot = resolve(import.meta.dir, "../..");
@@ -84,6 +85,33 @@ describe("route table", () => {
       expect(by["api/plain"].path).toBe("/api/plain");
     } finally {
       rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("hostile route names stay string data in the generated module", async () => {
+    const payload = 'x"); globalThis.__routeTablePwned = 1; ("' + String.fromCharCode(92, 92) + String.fromCharCode(10, 0x2028);
+    const hostile = [
+      { source: `api/${payload}`, path: `/api/${payload}`, methods: ["GET"] },
+      { source: "api/[...${evil}]", path: "/api/*", methods: ["POST"], catchAll: payload },
+    ];
+    const text = renderRouteTable(hostile, []);
+    const dir = mkdtempSync(join(tmpdir(), "route-render-"));
+    try {
+      const file = join(dir, "routes.mjs");
+      writeFileSync(file, text);
+      const mod = await import(pathToFileURL(file).href);
+      expect(globalThis.__routeTablePwned).toBeUndefined();
+      expect(Object.keys(mod).sort()).toEqual(["GENERATED", "routeTable"]);
+      expect(mod.routeTable.length).toBe(2);
+      const byPath = Object.fromEntries(mod.routeTable.map((e) => [e.path, e]));
+      expect(byPath[`/api/${payload}`].source).toBe(`api/${payload}`);
+      expect(byPath["/api/*"].catchAll).toBe(payload);
+      expect(byPath["/api/*"].source).toBe("api/[...${evil}]");
+      for (const entry of mod.routeTable) expect(typeof entry.load).toBe("function");
+      expect(text.split(String.fromCharCode(10)).filter((line) => line.includes("load:")).length).toBe(2);
+    } finally {
+      delete globalThis.__routeTablePwned;
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 
