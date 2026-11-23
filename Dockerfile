@@ -17,7 +17,7 @@ RUN case "$TARGETARCH" in \
       arm64) target=bun-linux-arm64-musl ;; \
       *) echo "unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
     esac && \
-  bun scripts/build.mjs --compile "$target" --outdir /out/literouter
+  bun scripts/build.mjs --compile "$target" --outfile /out/literouter
 
 FROM ${ALPINE_IMAGE} AS runner
 WORKDIR /app

@@ -47,6 +47,8 @@ describe("Dockerfile", () => {
     expect(dockerfile).toContain("bun install --frozen-lockfile");
     expect(dockerfile).toContain("COPY package.json bun.lock ./");
     expect(dockerfile).toMatch(/CMD \["\/app\/literouter"\]/);
+    expect(dockerfile).toContain('--compile "$target" --outfile /out/literouter');
+    expect(dockerfile).not.toContain("--outdir");
   });
 });
 
