@@ -1,7 +1,6 @@
 
 import { qoderEncodeBody } from "../shared/qoder/encoding.js";
 import { buildCosyHeaders } from "../shared/qoder/cosy.js";
-import { v4 as uuidv4 } from "uuid";
 import { createHash } from "crypto";
 
 import { BaseExecutor } from "./base.js";
@@ -231,7 +230,7 @@ async function buildQoderRequestBody({ model, body, credentials, log, proxyOptio
   const built = {
     qoderKey,
     payload: {
-      request_id: uuidv4(),
+      request_id: crypto.randomUUID(),
       request_set_id: recordId,
       chat_record_id: recordId,
       session_id: sessionId,
@@ -269,7 +268,7 @@ async function buildQoderRequestBody({ model, body, credentials, log, proxyOptio
         version: "1.0.0",
         type: "agent",
         stage: "start",
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         name: truncate(lastUser, 30),
         begin_at: Date.now(),
       },
