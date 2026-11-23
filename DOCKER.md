@@ -106,31 +106,29 @@ docker rm -f 9router
 
 ## TLS trust store
 
-The image sets `LITEROUTER_SYSTEM_CA=1`: at startup the server (`src/server/ca.js`, ADR 0001 D9) replaces the runtime's bundled CA roots with the container's OS bundle (`/etc/ssl/certs`, from `ca-certificates`), so a root removed from the OS bundle is no longer trusted by any outbound client. The server exits at boot if the OS bundle is empty. Rebuild the image to pick up a refreshed `ca-certificates`.
+The image sets `LITEROUTER_SYSTEM_CA=1`: at startup the server (`src/server/ca.js`, ADR 0001 D9) replaces the runtime's bundled CA roots with the container's OS bundle for `fetch` and `node:tls` alike (`/etc/ssl/certs`, from `ca-certificates`), so a root removed from the OS bundle is no longer trusted by any outbound client. The server exits at boot if the OS bundle is empty. Rebuild the image to pick up a refreshed `ca-certificates`.
 
 ## Build image locally (test)
 
+The image is Alpine plus one compiled executable (`/app/literouter`), at most 150 MB (measured 116.3 MB for linux/amd64). The builder stage runs on the build platform and cross-compiles the musl target, so an arm64 build needs QEMU only for the runner stage's `apk` step.
+
 ```bash
-cd app && docker build -t 9router .
+docker build -t literouter .
 
 docker run --rm -p 20128:20128 \
   -v "$HOME/.9router:/app/data" \
   -e DATA_DIR=/app/data \
-  9router
+  literouter
 ```
+
+The executable doubles as the `bun` CLI when `BUN_BE_BUN=1` is set, for ad-hoc checks in a running container:
+
+```bash
+docker exec -e BUN_BE_BUN=1 <container> /app/literouter -e "console.log(Bun.version)"
+```
+
+The runtime is Bun (JavaScriptCore), so V8's `--max-old-space-size` does nothing. Cap memory with `mem_limit` (compose) or `docker run --memory`; `BUN_OPTIONS=--smol` is the opt-in knob for a smaller heap.
 
 ## Publish (automatic via CI)
 
-Push a git tag `v*` → GitHub Actions builds multi-platform (amd64+arm64) and pushes to:
-- `ghcr.io/decolua/9router:v{version}` + `:latest`
-- `decolua/9router:v{version}` + `:latest`
-
-```bash
-# Use scripts/release.js (recommended)
-node scripts/release.js "Release title" "Notes"
-
-# Or manually
-git tag v0.4.x && git push origin v0.4.x
-```
-
-Workflow: `app/.github/workflows/docker-publish.yml`
+A push to `staging` builds both platforms (amd64 and arm64) and publishes only `ghcr.io/<repo>-staging:staging-<sha>`. Production images are `ghcr.io/<repo>-production:production-<full-sha>`, and the deploy scripts accept only that form.

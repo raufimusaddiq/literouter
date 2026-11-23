@@ -2,16 +2,16 @@
 
 ## Project Structure
 
-- `src/`: Next.js dashboard, API routes, authentication, persistence, and app-side SSE handlers.
+- `src/`: `Bun.serve` server, dashboard SPA, API routes, authentication, persistence, and app-side SSE handlers.
 - `open-sse/`: provider registry, executors, request/response translators, and token-saving logic.
-- `cli/`: separate `9router` launcher package with its own `package.json`.
-- `tests/`: Vitest unit, translator, baseline, and optional live-provider tests.
+- `cli/`: separate `literouter` launcher package with its own `package.json`.
+- `tests/`: `bun test` unit, translator, baseline, and optional live-provider tests.
 - `public/`: dashboard assets and localized literals.
 - `docs/`: architecture, PRD, baseline, and deployment runbooks.
 
 ## Build, Test, and Development
 
-Before any heavy command (`npm install`, builds, full test suites, Docker build/pull, migrations), check resource usage and service health first: `uptime`, `free -h`, `df -h /home/ubuntu/9router /tmp`, active processes, `docker ps`/container health, and the relevant health endpoint. Do not start heavy work when resources are constrained or the target service is unhealthy; report the condition first.
+Before any heavy command (`bun install`, builds, full test suites, Docker build/pull, migrations), check resource usage and service health first: `uptime`, `free -h`, `df -h /home/ubuntu/9router /tmp`, active processes, `docker ps`/container health, and the relevant health endpoint. Do not start heavy work when resources are constrained or the target service is unhealthy; report the condition first.
 
 This instance is a production host. Agents, including upstream-intake work,
 must not run local dependency installs, builds, or test suites (focused
@@ -27,7 +27,7 @@ bunx --bun eslint .                        # lint
 cd tests && bun test --parallel
 ```
 
-Use `npm run cli:pack` to package the CLI. The test suite is an independent package run with `bun test`. Live-provider tests skip without credentials; use the baseline scripts under `tests/__baseline__/` to detect regressions.
+Use `bun run cli:pack` to package the CLI. The test suite is an independent package run with `bun test`. Live-provider tests skip without credentials; use the baseline scripts under `tests/__baseline__/` to detect regressions.
 
 ## Coding Style
 

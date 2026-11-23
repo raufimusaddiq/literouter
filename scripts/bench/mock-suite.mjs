@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { spawn, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -11,6 +11,7 @@ import { slimRun, writeReports } from "./report-io.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
+const appDir = path.join(repoRoot, "dist", "app");
 const argv = process.argv.slice(2);
 const arg = (n, d) => { const i = argv.indexOf(`--${n}`); return i !== -1 ? argv[i + 1] : d; };
 const GW_PORT = Number(arg("gw-port", 20190));
@@ -48,12 +49,12 @@ async function main() {
   const fast = await startMock({ port: FAST_PORT, chunkDelayMs: 0 });
   const slow = await startMock({ port: SLOW_PORT, chunkDelayMs: 20 });
   const gwLog = fs.openSync(path.join(dataDir, "gateway.log"), "a");
-  const gw = spawn("bun", ["src/server/index.js"], {
-    cwd: repoRoot,
+  const gw = spawn("bun", [path.join(appDir, "index.js")], {
+    cwd: appDir,
     env: {
       ...process.env, NODE_ENV: "production", PORT: String(GW_PORT), HOSTNAME: "127.0.0.1", DATA_DIR: dataDir,
       INITIAL_PASSWORD: PASSWORD, JWT_SECRET: "bench-jwt-secret-bench-jwt-secret", API_KEY_SECRET: "bench-api-secret",
-      MACHINE_ID_SALT: "bench-salt", AUTH_COOKIE_SECURE: "false", NEXT_TELEMETRY_DISABLED: "1",
+      MACHINE_ID_SALT: "bench-salt", AUTH_COOKIE_SECURE: "false",
     },
     stdio: ["ignore", gwLog, gwLog],
   });
@@ -77,8 +78,8 @@ async function main() {
     };
     const models = [];
     for (const [prefix, mock] of [["mockfast", fast], ["mockslow", slow]]) {
-      const { node } = await api("/api/provider-nodes", { name: prefix, prefix, apiType: "chat", baseUrl: `${mock.url}/v1`, type: "openai-compatible" });
-      await api("/api/providers", { provider: node.id, name: `${prefix}-conn`, apiKey: "mock-upstream-key" });
+      const { node: providerNode } = await api("/api/provider-nodes", { name: prefix, prefix, apiType: "chat", baseUrl: `${mock.url}/v1`, type: "openai-compatible" });
+      await api("/api/providers", { provider: providerNode.id, name: `${prefix}-conn`, apiKey: "mock-upstream-key" });
       models.push(`${prefix}/bench`);
     }
     const { key } = await api("/api/keys", { name: "bench" });
@@ -91,8 +92,8 @@ async function main() {
     const base = path.join(repoRoot, "bench-results", `${new Date().toISOString().replace(/[:.]/g, "-").replace("Z", "")}-mock`);
     fs.mkdirSync(path.dirname(base), { recursive: true });
     const checkpoint = () => writeReports(base, md, out, { quiet: true });
-    const out = { startedAt: new Date().toISOString(), node: process.version, platform: `${process.platform} ${os.cpus().length}cpu`, sections: {} };
-    const md = [`# Mock-mode gateway benchmark`, "", `- ${out.startedAt}; node ${process.version}; ${out.platform}; gateway \`bun src/server/index.js\`, mock upstream on loopback`, ""];
+    const out = { startedAt: new Date().toISOString(), bun: Bun.version, platform: `${process.platform} ${os.cpus().length}cpu`, sections: {} };
+    const md = [`# Mock-mode gateway benchmark`, "", `- ${out.startedAt}; bun ${Bun.version}; ${out.platform}; gateway \`bun dist/app/index.js\`, mock upstream on loopback`, ""];
     const row = (r) => `| ${r.label} | ${r.total} | ${r.failed} | ${fmt(r.throughputReqPerSec, 1)} | ${fmt(r.ttfbMs.p50)} / ${fmt(r.ttfbMs.p99)} | ${fmt(r.ttftMs.p50)} / ${fmt(r.ttftMs.p99)} | ${fmt(r.totalMs.p50)} / ${fmt(r.totalMs.p99)} | ${fmt(r.maxInterChunkGapMs.max)} |`;
     const head = ["| run | reqs | failed | req/s | TTFB p50/p99 ms | TTFT p50/p99 ms | total p50/p99 ms | max chunk gap ms |", "|---|---|---|---|---|---|---|---|"];
 

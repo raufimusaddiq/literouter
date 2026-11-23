@@ -48,14 +48,14 @@ export async function runSmoke({ base, password = "smoke-pass" }) {
       );
       return res.json();
     };
-    const { node } = await post("/api/provider-nodes", {
+    const { node: providerNode } = await post("/api/provider-nodes", {
       name: "smoke",
       prefix: "smoke",
       apiType: "chat",
       baseUrl: `${upstream.url}/v1`,
       type: "openai-compatible",
     });
-    await post("/api/providers", { provider: node.id, name: "smoke-conn", apiKey: "smoke-upstream-key" });
+    await post("/api/providers", { provider: providerNode.id, name: "smoke-conn", apiKey: "smoke-upstream-key" });
     const { key } = await post("/api/keys", { name: "smoke" });
 
     const health = await expectOk(await fetch(`${base}/api/health`), "GET /api/health");

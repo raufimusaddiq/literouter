@@ -56,6 +56,8 @@ docker run -d --name 9router -p 20128:20128 \
 
 Published images: [Docker Hub](https://hub.docker.com/r/decolua/9router) • [GHCR](https://github.com/decolua/9router/pkgs/container/9router) (multi-platform amd64/arm64).
 
+Run once without installing: `bunx literouter`. Upgrade with `bun add -g literouter@latest`. If you installed the old `9router` package, remove it first with `npm rm -g 9router`.
+
 🎉 Dashboard opens at `http://localhost:20128`
 
 **2. Connect a FREE provider (no signup needed):**

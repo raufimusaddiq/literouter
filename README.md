@@ -53,7 +53,9 @@ For the repository production deployment, use [`compose.production.yml`](compose
 | Tunnel, Tailscale, MITM runtime | Deleted | Included |
 | Intended operation | Small, direct routing deployment | Full product surface |
 
-LiteRouter is not an upstream drop-in package release. Build from this repository or use the production image above; `npm install -g 9router` installs upstream 9Router.
+LiteRouter is not an upstream drop-in package release. Build from this repository, install the CLI with `bun add -g literouter` (requires Bun 1.4.4 or newer; run `npm rm -g 9router` first if you had the upstream package), or use the production image above; `npm install -g 9router` installs upstream 9Router.
+
+Staging images are published as `ghcr.io/raufimusaddiq/literouter-staging:staging-<sha>` for side-by-side checks and are never deployable to production.
 
 ## Measured production baseline
 

@@ -1,19 +1,19 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { DatabaseSync } from "node:sqlite";
+import { Database } from "bun:sqlite";
 import { TABLES, buildCreateTableSql } from "../../src/lib/db/schema.js";
 import { fingerprintKey } from "../../open-sse/utils/keyFingerprint.js";
 
 const dataDir = process.argv[2];
 if (!dataDir) {
-  console.error("usage: node scripts/dev/seed-preview.mjs <DATA_DIR>");
+  console.error("usage: bun scripts/dev/seed-preview.mjs <DATA_DIR>");
   process.exit(1);
 }
 fs.mkdirSync(path.join(dataDir, "db"), { recursive: true });
 const dbFile = path.join(dataDir, "db", "data.sqlite");
 if (fs.existsSync(dbFile)) fs.rmSync(dbFile);
-const db = new DatabaseSync(dbFile);
+const db = new Database(dbFile);
 db.exec("PRAGMA journal_mode = WAL;");
 for (const [name, def] of Object.entries(TABLES)) {
   db.exec(buildCreateTableSql(name, def));
