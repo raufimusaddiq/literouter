@@ -430,7 +430,7 @@ export default function ProvidersPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 rounded-md border border-line-strong bg-raise px-2.5 text-xs font-medium text-ink outline-none transition-colors hover:border-ink/40 focus:border-mark-line focus:ring-2 focus:ring-mark-line"
+              className="h-9 max-sm:min-h-11 rounded-md border border-line-strong bg-raise px-2.5 text-xs font-medium text-ink outline-none transition-colors hover:border-ink/40 focus:border-mark-line focus:ring-2 focus:ring-mark-line"
               aria-label="Filter providers by connection status"
             >
               {STATUS_FILTER_OPTIONS.map((option) => (

@@ -57,7 +57,7 @@ export default function HeaderMenu({ onLogout }) {
         aria-label="Open menu"
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        className="flex size-8 items-center justify-center rounded-md border border-transparent text-muted transition-colors hover:border-line hover:text-ink"
+        className="flex size-8 max-sm:size-11 items-center justify-center rounded-md border border-transparent text-muted transition-colors hover:border-line hover:text-ink"
         title="Menu"
       >
         <span aria-hidden="true" className="material-symbols-outlined text-[18px]">more_vert</span>

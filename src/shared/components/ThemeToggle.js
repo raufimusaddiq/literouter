@@ -8,12 +8,12 @@ export default function ThemeToggle({ className, variant = "default" }) {
 
   const variants = {
     default: cn(
-      "flex items-center justify-center size-8 rounded-md border border-transparent",
+      "flex items-center justify-center size-8 max-sm:size-11 rounded-md border border-transparent",
       "text-muted hover:text-ink hover:border-line",
       "transition-colors"
     ),
     card: cn(
-      "flex items-center justify-center size-9 rounded-md",
+      "flex items-center justify-center size-9 max-sm:size-11 rounded-md",
       "bg-raise hover:bg-surface-2",
       "border border-line-strong",
       "text-muted hover:text-ink",
