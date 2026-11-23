@@ -363,7 +363,7 @@ export default function ProfilePage() {
       const anchor = document.createElement("a");
       const stamp = new Date().toISOString().replace(/[.:]/g, "-");
       anchor.href = url;
-      anchor.download = `9router-backup-${stamp}.json`;
+      anchor.download = `literouter-backup-${stamp}.json`;
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
@@ -642,7 +642,7 @@ export default function ProfilePage() {
 
           <Section title="Data">
             <SettingRow title="Database Location">
-              <span className="break-all text-right font-mono text-[12.5px] text-muted">~/.9router/db/data.sqlite</span>
+              <span className="break-all text-right font-mono text-[12.5px] text-muted">~/.literouter/db/data.sqlite</span>
             </SettingRow>
             <div className="flex flex-col gap-3 pt-4">
               <div className="flex flex-col gap-2 sm:flex-row">

@@ -191,7 +191,7 @@ export default function LoginPage() {
                     )}
                     {resetHint && (
                       <p className="text-xs text-muted">
-                        Forgot password? Open <code className="rounded bg-surface-2 px-1 font-mono">9router</code> CLI on the host → <b>Settings</b> → <b>Reset Password to Default</b>.
+                        Forgot password? Open <code className="rounded bg-surface-2 px-1 font-mono">literouter</code> CLI on the host → <b>Settings</b> → <b>Reset Password to Default</b>.
                       </p>
                     )}
                   </div>
