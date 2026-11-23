@@ -101,9 +101,9 @@ function createSpinner(text) {
 const pkg = require("./package.json");
 const { buildInstallCmd } = require("./src/cli/utils/update");
 const { buildServerSpawn } = require("./src/cli/utils/spawn");
-const { takeoverLegacy, getProcessInfo } = require("./src/cli/utils/legacyCli");
-const { killLauncher } = require("./src/cli/utils/killProc");
-const { getListenerPid: listenerLookup } = require("./src/cli/utils/listener");
+const { takeoverLegacy } = require("./src/cli/utils/legacyCli");
+const { createRuntimeDeps, killPid, isPortOpen } = require("./src/cli/utils/runtimeDeps");
+const { getListenerPid } = require("./src/cli/utils/listener");
 const { createCrashLog } = require("./src/cli/utils/crashLog");
 const { ensureRuntime } = require("./hooks/runtime");
 const {
@@ -111,7 +111,7 @@ const {
   readServerPid,
   clearServerPid,
   isTrackedServerAlive,
-  findListenerPid,
+
   buildTrayArgs,
 } = require("./src/cli/utils/serverProc");
 const { parseCommand, awaitTrayRuntime } = require("./src/cli/utils/launch");
@@ -120,17 +120,7 @@ const parsedCommand = parseCommand(args);
 
 if (parsedCommand.command === "stop") {
   const { runStop } = require("./src/cli/commands/stop");
-  runStop({
-    cliPath: __filename,
-    readServerPid,
-    clearServerPid,
-    getListenerPid,
-    isTrackedServerAlive,
-    getProcessInfo: require("./src/cli/utils/legacyCli").getProcessInfo,
-    kill: killProcess,
-    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
-    log: console.log,
-  })
+  runStop(createRuntimeDeps({ cliPath: __filename }))
     .then((code) => process.exit(code))
     .catch((err) => {
       console.error(`❌ ${err?.message || err}`);
@@ -234,76 +224,20 @@ if (skipUpdate && !trayMode && !process.stdin.isTTY) {
 
 const RUNTIME = process.execPath;
 
-function killPid(pid) {
-  try {
-    if (process.platform === "win32") {
-      execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore", windowsHide: true, timeout: 3000 });
-    } else {
-      execSync(`kill -9 ${pid}`, { stdio: "ignore", timeout: 3000 });
-    }
-  } catch (e) {
-  }
-}
-
-function getListenerPid(p) {
-  return listenerLookup(p);
-}
-
-function isPidAlive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (e) {
-    return e && e.code === "EPERM";
-  }
-}
-
-function isPortOpen(p) {
-  return new Promise((resolve) => {
-    const socket = require("net").connect({ host: "127.0.0.1", port: p });
-    const done = (ok) => {
-      socket.destroy();
-      resolve(ok);
-    };
-    socket.setTimeout(1500, () => done(false));
-    socket.once("connect", () => done(true));
-    socket.once("error", () => done(false));
-  });
-}
-
-function killProcess(pid, kind) {
-  if (kind === "launcher") {
-    killLauncher(pid, {
-      killPid,
-      signalPid: (target, signal) => {
-        try { process.kill(target, signal); } catch (e) {}
-      },
-    });
-    return;
-  }
-  killPid(pid);
-}
-
 async function claimPort() {
   const { isAutoStartEnabled, enableAutoStart } = require("./src/cli/tray/autostart");
   const legacy = await takeoverLegacy({
-    cliPath: __filename,
+    ...createRuntimeDeps({ cliPath: __filename }),
     host,
     port,
     isAutoStartEnabled,
     enableAutoStart,
-    readServerPid,
-    getListenerPid,
-    isTrackedServerAlive,
-    getProcessInfo,
-    kill: killProcess,
-    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
-    log: console.log,
   });
   if (legacy && legacy.ambiguous) {
+    const holder = legacy.pid ? `pid ${legacy.pid}` : "a process that could not be identified";
     console.error(`
-❌ Port ${legacy.port} is held by pid ${legacy.pid}, which looks like an old 9router server but could not be positively identified. ${APP_NAME} will not start a second server on the same data directory.
-   Stop the old server yourself (quit its tray icon or terminal, then remove the old global 9router package with the package manager you installed it with), then run ${APP_NAME} again.`);
+❌ Port ${legacy.port} is held by ${holder}, which may be an old 9router server. ${APP_NAME} will not start a second server on the same data directory.
+   If it is the old 9router server, stop it yourself (quit its tray icon or terminal, then remove the old global 9router package with the package manager you installed it with), then run ${APP_NAME} again.`);
     process.exit(1);
   }
   if (legacy && legacy.respawned) {
@@ -324,7 +258,7 @@ async function claimPort() {
   for (let i = 0; i < MAX_PORT_ATTEMPTS; i++) {
     const candidate = port + i;
     if (candidate > 65535) break;
-    if (getListenerPid(candidate) === null) {
+    if (getListenerPid(candidate) === null && !(await isPortOpen(candidate))) {
       port = candidate;
       return;
     }

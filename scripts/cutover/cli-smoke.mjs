@@ -13,6 +13,29 @@ const MIN_PORT = BASE_PORT;
 
 const failures = [];
 
+const USAGE = [
+  "usage: bun scripts/cutover/cli-smoke.mjs <start-stop|update-while-running|replace-old-node-server>",
+  "  [--spec <tarball|literouter@x.y.z>] [--spec-b <spec>] [--method add-g|bunx] [--port <n>=20190+]",
+  "  [--legacy-src <package dir> | --legacy-modules <dir holding 9router>] [--legacy-runtime <old runtime binary>]",
+  "  [--legacy-version <v>] [--legacy-pidfile] [--skip-seed] [--expect takeover|refuse|either] [--keep]",
+  "",
+  "The old CLI is installed and run by the caller: the runner never names the old runtime or its package manager.",
+  "OLD_PM is the package manager the old CLI was installed with, OLD_RT its runtime binary, T a scratch dir.",
+  "",
+  "Fork variant (origin/main CLI, writes server.pid; the app comes from the prebuilt upstream package):",
+  "  mkdir -p $T/forksrc $T/fork && git archive origin/main cli | tar -x -C $T/forksrc",
+  "  OLD_PM i --prefix $T/up --ignore-scripts 9router@0.5.81",
+  "  cp -r $T/up/node_modules/9router/. $T/fork/ && cp $T/forksrc/cli/cli.js $T/fork/cli.js",
+  "  rm -rf $T/fork/src $T/fork/hooks && cp -r $T/forksrc/cli/src $T/forksrc/cli/hooks $T/fork/",
+  "  (cd $T/fork && OLD_PM install --omit=dev --ignore-scripts)",
+  "  bun scripts/cutover/cli-smoke.mjs replace-old-node-server --legacy-src $T/fork --legacy-runtime $OLD_RT --legacy-version 0.5.81",
+  "",
+  "Upstream variant (no pidfile; takeover or a clear refusal must both leave one server on the data dir):",
+  "  bun scripts/cutover/cli-smoke.mjs replace-old-node-server --legacy-modules $T/up/node_modules --legacy-runtime $OLD_RT --expect either",
+  "",
+  "On Linux the old package's runtime warm-up needs its package manager on PATH; --skip-seed skips the API-key steps.",
+].join("\n");
+
 function report(ok, step, detail = "") {
   const line = `${ok ? "PASS" : "FAIL"} ${step}${detail ? ` - ${detail}` : ""}`;
   console.log(line);
@@ -557,7 +580,7 @@ async function scenarioReplace(ctx, spec, opts) {
   for (let i = 0; i < 120 && !readPidfile(ctx)?.launcherPid && launcher.proc.exitCode === null; i++) await sleep(500);
   const exited = launcher.proc.exitCode !== null;
   const newLog = readLog(launcher.logFile);
-  const refused = exited && launcher.proc.exitCode !== 0 && /could not be positively identified/i.test(newLog);
+  const refused = exited && launcher.proc.exitCode !== 0 && /will not start a second server on the same data directory/i.test(newLog);
   const expect = opts.expect ?? "takeover";
 
   if (refused) {
@@ -565,7 +588,7 @@ async function scenarioReplace(ctx, spec, opts) {
     const secondServer = readPidfile(ctx)?.launcherPid !== undefined;
     report(expect !== "takeover", `${label}: outcome is a refusal`, `expected=${expect}; exit=${launcher.proc.exitCode}; log: ${tail(newLog, 4)}`);
     report(oldAlive && !secondServer, `${label}: refusal left only the old server on the data dir`, `old alive=${oldAlive} newPidfile=${secondServer}`);
-    report(/stop the old server yourself/i.test(newLog), `${label}: refusal message tells the user how to stop the old server`);
+    report(/stop it yourself/i.test(newLog), `${label}: refusal message tells the user how to stop the old server`);
     report((await listenerPid(ctx, ctx.port)) === oldListener, `${label}: old server still owns the port`);
     const left = await killOwned(ctx);
     info(`${label}: stopped the old server the runner started`, `left=${left}`);
@@ -637,7 +660,7 @@ async function removeRoot(ctx, opts) {
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (!SCENARIOS.includes(opts.scenario) || !["add-g", "bunx"].includes(opts.method) || !["takeover", "refuse", "either", undefined].includes(opts.expect)) {
-    console.error(`usage: bun scripts/cutover/cli-smoke.mjs <${SCENARIOS.join("|")}> [--spec <spec>] [--spec-b <spec>] [--method add-g|bunx] [--port <n>] [--legacy-src <package dir> | --legacy-modules <dir>] [--legacy-runtime <cmd>] [--legacy-version <v>] [--legacy-runtime-seed <dir>] [--legacy-pidfile] [--skip-seed] [--expect takeover|refuse|either] [--keep]`);
+    console.error(USAGE);
     process.exit(2);
   }
   const port = opts.port ?? BASE_PORT + SCENARIOS.indexOf(opts.scenario);

@@ -27,7 +27,8 @@ function classifyListener(info, parent) {
   const nodeExe = NODE_EXE.test(String(info.exe || ""));
   const cwdLegacy = LEGACY_DIR.test(`${String(info.cwd || "").replace(/[\\/]*$/, "")}/`);
   const parentLauncher = !!parent && isLegacyLauncher(parent.cmdline);
-  if ((renamed || nodeExe) && (parentLauncher || cwdLegacy)) return "legacy";
+  if ((renamed || nodeExe) && parentLauncher) return "legacy";
+  if (renamed && cwdLegacy) return "legacy";
   if (renamed || (cwdLegacy && !NEW_PRODUCT.test(cmdline))) return "suspect";
   if (/9router/i.test(cmdline) && !NEW_PRODUCT.test(cmdline)) return "suspect";
   return "other";
@@ -106,7 +107,10 @@ async function findLegacyTarget(deps, ports) {
   const { getListenerPid, getProcessInfo: infoOf } = deps;
   for (const port of ports) {
     const pid = getListenerPid(port);
-    if (pid === null || pid === undefined) continue;
+    if (pid === null || pid === undefined) {
+      if (deps.isPortOpen && (await deps.isPortOpen(port))) return { ambiguous: { stopped: false, ambiguous: true, pid: null, port } };
+      continue;
+    }
     const info = await infoOf(pid);
     const parent = info && info.ppid ? await infoOf(info.ppid) : null;
     const kind = classifyListener(info, parent);

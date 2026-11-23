@@ -316,3 +316,46 @@ describe("stopLegacyServer without a pidfile or with a renamed title", () => {
     expect(seen).toBe(20999);
   });
 });
+
+describe("stronger legacy proof and unknown listeners", () => {
+  test("a node process in a dev checkout named 9router is a suspect, not legacy", () => {
+    const info = { ppid: 1, cmdline: "node server.js", exe: "/usr/bin/node", cwd: "/home/u/code/9router" };
+    expect(classifyListener(info, { ppid: 0, cmdline: "/sbin/init" })).toBe("suspect");
+    expect(classifyListener({ ...info, cmdline: "node /home/u/code/other/index.js", cwd: "/opt/9router" }, null)).toBe("suspect");
+  });
+
+  test("a node child of the old launcher is legacy even with a plain command line", () => {
+    const info = { ppid: 50, cmdline: "node server.js", exe: "/usr/bin/node", cwd: "/somewhere" };
+    expect(classifyListener(info, { ppid: 1, cmdline: POSIX_LAUNCHER })).toBe("legacy");
+  });
+
+  test("next-server title plus a 9router cwd is legacy", () => {
+    expect(classifyListener({ ppid: 1, cmdline: TITLE, exe: "/usr/bin/node", cwd: "/usr/lib/node_modules/9router/app" }, null)).toBe("legacy");
+  });
+
+  test("windows CIM output feeds the classification path", () => {
+    const server = parseProcessInfo(`4120|${LEGACY_SERVER}\r\n`);
+    const launcher = parseProcessInfo(`1008|${LEGACY_LAUNCHER}\r\n`);
+    expect(classifyListener(server, launcher)).toBe("legacy");
+    expect(isLegacyLauncher(launcher.cmdline)).toBe(true);
+    expect(classifyListener(parseProcessInfo("77|C:\\Windows\\System32\\svchost.exe -k netsvcs\r\n"), null)).toBe("other");
+  });
+
+  test("refuses when the port is open but nobody can say who listens", async () => {
+    const { deps, calls } = makeDeps({ record: null });
+    deps.port = 20128;
+    deps.getListenerPid = () => null;
+    deps.isPortOpen = async () => true;
+    const res = await stopLegacyServer(deps);
+    expect(res).toEqual({ stopped: false, ambiguous: true, pid: null, port: 20128 });
+    expect(calls).toEqual([]);
+  });
+
+  test("a closed port with no listener is simply free", async () => {
+    const { deps } = makeDeps({ record: null });
+    deps.port = 20128;
+    deps.getListenerPid = () => null;
+    deps.isPortOpen = async () => false;
+    expect(await stopLegacyServer(deps)).toEqual({ stopped: false });
+  });
+});
