@@ -240,6 +240,15 @@ rollback rehearsal below instead. `scripts/cutover/sanitize-soak-db.mjs` is kept
 every non-API-key connection in a DB copy, so a copy's refresh tokens can't rotate production's
 copy.
 
+## Final-review checks
+
+Checks from the whole-branch review of Plan 5, done on 2026-11-23 before the cutover PR.
+
+| Check | Result |
+| --- | --- |
+| Gzip and deflate upstream responses still decode now that `accept-encoding: gzip, deflate` is sent explicitly | PASS. 8 tests (JSON and chunked SSE, gzip and deflate) run through `proxyAwareFetch` and the patched global `fetch` against a mock that sends compressed bytes. No product change was needed |
+| Redis (`REDIS_URL`, the hand-rolled RESP client) on the Bun image `staging-b9cd8adb` against `redis:7-alpine` | PASS. Logs `[Redis] connected`. With Redis stopped, `/api/health` stays 200, the log says `[Redis] unavailable`, and the container doesn't restart. It reconnects when Redis returns. In production (no `LITEROUTER_MULTI_REPLICA`), Redis is only pinged at boot |
+
 ## Rollback rehearsal
 
 Run on the production host (`the production host`) on 2026-11-23, approved by the owner. Production's
