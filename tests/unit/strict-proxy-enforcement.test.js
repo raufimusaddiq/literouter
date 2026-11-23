@@ -79,7 +79,7 @@ const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
 const { handleChat } = await import("../../src/sse/handlers/chat.js");
 
 describe("chat credential lookup failures", () => {
-  it.each(["openai", "opencode"])("returns 503 without network access for %s", async (provider) => {
+  it.each(["openai", "opencode"])("returns 503 without network access for %p", async (provider) => {
     getProxyPoolById.mockRejectedValueOnce(new Error("DB unavailable"));
     networkFetch.mockClear();
     const response = await handleChat(new Request("http://localhost/api/v1/chat/completions", {
@@ -98,7 +98,7 @@ describe("strict pool policy reaches inference from credential selection", () =>
     ["deleted", null],
     ["inactive", { isActive: false, proxyUrl: "http://127.0.0.1:7890", strictProxy: true }],
     ["empty", { isActive: true, proxyUrl: "", strictProxy: true }],
-  ])("refuses direct inference for a %s pool", async (label, pool) => {
+  ])("refuses direct inference for a %p pool", async (label, pool) => {
     getProxyPoolById.mockResolvedValue(pool);
     networkFetch.mockClear();
     const credentials = await getProviderCredentials("openai");

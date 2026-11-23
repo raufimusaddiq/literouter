@@ -428,7 +428,7 @@ describe("Kiro terminal integrity recovery", () => {
       frame("metadataEvent", { stopReason: "end_turn" }),
       frame("messageStopEvent", { stopReason: "content_filtered" })
     ]
-  ])("preserves the most restrictive conflicting stop reason", async (...stopFrames) => {
+  ])("preserves the most restrictive conflicting stop reason (case %#)", async (...stopFrames) => {
     fetchMock.mockResolvedValueOnce(response([
       frame("assistantResponseEvent", { content: "private filtered output" }),
       ...stopFrames

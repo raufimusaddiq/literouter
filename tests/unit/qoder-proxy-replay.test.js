@@ -100,7 +100,7 @@ describe("Qoder signed inference transport", () => {
     expect(ids[0]).not.toBe(ids[1]);
   });
 
-  it.each([true, false])("still supports successful inference with proxy=%s", async (useProxy) => {
+  it.each([true, false])("still supports successful inference with proxy=%p", async (useProxy) => {
     const fetchMock = vi.fn(async () => success());
     const executor = await loadExecutor(fetchMock, useProxy);
     const result = await executor.execute(request);

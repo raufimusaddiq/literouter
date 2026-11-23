@@ -31,10 +31,10 @@ describe("isPrivateIp (BlockList)", () => {
     "192.0.0.5", "192.168.1.1", "198.18.0.1", "198.19.255.255", "224.0.0.1", "239.255.255.255", "240.0.0.1", "255.255.255.255",
     "::", "::1", "::ffff:127.0.0.1", "::ffff:7f00:1", "::ffff:10.0.0.1", "64:ff9b::7f00:1", "fc00::1", "fd12::1",
     "fe80::1", "fec0::1", "ff02::1", "fe80::1%eth0", "not-an-ip", "",
-  ])("blocks %s", (ip) => { expect(isPrivateIp(ip)).toBe(true); });
+  ])("blocks %p", (ip) => { expect(isPrivateIp(ip)).toBe(true); });
 
   it.each(["93.184.216.34", "8.8.8.8", "172.32.0.1", "100.63.255.255", "198.20.0.1", "2606:4700:4700::1111", "2001:4860:4860::8888"])(
-    "allows public %s", (ip) => { expect(isPrivateIp(ip)).toBe(false); });
+    "allows public %p", (ip) => { expect(isPrivateIp(ip)).toBe(false); });
 });
 
 describe("fetchImageAsBase64 redirects + pin", () => {
@@ -105,5 +105,5 @@ describe("redactUrlSecrets", () => {
     ["https://x/y?api_key=S&access_token=T", "https://x/y?api_key=[REDACTED]&access_token=[REDACTED]"],
     ["→ https://x/y?KEY=S | body=3B", "→ https://x/y?KEY=[REDACTED] | body=3B"],
     ["https://x/y?monkey=1", "https://x/y?monkey=1"],
-  ])("%s", (i, o) => { expect(redactUrlSecrets(i)).toBe(o); });
+  ])("%p", (i, o) => { expect(redactUrlSecrets(i)).toBe(o); });
 });
