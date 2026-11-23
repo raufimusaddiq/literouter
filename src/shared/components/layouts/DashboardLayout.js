@@ -7,6 +7,7 @@ import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
 import TopBar from "../shell/TopBar";
 import NavSheet from "../shell/NavSheet";
 import PhoneTabBar from "../shell/PhoneTabBar";
+import UpdateBanner from "../shell/UpdateBanner";
 
 const TABLET_OR_UP_QUERY = "(min-width: 640px)";
 
@@ -125,6 +126,8 @@ export default function DashboardLayout({ children }) {
           moreOpen={sheetOpen}
         />
       ) : null}
+
+      <UpdateBanner />
 
       <NavSheet
         open={sheetOpen}

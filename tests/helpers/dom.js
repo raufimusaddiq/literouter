@@ -1,4 +1,4 @@
-import { beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
+import { beforeAll, afterAll, beforeEach, afterEach, mock } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -115,4 +115,10 @@ export async function pressKey(key, init = {}) {
   await act(async () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init }));
   });
+}
+
+export function stubReload() {
+  const reload = mock(() => {});
+  Object.defineProperty(window.location, "reload", { configurable: true, writable: true, value: reload });
+  return reload;
 }

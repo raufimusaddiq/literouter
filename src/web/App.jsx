@@ -8,12 +8,29 @@ import { Link, ParamsProvider, redirect, usePathname, useScrollReset } from "./r
 import { findRoute, routes } from "./routes.js";
 import { getBoot } from "./boot.js";
 
+const CHUNK_RELOAD_KEY = "lr:chunk-reload";
+const CHUNK_RELOAD_WINDOW_MS = 30_000;
+
 const lazyPages = new WeakMap();
+
+function reloadOnceOnStaleChunk(error) {
+  let reload = false;
+  try {
+    const last = Number(window.sessionStorage.getItem(CHUNK_RELOAD_KEY));
+    reload = !last || Date.now() - last > CHUNK_RELOAD_WINDOW_MS;
+    if (reload) window.sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+  } catch {
+    reload = false;
+  }
+  if (!reload) throw error;
+  window.location.reload();
+  return new Promise(() => {});
+}
 
 function lazyPage(route) {
   let page = lazyPages.get(route);
   if (!page) {
-    page = lazy(route.load);
+    page = lazy(() => route.load().catch(reloadOnceOnStaleChunk));
     lazyPages.set(route, page);
   }
   return page;
