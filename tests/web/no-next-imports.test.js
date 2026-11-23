@@ -51,7 +51,7 @@ describe("next is gone from the repo", () => {
     const scripts = pkg.scripts ?? {};
     expect(Object.keys(scripts).filter((name) => FORBIDDEN_SCRIPTS.includes(name))).toEqual([]);
     expect(Object.entries(scripts).filter(([, command]) => /\bnext\b|copy-standalone-assets/.test(command))).toEqual([]);
-    expect(scripts.build).toBe("bun run build:web");
+    expect(scripts.build).toBe("bun scripts/build.mjs");
   });
 
   it("src/app contains only api", () => {

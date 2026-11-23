@@ -2,7 +2,11 @@ import { join, resolve } from "node:path";
 
 export const REPO_ROOT = resolve(import.meta.dir, "..", "..");
 
-export const isCompiled = /\$bunfs|~BUN/.test(import.meta.dir);
+const EMBEDDED_PATH = /\$bunfs|~BUN/;
+
+export const isEmbeddedPath = (path) => EMBEDDED_PATH.test(path);
+
+export const isCompiled = isEmbeddedPath(import.meta.dir);
 
 export const isBundled = process.env.LITEROUTER_BUNDLED === "1";
 

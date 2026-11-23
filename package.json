@@ -9,13 +9,15 @@
   "scripts": {
     "gen:routes": "bun scripts/gen-route-table.mjs",
     "test": "cd tests && bun test --parallel",
-    "predev": "bun scripts/gen-provider-icon-manifest.mjs",
     "dev": "bun --hot src/server/index.js",
-    "build": "bun run build:web",
+    "build": "bun scripts/build.mjs",
     "build:web": "bun scripts/gen-provider-icon-manifest.mjs && bun scripts/build-web.mjs",
-    "start": "bun src/server/index.js",
-    "cli:pack": "npm --prefix cli run pack:cli",
-    "cli:publish": "npm --prefix cli run publish:cli"
+    "compile": "bun scripts/build.mjs --compile bun-linux-x64-musl",
+    "compile:arm64": "bun scripts/build.mjs --compile bun-linux-arm64-musl",
+    "start": "cd dist/app && bun index.js",
+    "lint": "bun --bun run eslint .",
+    "cli:pack": "cd cli && bun run pack:cli",
+    "cli:publish": "cd cli && bun run publish:cli"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
