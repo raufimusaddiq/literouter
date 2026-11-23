@@ -81,6 +81,19 @@ describe("smoke-image helpers", () => {
     expect(containerName()).not.toBe(containerName());
   });
 
+  it("finds the server pid under QEMU emulation and ignores exec'd helpers", async () => {
+    const { serverPid } = await import("../../scripts/smoke-image.mjs");
+    const qemu = "    1 {literouter} /usr/bin/qemu-aarch64 /app/literouter /app/literouter\n   51 ps -o pid=,args=\n";
+    expect(serverPid(qemu)).toBe(1);
+    const withHealth =
+      "   51 /app/literouter -e fetch('http://127.0.0.1:20128/api/health')\n" +
+      "   60 /app/literouter /tmp/smoke-server.mjs\n" +
+      "    1 {literouter} /usr/bin/qemu-aarch64 /app/literouter /app/literouter\n" +
+      "   70 ps -o pid=,args=\n";
+    expect(serverPid(withHealth)).toBe(1);
+    expect(() => serverPid("   51 /app/literouter -e x\n   70 ps -o pid=,args=\n")).toThrow("not found");
+  });
+
   it("finds the server pid and asserts uid 1000", async () => {
     const { serverPid, assertLiterouterUid } = await import("../../scripts/smoke-image.mjs");
     expect(serverPid("    1 /bin/sleep 1\n    7 /app/literouter\n")).toBe(7);

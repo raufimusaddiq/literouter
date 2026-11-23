@@ -28,10 +28,14 @@ export function containerName() {
 }
 
 export function serverPid(psOutput) {
-  const lines = psOutput.split("\n").map((line) => line.trim()).filter(Boolean);
-  const server = lines.find((line) => /^\d+\s+\/app\/literouter(\s|$)/.test(line));
-  if (!server) throw new Error(`server process not found in ps output: ${psOutput}`);
-  return Number(server.split(/\s+/)[0]);
+  const candidates = psOutput
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^\d+\s/.test(line))
+    .filter((line) => /(^|\s)\/app\/literouter(\s|$)/.test(line) && !/\.mjs|(^|\s)-e(\s|$)/.test(line))
+    .map((line) => Number(line.split(/\s+/)[0]));
+  if (candidates.length === 0) throw new Error(`server process not found in ps output: ${psOutput}`);
+  return Math.min(...candidates);
 }
 
 export function assertLiterouterUid(uid) {
