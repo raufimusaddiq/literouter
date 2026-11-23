@@ -14,7 +14,7 @@ describe("useSystemCaStore", () => {
     const n = useSystemCaStore({
       getCACertificates: (t) => (t === "system" ? ["a", "b"] : ["bundled"]),
       setDefaultCACertificates: (c) => calls.push(c),
-    });
+    }, {});
     expect(n).toBe(2);
     expect(calls).toEqual([["a", "b"]]);
   });
