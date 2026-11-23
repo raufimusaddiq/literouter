@@ -108,3 +108,5 @@ debug.log
 # benchmark output
 bench-results/
 test-results.xml
+
+!tests/parity/fixtures/tls/*.pem
