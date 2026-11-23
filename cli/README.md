@@ -7,7 +7,7 @@
 [![npm](https://img.shields.io/npm/v/literouter.svg)](https://www.npmjs.com/package/literouter)
 [![License](https://img.shields.io/github/license/raufimusaddiq/literouter.svg)](https://github.com/raufimusaddiq/literouter/blob/main/LICENSE)
 
-[Repository](https://github.com/raufimusaddiq/literouter) • [Docker guide](https://github.com/raufimusaddiq/literouter/blob/main/DOCKER.md)
+[Repository](https://github.com/raufimusaddiq/literouter) • [Docker guide](https://github.com/raufimusaddiq/literouter/blob/main/README.md#docker)
 
 ---
 
@@ -26,7 +26,7 @@ Run once without installing: `bunx literouter`. Auto-start on boot needs a globa
 
 **Option 2 — Docker (server/VPS):**
 
-See the [Docker guide](https://github.com/raufimusaddiq/literouter/blob/main/DOCKER.md) for the image, volume and update instructions.
+See the [Docker guide](https://github.com/raufimusaddiq/literouter/blob/main/README.md#docker) for the image, volume and update instructions.
 
 🎉 Dashboard opens at `http://localhost:20128`
 

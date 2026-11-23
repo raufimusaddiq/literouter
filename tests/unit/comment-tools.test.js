@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { RuleTester } from "eslint";
-import { spawnSync, execFileSync } from "node:child_process";
+import { ESLint, RuleTester } from "eslint";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -228,106 +228,41 @@ describe("applyDecisions", () => {
   });
 });
 
-describe("ratchet", () => {
-  let dir;
-  const script = path.join(repo, "scripts/comments/ratchet.mjs");
-  const ratchet = (flag) => spawnSync(process.execPath, [script, flag], { cwd: dir, encoding: "utf8" });
-  const put = (rel, src) => {
-    fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
-    fs.writeFileSync(path.join(dir, rel), src);
-    execFileSync("git", ["add", "-A"], { cwd: dir });
-  };
-
-  beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), "ratchet-"));
-    execFileSync("git", ["init", "-q"], { cwd: dir });
-    execFileSync("git", ["config", "core.autocrlf", "false"], { cwd: dir });
-    put("a.js", "// one\n// two\nx();\n");
-    put("src/b.js", "/* eslint-disable */\ny();\n");
-    put("src/c.js", "z();\n");
-    put("notes.md", "// not source\n");
-  });
-  afterEach(() => {
-    fs.rmSync(dir, { recursive: true, force: true });
-  });
-
-  it("writes a sorted baseline of non-directive counts above zero", () => {
-    expect(ratchet("--write").status).toBe(0);
-    const text = fs.readFileSync(path.join(dir, ".comment-baseline.json"), "utf8");
-    expect(JSON.parse(text)).toEqual({ "a.js": 2 });
-  });
-
-  it("passes when equal", () => {
-    ratchet("--write");
-    expect(ratchet("--check").status).toBe(0);
-  });
-
-  it("fails when a count increases or a new file has comments", () => {
-    ratchet("--write");
-    put("a.js", "// one\n// two\n// three\nx();\n");
-    put("src/c.js", "// new\nz();\n");
-    const r = ratchet("--check");
-    expect(r.status).toBe(1);
-    expect(r.stdout + r.stderr).toContain("a.js");
-    expect(r.stdout + r.stderr).toContain("src/c.js");
-  });
-
-  it("fails when a count decreases and points at --write", () => {
-    ratchet("--write");
-    put("a.js", "// one\nx();\n");
-    const r = ratchet("--check");
-    expect(r.status).toBe(1);
-    const out = r.stdout + r.stderr;
-    expect(out).toContain("a.js");
-    expect(out).toContain("bun scripts/comments/ratchet.mjs --write");
-  });
-});
 
 describe("local/no-comments", () => {
-  const root = process.cwd();
-  const opts = (baseline) => [{ baseline, root }];
-  const message = (n, m) =>
-    `Comments are banned in this repo (file has ${n}, baseline allows ${m}). Delete the comment; record decisions in docs/adr/<topic>.md.`;
+  const message = "Comments are banned in this repo. Delete the comment; record decisions in docs/adr/<topic>.md.";
   const tester = new RuleTester({
     languageOptions: { ecmaVersion: "latest", sourceType: "module", parserOptions: { ecmaFeatures: { jsx: true } } },
   });
 
   tester.run("no-comments", noComments, {
     valid: [
-      { code: "a();\n", filename: "src/a.js", options: opts({}) },
-      { code: "// one\na();\n", filename: "src/a.js", options: opts({ "src/a.js": 1 }) },
-      { code: "// one\na();\n", filename: "src/a.js", options: opts({ "src/a.js": 5 }) },
-      {
-        code: "// eslint-disable-next-line no-console\nconsole.log(1);\n/* global foo */\n",
-        filename: "src/a.js",
-        options: opts({}),
-      },
+      { code: "a();\n" },
+      { code: "// eslint-disable-next-line no-console\nconsole.log(1);\n/* global foo */\n" },
     ],
     invalid: [
-      {
-        code: "// one\n/* two */\na();\n",
-        filename: "src/a.js",
-        options: opts({ "src/a.js": 1 }),
-        errors: [{ message: message(2, 1) }, { message: message(2, 1) }],
-      },
-      {
-        code: "// one\na();\n",
-        filename: "src/new.js",
-        options: opts({}),
-        errors: [{ message: message(1, 0), line: 1 }],
-      },
-      {
-        code: "// eslint-disable-next-line no-console\n// real\nconsole.log(1);\n",
-        filename: "src/a.js",
-        options: opts({}),
-        errors: [{ message: message(1, 0), line: 2 }],
-      },
-      {
-        code: "const a = <div>{/* x */}</div>;\n",
-        filename: "src/a.jsx",
-        options: opts({}),
-        errors: [{ message: message(1, 0) }],
-      },
+      { code: "// one\n/* two */\na();\n", errors: [{ message }, { message }] },
+      { code: "// one\na();\n", errors: [{ message, line: 1 }] },
+      { code: "// eslint-disable-next-line no-console\n// real\nconsole.log(1);\n", errors: [{ message, line: 2 }] },
+      { code: "const a = <div>{/* x */}</div>;\n", errors: [{ message }] },
     ],
+  });
+});
+
+describe("repo lint config", () => {
+  it("fails a comment in source and exempts only the three generated or template files", async () => {
+    const eslint = new ESLint({ cwd: repo });
+    const lint = async (file) => {
+      const [result] = await eslint.lintText("// x\nexport const a = 1;\n", { filePath: path.join(repo, file) });
+      return result.messages.map((m) => m.ruleId);
+    };
+    expect(await lint("src/lib/example.js")).toEqual(["local/no-comments"]);
+    for (const file of [
+      "open-sse/providers/REGISTRY_TEMPLATE.js",
+      "open-sse/providers/registry/index.js",
+      "src/shared/constants/providerIconManifest.js",
+    ]) {
+      expect(await lint(file), file).toEqual([]);
+    }
   });
 });

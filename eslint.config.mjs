@@ -59,6 +59,14 @@ const eslintConfig = defineConfig([
     plugins: { local: { rules: { "no-comments": noComments } } },
     rules: { "local/no-comments": "error" },
   },
+  {
+    files: [
+      "open-sse/providers/REGISTRY_TEMPLATE.js",
+      "open-sse/providers/registry/index.js",
+      "src/shared/constants/providerIconManifest.js",
+    ],
+    rules: { "local/no-comments": "off" },
+  },
   globalIgnores([
     "dist/**",
     "out/**",

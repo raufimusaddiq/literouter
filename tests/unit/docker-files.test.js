@@ -65,7 +65,7 @@ describe("compose and deploy files", () => {
   });
 
   it("deploy files do not reference node, next or custom-server", () => {
-    for (const file of ["docker-compose.yml", "captain-definition", "start.sh", "scripts/deploy.sh", "scripts/post-deploy.sh"]) {
+    for (const file of ["docker-compose.yml", "scripts/deploy.sh", "scripts/post-deploy.sh"]) {
       const text = read(file);
       expect(text, file).not.toMatch(/(^|[\s"'(=])(node|npm|npx)([\s"')]|\.exe|$)/m);
       expect(text, file).not.toMatch(/custom-server/);
