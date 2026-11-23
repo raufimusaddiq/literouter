@@ -64,8 +64,8 @@ Failure clusters, which own Tasks 5–9:
 
 `staging` was already fast-forwarded locally to `main` (30ceec8d), and the design doc was committed as 07ce723b. Neither is pushed yet.
 
-- [ ] **Step 1:** Get the owner's OK, then run `git push origin staging`. This is a fast-forward of a stale branch with no unique commits.
-- [ ] **Step 2:** Make the branch protection on `staging` match `main` (same required checks). Verify with `gh api repos/{owner}/{repo}/branches/staging/protection`.
+- [x] **Step 1:** Get the owner's OK, then run `git push origin staging`. This is a fast-forward of a stale branch with no unique commits. — superseded by PR #206.
+- [x] **Step 2:** Make the branch protection on `staging` match `main` (same required checks). Verify with `gh api repos/{owner}/{repo}/branches/staging/protection`. — done by the owner (staging requires `unit` + `Hermes Review`).
 
 ### Task 1: Freeze the vitest per-file test-count baseline
 
@@ -76,10 +76,10 @@ Failure clusters, which own Tasks 5–9:
 **Interfaces:**
 - Produces: `test-counts.json` in the shape `{ "recordedFrom": "<git sha>", "files": { "tests/unit/x.test.js": <number of tests incl. failed/skipped> } }`. Keys use the same repo-relative form as `known-fails.txt`.
 
-- [ ] **Step 1:** While vitest still exists, run: `cd tests && npx vitest run --reporter=json --outputFile.json=../vitest-final.json`. Expected: about 3280 results, and only the entries in `known-fails.txt` fail.
-- [ ] **Step 2:** Implement `record-test-counts.mjs <vitest-json>`. It counts `assertionResults` per `testResults[].name` and normalises names with the same `relative()` rule as `verify-no-regression.mjs`.
-- [ ] **Step 3:** Run `bun tests/__baseline__/record-test-counts.mjs vitest-final.json > tests/__baseline__/test-counts.json`. Check that it has 427 or more file keys (the `.test.js` files; `.cjs` files are counted in Task 8).
-- [ ] **Step 4:** Commit: `test: freeze vitest per-file test counts before bun migration`.
+- [x] **Step 1:** While vitest still exists, run: `cd tests && npx vitest run --reporter=json --outputFile.json=../vitest-final.json`. Expected: about 3280 results, and only the entries in `known-fails.txt` fail.
+- [x] **Step 2:** Implement `record-test-counts.mjs <vitest-json>`. It counts `assertionResults` per `testResults[].name` and normalises names with the same `relative()` rule as `verify-no-regression.mjs`.
+- [x] **Step 3:** Run `bun tests/__baseline__/record-test-counts.mjs vitest-final.json > tests/__baseline__/test-counts.json`. Check that it has 427 or more file keys (the `.test.js` files; `.cjs` files are counted in Task 8).
+- [x] **Step 4:** Commit: `test: freeze vitest per-file test counts before bun migration`.
 
 ### Task 2: `bun test` runtime and the `vi` helper
 
@@ -102,7 +102,7 @@ Failure clusters, which own Tasks 5–9:
   - `waitFor(fn, { timeout = 1000, interval = 50 } = {}): Promise<T>`
 - `vi.doMock`, `vi.doUnmock`, `vi.importActual` and `importOriginal` are **not** in the helper, because they need the caller's location. The codemod (Task 4) and the fixes (Task 5) rewrite their call sites.
 
-- [ ] **Step 1: Write the failing tests** in `tests/helpers/vi.test.js`:
+- [x] **Step 1: Write the failing tests** in `tests/helpers/vi.test.js`:
   - `"hoisted returns factory value"`: `expect(vi.hoisted(() => 42)).toBe(42)`.
   - `"resetModules gives a fresh module instance and keeps mocks"`: increment `__fixtures__/counter.js`, call `vi.resetModules()`, re-import, expect `n === 0`. Also: a `vi.mock`ed `dep.js` is still mocked after the reset.
   - `"advanceTimersByTimeAsync runs timers scheduled from awaited callbacks"`: with fake timers, a `setTimeout(500)` callback awaits a resolved promise and then schedules `setTimeout(400)`. Both fire within `await vi.advanceTimersByTimeAsync(1000)`, and a `setTimeout(1001)` does not.
@@ -111,15 +111,15 @@ Failure clusters, which own Tasks 5–9:
   - `"waitFor retries until success and rethrows after timeout"`.
   - `"relative vi.mock from a nested dir resolves against the caller"`: implemented as the fixture test `__fixtures__/nested/relative-mock.test.js`, which calls `vi.mock("../dep.js", …)` via `#test/vi` and expects `user.js` to see the mock.
   - `"isolation"`: a second fixture file asserts that `dep.js` is **not** mocked. Run both fixture files in one `bun test --parallel` invocation.
-- [ ] **Step 2:** Run `cd tests && bun test helpers/`. Expected: FAIL (the helper doesn't exist yet).
-- [ ] **Step 3:** Implement `tests/helpers/vi.js`. For `advanceTimersByTimeAsync`, advance in steps and flush microtasks (`await Promise.resolve()` several times, then `await new Promise(r => setImmediate(r))`) between steps, until the requested total has elapsed. Its semantics must match vitest: timers created during the window, at times inside it, also fire.
-- [ ] **Step 4:** Write `tests/bunfig.toml` with `[test]` and `root = "."`. Ignore `**/*.live.test.js`, `**/node_modules/**` and `**/.claude/**` using `pathIgnorePatterns` if bunfig supports it; otherwise use `--path-ignore-patterns` in the scripts.
-- [ ] **Step 5:** Update `tests/package.json`:
+- [x] **Step 2:** Run `cd tests && bun test helpers/`. Expected: FAIL (the helper doesn't exist yet).
+- [x] **Step 3:** Implement `tests/helpers/vi.js`. For `advanceTimersByTimeAsync`, advance in steps and flush microtasks (`await Promise.resolve()` several times, then `await new Promise(r => setImmediate(r))`) between steps, until the requested total has elapsed. Its semantics must match vitest: timers created during the window, at times inside it, also fire.
+- [x] **Step 4:** Write `tests/bunfig.toml` with `[test]` and `root = "."`. Ignore `**/*.live.test.js`, `**/node_modules/**` and `**/.claude/**` using `pathIgnorePatterns` if bunfig supports it; otherwise use `--path-ignore-patterns` in the scripts.
+- [x] **Step 5:** Update `tests/package.json`:
   - Remove `vitest`; set `engines` to `{ "bun": ">=1.4.4" }`; add the `imports` map.
   - Set the scripts to `"test": "bun test --parallel"` and `"test:junit": "bun test --parallel --reporter=junit --reporter-outfile=../test-results.xml"`.
   - Delete `tests/package-lock.json`, then run `bun install`, which creates `bun.lock`.
-- [ ] **Step 6:** Run `cd tests && bun test helpers/`. Expected: PASS.
-- [ ] **Step 7:** Commit: `test: add bun test runtime and vi compatibility helper`.
+- [x] **Step 6:** Run `cd tests && bun test helpers/`. Expected: PASS.
+- [x] **Step 7:** Commit: `test: add bun test runtime and vi compatibility helper`.
 
 ### Task 3: Junit-based gates
 
@@ -135,17 +135,17 @@ Failure clusters, which own Tasks 5–9:
   - CLI `verify-no-regression.mjs <junit.xml>`: exit 1 if any failed case's key `"<file> :: <fullName>"` is not in `known-fails.txt`, or if `errors > 0` outside files that have a known fail.
   - CLI `verify-test-counts.mjs <junit.xml>`: exit 1 if any file in `test-counts.json` has fewer cases than its baseline, and print each offending file with its `expected/actual` counts.
 
-- [ ] **Step 1: Write the failing tests** using an inline junit fixture: one file suite, a nested describe `"GOLDEN buildHeaders (default executor providers)"` containing a case `"cline → headers (apiKey / oauth)"` with `<failure>`, a top-level case with `<skipped/>`, a Windows backslash `file` attribute, and root `errors="2"`. Assertions:
+- [x] **Step 1: Write the failing tests** using an inline junit fixture: one file suite, a nested describe `"GOLDEN buildHeaders (default executor providers)"` containing a case `"cline → headers (apiKey / oauth)"` with `<failure>`, a top-level case with `<skipped/>`, a Windows backslash `file` attribute, and root `errors="2"`. Assertions:
   - `fullName === "GOLDEN buildHeaders (default executor providers) cline → headers (apiKey / oauth)"`
   - `file === "tests/translator/golden-url-header.test.js"`
   - `status` values are correct
   - `errors === 2`
   - the counts gate flags a file whose baseline is higher than its count.
-- [ ] **Step 2:** Run `bun test unit/baseline-junit.test.js` from `tests/`. Expected: FAIL.
-- [ ] **Step 3:** Implement the three modules. No XML dependency is needed: a small tag scanner is enough for Bun's junit output.
-- [ ] **Step 4:** Run the same command. Expected: PASS.
-- [ ] **Step 5:** Re-key `known-fails.txt` only if Bun's names differ from vitest's for the same test. Leave entries alone otherwise.
-- [ ] **Step 6:** Commit: `test: junit-based regression and test-count gates`.
+- [x] **Step 2:** Run `bun test unit/baseline-junit.test.js` from `tests/`. Expected: FAIL.
+- [x] **Step 3:** Implement the three modules. No XML dependency is needed: a small tag scanner is enough for Bun's junit output.
+- [x] **Step 4:** Run the same command. Expected: PASS.
+- [x] **Step 5:** Re-key `known-fails.txt` only if Bun's names differ from vitest's for the same test. Leave entries alone otherwise.
+- [x] **Step 6:** Commit: `test: junit-based regression and test-count gates`.
 
 ### Task 4: Re-runnable codemod and the bulk conversion
 
@@ -165,33 +165,33 @@ Rules, in this order:
 4. Leave `vi.importActual(spec)`, `vi.doUnmock(spec)` and `importOriginal` untouched, but list every occurrence on stderr so Task 5 handles them by hand (8 `importOriginal` files, 3 `importActual` calls, 7 `doUnmock` calls).
 5. Idempotent: `transform(transform(x)) === transform(x)`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - A single-line import and a multi-line import, each with `vi` among other names.
   - An import without `vi`.
   - `vi.doMock("../x.js", f)` → `vi.mock("../x.js", f)`.
   - `it.fails(` → `it.failing(`.
   - The idempotence check.
   - A file that is already converted is unchanged.
-- [ ] **Step 2:** Run `bun test unit/migrate-vitest-to-bun.test.js`. Expected: FAIL.
-- [ ] **Step 3:** Implement the transform and the CLI.
-- [ ] **Step 4:** Run it. Expected: PASS.
-- [ ] **Step 5:** Run `bun scripts/migrate-vitest-to-bun.mjs tests`, then `bun scripts/migrate-vitest-to-bun.mjs --check tests`. Expected: exit 0, and `rg "from ['\"]vitest" tests` finds nothing.
-- [ ] **Step 6: Snapshots.** Convert each vitest `.snap` file to Bun's snapshot format with the same keys and values. `git diff --stat tests/**/__snapshots__` plus a review must show only header and format changes. Then run `CI=true bun test` on the 17 snapshot tests. Expected: PASS, with no "written" snapshots.
-- [ ] **Step 7:** Delete `tests/vitest.config.js`. Run `cd tests && bun run test:junit`, then `bun __baseline__/verify-test-counts.mjs ../test-results.xml`. Record the failing files. Expected: they match clusters A–H, and the counts gate passes except where files error at load time.
-- [ ] **Step 8:** Commit: `test: convert suite from vitest to bun test (codemod)`.
+- [x] **Step 2:** Run `bun test unit/migrate-vitest-to-bun.test.js`. Expected: FAIL.
+- [x] **Step 3:** Implement the transform and the CLI.
+- [x] **Step 4:** Run it. Expected: PASS.
+- [x] **Step 5:** Run `bun scripts/migrate-vitest-to-bun.mjs tests`, then `bun scripts/migrate-vitest-to-bun.mjs --check tests`. Expected: exit 0, and `rg "from ['\"]vitest" tests` finds nothing.
+- [x] **Step 6: Snapshots.** Convert each vitest `.snap` file to Bun's snapshot format with the same keys and values. `git diff --stat tests/**/__snapshots__` plus a review must show only header and format changes. Then run `CI=true bun test` on the 17 snapshot tests. Expected: PASS, with no "written" snapshots.
+- [x] **Step 7:** Delete `tests/vitest.config.js`. Run `cd tests && bun run test:junit`, then `bun __baseline__/verify-test-counts.mjs ../test-results.xml`. Record the failing files. Expected: they match clusters A–H, and the counts gate passes except where files error at load time.
+- [x] **Step 8:** Commit: `test: convert suite from vitest to bun test (codemod)`.
 
 ### Task 5: Fix clusters B and D (mock factories, timers, hangs)
 
 **Files:** the cluster B and D test files listed above. Runtime code is touched only if the root cause is there.
 
-- [ ] **Step 1:** For each file, follow superpowers:systematic-debugging and write down the root cause.
+- [x] **Step 1:** For each file, follow superpowers:systematic-debugging and write down the root cause.
   - **Partial factory** (`Export named X not found`): spread the actual module into the factory, e.g. `vi.mock(spec, async () => ({ ...(await import(spec + "?actual")), …overrides }))`, where `spec` is relative to the test file. Alternatively, add the missing named exports as `vi.fn()`.
   - **`importOriginal`**: replace with `() => import("<same spec>?actual")` inside the factory.
   - **`vi.importActual(spec)`** → `import(spec + "?actual")` at the call site.
   - **`vi.doUnmock(spec)`** → `vi.mock(spec, async () => import(spec + "?actual"))`.
   - **Timeouts and the worker crash**: find what never resolves (a fake timer that never advances, a real socket, an `await` on an unflushed microtask). Fix the cause; don't raise the timeout.
-- [ ] **Step 2:** Run `cd tests && bun test --parallel <each file>`. Expected: PASS, with the test count ≥ baseline.
-- [ ] **Step 3:** Commit per logical group: `test: fix partial module mocks for bun`, then `test: fix timer/hang issues under bun`.
+- [x] **Step 2:** Run `cd tests && bun test --parallel <each file>`. Expected: PASS, with the test count ≥ baseline.
+- [x] **Step 3:** Commit per logical group: `test: fix partial module mocks for bun`, then `test: fix timer/hang issues under bun`.
 
 ### Task 6: Fix cluster A (SQLite handle held on Windows)
 
@@ -202,12 +202,12 @@ Rules, in this order:
 **Interfaces:**
 - Produces: `useTempDataDir(prefix: string) → { get dir(): string }`. It registers `beforeEach`/`afterEach` that create the dir, set `DATA_DIR`, `delete global._dbAdapter` and `vi.resetModules()`. Teardown awaits `global._dbAdapter?.instance?.close()`, then calls `fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })` and restores `DATA_DIR`.
 
-- [ ] **Step 1: Write the failing test** in `tests/unit/temp-data-dir.test.js`: open the DB through `@/lib/db/index.js` with a write in it. After teardown, the directory no longer exists, and no `-wal`/`-shm` file is left.
-- [ ] **Step 2:** Run it on Windows. Expected: FAIL with `EBUSY`.
-- [ ] **Step 3:** Implement the helper. If the null-byte wrapper (`withNullByteSafeParams`) hides `close`, forward `close` in `src/lib/db/driver.js` (a runtime fix).
-- [ ] **Step 4:** Move each cluster A file's own temp-dir lifecycle onto `useTempDataDir`. In `request-details-tab.test.js`, replace the direct `better-sqlite3` import with `bun:sqlite` (`Database` from `"bun:sqlite"`) and keep the same assertions.
-- [ ] **Step 5:** Run the cluster A files on Windows and Linux (WSL or CI). Expected: PASS.
-- [ ] **Step 6:** Commit: `test: shared temp DATA_DIR helper that releases sqlite before cleanup`.
+- [x] **Step 1: Write the failing test** in `tests/unit/temp-data-dir.test.js`: open the DB through `@/lib/db/index.js` with a write in it. After teardown, the directory no longer exists, and no `-wal`/`-shm` file is left.
+- [x] **Step 2:** Run it on Windows. Expected: FAIL with `EBUSY`.
+- [x] **Step 3:** Implement the helper. If the null-byte wrapper (`withNullByteSafeParams`) hides `close`, forward `close` in `src/lib/db/driver.js` (a runtime fix).
+- [x] **Step 4:** Move each cluster A file's own temp-dir lifecycle onto `useTempDataDir`. In `request-details-tab.test.js`, replace the direct `better-sqlite3` import with `bun:sqlite` (`Database` from `"bun:sqlite"`) and keep the same assertions.
+- [x] **Step 5:** Run the cluster A files on Windows and Linux (WSL or CI). Expected: PASS.
+- [x] **Step 6:** Commit: `test: shared temp DATA_DIR helper that releases sqlite before cleanup`.
 
 ### Task 7: Bun-native outbound HTTP (cluster C)
 
@@ -222,33 +222,33 @@ Rules, in this order:
 - `getDispatcher` / `getDirectDispatcher` / `getFreshRetryDispatcher` / `resetDirectDispatchersForTests`: remove them, or keep them as thin compatibility exports only if non-test callers exist. Check with `rg "getDispatcher|getDirectDispatcher|getFreshRetryDispatcher" src open-sse`.
 - Image fetch with an SSRF pin: `fetch(\`${url.protocol}//${pinnedHost}${url.pathname}${url.search}\`, { headers: { Host: url.host }, tls: { serverName: url.hostname }, redirect: "manual", signal })`. `pinnedHost` is the validated IP, bracketed for IPv6. Over plain `http:`, only the `Host` header is needed.
 
-- [ ] **Step 1: Write the failing tests** in `tests/unit/image-fetch-ip-pin.test.js`:
+- [x] **Step 1: Write the failing tests** in `tests/unit/image-fetch-ip-pin.test.js`:
   - `"connects to the validated IP, not a re-resolved one"`: stub `node:dns/promises` so validation returns `127.0.0.1`. Start a local `Bun.serve` on 127.0.0.1 that records `req.headers.get("host")`. Expect the fetch to hit that server and `host` to equal the original hostname and port.
   - `"does not follow redirects"`: the local server returns 302 to a private URL. Expect `null`.
   - `"rejects when the validated IP is private"`: this assertion already exists in `ssrf-image-security`; keep it.
-- [ ] **Step 2:** Run it. Expected: FAIL. Then run the existing cluster C files; they fail as recorded in the probe.
-- [ ] **Step 3:** Implement the interfaces above.
-- [ ] **Step 4:** For tests that asserted undici mechanics (dispatcher eviction cap, `dispatcher.close` on eviction, the agent backstop), rewrite them to assert the same user-visible behaviour:
+- [x] **Step 2:** Run it. Expected: FAIL. Then run the existing cluster C files; they fail as recorded in the probe.
+- [x] **Step 3:** Implement the interfaces above.
+- [x] **Step 4:** For tests that asserted undici mechanics (dispatcher eviction cap, `dispatcher.close` on eviction, the agent backstop), rewrite them to assert the same user-visible behaviour:
   - A hung upstream is aborted after `UNDICI_BACKSTOP_MS`, using fake timers.
   - A stale-socket error is retried exactly once with `keepalive: false`.
   - A proxied call passes `proxy: <normalized url>`.
   - Proxy URL normalisation is unchanged.
 
   List each `old → new` mapping in the PR description.
-- [ ] **Step 5:** Run all cluster C files plus `rg "from ['\"]undici" src open-sse`. Expected: tests PASS, and no undici imports remain. If none remain, remove `undici` from the root `package.json`.
-- [ ] **Step 6:** Commit: `feat(network): bun-native outbound fetch, proxy and SSRF IP pin`.
+- [x] **Step 5:** Run all cluster C files plus `rg "from ['\"]undici" src open-sse`. Expected: tests PASS, and no undici imports remain. If none remain, remove `undici` from the root `package.json`.
+- [x] **Step 6:** Commit: `feat(network): bun-native outbound fetch, proxy and SSRF IP pin`.
 
 ### Task 8: Clusters E and F (driver and runtime assumptions, `node --test`)
 
 **Files:** `tests/unit/db-driver-chain.test.js`, `system-ca-trust.test.js`, `headroom-detect.test.js`, `provider-pricing-minimax-m3.test.js`. Convert `tests/unit/custom-server-h2c.test.cjs` → `tests/unit/custom-server-h2c.test.js`.
 
-- [ ] **Step 1:** Find each root cause.
+- [x] **Step 1:** Find each root cause.
   - `db-driver-chain`: under Bun the chain picks `bun:sqlite` first. Make the test assert the Bun branch explicitly (driver `"bun:sqlite"` is selected, and the null-byte wrapper is applied). Plan 2 trims the chain to `bun:sqlite` only, so don't add new Node-branch assertions.
   - `system-ca-trust`: it exercises `custom-server.js`'s CA-store swap. Find out what Bun does with `NODE_EXTRA_CA_CERTS` and the system CA store, then assert the Bun-equivalent behaviour. The custom-server parts get deleted in Plan 2, so keep them as they are until then.
   - `headroom-detect` and `provider-pricing-minimax-m3`: debug them. `headroom-detect` is a known Windows fail, so check it on Linux before changing anything.
-- [ ] **Step 2:** Convert the h2c `.cjs` test to ESM `bun:test`. It must still spawn `custom-server.js` and assert the same responses, so record it under its new name in `test-counts.json` with its `node --test` case count. If it needs a Next build, run it in CI after the build step.
-- [ ] **Step 3:** Run them. Expected: PASS on Linux. Windows-only failures go into `known-fails.txt` only if they're already there under their old names.
-- [ ] **Step 4:** Commit: `test: bun-run driver, CA and h2c tests`.
+- [x] **Step 2:** Convert the h2c `.cjs` test to ESM `bun:test`. It must still spawn `custom-server.js` and assert the same responses, so record it under its new name in `test-counts.json` with its `node --test` case count. If it needs a Next build, run it in CI after the build step.
+- [x] **Step 3:** Run them. Expected: PASS on Linux. Windows-only failures go into `known-fails.txt` only if they're already there under their old names.
+- [x] **Step 4:** Commit: `test: bun-run driver, CA and h2c tests`.
 
 ### Task 9: CI on Bun, interim Next-on-Bun build, and docs
 
@@ -258,31 +258,42 @@ Rules, in this order:
 - Modify: `CLAUDE.md` (Commands and Tests sections)
 - Modify: `docs/superpowers/plans/2026-11-22-bun-rewrite-p1-test-suite.md` (tick boxes)
 
-- [ ] **Step 1:** Change `test.yml` as follows. Leave the `pull_request` trigger and the `push: branches: [main, staging]` trigger as they are, and leave `docker-publish.yml` and `production-image.yml` untouched.
+- [x] **Step 1:** Change `test.yml` as follows. Leave the `pull_request` trigger and the `push: branches: [main, staging]` trigger as they are, and leave `docker-publish.yml` and `production-image.yml` untouched.
   - Replace `setup-node` with `oven-sh/setup-bun@v2` and `bun-version: 1.4.4`.
   - Install with `bun install --frozen-lockfile` at the root and in `tests/`.
   - Run, from `tests/`: `CI=true bun test --parallel --reporter=junit --reporter-outfile=../test-results.xml`.
   - Then run `git diff --exit-code -- tests` (fails if Bun wrote or changed any snapshot), `bun tests/__baseline__/verify-no-regression.mjs test-results.xml`, `bun tests/__baseline__/verify-test-counts.mjs test-results.xml`, `bun scripts/migrate-vitest-to-bun.mjs --check tests`, `bunx --bun eslint .` (a plain `bunx eslint` follows ESLint's `node` shebang), and `bun run build:bun` (interim Next-on-Bun build) with the existing standalone budget check.
-- [ ] **Step 2:** Root `package.json`: add `"engines": { "bun": ">=1.4.4" }` and `"test": "cd tests && bun test --parallel"`. Generate `bun.lock` with `bun install`. The root `package-lock.json` stays until Plan 4, because the Dockerfile still uses `npm ci`.
-- [ ] **Step 3:** Update the test commands in `CLAUDE.md`: no `npx vitest`, `bun test` from `tests/`, the junit verify scripts, and the rule "after merging `main`, run `bun scripts/migrate-vitest-to-bun.mjs tests`".
-- [ ] **Step 4:** Open the PR to `staging`. CI must be green:
+- [x] **Step 2:** Root `package.json`: add `"engines": { "bun": ">=1.4.4" }` and `"test": "cd tests && bun test --parallel"`. Generate `bun.lock` with `bun install`. The root `package-lock.json` stays until Plan 4, because the Dockerfile still uses `npm ci`.
+- [x] **Step 3:** Update the test commands in `CLAUDE.md`: no `npx vitest`, `bun test` from `tests/`, the junit verify scripts, and the rule "after merging `main`, run `bun scripts/migrate-vitest-to-bun.mjs tests`".
+- [x] **Step 4:** Open the PR to `staging`. CI must be green:
   - `bun test` exits 0
   - the counts gate passes
   - the codemod check passes
   - eslint passes
   - `build:bun` passes
-- [ ] **Step 5:** Commit: `ci: run tests on bun 1.4.4 for staging`.
+- [x] **Step 5:** Commit: `ci: run tests on bun 1.4.4 for staging`.
 
 ---
 
 ## Done when
 
-- `cd tests && CI=true bun test --parallel` exits 0 on Linux CI. On Windows, `verify-no-regression.mjs` reports no regressions.
-- `verify-test-counts.mjs` passes: every baseline file has at least its vitest count.
-- `rg "vitest|node --test|setup-node" -g '!docs/**' -g '!CHANGELOG.md'` finds nothing on `staging`.
-- `rg "from ['\"]undici" src open-sse` finds nothing, and the image-fetch IP-pin tests pass.
-- `bun run build:bun` succeeds: the interim app builds and runs on Bun.
+- [x] `cd tests && CI=true bun test --parallel` exits 0 on Linux CI. On Windows, `verify-no-regression.mjs` reports no regressions. Evidence: the CI `Test` workflow on the staging push of 2ea3c4b8 succeeded. Local Linux (Docker `oven/bun:1.4.4`): 4021 tests, 3962 pass, 58 skip, 1 todo, 0 fail. Windows: 0 fail, and the known-fails list went from 25 entries to 0.
+- [x] `verify-test-counts.mjs` passes: every baseline file has at least its vitest count. Evidence: `verify-test-counts.mjs` passes; 431 files are at or above the frozen vitest baseline (72f4923f). Deletions are recorded in the `deleted` map, and the skip/todo baseline is frozen.
+- [x] `rg "vitest|node --test|setup-node" -g '!docs/**' -g '!CHANGELOG.md'` finds nothing on `staging`. Evidence: the only remaining hits are allowed ones: `scripts/migrate-vitest-to-bun.mjs` and its test plus CI and CLAUDE.md references to it, baseline tooling and data that names vitest as its source, `cli/package.json` `node --test` (moves to Bun in Plan 4), and the archived `intake-report.md`.
+- [x] `rg "from ['\"]undici" src open-sse` finds nothing, and the image-fetch IP-pin tests pass. Evidence: no `from "undici"` in src or open-sse, the `undici` dependency is removed, and `tests/unit/image-fetch-ip-pin.test.js` passes.
+- [x] `bun run build:bun` succeeds: the interim app builds and runs on Bun. Evidence: it builds, and the standalone output is 80 MiB against the 140 budget.
 
 ## Merge procedure for `main → staging` (until cutover)
 
 `git merge main`, then `bun scripts/migrate-vitest-to-bun.mjs tests`, then run the suite and fix what fails. New test files from `main` get counted automatically from the next merge's CI run. Files already in `test-counts.json` must not lose tests.
+
+## Completion record (2026-11-23)
+
+- Implementation PR: https://github.com/raufimusaddiq/literouter/pull/246, merged as 2ea3c4b8.
+- Beyond the plan, on owner instruction: the suite was made fully green; unneeded tests were deleted and recorded; code comments are banned, so reasoning went into ADRs 0052, 0003, 0004, 0006 and 0012; a skip/todo gate and a data-dir CI guard were added.
+- Runtime fixes: bun:sqlite finalize-before-close, the h2c single-source body, Bun-native fetch with proxy/backstop/SSRF pin plus a Node fail-closed guard, and request-log prune no longer deleting the session just created.
+- For Plan 2: proxy routing and the SSRF pin need Bun (ADR 0003/0004).
+- For Plan 2: `FETCH_KEEPALIVE_TIMEOUT_MS` and `proxyDispatchersMaxSize` are inert and should be trimmed.
+- For Plan 2: system-ca-trust no longer covers custom-server's CA wiring.
+- For Plan 2: the dead exports `kiroToClaudeNonStreaming` and `formatPxpipeLog` await an owner decision.
+- Merge procedure: after `main → staging`, run `bun scripts/migrate-vitest-to-bun.mjs tests` and `bun scripts/migrate-vitest-to-bun.mjs --snapshots`.
