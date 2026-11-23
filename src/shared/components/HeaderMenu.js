@@ -57,17 +57,17 @@ export default function HeaderMenu({ onLogout }) {
         aria-label="Open menu"
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+        className="flex size-8 items-center justify-center rounded-md border border-transparent text-muted transition-colors hover:border-line hover:text-ink"
         title="Menu"
       >
-        <span aria-hidden="true" className="material-symbols-outlined">grid_view</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">more_vert</span>
       </button>
 
       {isOpen && (
         <div
           ref={menuRef}
           role="menu"
-          className="absolute right-0 top-full mt-2 w-60 bg-surface border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 overflow-hidden py-1"
+          className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-lg border border-line-strong bg-raise py-1 shadow-[var(--shadow-float)] fade-in"
         >
           <MenuItem
             icon={isDark ? "light_mode" : "dark_mode"}

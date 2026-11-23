@@ -1,18 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
-import { usePathname, Link } from "@/web/router";
 import PropTypes from "prop-types";
-import ProviderIcon from "@/shared/components/ProviderIcon";
-import HeaderMenu from "@/shared/components/HeaderMenu";
-import HeaderLanguage from "@/shared/components/HeaderLanguage";
-import ThemeToggle from "@/shared/components/ThemeToggle";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
-import { translate } from "@/i18n/runtime";
 
-const getPageInfo = (pathname) => {
+export const getPageInfo = (pathname) => {
   if (!pathname) return { title: "", description: "", breadcrumbs: [] };
 
   const providerMatch = pathname.match(/\/providers\/([^/]+)$/);
@@ -116,91 +109,17 @@ const getPageInfo = (pathname) => {
   return { title: "", description: "", breadcrumbs: [] };
 };
 
-export default function Header({ onMenuClick, showMenuButton = true }) {
-  const pathname = usePathname();
-  const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
-  const { title, description, icon, breadcrumbs } = pageInfo;
-
-  return (
-    <header className={`flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-bg px-4 py-2 lg:px-12 ${breadcrumbs.length > 0 ? "" : "lg:hidden"}`}>
-      <div className="flex items-center gap-3 lg:hidden shrink-0">
-        {showMenuButton && (
-          <button
-            type="button"
-            onClick={onMenuClick}
-            className="flex size-10 items-center justify-center rounded-lg text-text-main transition-colors hover:bg-surface-2 hover:text-primary"
-            aria-label="Open navigation"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined">menu</span>
-          </button>
-        )}
-      </div>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        {breadcrumbs.length > 0 ? (
-          <div className="flex items-center gap-2">
-            {breadcrumbs.map((crumb, index) => (
-              <div
-                key={`${crumb.label}-${crumb.href || "current"}`}
-                className="flex items-center gap-2"
-              >
-                {index > 0 && (
-                  <span aria-hidden="true" className="material-symbols-outlined text-text-muted text-base">
-                    chevron_right
-                  </span>
-                )}
-                {crumb.href ? (
-                  <Link
-                    href={crumb.href}
-                    className="text-text-muted hover:text-primary transition-colors"
-                  >
-                    {crumb.label}
-                  </Link>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    {crumb.image && (
-                      <ProviderIcon
-                        src={crumb.image}
-                        alt={crumb.label}
-                        size={28}
-                        className="object-contain rounded max-w-[28px] max-h-[28px]"
-                        fallbackText={crumb.label.slice(0, 2).toUpperCase()}
-                      />
-                    )}
-                    <p className="text-base font-semibold text-text-main lg:text-xl truncate">
-                      {translate(crumb.label)}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      <HeaderControls className={breadcrumbs.length > 0 ? "" : "lg:hidden"} />
-    </header>
-  );
+export default function Header() {
+  return null;
 }
 
 export function HeaderControls({ className = "" }) {
-  const handleLogout = async () => {
-    try {
-      const res = await fetch("/api/auth/logout", { method: "POST" });
-      if (res.ok) {
-        window.location.assign("/login");
-      }
-    } catch (err) {
-      console.error("Failed to logout:", err);
-    }
-  };
+  const visible = useHeaderSearchStore((s) => s.visible);
+  if (!visible) return null;
 
   return (
     <div className={`flex shrink-0 items-center gap-1 ${className}`}>
       <HeaderSearch />
-      <ThemeToggle />
-      <HeaderLanguage />
-      <HeaderMenu onLogout={handleLogout} />
     </div>
   );
 }
@@ -217,7 +136,7 @@ function HeaderSearch() {
 
   return (
     <div className="relative w-[160px] sm:w-[220px]">
-      <span aria-hidden="true" className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none">
+      <span aria-hidden="true" className="material-symbols-outlined pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[16px] text-muted">
         search
       </span>
       <input
@@ -226,13 +145,13 @@ function HeaderSearch() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="h-9 w-full rounded-[10px] border border-border-subtle bg-surface-2 pl-8 pr-7 text-sm transition-[background-color,border-color,box-shadow] focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/15"
+        className="h-9 w-full rounded-md border border-line-strong bg-raise pl-8 pr-7 text-sm text-ink placeholder:text-faint transition-[background-color,border-color,box-shadow] focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line/20"
       />
       {query && (
         <button
           type="button"
           onClick={() => setQuery("")}
-          className="absolute right-0.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-text-muted hover:bg-surface-2 hover:text-text-main"
+          className="absolute right-0.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-ink"
           aria-label="Clear search"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
@@ -241,8 +160,3 @@ function HeaderSearch() {
     </div>
   );
 }
-
-Header.propTypes = {
-  onMenuClick: PropTypes.func,
-  showMenuButton: PropTypes.bool,
-};

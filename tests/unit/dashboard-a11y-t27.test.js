@@ -28,10 +28,13 @@ describe("T-27 dashboard leftovers", () => {
 });
 
 describe("T-30 provider detail a11y", () => {
-  it("Header breadcrumb title is not an h1", () => {
-    const src = read("src/shared/components/Header.js");
-    expect(src).not.toMatch(/<h1/);
-    expect(src).toMatch(/<p className="text-base font-semibold text-text-main lg:text-xl truncate">/);
+  it("PageHeader breadcrumb title is not an h1 and page title is an h1", () => {
+    const src = read("src/shared/components/shell/PageHeader.js");
+    const crumbBlock = src.match(/<nav aria-label="Breadcrumb"[\s\S]*?<\/nav>/)?.[0] || "";
+    expect(crumbBlock.length).toBeGreaterThan(0);
+    expect(crumbBlock).not.toMatch(/<h1/);
+    expect(crumbBlock).toMatch(/<p className="truncate font-medium text-ink">/);
+    expect(src).toMatch(/<h1 /);
   });
 
   it("ModelRow icon buttons are labelled and focus-visible", () => {

@@ -1,19 +1,25 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
-import { usePathname, useScrollReset } from "@/web/router";
+import { useRef, useState } from "react";
+import { useScrollReset } from "@/web/router";
 import { useNotificationStore } from "@/store/notificationStore";
-import Sidebar from "../Sidebar";
-import Header from "../Header";
+import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
+import TopBar from "../shell/TopBar";
+import NavSheet from "../shell/NavSheet";
+import PhoneTabBar from "../shell/PhoneTabBar";
 
-const DESKTOP_QUERY = "(min-width: 1024px)";
-const subscribeDesktop = (onChange) => {
-  const mql = window.matchMedia(DESKTOP_QUERY);
-  mql.addEventListener("change", onChange);
-  return () => mql.removeEventListener("change", onChange);
-};
-const getDesktop = () => window.matchMedia(DESKTOP_QUERY).matches;
-const getServerDesktop = () => false;
+const TABLET_OR_UP_QUERY = "(min-width: 640px)";
+
+async function handleLogout() {
+  try {
+    const res = await fetch("/api/auth/logout", { method: "POST" });
+    if (res.ok) {
+      window.location.assign("/login");
+    }
+  } catch (err) {
+    console.error("Failed to logout:", err);
+  }
+}
 
 function getToastStyle(type) {
   if (type === "success") {
@@ -45,35 +51,41 @@ function getToastStyle(type) {
 }
 
 export default function DashboardLayout({ children }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const isDesktop = useSyncExternalStore(subscribeDesktop, getDesktop, getServerDesktop);
-  const pathname = usePathname();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const isTabletOrUp = useMediaQuery(TABLET_OR_UP_QUERY, false);
+  const isPhone = !isTabletOrUp;
   const scrollRef = useRef(null);
   useScrollReset(scrollRef);
   const notifications = useNotificationStore((state) => state.notifications);
   const removeNotification = useNotificationStore((state) => state.removeNotification);
 
   return (
-    <div className="dashboard-backdrop h-[100dvh] w-full overflow-hidden [padding:env(safe-area-inset-top)_env(safe-area-inset-right)_env(safe-area-inset-bottom)_env(safe-area-inset-left)]">
+    <div className="dashboard-backdrop h-[100dvh] w-full overflow-hidden [padding:env(safe-area-inset-top)_env(safe-area-inset-right)_0_env(safe-area-inset-left)]">
       <a
         href="#main-content"
         className="sr-only fixed left-3 top-3 z-[100] rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground focus:not-sr-only"
       >
         Skip to content
       </a>
-      <div className="fixed top-4 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2" aria-live="polite">
+
+      <div
+        className="pointer-events-none fixed inset-x-4 bottom-[calc(56px+env(safe-area-inset-bottom)+12px)] z-[80] flex flex-col gap-2 sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-16 sm:w-[min(92vw,380px)]"
+        aria-live="polite"
+      >
         {notifications.map((n) => {
           const style = getToastStyle(n.type);
           return (
             <div
               key={n.id}
-              className={`rounded-md border border-line-strong border-l-[3px] bg-raise text-ink px-3 py-2.5 shadow-[var(--shadow-float)] ${style.wrapper}`}
+              className={`pointer-events-auto rounded-md border border-line-strong border-l-[3px] bg-raise px-3 py-2.5 text-ink shadow-[var(--shadow-float)] ${style.wrapper}`}
             >
               <div className="flex items-start gap-2">
-                <span aria-hidden="true" className={`material-symbols-outlined text-[18px] leading-5 ${style.iconClass}`}>{style.icon}</span>
+                <span aria-hidden="true" className={`material-symbols-outlined text-[18px] leading-5 ${style.iconClass}`}>
+                  {style.icon}
+                </span>
                 <div className="min-w-0 flex-1">
-                  {n.title ? <p className="text-xs font-semibold mb-0.5 text-ink">{n.title}</p> : null}
-                  <p className="text-xs text-muted whitespace-pre-wrap break-words">{n.message}</p>
+                  {n.title ? <p className="mb-0.5 text-xs font-semibold text-ink">{n.title}</p> : null}
+                  <p className="whitespace-pre-wrap break-words text-xs text-muted">{n.message}</p>
                 </div>
                 {n.dismissible ? (
                   <button
@@ -90,34 +102,36 @@ export default function DashboardLayout({ children }) {
           );
         })}
       </div>
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/35 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
 
-      <div className="mx-auto flex h-full w-full max-w-[1920px]">
-        <div
-          className={
-            isDesktop
-              ? "static h-full shrink-0"
-              : `fixed inset-y-2 left-2 z-50 transform transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-                  sidebarOpen ? "translate-x-0" : "-translate-x-[calc(100%+1rem)]"
-                }`
-          }
-          inert={!isDesktop && !sidebarOpen}
-        >
-          <Sidebar onClose={() => setSidebarOpen(false)} />
-        </div>
-
-        <main id="main-content" className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg transition-colors duration-300">
-          <Header key={pathname} onMenuClick={() => setSidebarOpen(true)} />
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-4 py-7 sm:px-7 lg:px-12 lg:py-10">
-            <div className="mx-auto w-full max-w-[110rem]">{children}</div>
+      <main
+        id="main-content"
+        className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg transition-colors duration-300"
+      >
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
+          <TopBar
+            onOpenMenu={() => setSheetOpen(true)}
+            menuOpen={sheetOpen}
+            onLogout={handleLogout}
+          />
+          <div className="mx-auto w-full max-w-[1376px] px-4 pt-5 pb-[calc(56px+env(safe-area-inset-bottom)+16px)] sm:px-8 sm:pt-7 sm:pb-12">
+            {children}
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
+
+      {isPhone ? (
+        <PhoneTabBar
+          onOpenMore={() => setSheetOpen(true)}
+          moreOpen={sheetOpen}
+        />
+      ) : null}
+
+      <NavSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        variant={isPhone ? "bottom" : "full"}
+        onLogout={handleLogout}
+      />
     </div>
   );
 }

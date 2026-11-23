@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { reloadTranslations } from "@/i18n/runtime";
+import { useEscapeLayer } from "@/shared/hooks/useEscapeLayer";
 
 function getLocaleFromCookie() {
   if (typeof document === "undefined") return "en";
@@ -70,6 +71,8 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
       setInternalOpen(value);
     }
   };
+
+  useEscapeLayer(isOpen, () => setIsOpen(false));
 
   useEffect(() => {
     setLocale(getLocaleFromCookie());

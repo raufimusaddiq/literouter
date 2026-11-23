@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEscapeLayer, useScrollLock } from "@/shared/hooks/useEscapeLayer";
 import { cn } from "@/shared/utils/cn";
 
 export default function Drawer({
@@ -19,22 +19,8 @@ export default function Drawer({
     full: "w-full",
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [isOpen]);
-
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === "Escape" && isOpen) onClose();
-    };
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [isOpen, onClose]);
+  useEscapeLayer(isOpen, onClose);
+  useScrollLock(isOpen);
 
   if (!isOpen) return null;
 

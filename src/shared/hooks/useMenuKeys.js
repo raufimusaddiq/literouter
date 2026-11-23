@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import { useEscapeLayer } from "@/shared/hooks/useEscapeLayer";
 
 export function useMenuKeys({ open, setOpen, triggerRef, menuRef }) {
+  useEscapeLayer(open, () => {
+    setOpen(false);
+    triggerRef?.current?.focus();
+  });
+
   useEffect(() => {
     if (!open) return;
     const first = menuRef?.current?.querySelector("[role=menuitem]");
@@ -22,11 +28,6 @@ export function useMenuKeys({ open, setOpen, triggerRef, menuRef }) {
     };
 
     const onKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        triggerRef?.current?.focus();
-        return;
-      }
       if (e.key === "Tab") {
         setOpen(false);
         return;

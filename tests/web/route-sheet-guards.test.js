@@ -4,9 +4,13 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dir, "../..");
 
-export const GUARDED_PATHS = ["src/shared/components"];
+export const GUARDED_PATHS = [
+  "src/shared/components",
+  "src/shared/components/shell",
+  "src/shared/components/layouts",
+];
 
-const EXCLUDED_FILES = new Set(["src/shared/components/Sidebar.js"]);
+const BACKDROP_BLUR_ALLOWED = new Set(["src/shared/components/shell/TopBar.js"]);
 
 const FORBIDDEN = [
   /backdrop-blur/,
@@ -65,12 +69,15 @@ describe("Route Sheet guards", () => {
 
   it("guarded files use no retired styles", () => {
     const violations = [];
+    const seen = new Set();
     for (const guarded of GUARDED_PATHS) {
       for (const file of collectJsFiles(guarded)) {
         const rel = path.relative(ROOT, file).split("\\").join("/");
-        if (EXCLUDED_FILES.has(rel)) continue;
+        if (seen.has(rel)) continue;
+        seen.add(rel);
         const content = fs.readFileSync(file, "utf8");
         for (const pattern of FORBIDDEN) {
+          if (pattern.source === "backdrop-blur" && BACKDROP_BLUR_ALLOWED.has(rel)) continue;
           if (pattern.test(content)) {
             violations.push(`${rel} matched ${pattern}`);
           }

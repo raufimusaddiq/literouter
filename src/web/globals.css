@@ -353,9 +353,14 @@ button:disabled,
   from { transform: translateY(-10px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+@keyframes sheetSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
 .slide-in-right { animation: slideInFromRight 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 .fade-in { animation: fadeIn 0.2s ease-out forwards; }
 .slide-in-top { animation: slideInFromTop 0.18s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.sheet-slide-up { animation: sheetSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 
 @keyframes topology-router-pulse {
   0%, 100% {

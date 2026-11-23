@@ -21,7 +21,7 @@ export default function PageIntro({ title, meta, description, action, children, 
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {action}
-        <HeaderControls className="hidden lg:flex" />
+        <HeaderControls />
       </div>
     </div>
   );

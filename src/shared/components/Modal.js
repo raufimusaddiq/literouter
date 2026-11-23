@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef } from "react";
 import { getFocusable, nextTrapTarget } from "@/shared/utils/focusTrap";
+import { useEscapeLayer, useScrollLock } from "@/shared/hooks/useEscapeLayer";
 import { cn } from "@/shared/utils/cn";
 import Button from "./Button";
 
@@ -24,14 +25,8 @@ export default function Modal({
     full: "max-w-4xl",
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [isOpen]);
+  const isTopLayer = useEscapeLayer(isOpen, onClose);
+  useScrollLock(isOpen);
 
   const titleId = useId();
   const dialogRef = useRef(null);
@@ -51,16 +46,15 @@ export default function Modal({
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return undefined;
     const handleKey = (e) => {
-      if (!isOpen) return;
-      if (e.key === "Escape") { onClose(); return; }
-      if (e.key !== "Tab" || !dialogRef.current) return;
+      if (e.key !== "Tab" || !dialogRef.current || !isTopLayer()) return;
       const target = nextTrapTarget(getFocusable(dialogRef.current), document.activeElement, e.shiftKey);
       if (target) { e.preventDefault(); target.focus(); }
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, isTopLayer]);
 
   if (!isOpen) return null;
 
