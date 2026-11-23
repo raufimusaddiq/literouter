@@ -50,6 +50,16 @@ jobs:
 
       - run: bun scripts/comments/ratchet.mjs --check
 
+      - run: bun scripts/gen-route-table.mjs --check
+
+      - run: bun scripts/port-next-routes.mjs --check src/app/api src/server
+
+      - run: bun tests/parity/run.mjs --target bun --out parity-actual
+
+      - run: bun tests/parity/compare.mjs tests/parity/expected parity-actual
+
+      - run: bun tests/parity/compare-upstream.mjs tests/parity/expected parity-actual
+
       - run: bun run build:bun
 
       - name: Runtime bundle budget

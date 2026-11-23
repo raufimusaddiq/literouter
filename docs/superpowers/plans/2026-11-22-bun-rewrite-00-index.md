@@ -30,16 +30,16 @@ A plan that needs to change a name here must update this file in the same PR.
   - `/codex` and `/codex/*` → `api/v1/responses`; `/responses` → `api/v1/responses`; `/v1beta/*` → `api/v1beta/*`.
 - **`src/server/adapter.js`**
   - `export function toBunHandler(load, route = {}) → (req, server) => Promise<Response>`.
-  - It dispatches on `req.method`. A missing method gets 405 with `Allow`. When there's no `OPTIONS` export, OPTIONS gets 204 with `Allow`. When there's no `HEAD` export, HEAD runs `GET` and drops the body.
+  - It dispatches on `req.method`. A missing method gets 405 **without** `Allow` (Next parity: its 405 carried none). When there's no `OPTIONS` export, OPTIONS gets 204 **with** `Allow`. When there's no `HEAD` export, HEAD runs `GET` and drops the body.
   - It calls the handler as `handler(req, { params: Promise.resolve(params) })`. Catch-all params are a `string[]` built from the URL, because Bun leaves `*` params empty.
   - `export function isLongLived(pathname) → boolean` → `server.timeout(req, 0)`.
 - **`src/server/compress.js`**
-  - `export function maybeCompress(req, res) → Response`.
-  - It gzips non-streaming responses with a compressible content type that are at least 1 KiB, when `Accept-Encoding` includes `gzip`.
-  - It never touches `text/event-stream` or responses that already carry a `Content-Encoding`.
+  - `export async function maybeCompress(req, res) → Promise<Response>`.
+  - It gzips every response with a compressible content type that is not SSE or ndjson and not a HEAD, 204, 206 or 304 response, when `Accept-Encoding` includes `gzip` (`q=0` refuses), and streams the compressed body. The only size rule is a *declared* `Content-Length` below 1 KiB, which is left as is; a response with no declared length is always compressed. The earlier "at least 1 KiB" rule was wrong: Next compresses small `/api` JSON too.
+  - It never touches `text/event-stream`, `application/x-ndjson`, `Cache-Control: no-transform` responses or responses that already carry a `Content-Encoding`. A strong `ETag` becomes weak and `Vary: Accept-Encoding` is added.
   - *Owner-facing decision (2026-11-23): keep the gzip behaviour Next has. Direct LAN and CLI users don't sit behind Cloudflare.*
 - **`src/server/http.js`**
-  - `json(body, init?) → Response`
+  - `json(body, init?) → Response`. Its content type is `application/json;charset=utf-8`, because the goldens were recorded on Next running under Bun. Plan 5 compares against Node `main`, so any difference in this header is judged there.
   - `redirect(url, status = 307) → Response`
   - `nextUrl(req) → URL`
   - `cookies(req) → Bun.CookieMap`
@@ -135,9 +135,11 @@ A plan that needs to change a name here must update this file in the same PR.
 - **Parity harness:** Plan 2 Task 1 builds it, and Plan 5 runs the final pass. It consists of:
   - `tests/parity/fixtures/*.json`
   - `tests/parity/mock-upstream.js`. It writes every upstream request it receives to `<outDir>/upstream-requests.jsonl`, one JSON object per line: `{ seq, method, path, headers: [[k, v], …] in wire order, bodyBase64 }`.
-  - `tests/parity/seed.mjs <dataDir> --upstream <url> --print-key`. It seeds a data dir directly, without the dashboard API.
-  - `tests/parity/record.mjs <baseUrl> <outDir>`, `tests/parity/run.mjs`, `tests/parity/compare.mjs <expectedDir> <actualDir>`, `tests/parity/compare-upstream.mjs`
+  - `tests/parity/seed.mjs <dataDir> --upstream <url> --print-key`. It seeds a data dir directly, without the dashboard API: it loads `tests/parity/fixtures/seed.json`, substitutes the upstream URL for `__UPSTREAM__`, and imports it with `importDb` into `DATA_DIR`. `--print-key` prints the first seeded API key.
+  - `tests/parity/record.mjs <baseUrl> <outDir>`, `tests/parity/run.mjs --target next|bun --out <dir>`, `tests/parity/compare.mjs <expectedDir> <actualDir>`, `tests/parity/compare-upstream.mjs <expectedDir> <actualDir>`.
+  - `tests/parity/known-diffs.json` lists every accepted response difference. Each entry names a `file` and a `path`, gives a `reason`, and pins the exact `actual` value or sets `absent: true` when the value is missing from the Bun output, so a different value is still reported. A listed diff that stops occurring is reported as stale and fails the run. `tests/parity/known-upstream-diffs.json` is the same for the upstream-request comparison, which is keyed per fixture (the requests each fixture caused, in order) rather than as one global sequence.
   - `tests/parity/runtime-header-allowlist.json`. It is short and reviewed. A Bun default header (`accept-encoding`, `user-agent`) that reaches an upstream gets **fixed in `open-sse/`**, not allowlisted, when it can affect prompt caching.
   - Recorded outputs are normalised and small, so Plan 5 can commit them as goldens in `tests/parity/expected/`.
+- **Next-leftover gate:** `bun scripts/port-next-routes.mjs --check src/app/api src/server` must exit 0 (scope fixed in Plan 2 Task 14). The dashboard pages, layouts and components under `src/app/**/page.js`, `src/i18n` and `src/shared/components` still import `next/*` until Plan 3, so `--check src` is not yet clean. `bun scripts/gen-route-table.mjs --check` guards the route table against drift. CI runs both, then `tests/parity/run.mjs --target bun --out parity-actual`, `compare.mjs` and `compare-upstream.mjs` against `tests/parity/expected`; `parity-actual/` is git-ignored.
 - **Cutover scripts:** `scripts/cutover/*`. They are defined by Plan 5.
 - **ESLint** runs as `bunx --bun eslint .` or `bun --bun run eslint .`. A plain `bunx eslint` follows the `node` shebang.

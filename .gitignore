@@ -110,3 +110,6 @@ bench-results/
 test-results.xml
 
 !tests/parity/fixtures/tls/*.pem
+
+# parity run output
+/parity-actual/

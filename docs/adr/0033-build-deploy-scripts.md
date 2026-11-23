@@ -14,19 +14,19 @@ LiteRouter ships as a Next.js standalone build used by Docker, the CLI launcher 
 
 `open` derives its directory from `import.meta.url`, and webpack replaces that with the absolute path of the build machine as a string literal. A release built on macOS then ships `file:///Users/.../open/index.js`, which `fileURLToPath` rejects on Windows with ERR_INVALID_FILE_URL_PATH ("File URL path must be absolute", no drive letter). The throw happens at module scope and kills every importer, including xAI/Grok token refresh (`refreshXaiToken` imports the OAuth service that imports `open`), so no Grok refresh could reach auth.x.ai on Windows. Keeping it in `serverExternalPackages` preserves the real `import.meta.url` at runtime. A regression test guards this.
 
-**Where:** `next.config.mjs`: `serverExternalPackages`; `tests/unit/open-package-external.test.js`
+**Where:** `src/shared/utils/openBrowser.js`; `tests/unit/open-package-external.test.js` (the `open` package and `serverExternalPackages` in `next.config.mjs` are gone)
 
 ### D2. Tracing root differs for CLI bundling and Docker
 
-CLI bundling (`NEXT_TRACING_ROOT_MODE=workspace`) needs the workspace root so tracing includes hoisted `node_modules` (a slim build of about 50 MB). Docker and the default use `projectRoot` so `server.js` lands at `/app/server.js` rather than nested. The proxy client body limit is raised (default 128mb, `NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE`) because LLM clients send long context or base64 image payloads through the `/v1` rewrites (#1529, #1572).
+CLI bundling (`NEXT_TRACING_ROOT_MODE=workspace`) needs the workspace root so tracing includes hoisted `node_modules` (a slim build of about 50 MB). Docker and the default use `projectRoot` so `server.js` lands at `/app/server.js` rather than nested. The request body limit is raised (default 128mb, `NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE`, now enforced as `maxRequestBodySize` by `Bun.serve` through `src/server/bodyLimit.js` rather than Next's `proxyClientMaxBodySize`) because LLM clients send long context or base64 image payloads to `/v1` (#1529, #1572).
 
-**Where:** `next.config.mjs`: `tracingRoot`, `proxyClientMaxBodySize`
+**Where:** `next.config.mjs`: `tracingRoot`; `src/server/bodyLimit.js`: `parseBodyLimit`
 
-### D3. Startup work is server-only, deferred and bootstrapped from instrumentation
+### D3. Startup work is server-only, deferred and bootstrapped from the server boot
 
-API-only servers never render `app/layout.js`, so background bootstrap (token refresh and similar) starts in `instrumentation.js`; `bootstrap.js` guards itself with `global.__appBootstrapped`. Heavy startup work (DB cleanup, OAuth pings) is deferred so the first HTTP request (login to dashboard) is not starved. Server-only imports in instrumentation let `capabilities.js` read the synced catalog without pulling `node:fs` into the browser bundle. The scheduler stays absent unless an account opted in, and its provider graph loads on demand.
+API-only servers never render `app/layout.js`, so background bootstrap (token refresh and similar) starts from `runBootOnce` in `src/server/boot.js`, which replaced Next's `instrumentation.js`; `bootstrap.js` guards itself with `global.__appBootstrapped`. Heavy startup work (DB cleanup, OAuth pings) is deferred so the first HTTP request (login to dashboard) is not starved. Server-only imports in the boot steps let `capabilities.js` read the synced catalog without pulling `node:fs` into the browser bundle. The scheduler stays absent unless an account opted in, and its provider graph loads on demand.
 
-**Where:** `src/instrumentation.js`; `src/shared/services/initializeApp.js`; `src/app/api/settings/route.js`
+**Where:** `src/server/boot.js`: `runBootOnce`; `src/shared/services/initializeApp.js`; `src/app/api/settings/route.js`
 
 ### D4. Runtime values and server-side files must not be baked in at build
 

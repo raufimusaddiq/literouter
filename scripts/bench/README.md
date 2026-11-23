@@ -45,7 +45,7 @@ then the mock's in-flight count is checked 5s later. Output: `bench-results/<ts>
 
 Ports (override with flags `--gw-port`, `--mock-fast-port`, `--mock-slow-port`): gateway 20190,
 mocks 9101 / 9102. The suite logs into the dashboard with a throwaway password over loopback
-(it needs `node custom-server.js`, not `next dev`, so loopback is trusted).
+(it starts `bun src/server/index.js`, which trusts a direct loopback request).
 
 Notes: on Windows `setTimeout` is quantised to ~15ms, so the mock replies inline when a delay is 0;
 the 20ms chunk-delay streams are therefore coarse (~31ms/chunk on Windows) - compare gateway vs

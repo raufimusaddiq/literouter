@@ -458,7 +458,9 @@
     "tests/unit/settings-cache.test.js :: *": "vacuous, returns early if the import fails; duplicates db-sqlite-vs-lowdb getSettings defaults (1 case)"
   },
   "waived": {
+    "tests/unit/custom-server-peer-headers.test.js": "tests/server/peer-headers.test.js — custom-server.js is deleted; the peer-header cases now run against the Bun server's trust and strip logic, with the same seven cases",
     "tests/unit/custom-server-h2c.test.js": "tests/server/h2c.test.js — Bun serves h2c upgrade requests as HTTP/1.1 itself, so the Node downgrade shim and its tests go away; the chunked case now asserts the body is served instead of 411",
+    "tests/unit/instrumentation-bootstrap.test.js": "tests/server/boot.test.js — src/instrumentation.js is deleted; runBootOnce in src/server/boot.js runs the same startup steps (including the bootstrap services) once, and the NEXT_RUNTIME=edge case has no Bun counterpart because there is one runtime",
     "tests/unit/system-ca-trust.test.js": "tests/server/ca.test.js — the useSystemCaStore cases moved to src/server/ca.js and gained a startServer fail-closed case"
   }
 }

@@ -30,7 +30,7 @@ Lock state lives on shared global state (`refreshLocks`, via `globalThis`) becau
 
 ### D4. The proactive refresher is started only from `initializeApp` and is fail-open
 
-Proactive refresh (for example grok-cli's roughly 6h TTL) is idempotent and is started only from `initializeApp`, because `custom-server.js` cannot resolve the bare `open-sse` specifiers outside webpack. Inside it, tick errors and per-connection failures never kill the interval. It uses a dynamic import for the db layer to avoid a circular load of the db/app graph at module evaluation.
+Proactive refresh (for example grok-cli's roughly 6h TTL) is idempotent and is started only from `initializeApp`, which the "bootstrap services" step of `src/server/boot.js` loads once at server start (the retired `custom-server.js` could not resolve the bare `open-sse` specifiers outside webpack). Inside it, tick errors and per-connection failures never kill the interval. It uses a dynamic import for the db layer to avoid a circular load of the db/app graph at module evaluation.
 
 **Where:** `src/shared/services/initializeApp.js`: `initializeApp`; `src/sse/services/backgroundTokenRefresh.js`: `startBackgroundTokenRefresh`, `runBackgroundTokenRefreshTick`, `loadActiveConnections`
 
@@ -45,5 +45,5 @@ Accounts are refreshed one at a time with a delay between them, to avoid burstin
 - Refreshing from a stale snapshot, or reusing a consumed refresh token, revokes the OpenAI session family and logs the account out.
 - Not updating credentials between refresh attempts turns rotating providers into permanent `invalid_grant` failures.
 - Per-bundle lock maps or an unpruned dedup cache cause duplicate refreshes and duplicate writes, or a slow memory leak.
-- Starting the refresher from `custom-server.js`, or letting one failure throw out of the tick, breaks startup or silently stops all proactive refresh.
+- Starting the refresher from the server entry instead of `initializeApp`, or letting one failure throw out of the tick, breaks startup or silently stops all proactive refresh.
 - Parallel account refresh with eager projectId resolution trips Google Cloud abuse limits.

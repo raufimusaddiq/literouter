@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const customServer = join(root, "custom-server.js");
 const dir = mkdtempSync(join(tmpdir(), "ca-trust-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 

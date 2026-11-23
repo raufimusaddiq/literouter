@@ -154,10 +154,23 @@ describe("loopback classification", () => {
   });
 });
 
-describe("custom-server marker list", () => {
-  it("mirrors src/lib/auth/proxyMarkers.js", async () => {
+describe("Bun server marker list", () => {
+  it("trust.js decides locality from every header in src/lib/auth/proxyMarkers.js", async () => {
     const { PROXY_MARKER_HEADERS } = await import("@/lib/auth/proxyMarkers.js");
-    const src = fs.readFileSync(path.resolve(__dirname, "../../custom-server.js"), "utf8");
-    for (const h of PROXY_MARKER_HEADERS) expect(src).toContain(`"${h}"`);
+    const src = fs.readFileSync(path.resolve(__dirname, "../../src/server/trust.js"), "utf8");
+    expect(src).toContain("hasProxyMarker");
+    for (const h of PROXY_MARKER_HEADERS) {
+      expect(buildRequestContext("127.0.0.1", new Headers({ [h]: "1.2.3.4" })).isLocal).toBe(false);
+    }
+    expect(buildRequestContext("127.0.0.1", new Headers()).isLocal).toBe(true);
+  });
+
+  it("the strip list in src/server/index.js drops the retired peer headers and forwarded-for", () => {
+    const src = fs.readFileSync(path.resolve(__dirname, "../../src/server/index.js"), "utf8");
+    const list = /const STRIPPED_HEADERS = \[([^\]]*)\]/.exec(src);
+    expect(list).not.toBeNull();
+    for (const h of ["x-9r-real-ip", "x-9r-peer-token", "x-9r-via-proxy", "x-forwarded-for"]) {
+      expect(list[1]).toContain(`"${h}"`);
+    }
   });
 });

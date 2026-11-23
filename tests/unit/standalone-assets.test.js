@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtempSync } from "node:fs";
@@ -37,14 +37,13 @@ describe("standalone build assets", () => {
       .toBe("static asset");
   });
 
-  it("copies the request-sanitizing server wrapper into the standalone output", () => {
+  it("no longer copies a server wrapper into the standalone output", () => {
     const projectRoot = createBuildFixture(".next");
     writeFileSync(join(projectRoot, "custom-server.js"), "wrapper");
 
     copyStandaloneAssets({ projectRoot, distDir: ".next" });
 
-    expect(readFileSync(join(projectRoot, ".next", "standalone", "custom-server.js"), "utf8"))
-      .toBe("wrapper");
+    expect(existsSync(join(projectRoot, ".next", "standalone", "custom-server.js"))).toBe(false);
   });
 
   it("does not modify workspace-traced CLI builds", () => {
