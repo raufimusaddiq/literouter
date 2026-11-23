@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 vi.mock("../../open-sse/services/accountFallback.js", async () => {
-  const actual = await vi.importActual("../../open-sse/services/accountFallback.js");
+  const actual = await import("../../open-sse/services/accountFallback.js?actual");
   return { ...actual, checkFallbackError: vi.fn(actual.checkFallbackError) };
 });
 

@@ -1,5 +1,5 @@
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -14,7 +14,7 @@ const MIN_CACHE_TOKENS = 100;
 const LONG_TEXT = ("You are a careful assistant. Always follow these rules. ".repeat(300)).trim();
 
 function loadAgConnections() {
-  if (!fs.existsSync(DB_PATH)) return [];
+  if (!ENABLE || !fs.existsSync(DB_PATH)) return [];
   const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
   return (db.providerConnections || []).filter(
     c => c.provider === "antigravity" && c.isActive && c.refreshToken && c.projectId

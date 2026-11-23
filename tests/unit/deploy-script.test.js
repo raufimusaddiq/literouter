@@ -1,10 +1,11 @@
 import { readFileSync, mkdtempSync, writeFileSync, chmodSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterAll, expect, it } from "vitest";
+import { delimiter, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterAll, expect, it } from "bun:test";
 
-const script = new URL("../../scripts/deploy.sh", import.meta.url).pathname;
+const script = fileURLToPath(new URL("../../scripts/deploy.sh", import.meta.url));
 const repository = "ghcr.io/raufimusaddiq/literouter-production";
 const sha = (letter) => letter.repeat(40);
 const tag = (letter) => `production-${sha(letter)}`;
@@ -46,7 +47,7 @@ function run({ args, running = image("a"), health = "healthy", curlExit = 0, ...
   const result = spawnSync("bash", [script, ...(args ?? [tag("b")])], {
     env: {
       ...process.env,
-      PATH: `${dir}:${process.env.PATH}`,
+      PATH: `${dir}${delimiter}${process.env.PATH}`,
       TEST_LOG: log,
       TEST_RUNNING: running,
       TEST_HEALTH: health,

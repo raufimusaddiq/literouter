@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, afterAll } from "bun:test";
 import http from "node:http";
 
 process.env.REFRESH_TIMEOUT_MS = "300";

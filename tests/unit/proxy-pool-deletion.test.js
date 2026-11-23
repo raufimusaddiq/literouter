@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const db = vi.hoisted(() => ({ get: vi.fn(), all: vi.fn(), run: vi.fn(), transaction: vi.fn() }));
 vi.mock("../../src/lib/db/driver.js", () => ({ getAdapter: async () => db }));
@@ -22,7 +23,7 @@ describe("proxy pool deletion reference integrity", () => {
     expect(db.run).not.toHaveBeenCalled();
   });
 
-  it.each([false, true])("rejects a provider strategy reference for strictProxy=%s", async (strictProxy) => {
+  it.each([false, true])("rejects a provider strategy reference for strictProxy=%p", async (strictProxy) => {
     db.get.mockImplementation((sql) => sql.includes("proxyPools")
       ? { id: "p1", isActive: 1, data: JSON.stringify({ strictProxy }) }
       : { data: JSON.stringify({ providerStrategies: { opencode: { proxyPoolId: "p1" } } }) });

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { toOpenAIFinish, fromOpenAIFinish } from "../../open-sse/translator/concerns/finishReason.js";
 import { OPENAI_FINISH, CLAUDE_STOP, GEMINI_FINISH } from "../../open-sse/translator/schema/finishReasons.js";
 
@@ -12,7 +12,7 @@ describe("toOpenAIFinish - gemini", () => {
     ["UNKNOWN_XYZ", "stop"],
     ["STOP", "stop"],
     ["MAX_TOKENS", "length"],
-  ])("%s -> %s", (input, expected) => {
+  ])("%p -> %p", (input, expected) => {
     expect(toOpenAIFinish(input, "gemini")).toBe(expected);
   });
 });
@@ -23,7 +23,7 @@ describe("toOpenAIFinish - ollama", () => {
     ["max_tokens", "length"],
     ["tool_calls", "tool_calls"],
     ["unknown_xyz", "stop"],
-  ])("%s -> %s", (input, expected) => {
+  ])("%p -> %p", (input, expected) => {
     expect(toOpenAIFinish(input, "ollama")).toBe(expected);
   });
 });
@@ -42,7 +42,7 @@ describe("toOpenAIFinish - claude", () => {
     ["stop_sequence", "stop"],
     ["refusal", "content_filter"],
     ["unknown_xyz", "stop"],
-  ])("%s -> %s", (input, expected) => {
+  ])("%p -> %p", (input, expected) => {
     expect(toOpenAIFinish(input, "claude")).toBe(expected);
   });
 });

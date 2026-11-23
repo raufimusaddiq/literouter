@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 vi.mock("../../open-sse/services/qoderModels.js", () => ({
   getQoderModelConfig: vi.fn(async () => ({ key: "auto", max_output_tokens: 32 })),
@@ -79,7 +80,7 @@ describe("Qoder signed inference transport", () => {
     const executor = await loadExecutor(fetchMock);
     await expect(executor.execute({ ...request, proxyOptions })).rejects.toThrow("response lost");
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][1].dispatcher).toBeDefined();
+    expect(fetchMock.mock.calls[0][1].proxy).toBe("http://proxy.test:3128");
     if (proxyOptions) expect(proxyOptions.strictProxy).toBe(false);
   });
 
@@ -99,14 +100,14 @@ describe("Qoder signed inference transport", () => {
     expect(ids[0]).not.toBe(ids[1]);
   });
 
-  it.each([true, false])("still supports successful inference with proxy=%s", async (useProxy) => {
+  it.each([true, false])("still supports successful inference with proxy=%p", async (useProxy) => {
     const fetchMock = vi.fn(async () => success());
     const executor = await loadExecutor(fetchMock, useProxy);
     const result = await executor.execute(request);
     expect(result.response.ok).toBe(true);
     await result.response.text();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(!!fetchMock.mock.calls[0][1].dispatcher).toBe(true);
+    expect(fetchMock.mock.calls[0][1].proxy).toBe(useProxy ? "http://proxy.test:3128" : undefined);
   });
 
   it("preserves caller cancellation without replaying the request", async () => {

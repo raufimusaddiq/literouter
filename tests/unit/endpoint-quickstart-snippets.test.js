@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { buildSnippets, PLACEHOLDER_KEY } from "../../src/app/(dashboard)/dashboard/endpoint/quickstartSnippets.js";
 import { sortKeysByLastUsed } from "../../src/app/(dashboard)/dashboard/endpoint/keyFormat.js";
 

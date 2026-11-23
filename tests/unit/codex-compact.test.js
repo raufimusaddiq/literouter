@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const { fetchMock, saveDetail } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
@@ -11,13 +12,14 @@ vi.mock("../../open-sse/utils/requestLogger.js", () => ({
     logProviderResponse() {}, logConvertedResponse() {}, logError() {},
   }),
 }));
-vi.mock("@/lib/usageDb.js", () => ({
+vi.mock("@/lib/usageDb.js", async () => ({
+  ...(await import("@/lib/usageDb.js?actual")),
   trackPendingRequest() {},
   appendRequestLog: vi.fn(async () => {}),
   saveRequestDetail: saveDetail,
 }));
-vi.mock("../../open-sse/handlers/chatCore/requestDetail.js", async (importOriginal) => ({
-  ...await importOriginal(),
+vi.mock("../../open-sse/handlers/chatCore/requestDetail.js", async () => ({
+  ...(await import("../../open-sse/handlers/chatCore/requestDetail.js?actual")),
   saveUsageStats: vi.fn(),
 }));
 
@@ -128,7 +130,7 @@ describe("Codex native compaction", () => {
   it.each([
     [{ object: "response", output: [] }, "application/json"],
     [compactResponse, "text/event-stream"],
-  ])("rejects malformed compact responses instead of reporting success", async (payload, contentType) => {
+  ])("rejects malformed compact responses instead of reporting success (case %#)", async (payload, contentType) => {
     fetchMock.mockImplementation(async () => new Response(JSON.stringify(payload), {
       headers: { "content-type": contentType },
     }));

@@ -1,5 +1,6 @@
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "bun:test";
+import { vi } from "#test/vi";
 import { GithubExecutor } from "../../open-sse/executors/github.js";
 
 describe("GithubExecutor.supportsResponsesEndpoint", () => {

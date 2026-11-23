@@ -25,8 +25,9 @@ export async function createBunSqliteAdapter(filePath) {
 
   function gracefulClose() {
     try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {}
+    for (const stmt of stmtCache.values()) { try { stmt.finalize(); } catch {} }
     try { stmtCache.clear(); } catch {}
-    try { db.close(); } catch {}
+    try { db.close(true); } catch {}
   }
   const onShutdown = () => {
     drainRuntimeBuffersSync();

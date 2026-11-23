@@ -1,4 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const proxyAwareFetch = vi.fn(async (url) => ({
   ok: true,

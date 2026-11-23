@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const mocks = vi.hoisted(() => ({
   handleChat: vi.fn(), getSettings: vi.fn(), isValidApiKey: vi.fn(),

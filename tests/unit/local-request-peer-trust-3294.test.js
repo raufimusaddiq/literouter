@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const mocks = vi.hoisted(() => ({
   nextResponse: Symbol("next"),
@@ -112,7 +113,7 @@ describe("peer header trust", () => {
   });
 
   it.each(["::ffff:127.0.0.1", "::1", "[::1]", "127.0.0.1", "::FFFF:127.0.0.1"])(
-    "treats %s as a loopback peer",
+    "treats %p as a loopback peer",
     async (peerIp) => {
       const response = await proxy(request("/api/v1/models", {
         host: "localhost:20128",
@@ -125,7 +126,7 @@ describe("peer header trust", () => {
   );
 
   it.each(["::ffff:10.204.111.34", "2001:db8::1", "[2001:db8::1]", "10.204.111.34"])(
-    "refuses %s as a peer",
+    "refuses %p as a peer",
     async (peerIp) => {
       const response = await proxy(request("/api/v1/models", {
         host: "localhost:20128",

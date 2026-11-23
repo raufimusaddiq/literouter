@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 
 import { ensureStreamToolCallIds } from "../../open-sse/utils/streamHelpers.js";
 import { createSSEStream } from "../../open-sse/utils/stream.js";

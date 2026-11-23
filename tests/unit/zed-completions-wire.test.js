@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
-vi.mock("open-sse/shared/zedAuth.js", async (importOriginal) => {
-  const actual = await importOriginal();
+vi.mock("open-sse/shared/zedAuth.js", async () => {
+  const actual = await import("open-sse/shared/zedAuth.js?actual");
   return {
     ...actual,
     resolveZedModels: vi.fn(),

@@ -1,5 +1,5 @@
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { PROVIDER_MODELS, getModelsByProviderId } from "../../open-sse/config/providerModels.js";
 
 describe("MiniMax-M3 model registration", () => {

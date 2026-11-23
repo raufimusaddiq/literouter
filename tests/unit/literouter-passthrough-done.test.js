@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { FORMATS } from "open-sse/translator/formats.js";
 import { createPassthroughStreamWithLogger } from "open-sse/utils/stream.js";
 

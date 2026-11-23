@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { resolveOpenAICompatibleApiType, getTargetFormat } from "open-sse/services/provider.js";
 import { DefaultExecutor } from "open-sse/executors/default.js";
 import { BaseExecutor } from "open-sse/executors/base.js";

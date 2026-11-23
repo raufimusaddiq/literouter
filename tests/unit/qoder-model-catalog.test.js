@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { proxyAwareFetch } from "../../open-sse/utils/proxyFetch.js";
 import { clearQoderCatalog, resolveQoderModels } from "../../open-sse/services/qoderModels.js";
 

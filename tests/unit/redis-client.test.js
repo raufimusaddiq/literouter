@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 import { __decodeSelfCheck, redisEnabled, redisGet } from "../../src/lib/redis.js";
 import net from "node:net";
 

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const fx = vi.hoisted(() => ({
   combos: [
@@ -12,7 +13,8 @@ const mocks = vi.hoisted(() => ({
   handleChatCore: vi.fn(),
 }));
 
-vi.mock("@/lib/db/index.js", () => ({
+vi.mock("@/lib/db/index.js", async () => ({
+  ...(await import("@/lib/db/index.js?actual")),
   getSettings: async () => ({ requireApiKey: false, comboStrategy: "fallback" }),
   getModelAliases: async () => ({}),
   getComboByName: async (name) => fx.combos.find((c) => c.name === name) || null,
@@ -23,9 +25,9 @@ vi.mock("@/lib/db/index.js", () => ({
   getCustomModels: async () => [],
 }));
 vi.mock("@/lib/disabledModelsDb", () => ({ getDisabledModels: async () => ({}) }));
-vi.mock("@/lib/db/repos/combosRepo.js", () => ({ getCombos: async () => fx.combos }));
-vi.mock("@/lib/db/repos/apiKeysRepo.js", () => ({ getApiKeyByKey: async (k) => fx.keys[k] || null }));
-vi.mock("@/lib/usageDb.js", () => ({ saveRequestUsage: vi.fn() }));
+vi.mock("@/lib/db/repos/combosRepo.js", async () => ({ ...(await import("@/lib/db/repos/combosRepo.js?actual")), getCombos: async () => fx.combos }));
+vi.mock("@/lib/db/repos/apiKeysRepo.js", async () => ({ ...(await import("@/lib/db/repos/apiKeysRepo.js?actual")), getApiKeyByKey: async (k) => fx.keys[k] || null }));
+vi.mock("@/lib/usageDb.js", async () => ({ ...(await import("@/lib/usageDb.js?actual")), saveRequestUsage: vi.fn() }));
 vi.mock("@/sse/services/auth.js", () => ({
   getProviderCredentials: mocks.getProviderCredentials,
   markAccountUnavailable: vi.fn(async () => ({ shouldFallback: false })),
@@ -98,7 +100,7 @@ const chat = (model, k) => handleChat(post("/v1/chat/completions", { model, stre
 describe("chat (/v1/chat/completions, /v1/messages, /v1/responses all use handleChat)", () => {
   beforeEach(() => mocks.getProviderCredentials.mockResolvedValue({ connectionId: "conn", connectionName: "mock" }));
 
-  it.each(["/v1/chat/completions", "/v1/messages", "/v1/responses"])("rejects System One-only models on %s before credential lookup", async (endpoint) => {
+  it.each(["/v1/chat/completions", "/v1/messages", "/v1/responses"])("rejects System One-only models on %p before credential lookup", async (endpoint) => {
     const response = await handleChat(post(endpoint, {
       model: "typesafe/jev-latest", messages: [{ role: "user", content: "hi" }],
     }, "sk-open"));
@@ -166,7 +168,7 @@ const handlers = [
   ), "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"],
 ];
 
-describe.each(handlers)("%s handler is wired", (_name, call, allowed, denied) => {
+describe.each(handlers)("%p handler is wired", (_name, call, allowed, denied) => {
   it("denies an unlisted model with 403 before any credential lookup", async () => {
     const r = await call(denied, "sk-media");
     expect(r.status).toBe(403);
@@ -190,7 +192,7 @@ describe.each(handlers)("%s handler is wired", (_name, call, allowed, denied) =>
 describe("/v1/models routes filter by key", () => {
   const list = async (k) => (await (await modelsRoute.GET(new Request("http://localhost/v1/models", { headers: auth(k) }))).json()).data.map((m) => m.id);
 
-  it.each([true, false])("preserves System One discovery with active connections: %s", async (active) => {
+  it.each([true, false])("preserves System One discovery with active connections: %p", async (active) => {
     fx.providerConnections = active ? [{
       id: "conn-typesafe", provider: "typesafe", isActive: true,
       providerSpecificData: { enabledModels: ["jev-latest"] },

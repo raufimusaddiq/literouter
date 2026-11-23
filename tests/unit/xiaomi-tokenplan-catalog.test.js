@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import tokenplan from "../../open-sse/providers/registry/xiaomi-tokenplan.js";
 import { getModelsByProviderId } from "../../src/shared/constants/models.js";
 

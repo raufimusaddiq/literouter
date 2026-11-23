@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { normalizeClaudePassthrough } from "../../open-sse/translator/formats/claude.js";
 import { parseDataUri, encodeDataUri } from "../../open-sse/translator/concerns/image.js";
 

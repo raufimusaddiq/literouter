@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 let tempDir;
 const originalDataDir = process.env.DATA_DIR;
@@ -21,32 +22,35 @@ afterEach(() => {
   else process.env.DATA_DIR = originalDataDir;
 });
 
-describe("Driver fallback chain", () => {
-  it("default → picks better-sqlite3 when available", async () => {
+describe("Driver chain under Bun", () => {
+  it("selects bun:sqlite first", async () => {
     const { getAdapter } = await import("@/lib/db/driver.js");
     const db = await getAdapter();
-    expect(["better-sqlite3", "node:sqlite", "sql.js"]).toContain(db.driver);
+    expect(process.versions.bun).toBeTruthy();
+    expect(db.driver).toBe("bun:sqlite");
   });
 
-  it("falls back to node:sqlite when better-sqlite3 unavailable", async () => {
-    vi.doMock("@/lib/db/adapters/betterSqliteAdapter.js", () => {
-      throw new Error("simulated unavailable");
-    });
+  it("wraps the adapter so null bytes are stripped from bound params", async () => {
     const { getAdapter } = await import("@/lib/db/driver.js");
     const db = await getAdapter();
-    const [maj, min] = process.versions.node.split(".").map(Number);
-    if (maj > 22 || (maj === 22 && min >= 5)) {
-      expect(db.driver).toBe("node:sqlite");
-    } else {
-      expect(db.driver).toBe("sql.js");
-    }
+    db.run("CREATE TABLE nul_probe (id INTEGER PRIMARY KEY, v TEXT)");
+    db.run("INSERT INTO nul_probe (id, v) VALUES (?, ?)", [1, "a\u0000b"]);
+    expect(db.get("SELECT v FROM nul_probe WHERE id = ?", [1]).v).toBe("ab");
+    expect(db.all("SELECT v FROM nul_probe WHERE v = ?", ["a\u0000b"]).map((r) => r.v)).toEqual(["ab"]);
   });
 
-  it("falls back to sql.js when both native drivers unavailable", async () => {
-    vi.doMock("@/lib/db/adapters/betterSqliteAdapter.js", () => {
-      throw new Error("simulated unavailable");
-    });
-    vi.doMock("@/lib/db/adapters/nodeSqliteAdapter.js", () => {
+  it("releases the database file on close so the data dir can be removed", async () => {
+    const { getAdapter } = await import("@/lib/db/driver.js");
+    const db = await getAdapter();
+    db.run("CREATE TABLE close_probe (id INTEGER)");
+    db.run("INSERT INTO close_probe (id) VALUES (?)", [1]);
+    db.close();
+    expect(() => fs.rmSync(tempDir, { recursive: true })).not.toThrow();
+    fs.mkdirSync(tempDir, { recursive: true });
+  });
+
+  it("falls back to sql.js when bun:sqlite fails to load", async () => {
+    vi.mock("@/lib/db/adapters/bunSqliteAdapter.js", () => {
       throw new Error("simulated unavailable");
     });
     const { getAdapter } = await import("@/lib/db/driver.js");

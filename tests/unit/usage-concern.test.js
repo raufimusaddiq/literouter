@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { toOpenAIUsage } from "../../open-sse/translator/concerns/usage.js";
 
 describe("toOpenAIUsage", () => {

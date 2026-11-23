@@ -1,0 +1,6 @@
+{
+  "tests/unit/system-ca-trust.test.js": {
+    "count": 5,
+    "reason": "failed to load under vitest on Windows (Cannot find module custom-server.js, path-resolution error); 5 it() calls counted statically, no each/loops/conditionals"
+  }
+}

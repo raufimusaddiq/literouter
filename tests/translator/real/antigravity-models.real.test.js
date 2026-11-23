@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 
 const RUN_REAL = process.env.RUN_REAL === "1";
 const BASE_URL = process.env.AG_URL || "http://localhost:20128/v1";

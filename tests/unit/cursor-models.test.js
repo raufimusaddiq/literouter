@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const h2 = vi.hoisted(() => ({ connect: vi.fn() }));
 vi.mock("node:http2", () => ({ default: h2 }));

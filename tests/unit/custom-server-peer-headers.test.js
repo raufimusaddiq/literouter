@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { createRequire } from "node:module";
 import http from "node:http";
 import { __test__ as requestDetails } from "@/lib/db/repos/requestDetailsRepo.js";

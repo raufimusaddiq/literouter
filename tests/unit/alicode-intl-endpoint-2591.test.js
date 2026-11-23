@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import alicodeIntl from "../../open-sse/providers/registry/alicode-intl.js";
 import alimsIntl from "../../open-sse/providers/registry/alims-intl.js";
 

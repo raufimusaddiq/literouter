@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const mocks = vi.hoisted(() => ({
   nextResponse: Symbol("next"),
@@ -282,7 +283,7 @@ describe("dashboard guard local-only routes", () => {
     ["delete", "/api/headroom/extras"],
     ["post", "/api/headroom/restart"],
     ["post", "/api/headroom/start"],
-  ])("returns 403 for a remote %s %s even with requireLogin=false", async (method, pathname) => {
+  ])("returns 403 for a remote %p %p even with requireLogin=false", async (method, pathname) => {
     const response = await proxy({ ...request(pathname, { host: "router.example.com" }), method: method.toUpperCase() });
 
     expect(response.status).toBe(403);

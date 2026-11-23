@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { CodexExecutor } from "../../open-sse/executors/codex.js";
 
 function streamFromText(text) {
@@ -78,7 +78,7 @@ describe("Codex reasoning normalization", () => {
     ["gpt-5.6-terra", "ultra", "ultra"],
     ["gpt-5.6-luna", "max", "max"],
     ["gpt-5.6-luna", "ultra", "max"],
-  ])("normalizes %s effort %s to %s", (model, effort, expected) => {
+  ])("normalizes %p effort %p to %p", (model, effort, expected) => {
     const body = new CodexExecutor().transformRequest(model, {
       model,
       input: "hi",

@@ -3,7 +3,7 @@ name: Test
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, staging]
 
 concurrency:
   group: test-${{ github.ref }}
@@ -18,34 +18,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
+          bun-version: 1.4.4
 
-      # The suite imports app sources, so it needs the runtime deps (next,
-      # undici, uuid, …) from the root install as well as the test runner's own.
-      # Both are installed with `npm ci` from committed lockfiles, and the
-      # Dockerfile does the same, so CI tests the exact dependency graph the
-      # image ships.
-      - run: npm ci --no-audit --no-fund
-      - run: npm ci
+      - run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile
         working-directory: tests
 
-      - run: npx vitest run --reporter=dot --reporter=json --outputFile.json=../test-results.json
+      - run: CI=true bun test --parallel --reporter=junit --reporter-outfile=../test-results.xml
         working-directory: tests
 
-      # Gate: no test that used to pass may fail. New tests are always allowed.
-      - run: node tests/__baseline__/verify-no-regression.mjs test-results.json
+      - name: Tests must not write the real data dir
+        run: |
+          if [ -e "$HOME/.9router" ]; then
+            echo "a test wrote $HOME/.9router"
+            find "$HOME/.9router" -maxdepth 3
+            exit 1
+          fi
 
-      # custom-server-h2c is a plain node:test file; vitest does not collect .cjs.
-      - run: node --test tests/unit/*.test.cjs
+      - run: git diff --exit-code -- tests
+      - run: test -z "$(git status --porcelain -- tests)"
 
-      - run: npx eslint .
+      - run: bun tests/__baseline__/verify-no-regression.mjs test-results.xml
+      - run: bun tests/__baseline__/verify-test-counts.mjs test-results.xml
 
-      - run: node scripts/comments/ratchet.mjs --check
+      - run: bun scripts/migrate-vitest-to-bun.mjs --check tests
+      - run: bun scripts/migrate-vitest-to-bun.mjs --snapshots --check tests
 
-      # Catch standalone tracing/dynamic-import regressions before merge.
-      - run: npm run build
+      - run: bunx --bun eslint .
+
+      - run: bun scripts/comments/ratchet.mjs --check
+
+      - run: bun run build:bun
 
       - name: Runtime bundle budget
         run: |

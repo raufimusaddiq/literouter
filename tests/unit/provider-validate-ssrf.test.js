@@ -1,4 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { vi } from "#test/vi";
+import { useTempDataDirAtLoad } from "#test/tempDataDir";
+
+useTempDataDirAtLoad("9r-prov-validate-");
 
 
 const { getNodeMock, lookupMock, fetchMock } = vi.hoisted(() => ({

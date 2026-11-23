@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { getOutputTokens, getInputTokens } from "@/app/(dashboard)/dashboard/usage/components/tokenDisplay.js";
 
 describe("getOutputTokens — issue #3890", () => {

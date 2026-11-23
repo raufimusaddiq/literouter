@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
@@ -8,7 +8,7 @@ const T = (body) =>
   translateRequest(FORMATS.OPENAI, FORMATS.CLAUDE, "m", body, true, null, "anthropic-compatible-x");
 
 describe("OpenAI → Claude context mapping", () => {
-  it.fails("does not inject Claude Code system prompt for compatible providers", () => {
+  it.failing("does not inject Claude Code system prompt for compatible providers", () => {
     const out = T({ messages: [{ role: "user", content: "hi" }] });
     expect(JSON.stringify(out.system), "Claude Code prompt injected").not.toContain("Claude Code");
   });
@@ -38,7 +38,7 @@ describe("OpenAI → Claude context mapping", () => {
     expect(out.tool_choice?.type, "none became auto → model may call tools").not.toBe("auto");
   });
 
-  it.fails("input_audio content is preserved", () => {
+  it.failing("input_audio content is preserved", () => {
     const out = T({
       messages: [{ role: "user", content: [
         { type: "text", text: "transcribe" },

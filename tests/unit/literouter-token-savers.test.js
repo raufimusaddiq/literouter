@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 describe("token savers", () => {
   const savers = [
@@ -6,7 +6,7 @@ describe("token savers", () => {
     ["Ponytail", "open-sse/rtk/ponytail.js", "injectPonytail"],
   ];
 
-  describe.each(savers)("%s", (_name, mod, fn) => {
+  describe.each(savers)("%p", (_name, mod, fn) => {
     const load = async () => (await import(mod))[fn];
 
     it("injects at every level", async () => {

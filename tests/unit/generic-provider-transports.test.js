@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { nodeRoutes } from "../../src/shared/constants/compatibleNodeRoutes.js";
 import { resolveTransport } from "../../open-sse/services/provider.js";
 

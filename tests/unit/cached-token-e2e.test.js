@@ -1,25 +1,13 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll } from "bun:test";
+import { useTempDataDir } from "#test/tempDataDir";
 import { canonicalizeUsage } from "../../open-sse/utils/usageTracking.js";
 
-const originalDataDir = process.env.DATA_DIR;
-let tempDir;
+useTempDataDir("9router-cached-e2e-", { scope: "all" });
 let db;
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-cached-e2e-"));
-  process.env.DATA_DIR = tempDir;
-  vi.resetModules();
   db = await import("@/lib/db/index.js");
   await db.initDb();
-});
-
-afterAll(() => {
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
 });
 
 describe("cached-token end-to-end (persist + aggregate + cost)", () => {

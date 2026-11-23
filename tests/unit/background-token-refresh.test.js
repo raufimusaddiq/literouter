@@ -1,5 +1,6 @@
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const NOW = Date.parse("2026-08-01T12:00:00.000Z");
 

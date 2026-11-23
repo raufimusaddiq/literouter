@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { expect, it } from "vitest";
+import { expect, it } from "bun:test";
 
 const script = readFileSync(new URL("../../scripts/post-deploy.sh", import.meta.url), "utf8");
 const repository = "ghcr.io/raufimusaddiq/literouter-production";

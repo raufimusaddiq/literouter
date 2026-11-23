@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { nextTrapTarget } from "@/shared/utils/focusTrap.js";
 
 describe("nextTrapTarget", () => {

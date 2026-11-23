@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { planBulkAdd } from "../../src/shared/utils/bulkAdd.js";
 
 describe("planBulkAdd: auto-named gap-fill (the replace bug)", () => {

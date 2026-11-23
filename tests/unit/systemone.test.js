@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 import { APIKEY_PROVIDERS, supportsServiceKind } from "@/shared/constants/providers.js";
 import { getModelsByProviderId } from "open-sse/config/providerModels.js";
 
@@ -16,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   trackPendingRequest: vi.fn(),
 }));
 
-vi.mock("@/lib/db/index.js", () => ({ getSettings: mocks.getSettings, getProviderNodes: mocks.getProviderNodes, getProviderNodeById: mocks.getProviderNodeById }));
+vi.mock("@/lib/db/index.js", async () => ({ ...(await import("@/lib/db/index.js?actual")), getSettings: mocks.getSettings, getProviderNodes: mocks.getProviderNodes, getProviderNodeById: mocks.getProviderNodeById }));
 vi.mock("@/sse/services/auth.js", () => ({
   getProviderCredentials: mocks.getProviderCredentials,
   markAccountUnavailable: mocks.markAccountUnavailable,
@@ -26,10 +27,24 @@ vi.mock("@/sse/services/auth.js", () => ({
 }));
 vi.mock("open-sse/utils/proxyFetch.js", () => ({ proxyAwareFetch: mocks.proxyAwareFetch }));
 vi.mock("open-sse/handlers/chatCore/requestDetail.js", async () => {
-  const actual = await vi.importActual("open-sse/handlers/chatCore/requestDetail.js");
+  const actual = await import("open-sse/handlers/chatCore/requestDetail.js?actual");
   return { ...actual, saveUsageStats: mocks.saveUsageStats };
 });
-vi.mock("@/lib/usageDb.js", () => ({ trackPendingRequest: mocks.trackPendingRequest }));
+vi.mock("@/lib/usageDb.js", () => ({
+  trackPendingRequest: mocks.trackPendingRequest,
+  statsEmitter: {},
+  getActiveRequests: vi.fn(),
+  saveRequestUsage: vi.fn(),
+  flushUsageQueue: vi.fn(),
+  getUsageStats: vi.fn(),
+  getChartData: vi.fn(),
+  getRecentLogs: vi.fn(),
+  saveRequestDetail: vi.fn(),
+  getRequestDetails: vi.fn(),
+  getRequestDetailById: vi.fn(),
+  flushRequestDetails: vi.fn(),
+  ensureRequestDetailShutdownHandler: vi.fn()
+}));
 
 const { handleSystemOne, normalizeSystemOneRequest } = await import("@/sse/handlers/systemOne.js");
 

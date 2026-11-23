@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 
 function redactDetails(details) {
   return (details || []).map((d) => {

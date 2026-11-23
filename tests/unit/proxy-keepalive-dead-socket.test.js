@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { vi } from "#test/vi";
 
 const staleErr = () => Object.assign(new TypeError("fetch failed"), { cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }) });
 
@@ -33,12 +34,11 @@ describe("direct fetch replay", () => {
 
   it("replays once on a fresh socket when a pooled socket died", async () => {
     const calls = [];
-    globalThis.fetch = vi.fn(async (_u, o) => { calls.push(o.dispatcher); if (calls.length === 1) throw staleErr(); return new Response("ok"); });
+    globalThis.fetch = vi.fn(async (_u, o) => { calls.push(o.keepalive); if (calls.length === 1) throw staleErr(); return new Response("ok"); });
     const { proxyAwareFetch } = await import("../../open-sse/utils/proxyFetch.js");
     const res = await proxyAwareFetch("https://example.invalid/v1", { method: "POST", body: "{}" });
     expect(await res.text()).toBe("ok");
-    expect(calls).toHaveLength(2);
-    expect(calls[0]).not.toBe(calls[1]);
+    expect(calls).toEqual([undefined, false]);
   });
 
   it("never replays a stream body", async () => {
@@ -67,11 +67,11 @@ describe("direct fetch replay", () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
-  it("forceFreshSocket goes straight to the fresh dispatcher", async () => {
+  it("forceFreshSocket goes straight to a fresh socket", async () => {
     const seen = [];
-    globalThis.fetch = vi.fn(async (_u, o) => { seen.push(o.dispatcher); return new Response("ok"); });
+    globalThis.fetch = vi.fn(async (_u, o) => { seen.push(o.keepalive); return new Response("ok"); });
     const mod = await import("../../open-sse/utils/proxyFetch.js");
     await mod.proxyAwareFetch("https://example.invalid/v1", { method: "POST", body: "{}" }, { forceFreshSocket: true });
-    expect(seen[0]).toBe(await mod.getFreshRetryDispatcher());
+    expect(seen).toEqual([false]);
   });
 });

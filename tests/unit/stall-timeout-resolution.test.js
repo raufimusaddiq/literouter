@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { resolveStallTimeoutMs } from "../../open-sse/handlers/chatCore/streamingHandler.js";
 import { STREAM_STALL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_FLASH_MS } from "../../open-sse/config/runtimeConfig.js";
 

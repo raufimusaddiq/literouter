@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { AUTH_METHODS, WEB_COOKIE_PROVIDERS, getFormAuthMethods } from "@/shared/constants/providers.js";
 
 describe("AUTH_METHODS", () => {

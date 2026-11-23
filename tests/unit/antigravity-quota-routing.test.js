@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
 
 const mocks = vi.hoisted(() => ({
   getProviderConnections: vi.fn(),
@@ -7,7 +8,8 @@ const mocks = vi.hoisted(() => ({
   getAntigravityUsage: vi.fn(),
 }));
 
-vi.mock("@/lib/db/index.js", () => ({
+vi.mock("@/lib/db/index.js", async () => ({
+  ...(await import("@/lib/db/index.js?actual")),
   getProviderConnections: mocks.getProviderConnections,
   getSettings: mocks.getSettings,
   getProxyPools: vi.fn(),

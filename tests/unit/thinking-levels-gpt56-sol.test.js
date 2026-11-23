@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { getThinkingLevels } from "../../open-sse/providers/thinkingLevels.js";
 
 describe("getThinkingLevels", () => {
@@ -9,7 +9,7 @@ describe("getThinkingLevels", () => {
     ["gpt-5.6-sol-review", ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]],
     ["gpt-5.6-terra-review", ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]],
     ["gpt-5.6-luna-review", ["none", "minimal", "low", "medium", "high", "xhigh", "max"]],
-  ])("returns Codex levels for %s", (model, expected) => {
+  ])("returns Codex levels for %p", (model, expected) => {
     expect(getThinkingLevels("codex", model)).toEqual(expected);
   });
 

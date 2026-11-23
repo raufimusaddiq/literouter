@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { compressMessages } from "../../open-sse/rtk/index.js";
 
 describe("Kiro format RTK support", () => {

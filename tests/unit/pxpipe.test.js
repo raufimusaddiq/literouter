@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import { compressWithPxpipe, formatPxpipeLog } from "../../open-sse/rtk/pxpipe.js";
+import { describe, expect, it } from "bun:test";
+import { vi } from "#test/vi";
+import { compressWithPxpipe } from "../../open-sse/rtk/pxpipe.js";
 
 const bigText = "x".repeat(30000);
 const claudeBody = () => ({
@@ -56,7 +57,6 @@ describe("compressWithPxpipe gates", () => {
     expect(summary.imageCount).toBe(2);
     expect(summary.tokensBeforeEst).toBeGreaterThan(summary.tokensAfterEst);
     expect(summary.savedPct).toBeGreaterThan(0);
-    expect(formatPxpipeLog(summary)).toContain("2 image(s)");
   });
 
   it("passes through when the transform declines (not_profitable)", async () => {
@@ -85,10 +85,5 @@ describe("compressWithPxpipe gates", () => {
     });
     expect(body).toBeNull();
     expect(summary.reason).toBe("timeout");
-  });
-
-  it("does not log skipped requests as savings", () => {
-    expect(formatPxpipeLog({ applied: false, reason: "below_threshold" })).toBeNull();
-    expect(formatPxpipeLog(null)).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { geminiToOpenAIRequest } from "../../open-sse/translator/request/gemini-to-openai.js";
 
 const response = (name, result, id) => ({ functionResponse: { name, response: { result }, ...(id ? { id } : {}) } });
@@ -20,7 +20,7 @@ describe("Gemini request tool results (#2393)", () => {
     ]);
   });
 
-  it.each(["user", "model"])("keeps co-located text with its original %s role", (role) => {
+  it.each(["user", "model"])("keeps co-located text with its original %p role", (role) => {
     expect(convert([{ text: "before" }, response("read", "done"), { text: "after" }], role)).toEqual([
       { role: "tool", tool_call_id: "call_read", content: '"done"' },
       { role: role === "model" ? "assistant" : "user", content: [

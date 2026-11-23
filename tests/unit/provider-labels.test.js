@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { getAccountLabel, getProviderLabel, isEmail, isRawId, maskEmail } from "@/shared/utils/providerLabels";
 
 const UID = "openai-compatible-chat-6d0ab93c-cc80-4278-b1dc-f2da26f80fc6";

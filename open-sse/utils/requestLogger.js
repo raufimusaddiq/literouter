@@ -35,6 +35,7 @@ async function getDirectorySize(directory) {
 }
 
 let pruning = null;
+const activeSessions = new Set();
 
 function pruneLogSessions(force = false) {
   if (!fs || !LOGS_DIR || (!force && Date.now() - lastPruneAt < LOG_PRUNE_INTERVAL_MS)) return Promise.resolve();
@@ -63,11 +64,13 @@ async function doPrune() {
         } catch { return null; }
       })))
       .filter(Boolean)
-      .sort((a, b) => a.mtime - b.mtime);
+      .sort((a, b) => a.mtime - b.mtime || (a.sessionPath < b.sessionPath ? -1 : a.sessionPath > b.sessionPath ? 1 : 0));
     let totalBytes = sessions.reduce((total, session) => total + session.size, 0);
 
     while (sessions.length > LOG_MAX_SESSIONS || totalBytes > LOG_MAX_BYTES) {
-      const oldest = sessions.shift();
+      const index = sessions.findIndex((session) => !activeSessions.has(session.sessionPath));
+      if (index === -1) break;
+      const [oldest] = sessions.splice(index, 1);
       await fs.promises.rm(/* turbopackIgnore: true */ oldest.sessionPath, { recursive: true, force: true });
       totalBytes -= oldest.size;
     }
@@ -93,11 +96,13 @@ async function createLogSession(sourceFormat, targetFormat, model) {
   await ensureNodeModules();
   if (!fs || !LOGS_DIR) return null;
 
+  let sessionPath = null;
   try {
     const timestamp = formatTimestamp();
     const safeModel = (model || "unknown").replace(/[/:]/g, "-");
     const folderName = `${sourceFormat}_${targetFormat}_${safeModel}_${timestamp}`;
-    const sessionPath = path.join(LOGS_DIR, folderName);
+    sessionPath = path.join(LOGS_DIR, folderName);
+    activeSessions.add(sessionPath);
 
     await fs.promises.mkdir(/* turbopackIgnore: true */ sessionPath, { recursive: true });
     sessionCount += 1;
@@ -107,6 +112,8 @@ async function createLogSession(sourceFormat, targetFormat, model) {
   } catch (err) {
     console.log("[LOG] Failed to create log session:", err.message);
     return null;
+  } finally {
+    if (sessionPath) activeSessions.delete(sessionPath);
   }
 }
 
