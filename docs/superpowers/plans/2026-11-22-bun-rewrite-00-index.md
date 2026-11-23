@@ -70,7 +70,7 @@ A plan that needs to change a name here must update this file in the same PR.
 - **`src/server/boot.js`**
   - `export async function runBootOnce()` contains what `instrumentation.register()` did, plus `initOutboundProxy` and `initConsoleLogCapture`.
 - **`src/server/paths.js`**
-  - Plan 2 creates it with `PUBLIC_DIR`. Plan 3 adds `SPA_DIR` and `SPA_DIR_OVERRIDE` (the resolved `LITEROUTER_SPA_DIR`, or `null` when unset). It also exports `REPO_ROOT`. Plan 4 adds `isBundled` and `assertBundleCwd`, and the bundled/compiled branches.
+  - Plan 2 creates it with `PUBLIC_DIR`. Plan 3 adds `SPA_DIR` and `SPA_DIR_OVERRIDE` (the resolved `LITEROUTER_SPA_DIR`, or `null` when unset). It also exports `REPO_ROOT`. Plan 4 adds `isCompiled` and `isBundled`, and the bundled/compiled branches. There is no `assertBundleCwd`: a bundle resolves its assets via `import.meta.dir` from any cwd (no HTML imports), so no cwd guard is needed.
 
 | | Source run | Bundled or compiled | Env override |
 |---|---|---|---|
