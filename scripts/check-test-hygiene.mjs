@@ -100,7 +100,7 @@ export function findHygieneProblems(root, { allow = DIR_LOADED_ALLOW } = {}) {
   const problems = [];
   const allowed = (f) => allow.some((a) => under(f, a.path));
   const mentionedElsewhere = (self, needle) => {
-    const re = new RegExp(`(?<![\w.-])${escapeRe(needle)}(?!\w)`);
+    const re = new RegExp(`(?<![\\w.-])${escapeRe(needle)}(?!\\w)`);
     for (const [f, text] of corpus) if (f !== self && re.test(text)) return true;
     return false;
   };

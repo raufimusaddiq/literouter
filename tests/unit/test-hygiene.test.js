@@ -60,6 +60,32 @@ describe("test hygiene check", () => {
     expect(findHygieneProblems(root)).toEqual([{ rule: "unreferenced-fixture", file: "tests/fixtures/orphan.json" }]);
   });
 
+  it.each([
+    ["a name with a word prefix", "xorphan.json"],
+    ["a name with a word suffix", "orphan.jsonx"],
+  ])("does not count %s as a reference", (_label, mention) => {
+    const root = tree({
+      "tests/unit/a.test.js": `import { it, expect } from "bun:test";
+it("near miss", () => { expect(read("tests/fixtures/${mention}")).toBe(1); });
+`,
+      "tests/fixtures/orphan.json": "{}",
+    });
+    expect(findHygieneProblems(root)).toEqual([{ rule: "unreferenced-fixture", file: "tests/fixtures/orphan.json" }]);
+  });
+
+  it.each([
+    ["a path mention", '"tests/fixtures/orphan.json"'],
+    ["a single-quoted mention", "'orphan.json'"],
+  ])("counts %s as a reference", (_label, mention) => {
+    const root = tree({
+      "tests/unit/a.test.js": `import { it, expect } from "bun:test";
+it("real mention", () => { expect(read(${mention})).toBe(1); });
+`,
+      "tests/fixtures/orphan.json": "{}",
+    });
+    expect(findHygieneProblems(root)).toEqual([]);
+  });
+
   it("lets an explicit allow entry cover a directory-loaded fixture", () => {
     const root = tree({
       "tests/unit/a.test.js": GOOD_TEST,
