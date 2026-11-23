@@ -19,7 +19,7 @@
 ## Global Constraints
 
 - **Bun only:** no Node, no npm, no Next. Install with `bun add`. Tests use `cd tests && bun test <file>` for one file and `bun run test` for the suite.
-- **No code comments.** `local/no-comments` and `bun scripts/comments/ratchet.mjs --check` enforce this. Decisions go in `docs/adr/0056-dashboard-route-sheet.md`.
+- **No code comments.** `local/no-comments` and `bun scripts/comments/ratchet.mjs --check` enforce this. Decisions go in `docs/adr/0057-dashboard-route-sheet.md`.
 - **Stay in lane:**
   - Allowed: `src/web/**`, `src/shared/components/**`, `src/shared/hooks/**`, `src/store/themeStore.js` (read-only unless needed), `docs/**`, and `tests/web/**` or `tests/unit/**` for tests this plan names.
   - Root `package.json` and `bun.lock` only for `@fontsource-variable/schibsted-grotesk`.
@@ -69,7 +69,7 @@
 
 **Files:**
 - Modify: `src/web/globals.css`, `src/web/fonts.css`, `src/web/index.html` (the two `theme-color` metas become `#f3f4f4` and `#111212`), `package.json`, `bun.lock`.
-- Create: `docs/adr/0056-dashboard-route-sheet.md` (and add it to `docs/adr/README.md`), `tests/web/route-sheet-guards.test.js`.
+- Create: `docs/adr/0057-dashboard-route-sheet.md` (and add it to `docs/adr/README.md`), `tests/web/route-sheet-guards.test.js`.
 - Modify test: `tests/web/build.test.js` (the "fonts and variables" case).
 
 **Interfaces:**
@@ -374,7 +374,7 @@
 ### Task 11: Full verification and the PR
 
 **Files:**
-- Modify: `docs/adr/0056-dashboard-route-sheet.md` ("Result" section), `CHANGELOG.md`.
+- Modify: `docs/adr/0057-dashboard-route-sheet.md` ("Result" section), `CHANGELOG.md`.
 
 - [ ] **Step 1:** Confirm `GUARDED_PATHS` now covers `src/web/pages`, `src/shared/components` and `src/web/App.jsx`. Run `grep -rn "Sidebar" src` and expect no imports.
 - [ ] **Step 2:** Run every gate:

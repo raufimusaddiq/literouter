@@ -19,15 +19,17 @@ or run local tests, including focused suites. Add regressions, push real changes
 wait for GitHub CI. Disposable upstream agents keep their workspace until gates
 pass and deployment is healthy; completed failures trigger repairs, not disposal.
 
-`.github/workflows/test.yml` runs the vitest suite on every PR and on pushes to
-`main`. It installs root deps (`next`, `undici`, `uuid`, …) plus the
-runner's own lockfile, then `npx vitest run` from `tests/`.
+`.github/workflows/test.yml` runs on every PR and on pushes to `main`. It runs
+`bun install --frozen-lockfile` at the root and in `tests/`, then
+`bun test --parallel` from `tests/`, followed by the baseline, parity and build
+steps.
 
-Files named `*.live.test.js` hit real upstreams and are excluded via
-`tests/vitest.config.js` — they must never gate a merge. Run one by hand with:
+Files named `*.live.test.js` hit real upstreams and are excluded through
+`pathIgnorePatterns` in `tests/bunfig.toml` — they must never gate a merge. Run
+one by hand with:
 
 ```bash
-cd tests && npx vitest run --exclude '' unit/<name>.live.test.js
+cd tests && bun test unit/<name>.live.test.js
 ```
 
 ## Merge
@@ -60,8 +62,9 @@ polling until a verdict lands on the current head.
 
 ## After merge
 
-Staging is sunset: there is no staging branch, no `compose.staging.yml`
-deployment, and no `ai-staging.musaddiqr.com` block. Every merge to `main`
+`staging` is the pre-main integration branch (CI and a `-staging` image only):
+there is no staging deployment, no `compose.staging.yml` deployment, and no
+`ai-staging.musaddiqr.com` block. Every merge to `main`
 builds the immutable production image via `.github/workflows/production-image.yml`
 and publishes `ghcr.io/raufimusaddiq/literouter-production:production-<full-sha>`.
 

@@ -41,7 +41,7 @@ export function medianMeasures(list) {
   return out;
 }
 
-const USAGE = "usage: bun scripts/cutover/perf-gate.mjs <node.json> <bun.json>\n       bun scripts/cutover/perf-gate.mjs --median <round.json>... > out.json";
+const USAGE = "usage: bun scripts/cutover/perf-gate.mjs <baseline.json> <candidate.json>\n       bun scripts/cutover/perf-gate.mjs --median <round.json>... > out.json";
 
 if (import.meta.main) {
   const argv = process.argv.slice(2);

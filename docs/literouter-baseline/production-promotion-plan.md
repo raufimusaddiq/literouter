@@ -1,8 +1,10 @@
 # LiteRouter production promotion plan
 
 Status: **complete**. LiteRouter runs in production on `ai.musaddiqr.com`,
-built from `main`. Staging is sunset: there is no staging deployment, no
-`staging -> main` release PR, and `staging` is not a valid target for any change.
+built from `main`. There is no staging deployment and no `staging -> main`
+release PR; `staging` is only the pre-main integration branch (CI and a
+`-staging` image) and is not a promotion path.
+Cutover evidence: `phase-bun-cutover.md`.
 Every change is a PR against `main`, gated by CI and Hermes, and deployed as the
 immutable production image for the merged SHA. HA remains out of scope.
 
@@ -25,7 +27,7 @@ instead.
   `REDIS_URL` with the `literouter:prod:` prefix. Redis is cache-only.
 - LiteRouter production passes the recorded promotion gates and uses the
   `literouter:prod:` Redis prefix.
-- `scripts/deploy-9router.sh` must not be used for promotion: it starts
+- `scripts/deploy-9router.sh` (removed from the repo; `scripts/deploy.sh` is the current script) must not be used for promotion: it starts
   `9router-green` against the live `9router-data` volume while `9router` is
   still running. That creates concurrent SQLite writers, so neither a
   zero-loss nor a zero-downtime claim is valid.
@@ -97,8 +99,8 @@ SQLite on `9router-data` (single writer) + Redis cache
 
 ### Phase 1 — production foundation
 
-All changes are PRs against `main`. Staging is sunset; do not open, target, or
-deploy a staging branch.
+All changes are PRs against `main`. There is no staging deployment; the
+`staging` branch is the pre-main integration branch and is never deployed.
 
 1. Add a production image workflow on every `main` commit. Publish an
    immutable tag containing the full commit SHA; never deploy `latest`.
@@ -111,7 +113,7 @@ deploy a staging branch.
 4. Replace `9router-edge-guard` with a generic LiteRouter edge guard before
    changing container identity. Preserve `172.30.0.2` until in-network clients
    no longer depend on the `9router` DNS name.
-5. Remove `scripts/deploy-9router.sh` from the production path. It is not an
+5. Remove `scripts/deploy-9router.sh` from the production path (done; the script is gone). It is not an
    acceptable rollout mechanism for SQLite.
 
 Phase 1 does not by itself change what is serving traffic. It makes the
@@ -166,7 +168,7 @@ documented write window.
 
 Changes ship from a PR against `main`. Require CI, Hermes approval, clean merge
 state, an immutable image digest, and the full promotion-gates suite on the
-exact merge SHA. There is no staging release PR; staging is sunset.
+exact merge SHA. There is no staging release PR; `staging` is only the pre-main integration branch.
 
 Zero *downtime* in the strict sense — no failed request at any instant — is not
 what this sequence provides. It provides zero downtime for the public endpoint
@@ -185,8 +187,9 @@ Cutover procedure — one writer at a time, no overlap:
    Chat/Responses, and one streaming request with exactly one `[DONE]`.
 4. Point the Caddy upstream at LiteRouter and run the public `200` sweep until
    it is clean. Keep the prior image and the verified backup retained.
-5. Staging is sunset and was removed during cutover: no `literouter-staging`
-   container and no `ai-staging.musaddiqr.com` block exist. Production is the
+5. There is no staging deployment: no `literouter-staging` container and no
+   `ai-staging.musaddiqr.com` block exist. The `staging` branch stays as the
+   pre-main integration branch. Production is the
    only LiteRouter deployment.
 
 Rollback: stop LiteRouter, restore the verified backup if the new schema was

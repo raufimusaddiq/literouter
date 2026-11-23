@@ -60,9 +60,10 @@ if (import.meta.main) {
   const args = process.argv.slice(2);
   const at = args.indexOf("--known");
   const knownFile = at < 0 ? undefined : args.splice(at, 2)[1];
-  const [expectedDir, actualDir] = args;
+  const DEFAULT_EXPECTED = path.resolve(import.meta.dir, "expected");
+  const [expectedDir, actualDir] = args.length === 1 ? [DEFAULT_EXPECTED, args[0]] : args;
   if (!expectedDir || !actualDir) {
-    console.error("usage: bun tests/parity/compare.mjs <expectedDir> <actualDir> [--known <file>]");
+    console.error("usage: bun tests/parity/compare.mjs [<expectedDir>] <actualDir> [--known <file>]");
     process.exit(2);
   }
   const { diffs, unlisted, stale } = compareDirs(expectedDir, actualDir, loadKnownDiffs(knownFile && path.resolve(knownFile)));

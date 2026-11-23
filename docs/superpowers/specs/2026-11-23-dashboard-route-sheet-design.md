@@ -227,7 +227,7 @@ The "no glow" rule from the anti-goals does not apply inside the topology's acti
 ## Constraints
 
 - Bun only. No Node, npm or Next.
-- No code comments: `local/no-comments` and the ratchet. Decisions go in an ADR, `docs/adr/0056-dashboard-route-sheet.md`.
+- No code comments: `local/no-comments` and the ratchet. Decisions go in an ADR, `docs/adr/0057-dashboard-route-sheet.md`.
 - Gates on the branch: `bun run test` green with no regression, `bun --bun run eslint .`, `bun scripts/comments/ratchet.mjs --check`, `bun run build`, and the initial-JS budget test (`tests/web/build.test.js`, 650 KB).
 - Report the bundle delta in the PR. Font files count separately.
 - Stay in lane: `src/web`, `src/shared/components`, `src/web/globals.css`/`fonts.css`, root `package.json`/`bun.lock` (font package only), `docs/`. Snapshot/parity tests that encode SPA markup may need updating; flag every such change in the PR.

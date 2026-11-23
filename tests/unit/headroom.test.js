@@ -238,62 +238,19 @@ describe("compressWithHeadroom", () => {
       expect(calls).toContain(5000);
     });
 
-    it("falls back to the default timeout when timeoutMs is null", async () => {
+    it.each([
+      ["null", null],
+      ["0", 0],
+      ["negative", -100],
+      ["NaN", NaN],
+      ["Infinity", Infinity],
+      ["a string", "5000"],
+    ])("falls back to the default timeout when timeoutMs is %s", async (_label, timeoutMs) => {
       makeSuccessfulFetch();
       const calls = captureTimeoutCalls();
       const body = { messages: [{ role: "user", content: "hello" }] };
 
-      await compressWithHeadroom(body, { enabled: true, url: "http://localhost:8787", timeoutMs: null });
-
-      expect(calls).toContain(3000);
-    });
-
-    it("falls back to the default timeout when timeoutMs is 0", async () => {
-      makeSuccessfulFetch();
-      const calls = captureTimeoutCalls();
-      const body = { messages: [{ role: "user", content: "hello" }] };
-
-      await compressWithHeadroom(body, { enabled: true, url: "http://localhost:8787", timeoutMs: 0 });
-
-      expect(calls).toContain(3000);
-    });
-
-    it("falls back to the default timeout when timeoutMs is negative", async () => {
-      makeSuccessfulFetch();
-      const calls = captureTimeoutCalls();
-      const body = { messages: [{ role: "user", content: "hello" }] };
-
-      await compressWithHeadroom(body, { enabled: true, url: "http://localhost:8787", timeoutMs: -100 });
-
-      expect(calls).toContain(3000);
-    });
-
-    it("falls back to the default timeout when timeoutMs is NaN", async () => {
-      makeSuccessfulFetch();
-      const calls = captureTimeoutCalls();
-      const body = { messages: [{ role: "user", content: "hello" }] };
-
-      await compressWithHeadroom(body, { enabled: true, url: "http://localhost:8787", timeoutMs: NaN });
-
-      expect(calls).toContain(3000);
-    });
-
-    it("falls back to the default timeout when timeoutMs is Infinity", async () => {
-      makeSuccessfulFetch();
-      const calls = captureTimeoutCalls();
-      const body = { messages: [{ role: "user", content: "hello" }] };
-
-      await compressWithHeadroom(body, { enabled: true, url: "http://localhost:8787", timeoutMs: Infinity });
-
-      expect(calls).toContain(3000);
-    });
-
-    it("falls back to the default timeout when timeoutMs is a string", async () => {
-      makeSuccessfulFetch();
-      const calls = captureTimeoutCalls();
-      const body = { messages: [{ role: "user", content: "hello" }] };
-
-      await compressWithHeadroom(body, { enabled: true, url: "http://localhost:8787", timeoutMs: "5000" });
+      await compressWithHeadroom(body, { enabled: true, url: "http://localhost:8787", timeoutMs });
 
       expect(calls).toContain(3000);
     });

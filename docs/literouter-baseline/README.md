@@ -61,7 +61,7 @@ Redis is cache-only. Production volume and port are never shared.
 
 ## Historical full-suite comparison (baseline vs staging)
 
-Run with `npm --prefix tests test -- --run` in a clean worktree at
+(Historical, vitest era.) Run with `npm --prefix tests test -- --run` in a clean worktree at
 `origin-literouter/main` versus the current `staging` branch:
 
 | | Test files | Tests |
@@ -82,10 +82,9 @@ Gemini endpoint coverage and fixed the stale assertions instead of deleting
 them. These staging comparisons are historical. `main` is now the only release
 and deployment reference.
 
-Run the suite from `tests/`, not the repository root. The `@/` path alias is
-only configured in `tests/vitest.config.js`, so a root-level run makes those
-imports throw, the `catch(() => null)` guards swallow the error, and affected
-tests pass without executing anything.
+Run the suite with `cd tests && bun test --parallel`; a plain `bun test` over the
+whole tree shares one module registry across files and can hang. The `@/` path
+alias lives in `jsconfig.json` and `tests/bunfig.toml`.
 
 Any future PR must keep the failure set at or below this baseline; comparing
 absolute pass counts without a baseline is misleading.

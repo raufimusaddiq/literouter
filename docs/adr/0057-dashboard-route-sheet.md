@@ -1,4 +1,4 @@
-# ADR-0056: Dashboard restyle — Route Sheet design system
+# ADR-0057: Dashboard restyle — Route Sheet design system
 
 - Status: Accepted
 - Date: 2026-11-23
