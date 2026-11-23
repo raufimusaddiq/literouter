@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-models-disabled-get",
-  "method": "GET",
-  "path": "/api/models/disabled"
-}

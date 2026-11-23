@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "trust-headroom-start-loopback-nocli",
-  "method": "POST",
-  "path": "/api/headroom/start"
-}

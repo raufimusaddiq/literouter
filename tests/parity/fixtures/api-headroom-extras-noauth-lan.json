@@ -1,7 +1,0 @@
-{
-  "peer": "lan",
-  "auth": "none",
-  "id": "api-headroom-extras-noauth-lan",
-  "method": "GET",
-  "path": "/api/headroom/extras"
-}

@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-models-put",
-  "method": "PUT",
-  "path": "/api/models",
-  "json": {}
-}

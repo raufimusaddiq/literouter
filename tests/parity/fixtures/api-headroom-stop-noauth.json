@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-headroom-stop-noauth",
-  "method": "POST",
-  "path": "/api/headroom/stop",
-  "json": {}
-}

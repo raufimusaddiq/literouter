@@ -25,7 +25,7 @@ PORT=20128 HOSTNAME=0.0.0.0 bun src/server/index.js   # production (same as `bun
 The server is `Bun.serve` (`src/server/index.js`); there is no Next.js, Node or npm anywhere in the repo, with one exception: the READMEs tell users migrating from the upstream package to run `npm rm -g 9router` to remove it. `bun --hot` sees the real peer address of every connection, so development behaves like production: `/` redirects to `/dashboard`, the localhost-only routes (`/api/oauth/cursor/auto-import`, `/api/oauth/kiro/auto-import`, `/api/auth/reset-password`, `/api/headroom/*`) work from the machine itself, and LAN/self-hosted provider nodes validate. A direct loopback request with no proxy marker is local; Cloudflare to Caddy to loopback is remote (`src/server/trust.js`).
 - Build: `bun run build` bundles the server and the dashboard SPA into `dist/app` (`bun scripts/build.mjs`; run it with `bun run start`, which is `cd dist/app && bun index.js`). `bun run compile` / `bun run compile:arm64` produce one musl executable in `dist/bin` (that is what the Docker image ships). `bun run build:web` only rebuilds the SPA. A bundled or compiled run reads its assets next to itself; unbundled production reads `LITEROUTER_SPA_DIR` or `dist/web` (a missing build answers 500); otherwise the SPA builds per process into `dist/web-dev/<pid>` and rebuilds when `src/` or `open-sse/` change (`src/server/spaBuild.js`). `tests/web/build.test.js` holds the initial-JS size budget. `bun.lock` is the only lockfile (`cli/bun.lock` for the launcher).
 - Default runtime port is **20128** (dashboard at `/dashboard`, API at `/v1`).
-- Lint: `bun --bun run eslint .` (flat config `eslint.config.mjs`: `eslint-plugin-react`, `eslint-plugin-react-hooks`, `eslint-plugin-jsx-a11y` and `eslint-plugin-import` used directly, plus `local/no-comments`; no `eslint-config-next`, see `docs/adr/0054-dashboard-spa.md`).
+- Lint: `bun --bun run eslint .` (flat config `eslint.config.mjs`: `eslint-plugin-react`, `eslint-plugin-react-hooks`, `eslint-plugin-jsx-a11y` and `eslint-plugin-import` used directly, plus `local/no-comments`; no `eslint-config-next`, see `docs/adr/dashboard.md`).
 
 CLI package (`cli/`):
 ```bash
@@ -44,20 +44,18 @@ cd tests && bun test --parallel         # all tests
 cd tests && bun test unit/capabilities.test.js   # single file (path relative to tests/)
 cd tests && CI=true bun test --parallel --reporter=junit --reporter-outfile=../test-results.xml   # what CI runs
 ```
-> Test files import the mock helper as `import { vi } from "#test/vi"` (`tests/helpers/vi.js`, design notes in `docs/adr/0052-test-harness.md`). `tests/bunfig.toml` holds the runner config.
+> Test files import the mock helper as `import { vi } from "#test/vi"` (`tests/helpers/vi.js`, design notes in `docs/adr/testing.md`). `tests/bunfig.toml` holds the runner config.
 >
-> **Linux CI is green: expected red is 0** and the Windows `tests/__baseline__/known-fails.txt` list is now empty. CI runs `bun test --parallel` with the junit reporter, then `git diff --exit-code -- tests` (fails if Bun wrote or changed a snapshot), then `bun tests/__baseline__/verify-no-regression.mjs test-results.xml`, then `bunx --bun eslint .` (blocking; the React Compiler react-hooks rules are downgraded to warnings in `eslint.config.mjs` until that debt is cleared), `bun scripts/comments/ratchet.mjs --check`, `bun scripts/check-test-hygiene.mjs --check`, `bun scripts/gen-route-table.mjs --check`, the parity run (`bun tests/parity/run.mjs --target bun --out parity-actual`, then `compare.mjs` and `compare-upstream.mjs`, which default `<expectedDir>` to `tests/parity/expected`), and `bun run build:web`. Judge regressions with the verify scripts.
+> CI runs the workflow in `.github/workflows/test.yml`; expected red is 0. Judge regressions with `bun tests/__baseline__/verify-no-regression.mjs test-results.xml`.
 > - `tests/server/*.test.js` start the real server (`startServer({ port: 0, hostname: "127.0.0.1" })`) and cover trust, h2c, body limit, timeouts, disconnect, SIGTERM and the route table; `tests/server/no-next-server.test.js` guards that Next's server pieces stay deleted.
-> - `tests/parity/` records the app's HTTP behaviour (`run.mjs`) and diffs it against the goldens in `expected/`, recorded from the Node production image at `main@90ac4b20`, allowing only what `known-diffs.json` and `known-upstream-diffs.json` pin with a reason.
-> - `real/*.real.test.js` make live provider calls — need credentials, skip otherwise.
 - `*.real.test.js` under `tests/translator/real/` make live provider calls — skip unless credentials are set.
 - Regression baselines: `tests/__baseline__/verify-*.mjs` compare against committed snapshots (providers, aliases, OAuth URLs). Run these after touching provider registry / alias logic.
 
-**Tests stay lean** (ADR 0056). There is no per-file count guard, so the rules below are the guard:
+**Tests stay lean** (`docs/adr/testing.md`). There is no per-file count guard, so the rules below are the guard:
 - One behaviour per test; the title names the behaviour, not the function.
 - No copy-pasted cases: cases that share a body and differ only in data are one `it.each` / `describe.each` table, with the real per-case differences as columns (a model version or provider id is a row, not a new file).
 - Shared helpers live only in `tests/helpers/` (plus the per-suite `helpers/` dirs) and are deleted in the PR that removes their last user.
-- Every fixture file is referenced by at least one test or script. Recorded corpora (`tests/parity/fixtures`, `tests/parity/expected`) are exempt by directory.
+- Every fixture file is referenced by at least one test or script.
 - Every `*.test.js` has an assertion (checked in CI). No test only asserts helpers it defines itself (review rule, not checked).
 - Merging or deleting tests needs a before/after assertion proof in the PR: name the cases and show every expectation survives.
 - `bun scripts/check-test-hygiene.mjs --check` runs in CI and fails on an unreferenced fixture or helper, a test file with no `expect(`, and a duplicate test title within a file. One-behaviour and no-restating stay review rules.
@@ -91,7 +89,7 @@ Two authoritative docs already exist — read them before working in these areas
 ### Persistence — IMPORTANT
 State is **no longer `db.json`**. It's a SQLite layer under `src/lib/db/` on `bun:sqlite` only (`driver.js` throws without the Bun runtime); the former `better-sqlite3`, `node:sqlite` and `sql.js` fallbacks are gone.
 - `src/lib/localDb.js` is a **backward-compat shim** re-exporting `src/lib/db/index.js`. New code should import from `@/lib/db/index.js`; per-entity logic lives in `src/lib/db/repos/*`. Schema/migrations in `src/lib/db/migrations/`.
-- DB file location resolves via `src/lib/db/paths.js` from `DATA_DIR` (`src/lib/dataDir.js`), else `~/.9router/` (`%APPDATA%9router` on Windows). The file is `<data dir>/db/data.sqlite`.
+- DB file location resolves via `src/lib/db/paths.js` from `DATA_DIR` (`src/lib/dataDir.js`), else `~/.9router/` (`%APPDATA%\9router` on Windows). The file is `<data dir>/db/data.sqlite`.
 - Usage and request details live in the same SQLite file and follow `DATA_DIR`. `src/lib/usageDb.js` and `src/lib/requestDetailsDb.js` re-export the repos in `src/lib/db/`; `usage.json` and the other `LEGACY_FILES` in `paths.js` are only read by the one-time import. File request logs (`ENABLE_REQUEST_LOGS=true`, `open-sse/utils/requestLogger.js`) are written to `./logs` under the process working directory, not `DATA_DIR`.
 
 ### RTK token saver (`open-sse/rtk/`)
@@ -100,8 +98,8 @@ Pre-translate hooks that compress `tool_result` content in-place to cut tokens. 
 ## Conventions & gotchas
 
 - Plain JavaScript (ESM), no TypeScript. `@/*` path alias → `src/*` (`jsconfig.json`).
-- **Comments:** code comments are banned, enforced by the `local/no-comments` ESLint rule and `.comment-baseline.json` (a ratchet that only goes down; `bun scripts/comments/ratchet.mjs --check`). Record non-obvious decisions in `docs/adr/` instead. Run `/delete-comment` to audit again. Directives such as `eslint-disable` and magic bundler comments (e.g. turbopack/webpack hints) are allowed.
-- Client IP and locality come from the TCP socket, never from headers: `src/server/trust.js` builds `{ peerIp, clientIp, isLocal }` per request (stored by `src/server/context.js`), trusts `X-Real-IP` / the rightmost `X-Forwarded-For` hop only from a loopback peer, and `src/server/index.js` strips `x-forwarded-for` and the retired `x-9r-*` peer headers before the guard. No source may read `NINEROUTER_PEER_TOKEN` or `x-9r-real-ip` (guard test). Preserve this when touching request/IP/rate-limit code; ADR 0001 has the rules.
+- **Comments:** code comments are banned, enforced by the `local/no-comments` ESLint rule and `.comment-baseline.json` (a ratchet that only goes down; `bun scripts/comments/ratchet.mjs --check`). Record non-obvious decisions as short bullets in the matching `docs/adr/<topic>.md` instead (rule, why, `Where:`; no numbered ADRs). Run `/delete-comment` to audit again. Directives such as `eslint-disable` and magic bundler comments (e.g. turbopack/webpack hints) are allowed.
+- Client IP and locality come from the TCP socket, never from headers: `src/server/trust.js` builds `{ peerIp, clientIp, isLocal }` per request (stored by `src/server/context.js`), trusts `X-Real-IP` / the rightmost `X-Forwarded-For` hop only from a loopback peer, and `src/server/index.js` strips `x-forwarded-for` and the retired `x-9r-*` peer headers before the guard. No source may read `NINEROUTER_PEER_TOKEN` or `x-9r-real-ip` (guard test). Preserve this when touching request/IP/rate-limit code; `docs/adr/security.md` has the rules.
 - `tests/web/no-next-imports.test.js` is the Next-leftover gate: it guards `src`, `open-sse`, `scripts` and `cli/src` against `next/*` imports, `NextResponse`, `.nextUrl` and route segment exports (`dynamic`, `maxDuration`, `revalidate`), the root `package.json`, and that `src/app` holds only `api/`.
 - Security-sensitive env: `JWT_SECRET` (session cookie), `INITIAL_PASSWORD` (default `123456` — must override), `API_KEY_SECRET`, `MACHINE_ID_SALT`. Full env contract in `.env.example` (there is no `ARCHITECTURE.md` in the tree).
 - Binary/protobuf upstreams (kiro EventStream, cursor protobuf, commandcode NDJSON) don't round-trip through OpenAI — they're handled inside their own executor, not the translator.

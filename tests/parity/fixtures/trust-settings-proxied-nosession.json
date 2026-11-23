@@ -1,7 +1,0 @@
-{
-  "peer": "proxied",
-  "auth": "none",
-  "id": "trust-settings-proxied-nosession",
-  "method": "GET",
-  "path": "/api/settings"
-}

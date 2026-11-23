@@ -287,7 +287,7 @@ describe("local/no-comments", () => {
   const root = process.cwd();
   const opts = (baseline) => [{ baseline, root }];
   const message = (n, m) =>
-    `Comments are banned in this repo (file has ${n}, baseline allows ${m}). Delete the comment; record decisions in docs/adr/.`;
+    `Comments are banned in this repo (file has ${n}, baseline allows ${m}). Delete the comment; record decisions in docs/adr/<topic>.md.`;
   const tester = new RuleTester({
     languageOptions: { ecmaVersion: "latest", sourceType: "module", parserOptions: { ecmaFeatures: { jsx: true } } },
   });

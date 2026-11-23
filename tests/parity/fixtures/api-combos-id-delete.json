@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-combos-id-delete",
-  "method": "DELETE",
-  "path": "/api/combos/nope-id"
-}

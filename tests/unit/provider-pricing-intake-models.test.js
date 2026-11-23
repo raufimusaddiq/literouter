@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { getPricingForModel, setRuntimePricing, clearRuntimePricing } from "../../open-sse/providers/pricing.js";
+import { getPricingForModel, setRuntimePricing, clearRuntimePricing, MODEL_PRICING } from "../../open-sse/providers/pricing.js";
 import { getCapabilitiesForModel, DEFAULT_CAPABILITIES, PROVIDER_CAPABILITIES } from "../../open-sse/providers/capabilities.js";
 import { noteUntrackedModel, resetUntrackedModelWarnings } from "../../open-sse/providers/trackingGaps.js";
 import { parseCommandCodePricing } from "../../open-sse/services/commandcodeModels.js";
@@ -185,5 +185,25 @@ describe("tracking gap warning", () => {
     const caps = getCapabilitiesForModel("synthetic", "hf:someone/unreleased-model");
     expect(caps.contextWindow).toBe(DEFAULT_CAPABILITIES.contextWindow);
     expect(caps.tools).toBe(true);
+  });
+});
+
+describe("catalog model pricing rows", () => {
+  it.each([
+    ["antigravity", "gemini-4-carbon", { input: 4, output: 20, cached: 0.2 }],
+    ["antigravity", "gemini-4-carbon-high", { input: 4, output: 20, cached: 0.2 }],
+    ["antigravity", "gemini-4-carbon-medium", { input: 4, output: 20, cached: 0.2 }],
+    ["antigravity", "gemini-4-carbon-low", { input: 4, output: 20, cached: 0.2 }],
+    ["antigravity", "gemini-4-argon", { input: 4, output: 20, cached: 0.2 }],
+    ["commandcode", "google/gemini-4-carbon", { output: 20 }],
+    ["claude", "claude-fable-5-2", { input: 8, output: 40, cached: 0.2, cache_creation: 10 }],
+    ["claude", "claude-haiku-5-5", { input: 0.1, output: 0.5, cached: 0.01, cache_creation: 0.125 }],
+    ["claude", "claude-fable-5-1", { input: 10, output: 50, cached: 1, cache_creation: 12.5 }],
+  ])("prices %s %s at its real rate", (provider, model, expected) => {
+    expect(getPricingForModel(provider, model)).toMatchObject(expected);
+  });
+
+  it("prices MiniMax-M3 at 0.30 / 1.20 / 0.06", () => {
+    expect(MODEL_PRICING["MiniMax-M3"]).toEqual(expect.objectContaining({ input: 0.3, output: 1.2, cached: 0.06 }));
   });
 });

@@ -7,10 +7,4 @@ describe("zstdCompat", () => {
     const canDecode = typeof zlib.createZstdDecompress === "function";
     expect(ACCEPT_ENCODING).toBe(canDecode ? "gzip, deflate, br, zstd" : "gzip, deflate, br");
   });
-
-  it("always advertises the codings every supported Node can inflate", () => {
-    expect(ACCEPT_ENCODING).toContain("gzip");
-    expect(ACCEPT_ENCODING).toContain("deflate");
-    expect(ACCEPT_ENCODING).toContain("br");
-  });
 });

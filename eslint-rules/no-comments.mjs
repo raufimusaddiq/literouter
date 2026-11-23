@@ -29,7 +29,7 @@ const rule = {
     ],
     messages: {
       banned:
-        "Comments are banned in this repo (file has {{count}}, baseline allows {{allowed}}). Delete the comment; record decisions in docs/adr/.",
+        "Comments are banned in this repo (file has {{count}}, baseline allows {{allowed}}). Delete the comment; record decisions in docs/adr/<topic>.md.",
     },
   },
   create(context) {

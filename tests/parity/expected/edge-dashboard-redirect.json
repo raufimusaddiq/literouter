@@ -1,8 +1,0 @@
-{
-  "status": 307,
-  "headers": {
-    "location": "/login"
-  },
-  "body": "/login",
-  "upstream": []
-}

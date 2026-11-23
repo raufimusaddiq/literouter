@@ -1,48 +1,8 @@
 # LiteRouter
 
-Minimal AI router for coding tools. LiteRouter is a maintained [9Router](https://github.com/decolua/9router) fork: same provider and protocol core, fewer runtime surfaces.
+An OpenAI-compatible routing gateway and dashboard for coding tools: one endpoint, many upstream providers, with fallback, account rotation and quota tracking. A maintained [9Router](https://github.com/decolua/9router) fork that runs on Bun.
 
-[![CI](https://github.com/raufimusaddiq/literouter/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/raufimusaddiq/literouter/actions/workflows/test.yml) [![License](https://img.shields.io/github/license/raufimusaddiq/literouter.svg)](LICENSE)
-
-## Why LiteRouter
-
-- One OpenAI-compatible endpoint for coding clients and providers.
-- Streaming, model routing, fallback, account rotation, quota tracking, dashboard, request logs, SQLite usage records.
-- RTK token saver remains available.
-- Minimal profile removes tunnel, Tailscale, and MITM runtime. No hidden compatibility process.
-- SQLite stays authoritative. Redis only invalidates connection cache between instances.
-
-## Quick start
-
-Use the immutable production image for a merged `main` SHA:
-
-```yaml
-services:
-  literouter:
-    image: ghcr.io/raufimusaddiq/literouter-production:production-<full-main-sha>
-    environment:
-      DATA_DIR: /app/data
-      MINIMAL_PROFILE: "true"
-      MODEL_CATALOG_SYNC: off
-      DISABLE_BACKGROUND_TOKEN_REFRESH: "true"
-      REDIS_URL: redis://idx-redis:6379 # optional; cache only
-    ports:
-      - "20128:20128"
-    volumes:
-      - ./data:/app/data
-```
-
-```bash
-docker compose up -d
-```
-
-Open `http://localhost:20128`. Configure providers in the dashboard, then point a compatible client at `http://localhost:20128/v1`.
-
-LiteRouter 1.0.0 runs on the Bun runtime with no Next.js. From v1.0.0 the multi-platform image is also published as `ghcr.io/raufimusaddiq/literouter:1.0.0` (see [DOCKER.md](DOCKER.md)). The server listens on port `20128` (dashboard at `/dashboard`, API at `/v1`). State is one SQLite file, `db/data.sqlite`, under `DATA_DIR` (default `~/.9router/`, `%APPDATA%9router` on Windows).
-
-For the repository production deployment, use [`compose.production.yml`](compose.production.yml). Image builds run in GitHub Actions; the host pulls published images. `staging` is the pre-main integration branch: it builds CI and a `-staging` image only, with no staging deployment and no `staging-latest` tag.
-
-## Install the CLI
+## Install
 
 Requires [Bun](https://bun.sh) 1.4.4 or newer.
 
@@ -51,71 +11,46 @@ bun add -g literouter
 literouter
 ```
 
-Run once without installing: `bunx literouter`. Upgrade with `bun add -g literouter@latest`.
+Or run it once without installing: `bunx literouter`.
 
-Coming from the upstream `9router` package? Remove it, then install LiteRouter. It reads the same data directory, so there are no config, database or environment changes:
+## Docker
+
+From the `v1.0.0` tag the image is `ghcr.io/raufimusaddiq/literouter:1.0.0` (amd64 and arm64):
+
+```bash
+docker run -d -p 20128:20128 -v "$HOME/.9router:/app/data" -e DATA_DIR=/app/data --name literouter ghcr.io/raufimusaddiq/literouter:1.0.0
+```
+
+See [DOCKER.md](DOCKER.md) for the volume layout and building the image.
+
+## Use
+
+Open `http://localhost:20128/dashboard`, add a provider, then point your client at `http://localhost:20128/v1`.
+
+## Config
+
+State is one SQLite file, `db/data.sqlite`, under `DATA_DIR` (default `~/.9router/`, `%APPDATA%\9router` on Windows). Copy `.env.example` to `.env` and **change `INITIAL_PASSWORD`**, `JWT_SECRET`, `API_KEY_SECRET` and `MACHINE_ID_SALT` before exposing it.
+
+## Migrating from 9router
 
 ```bash
 npm rm -g 9router
 bun add -g literouter
 ```
 
-## LiteRouter vs 9Router
+Same data directory, no config or database changes.
 
-| Area | LiteRouter | 9Router |
-| --- | --- | --- |
-| Router, providers, OpenAI/Claude transports | Retained | Retained |
-| Dashboard, usage, request logs, SQLite | Retained | Retained |
-| Token saver | Retained | Retained |
-| Background model catalog sync | Off | On |
-| Background token refresh | Off | On |
-| Redis | Optional cache invalidation only | Varies by deployment |
-| Tunnel, Tailscale, MITM runtime | Deleted | Included |
-| Intended operation | Small, direct routing deployment | Full product surface |
+## Develop
 
-LiteRouter is not an upstream drop-in package release. Build from this repository, install the CLI with `bun add -g literouter` (see above), or use the production image above; `npm install -g 9router` installs upstream 9Router.
+```bash
+bun install
+bun run dev
+bun run test
+bunx --bun eslint .
+```
 
-Staging images are published as `ghcr.io/raufimusaddiq/literouter-staging:staging-<sha>` for side-by-side checks and are never deployable to production.
+More: [operations](docs/ops.md), [changelog](CHANGELOG.md), [upstream intake](AGENTS.md#upstream-intake).
 
-## Measured production baseline
+## License
 
-All figures are documented with method and limits in the [baseline report](docs/literouter-baseline/phase-latency-resource.md).
-
-| Measurement | Production 9Router | LiteRouter |
-| --- | ---: | ---: |
-| Mock-router median latency, n=30 | 16.53 ms | 13.64 ms |
-| Mock-router p95 latency, n=30 | 25.36 ms | 19.40 ms |
-| Kenari `kn/deepseek-v4-1-flash` median, n=24 | 1715 ms | 1580 ms |
-| Kenari `kn/deepseek-v4-1-flash` p95, n=24 | 2053 ms | 2062 ms |
-| Post-burst RSS | 236.6 MiB | 72.3 MiB |
-| Image size | 1.03 GB | 1.03 GB |
-
-The image is not smaller. Runtime memory is. Public-model tail latency is effectively equal; controlled router overhead is lower.
-
-## Provider notes
-
-Provider availability changes. Current verified notes:
-
-| Provider | Status |
-| --- | --- |
-| Kiro | `kr/glm-5`, `kr/deepseek-3.2`, `kr/qwen3-coder-next`; roughly 50 credits/month |
-| OpenCode Free | `oc/` models; unauthenticated rotating catalog |
-| Vertex | Gemini preview and Flash models |
-| iFlow | Paid |
-| Qwen Code | OAuth free tier ended |
-| Gemini CLI | Shut down/deprecated |
-
-Use the dashboard model list as the live source of truth.
-
-## Operations
-
-- [PR and deployment runbook](docs/literouter-baseline/pr-merge-runbook.md)
-- [Minimal profile boundary](docs/literouter-baseline/phase-minimal-boundary.md)
-- [Baseline index](docs/literouter-baseline/README.md)
-- [Changelog](CHANGELOG.md)
-
-## Upstream
-
-LiteRouter tracks [9Router](https://github.com/decolua/9router). Keep local changes focused; bring upstream fixes over by reviewing and cherry-picking them.
-
-Licensed under [MIT](LICENSE). Upstream 9Router attribution remains in [9Router](https://github.com/decolua/9router).
+MIT

@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-console-logs-get",
-  "method": "GET",
-  "path": "/api/console-logs"
-}

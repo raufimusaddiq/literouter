@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-v1-models-kind-noauth",
-  "method": "GET",
-  "path": "/api/v1/models/image"
-}

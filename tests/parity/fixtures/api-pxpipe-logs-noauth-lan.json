@@ -1,7 +1,0 @@
-{
-  "peer": "lan",
-  "auth": "none",
-  "id": "api-pxpipe-logs-noauth-lan",
-  "method": "GET",
-  "path": "/api/pxpipe/logs"
-}

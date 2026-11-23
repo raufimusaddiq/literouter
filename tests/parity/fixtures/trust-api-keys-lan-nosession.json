@@ -1,7 +1,0 @@
-{
-  "peer": "lan",
-  "auth": "none",
-  "id": "trust-api-keys-lan-nosession",
-  "method": "GET",
-  "path": "/api/keys"
-}

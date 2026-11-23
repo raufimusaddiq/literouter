@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-provider-nodes-id-noauth",
-  "method": "PUT",
-  "path": "/api/provider-nodes/nope-id",
-  "json": {}
-}

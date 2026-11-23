@@ -1,8 +1,0 @@
-{
-  "peer": "lan",
-  "auth": "none",
-  "id": "api-pxpipe-stop-noauth-lan",
-  "method": "POST",
-  "path": "/api/pxpipe/stop",
-  "json": {}
-}

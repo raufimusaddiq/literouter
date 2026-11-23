@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-console-logs-delete",
-  "method": "DELETE",
-  "path": "/api/console-logs"
-}

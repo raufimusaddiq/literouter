@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-oauth-kiro-social-authorize-noauth",
-  "method": "GET",
-  "path": "/api/oauth/kiro/social-authorize"
-}

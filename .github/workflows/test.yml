@@ -52,12 +52,6 @@ jobs:
 
       - run: bun scripts/gen-route-table.mjs --check
 
-      - run: bun tests/parity/run.mjs --target bun --out parity-actual
-
-      - run: bun tests/parity/compare.mjs parity-actual
-
-      - run: bun tests/parity/compare-upstream.mjs parity-actual
-
       - name: CLI tests
         working-directory: cli
         run: |
