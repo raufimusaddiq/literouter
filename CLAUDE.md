@@ -40,6 +40,8 @@ npm run cli:pack       # build + npm pack from root
 cd cli && npm run dev  # nodemon watch
 ```
 
+**Always run the suite with `--parallel`** (`cd tests && bun test --parallel`, or the `test` script). Plain `bun test` over the whole tree shares one module registry across files and can hang. Running a single file without it is fine.
+
 Tests (`bun test`, in `tests/`, an **independent** ESM package; the root `npm test` script just calls `cd tests && bun test --parallel`):
 ```bash
 bun install                             # ROOT deps first: tests import from src/ which needs `open`, `sql.js`, etc.
@@ -50,7 +52,7 @@ cd tests && CI=true bun test --parallel --reporter=junit --reporter-outfile=../t
 ```
 > Test files import the mock helper as `import { vi } from "#test/vi"` (`tests/helpers/vi.js`, design notes in `docs/adr/0052-test-harness.md`). `tests/bunfig.toml` holds the runner config.
 >
-> **Linux CI is green: expected red is 0** (3992 tests pass, 0 fail) and the Windows `tests/__baseline__/known-fails.txt` list is now empty. CI runs `bun test --parallel` with the junit reporter, then `git diff --exit-code -- tests` (fails if Bun wrote or changed a snapshot), then `bun tests/__baseline__/verify-no-regression.mjs test-results.xml` and `bun tests/__baseline__/verify-test-counts.mjs test-results.xml` (every baseline file keeps at least its recorded count), then `bun scripts/migrate-vitest-to-bun.mjs --check tests` (and `--snapshots --check`), `bunx --bun eslint .` (blocking; the React Compiler react-hooks rules are downgraded to warnings in `eslint.config.mjs` until that debt is cleared), `bun scripts/comments/ratchet.mjs --check`, and `bun run build:bun` with the standalone size budget. Judge regressions with the verify scripts.
+> **Linux CI is green: expected red is 0** (3951 tests pass, 0 fail) and the Windows `tests/__baseline__/known-fails.txt` list is now empty. CI runs `bun test --parallel` with the junit reporter, then `git diff --exit-code -- tests` (fails if Bun wrote or changed a snapshot), then `bun tests/__baseline__/verify-no-regression.mjs test-results.xml` and `bun tests/__baseline__/verify-test-counts.mjs test-results.xml` (every baseline file keeps at least its recorded count), then `bun scripts/migrate-vitest-to-bun.mjs --check tests` (and `--snapshots --check`), `bunx --bun eslint .` (blocking; the React Compiler react-hooks rules are downgraded to warnings in `eslint.config.mjs` until that debt is cleared), `bun scripts/comments/ratchet.mjs --check`, and `bun run build:bun` with the standalone size budget. Judge regressions with the verify scripts.
 > - **After merging `main`, run `bun scripts/migrate-vitest-to-bun.mjs tests` (and `bun scripts/migrate-vitest-to-bun.mjs tests --snapshots`)**, then run the suite and fix what fails. `main` still writes vitest-style tests.
 > - `real/*.real.test.js` make live provider calls — need credentials, skip otherwise.
 - `*.real.test.js` under `tests/translator/real/` make live provider calls — skip unless credentials are set.
@@ -92,7 +94,7 @@ Pre-translate hooks that compress `tool_result` content in-place to cut tokens. 
 ## Conventions & gotchas
 
 - Plain JavaScript (ESM), no TypeScript. `@/*` path alias → `src/*` (`jsconfig.json`).
-- **Comments:** code comments are banned, enforced by the `local/no-comments` ESLint rule and `.comment-baseline.json` (a ratchet that only goes down; `node scripts/comments/ratchet.mjs --check`). Record non-obvious decisions in `docs/adr/` instead. Run `/delete-comment` to audit again. Directives such as `eslint-disable` and magic bundler comments (e.g. turbopack/webpack hints) are allowed.
+- **Comments:** code comments are banned, enforced by the `local/no-comments` ESLint rule and `.comment-baseline.json` (a ratchet that only goes down; `bun scripts/comments/ratchet.mjs --check`). Record non-obvious decisions in `docs/adr/` instead. Run `/delete-comment` to audit again. Directives such as `eslint-disable` and magic bundler comments (e.g. turbopack/webpack hints) are allowed.
 - `custom-server.js` wraps the Next standalone server to derive client IP from the TCP socket and strip attacker-controlled `X-Forwarded-For` — trusting forwarding headers only from a loopback reverse proxy. Preserve this when touching request/IP/rate-limit code.
 - Security-sensitive env: `JWT_SECRET` (session cookie), `INITIAL_PASSWORD` (default `123456` — must override), `API_KEY_SECRET`, `MACHINE_ID_SALT`. Full env contract in `.env.example` and ARCHITECTURE.md's env matrix.
 - Binary/protobuf upstreams (kiro EventStream, cursor protobuf, commandcode NDJSON) don't round-trip through OpenAI — they're handled inside their own executor, not the translator.

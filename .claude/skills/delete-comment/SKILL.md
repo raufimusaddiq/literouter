@@ -22,7 +22,7 @@ Comments are banned in this repo. The `local/no-comments` ESLint rule enforces t
 1. **Branch and extract.**
    ```bash
    git fetch origin && git switch -c chore/delete-comments-<date> origin/main
-   node scripts/comments/extract.mjs --out <scratch>/comment-audit --batch-size 450 [paths…]
+   bun scripts/comments/extract.mjs --out <scratch>/comment-audit --batch-size 450 [paths…]
    ```
    This writes `comments.jsonl`, `batches/batch-NN.jsonl` and `manifest.json`. Each id is `<file>#<line>:<col>`.
 
@@ -47,8 +47,8 @@ Comments are banned in this repo. The `local/no-comments` ESLint rule enforces t
 
 6. **Apply the deletions.** Build one decisions file, `{ id, category }` per comment, from the final classifications. Then run:
    ```bash
-   node scripts/comments/apply.mjs --decisions final-decisions.jsonl --dry-run
-   node scripts/comments/apply.mjs --decisions final-decisions.jsonl
+   bun scripts/comments/apply.mjs --decisions final-decisions.jsonl --dry-run
+   bun scripts/comments/apply.mjs --decisions final-decisions.jsonl
    ```
    `apply` re-parses every file and refuses any edit that breaks parsing. Fix or skip every `failedFiles` entry; never hand-edit around the tool.
 
@@ -60,8 +60,8 @@ Comments are banned in this repo. The `local/no-comments` ESLint rule enforces t
 
 8. **Tighten the ratchet.**
    ```bash
-   node scripts/comments/ratchet.mjs --write
-   node scripts/comments/ratchet.mjs --check
+   bun scripts/comments/ratchet.mjs --write
+   bun scripts/comments/ratchet.mjs --check
    ```
    Commit `.comment-baseline.json` together with the deletions. The baseline must only shrink.
 
@@ -72,4 +72,4 @@ Comments are banned in this repo. The `local/no-comments` ESLint rule enforces t
 
 ## Estimating savings
 
-`node scripts/comments/extract.mjs --out <dir>` reports `totalComments`. The ratchet baseline sums the per-file counts. Lines shed are roughly the comment-only lines: on the 2026-11-23 audit that was 14,205 of 166,213 JS lines (8.5%) across 11,384 comments.
+`bun scripts/comments/extract.mjs --out <dir>` reports `totalComments`. The ratchet baseline sums the per-file counts. Lines shed are roughly the comment-only lines: on the 2026-11-23 audit that was 14,205 of 166,213 JS lines (8.5%) across 11,384 comments.

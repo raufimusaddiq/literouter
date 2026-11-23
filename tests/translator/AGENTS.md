@@ -1,5 +1,7 @@
 # Translation Layer Tests
 
+**Run the whole suite with `bun test --parallel` (from `tests/`, or the `test` script).** Plain `bun test` over the whole tree shares one module registry across files and can hang; single-file runs are fine.
+
 Tests for `open-sse/translator/`. Goals: (1) data-driven coverage of every provider/model, (2) expose bugs caused by using OpenAI as the intermediate format.
 
 ## 1. Translation layer structure (`open-sse/translator/`)

@@ -279,7 +279,7 @@ describe("ratchet", () => {
     expect(r.status).toBe(1);
     const out = r.stdout + r.stderr;
     expect(out).toContain("a.js");
-    expect(out).toContain("node scripts/comments/ratchet.mjs --write");
+    expect(out).toContain("bun scripts/comments/ratchet.mjs --write");
   });
 });
 
