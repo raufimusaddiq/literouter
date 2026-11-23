@@ -71,9 +71,9 @@ const normalize = (value) => {
   }
 };
 
-async function extractTokensViaBetterSqlite(dbPath) {
-  const { default: Database } = await import("better-sqlite3");
-  const db = new Database(dbPath, { readonly: true, fileMustExist: true });
+async function extractTokensViaBunSqlite(dbPath) {
+  const { Database } = await import("bun:sqlite");
+  const db = new Database(dbPath, { readonly: true });
 
   const query = (key) => {
     const row = db.prepare("SELECT value FROM itemTable WHERE key=? LIMIT 1").get(key);
@@ -188,7 +188,7 @@ export async function GET() {
     }
 
     try {
-      const tokens = await extractTokensViaBetterSqlite(dbPath);
+      const tokens = await extractTokensViaBunSqlite(dbPath);
       if (tokens.accessToken && tokens.machineId) {
         return NextResponse.json({
           found: true,

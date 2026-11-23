@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-providers-kilo-free-models-noauth",
+  "method": "GET",
+  "path": "/api/providers/kilo/free-models"
+}

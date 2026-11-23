@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-auth-logout-post",
+  "method": "POST",
+  "path": "/api/auth/logout",
+  "json": {}
+}

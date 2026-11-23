@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { Database } from "bun:sqlite";
 import { describe, it, expect } from "bun:test";
 import { vi } from "#test/vi";
 import { useTempDataDir } from "#test/tempDataDir";
@@ -9,14 +9,15 @@ const temp = useTempDataDir("9router-key-access-");
 
 function writeLegacyDb(dir) {
   fs.mkdirSync(path.join(dir, "db"), { recursive: true });
-  const db = new DatabaseSync(path.join(dir, "db", "data.sqlite"));
+  const db = new Database(path.join(dir, "db", "data.sqlite"));
   db.exec(`CREATE TABLE _meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
   db.exec(`INSERT INTO _meta(key, value) VALUES ('schemaVersion', '1'), ('backupSchemaVersion', '1')`);
   db.exec(`CREATE TABLE apiKeys (id TEXT PRIMARY KEY, key TEXT UNIQUE NOT NULL, name TEXT, machineId TEXT, isActive INTEGER DEFAULT 1, createdAt TEXT NOT NULL)`);
   const ins = db.prepare(`INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt) VALUES (?, ?, ?, ?, ?, ?)`);
   ins.run("k1", "sk-legacy-one", "Default Key", "m", 1, "2026-09-01T00:00:00.000Z");
   ins.run("k2", "sk-legacy-two", "paused", "m", 0, "2026-09-02T00:00:00.000Z");
-  db.close();
+  ins.finalize();
+  db.close(true);
 }
 
 async function boot() {

@@ -29,9 +29,7 @@ vi.mock("../../open-sse/utils/stream.js", async () => ({
   createPassthroughStreamWithLogger: vi.fn(() => new TransformStream()),
 }));
 
-vi.mock("uuid", () => ({
-  v4: () => "00000000-0000-4000-8000-000000000000",
-}));
+vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000000");
 
 vi.mock("@/lib/usageDb.js", async () => ({
   ...(await import("@/lib/usageDb.js?actual")),

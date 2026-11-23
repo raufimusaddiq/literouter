@@ -1,0 +1,47 @@
+{
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "candidates": [
+      {
+        "content": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "parity ok"
+            }
+          ]
+        },
+        "finishReason": "STOP",
+        "index": 0
+      }
+    ],
+    "modelVersion": "mock-model",
+    "responseId": "chatcmpl-<ID>",
+    "usageMetadata": {
+      "promptTokenCount": 3,
+      "candidatesTokenCount": 2,
+      "totalTokenCount": 5
+    }
+  },
+  "upstream": [
+    {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "body": {
+        "model": "mock-ok",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "stream": false
+      }
+    }
+  ]
+}

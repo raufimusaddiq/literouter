@@ -346,6 +346,7 @@ function createErrorResponse(jsonError) {
 export class CursorExecutor extends BaseExecutor {
   constructor() {
     super("cursor", PROVIDERS.cursor);
+    this.http2ConnectOptions = {};
   }
 
   buildUrl() {
@@ -396,7 +397,7 @@ export class CursorExecutor extends BaseExecutor {
 
     return new Promise((resolve, reject) => {
       const urlObj = new URL(url);
-      const client = http2.connect(`https://${urlObj.host}`);
+      const client = http2.connect(`https://${urlObj.host}`, this.http2ConnectOptions);
       const chunks = [];
       let responseHeaders = {};
       let settled = false;
@@ -450,7 +451,7 @@ export class CursorExecutor extends BaseExecutor {
     }
 
     const urlObj = new URL(url);
-    const client = http2.connect(`https://${urlObj.host}`);
+    const client = http2.connect(`https://${urlObj.host}`, this.http2ConnectOptions);
     const chunkQueue = [];
     let waiting = null;
     let ended = false;

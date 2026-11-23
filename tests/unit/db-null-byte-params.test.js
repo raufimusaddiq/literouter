@@ -58,7 +58,10 @@ describe("driver binds NUL-containing strings safely", () => {
     const { getAdapter } = await import("@/lib/db/driver.js");
     const db = await getAdapter();
 
-    expect(["better-sqlite3", "node:sqlite", "sql.js", "bun:sqlite"]).toContain(db.driver);
+    expect(db.driver).toBe("bun:sqlite");
+    db.run("CREATE TABLE IF NOT EXISTS nulWrap (v TEXT)");
+    db.run("INSERT INTO nulWrap (v) VALUES (?)", [DIRTY]);
+    expect(db.raw.query("SELECT v FROM nulWrap").get().v).toBe("beforeafter");
     expect(typeof db.exec).toBe("function");
     expect(typeof db.transaction).toBe("function");
   });

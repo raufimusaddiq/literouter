@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-suggested-models-mock",
+  "method": "GET",
+  "path": "/api/providers/suggested-models?url=__UPSTREAM__/v1/models&type=openai"
+}

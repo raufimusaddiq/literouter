@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-providers-validate-noauth",
+  "method": "POST",
+  "path": "/api/providers/validate",
+  "json": {}
+}

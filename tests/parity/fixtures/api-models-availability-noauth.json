@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-models-availability-noauth",
+  "method": "GET",
+  "path": "/api/models/availability"
+}

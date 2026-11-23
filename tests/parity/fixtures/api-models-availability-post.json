@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-models-availability-post",
+  "method": "POST",
+  "path": "/api/models/availability",
+  "json": {}
+}

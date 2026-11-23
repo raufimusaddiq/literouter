@@ -1,0 +1,7 @@
+{
+  "peer": "lan",
+  "auth": "cli",
+  "id": "trust-kiro-auto-import-lan-cli",
+  "method": "GET",
+  "path": "/api/oauth/kiro/auto-import"
+}

@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-providers-id-noauth",
+  "method": "GET",
+  "path": "/api/providers/parity-conn-1"
+}

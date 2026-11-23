@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "edge-head-tags",
+  "method": "HEAD",
+  "path": "/api/tags"
+}

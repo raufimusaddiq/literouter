@@ -1,0 +1,10 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-auth-login-2-wrong",
+  "method": "POST",
+  "path": "/api/auth/login",
+  "json": {
+    "password": "wrong"
+  }
+}

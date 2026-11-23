@@ -1,0 +1,17 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "v1-chat-alias",
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "json": {
+    "model": "parity-alias",
+    "messages": [
+      {
+        "role": "user",
+        "content": "hi"
+      }
+    ],
+    "stream": false
+  }
+}

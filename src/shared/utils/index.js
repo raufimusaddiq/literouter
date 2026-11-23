@@ -2,9 +2,7 @@ export { cn } from "./cn";
 export * as api from "./api";
 export { getProviderIconSrc, markProviderIconMissing, resolveProviderIconId } from "./providerIcon";
 
-import { v4 as uuidv4 } from "uuid";
-
-export const generateId = uuidv4;
+export const generateId = () => crypto.randomUUID();
 
 export function getErrorCode(lastError) {
   if (!lastError) return null;

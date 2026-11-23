@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-v1-messages-noauth",
+  "method": "POST",
+  "path": "/api/v1/messages",
+  "json": {}
+}

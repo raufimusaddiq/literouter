@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
@@ -319,7 +318,7 @@ export async function createProviderConnection(data) {
     }
 
     const conn = {
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       provider: data.provider,
       authType: data.authType || "oauth",
       name: connectionName,

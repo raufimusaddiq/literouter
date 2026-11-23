@@ -1,0 +1,7 @@
+{
+  "peer": "proxied",
+  "auth": "none",
+  "id": "api-pxpipe-stats-noauth-proxied",
+  "method": "GET",
+  "path": "/api/pxpipe/stats"
+}

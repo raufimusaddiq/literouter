@@ -1,0 +1,18 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "v1-chat-upstream-500",
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "waitMs": 3000,
+  "json": {
+    "model": "pm/mock-500",
+    "messages": [
+      {
+        "role": "user",
+        "content": "hi"
+      }
+    ],
+    "stream": false
+  }
+}

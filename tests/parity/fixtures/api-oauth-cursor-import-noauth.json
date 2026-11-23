@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-oauth-cursor-import-noauth",
+  "method": "POST",
+  "path": "/api/oauth/cursor/import",
+  "json": {}
+}

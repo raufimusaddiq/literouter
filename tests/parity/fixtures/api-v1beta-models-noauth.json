@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-v1beta-models-noauth",
+  "method": "GET",
+  "path": "/api/v1beta/models"
+}

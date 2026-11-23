@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-pxpipe-stats-noauth",
+  "method": "GET",
+  "path": "/api/pxpipe/stats"
+}

@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-models-alias-delete",
+  "method": "DELETE",
+  "path": "/api/models/alias"
+}

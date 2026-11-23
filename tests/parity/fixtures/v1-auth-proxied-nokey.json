@@ -1,0 +1,17 @@
+{
+  "peer": "proxied",
+  "auth": "none",
+  "id": "v1-auth-proxied-nokey",
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "json": {
+    "model": "pm/mock-ok",
+    "messages": [
+      {
+        "role": "user",
+        "content": "hi"
+      }
+    ],
+    "stream": false
+  }
+}

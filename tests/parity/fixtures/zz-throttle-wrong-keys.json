@@ -1,0 +1,25 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "zz-throttle-wrong-keys",
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "headers": {
+    "authorization": "Bearer sk-wrong",
+    "x-real-ip": "198.51.100.77"
+  },
+  "json": {
+    "model": "pm/mock-ok",
+    "messages": [
+      {
+        "role": "user",
+        "content": "hi"
+      }
+    ],
+    "stream": false
+  },
+  "repeat": {
+    "until": 429,
+    "max": 40
+  }
+}

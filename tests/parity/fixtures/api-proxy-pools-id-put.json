@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-proxy-pools-id-put",
+  "method": "PUT",
+  "path": "/api/proxy-pools/nope-id",
+  "json": {}
+}

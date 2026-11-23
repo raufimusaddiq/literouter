@@ -1,0 +1,11 @@
+{
+  "status": 200,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json;charset=utf-8"
+  },
+  "body": {
+    "message": "Usage not available for this connection"
+  },
+  "upstream": []
+}

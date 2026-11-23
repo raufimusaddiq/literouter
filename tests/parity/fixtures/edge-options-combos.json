@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "edge-options-combos",
+  "method": "OPTIONS",
+  "path": "/api/combos"
+}

@@ -1,5 +1,4 @@
 
-import { v4 as uuidv4 } from "uuid";
 import zlib from "zlib";
 
 const DEBUG = process.env.CURSOR_PROTOBUF_DEBUG === "1";
@@ -453,7 +452,7 @@ export function encodeRequest(messages, modelName, tools = [], reasoningEffort =
   for (let i = 0; i < normalizedMessages.length; i++) {
     const msg = normalizedMessages[i];
     const role = msg.role === "user" ? ROLE.USER : ROLE.ASSISTANT;
-    const msgId = uuidv4();
+    const msgId = crypto.randomUUID();
     const isLast = i === normalizedMessages.length - 1;
 
     formattedMessages.push({
@@ -487,7 +486,7 @@ export function encodeRequest(messages, modelName, tools = [], reasoningEffort =
     encodeField(FIELD.UNKNOWN_13, WIRE_TYPE.VARINT, 1),
     encodeField(FIELD.CURSOR_SETTING, WIRE_TYPE.LEN, encodeCursorSetting()),
     encodeField(FIELD.UNKNOWN_19, WIRE_TYPE.VARINT, 1),
-    encodeField(FIELD.CONVERSATION_ID, WIRE_TYPE.LEN, uuidv4()),
+    encodeField(FIELD.CONVERSATION_ID, WIRE_TYPE.LEN, crypto.randomUUID()),
     encodeField(FIELD.METADATA, WIRE_TYPE.LEN, encodeMetadata()),
 
     encodeField(FIELD.IS_AGENTIC, WIRE_TYPE.VARINT, isAgentic ? 1 : 0),

@@ -1,0 +1,8 @@
+{
+  "status": 308,
+  "headers": {
+    "location": "/api/keys"
+  },
+  "body": "/api/keys",
+  "upstream": []
+}

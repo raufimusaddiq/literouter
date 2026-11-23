@@ -1,0 +1,11 @@
+{
+  "status": 400,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json;charset=utf-8"
+  },
+  "body": {
+    "error": "API key is required"
+  },
+  "upstream": []
+}

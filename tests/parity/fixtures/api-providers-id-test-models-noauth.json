@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-providers-id-test-models-noauth",
+  "method": "POST",
+  "path": "/api/providers/parity-conn-1/test-models",
+  "json": {}
+}

@@ -1,0 +1,7 @@
+{
+  "peer": "proxied",
+  "auth": "session",
+  "id": "trust-kiro-auto-import-proxied-session",
+  "method": "GET",
+  "path": "/api/oauth/kiro/auto-import"
+}

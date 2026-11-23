@@ -1,0 +1,7 @@
+{
+  "peer": "proxied",
+  "auth": "none",
+  "id": "api-health-proxied",
+  "method": "GET",
+  "path": "/api/health"
+}

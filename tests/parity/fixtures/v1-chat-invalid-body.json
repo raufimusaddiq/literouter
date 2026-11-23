@@ -1,0 +1,11 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "v1-chat-invalid-body",
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "body": "{not json",
+  "headers": {
+    "content-type": "application/json"
+  }
+}

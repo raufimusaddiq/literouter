@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "trust-kiro-auto-import-loopback-session",
+  "method": "GET",
+  "path": "/api/oauth/kiro/auto-import"
+}

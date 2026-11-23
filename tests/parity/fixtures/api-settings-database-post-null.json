@@ -1,0 +1,11 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-settings-database-post-null",
+  "method": "POST",
+  "path": "/api/settings/database",
+  "body": "null",
+  "headers": {
+    "content-type": "application/json"
+  }
+}

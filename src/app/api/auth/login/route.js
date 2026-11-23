@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSettings } from "@/lib/localDb";
-import bcrypt from "bcryptjs";
+import { verifyPassword } from "@/lib/auth/password.js";
 import { cookies } from "next/headers";
 import { setDashboardAuthCookie } from "@/lib/auth/dashboardSession";
 import { checkLock, recordSuccess, getClientIp, beginAttempt } from "@/lib/auth/loginLimiter";
@@ -27,7 +27,7 @@ export async function POST(request) {
 
     let isValid = false;
     if (storedHash) {
-      isValid = await bcrypt.compare(password, storedHash);
+      isValid = await verifyPassword(password, storedHash);
     } else {
       const initialPassword = process.env.INITIAL_PASSWORD || "123456";
       isValid = password === initialPassword;
