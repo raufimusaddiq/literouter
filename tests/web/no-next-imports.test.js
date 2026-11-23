@@ -5,6 +5,11 @@ import path from "node:path";
 const ROOT = path.resolve(import.meta.dir, "../..");
 const NEXT_IMPORT = /(?:from\s*|import\s*\(\s*|require\s*\(\s*)["'](?:next(?:\/[^"']*)?|@next\/[^"']*)["']/;
 const SCANNED = ["src", "open-sse", "scripts", "cli/src"];
+const LEFTOVER_RULES = [
+  ["NextResponse reference", /\bNextResponse\b/],
+  [".nextUrl access", /\.nextUrl\b/],
+  ["Next route segment export", /^[ \t]*export\s+const\s+(?:dynamic|maxDuration|revalidate)\b/],
+];
 const FORBIDDEN_PACKAGES = ["next", "@next/third-parties", "@next/swc-linux-x64-musl", "postcss", "@tailwindcss/postcss", "eslint-config-next", "@next/eslint-plugin-next"];
 const FORBIDDEN_SCRIPTS = ["build:webpack", "build:bun", "prebuild:bun", "postbuild", "postbuild:bun"];
 
@@ -18,6 +23,16 @@ function walk(dir) {
     else out.push(full);
   }
   return out;
+}
+
+export function findLeftovers(source) {
+  const hits = [];
+  source.split(/\r?\n/).forEach((line, index) => {
+    for (const [label, pattern] of LEFTOVER_RULES) {
+      if (pattern.test(line)) hits.push(`${index + 1}: ${label}`);
+    }
+  });
+  return hits;
 }
 
 function rel(file) {
@@ -34,6 +49,26 @@ describe("next is gone from the repo", () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it("no source file keeps a NextResponse, .nextUrl or route segment export", () => {
+    const offenders = [];
+    for (const tree of SCANNED) {
+      for (const file of walk(path.join(ROOT, tree))) {
+        if (!/\.(js|jsx|mjs|cjs)$/.test(file)) continue;
+        for (const hit of findLeftovers(fs.readFileSync(file, "utf8"))) offenders.push(`${rel(file)}:${hit}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("the leftover rules flag each planted violation", () => {
+    expect(findLeftovers("return NextResponse.json({});")).toEqual(["1: NextResponse reference"]);
+    expect(findLeftovers("const q = request.nextUrl.searchParams;")).toEqual(["1: .nextUrl access"]);
+    for (const name of ["dynamic", "maxDuration", "revalidate"]) {
+      expect(findLeftovers(`ok\nexport const ${name} = 1;`)).toEqual(["2: Next route segment export"]);
+    }
+    expect(findLeftovers("const dynamic = 1;\nconst url = request.url;")).toEqual([]);
   });
 
   it("root package.json has no next packages", () => {

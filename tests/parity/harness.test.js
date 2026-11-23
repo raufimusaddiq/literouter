@@ -776,7 +776,7 @@ describe("run", () => {
   test("run refuses to clear an output directory that holds other files", () => {
     const dir = tmp("parity-out-");
     fs.writeFileSync(path.join(dir, "notes.txt"), "keep me");
-    const run = Bun.spawnSync([process.execPath, path.join(import.meta.dir, "run.mjs"), "--target", "next", "--out", dir], { cwd: repoRoot });
+    const run = Bun.spawnSync([process.execPath, path.join(import.meta.dir, "run.mjs"), "--target", "bun", "--out", dir], { cwd: repoRoot });
     expect(run.exitCode).toBe(2);
     expect(run.stderr.toString()).toContain("refusing to clear");
     expect(fs.readFileSync(path.join(dir, "notes.txt"), "utf8")).toBe("keep me");
