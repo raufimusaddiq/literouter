@@ -6,9 +6,23 @@ describe("http helpers", () => {
   test("json matches NextResponse.json", async () => {
     const res = json({ a: 1 }, { status: 201, headers: { "x-test": "y" } });
     expect(res.status).toBe(201);
-    expect(res.headers.get("content-type")).toBe("application/json;charset=utf-8");
+    expect(res.headers.get("content-type")).toBe("application/json");
     expect(res.headers.get("x-test")).toBe("y");
     expect(await res.text()).toBe('{"a":1}');
+  });
+
+  test("Response.json answers application/json without a charset, as Node does", async () => {
+    const res = Response.json({ a: 1 }, { status: 404 });
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toBe("application/json");
+    expect(await res.json()).toEqual({ a: 1 });
+  });
+
+  test("Response.json keeps a content-type the handler set", () => {
+    const res = Response.json({ a: 1 }, { headers: { "content-type": "application/problem+json" } });
+    expect(res.headers.get("content-type")).toBe("application/problem+json");
+    const explicit = Response.json({ a: 1 }, { headers: { "content-type": "application/json; charset=utf-8" } });
+    expect(explicit.headers.get("content-type")).toBe("application/json; charset=utf-8");
   });
 
   test("json keeps a caller supplied content-type", () => {

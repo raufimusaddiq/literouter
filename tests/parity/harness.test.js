@@ -275,12 +275,14 @@ describe("compare", () => {
     expect(validateKnownDiffs([{ path: "x", reason: "documented difference" }])).toEqual(["known-diffs[0]: file and path must be strings"]);
   });
 
-  test("the committed known-diffs cover only the local-trust fixtures and the login without a password", () => {
+  test("the committed known-diffs cover only the local-trust fixtures, the login without a password and the two engine exception texts", () => {
     const known = loadKnownDiffs();
     expect(known.length).toBeGreaterThan(0);
     const files = [...new Set(known.map((k) => k.file))].sort();
     expect(files).toEqual([
+      "api-auth-login-3-bad-json",
       "api-auth-login-noauth",
+      "api-settings-database-post-null",
       "api-v1-api-chat-noauth",
       "api-v1-chat-completions-noauth",
       "api-v1-messages-count-tokens-noauth",

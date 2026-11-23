@@ -5,13 +5,13 @@ import { json } from "../../src/server/http.js";
 
 const gz = () => new Request("http://h.test/", { headers: { "accept-encoding": "gzip, br" } });
 const big = JSON.stringify({ data: "x".repeat(5000) });
-const jsonHeaders = { "content-type": "application/json;charset=utf-8" };
+const jsonHeaders = { "content-type": "application/json" };
 
 describe("maybeCompress", () => {
   test("gzips a large JSON body when accepted", async () => {
     const res = await maybeCompress(gz(), json({ data: "x".repeat(5000) }));
     expect(res.headers.get("content-encoding")).toBe("gzip");
-    expect(res.headers.get("content-type")).toBe("application/json;charset=utf-8");
+    expect(res.headers.get("content-type")).toBe("application/json");
     expect(res.headers.get("vary")).toContain("Accept-Encoding");
     expect(res.headers.get("content-length")).toBeNull();
     const body = Bun.gunzipSync(new Uint8Array(await res.arrayBuffer()));

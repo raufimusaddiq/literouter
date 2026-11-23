@@ -2,7 +2,7 @@
   "status": 404,
   "headers": {
     "content-encoding": "gzip",
-    "content-type": "application/json;charset=utf-8"
+    "content-type": "application/json"
   },
   "body": {
     "error": "Key not found"

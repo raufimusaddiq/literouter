@@ -3,7 +3,7 @@
   "headers": {
     "access-control-allow-origin": "*",
     "content-encoding": "gzip",
-    "content-type": "application/json;charset=utf-8"
+    "content-type": "application/json"
   },
   "body": {
     "id": "pm/mock-ok",

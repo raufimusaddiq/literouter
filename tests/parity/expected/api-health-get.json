@@ -5,7 +5,7 @@
     "access-control-allow-methods": "GET, OPTIONS",
     "access-control-allow-origin": "*",
     "content-encoding": "gzip",
-    "content-type": "application/json;charset=utf-8"
+    "content-type": "application/json"
   },
   "body": {
     "ok": true

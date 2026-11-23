@@ -2,7 +2,7 @@
   "status": 403,
   "headers": {
     "content-encoding": "gzip",
-    "content-type": "application/json;charset=utf-8"
+    "content-type": "application/json"
   },
   "body": {
     "error": "Local only: CLI token required"
