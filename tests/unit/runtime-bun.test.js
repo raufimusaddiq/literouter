@@ -12,3 +12,15 @@ describe("runtimeBun", () => {
     expect(run.exitCode).toBe(2);
   });
 });
+
+describe("runtimeBun outside Bun", () => {
+  it("bunCommand returns a null command when process.versions.bun is absent", () => {
+    expect(bunCommand({ node: "22.0.0" })).toEqual({ command: null, env: { BUN_BE_BUN: "1" } });
+  });
+
+  it("a null command is what findNpm reports as missing", async () => {
+    const { findNpm } = await import("../../src/lib/pxpipe/install.js");
+    expect(bunCommand({}).command || null).toBeNull();
+    expect(findNpm()).toBe(process.execPath);
+  });
+});

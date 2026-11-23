@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, parse } from "node:path";
 import { buildApp, compileApp } from "../../scripts/build.mjs";
+import { writeProviderIconManifest } from "../../scripts/gen-provider-icon-manifest.mjs";
 
 let root;
 
@@ -65,6 +66,24 @@ describe("buildApp", () => {
     expect(readdirSync(join(outdir, "web", "assets"))).toEqual(["app-abc.js"]);
   });
 
+  it("removes the whole outdir so stale hashed files do not accumulate", async () => {
+    const outdir = join(root, "dist", "reused");
+    mkdirSync(outdir, { recursive: true });
+    writeFileSync(join(outdir, "index-old123.js"), "old");
+    await buildApp({ root, outdir, buildWeb: stubBuildWeb });
+    expect(existsSync(join(outdir, "index-old123.js"))).toBe(false);
+    expect(existsSync(join(outdir, "index.js"))).toBe(true);
+  });
+
+  it("refuses an outdir that is the repo root or a parent of it", async () => {
+    const marker = join(root, "keep.txt");
+    writeFileSync(marker, "keep");
+    await expect(buildApp({ root, outdir: root, buildWeb: stubBuildWeb })).rejects.toThrow("refusing to remove");
+    await expect(buildApp({ root, outdir: dirname(root), buildWeb: stubBuildWeb })).rejects.toThrow("refusing to remove");
+    await expect(buildApp({ root, outdir: parse(root).root, buildWeb: stubBuildWeb })).rejects.toThrow("refusing to remove");
+    expect(readFileSync(marker, "utf8")).toBe("keep");
+  });
+
   it("does not copy a server wrapper into the bundle", async () => {
     writeFileSync(join(root, "custom-server.js"), "wrapper");
     const { outdir, files } = await buildApp({ root, outdir: join(root, "dist", "nowrapper"), buildWeb: stubBuildWeb });
@@ -82,6 +101,24 @@ describe("buildApp", () => {
     await buildApp({ root, outdir: join(root, "dist", "manifest"), buildWeb: stubBuildWeb });
     const manifest = readFileSync(join(root, "src", "shared", "constants", "providerIconManifest.js"), "utf8");
     expect(manifest).toContain('"alpha"');
+  });
+});
+
+describe("writeProviderIconManifest", () => {
+  const manifest = () => join(root, "src", "shared", "constants", "providerIconManifest.js");
+
+  it("leaves a CRLF checkout of identical content untouched", () => {
+    writeProviderIconManifest({ root });
+    const crlf = readFileSync(manifest(), "utf8").replace(/\n/g, "\r\n");
+    writeFileSync(manifest(), crlf);
+    writeProviderIconManifest({ root });
+    expect(readFileSync(manifest(), "utf8")).toBe(crlf);
+  });
+
+  it("rewrites when the content differs", () => {
+    writeFileSync(manifest(), "stale");
+    writeProviderIconManifest({ root });
+    expect(readFileSync(manifest(), "utf8")).toContain("alpha");
   });
 });
 

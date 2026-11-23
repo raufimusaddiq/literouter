@@ -1,4 +1,4 @@
-import { readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 const defaultRoot = resolve(dirname(import.meta.dir));
@@ -16,7 +16,9 @@ export const PROVIDER_ICON_IDS = new Set(${JSON.stringify(ids, null, 2)});
 
 export function writeProviderIconManifest({ root = defaultRoot } = {}) {
   const text = generateProviderIconManifest({ root });
-  writeFileSync(join(root, MANIFEST_PATH), text);
+  const file = join(root, MANIFEST_PATH);
+  const current = existsSync(file) ? readFileSync(file, "utf8").replace(/\r\n/g, "\n") : null;
+  if (current !== text) writeFileSync(file, text);
   return text;
 }
 

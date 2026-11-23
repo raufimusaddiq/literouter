@@ -1,5 +1,5 @@
 import { cpSync, mkdirSync, readdirSync, rmSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, parse, relative, resolve } from "node:path";
 import { buildWeb as defaultBuildWeb } from "../src/web/build.js";
 import { writeProviderIconManifest } from "./gen-provider-icon-manifest.mjs";
 
@@ -48,6 +48,14 @@ async function runBuild(options) {
   return result;
 }
 
+function assertRemovable(out, root) {
+  const rel = relative(out, root);
+  const containsRoot = rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+  if (containsRoot || out === parse(out).root) {
+    throw new Error(`refusing to remove ${out}: the output directory must not be the repo root or one of its parents`);
+  }
+}
+
 async function buildSpa({ webOutdir, buildWeb }) {
   rmSync(webOutdir, { recursive: true, force: true });
   await buildWeb({ production: true, outdir: webOutdir });
@@ -55,6 +63,8 @@ async function buildSpa({ webOutdir, buildWeb }) {
 
 export async function buildApp({ root = repoRoot, outdir = "dist/app", entry = "src/server/index.js", buildWeb = defaultBuildWeb } = {}) {
   const out = absolute(root, outdir);
+  assertRemovable(out, resolve(root));
+  rmSync(out, { recursive: true, force: true });
   writeProviderIconManifest({ root });
   await buildSpa({ webOutdir: join(out, "web"), buildWeb });
   await runBuild({
@@ -63,7 +73,6 @@ export async function buildApp({ root = repoRoot, outdir = "dist/app", entry = "
     publicPath: "/",
     naming: SERVER_NAMING,
   });
-  rmSync(join(out, "public"), { recursive: true, force: true });
   cpSync(join(root, "public"), join(out, "public"), { recursive: true });
   return { outdir: out, files: listFiles(out) };
 }
