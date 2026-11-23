@@ -143,6 +143,7 @@
     "tests/unit/cursor-models.test.js": 6,
     "tests/unit/cursor-protobuf.test.js": 10,
     "tests/unit/cursor-timeout-abort-propagation.test.js": 5,
+    "tests/unit/custom-server-h2c.test.js": 3,
     "tests/unit/custom-server-peer-headers.test.js": 7,
     "tests/unit/dashboard-a11y-t27.test.js": 5,
     "tests/unit/dashboard-guard.test.js": 32,
