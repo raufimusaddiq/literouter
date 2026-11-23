@@ -86,9 +86,10 @@ http.createServer = (...args) => {
     if (received >= contentLength) serve();
     else {
       socket.setTimeout(H2C_READ_TIMEOUT_MS, () => socket.destroy());
-      socket.on("data", function readBody(chunk) {
+      const readBody = (chunk) => {
         if (received + chunk.length > MAX_H2C_BODY_BYTES) {
           socket.off("data", readBody);
+          req.off("data", readBody);
           socket.end("HTTP/1.1 413 Payload Too Large\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
           return;
         }
@@ -96,9 +97,12 @@ http.createServer = (...args) => {
         received += chunk.length;
         if (received < contentLength) return;
         socket.off("data", readBody);
+        req.off("data", readBody);
         socket.setTimeout(0);
         serve();
-      });
+      };
+      socket.on("data", readBody);
+      req.on("data", readBody);
       socket.resume();
     }
     return true;

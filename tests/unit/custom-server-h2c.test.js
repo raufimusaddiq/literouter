@@ -1,7 +1,9 @@
-const assert = require("node:assert/strict");
-const http = require("node:http");
-const net = require("node:net");
-const test = require("node:test");
+import http from "node:http";
+import net from "node:net";
+import { createRequire } from "node:module";
+import { expect, test } from "bun:test";
+
+const require = createRequire(import.meta.url);
 
 process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE = "1kb";
 
@@ -70,16 +72,16 @@ test("serves h2c POST requests as HTTP/1.1", async () => {
       "Content-Type: application/json",
     ], body);
 
-    assert.equal(seen.url, "/v1/chat/completions");
-    assert.equal(seen.headers.upgrade, undefined);
-    assert.equal(seen.headers["http2-settings"], undefined);
-    assert.equal(seen.headers.connection, "close");
-    assert.equal(seen.body, body);
+    expect(seen.url).toBe("/v1/chat/completions");
+    expect(seen.headers.upgrade).toBeUndefined();
+    expect(seen.headers["http2-settings"]).toBeUndefined();
+    expect(seen.headers.connection).toBe("close");
+    expect(seen.body).toBe(body);
 
-    assert.match(response, /^HTTP\/1\.1 200 OK\r\n/);
-    assert.match(response, /\r\nContent-Type: text\/event-stream\r\n/i);
-    assert.match(response, /\r\nConnection: close\r\n/i);
-    assert.match(response, /\r\n\r\ndata: \[DONE\]\n\n$/);
+    expect(response).toMatch(/^HTTP\/1\.1 200 OK\r\n/);
+    expect(response).toMatch(/\r\nContent-Type: text\/event-stream\r\n/i);
+    expect(response).toMatch(/\r\nConnection: close\r\n/i);
+    expect(response).toMatch(/\r\n\r\ndata: \[DONE\]\n\n$/);
   });
 });
 
@@ -91,8 +93,8 @@ test("rejects an h2c body above the proxy body cap with 413", async () => {
       "Content-Type: application/json",
     ], body);
 
-    assert.match(response, /^HTTP\/1\.1 413 Payload Too Large\r\n/);
-    assert.equal(seen.url, undefined);
+    expect(response).toMatch(/^HTTP\/1\.1 413 Payload Too Large\r\n/);
+    expect(seen.url).toBeUndefined();
   });
 });
 
@@ -103,7 +105,7 @@ test("rejects a chunked h2c request with 411 instead of dropping the body", asyn
       "Content-Type: application/json",
     ], "10\r\n{}\r\n0\r\n\r\n");
 
-    assert.match(response, /^HTTP\/1\.1 411 Length Required\r\n/);
-    assert.equal(seen.url, undefined);
+    expect(response).toMatch(/^HTTP\/1\.1 411 Length Required\r\n/);
+    expect(seen.url).toBeUndefined();
   });
 });
