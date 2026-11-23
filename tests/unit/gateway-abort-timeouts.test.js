@@ -10,7 +10,8 @@ const fx = vi.hoisted(() => ({
   executor: { noAuth: true, execute: vi.fn() },
 }));
 
-vi.mock("@/lib/db/index.js", () => ({
+vi.mock("@/lib/db/index.js", async () => ({
+  ...(await import("../../src/lib/db/index.js?actual")),
   getSettings: async () => ({ requireApiKey: false, comboStrategy: "fallback" }),
   getModelAliases: async () => ({}),
   getComboByName: async () => null,
@@ -22,8 +23,8 @@ vi.mock("@/lib/db/index.js", () => ({
   validateApiKey: async () => true,
 }));
 vi.mock("@/lib/disabledModelsDb", () => ({ getDisabledModels: async () => ({}) }));
-vi.mock("@/lib/db/repos/combosRepo.js", () => ({ getCombos: async () => [] }));
-vi.mock("@/lib/db/repos/apiKeysRepo.js", () => ({ getApiKeyByKey: async () => null }));
+vi.mock("@/lib/db/repos/combosRepo.js", async () => ({ ...(await import("../../src/lib/db/repos/combosRepo.js?actual")), getCombos: async () => [] }));
+vi.mock("@/lib/db/repos/apiKeysRepo.js", async () => ({ ...(await import("../../src/lib/db/repos/apiKeysRepo.js?actual")), getApiKeyByKey: async () => null }));
 vi.mock("@/lib/usageDb.js", () => ({
   saveRequestUsage: vi.fn(),
   trackPendingRequest: fx.pending,

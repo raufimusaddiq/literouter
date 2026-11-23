@@ -3,7 +3,8 @@ import { vi } from "#test/vi";
 
 const fx = vi.hoisted(() => ({ combos: [] }));
 
-vi.mock("@/lib/db/index.js", () => ({
+vi.mock("@/lib/db/index.js", async () => ({
+  ...(await import("../../src/lib/db/index.js?actual")),
   getSettings: async () => ({ requireApiKey: false, comboStrategy: "fallback" }),
   getModelAliases: async () => ({}),
   getComboByName: async (name) => fx.combos.find((c) => c.name === name) || null,
@@ -15,9 +16,9 @@ vi.mock("@/lib/db/index.js", () => ({
   validateApiKey: async () => true,
 }));
 vi.mock("@/lib/disabledModelsDb", () => ({ getDisabledModels: async () => ({}) }));
-vi.mock("@/lib/db/repos/combosRepo.js", () => ({ getCombos: async () => fx.combos }));
-vi.mock("@/lib/db/repos/apiKeysRepo.js", () => ({ getApiKeyByKey: async () => null }));
-vi.mock("@/lib/usageDb.js", () => ({ saveRequestUsage: vi.fn() }));
+vi.mock("@/lib/db/repos/combosRepo.js", async () => ({ ...(await import("../../src/lib/db/repos/combosRepo.js?actual")), getCombos: async () => fx.combos }));
+vi.mock("@/lib/db/repos/apiKeysRepo.js", async () => ({ ...(await import("../../src/lib/db/repos/apiKeysRepo.js?actual")), getApiKeyByKey: async () => null }));
+vi.mock("@/lib/usageDb.js", async () => ({ ...(await import("../../src/lib/usageDb.js?actual")), saveRequestUsage: vi.fn() }));
 vi.mock("@/sse/services/tokenRefresh.js", () => ({
   checkAndRefreshToken: async (_p, c) => c,
   updateProviderCredentials: vi.fn(),

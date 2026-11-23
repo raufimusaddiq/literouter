@@ -18,8 +18,8 @@ vi.mock("@/lib/usageDb.js", () => ({
   saveRequestDetail: vi.fn(async () => {}),
   saveRequestUsage: vi.fn(),
 }));
-vi.mock("../../open-sse/translator/concerns/image.js", async (orig) => ({
-  ...(await orig()),
+vi.mock("../../open-sse/translator/concerns/image.js", async () => ({
+  ...(await import("../../open-sse/translator/concerns/image.js?actual")),
   fetchImageAsBase64: vi.fn(async (url, opts) => { fx.imageOpts.push(opts); return null; }),
 }));
 
@@ -44,6 +44,15 @@ const base = (extra = {}) => ({
   connectionId: "c1",
   ...extra,
 });
+const advanceUntilSettled = async (p, stepMs) => {
+  let done = false;
+  const tracked = p.then((v) => { done = true; return v; }, (e) => { done = true; throw e; });
+  for (let i = 0; i < 50 && !done; i++) {
+    await new Promise((r) => setImmediate(r));
+    await vi.advanceTimersByTimeAsync(stepMs);
+  }
+  return tracked;
+};
 const plain = { modelInfo: { provider: "deepseek", model: "deepseek-chat" } };
 
 describe("bounded upstream body reads", () => {
@@ -54,9 +63,9 @@ describe("bounded upstream body reads", () => {
     let cancelled = false;
     const res = new Response(new ReadableStream({ cancel() { cancelled = true; } }));
     const p = readBodyBounded(res, { idleMs: 1000, totalMs: 60_000 });
-    const assertion = expect(p).rejects.toMatchObject({ code: "GATEWAY_TIMEOUT", phase: "idle" });
+    const settled = p.then(() => null, (e) => e);
     await vi.advanceTimersByTimeAsync(1001);
-    await assertion;
+    expect(await settled).toMatchObject({ code: "GATEWAY_TIMEOUT", phase: "idle" });
     expect(cancelled).toBe(true);
   });
 
@@ -67,16 +76,15 @@ describe("bounded upstream body reads", () => {
       cancel() { clearInterval(timer); },
     }));
     const p = readBodyBounded(res, { idleMs: 1000, totalMs: 3000 });
-    const assertion = expect(p).rejects.toBeInstanceOf(GatewayTimeoutError);
+    const settled = p.then(() => null, (e) => e);
     await vi.advanceTimersByTimeAsync(3600);
-    await assertion;
+    expect(await settled).toBeInstanceOf(GatewayTimeoutError);
   });
 
   it("forced SSE->JSON with a stalled upstream body -> 504 within the idle bound", async () => {
     fx.execute.mockResolvedValue({ response: stalledSse(), url: "u", headers: {}, transformedBody: {} });
     const p = handleChatCore(base());
-    await vi.advanceTimersByTimeAsync(361_000);
-    const r = await p;
+    const r = await advanceUntilSettled(p, 361_000);
     expect(r.success).toBe(false);
     expect(r.status).toBe(504);
   });
@@ -84,8 +92,7 @@ describe("bounded upstream body reads", () => {
   it("non-stream SSE body stalled in nonStreamingHandler -> 504", async () => {
     fx.execute.mockResolvedValue({ response: stalledSse(), url: "u", headers: {}, transformedBody: {} });
     const p = handleChatCore(base(plain));
-    await vi.advanceTimersByTimeAsync(361_000);
-    expect((await p).status).toBe(504);
+    expect((await advanceUntilSettled(p, 361_000)).status).toBe(504);
   });
 
   it("disposes the executor's request signal after a non-stream body is consumed", async () => {
