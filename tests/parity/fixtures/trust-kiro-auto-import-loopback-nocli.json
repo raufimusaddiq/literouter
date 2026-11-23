@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "trust-kiro-auto-import-loopback-nocli",
-  "method": "GET",
-  "path": "/api/oauth/kiro/auto-import"
-}

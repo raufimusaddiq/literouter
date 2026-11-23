@@ -1,8 +1,0 @@
-{
-  "peer": "proxied",
-  "auth": "none",
-  "id": "api-proxy-pools-netlify-deploy-noauth-proxied",
-  "method": "POST",
-  "path": "/api/proxy-pools/netlify-deploy",
-  "json": {}
-}

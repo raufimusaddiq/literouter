@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "edge-query-health",
-  "method": "GET",
-  "path": "/api/health?x=1"
-}

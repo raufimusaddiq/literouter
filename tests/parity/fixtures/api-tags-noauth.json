@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-tags-noauth",
-  "method": "GET",
-  "path": "/api/tags"
-}

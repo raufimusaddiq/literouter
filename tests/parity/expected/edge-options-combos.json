@@ -1,7 +1,0 @@
-{
-  "status": 204,
-  "headers": {
-    "allow": "GET, HEAD, OPTIONS, POST"
-  },
-  "upstream": []
-}

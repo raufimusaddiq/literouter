@@ -48,7 +48,6 @@ cd tests && CI=true bun test --parallel --reporter=junit --reporter-outfile=../t
 >
 > CI runs the workflow in `.github/workflows/test.yml`; expected red is 0. Judge regressions with `bun tests/__baseline__/verify-no-regression.mjs test-results.xml`.
 > - `tests/server/*.test.js` start the real server (`startServer({ port: 0, hostname: "127.0.0.1" })`) and cover trust, h2c, body limit, timeouts, disconnect, SIGTERM and the route table; `tests/server/no-next-server.test.js` guards that Next's server pieces stay deleted.
-> - `tests/parity/` records the app's HTTP behaviour (`run.mjs`) and diffs it against the goldens in `expected/`, recorded from the Node production image at `main@90ac4b20`, allowing only what `known-diffs.json` and `known-upstream-diffs.json` pin with a reason.
 - `*.real.test.js` under `tests/translator/real/` make live provider calls — skip unless credentials are set.
 - Regression baselines: `tests/__baseline__/verify-*.mjs` compare against committed snapshots (providers, aliases, OAuth URLs). Run these after touching provider registry / alias logic.
 
@@ -56,7 +55,7 @@ cd tests && CI=true bun test --parallel --reporter=junit --reporter-outfile=../t
 - One behaviour per test; the title names the behaviour, not the function.
 - No copy-pasted cases: cases that share a body and differ only in data are one `it.each` / `describe.each` table, with the real per-case differences as columns (a model version or provider id is a row, not a new file).
 - Shared helpers live only in `tests/helpers/` (plus the per-suite `helpers/` dirs) and are deleted in the PR that removes their last user.
-- Every fixture file is referenced by at least one test or script. Recorded corpora (`tests/parity/fixtures`, `tests/parity/expected`) are exempt by directory.
+- Every fixture file is referenced by at least one test or script.
 - Every `*.test.js` has an assertion (checked in CI). No test only asserts helpers it defines itself (review rule, not checked).
 - Merging or deleting tests needs a before/after assertion proof in the PR: name the cases and show every expectation survives.
 - `bun scripts/check-test-hygiene.mjs --check` runs in CI and fails on an unreferenced fixture or helper, a test file with no `expect(`, and a duplicate test title within a file. One-behaviour and no-restating stay review rules.

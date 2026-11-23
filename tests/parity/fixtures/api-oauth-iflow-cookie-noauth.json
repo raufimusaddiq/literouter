@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-oauth-iflow-cookie-noauth",
-  "method": "POST",
-  "path": "/api/oauth/iflow/cookie",
-  "json": {}
-}

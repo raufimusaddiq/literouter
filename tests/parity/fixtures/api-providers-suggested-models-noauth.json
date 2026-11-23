@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-providers-suggested-models-noauth",
-  "method": "GET",
-  "path": "/api/providers/suggested-models"
-}

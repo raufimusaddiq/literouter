@@ -1,7 +1,0 @@
-{
-  "peer": "proxied",
-  "auth": "cli",
-  "id": "trust-kiro-auto-import-proxied-cli",
-  "method": "GET",
-  "path": "/api/oauth/kiro/auto-import"
-}

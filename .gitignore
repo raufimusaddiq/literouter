@@ -102,10 +102,7 @@ debug.log
 bench-results/
 test-results.xml
 
-!tests/parity/fixtures/tls/*.pem
+!tests/server/helpers/tls/*.pem
 
-# parity run output
-/parity-actual/
-/parity-out/
 /dist/
 cli/app/

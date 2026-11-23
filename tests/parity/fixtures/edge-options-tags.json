@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "edge-options-tags",
-  "method": "OPTIONS",
-  "path": "/api/tags"
-}

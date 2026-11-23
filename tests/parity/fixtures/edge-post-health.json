@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "edge-post-health",
-  "method": "POST",
-  "path": "/api/health",
-  "json": {}
-}

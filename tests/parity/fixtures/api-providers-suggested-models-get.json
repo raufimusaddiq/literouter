@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-providers-suggested-models-get",
-  "method": "GET",
-  "path": "/api/providers/suggested-models"
-}

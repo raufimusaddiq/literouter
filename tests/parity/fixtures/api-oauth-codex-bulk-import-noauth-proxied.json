@@ -1,8 +1,0 @@
-{
-  "peer": "proxied",
-  "auth": "none",
-  "id": "api-oauth-codex-bulk-import-noauth-proxied",
-  "method": "POST",
-  "path": "/api/oauth/codex/bulk-import",
-  "json": {}
-}

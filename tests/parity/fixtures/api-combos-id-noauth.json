@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-combos-id-noauth",
-  "method": "GET",
-  "path": "/api/combos/nope-id"
-}

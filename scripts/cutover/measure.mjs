@@ -6,7 +6,7 @@ The baseline is the image of the current release and the candidate is the image 
   BASE_IMG=ghcr.io/raufimusaddiq/literouter-production:<current-release-tag>
   CAND_IMG=ghcr.io/raufimusaddiq/literouter-staging:<candidate-tag>
   1. Seed one data dir once (peer is never loopback in a container, so no dashboard API):
-       KEY=$(bun tests/parity/seed.mjs <seedDir> --upstream http://<host>:9101 --print-key | tail -1)
+       KEY=$(bun tests/server/helpers/seed.mjs <seedDir> --upstream http://<host>:9101 --print-key | tail -1)
      <host> is host.docker.internal where Docker maps it to the machine. On the dev box smoke it
      resolved to the bridge and refused, so use an address a container can reach (e.g. 172.24.0.1).
      Do not pass --add-host host.docker.internal:host-gateway: it overrides Docker's own mapping.

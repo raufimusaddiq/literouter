@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-keys-id-get",
-  "method": "GET",
-  "path": "/api/keys/nope-id"
-}

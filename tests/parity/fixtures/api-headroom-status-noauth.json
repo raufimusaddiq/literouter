@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-headroom-status-noauth",
-  "method": "GET",
-  "path": "/api/headroom/status"
-}

@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-models-catalog-sync-noauth",
-  "method": "GET",
-  "path": "/api/models/catalog-sync"
-}

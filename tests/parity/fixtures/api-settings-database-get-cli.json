@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "cli",
-  "id": "api-settings-database-get-cli",
-  "method": "GET",
-  "path": "/api/settings/database"
-}
