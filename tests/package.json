@@ -13,5 +13,8 @@
   },
   "engines": {
     "bun": ">=1.4.4"
+  },
+  "devDependencies": {
+    "bcryptjs": "^3.0.3"
   }
 }

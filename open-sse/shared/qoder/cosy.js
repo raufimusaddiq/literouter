@@ -1,6 +1,5 @@
 
 import crypto from "crypto";
-import { v4 as uuidv4 } from "uuid";
 
 import {
   QODER_CLIENT_TYPE,
@@ -13,7 +12,7 @@ import {
 } from "./constants.js";
 
 function generateAesKey() {
-  return uuidv4().slice(0, 16);
+  return crypto.randomUUID().slice(0, 16);
 }
 
 function pkcs7Pad(data, blockSize) {
@@ -70,7 +69,7 @@ function computeSigPath(requestUrl) {
 }
 
 export function generateMachineId() {
-  return uuidv4();
+  return crypto.randomUUID();
 }
 
 export function buildCosyHeaders(body, requestUrl, creds) {
@@ -92,7 +91,7 @@ export function buildCosyHeaders(body, requestUrl, creds) {
   });
 
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const requestId = uuidv4();
+  const requestId = crypto.randomUUID();
 
   const payloadJson = JSON.stringify({
     version: "v1",
@@ -130,6 +129,6 @@ export function buildCosyHeaders(body, requestUrl, creds) {
     "Cosy-Organization-Id": "",
     "Cosy-Organization-Tags": "",
     "Login-Version": QODER_LOGIN_VERSION,
-    "X-Request-Id": uuidv4(),
+    "X-Request-Id": crypto.randomUUID(),
   };
 }
