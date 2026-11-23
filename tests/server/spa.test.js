@@ -60,13 +60,13 @@ describe("SPA placeholder", () => {
   it("unauthenticated /dashboard redirects to /login", async () => {
     const res = await get("/dashboard");
     expect(res.status).toBe(307);
-    expect(new URL(res.headers.get("location")).pathname).toBe("/login");
+    expect(res.headers.get("location")).toBe("/login");
   });
 
   it("/ redirects to /dashboard", async () => {
     const res = await get("/");
     expect(res.status).toBe(307);
-    expect(new URL(res.headers.get("location")).pathname).toBe("/dashboard");
+    expect(res.headers.get("location")).toBe("/dashboard");
   });
 
   it("/login and /callback serve the SPA without a session", async () => {

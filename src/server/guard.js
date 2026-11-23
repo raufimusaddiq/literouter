@@ -4,7 +4,7 @@ import { verifyDashboardAuthToken } from "@/lib/auth/dashboardSession";
 import { buildErrorBody, resolveErrorFormat } from "open-sse/utils/error.js";
 import { checkApiKeyThrottle, recordApiKeyFailure } from "@/lib/auth/apiKeyThrottle";
 import { safeEqual } from "@/shared/utils/safeEqual";
-import { json, redirect, nextUrl, cookies } from "@/server/http.js";
+import { json, nextUrl, cookies } from "@/server/http.js";
 import { getRequestContext } from "@/server/context.js";
 
 const CLI_TOKEN_HEADER = "x-9r-cli-token";
@@ -150,6 +150,16 @@ function isPublicApi(pathname) {
   return PUBLIC_API_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+function redirectTo(target) {
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(target));
+      controller.close();
+    },
+  });
+  return new Response(body, { status: 307, headers: { Location: target } });
+}
+
 export const __test__ = {
   isLocalRequest,
   isPublicLlmApi,
@@ -165,7 +175,7 @@ export async function guard(request) {
     if (pathname.startsWith("/api/")) {
       return json({ error: "Not available in minimal profile" }, { status: 404 });
     }
-    return redirect(new URL("/dashboard", request.url));
+    return redirectTo("/dashboard");
   }
 
   if (isLocalOnlyRoute(request)) {
@@ -219,15 +229,15 @@ export async function guard(request) {
       if (await verifyDashboardAuthToken(token)) {
         return null;
       } else {
-        return redirect(new URL("/login", request.url));
+        return redirectTo("/login");
       }
     }
 
-    return redirect(new URL("/login", request.url));
+    return redirectTo("/login");
   }
 
   if (pathname === "/") {
-    return redirect(new URL("/dashboard", request.url));
+    return redirectTo("/dashboard");
   }
 
   return null;

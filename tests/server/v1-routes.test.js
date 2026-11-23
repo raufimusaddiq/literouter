@@ -27,6 +27,7 @@ let server;
 let base;
 let upstream;
 const upstreamSeen = [];
+const upstreamHeaders = [];
 let nextOctet = 10;
 
 const remote = () => ({ "x-forwarded-for": `203.0.113.${nextOctet++}` });
@@ -44,6 +45,12 @@ beforeAll(async () => {
     async fetch(req) {
       const url = new URL(req.url);
       upstreamSeen.push({ method: req.method, pathname: url.pathname, search: url.search, body: await req.text() });
+      upstreamHeaders.push(Object.fromEntries(req.headers));
+      if (url.pathname === "/hop") {
+        return new Response("hop", {
+          headers: { "keep-alive": "timeout=5", "proxy-authenticate": 'Basic realm="x"', "x-kept": "yes" },
+        });
+      }
       if (url.pathname === "/dashboard") {
         return new Response("<script>fetch('/stats');fetch('/health')</script>", {
           headers: { "content-type": "text/html; charset=utf-8", "x-upstream": "yes" },
@@ -65,6 +72,7 @@ afterAll(() => {
 beforeEach(() => {
   chatCalls.length = 0;
   upstreamSeen.length = 0;
+  upstreamHeaders.length = 0;
 });
 
 describe("v1 routes", () => {
@@ -74,7 +82,7 @@ describe("v1 routes", () => {
       expect(res.status).toBe(200);
       expect((await res.json()).id).toBe("chatcmpl-mock");
     }
-    expect(chatCalls).toHaveLength(3);
+    expect(chatCalls.map((c) => c.pathname)).toEqual(["/v1/chat/completions", "/v1/v1/chat/completions", "/api/v1/chat/completions"]);
     expect(chatCalls.every((c) => c.method === "POST" && c.body.model === "mock")).toBe(true);
   });
 
@@ -84,7 +92,7 @@ describe("v1 routes", () => {
       expect(res.status).toBe(200);
       expect((await res.json()).id).toBe("chatcmpl-mock");
     }
-    expect(chatCalls).toHaveLength(3);
+    expect(chatCalls.map((c) => c.pathname)).toEqual(["/codex/responses", "/responses", "/api/v1/responses"]);
     const options = await fetch(`${base}/responses`, { method: "OPTIONS" });
     expect(options.headers.get("access-control-allow-origin")).toBe("*");
   });
@@ -126,10 +134,12 @@ describe("v1 routes", () => {
     const body = await res.json();
     expect(body.candidates[0].content.parts[0].text).toBe("hi");
     expect(chatCalls).toHaveLength(1);
+    expect(chatCalls[0].pathname).toBe("/v1beta/models/gemini:generateContent");
     expect(chatCalls[0].body.model).toBe("gemini");
 
     const withProvider = await post("/v1beta/models/openai/gpt-x:generateContent", { contents: [{ role: "user", parts: [{ text: "x" }] }] });
     expect(withProvider.status).toBe(200);
+    expect(chatCalls[1].pathname).toBe("/v1beta/models/openai/gpt-x:generateContent");
     expect(chatCalls[1].body.model).toBe("openai/gpt-x");
   });
 });
@@ -146,13 +156,30 @@ describe("headroom and pxpipe", () => {
     expect(upstreamSeen[1]).toEqual({ method: "POST", pathname: "/transformations/feed", search: "", body: '{"a":1}' });
   });
 
-  it("headroom/proxy rewrites the dashboard html and drops hop-by-hop headers", async () => {
+  it("headroom/proxy rewrites the dashboard html and keeps the other upstream headers", async () => {
     const res = await fetch(`${base}/api/headroom/proxy/dashboard`);
     expect(res.status).toBe(200);
     expect(res.headers.get("x-upstream")).toBe("yes");
     expect(res.headers.get("content-type")).toContain("text/html");
     const html = await res.text();
     expect(html).toBe("<script>fetch('/api/headroom/proxy/stats');fetch('/api/headroom/proxy/health')</script>");
+  });
+
+  it("headroom/proxy drops hop-by-hop headers from the response and from the forwarded request", async () => {
+    const res = await fetch(`${base}/api/headroom/proxy/hop`, {
+      headers: { "keep-alive": "timeout=9", "proxy-authorization": "Basic abc", te: "trailers", "x-forwarded-thing": "kept" },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("hop");
+    expect(res.headers.get("x-kept")).toBe("yes");
+    expect(res.headers.get("keep-alive")).toBeNull();
+    expect(res.headers.get("proxy-authenticate")).toBeNull();
+    expect(upstreamSeen).toHaveLength(1);
+    const forwarded = upstreamHeaders[0];
+    expect(forwarded["x-forwarded-thing"]).toBe("kept");
+    expect(forwarded["keep-alive"]).toBeUndefined();
+    expect(forwarded["proxy-authorization"]).toBeUndefined();
+    expect(forwarded.te).toBeUndefined();
   });
 
   it("headroom/proxy reports an unreachable upstream as a 500 json error", async () => {
@@ -183,12 +210,19 @@ describe("headroom and pxpipe", () => {
     expect(upstreamSeen).toHaveLength(0);
   });
 
-  it("pxpipe and headroom status routes answer json from loopback", async () => {
-    for (const path of ["/api/pxpipe/status", "/api/pxpipe/stats", "/api/pxpipe/health", "/api/headroom/status"]) {
+  it("pxpipe and headroom status routes answer 200 json with their documented shape from loopback", async () => {
+    const shapes = {
+      "/api/pxpipe/status": ["installed", "running", "enabled", "mode"],
+      "/api/pxpipe/stats": ["windows", "timeline", "recent"],
+      "/api/pxpipe/health": ["healthy", "checks"],
+      "/api/headroom/status": ["installed", "running", "url", "extras"],
+    };
+    for (const [path, keys] of Object.entries(shapes)) {
       const res = await fetch(`${base}${path}`);
+      expect([path, res.status]).toEqual([path, 200]);
       expect(res.headers.get("content-type")).toContain("application/json");
-      expect(res.status).toBeLessThan(600);
-      await res.json();
+      const body = await res.json();
+      for (const key of keys) expect([path, key, key in body]).toEqual([path, key, true]);
     }
   });
 });

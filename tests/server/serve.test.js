@@ -155,6 +155,17 @@ describe("startServer", () => {
     expect(await res.text()).toBe("/api/keys");
   });
 
+  it("guard redirects use a relative Location and carry the target as the body, like Next", async () => {
+    const root = await fetch(`${base}/`, { redirect: "manual" });
+    expect(root.status).toBe(307);
+    expect(root.headers.get("location")).toBe("/dashboard");
+    expect(await root.text()).toBe("/dashboard");
+    const dash = await fetch(`${base}/dashboard`, { redirect: "manual" });
+    expect(dash.status).toBe(307);
+    expect(dash.headers.get("location")).toBe("/login");
+    expect(await dash.text()).toBe("/login");
+  });
+
   it("trailing slash redirects keep the query string and apply to catch-all, non-api and POST", async () => {
     const a = await fetch(`${base}/api/v1/models/?x=1`, { redirect: "manual", headers: auth });
     expect(a.status).toBe(308);

@@ -1,12 +1,12 @@
 import { SSE_HEADERS } from "open-sse/utils/sseConstants.js";
-import { getConsoleLogs, getConsoleEmitter, initConsoleLogCapture } from "@/lib/consoleLogBuffer";
+import { getConsoleLogs, getConsoleEmitter, getPendingLineCount, initConsoleLogCapture } from "@/lib/consoleLogBuffer";
 
 initConsoleLogCapture();
 
 export async function GET(request) {
   const encoder = new TextEncoder();
   const emitter = getConsoleEmitter();
-  const state = { closed: false, send: null, sendLines: null, sendClear: null, keepalive: null };
+  const state = { closed: false, send: null, sendLines: null, sendClear: null, keepalive: null, alreadySent: 0 };
 
   const cleanup = () => {
     if (state.closed) return;
@@ -22,6 +22,7 @@ export async function GET(request) {
   const stream = new ReadableStream({
     start(controller) {
       const buffered = getConsoleLogs();
+      state.alreadySent = getPendingLineCount();
       if (buffered.length > 0) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "init", logs: buffered })}\n\n`));
       }
@@ -35,8 +36,11 @@ export async function GET(request) {
         }
       };
 
-      state.sendLines = (lines) => {
-        if (state.closed || !Array.isArray(lines) || lines.length === 0) return;
+      state.sendLines = (batch) => {
+        if (state.closed || !Array.isArray(batch)) return;
+        const lines = batch.slice(state.alreadySent);
+        state.alreadySent = 0;
+        if (lines.length === 0) return;
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "lines", lines })}\n\n`));
         } catch {
