@@ -242,9 +242,40 @@ copy.
 
 ## Rollback rehearsal
 
-| Item | Result |
+Run on the production host (`the production host`) on 2026-11-23, approved by the owner. Production's
+`literouter` container and the `9router-data` volume were only read, and every rehearsal object
+was a throwaway `lr-rehearsal-*`, all removed afterwards. All rehearsal containers ran on an
+`--internal` Docker network (no egress), so nothing on the copy could reach a real provider.
+
+| Item | Value |
 | --- | --- |
-| pending | |
+| Production at the time | container `literouter`, image `production-a6c24a6d66a8d692d43c1e38173b8887813f6810`, healthy; host tree at `30ceec8d` |
+| Rollback target | `production-a6c24a6d` (Node, `better-sqlite3`). Migrations 001–005 are identical to `staging`, which differs only by deleted comments in `src/lib/db/schema.js` and `migrations/` |
+| Snapshot | `VACUUM INTO` from a read-only connection on `/app/data/db/data.sqlite` (225 MB + 18 MB WAL) into volume `lr-rehearsal-data`; `integrity_check` ok |
+| Copy contents | `_meta.schemaVersion=5`, 6 providerConnections, 7 apiKeys, 6 combos, 346 729 usageHistory, 91 usageDaily, 15 000 requestDetails |
+| Sanitize | `sanitize-soak-db.mjs`: deactivated 1 OAuth connection, kept 5 API-key connections |
+
+| Step | Result |
+| --- | --- |
+| A. Bun `staging-b3a4da44` boots on the real-shape copy | `/api/health` 200, driver `bun:sqlite`, 19.9 MiB RSS; SIGTERM → exit 0 |
+| A. Copy after Bun | `integrity_check` ok, `journal_mode` wal, every count unchanged |
+| A. Node rollback image on the same copy | `/api/health` 200, remote `/v1/models` 401, driver `better-sqlite3`, no DB errors in the log; SIGTERM → exit 0 |
+| A. Copy after Node | `integrity_check` ok, wal, every count unchanged |
+| B. Mock provider imported through `POST /api/settings/database` (CLI token) on Bun | 200 `{"success":true}` |
+| B. Bun: keyless `/v1/models`; non-stream and stream chat to the mock | 401; 200; 200 with exactly one `data: [DONE]` |
+| B. Node rollback image on the same copy, same calls | 401; 200; 200 with exactly one `data: [DONE]` |
+| B. Final copy | `integrity_check` ok; usageHistory +2, one row written under Bun and one under Node, the same per-image behaviour |
+| `deploy.sh` accepts the Node tag as a rollback target | yes: it takes any `production-<40 hex>`; `tests/unit/deploy-script.test.js` covers keeping the replaced tag on failed health or endpoint |
+
+Rollback procedure: check out the old tree with `git -C /home/ubuntu/9router checkout a6c24a6d66a8d692d43c1e38173b8887813f6810`,
+which restores the Node-era `compose.production.yml` with the `node -e` healthcheck. Then run
+`bash scripts/deploy.sh a6c24a6d66a8d692d43c1e38173b8887813f6810`. Never restore a backup over the volume:
+the DB stays compatible in both directions.
+
+Image size as the host reports it: this host uses the containerd snapshotter, where
+`docker image inspect .Size` counts the image differently. There it shows the Bun image at 354 MB
+and the Node production image at 1.11 GB. The 150 MB gate (see Performance) uses the classic store
+on the dev box and in CI.
 
 ## Cutover
 
