@@ -39,15 +39,11 @@ export default function PhoneTabBar({ onOpenMore, moreOpen = false }) {
 
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
-    document.addEventListener("focus", onFocusIn, true);
-    document.addEventListener("blur", onFocusOut, true);
     sync();
 
     return () => {
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
-      document.removeEventListener("focus", onFocusIn, true);
-      document.removeEventListener("blur", onFocusOut, true);
     };
   }, []);
 
@@ -98,7 +94,7 @@ export default function PhoneTabBar({ onOpenMore, moreOpen = false }) {
           type="button"
           onClick={onOpenMore}
           aria-expanded={moreOpen}
-          aria-controls="nav-sheet"
+          aria-controls={moreOpen ? "nav-sheet" : undefined}
           aria-current={moreActive ? "page" : undefined}
           className={cn(
             "relative flex min-h-[48px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 transition-colors",

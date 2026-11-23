@@ -256,7 +256,7 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
                           levels: question.levels.map((entry, i) => (i === levelIndex ? event.target.value : entry)),
                         })}
                         placeholder={`Level ${levelIndex} description`}
-                        className={fieldClass({ panel: true, className: "min-w-0 flex-1 px-2.5 py-2 text-sm" })}
+                        className={fieldClass({ panel: true, fill: false, className: "min-w-0 flex-1 px-2.5 py-2 text-sm" })}
                       />
                       <span className="flex shrink-0 items-center">
                         <IconButton

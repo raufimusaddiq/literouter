@@ -996,8 +996,8 @@ export default function ProviderLimits() {
             <span className="hidden sm:inline">Turn on Available</span>
           </Button>
 
-          <div
-            className="flex h-9 shrink-0 items-center gap-2 px-1"
+          <label
+            className="flex h-9 shrink-0 cursor-pointer items-center gap-2 px-1"
             title={autoRefresh ? "Disable auto-refresh" : "Enable auto-refresh"}
           >
             <Toggle
@@ -1012,17 +1012,16 @@ export default function ProviderLimits() {
                 ({countdown}s)
               </span>
             )}
-          </div>
+          </label>
 
           <Button
             variant="secondary"
             size="lg"
             icon="refresh"
             onClick={() => refreshAll(true)}
-            disabled={refreshingAll}
+            loading={refreshingAll}
             aria-label="Refresh all"
             title="Refresh all"
-            className={refreshingAll ? "[&>span]:animate-spin" : ""}
           />
         </div>
       </div>

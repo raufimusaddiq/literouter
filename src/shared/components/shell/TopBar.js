@@ -164,7 +164,7 @@ export default function TopBar({ onOpenMenu, menuOpen = false, onLogout = defaul
             type="button"
             onClick={onOpenMenu}
             aria-expanded={menuOpen}
-            aria-controls="nav-sheet"
+            aria-controls={menuOpen ? "nav-sheet" : undefined}
             className="inline-flex h-8 items-center justify-center rounded-md border border-line-strong px-2.5 text-[12.5px] font-semibold text-ink transition-colors hover:bg-raise"
           >
             Menu

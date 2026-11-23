@@ -572,7 +572,7 @@ export default function TokenSaverClient() {
           }
           status={
             <>
-              <Badge size="sm" variant={headroomRunning ? "success" : "default"}>
+              <Badge size="sm" variant={headroomRunning ? "success" : headroomStatus.loading ? "default" : "warning"}>
                 {headroomStatusLabel}
               </Badge>
               <button
@@ -757,7 +757,7 @@ export default function TokenSaverClient() {
             }
             status={
               <>
-                <Badge size="sm" variant={pxpipeHealthy || pxpipeStatus.running ? "success" : "default"}>
+                <Badge size="sm" variant={pxpipeHealthy || pxpipeStatus.running ? "success" : pxpipeStatus.loading || pxpipeStatus.installing ? "default" : "warning"}>
                   {pxpipeStatusLabel}
                 </Badge>
                 <button
@@ -791,7 +791,7 @@ export default function TokenSaverClient() {
           <div className="flex items-center justify-between text-sm">
             <span>Status</span>
             <span
-              className={headroomRunning ? "text-ok" : "text-muted"}
+              className={headroomRunning ? "text-ok" : headroomStatus.loading ? "text-muted" : "text-warning"}
             >
               {headroomStatusLabel}
             </span>
@@ -915,7 +915,7 @@ export default function TokenSaverClient() {
           </p>
           <div className="flex items-center justify-between text-sm">
             <span>Status</span>
-            <span className={pxpipeHealthy || pxpipeStatus.running ? "text-ok" : "text-muted"}>
+            <span className={pxpipeHealthy || pxpipeStatus.running ? "text-ok" : pxpipeStatus.loading || pxpipeStatus.installing ? "text-muted" : "text-warning"}>
               {pxpipeStatusLabel}
               {pxpipeStatus.version ? ` · v${pxpipeStatus.version}` : ""}
             </span>
@@ -925,11 +925,11 @@ export default function TokenSaverClient() {
               <p className="text-sm font-medium mb-1">Health check</p>
               {pxpipeHealth.checks.map((check) => (
                 <div key={check.id} className="flex items-center justify-between text-xs">
-                  <span className={check.ok ? "text-ok" : "text-muted"}>
+                  <span className={check.ok ? "text-ok" : "text-warning"}>
                     {check.ok ? "●" : "○"} {check.label}
                   </span>
                   {check.detail && (
-                    <span className="max-w-[50%] truncate font-mono text-muted">{check.detail}</span>
+                    <span className="max-w-[50%] truncate font-mono tabular-nums text-muted">{check.detail}</span>
                   )}
                 </div>
               ))}

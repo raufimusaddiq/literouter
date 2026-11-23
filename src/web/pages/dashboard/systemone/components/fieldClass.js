@@ -1,9 +1,9 @@
 import { cn } from "@/shared/utils/cn";
 
-export function fieldClass({ invalid = false, panel = false, className } = {}) {
+export function fieldClass({ invalid = false, panel = false, fill = true, className } = {}) {
   return cn(
     "rounded-md border text-ink placeholder:text-faint focus:outline-none focus:ring-2",
-    /(^|\s)(w-|flex-1)/.test(className || "") ? "" : "w-full",
+    fill && "w-full",
     panel ? "bg-bg" : "bg-raise",
     invalid
       ? "border-danger focus:border-danger focus:ring-danger"
