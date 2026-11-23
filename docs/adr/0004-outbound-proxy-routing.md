@@ -6,7 +6,7 @@
 
 ## Context
 
-All upstream traffic leaves through a patched global `fetch` (`proxyFetch`) that supports per-connection proxy pools, relay-style pools (Vercel, Cloudflare, Deno, Netlify), and a direct path with a shared undici dispatcher. Operators can mark a pool "strict", meaning traffic must never leave over the host's real IP. The direct path also has to cope with upstream edges that silently drop idle sockets. These decisions describe how strictness, keep-alive replay and relay deployment behave.
+All upstream traffic leaves through a patched global `fetch` (`proxyFetch`) that supports per-connection proxy pools, relay-style pools (Vercel, Cloudflare, Deno, Netlify), and a direct path on Bun's native `fetch` (proxied calls pass `proxy: <normalized url>`). Operators can mark a pool "strict", meaning traffic must never leave over the host's real IP. The direct path also has to cope with upstream edges that silently drop idle sockets. These decisions describe how strictness, keep-alive replay and relay deployment behave.
 
 ## Decisions
 
@@ -24,9 +24,9 @@ The Cursor AgentService uses Node http2 duplex streams and bypasses `proxyAwareF
 
 ### D3. Direct path: capped keep-alive and a single fresh-socket replay
 
-Upstream edges (Cloudflare, AWS Global Accelerator) drop idle sockets without a RST, which once hung requests about 249s before a 502. The shared direct dispatcher caps the keep-alive TTL so undici never reuses a socket the edge already dropped. When a pooled socket still dies before response headers, `proxyFetch` replays once on a fresh socket instead of waiting out the connect timeout. Only errors proving socket death qualify (never a bare "fetch failed", since the upstream may already hold the request and a replay would bill it twice); DNS, refused-connect and TLS failures are excluded so a really unreachable host is not mistaken for a stale socket. Only bodies that can be sent twice are replayable (fail closed: a stream is consumable once). The residual risk that `UND_ERR_SOCKET` / "other side closed" fires after the body was written, causing a rare double POST, is accepted and matches the executor's own 502 retry. `FETCH_FRESH_RETRY=off` removes the replay. Headers timeouts must not assume the upstream is idle, since it may be generating after receiving the request.
+Upstream edges (Cloudflare, AWS Global Accelerator) drop idle sockets without a RST, which once hung requests about 249s before a 502. Bun's `fetch` exposes no keep-alive TTL, so the former 4 s keep-alive cap (`FETCH_KEEPALIVE_TIMEOUT_MS`, `resolveKeepAliveTimeouts`) is inert: nothing in the transport reads it. Protection against edge-dropped sockets now rests entirely on the one-shot fresh-socket replay: when a pooled socket dies before response headers, `proxyFetch` replays once with `keepalive: false` (a new connection) instead of waiting out the connect timeout. Only errors proving socket death qualify (never a bare "fetch failed", since the upstream may already hold the request and a replay would bill it twice); DNS, refused-connect and TLS failures are excluded so a really unreachable host is not mistaken for a stale socket. Only bodies that can be sent twice are replayable (fail closed: a stream is consumable once). The residual risk that `UND_ERR_SOCKET` / "other side closed" fires after the body was written, causing a rare double POST, is accepted and matches the executor's own 502 retry. `FETCH_FRESH_RETRY=off` removes the replay. Headers timeouts must not assume the upstream is idle, since it may be generating after receiving the request.
 
-**Where:** `open-sse/utils/proxyFetch.js`: `getDirectDispatcher`, `isStaleSocketError`, `isBodyReplaySafe`, `directFetch`; `open-sse/config/runtimeConfig.js`; `tests/unit/proxy-keepalive-dead-socket.test.js`
+**Where:** `open-sse/utils/proxyFetch.js`: `isStaleSocketError`, `isBodyReplaySafe`, `directFetch`; `open-sse/config/runtimeConfig.js`; `tests/unit/proxy-keepalive-dead-socket.test.js`
 
 ### D4. Raw proxyAwareFetch callers are still bounded
 
