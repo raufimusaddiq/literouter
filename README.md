@@ -61,6 +61,6 @@ Production topology, deploy, rollback and backup: [docs/ops.md](docs/ops.md). Re
 
 ## Upstream
 
-LiteRouter tracks [9Router](https://github.com/decolua/9router). Keep local changes focused; bring upstream fixes over by reviewing and cherry-picking them.
+LiteRouter tracks [9Router](https://github.com/decolua/9router). Upstream is still Next.js on Node, so fixes come over by reviewed cherry-picks, rewritten to Bun where they touch Next or Node-only code. The steps are in [AGENTS.md](AGENTS.md#upstream-intake).
 
 Licensed under [MIT](LICENSE). Upstream 9Router attribution remains in [9Router](https://github.com/decolua/9router).
