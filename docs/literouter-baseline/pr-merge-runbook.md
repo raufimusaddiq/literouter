@@ -150,11 +150,11 @@ git -C /home/ubuntu/9router worktree list
 If reclaim is incomplete or ownership is uncertain, stop and report the
 remaining reclaimable usage instead of proceeding.
 
-**Deploy order.** Do these in sequence; each gates the next:
+**Deploy order.** As of 2026-11-23 production runs the Bun image `production-e428843dbf4a838e777e339f35d599ec55b5ec6b`. Do these in sequence; each gates the next:
 
 1. The image workflow for the merged SHA is `completed success`
    (`gh run watch --repo raufimusaddiq/literouter`). The tag does not exist before that.
-2. The host tree is on that same SHA (step 1 above).
+2. The host tree is on that same SHA (step 1 above). This holds in both directions: `scripts/deploy.sh` brings up `compose.production.yml` from the host tree, and the healthcheck there is the Bun one, so check out the target SHA *before* running the script, for a rollback as well as a roll forward. A Node-era compose file cannot be used: its healthcheck needs `node`, which the Bun image does not have.
 3. Reclaim is done and recorded (steps 2-4).
 4. Run `bash scripts/deploy.sh <full-sha>`.
 
@@ -195,6 +195,8 @@ that discards data written since the backup and can leave the schema and code
 out of step. Fix the problem in a new commit, merge it, and deploy that SHA
 (roll forward). Redeploying the previous image is only safe when the failed
 release applied no migration; check before choosing it.
+
+**Rolling back.** Production runs the Bun image. To go back, check out an earlier `main` SHA whose compose file is the Bun one in the host tree, then run `bash scripts/deploy.sh <that full sha>`, which pulls that SHA's `production-<sha>` image. Rolling back to the Node image is no longer supported: the Node image and the pre-Bun database backup were deleted after the cutover, and the Node-era compose healthcheck needs `node`. The Bun and Node builds carry identical migrations (001-005), so the cutover itself applied none.
 
 ### Edge-guard log file
 
@@ -354,5 +356,5 @@ missing, short or malformed argument.
   at boot by the additive schema sync (`ALTER TABLE ... ADD COLUMN`, no default, no
   table rewrite). `SCHEMA_VERSION` was deliberately not bumped: that would trigger
   the full-table pre-schema backup at boot. Old rows stay NULL.
-- Container: `NODE_OPTIONS=--max-old-space-size=512` inside `mem_limit: 768m`.
+- Container: `mem_limit: 768m` is the memory ceiling. V8's `--max-old-space-size` does not apply on Bun (the old `NODE_OPTIONS` setting is gone); `BUN_OPTIONS=--smol` is the opt-in knob for a smaller heap.
   No CPU limit: 3.8% average is not a basis for a cap.

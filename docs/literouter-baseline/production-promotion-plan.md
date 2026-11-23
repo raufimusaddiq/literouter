@@ -17,7 +17,14 @@ instead.
 `main` is this repository's default branch. References to “master” below mean
 `main`. The target is one LiteRouter production instance; HA is out of scope.
 
-## Current facts — 2026-09-20
+## Current production state — 2026-11-23
+
+- Production runs the Bun image `production-e428843dbf4a838e777e339f35d599ec55b5ec6b` (the Bun rewrite, `phase-bun-cutover.md`).
+- Rollback means an earlier Bun `production-<sha>` image: Node rollback is no longer supported, because the Node image and the pre-Bun backup were deleted and the Node-era compose healthcheck needs `node`.
+- The host compose healthcheck is the Bun one (`compose.production.yml`). Deploy order, in both directions: check out the target SHA in the host tree first, then run `bash scripts/deploy.sh <full-sha>`.
+- Public URL: `https://ai.musaddiqr.com`. Same volume, same SQLite file, no config change from the Node build.
+
+## Current facts — 2026-09-20 (historical, Node era)
 
 - `ai.musaddiqr.com` reaches container `9router` at `172.30.0.2:20128`.
 - Production state is the writable Docker volume `9router-data`; its SQLite
@@ -49,10 +56,10 @@ network database purely to serve a transition measured in seconds.
 Evidence that one writer at a time is already safe, both recorded against a
 **copy** of `9router-data` rather than the live volume:
 
-- `phase-minimal-boundary.md` — the production image with
+- `phase-minimal-boundary.md` (historical, Node era) — the production image with
   `MINIMAL_PROFILE=true` reads that copy (`providers: 3 combos: 4 keys: 5
   usage: 40956`) and reports `health: {"ok":true}`.
-- `phase-rollback-rehearsal.md` — the *prior* production image boots from the
+- `phase-rollback-rehearsal.md` (historical, Node era) — the *prior* production image boots from the
   same copy with no schema error and reads its provider and usage tables, so a
   rollback needs no schema downgrade.
 
@@ -192,9 +199,9 @@ Cutover procedure — one writer at a time, no overlap:
    pre-main integration branch. Production is the
    only LiteRouter deployment.
 
-Rollback: stop LiteRouter, restore the verified backup if the new schema was
+Rollback (as planned for the 2026-09 swap): stop LiteRouter, restore the verified backup if the new schema was
 written, start the prior 9Router image against `9router-data`, and flip Caddy
-back. Never point the old image at a database whose schema it has not been
+back. For the current Bun release, check out an earlier `main` SHA that has the Bun compose in the host tree and run `scripts/deploy.sh <that sha>` (see the PR merge runbook); the Node image is no longer a rollback target. Never point the old image at a database whose schema it has not been
 tested against.
 
 Known, accepted cost: step 2 is a write outage, and a request in flight at that

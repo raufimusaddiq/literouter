@@ -22,7 +22,7 @@ isolated development machines, not this instance.
 cp .env.example .env
 bun install
 bun run dev                         # Bun.serve development server (bun --hot)
-bun run start                       # production-style local server (no build needed)
+bun run build && bun run start      # bundle into dist/app, then run it
 bun --bun run eslint .                      # lint
 cd tests && bun test --parallel
 ```

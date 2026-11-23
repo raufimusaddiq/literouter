@@ -1,6 +1,6 @@
 # Docker
 
-Run LiteRouter in a container. Published image: [`decolua/9router`](https://hub.docker.com/r/decolua/9router) — multi-platform `linux/amd64` + `linux/arm64`.
+Run LiteRouter in a container. Published image: `ghcr.io/raufimusaddiq/literouter:1.0.0` (published by the `v1.0.0` tag; `ghcr.io/raufimusaddiq/literouter:<version>` for later releases) — multi-platform `linux/amd64` + `linux/arm64`. The runtime is Bun; the image is Alpine plus one compiled executable.
 
 ---
 
@@ -13,8 +13,8 @@ docker run -d \
   -p 20128:20128 \
   -v "$HOME/.9router:/app/data" \
   -e DATA_DIR=/app/data \
-  --name 9router \
-  decolua/9router:latest
+  --name literouter \
+  ghcr.io/raufimusaddiq/literouter:1.0.0
 ```
 
 App listens on port `20128`. Open: http://localhost:20128
@@ -22,10 +22,10 @@ App listens on port `20128`. Open: http://localhost:20128
 ## Manage container
 
 ```bash
-docker logs -f 9router        # view logs
-docker stop 9router           # stop
-docker start 9router          # start again
-docker rm -f 9router          # remove
+docker logs -f literouter        # view logs
+docker stop literouter           # stop
+docker start literouter          # start again
+docker rm -f literouter          # remove
 ```
 
 ## Data persistence
@@ -44,8 +44,10 @@ $DATA_DIR/
 ├── db/
 │   ├── data.sqlite       # main SQLite database
 │   └── backups/          # auto backups
-└── ...                   # certs, logs, runtime configs
+└── ...                   # other runtime files
 ```
+
+Upgrading from the Node build of 9Router or LiteRouter: keep the same volume and `DATA_DIR`. Nothing in the data or the environment changes.
 
 Host path: `$HOME/.9router/db/data.sqlite`
 Container path: `/app/data/db/data.sqlite`
@@ -60,8 +62,8 @@ docker run -d \
   -e PORT=20128 \
   -e HOSTNAME=0.0.0.0 \
   -e DEBUG=true \
-  --name 9router \
-  decolua/9router:latest
+  --name literouter \
+  ghcr.io/raufimusaddiq/literouter:1.0.0
 ```
 
 ## Optional Headroom sidecar
@@ -70,8 +72,8 @@ The LiteRouter image does not bundle Python or Headroom. To use Headroom in Dock
 
 ```yaml
 services:
-  9router:
-    image: decolua/9router:latest
+  literouter:
+    image: ghcr.io/raufimusaddiq/literouter:1.0.0
     ports:
       - "20128:20128"
     volumes:
@@ -92,11 +94,11 @@ In the dashboard, open `Endpoint` → `Token Saver` → `Headroom`, confirm the 
 
 If Headroom runs on the Docker host instead of as a sidecar, use `http://host.docker.internal:8787` on macOS/Windows. On Linux, add `--add-host=host.docker.internal:host-gateway` or the equivalent compose `extra_hosts` entry.
 
-## Update to latest
+## Update to a new version
 
 ```bash
-docker pull decolua/9router:latest
-docker rm -f 9router
+docker pull ghcr.io/raufimusaddiq/literouter:<new version>
+docker rm -f literouter
 # re-run the quick start command
 ```
 
@@ -132,3 +134,5 @@ The runtime is Bun (JavaScriptCore), so V8's `--max-old-space-size` does nothing
 ## Publish (automatic via CI)
 
 A push to `staging` builds both platforms (amd64 and arm64) and publishes only `ghcr.io/<repo>-staging:staging-<sha>`. Production images are `ghcr.io/<repo>-production:production-<full-sha>`, and the deploy scripts accept only that form.
+
+Pushing a `v*` tag (for example `v1.0.0`) runs `.github/workflows/docker-publish.yml`, which publishes `ghcr.io/<repo>:<version>` (and `latest` when the workflow runs on the default branch).

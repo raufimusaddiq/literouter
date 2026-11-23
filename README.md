@@ -38,6 +38,8 @@ docker compose up -d
 
 Open `http://localhost:20128`. Configure providers in the dashboard, then point a compatible client at `http://localhost:20128/v1`.
 
+LiteRouter 1.0.0 runs on the Bun runtime with no Next.js. From v1.0.0 the multi-platform image is also published as `ghcr.io/raufimusaddiq/literouter:1.0.0` (see [DOCKER.md](DOCKER.md)). The server listens on port `20128` (dashboard at `/dashboard`, API at `/v1`). State is one SQLite file, `db/data.sqlite`, under `DATA_DIR` (default `~/.9router/`, `%APPDATA%9router` on Windows).
+
 For the repository production deployment, use [`compose.production.yml`](compose.production.yml). Image builds run in GitHub Actions; the host pulls published images. `staging` is the pre-main integration branch: it builds CI and a `-staging` image only, with no staging deployment and no `staging-latest` tag.
 
 ## Install the CLI
@@ -51,7 +53,7 @@ literouter
 
 Run once without installing: `bunx literouter`. Upgrade with `bun add -g literouter@latest`.
 
-Coming from the upstream `9router` package? Remove it, then install LiteRouter. Config, database and environment are unchanged:
+Coming from the upstream `9router` package? Remove it, then install LiteRouter. It reads the same data directory, so there are no config, database or environment changes:
 
 ```bash
 npm rm -g 9router

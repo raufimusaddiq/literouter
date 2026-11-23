@@ -91,8 +91,8 @@ Two authoritative docs already exist — read them before working in these areas
 ### Persistence — IMPORTANT
 State is **no longer `db.json`**. It's a SQLite layer under `src/lib/db/` on `bun:sqlite` only (`driver.js` throws without the Bun runtime); the former `better-sqlite3`, `node:sqlite` and `sql.js` fallbacks are gone.
 - `src/lib/localDb.js` is a **backward-compat shim** re-exporting `src/lib/db/index.js`. New code should import from `@/lib/db/index.js`; per-entity logic lives in `src/lib/db/repos/*`. Schema/migrations in `src/lib/db/migrations/`.
-- DB file location resolves via `src/lib/db/paths.js` (`DATA_DIR`, else `~/.9router/`).
-- Usage/logs (`src/lib/usageDb.js`, `usage.json` + `log.txt`) still live under `~/.9router` and do **not** follow `DATA_DIR`.
+- DB file location resolves via `src/lib/db/paths.js` from `DATA_DIR` (`src/lib/dataDir.js`), else `~/.9router/` (`%APPDATA%9router` on Windows). The file is `<data dir>/db/data.sqlite`.
+- Usage and request details live in the same SQLite file and follow `DATA_DIR`. `src/lib/usageDb.js` and `src/lib/requestDetailsDb.js` re-export the repos in `src/lib/db/`; `usage.json` and the other `LEGACY_FILES` in `paths.js` are only read by the one-time import. File request logs (`ENABLE_REQUEST_LOGS=true`, `open-sse/utils/requestLogger.js`) are written to `./logs` under the process working directory, not `DATA_DIR`.
 
 ### RTK token saver (`open-sse/rtk/`)
 Pre-translate hooks that compress `tool_result` content in-place to cut tokens. **Fail-open**: any error returns null and leaves the body untouched — never throw out of them. Skips `is_error`/`status:"error"` results to preserve traces.

@@ -55,7 +55,7 @@ Comments are banned in this repo. The `local/no-comments` ESLint rule enforces t
 7. **Verify.**
    - `bunx --bun eslint .` passes.
    - The full test suite shows no regression. Run it with the junit or verify script the branch uses (`tests/__baseline__/verify-no-regression.mjs`).
-   - `npm run build` passes (or `bun run build` once Plan 4 lands).
+   - `bun run build` passes.
    - The diff removes comments only, apart from blank-line cleanup. Spot-check it with `git diff --stat` and a sample of files.
 
 8. **Tighten the ratchet.**

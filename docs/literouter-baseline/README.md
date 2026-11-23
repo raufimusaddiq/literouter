@@ -5,7 +5,7 @@ contract; the PRD (`docs/PRD-LITEROUTER-MINIMAL.md`) is authoritative.
 
 Production replacement and HA prerequisites: [production promotion plan](production-promotion-plan.md).
 
-## Phase 1 baseline (production, image `literouter:v0.5.81-kenari-luna`)
+## Phase 1 baseline (historical, Node era; production image `literouter:v0.5.81-kenari-luna`)
 
 | Metric | Value |
 | --- | --- |
@@ -29,13 +29,13 @@ Earlier phase documents record the counts they saw at their own capture time
 superseded by the table above and are retained only as the evidence for the
 check that was run.
 
-Rollback reference: `literouter:v0.5.81-kenari-luna` (production), previous
-`literouter:v0.5.75-kenari-fix`.
+Rollback reference at that capture (historical, Node era): `literouter:v0.5.81-kenari-luna`
+(production), previous `literouter:v0.5.75-kenari-fix`. Since 2026-11-23 production runs the Bun image; a rollback means an earlier Bun image (see the [promotion plan](production-promotion-plan.md)).
 
 ## Hot-path cache measurements
 
-Measured against a copy of the production SQLite dataset (5000 iterations,
-`node:sqlite`), comparing the uncached SQLite read against the in-process cache
+Measured on the Node image against a copy of the production SQLite dataset (5000
+iterations, `node:sqlite`; the server now uses `bun:sqlite` only), comparing the uncached SQLite read against the in-process cache
 added on `staging`:
 
 | Read | Uncached | Cached | Change |
@@ -61,7 +61,7 @@ Redis is cache-only. Production volume and port are never shared.
 
 ## Historical full-suite comparison (baseline vs staging)
 
-(Historical, vitest era.) Run with `npm --prefix tests test -- --run` in a clean worktree at
+(Historical, vitest era; the suite now runs with `cd tests && bun test --parallel`.) Run with `npm --prefix tests test -- --run` in a clean worktree at
 `origin-literouter/main` versus the current `staging` branch:
 
 | | Test files | Tests |
