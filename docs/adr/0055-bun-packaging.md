@@ -12,7 +12,7 @@ Plans 1 to 3 moved the server and the dashboard onto Bun. Plan 4 changes how the
 
 ### D1. No cwd guard for the bundle
 
-A `Bun.build` bundle with no HTML imports resolves `join(import.meta.dir, ...)` assets from any working directory (probed), so the planned `assertBundleCwd` was dropped and the contract changed with it. `tests/unit/bundle-cwd.test.js` asserts a run from the bundle's own directory and from another one.
+A `Bun.build` bundle with no HTML imports resolves `join(import.meta.dir, ...)` assets from any working directory (probed), so the planned `assertBundleCwd` was dropped and the contract changed with it. `tests/server/bundle-cwd.test.js` asserts a run from the bundle's own directory and from another one.
 
 **Where:** `src/server/paths.js`; `scripts/build.mjs`
 

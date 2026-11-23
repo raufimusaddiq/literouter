@@ -23,7 +23,7 @@ cp .env.example .env
 bun install
 bun run dev                         # Bun.serve development server (bun --hot)
 bun run start                       # production-style local server (no build needed)
-bunx --bun eslint .                        # lint
+bun --bun run eslint .                      # lint
 cd tests && bun test --parallel
 ```
 
