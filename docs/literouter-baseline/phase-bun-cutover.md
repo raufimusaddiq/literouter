@@ -340,12 +340,17 @@ healthy, and the old one would already be gone. So the host tree moves first, in
 | Item | Result |
 | --- | --- |
 | Drift check before the PR (`git diff --stat 90ac4b20… origin/main -- src open-sse cli package.json Dockerfile compose.production.yml`) | empty on 2026-11-23 (`main` = `90ac4b20`) |
-| Cutover PR / merge SHA | pending |
-| Merge tree equals tested `staging` tree | pending |
-| `OLD_TAG` / `OLD_SHA` / `rollback-node` / backup | pending |
-| Production image checks and trust gates on it | pending |
-| Switch time and measured gap | pending |
-| Post-switch checks | pending |
+| Cutover PR / merge SHA | #259, merged by the owner on 2026-11-23 at about 14:21 UTC as `e428843dbf4a838e777e339f35d599ec55b5ec6b` |
+| Merge tree equals tested `staging` tree | yes. Both trees are `2d77ebf535f486f827da8ba1e6a516a32b3032dc`. `main` history contains no host address |
+| `OLD_TAG` / `OLD_SHA` / `rollback-node` / backup | `production-a6c24a6d66a8d692d43c1e38173b8887813f6810` / `a6c24a6d66a8d692d43c1e38173b8887813f6810` / tagged (image `38cff4d0a62e`) / `/home/ubuntu/backups/pre-bun-20261123.sqlite`: 203 MB, `VACUUM INTO` from a read-only connection through the Node image, `integrity_check` ok, providerConnections 6, apiKeys 7, combos 6, usageHistory 346 767, requestDetails 15 000, schemaVersion 5 |
+| Production image checks and trust gates on it | `production-e428843d…` is 116 307 042 B (amd64, classic store) with no `node`. Trust gates 13/13 PASS on that image, in two independent runs |
+| Switch time and measured gap | Host tree checked out to `e428843d` (`BUN_BE_BUN` present in the compose healthcheck), then `deploy.sh e428843d…` at 14:23:18 UTC. Container healthy at 14:23:19; deploy exit 0 at 14:23:25. Measured gap: one failed probe at 1 s intervals |
+| Post-switch checks | Public `/api/health` 200, keyless `/v1/models` 401, `/login` 200. The local-only `/api/oauth/cursor/auto-import` answers 403 from the public side (remote). Logs show `[DB] Driver: bun:sqlite` on `/app/data/db/data.sqlite` and `[Redis] connected`, with no errors. Real client traffic since the switch (Kenari and Claude streams) completed upstream 200 with a full `message_stop`. Usage counters rose (usageHistory 346 767 → 346 769). `integrity_check` ok, WAL. RSS 19.9 MiB at start, about 53 MiB under load (768 MiB limit), 0 restarts. The owner's session walked every dashboard page on the public host: 0 console errors, 0 failed requests out of 277. No rollback |
+
+Notes from the switch:
+- The Sumopod connection holds a stored upstream 401 ("Authentication Error") that predates the switch: it is in the pre-switch Node backup. Overview still counts it as ready. This is a separate fix, not a cutover regression.
+- One `[model-tracking] no pricing row for kenari/muse-ember-1-0` warning appears on stderr.
+- An hourly watcher ran after the switch with automatic rollback on a trigger.
 
 ## Release
 
