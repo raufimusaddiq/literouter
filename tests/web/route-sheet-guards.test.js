@@ -47,6 +47,8 @@ export const GUARDED_PATHS = [
   "src/web/pages/dashboard/combos",
   "src/web/pages/dashboard/systemone",
   "src/web/pages/dashboard/token-saver",
+  "src/web/pages/dashboard/quota",
+  "src/web/pages/dashboard/usage/components/ProviderLimits",
 ];
 
 const BACKDROP_BLUR_ALLOWED = new Set(["src/shared/components/shell/TopBar.js"]);
