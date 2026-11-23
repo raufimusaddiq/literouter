@@ -1,0 +1,22 @@
+[
+  {
+    "match": "^trust-",
+    "reason": "peer locality: the image run reaches the app through the Docker gateway, so every request is remote and the loopback-local behaviour cannot be recorded"
+  },
+  {
+    "match": "^api-headroom-.*-noauth(-proxied)?$",
+    "reason": "environment: the production image sets MINIMAL_PROFILE=true (404 not available) and the source run does not"
+  },
+  {
+    "match": "^(api-settings-get|api-models-catalog-sync-get|api-models-get|v1-v1beta-key-query|v1-v1beta-models)$",
+    "reason": "environment: the production image runs with MINIMAL_PROFILE, request logs and DATA_DIR=/app/data, which change settings, the catalog file path and the model list"
+  },
+  {
+    "match": "^(api-usage-providers-get|api-usage-request-details-get)$",
+    "reason": "environment: request logging is on in the production image and off in the source run, so usage and request-detail rows differ"
+  },
+  {
+    "match": "^(zz-login-lockout|zz-throttle-wrong-keys)$",
+    "reason": "peer locality: the throttle buckets by peer address; behind the Docker gateway every fixture shares one bucket, so the attempt counts differ from a loopback run"
+  }
+]

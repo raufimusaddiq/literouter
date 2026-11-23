@@ -16,14 +16,16 @@ const ONLY = flag("--only");
 const PREFIXES = flag("--prefixes")?.split(",");
 const NODE_PORT = Number(flag("--node-port", 21128));
 const BUN_PORT = Number(flag("--bun-port", 21129));
+const NAME_PREFIX = flag("--name-prefix", "p5t2");
 const HOST_IP = flag("--host-ip") ?? hostIp();
 const KEEP = args.includes("--keep");
 const WARM_MS = Number(flag("--warm-ms", 100000));
-const NODE_NAME = "p5t2-node";
-const BUN_NAME = "p5t2-bun";
+const KNOWN = path.resolve(flag("--known", path.join(repoRoot, "scripts/cutover/image-known-diffs.json")));
+const NODE_NAME = `${NAME_PREFIX}-node`;
+const BUN_NAME = `${NAME_PREFIX}-bun`;
 
 function hostIp() {
-  const probe = Bun.spawnSync(["docker", "run", "--rm", "--name", "p5t2-probe", "alpine", "sh", "-c", "ip route | awk '/default/ {print $3}'"]);
+  const probe = Bun.spawnSync(["docker", "run", "--rm", "--name", `${NAME_PREFIX}-probe`, "alpine", "sh", "-c", "ip route | awk '/default/ {print $3}'"]);
   const gateway = probe.stdout.toString().trim();
   const ifaces = Object.values(os.networkInterfaces()).flat().filter((a) => a && a.family === "IPv4" && !a.internal).map((a) => a.address);
   return ifaces.find((a) => a.startsWith(gateway.split(".").slice(0, 2).join("."))) ?? ifaces[0] ?? gateway;
@@ -133,7 +135,7 @@ try {
 
   const none = path.join(work, "none.json");
   fs.writeFileSync(none, "[]");
-  const compare = sh(["bun", "tests/parity/compare.mjs", baselineOut, bunOut, "--known", none]);
+  const compare = sh(["bun", "tests/parity/compare.mjs", baselineOut, bunOut, "--known", KNOWN]);
   process.stdout.write(compare.out);
   process.stderr.write(compare.err);
   const upstreamCmp = sh(["bun", "tests/parity/compare-upstream.mjs", baselineOut, bunOut, "--known", none]);
