@@ -1,5 +1,16 @@
 
-const JSON_CONTENT_TYPE = "application/json;charset=utf-8";
+const JSON_CONTENT_TYPE = "application/json";
+const BUN_JSON_CONTENT_TYPE = "application/json;charset=utf-8";
+
+const bunResponseJson = Response.json.bind(Response);
+
+export function responseJson(data, init) {
+  const res = bunResponseJson(data, init);
+  if (res.headers.get("content-type") === BUN_JSON_CONTENT_TYPE) res.headers.set("content-type", JSON_CONTENT_TYPE);
+  return res;
+}
+
+Response.json = responseJson;
 
 export function json(body, init = {}) {
   const text = JSON.stringify(body);
