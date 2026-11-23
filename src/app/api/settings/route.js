@@ -1,11 +1,8 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { getSettings, updateSettings } from "@/lib/localDb";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { resetComboRotation } from "open-sse/services/combo.js";
 import { hashPassword, verifyPassword } from "@/lib/auth/password.js";
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 const SETTINGS_RESPONSE_HEADERS = {
   "Cache-Control": "no-store"
@@ -21,7 +18,7 @@ export async function GET() {
     const enableRequestLogs = process.env.ENABLE_REQUEST_LOGS === "true";
     const minimalProfile = process.env.MINIMAL_PROFILE === "true";
 
-    return NextResponse.json({
+    return json({
       ...safeSettings,
       enableRequestLogs,
       minimalProfile,
@@ -29,7 +26,7 @@ export async function GET() {
     }, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
     console.log("Error getting settings:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return json({ error: error.message }, { status: 500 });
   }
 }
 
@@ -45,15 +42,15 @@ export async function PATCH(request) {
 
       if (currentHash) {
         if (!body.currentPassword) {
-          return NextResponse.json({ error: "Current password required" }, { status: 400 });
+          return json({ error: "Current password required" }, { status: 400 });
         }
         const isValid = await verifyPassword(body.currentPassword, currentHash);
         if (!isValid) {
-          return NextResponse.json({ error: "Invalid current password" }, { status: 401 });
+          return json({ error: "Invalid current password" }, { status: 401 });
         }
       } else {
         if (body.currentPassword && body.currentPassword !== "123456") {
-           return NextResponse.json({ error: "Invalid current password" }, { status: 401 });
+           return json({ error: "Invalid current password" }, { status: 401 });
         }
       }
 
@@ -92,9 +89,9 @@ export async function PATCH(request) {
     }
 
     const { password, ...safeSettings } = settings;
-    return NextResponse.json(safeSettings, { headers: SETTINGS_RESPONSE_HEADERS });
+    return json(safeSettings, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
     console.log("Error updating settings:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return json({ error: error.message }, { status: 500 });
   }
 }

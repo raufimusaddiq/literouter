@@ -1,18 +1,16 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { getCombos, createCombo, getComboByName } from "@/lib/localDb";
 import { validateCombo } from "./validate.js";
-
-export const dynamic = "force-dynamic";
 
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
 
 export async function GET() {
   try {
     const combos = await getCombos();
-    return NextResponse.json({ combos });
+    return json({ combos });
   } catch (error) {
     console.log("Error fetching combos:", error);
-    return NextResponse.json({ error: "Failed to fetch combos" }, { status: 500 });
+    return json({ error: "Failed to fetch combos" }, { status: 500 });
   }
 }
 
@@ -22,28 +20,28 @@ export async function POST(request) {
     const { name, models, kind } = body;
 
     if (!name) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+      return json({ error: "Name is required" }, { status: 400 });
     }
 
     if (!VALID_NAME_REGEX.test(name)) {
-      return NextResponse.json({ error: "Name can only contain letters, numbers, -, _ and ." }, { status: 400 });
+      return json({ error: "Name can only contain letters, numbers, -, _ and ." }, { status: 400 });
     }
 
     const existing = await getComboByName(name);
     if (existing) {
-      return NextResponse.json({ error: "Combo name already exists" }, { status: 400 });
+      return json({ error: "Combo name already exists" }, { status: 400 });
     }
 
     const invalid = await validateCombo({ name, models: models ?? [] });
     if (invalid) {
-      return NextResponse.json({ error: invalid }, { status: 400 });
+      return json({ error: invalid }, { status: 400 });
     }
 
     const combo = await createCombo({ name, models: models || [], kind: kind || null });
 
-    return NextResponse.json(combo, { status: 201 });
+    return json(combo, { status: 201 });
   } catch (error) {
     console.log("Error creating combo:", error);
-    return NextResponse.json({ error: "Failed to create combo" }, { status: 500 });
+    return json({ error: "Failed to create combo" }, { status: 500 });
   }
 }

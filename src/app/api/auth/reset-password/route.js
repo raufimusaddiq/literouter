@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { updateSettings } from "@/lib/localDb";
 
 export async function POST() {
   try {
     await updateSettings({ password: null });
-    return NextResponse.json({ success: true });
+    return json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return json({ error: error.message }, { status: 500 });
   }
 }

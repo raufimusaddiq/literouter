@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
 import { isLocalRequest } from "@/server/guard.js";
 
@@ -49,11 +49,11 @@ export async function POST(request) {
     const { baseUrl, apiKey, type, modelId } = body;
 
     if (!baseUrl || !apiKey) {
-      return NextResponse.json({ error: "Base URL and API key required" }, { status: 400 });
+      return json({ error: "Base URL and API key required" }, { status: 400 });
     }
 
     if (!isValidUrl(baseUrl)) {
-      return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
+      return json({ error: "Invalid URL format" }, { status: 400 });
     }
 
     const localOperator = isLocalRequest(request);
@@ -62,7 +62,7 @@ export async function POST(request) {
       try {
         await assertPublicUrlResolved(baseUrl);
       } catch {
-        return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+        return json({ error: "URL not allowed" }, { status: 400 });
       }
     }
 
@@ -83,10 +83,10 @@ export async function POST(request) {
         }
       });
 
-      if (res.ok) return NextResponse.json({ valid: true });
+      if (res.ok) return json({ valid: true });
 
       if (res.status === 401 || res.status === 403) {
-        return NextResponse.json({ valid: false, error: "API key unauthorized" });
+        return json({ valid: false, error: "API key unauthorized" });
       }
 
       if (modelId) {
@@ -106,16 +106,16 @@ export async function POST(request) {
           })
         });
         if (chatRes.ok) {
-          return NextResponse.json({ valid: true, method: "chat" });
+          return json({ valid: true, method: "chat" });
         }
-        return NextResponse.json({
+        return json({
           valid: false,
           error: getChatErrorMessage(chatRes.status),
           method: "chat"
         });
       }
 
-      return NextResponse.json({ valid: false, error: getModelsErrorMessage(res.status) });
+      return json({ valid: false, error: getModelsErrorMessage(res.status) });
     }
 
     if (type === "systemone") {
@@ -126,7 +126,7 @@ export async function POST(request) {
         body: JSON.stringify({ model: "ping", state: "ping", questions: {} }),
       });
       const valid = res.status !== 401 && res.status !== 403;
-      return NextResponse.json({ valid, error: valid ? null : "API key unauthorized" });
+      return json({ valid, error: valid ? null : "API key unauthorized" });
     }
 
     const modelsUrl = `${baseUrl.replace(/\/$/, "")}/models`;
@@ -135,10 +135,10 @@ export async function POST(request) {
       headers: { "Authorization": `Bearer ${apiKey}` },
     });
 
-    if (res.ok) return NextResponse.json({ valid: true });
+    if (res.ok) return json({ valid: true });
 
     if (res.status === 401 || res.status === 403) {
-      return NextResponse.json({ valid: false, error: "API key unauthorized" });
+      return json({ valid: false, error: "API key unauthorized" });
     }
 
     if (modelId) {
@@ -156,16 +156,16 @@ export async function POST(request) {
         })
       });
       if (chatRes.ok) {
-        return NextResponse.json({ valid: true, method: "chat" });
+        return json({ valid: true, method: "chat" });
       }
-      return NextResponse.json({
+      return json({
         valid: false,
         error: getChatErrorMessage(chatRes.status),
         method: "chat"
       });
     }
 
-    return NextResponse.json({ valid: false, error: getModelsErrorMessage(res.status) });
+    return json({ valid: false, error: getModelsErrorMessage(res.status) });
   } catch (error) {
     const errorMessage = getErrorMessage(error);
     console.error("Error validating provider node:", {
@@ -174,7 +174,7 @@ export async function POST(request) {
       code: error.cause?.code,
       userMessage: errorMessage
     });
-    return NextResponse.json({ 
+    return json({ 
       valid: false,
       error: errorMessage 
     }, { status: 500 });

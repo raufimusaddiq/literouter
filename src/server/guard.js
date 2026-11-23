@@ -126,7 +126,7 @@ async function canAccessLocalOnlyRoute(request) {
 }
 
 async function hasValidToken(request) {
-  const token = cookies(request).get("auth_token")?.value;
+  const token = cookies(request).get("auth_token");
   return await verifyDashboardAuthToken(token);
 }
 
@@ -214,7 +214,7 @@ export async function guard(request) {
 
     if (!requireLogin) return null;
 
-    const token = cookies(request).get("auth_token")?.value;
+    const token = cookies(request).get("auth_token");
     if (token) {
       if (await verifyDashboardAuthToken(token)) {
         return null;

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { createProviderNode, getProviderNodes } from "@/models";
 import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, SYSTEM_ONE_PREFIX } from "@/shared/constants/providers";
 import { generateId } from "@/shared/utils";
@@ -6,7 +6,6 @@ import { assertPublicUrlResolved } from "@/shared/utils/ssrfGuard.js";
 import { isLocalRequest } from "@/server/guard.js";
 import { PROVIDERS } from "open-sse/config/providers.js";
 
-export const dynamic = "force-dynamic";
 const PROVIDER_NODE_RESERVED_PREFIXES = new Set(Object.keys(PROVIDERS).flatMap((id) => {
   const entry = PROVIDERS[id];
   return [id, entry?.alias, ...(entry?.aliases || [])].filter(Boolean);
@@ -23,10 +22,10 @@ const ANTHROPIC_COMPATIBLE_DEFAULTS = {
 export async function GET() {
   try {
     const nodes = await getProviderNodes();
-    return NextResponse.json({ nodes });
+    return json({ nodes });
   } catch (error) {
     console.log("Error fetching provider nodes:", error);
-    return NextResponse.json({ error: "Failed to fetch provider nodes" }, { status: 500 });
+    return json({ error: "Failed to fetch provider nodes" }, { status: 500 });
   }
 }
 
@@ -36,11 +35,11 @@ export async function POST(request) {
     const { name, prefix, apiType, baseUrl, type } = body;
 
     if (!name?.trim()) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+      return json({ error: "Name is required" }, { status: 400 });
     }
 
     if (!prefix?.trim()) {
-      return NextResponse.json({ error: "Prefix is required" }, { status: 400 });
+      return json({ error: "Prefix is required" }, { status: 400 });
     }
 
     const nodeType = type || "openai-compatible";
@@ -50,7 +49,7 @@ export async function POST(request) {
         ? body.transports.filter((t) => ["chat_completions", "responses", "messages"].includes(t))
         : null;
       if (!transports?.length && (!apiType || !["chat", "responses"].includes(apiType))) {
-        return NextResponse.json({ error: "Invalid OpenAI compatible API type" }, { status: 400 });
+        return json({ error: "Invalid OpenAI compatible API type" }, { status: 400 });
       }
 
       const node = await createProviderNode({
@@ -62,7 +61,7 @@ export async function POST(request) {
         baseUrl: (baseUrl || OPENAI_COMPATIBLE_DEFAULTS.baseUrl).trim(),
         name: name.trim(),
       });
-      return NextResponse.json({ node }, { status: 201 });
+      return json({ node }, { status: 201 });
     }
 
     if (nodeType === "anthropic-compatible") {
@@ -78,29 +77,29 @@ export async function POST(request) {
         baseUrl: sanitizedBaseUrl,
         name: name.trim(),
       });
-      return NextResponse.json({ node }, { status: 201 });
+      return json({ node }, { status: 201 });
     }
 
     if (nodeType === "systemone") {
       const trimmedPrefix = prefix.trim();
       if (trimmedPrefix.startsWith(SYSTEM_ONE_PREFIX) || PROVIDER_NODE_RESERVED_PREFIXES.has(trimmedPrefix)) {
-        return NextResponse.json({ error: "Reserved prefix" }, { status: 400 });
+        return json({ error: "Reserved prefix" }, { status: 400 });
       }
       const sanitizedBaseUrl = baseUrl.trim().replace(/\/$/, "");
       try {
         new URL(sanitizedBaseUrl);
       } catch {
-        return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
+        return json({ error: "Invalid URL format" }, { status: 400 });
       }
       const localOperator = isLocalRequest(request);
       try {
         await assertPublicUrlResolved(sanitizedBaseUrl, { allowPrivate: localOperator });
       } catch {
-        return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+        return json({ error: "URL not allowed" }, { status: 400 });
       }
       const existingNodes = await getProviderNodes();
       if (existingNodes.some((node) => node.prefix === trimmedPrefix)) {
-        return NextResponse.json({ error: "Prefix already in use" }, { status: 400 });
+        return json({ error: "Prefix already in use" }, { status: 400 });
       }
       const node = await createProviderNode({
         id: `${SYSTEM_ONE_PREFIX}${generateId()}`,
@@ -112,12 +111,12 @@ export async function POST(request) {
           ? body.models.map((m) => String(m).trim()).filter(Boolean).slice(0, 64)
           : undefined,
       });
-      return NextResponse.json({ node }, { status: 201 });
+      return json({ node }, { status: 201 });
     }
 
-    return NextResponse.json({ error: "Invalid provider node type" }, { status: 400 });
+    return json({ error: "Invalid provider node type" }, { status: 400 });
   } catch (error) {
     console.log("Error creating provider node:", error);
-    return NextResponse.json({ error: "Failed to create provider node" }, { status: 500 });
+    return json({ error: "Failed to create provider node" }, { status: 500 });
   }
 }
