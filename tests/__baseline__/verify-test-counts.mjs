@@ -1,10 +1,6 @@
-// Gate: no test file may have fewer cases (pass+fail+skip+todo) than its recorded baseline.
-// Usage: bun tests/__baseline__/verify-test-counts.mjs <junit.xml>
 import { readFileSync } from "node:fs";
 import { parseJunit } from "./junit.mjs";
 
-// A file that fails to load is absent from Bun's junit (no root `errors`); this gate catches it
-// because a baseline file with no cases counts as 0 < baseline.
 export function checkCounts(baselineFiles, cases) {
   const actual = {};
   for (const c of cases) actual[c.file] = (actual[c.file] ?? 0) + 1;
@@ -13,7 +9,6 @@ export function checkCounts(baselineFiles, cases) {
     .filter(r => r.actual < r.expected);
 }
 
-// True when no junit file path matches any baseline key (wrong cwd, e.g. not run from tests/).
 export function pathsMismatch(baselineFiles, cases) {
   return cases.length > 0 && !cases.some(c => c.file in baselineFiles);
 }

@@ -167,3 +167,21 @@ describe("migrate-vitest-to-bun snapshot multi-line strings", () => {
     expect(convertSnapshot(out)).toBe(out);
   });
 });
+
+describe("migrate-vitest-to-bun comment hygiene", () => {
+  it("never adds comment text to a converted test file", () => {
+    const src = `import { describe, it, expect, vi } from "vitest";\nvi.doMock("./a.js", () => ({}));\nit.fails("x", () => {});\nconst a = await vi.importActual("./a.js");\n`;
+    expect(T(src)).not.toMatch(/\/\/|\/\*/);
+  });
+
+  it("never adds comment text when injecting a missing vi import", () => {
+    expect(T(`vi.fn();\n`)).not.toMatch(/\/\/|\/\*/);
+  });
+
+  it("only rewrites the snapshot header line, adding no other comment", () => {
+    const out = convertSnapshot("// Vitest Snapshot v1, x\n\nexports[`A > b 1`] = `1`;\n");
+    expect(out.split("\n").filter((l) => l.startsWith("//"))).toEqual([
+      "// Bun Snapshot v1, https://bun.sh/docs/test/snapshots",
+    ]);
+  });
+});

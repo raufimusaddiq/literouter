@@ -1,14 +1,11 @@
-// vitest `vi` compatibility layer for bun:test.
-// Members Bun implements are copied by reference (NOT wrapped): vi.mock must stay
-// the very same function so relative specifiers resolve against the calling test file.
 import { vi as bunVi, jest } from "bun:test";
 
 const flushMicrotasks = async () => {
   for (let i = 0; i < 5; i++) await Promise.resolve();
 };
 
-const envStubs = new Map(); // name -> { existed, value }
-const globalStubs = new Map(); // name -> descriptor | undefined
+const envStubs = new Map();
+const globalStubs = new Map();
 
 const extras = {
   hoisted(fn) {
@@ -25,20 +22,6 @@ const extras = {
     jest.setSystemTime(t);
   },
 
-  // Jump from deadline to deadline instead of stepping every ms. A sentinel timer at the
-  // window end guarantees advanceTimersToNextTimer never lands past the window. The sentinel is
-  // re-armed (newest timer) before every jump so timers created inside the window with a deadline
-  // exactly at the window end still fire before it. Microtasks are flushed after every jump so
-  // timers created by awaited callbacks also fire. Elapsed time is measured via Date.now() (so a
-  // callback calling setSystemTime mid-window skews it). Bun's timer clock has integer-ms resolution
-  // and treats delay 0 as 1ms, so fractional ms are floored.
-  //
-  // advance(0): fires timers due "now" (setTimeout(fn), setTimeout(fn, 0)) and delay-0 timers
-  // scheduled by their awaited callbacks, like vitest. Bun can only do this through
-  // advanceTimersByTime(0), which moves its timer clock 1ms per pass, so (a) Date.now() is
-  // restored with setSystemTime, (b) the internal timer clock still drifts 1ms per pass, and
-  // (c) Bun cannot tell setTimeout(fn, 0) from setTimeout(fn, 1): a 1ms timer also fires
-  // (vitest would not fire it).
   async advanceTimersByTimeAsync(ms) {
     const total = Math.max(0, Math.floor(ms));
     await flushMicrotasks();

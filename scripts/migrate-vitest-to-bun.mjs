@@ -1,24 +1,16 @@
 #!/usr/bin/env bun
-// Re-runnable vitest -> bun:test codemod. Keep until cutover: every main -> staging
-// merge brings vitest-style tests and the merge procedure re-runs this script.
-//
-//   bun scripts/migrate-vitest-to-bun.mjs [--check] [paths...]
-//
-// Pure API: transform(source, filePath) -> string; analyze() also returns manual-review items.
 import fs from "node:fs";
 import path from "node:path";
 
 const TYPE_ONLY = new Set(["Mock", "MockInstance", "MockedFunction", "Mocked", "SpyInstance"]);
 const SKIP_DIRS = new Set(["node_modules", ".claude", "dist", ".git"]);
 
-// Returns a same-length copy of src with comments and string/template-literal text blanked
-// (newlines kept) so regexes only see real code. `${}` expressions stay visible.
 function maskSource(src) {
   const out = src.split("");
   const blank = (i) => {
     if (out[i] !== "\n" && out[i] !== "\r") out[i] = " ";
   };
-  const stack = []; // open template expressions, each tracking brace depth
+  const stack = [];
   let i = 0;
   let inTemplate = false;
   const n = src.length;
@@ -87,8 +79,6 @@ function baseName(spec) {
   return spec.replace(/^type\s+/, "").split(/\s+as\s+/)[0].trim();
 }
 
-// Walks back from the `.` of `.fails(` over identifiers, dots and balanced () / [] groups
-// and returns the root identifier of the member-call chain ("it", "test", ...).
 function chainRoot(mask, dotIdx) {
   let i = dotIdx - 1;
   while (i >= 0) {
@@ -108,7 +98,6 @@ function chainRoot(mask, dotIdx) {
   return m ? m[0] : "";
 }
 
-// Offset just past a shebang line and any "use strict" directives at the top of the file.
 function prologueEnd(source) {
   let pos = 0;
   if (source.startsWith("#!")) {
@@ -128,12 +117,11 @@ export function analyze(source, filePath = "") {
   const eol = source.includes("\r\n") ? "\r\n" : "\n";
   const mask = maskSource(source);
   const manual = [];
-  const edits = []; // {start,end,text}
+  const edits = [];
   const report = (idx, kind) => manual.push({ file: filePath, line: lineOf(source, idx), kind });
   const hasViImport = /(^|\n)[ \t]*import\s*\{\s*vi(?:\s+as\s+[\w$]+)?\s*\}\s*from\s*["']#test\/vi["']/.test(source);
   let viImported = false;
 
-  // 1. named vitest imports (anchored at line start, real code only)
   const importRe = /^import\s*\{([^}]*)\}\s*from\s*(["'])vitest\2[ \t]*;?/gm;
   for (const m of source.matchAll(importRe)) {
     if (mask[m.index] !== "i") continue;
@@ -162,7 +150,6 @@ export function analyze(source, filePath = "") {
     edits.push({ start: m.index, end, text: lines.join(eol) });
   }
 
-  // type-only imports from vitest carry no runtime value: drop them
   const typeImportRe = /^import\s+type\s*\{[^}]*\}\s*from\s*(["'])vitest\1[ \t]*;?/gm;
   const droppedTypeImports = new Set();
   for (const m of source.matchAll(typeImportRe)) {
@@ -174,7 +161,6 @@ export function analyze(source, filePath = "") {
     edits.push({ start: m.index, end, text: "" });
   }
 
-  // other vitest import shapes: report, never silently skip
   const otherRes = [
     /\bimport\s+[\w$*][^;\n"']*\bfrom\s*(["'])vitest(?:\/[^"']*)?\1/g,
     /\bimport\s*\(\s*(["'])vitest(?:\/[^"']*)?\1\s*\)/g,
@@ -184,14 +170,12 @@ export function analyze(source, filePath = "") {
   ];
   for (const re of otherRes) {
     for (const m of source.matchAll(re)) {
-      // inside a comment/string the leading keyword is blanked in the mask
       if (mask[m.index] !== source[m.index]) continue;
       if (droppedTypeImports.has(m.index)) continue;
       report(m.index, "unsupported-vitest-import");
     }
   }
 
-  // 2/3. code rewrites + 4. manual-review reports, on masked text
   for (const m of mask.matchAll(/\bvi\.doMock(?=\s*\()/g)) {
     edits.push({ start: m.index + 3, end: m.index + 9, text: "mock" });
   }
@@ -211,7 +195,6 @@ export function analyze(source, filePath = "") {
   }
   manual.sort((a, b) => a.line - b.line);
 
-  // 5. vitest globals: file uses `vi.` but never imports it
   const usesVi = /(?<![\w$.])vi\.[A-Za-z_]/.test(mask);
   const declaresVi = /\b(?:const|let|var|function)\s+vi\b/.test(mask);
   if (usesVi && !declaresVi && !hasViImport && !viImported) {
@@ -232,8 +215,6 @@ export function transform(source, filePath = "") {
   return analyze(source, filePath).output;
 }
 
-// vitest .snap -> bun .snap: only the header and the key separator change
-// (vitest joins describe/test names with " > ", bun with " "); values are kept verbatim.
 export function convertSnapshot(source) {
   const out = source.replace(
     /^\/\/ Vitest Snapshot v1, [^\r\n]*/,
@@ -245,8 +226,6 @@ export function convertSnapshot(source) {
   return reflowMultilineStrings(keyed);
 }
 
-// pretty-format prints `"key": "a<nl>b",` for a multi-line string property; bun prints
-// `"key": <nl>"a<nl>b"<nl>,`. Same value, different layout.
 function reflowMultilineStrings(text) {
   const lines = text.split("\n");
   const res = [];

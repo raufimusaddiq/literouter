@@ -1,8 +1,3 @@
-// Usage: bun tests/__baseline__/record-test-counts.mjs <vitest-json> [out-file] [--sha <sha>]
-// Freezes the per-file test count (every assertionResult, any status) from a vitest JSON report.
-// Files that failed to load (0 assertions) need an entry in test-counts-overrides.json
-// ({ "<key>": { "count": N, "reason": "..." } }); otherwise a warning is printed to stderr.
-// *.live.test.js files are intentionally absent because vitest excluded them.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -15,7 +10,6 @@ if (si >= 0) { sha = args[si + 1]; args.splice(si, 2); }
 const [resultsPath, outPath] = args;
 if (!resultsPath) { console.error("Missing vitest json path"); process.exit(2); }
 
-// Same rule as relative() in verify-no-regression.mjs (copied; keep in sync).
 const relative = name => {
   const n = name.split(String.fromCharCode(92)).join("/");
   const j = n.lastIndexOf("/tests/");

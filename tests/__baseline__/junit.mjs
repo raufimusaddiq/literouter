@@ -1,6 +1,3 @@
-// Minimal parser for `bun test --reporter=junit` output. No XML dependency.
-// Layout: <testsuites errors="N"> > file <testsuite> > nested describe <testsuite>s > <testcase>.
-// `<skipped/>` (skip and todo) -> "skipped"; <failure>/<error> child -> "failed".
 
 const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
 export const decode = s =>
@@ -12,13 +9,12 @@ export const decode = s =>
     return ENTITIES[e] ?? m;
   });
 
-// Report paths may be absolute/backslashed; known-fails keys are "tests/<path>".
 export function relativeFile(name) {
   const n = name.split(String.fromCharCode(92)).join("/");
   const j = n.lastIndexOf("/tests/");
   if (j >= 0) return n.slice(j + 1);
   if (n.startsWith("tests/")) return n;
-  return "tests/" + n.replace(/^\.\//, ""); // bun run from tests/ emits cwd-relative paths
+  return "tests/" + n.replace(/^\.\//, "");
 }
 
 const attrs = str => {
@@ -30,8 +26,8 @@ const attrs = str => {
 export function parseJunit(xml) {
   const cases = [];
   let errors = 0;
-  const stack = []; // open testsuites: { name, file }
-  let current = null; // open testcase
+  const stack = [];
+  let current = null;
   const tagRe = /<(\/?)([a-zA-Z]+)\b([^>]*?)(\/?)>/g;
   let m;
   while ((m = tagRe.exec(xml))) {
@@ -47,7 +43,6 @@ export function parseJunit(xml) {
       }
     } else if (tag === "testcase" && !close) {
       const a = attrs(rawAttrs);
-      // stack[0] is the file-level suite; deeper entries are describes.
       const file = relativeFile(stack[0]?.file ?? a.file ?? "");
       const names = [...stack.slice(1).map(s => s.name), a.name ?? ""];
       current = { file, fullName: names.join(" "), status: "passed" };

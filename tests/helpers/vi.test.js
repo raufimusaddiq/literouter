@@ -100,7 +100,7 @@ describe("vi helper", () => {
     setTimeout(() => fired.push("61m"), 61 * 60_000);
     await vi.advanceTimersByTimeAsync(3_600_000);
     expect(fired).toEqual(["59m"]);
-  }, 1000); // fake timers freeze every clock, so the per-test 1s timeout is the "fast" assertion
+  }, 1000);
 
   it("advanceTimersByTimeAsync fires a timer due exactly at the window end", async () => {
     vi.useFakeTimers();
@@ -156,7 +156,7 @@ describe("vi helper", () => {
   it("advanceTimersByTimeAsync floors fractional ms and never over-advances", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000_000);
-    await vi.advanceTimersByTimeAsync(10.9); // Bun timers are integer ms: floored to 10
+    await vi.advanceTimersByTimeAsync(10.9);
     expect(Date.now()).toBe(1_000_010);
     await vi.advanceTimersByTimeAsync(0.5);
     expect(Date.now()).toBe(1_000_010);
@@ -175,7 +175,6 @@ describe("vi helper", () => {
     const dir = mkdtempSync(join(tmpdir(), "vi-pin-"));
     const out = join(dir, "junit.xml");
     try {
-      // Explicit fixture paths only, so the child never collects vi.test.js (no recursion).
       const proc = Bun.spawn(
         [process.execPath, "test", "--parallel", "helpers/__fixtures__/isolation.test.js",
          "helpers/__fixtures__/nested/relative-mock.test.js",
