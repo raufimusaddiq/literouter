@@ -44,14 +44,7 @@ describe("App shell", () => {
 
   it("/ redirects to /dashboard", async () => {
     window.history.replaceState(null, "", "/");
-    const view = await mount(
-      <Routes
-        routesOverride={[
-          { path: "/", redirect: "/dashboard" },
-          { path: "/dashboard", load: async () => ({ default: () => <p>home</p> }), shell: false },
-        ]}
-      />,
-    );
+    const view = await mount(<Routes />);
     expect(window.location.pathname).toBe("/dashboard");
     await view.unmount();
   });

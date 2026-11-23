@@ -35,6 +35,16 @@ describe("routes", () => {
     expect(findRoute("/dashboard/providers/a/b")).toBeNull();
   });
 
+  it("findRoute resolves against a given list instead of the route table", () => {
+    const list = [
+      { path: "/only", load: () => null, shell: false },
+      { path: "/item/:id", load: () => null, shell: false },
+    ];
+    expect(findRoute("/only", list).route).toBe(list[0]);
+    expect(findRoute("/item/7", list).params).toEqual({ id: "7" });
+    expect(findRoute("/dashboard", list)).toBeNull();
+  });
+
   it("flags the shell correctly", () => {
     for (const path of NO_SHELL) {
       expect(findRoute(path).route.shell).toBe(false);

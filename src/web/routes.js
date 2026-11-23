@@ -19,8 +19,8 @@ export const routes = [
   { path: "/dashboard/settings/pricing", load: () => import("./pages/dashboard/settings/pricing/page.js"), shell: false },
 ];
 
-export function findRoute(pathname) {
-  for (const route of routes) {
+export function findRoute(pathname, list = routes) {
+  for (const route of list) {
     const params = matchRoute(route.path, pathname);
     if (params) return { route, params };
   }
