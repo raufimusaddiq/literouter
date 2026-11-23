@@ -1,6 +1,6 @@
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { realpath, stat } from "node:fs/promises";
-import { PUBLIC_DIR } from "./paths.js";
+import { PUBLIC_DIR, isEmbeddedPath } from "./paths.js";
 import { getSpa, spaUnavailableResponse } from "./spaBuild.js";
 
 const PUBLIC_CACHE_CONTROL = "public, max-age=0";
@@ -27,6 +27,7 @@ function resolveIn(root, segments) {
 }
 
 async function staysInsideRoot(root, target) {
+  if (isEmbeddedPath(root)) return true;
   try {
     const rel = relative(await realpath(root), await realpath(target));
     return rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
