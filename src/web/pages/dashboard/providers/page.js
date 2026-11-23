@@ -426,7 +426,7 @@ export default function ProvidersPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <HeaderControls />
+            <HeaderControls className="max-sm:w-full" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}

@@ -91,7 +91,7 @@ export default function ConsoleLogClient() {
           ) : (
             <div className="space-y-0.5">
               {logs.map((line, i) => (
-                <div key={i}>{colorLine(line)}</div>
+                <div key={i} className="[overflow-wrap:anywhere]">{colorLine(line)}</div>
               ))}
             </div>
           )}

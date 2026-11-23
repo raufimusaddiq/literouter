@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Card from "@/shared/components/Card";
 import Button from "@/shared/components/Button";
 import PricingModal from "@/shared/components/PricingModal";
+import { Link } from "@/web/router";
 
 export default function PricingSettingsPage() {
   const [showModal, setShowModal] = useState(false);
@@ -48,7 +49,14 @@ export default function PricingSettingsPage() {
   };
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-8 sm:px-6">
+    <div className="mx-auto flex w-full max-w-[1376px] flex-col gap-8 px-4 pt-5 pb-12 sm:px-8 sm:pt-7">
+      <Link
+        href="/dashboard/profile"
+        className="inline-flex w-fit items-center gap-1 text-xs font-medium text-muted transition-colors hover:text-ink focus-visible:text-ink"
+      >
+        <span aria-hidden="true" className="material-symbols-outlined text-[16px]">arrow_back</span>
+        Settings
+      </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-[24px] font-semibold leading-[30px] tracking-[-0.025em] text-ink sm:text-[30px] sm:leading-[36px]">Pricing Settings</h1>
