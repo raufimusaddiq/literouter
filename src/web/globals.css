@@ -372,7 +372,7 @@ button:disabled,
   animation: lr-wire-march 0.9s linear infinite;
 }
 .lr-packet {
-  fill: var(--color-mark);
+  fill: var(--color-mark-line);
 }
 
 @keyframes topology-router-pulse {

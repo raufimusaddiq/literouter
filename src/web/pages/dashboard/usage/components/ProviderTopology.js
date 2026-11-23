@@ -178,7 +178,7 @@ function TopologyEdge({
         fill="none"
         stroke="var(--color-mark-line)"
         strokeWidth={10}
-        strokeOpacity={0.28}
+        strokeOpacity={0.35}
         strokeLinecap="round"
         filter={filterRef}
         className="topology-edge-halo"
@@ -186,9 +186,9 @@ function TopologyEdge({
       <path
         d={edgePath}
         fill="none"
-        stroke="var(--color-mark)"
+        stroke="var(--color-mark-line)"
         strokeWidth={5}
-        strokeOpacity={0.6}
+        strokeOpacity={0.7}
         strokeLinecap="round"
         filter={filterRef}
         className="topology-edge-plasma"
@@ -196,7 +196,7 @@ function TopologyEdge({
       <BaseEdge
         id={id}
         path={edgePath}
-        style={{ stroke: "var(--color-mark)", strokeWidth: 2.2, opacity: 1 }}
+        style={{ stroke: "var(--color-mark-line)", strokeWidth: 2.2, opacity: 1 }}
         className="topology-edge-kame"
       />
       {!reducedMotion && Array.from({ length: KAME_PARTICLE_COUNT }, (_, i) => (
@@ -288,7 +288,7 @@ function buildLayout(providers, activeSet, lastSet, errorSet) {
 
   const edgeStyle = (active, last, error) => {
     if (error) return { stroke: "var(--color-danger)", strokeWidth: 2, opacity: 0.9 };
-    if (active) return { stroke: "var(--color-mark)", strokeWidth: 2.5, opacity: 1 };
+    if (active) return { stroke: "var(--color-mark-line)", strokeWidth: 2.5, opacity: 1 };
     if (last) return { stroke: "var(--color-wire-live)", strokeWidth: 1.5, opacity: 1 };
     return { stroke: "var(--color-wire)", strokeWidth: 1, opacity: 1 };
   };

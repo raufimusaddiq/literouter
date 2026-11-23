@@ -123,7 +123,8 @@ describe("Route Sheet guards", () => {
     for (const forbidden of ["#22d3ee", "#4ade80", "#f8fafc", "yellow-300", "yellow-400"]) {
       expect(src).not.toContain(forbidden);
     }
-    expect(src).toContain("var(--color-mark");
+    expect(src.match(/#[0-9a-fA-F]{3,8}\b/g) || []).toEqual([]);
+    expect(src).toContain("var(--color-mark-line)");
   });
 
   it("topology animations respect reduced motion", () => {
