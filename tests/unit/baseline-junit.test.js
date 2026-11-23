@@ -93,31 +93,50 @@ describe("findDuplicateKeys", () => {
   });
 });
 
-describe("checkDeleted", () => {
+describe("deleted records against the frozen baseline", () => {
   const cases = [
     { file: "tests/a.test.js", fullName: "kept", status: "passed" },
-    { file: "tests/a.test.js", fullName: "still here", status: "passed" },
+    { file: "tests/a.test.js", fullName: "other", status: "passed" },
   ];
-  test("accepts a deleted case that is absent from junit while its file stays in the baseline", () => {
-    expect(checkDeleted({ "tests/a.test.js": 1 }, { "tests/a.test.js :: gone": "dead export" }, cases)).toEqual([]);
+  const del = { "tests/a.test.js :: gone": "dead export" };
+
+  test("a recorded deletion lowers the expected count by one per entry", () => {
+    expect(checkCounts({ "tests/a.test.js": 3 }, cases, del)).toEqual([]);
+    expect(checkCounts({ "tests/a.test.js": 4 }, cases, del)).toEqual([{ file: "tests/a.test.js", expected: 3, actual: 2 }]);
+  });
+  test("a lowered count without an entry fails because files stay frozen", () => {
+    expect(checkCounts({ "tests/a.test.js": 3 }, cases, {})).toEqual([{ file: "tests/a.test.js", expected: 3, actual: 2 }]);
+  });
+  test("a lost case is not hidden by an entry for a different file", () => {
+    expect(checkCounts({ "tests/a.test.js": 3 }, cases, { "tests/b.test.js :: gone": "r" })).toEqual([{ file: "tests/a.test.js", expected: 3, actual: 2 }]);
+  });
+  test("accepts an entry for a case that vanished", () => {
+    expect(checkDeleted({ "tests/a.test.js": 3 }, del, cases)).toEqual([]);
+  });
+  test("a bogus entry for a case that never vanished fails", () => {
+    expect(checkDeleted({ "tests/a.test.js": 2 }, del, cases))
+      .toEqual([{ key: "tests/a.test.js :: gone", problem: "no case is missing from the frozen count" }]);
   });
   test("flags a deleted case that still runs", () => {
-    expect(checkDeleted({ "tests/a.test.js": 2 }, { "tests/a.test.js :: kept": "r" }, cases))
+    expect(checkDeleted({ "tests/a.test.js": 3 }, { "tests/a.test.js :: kept": "r" }, cases))
       .toEqual([{ key: "tests/a.test.js :: kept", problem: "case still present in junit" }]);
   });
-  test("flags a deleted case whose file is missing from the baseline", () => {
-    expect(checkDeleted({}, { "tests/a.test.js :: gone": "r" }, cases))
-      .toEqual([{ key: "tests/a.test.js :: gone", problem: "file is not in the baseline files map" }]);
+  test("flags an entry whose file has no frozen count", () => {
+    expect(checkDeleted({}, del, cases)).toEqual([{ key: "tests/a.test.js :: gone", problem: "file is not in the baseline files map" }]);
   });
-  test("whole-file deletion needs the file absent from baseline and junit", () => {
-    expect(checkDeleted({}, { "tests/z.test.js :: *": "vacuous (1 cases)" }, cases)).toEqual([]);
-    expect(checkDeleted({ "tests/z.test.js": 1 }, { "tests/z.test.js :: *": "r" }, cases))
-      .toEqual([{ key: "tests/z.test.js :: *", problem: "file is still in the baseline files map" }]);
-    expect(checkDeleted({}, { "tests/a.test.js :: *": "r" }, cases))
+  test("whole-file entry: no junit cases, and the stated count equals the frozen count", () => {
+    const whole = { "tests/z.test.js :: *": "vacuous (1 case)" };
+    expect(checkDeleted({ "tests/z.test.js": 1 }, whole, cases)).toEqual([]);
+    expect(checkCounts({ "tests/z.test.js": 1 }, cases, whole)).toEqual([]);
+    expect(checkDeleted({ "tests/z.test.js": 2 }, whole, cases))
+      .toEqual([{ key: "tests/z.test.js :: *", problem: "stated count 1 differs from frozen count 2" }]);
+    expect(checkDeleted({ "tests/z.test.js": 1 }, { "tests/z.test.js :: *": "vacuous" }, cases))
+      .toEqual([{ key: "tests/z.test.js :: *", problem: "value must state '(N cases)'" }]);
+    expect(checkDeleted({}, whole, cases)).toEqual([{ key: "tests/z.test.js :: *", problem: "file is not in the baseline files map" }]);
+    expect(checkDeleted({ "tests/a.test.js": 2 }, { "tests/a.test.js :: *": "r (2 cases)" }, cases))
       .toEqual([{ key: "tests/a.test.js :: *", problem: "file still present in junit" }]);
   });
   test("rejects a malformed key", () => {
-    expect(checkDeleted({}, { "no separator": "r" }, cases))
-      .toEqual([{ key: "no separator", problem: "key must be '<file> :: <name>'" }]);
+    expect(checkDeleted({}, { "no separator": "r" }, cases)).toEqual([{ key: "no separator", problem: "key must be '<file> :: <name>'" }]);
   });
 });

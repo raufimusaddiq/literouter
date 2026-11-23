@@ -1,11 +1,25 @@
 import { readFileSync } from "node:fs";
 import { parseJunit } from "./junit.mjs";
 
-export function checkCounts(baselineFiles, cases) {
+const splitKey = key => {
+  const sep = key.indexOf(" :: ");
+  return sep < 0 ? null : { file: key.slice(0, sep), name: key.slice(sep + 4) };
+};
+
+export function checkCounts(baselineFiles, cases, deleted = {}) {
   const actual = {};
   for (const c of cases) actual[c.file] = (actual[c.file] ?? 0) + 1;
+  const dropped = {};
+  const wholeFile = new Set();
+  for (const key of Object.keys(deleted)) {
+    const k = splitKey(key);
+    if (!k) continue;
+    if (k.name === "*") wholeFile.add(k.file);
+    else dropped[k.file] = (dropped[k.file] ?? 0) + 1;
+  }
   return Object.entries(baselineFiles)
-    .map(([file, expected]) => ({ file, expected, actual: actual[file] ?? 0 }))
+    .filter(([file]) => !wholeFile.has(file))
+    .map(([file, frozen]) => ({ file, expected: frozen - (dropped[file] ?? 0), actual: actual[file] ?? 0 }))
     .filter(r => r.actual < r.expected);
 }
 
@@ -15,20 +29,20 @@ export function pathsMismatch(baselineFiles, cases) {
 
 export function checkDeleted(baselineFiles, deleted, cases) {
   const problems = [];
-  for (const key of Object.keys(deleted)) {
-    const sep = key.indexOf(" :: ");
-    if (sep < 0) { problems.push({ key, problem: "key must be '<file> :: <name>'" }); continue; }
-    const file = key.slice(0, sep);
-    const name = key.slice(sep + 4);
-    const inBaseline = file in baselineFiles;
-    const fileCases = cases.filter(c => c.file === file);
-    if (name === "*") {
-      if (inBaseline) problems.push({ key, problem: "file is still in the baseline files map" });
+  for (const [key, value] of Object.entries(deleted)) {
+    const k = splitKey(key);
+    if (!k) { problems.push({ key, problem: "key must be '<file> :: <name>'" }); continue; }
+    if (!(k.file in baselineFiles)) { problems.push({ key, problem: "file is not in the baseline files map" }); continue; }
+    const fileCases = cases.filter(c => c.file === k.file);
+    if (k.name === "*") {
+      const stated = /\((\d+) cases?\)/.exec(String(value));
+      if (!stated) problems.push({ key, problem: "value must state '(N cases)'" });
+      else if (Number(stated[1]) !== baselineFiles[k.file]) problems.push({ key, problem: `stated count ${stated[1]} differs from frozen count ${baselineFiles[k.file]}` });
       else if (fileCases.length) problems.push({ key, problem: "file still present in junit" });
-    } else if (!inBaseline) {
-      problems.push({ key, problem: "file is not in the baseline files map" });
-    } else if (fileCases.some(c => c.fullName === name)) {
+    } else if (fileCases.some(c => c.fullName === k.name)) {
       problems.push({ key, problem: "case still present in junit" });
+    } else if (fileCases.length >= baselineFiles[k.file]) {
+      problems.push({ key, problem: "no case is missing from the frozen count" });
     }
   }
   return problems;
@@ -55,7 +69,7 @@ if (import.meta.main) {
     badDeleted.forEach(b => console.error(`  - ${b.key}: ${b.problem}`));
     process.exit(1);
   }
-  const offenders = checkCounts(baseline.files, cases);
+  const offenders = checkCounts(baseline.files, cases, deleted);
   if (offenders.length) {
     console.error(`\n❌ TEST COUNT DROP: ${offenders.length} file(s) below baseline (expected/actual):\n`);
     offenders.forEach(o => console.error(`  - ${o.file}  ${o.expected}/${o.actual}`));

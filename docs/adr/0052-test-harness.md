@@ -87,7 +87,7 @@ Bun does not hoist `vi.mock`, so a mock must be registered before the first impo
 
 A `vi.mock(spec, factory)` whose factory omits a named export that some importer uses fails at load with `SyntaxError: Export named 'X' not found`, and the file then shows 0 tests. Spread `await import(spec + "?actual")` into the factory, or add the missing exports as `vi.fn()`. Spreading the actual module can run its side effects, such as opening the database, so check that first.
 
-**Where:** `tests/unit/compatible-provider-connections.test.js`; `tests/unit/model-routing.test.js`
+**Where:** `tests/unit/codex-compact.test.js`; `tests/unit/systemone.test.js`; `tests/unit/zed-usage.test.js`; `tests/unit/key-access.test.js`; `tests/unit/kimi-responses-transport.test.js`
 
 ### D13. An async `translator/index.js` factory that awaits `?actual` deadlocks
 
@@ -115,19 +115,19 @@ Bun's `toMatchObject` replaces received values with the `expect.any(...)` matche
 
 ### D17. The CA trust test asserts Bun's behaviour, not the server wiring
 
-`system-ca-trust.test.js` asserts how Bun honours `NODE_EXTRA_CA_CERTS`. It no longer exercises `custom-server.js`'s `useSystemCaStore` wiring at startup, which is a known gap until Plan 2 or 4 replaces that mechanism. `tls.setDefaultCACertificates` does not affect Bun's `fetch`. The test also requires `undici` only for the Node-side comparison; it resolves to Bun's built-in module, so `undici` was dropped from the root dependencies.
+`system-ca-trust.test.js` asserts how Bun honours `NODE_EXTRA_CA_CERTS`. It no longer exercises `custom-server.js`'s `useSystemCaStore` wiring at startup, which is a known gap until Plan 2 or 4 replaces that mechanism. `tls.setDefaultCACertificates` does not affect Bun's `fetch`. The test still calls `require("undici")` for a comparison; because the probe runs under Bun, that resolves to Bun's built-in module, so `undici` was dropped from the root dependencies and the test passes without it in `node_modules`.
 
 **Where:** `tests/unit/system-ca-trust.test.js`; `package.json`
 
 ### D18. The suite must run with `--parallel`
 
-Per-file module isolation needs `--parallel` (see D4). A full run took about 11 s on one Windows machine for 3992 tests across 440 files; earlier estimates of about 6 min do not hold now. The Linux CI time is still to be recorded.
+Per-file module isolation needs `--parallel` (see D4). A full run took about 11 s on one Windows machine for 3996 tests across 440 files; earlier estimates of about 6 min do not hold now. The Linux CI time is still to be recorded.
 
-**Where:** `tests/package.json`; `.github/workflows`
+**Where:** `tests/package.json`; `.github/workflows/test.yml`
 
 ### D19. Deleted tests are recorded in the count baseline
 
-`test-counts.json` has a `"deleted": { "<file> :: <full name>": "<reason>" }` map; a whole-file deletion uses `"<file> :: *"`. The per-file counts are lowered by exactly the deleted cases. `verify-test-counts.mjs` prints the list on every run and fails when a deleted case still runs, when its file has no baseline entry, or when a whole-file deletion still has a baseline key or junit cases.
+`test-counts.json` has a `"deleted": { "<file> :: <full name>": "<reason>" }` map; a whole-file deletion uses `"<file> :: *"`. `files` stays at the frozen vitest counts. `verify-test-counts.mjs` subtracts one from a file's expected count per deleted case, so a lowered count without an entry fails and a bogus entry fails when no case is missing from the frozen count. A whole-file entry must state `(N cases)` equal to the frozen count and the file must run 0 cases. The gate prints the list on every run and fails when a deleted case still runs or its file has no frozen count.
 
 **Where:** `tests/__baseline__/test-counts.json`; `tests/__baseline__/verify-test-counts.mjs`; `tests/unit/baseline-junit.test.js`
 

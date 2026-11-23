@@ -18,7 +18,7 @@
     "tests/translator/golden-response-stream.test.js": 7,
     "tests/translator/golden-translator-concerns.test.js": 6,
     "tests/translator/golden-url-header.test.js": 128,
-    "tests/translator/kiro-tool-name-roundtrip.test.js": 5,
+    "tests/translator/kiro-tool-name-roundtrip.test.js": 6,
     "tests/translator/openai-thinking-display.test.js": 7,
     "tests/translator/real/all-formats.real.test.js": 1,
     "tests/translator/real/antigravity-models.real.test.js": 18,
@@ -235,7 +235,7 @@
     "tests/unit/kiro-terminal-integrity.test.js": 71,
     "tests/unit/kiro-thinking-strip.test.js": 4,
     "tests/unit/kiro-tool-result-placeholder.test.js": 5,
-    "tests/unit/kiro-usage-and-tool-integrity.test.js": 12,
+    "tests/unit/kiro-usage-and-tool-integrity.test.js": 13,
     "tests/unit/legacy-json-import-fingerprint.test.js": 2,
     "tests/unit/literouter-api-key-cache.test.js": 1,
     "tests/unit/literouter-combo-fallback.test.js": 4,
@@ -339,7 +339,7 @@
     "tests/unit/proxy-keepalive-dead-socket.test.js": 7,
     "tests/unit/proxy-pool-deletion.test.js": 5,
     "tests/unit/proxyfetch-backstop.test.js": 3,
-    "tests/unit/pxpipe.test.js": 8,
+    "tests/unit/pxpipe.test.js": 9,
     "tests/unit/qoder-billing.test.js": 17,
     "tests/unit/qoder-context-tier.test.js": 20,
     "tests/unit/qoder-model-catalog.test.js": 1,
@@ -372,6 +372,7 @@
     "tests/unit/security-audit.test.js": 15,
     "tests/unit/sensenova-intl-provider.test.js": 7,
     "tests/unit/session-manager.test.js": 22,
+    "tests/unit/settings-cache.test.js": 1,
     "tests/unit/sse-no-compression.test.js": 6,
     "tests/unit/ssrf-guard-hardening.test.js": 15,
     "tests/unit/ssrf-image-security.test.js": 49,
@@ -436,6 +437,6 @@
     "tests/translator/kiro-tool-name-roundtrip.test.js :: Kiro tool name normalization and roundtrip restores original tool name in kiroToClaudeNonStreaming when toolNameMap is present": "dead export: kiroToClaudeNonStreaming has no non-test importer",
     "tests/unit/kiro-usage-and-tool-integrity.test.js :: D: cache tokens survive the kiro -> claude translation preserves cache on the non-streaming path too": "dead export: kiroToClaudeNonStreaming has no non-test importer",
     "tests/unit/pxpipe.test.js :: compressWithPxpipe gates does not log skipped requests as savings": "dead export: formatPxpipeLog has no non-test importer",
-    "tests/unit/settings-cache.test.js :: *": "vacuous, returns early if the import fails; duplicates db-sqlite-vs-lowdb getSettings defaults (1 cases)"
+    "tests/unit/settings-cache.test.js :: *": "vacuous, returns early if the import fails; duplicates db-sqlite-vs-lowdb getSettings defaults (1 case)"
   }
 }
