@@ -25,7 +25,7 @@ Or without compose:
 ```bash
 docker run -d --name literouter -p 20128:20128 \
   -v literouter-data:/app/data -e DATA_DIR=/app/data \
-  --env-file .env ghcr.io/raufimusaddiq/literouter:0.5.81
+  --env-file .env ghcr.io/raufimusaddiq/literouter:1.0.0
 ```
 
 Open `http://localhost:20128`, configure providers in the dashboard, then point a compatible client at `http://localhost:20128/v1`.
