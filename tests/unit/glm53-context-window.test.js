@@ -11,7 +11,7 @@ describe("GLM 5.2/5.3 are 1M (#4544)", () => {
     "glm-5.3-flash",
     "glm-5.3-highspeed",
     "glm-5.3-prime",
-  ])("%s advertises 1M, not the stale 200k pin", (id) => {
+  ])("%p advertises 1M, not the stale 200k pin", (id) => {
     expect(caps(id).contextWindow).toBe(1000000);
   });
 
@@ -26,7 +26,7 @@ describe("GLM 5.2/5.3 are 1M (#4544)", () => {
   });
 
   it.each(["glm-5.1", "glm-5-turbo", "glm-5v-turbo", "glm-5", "glm-5.0"])(
-    "%s keeps its real ~200k window",
+    "%p keeps its real ~200k window",
     (id) => {
       expect(caps(id).contextWindow).toBe(200000);
     }

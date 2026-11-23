@@ -20,7 +20,7 @@ afterEach(() => {
 
 describe("Gemini 3.7 Antigravity tiers", () => {
   it.each(["high", "medium", "low"])(
-    "maps the %s tier to the shared upstream model with matching thinking level",
+    "maps the %p tier to the shared upstream model with matching thinking level",
     (tier) => {
       const publicModel = `gemini-3.7-flash-${tier}`;
       const upstreamModel = getModelUpstreamId("ag", publicModel);

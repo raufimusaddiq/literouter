@@ -8,7 +8,7 @@ describe("Codex gpt-6 models", () => {
   const codex = PROVIDER_MODELS.cx || [];
   const byId = (id) => codex.find((m) => m.id === id);
 
-  it.each(["gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna"])("registers %s", (id) => {
+  it.each(["gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna"])("registers %p", (id) => {
     expect(byId(id), `${id} missing from the cx registry`).toBeDefined();
     expect(isValidModel("cx", id)).toBe(true);
   });
@@ -27,7 +27,7 @@ describe("Codex gpt-6 models", () => {
     expect(executor.buildUrl(id, true)).toBe("https://chatgpt.com/backend-api/codex/responses");
   });
 
-  it.each([true, false])("uses the updated Codex CLI identity (stream=%s)", (stream) => {
+  it.each([true, false])("uses the updated Codex CLI identity (stream=%p)", (stream) => {
     const headers = new CodexExecutor().buildHeaders({ accessToken: "test-token" }, stream);
     expect(headers.version).toBe("0.167.1");
     expect(headers["User-Agent"]).toBe("codex_cli_rs/0.167.1");

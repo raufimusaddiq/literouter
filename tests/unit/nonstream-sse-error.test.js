@@ -44,7 +44,7 @@ describe("non-streaming SSE errors", () => {
   it.each([
     [undefined, 502], [403, 403], ["429", 429], [503, 503],
     [399, 502], [600, 502], [503.5, 502], ["invalid", 502],
-  ])("maps upstream status %s to HTTP %s without success side effects", async (upstreamStatus, status) => {
+  ])("maps upstream status %p to HTTP %p without success side effects", async (upstreamStatus, status) => {
     const ctx = context(sse([{ error: { status: upstreamStatus, message: "Upstream failed" } }]));
 
     const result = await handleNonStreamingResponse(ctx);
@@ -53,7 +53,7 @@ describe("non-streaming SSE errors", () => {
     expect(await result.response.json()).toMatchObject({ error: { message: "Upstream failed" } });
   });
 
-  it.each([FORMATS.OPENAI, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES])("returns an error for a %s client", async (sourceFormat) => {
+  it.each([FORMATS.OPENAI, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES])("returns an error for a %p client", async (sourceFormat) => {
     const ctx = context(sse([{ error: { message: "Kiro integrity gate failed", code: "kiro_missing_terminal" } }]), sourceFormat);
     const result = await handleNonStreamingResponse(ctx);
 
@@ -83,7 +83,7 @@ describe("non-streaming SSE errors", () => {
     expect((await result.response.json()).error.message).toBe("Upstream SSE stream failed");
   });
 
-  it.each([FORMATS.OPENAI, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES])("preserves successful SSE conversion for a %s client", async (sourceFormat) => {
+  it.each([FORMATS.OPENAI, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES])("preserves successful SSE conversion for a %p client", async (sourceFormat) => {
     const ctx = context(sse([
       { id: "chatcmpl-test", choices: [{ delta: { content: "hello" }, finish_reason: null }] },
       { choices: [{ delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15 } },

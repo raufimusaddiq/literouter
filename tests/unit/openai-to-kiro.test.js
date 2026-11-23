@@ -298,7 +298,7 @@ describe("openaiToKiroRequest", () => {
       ["high", "gpt-5.6-sol"],
       ["medium", "kiro/gpt-5.6-terra"],
       ["low", "gpt-5.6-luna"],
-    ])("maps GPT-5.6 reasoning.effort %s without legacy prompt tags", (effort, model) => {
+    ])("maps GPT-5.6 reasoning.effort %p without legacy prompt tags", (effort, model) => {
       const body = {
         reasoning: { effort },
         messages: [{ role: "user", content: "Use the requested effort" }]
@@ -318,7 +318,7 @@ describe("openaiToKiroRequest", () => {
     it.each([
       ["xhigh", "gpt-5.6-terra", "xhigh"],
       ["max", "gpt-5.6-sol", "xhigh"],
-    ])("preserves GPT-5.6 effort %s as supported wire effort %s", (effort, model, wireEffort) => {
+    ])("preserves GPT-5.6 effort %p as supported wire effort %p", (effort, model, wireEffort) => {
       const body = {
         reasoning: { effort },
         messages: [{ role: "user", content: "Use extended effort" }]
@@ -346,7 +346,7 @@ describe("openaiToKiroRequest", () => {
     });
 
     it.each(["auto", "minimal", "ultra"])(
-      "keeps the legacy thinking fallback for unsupported GPT-5.6 effort %s",
+      "keeps the legacy thinking fallback for unsupported GPT-5.6 effort %p",
       (effort) => {
         const body = {
           reasoning: { effort },
@@ -362,7 +362,7 @@ describe("openaiToKiroRequest", () => {
     );
 
     it.each(["none", "off", "disabled"])(
-      "keeps GPT-5.6 reasoning intentionally disabled for effort %s",
+      "keeps GPT-5.6 reasoning intentionally disabled for effort %p",
       (effort) => {
         const body = {
           reasoning: { effort },
@@ -405,7 +405,7 @@ describe("openaiToKiroRequest", () => {
     it.each([
       ["claude-sonnet-4.5-thinking-agentic(high)", "claude-sonnet-4.5"],
       ["glm-5-thinking-agentic(medium)", "glm-5"],
-    ])("normalizes unsupported Kiro intensity suffix for %s", (model, upstream) => {
+    ])("normalizes unsupported Kiro intensity suffix for %p", (model, upstream) => {
       const result = openaiToKiroRequest(model, {
         messages: [{ role: "user", content: "hello" }],
       }, true, {});

@@ -23,7 +23,7 @@ describe("proxy pool deletion reference integrity", () => {
     expect(db.run).not.toHaveBeenCalled();
   });
 
-  it.each([false, true])("rejects a provider strategy reference for strictProxy=%s", async (strictProxy) => {
+  it.each([false, true])("rejects a provider strategy reference for strictProxy=%p", async (strictProxy) => {
     db.get.mockImplementation((sql) => sql.includes("proxyPools")
       ? { id: "p1", isActive: 1, data: JSON.stringify({ strictProxy }) }
       : { data: JSON.stringify({ providerStrategies: { opencode: { proxyPoolId: "p1" } } }) });

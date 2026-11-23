@@ -142,7 +142,7 @@ describe("applyThinking per provider format", () => {
     ["low", "low"],
     ["medium", "high"],
     ["minimal", "low"],
-  ])("GLM-5.3 %s → reasoning_effort=%s (low|high|max only, per z.ai docs)", (input, expected) => {
+  ])("GLM-5.3 %p → reasoning_effort=%p (low|high|max only, per z.ai docs)", (input, expected) => {
     const out = apply("openai", "glm-5.3", { reasoning_effort: input }, "glm-cn");
     expect(out.thinking).toEqual({ type: "enabled" });
     expect(out.reasoning_effort).toBe(expected);
@@ -217,7 +217,7 @@ describe("applyThinking per provider format", () => {
     ["gpt-5.6-terra", "ultra", "ultra"],
     ["gpt-5.6-luna", "max", "max"],
     ["gpt-5.6-luna", "ultra", "max"],
-  ])("normalizes Codex %s effort %s to %s", (model, effort, expected) => {
+  ])("normalizes Codex %p effort %p to %p", (model, effort, expected) => {
     const out = apply("openai-responses", model, { reasoning: { effort } }, "codex");
     expect(out.reasoning_effort).toBe(expected);
   });
@@ -233,7 +233,7 @@ describe("applyThinking per provider format", () => {
     ["gemini-3.5-flash-lite"],
     ["gemini-3.7-flash"],
     ["gemini-3-pro"],
-  ])("Gemini 3.x model %s (gemini-level) over a custom OpenAI-compatible provider → reasoning_effort, not generationConfig (regression: #3718)", (model) => {
+  ])("Gemini 3.x model %p (gemini-level) over a custom OpenAI-compatible provider → reasoning_effort, not generationConfig (regression: #3718)", (model) => {
     const out = apply("openai", model, { reasoning_effort: "medium" }, "my-custom-gemini-openai");
     expect(out.reasoning_effort).toBe("medium");
     expect(out.generationConfig).toBeUndefined();

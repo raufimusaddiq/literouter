@@ -19,7 +19,7 @@ describe("OpenAI → Kiro", () => {
     ["high", "gpt-5.6-sol"],
     ["medium", "gpt-5.6-terra"],
     ["low", "gpt-5.6-luna"],
-  ])("preserves Responses reasoning.effort %s through the full Kiro route", (effort, model) => {
+  ])("preserves Responses reasoning.effort %p through the full Kiro route", (effort, model) => {
     const out = R2K(model, {
       input: "Use the requested effort",
       reasoning: { effort },

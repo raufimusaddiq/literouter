@@ -38,7 +38,7 @@ it("restores tool names inside translated and terminal Responses envelopes", () 
   expect(event.data.response.output[0].name).toBe("bash");
 });
 
-it.each(["openai", "openai-responses"])("restores tool names on same-format %s streaming", async (format) => {
+it.each(["openai", "openai-responses"])("restores tool names on same-format %p streaming", async (format) => {
   const payload = format === "openai"
     ? { id: "chatcmpl-test", choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: "call_1", type: "function", function: { name: "bash", arguments: "{}" } }] } }] }
     : { type: "response.completed", response: { id: "resp_1", output: [{ type: "function_call", name: "bash" }], status: "completed" } };

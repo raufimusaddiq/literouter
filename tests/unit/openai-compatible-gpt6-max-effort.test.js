@@ -7,12 +7,12 @@ const NODE = "openai-compatible-chat-test";
 const MAX_MODELS = ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"];
 
 describe("OpenAI Compatible node keeps effort max for GPT-5.6 / GPT-6 (#5186)", () => {
-  it.each(MAX_MODELS)("%s: max reaches the wire as max (chat)", (model) => {
+  it.each(MAX_MODELS)("%p: max reaches the wire as max (chat)", (model) => {
     const out = applyThinking(FORMATS.OPENAI, model, { reasoning_effort: "max" }, NODE);
     expect(out.reasoning_effort).toBe("max");
   });
 
-  it.each(MAX_MODELS)("%s: Claude-style output_config.effort max stays max", (model) => {
+  it.each(MAX_MODELS)("%p: Claude-style output_config.effort max stays max", (model) => {
     const out = applyThinking(FORMATS.OPENAI, model, { output_config: { effort: "max" } }, NODE);
     expect(out.reasoning_effort).toBe("max");
   });

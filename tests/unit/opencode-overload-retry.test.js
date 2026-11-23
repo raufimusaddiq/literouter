@@ -167,7 +167,7 @@ describe("OpenCodeExecutor session invalidation", () => {
   it.each([
     ["429 FreeUsageLimitError", 429, FREE_USAGE],
     ["403 FreeTierError", 403, '{"type":"error","error":{"type":"FreeTierError"}}'],
-  ])("drops the session after %s so the next request re-mints", async (_label, status, body) => {
+  ])("drops the session after %p so the next request re-mints", async (_label, status, body) => {
     baseExecuteMock
       .mockResolvedValueOnce(upstream(status, body))
       .mockResolvedValueOnce(upstream(200, "data: ok\n\n"));

@@ -125,7 +125,7 @@ describe("OpencodeGoExecutor — sanitization (the actual bug)", () => {
 });
 
 describe("OpencodeGoExecutor — every model accepted (no breakage)", () => {
-  it.each(ALL_MODELS)("model %s — transforms without throwing", (model) => {
+  it.each(ALL_MODELS)("model %p — transforms without throwing", (model) => {
     const body = {
       model,
       stream: false,

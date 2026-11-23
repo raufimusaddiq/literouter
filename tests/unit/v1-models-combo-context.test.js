@@ -58,7 +58,7 @@ describe("/v1/models combo limits", () => {
     ["xmtp", "xiaomi-tokenplan", "mimo-v2.5"],
     ["ps", "poolside", "custom-model"],
     ["ds", "deepseek", "deepseek-chat"],
-  ])("uses the real provider for a %s UI-alias seat", async (uiAlias, providerId, modelId) => {
+  ])("uses the real provider for a %p UI-alias seat", async (uiAlias, providerId, modelId) => {
     const combo = { name: "ui-alias-combo", models: [`${uiAlias}/${modelId}`] };
     const models = await modelsWithCombo(providerId, modelId, [combo]);
     const published = models.find((model) => model.id === combo.name);
@@ -105,7 +105,7 @@ describe("/v1/models no-auth providers", () => {
     expect(models.map(model => model.id)).toContain("oc/union-alpha");
   });
 
-  it.each(["oc", "opencode"])("honors disabled models under %s", async (provider) => {
+  it.each(["oc", "opencode"])("honors disabled models under %p", async (provider) => {
     db.getProviderConnections.mockResolvedValue([]);
     db.getCombos.mockResolvedValue([]);
     disabled.getDisabledModels.mockResolvedValue({ [provider]: ["union-alpha"] });

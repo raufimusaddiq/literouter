@@ -76,7 +76,7 @@ describe("Antigravity → Claude", () => {
 });
 
 describe("Antigravity executor", () => {
-  it.each(["optional", "~optional"])("strips %s from nested tool schemas", (annotation) => {
+  it.each(["optional", "~optional"])("strips %p from nested tool schemas", (annotation) => {
     const out = new AntigravityExecutor().transformRequest("gemini-2.5-pro", {
       request: {
         contents: [{ role: "user", parts: [{ text: "hi" }] }],

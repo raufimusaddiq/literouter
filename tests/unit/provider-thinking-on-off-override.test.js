@@ -135,7 +135,7 @@ describe("providerThinking on/off never becomes reasoning_effort", () => {
     executeMock.mockRejectedValue(new Error("boom"));
   });
 
-  it.each(["on", "off"])("mode %s with client thinking set keeps thinking and omits reasoning_effort", async (mode) => {
+  it.each(["on", "off"])("mode %p with client thinking set keeps thinking and omits reasoning_effort", async (mode) => {
     const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
     await handleChatCore(options({ mode }, { type: "enabled", budget_tokens: 2048 }));
 
@@ -144,7 +144,7 @@ describe("providerThinking on/off never becomes reasoning_effort", () => {
     expect(sent.reasoning_effort).toBeUndefined();
   });
 
-  it.each(["on", "off"])("mode %s without client thinking injects the extended thinking type", async (mode) => {
+  it.each(["on", "off"])("mode %p without client thinking injects the extended thinking type", async (mode) => {
     const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
     await handleChatCore(options({ mode }));
 

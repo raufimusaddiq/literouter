@@ -26,7 +26,7 @@ describe("Qoder first-frame errors", () => {
     ["prefix and frame in one chunk", [": keepalive\n\nevent: message\n" + frame(403, duplicate)]],
     ["EOF without newline", [frame(403, duplicate).trimEnd()]],
     ["object body", [frame(403, JSON.parse(duplicate))]],
-  ])("surfaces duplicate-request errors as HTTP 403: %s", async (_name, chunks) => {
+  ])("surfaces duplicate-request errors as HTTP 403: %p", async (_name, chunks) => {
     const { response } = upstream(chunks);
     const wrapped = await wrapQoderSSE(response, "qoder/kmodel_latest");
     expect(wrapped.status).toBe(403);
@@ -44,14 +44,14 @@ describe("Qoder first-frame errors", () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
-  it.each([401, 429, 500, 503])("preserves non-billing HTTP status %s", async (status) => {
+  it.each([401, 429, 500, 503])("preserves non-billing HTTP status %p", async (status) => {
     const { response } = upstream([frame(status, "upstream failure")]);
     const wrapped = await wrapQoderSSE(response, "qoder/auto");
     expect(wrapped.status).toBe(status);
     expect((await wrapped.json()).error.message).toBe("upstream failure");
   });
 
-  it.each([0, 302, 600, 403.5])("maps invalid error status %s to 502", async (status) => {
+  it.each([0, 302, 600, 403.5])("maps invalid error status %p to 502", async (status) => {
     const { response } = upstream([frame(status, "invalid upstream status")]);
     const wrapped = await wrapQoderSSE(response, "qoder/auto");
     expect(wrapped.status).toBe(502);

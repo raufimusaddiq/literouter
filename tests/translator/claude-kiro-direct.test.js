@@ -132,7 +132,7 @@ describe("Claude → Kiro (direct route)", () => {
   });
 
   it.each(["auto", "minimal", "ultra"])(
-    "keeps the legacy thinking fallback for unsupported GPT-5.6 effort %s",
+    "keeps the legacy thinking fallback for unsupported GPT-5.6 effort %p",
     (effort) => {
       const out = C2K({
         output_config: { effort },
@@ -146,7 +146,7 @@ describe("Claude → Kiro (direct route)", () => {
   );
 
   it.each(["none", "off", "disabled"])(
-    "keeps GPT-5.6 reasoning intentionally disabled for effort %s",
+    "keeps GPT-5.6 reasoning intentionally disabled for effort %p",
     (effort) => {
       const out = C2K({
         output_config: { effort },

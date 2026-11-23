@@ -161,7 +161,7 @@ describe("forceStream provider config", () => {
     }
   });
 
-  it.each([undefined, false])( "keeps forced-stream providers streaming for JSON clients when body.stream is %s", async (bodyStream) => {
+  it.each([undefined, false])( "keeps forced-stream providers streaming for JSON clients when body.stream is %p", async (bodyStream) => {
     const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
 
     await handleChatCore(makeOptions(bodyStream));
@@ -170,7 +170,7 @@ describe("forceStream provider config", () => {
     expect(executeMock.mock.calls[0][0].stream).toBe(true);
   });
 
-  it.each([undefined, false])("defaults Claude clients to non-streaming when body.stream is %s", async (bodyStream) => {
+  it.each([undefined, false])("defaults Claude clients to non-streaming when body.stream is %p", async (bodyStream) => {
     const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
 
     await handleChatCore(makeClaudeOptions(bodyStream));

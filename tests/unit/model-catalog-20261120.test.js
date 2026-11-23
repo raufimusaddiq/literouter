@@ -13,7 +13,7 @@ describe("2026-11-20 model catalog pricing", () => {
     ["gpt-6-sol", 2, 10, 0.2, 2.5],
     ["gpt-6-luna", 0.1, 0.5, 0.01, 0.125],
     ["gpt-5.6-sol", 4, 20, 0.4, 5],
-  ])("%s", (model, input, output, cached, cache_creation) => {
+  ])("%p", (model, input, output, cached, cache_creation) => {
     expect(getPricingForModel("openai", model)).toMatchObject({ input, output, cached, cache_creation });
   });
 
@@ -22,7 +22,7 @@ describe("2026-11-20 model catalog pricing", () => {
     ["gemini-4-argon", 4, 20, 0.2],
     ["gemini-4-neon", 3, 15, 0.15],
     ["gemini-4-hydrogen", 1.5, 7.5, 0.075],
-  ])("%s", (model, input, output, cached) => {
+  ])("%p", (model, input, output, cached) => {
     expect(getPricingForModel("gemini", model)).toMatchObject({ input, output, cached });
   });
 
@@ -30,7 +30,7 @@ describe("2026-11-20 model catalog pricing", () => {
     ["hy4", 0.834, 2.501, 0.042],
     ["hy4-preview", 0.834, 2.501, 0.042],
     ["hy4-flash", 0.07, 0.281, 0.003],
-  ])("%s", (model, input, output, cached) => {
+  ])("%p", (model, input, output, cached) => {
     expect(getPricingForModel("codebuddy-cn", model)).toMatchObject({ input, output, cached });
   });
 

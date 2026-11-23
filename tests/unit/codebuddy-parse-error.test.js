@@ -3,12 +3,12 @@ import { CodeBuddyExecutor } from "../../open-sse/executors/codebuddy-cn.js";
 import { CodeBuddyIntlExecutor } from "../../open-sse/executors/codebuddy-intl.js";
 
 describe("CodeBuddy parseError", () => {
-  describe.each([CodeBuddyExecutor, CodeBuddyIntlExecutor])("%s shared error parsing", (Executor) => {
+  describe.each([CodeBuddyExecutor, CodeBuddyIntlExecutor])("%p shared error parsing", (Executor) => {
     it.each([
       ["", "2026-09-28T12:00:00+08:00"],
       [" UTC+0", "2026-09-28T12:00:00+00:00"],
       [" UTC+05:30", "2026-09-28T12:00:00+05:30"],
-    ])("preserves the reset timezone %s", (suffix, timestamp) => {
+    ])("preserves the reset timezone %p", (suffix, timestamp) => {
       const parsed = new Executor().parseError({ status: 200 }, JSON.stringify({
         code: 6004,
         message: `frequency limit until 2026-09-28 12:00:00${suffix}`,

@@ -42,7 +42,7 @@ describe("checkFallbackError — request-scoped vs account-scoped failures", () 
     "Insufficient credit balance",
     "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
     "CREDIT BALANCE IS TOO LOW",
-  ])("falls back with backoff for a 400 credit error: %s", (message) => {
+  ])("falls back with backoff for a 400 credit error: %p", (message) => {
     expect(checkFallbackError(400, message)).toEqual({
       shouldFallback: true, cooldownMs: 2000, scope: "account", newBackoffLevel: 1,
     });

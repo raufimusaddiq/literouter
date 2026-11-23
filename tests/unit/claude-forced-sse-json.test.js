@@ -39,7 +39,7 @@ function responsesSSE(output) {
 const toolItem = { type: "function_call", call_id: "call_test", name: "lookup", arguments: '{"code":"A"}' };
 
 describe("Claude JSON clients behind forced-stream upstreams", () => {
-  it.each(["<decision>allow</decision>", "<decision>block</decision>"])("preserves the upstream text verbatim: %s", async (text) => {
+  it.each(["<decision>allow</decision>", "<decision>block</decision>"])("preserves the upstream text verbatim: %p", async (text) => {
     const raw = responsesSSE([{ type: "message", role: "assistant", content: [{ type: "output_text", text }] }]);
     const result = await handleForcedSSEToJson(context(raw, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES));
     expect(result.success).toBe(true);
@@ -83,7 +83,7 @@ describe("Claude JSON clients behind forced-stream upstreams", () => {
     expect((await result.response.json()).content).toEqual([{ type: "text", text: "" }]);
   });
 
-  it.each([FORMATS.OPENAI, FORMATS.OPENAI_RESPONSES, FORMATS.GEMINI])("keeps the existing %s client shape", async (sourceFormat) => {
+  it.each([FORMATS.OPENAI, FORMATS.OPENAI_RESPONSES, FORMATS.GEMINI])("keeps the existing %p client shape", async (sourceFormat) => {
     const raw = responsesSSE([{ type: "message", role: "assistant", content: [{ type: "output_text", text: "hello" }] }]);
     const result = await handleForcedSSEToJson(context(raw, sourceFormat, FORMATS.OPENAI_RESPONSES));
     const json = await result.response.json();

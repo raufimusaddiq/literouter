@@ -7,7 +7,7 @@ import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.j
 const models = ["glm-5.3-flash", "glm-5.3"];
 
 describe("GLM 5.3 must never be sent thinking=disabled (#4409)", () => {
-  it.each(models)("%s is marked as unable to disable thinking", (id) => {
+  it.each(models)("%p is marked as unable to disable thinking", (id) => {
     expect(getCapabilitiesForModel("glm", id).thinkingCanDisable).toBe(false);
   });
 
@@ -15,7 +15,7 @@ describe("GLM 5.3 must never be sent thinking=disabled (#4409)", () => {
     ["reasoning_effort: none", { reasoning_effort: "none" }],
     ["reasoning_effort: off", { reasoning_effort: "off" }],
     ["thinking.type: disabled", { thinking: { type: "disabled" } }],
-  ])("%s leaves thinking enabled rather than disabling it", (_label, seed) => {
+  ])("%p leaves thinking enabled rather than disabling it", (_label, seed) => {
     for (const id of models) {
       const body = structuredClone(seed);
       applyThinking("claude", id, body, "glm");
@@ -24,7 +24,7 @@ describe("GLM 5.3 must never be sent thinking=disabled (#4409)", () => {
     }
   });
 
-  it.each(models)("%s leaves a normal request's own thinking intact", (id) => {
+  it.each(models)("%p leaves a normal request's own thinking intact", (id) => {
     const body = { thinking: { type: "enabled" } };
     applyThinking("claude", id, body, "glm");
     expect(body.enable_thinking, id).toBeUndefined();

@@ -101,7 +101,7 @@ describe("error-rule scope classification", () => {
     [429, "slow down", "account", true],
     [503, "upstream exploded", "account", true],
     [400, "rate limit reached", "account", true],
-  ])("%i %s -> scope=%s combo-fallback=%s", (status, text, scope, comboFallback) => {
+  ])("%i %p -> scope=%p combo-fallback=%p", (status, text, scope, comboFallback) => {
     const r = checkFallbackError(status, text);
     expect(r.scope).toBe(scope);
     expect(r.shouldFallback).toBe(comboFallback);
@@ -113,7 +113,7 @@ describe("request-scoped errors skip failover", () => {
   it.each([
     ["Kiro improperly formed request", "Improperly formed request."],
     ["context overflow", "This model's maximum context length is 8192 tokens"],
-  ])("%s: executor called once, no lock/testStatus write, error returned", async (_n, msg) => {
+  ])("%p: executor called once, no lock/testStatus write, error returned", async (_n, msg) => {
     fx.chatCore.mockResolvedValue(createErrorResult(400, msg));
     const res = await handleChat(chatReq());
     expect(res.status).toBe(400);

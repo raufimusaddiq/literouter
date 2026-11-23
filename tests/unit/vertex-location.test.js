@@ -15,7 +15,7 @@ vi.mock("../../open-sse/utils/proxyFetch.js", () => ({ proxyAwareFetch: vi.fn() 
 import { VertexExecutor } from "../../open-sse/executors/vertex.js";
 
 describe("Vertex API-key locations", () => {
-  it.each([false, true])("uses the configured global location (stream=%s)", (stream) => {
+  it.each([false, true])("uses the configured global location (stream=%p)", (stream) => {
     const executor = new VertexExecutor();
     const url = new URL(executor.buildUrl("gemini-4-argon", stream, 0, {
       apiKey: "test-key",

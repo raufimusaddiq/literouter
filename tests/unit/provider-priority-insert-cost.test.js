@@ -34,7 +34,7 @@ describe("provider insert is O(1) in pool size (#4311)", () => {
   it.each([
     ["gaps", [2, 7, 11]],
     ["duplicates", [7, 7, 11]],
-  ])("appends above legacy %s without rewriting the pool", async (label, priorities) => {
+  ])("appends above legacy %p without rewriting the pool", async (label, priorities) => {
     const provider = `openai-compatible-legacy-${label}-${Date.now()}`;
     await seed(provider, priorities.length);
     const db = await getAdapter();
