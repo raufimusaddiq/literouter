@@ -327,6 +327,27 @@ Do this in one PR to `main` after the 24-hour stable check (Task 8 Step 10). Run
 - [ ] **Step 4:** Docs. `CLAUDE.md`: remove the codemod rule and the vitest baseline notes. `pr-merge-runbook.md`: replace `vitest`, `npx vitest`, `node custom-server.js`, the `node -e` healthcheck and the "Staging is sunset" notes that are now wrong. `production-promotion-plan.md`: add a line pointing to the evidence doc. Grep `rg -n "9router|vitest|custom-server|next\b" docs README.md CLAUDE.md` and fix anything stale. Historical `phase-*.md` evidence stays as written. In the cross-plan index, apply the changes listed in the final report of this plan.
 - [ ] **Step 5:** Run `cd tests && bun test --parallel`, `bunx eslint .`. Expected: green. Open the PR: `chore: remove bun-migration scaffolding`.
 
+### Task 11: Repo declutter and a standing anti-bloat rule for the tests (owner addition, 2026-11-23)
+
+The owner's words: "when the rewrite complete, clean up everything not needed in this repo, declutter the test, makes rule for the test not bloated and decluttered in the finishing".
+
+Do this after Task 10, in PRs to `main`. Any deletion of a file the owner might still want, such as historical docs or scripts outside the migration scaffolding, needs the owner's OK first.
+
+- [ ] **Step 1: Inventory.** List the rewrite leftovers the repo no longer needs, and show the owner the list before deleting anything:
+  - Next-era waivers in `tests/__baseline__/` (`test-counts.json` `waived`, overrides);
+  - migration-only scripts (`scripts/migrate-vitest-to-bun.mjs` and `scripts/port-next-routes.mjs`, both with their CI steps, once `main` no longer writes vitest-style tests);
+  - transition-only cutover scripts (`node-baseline.sh`, `parity-images.mjs`, `refresh-goldens.mjs` once the goldens are final);
+  - stale docs;
+  - dead fixtures and helpers.
+- [ ] **Step 2: Declutter the suite.** Merge duplicated cases and delete dead helpers and unused fixtures. **No assertion is weakened and no behaviour loses coverage.** Prove it per change: name the merged tests and show that every expectation survives. `verify-no-regression` stays green.
+- [ ] **Step 3: Write the standing rule.** Add a short "Tests stay lean" rule to `CLAUDE.md`, with the reasoning in a new ADR. It covers:
+  - one behaviour per test;
+  - no copy-paste cases (use a table);
+  - helpers only in `tests/helpers/`, deleted when unused;
+  - fixtures referenced by at least one test;
+  - no test that only restates the implementation.
+- [ ] **Step 4: Enforce what can be enforced.** Add a CI check that fails on an unreferenced fixture or helper file, and on a test file with no assertions. Keep the check cheap and deterministic.
+
 ---
 
 ## Self-review
