@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { useSystemCaStore } from "../../src/server/ca.js";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
+const proxyFetchModule = join(root, "open-sse", "utils", "proxyFetch.js");
 const caModule = join(root, "src", "server", "ca.js");
 const dir = mkdtempSync(join(tmpdir(), "ca-trust-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -72,6 +73,14 @@ describe("useSystemCaStore bookkeeping", () => {
     expect(seen[0]).toEqual({ tls: { ca: ["mine"] } });
     expect(seen[1]).toEqual({ tls: { ca: ["sys"], rejectUnauthorized: true } });
   });
+
+  it("an empty tls.ca is treated as not supplied", async () => {
+    const seen = [];
+    const host = { fetch: async (input, init) => seen.push(init) };
+    useSystemCaStore({ getCACertificates: () => ["sys"], setDefaultCACertificates() {} }, host);
+    await host.fetch("https://example.test/", { tls: { ca: [] } });
+    expect(seen[0]).toEqual({ tls: { ca: ["sys"] } });
+  });
 });
 
 describe("outbound clients honour the configured system store under Bun", () => {
@@ -121,6 +130,37 @@ describe("outbound clients honour the configured system store under Bun", () => 
   it("node:https clients honour the replaced default list", () => {
     expect(probe(trusted).https).toBe("ok");
     expect(probe(distrusted).https).toMatch(VERIFY_ERROR);
+  });
+
+  function probeProxyFetch(serverMaterial) {
+    const script = `
+      const tls = require("node:tls");
+      const { proxyAwareFetch } = await import(${JSON.stringify(proxyFetchModule)});
+      const { useSystemCaStore } = await import(${JSON.stringify(caModule)});
+      const m = JSON.parse(process.env.M);
+      const server = Bun.serve({ port: 0, hostname: "127.0.0.1", tls: { key: m.server.key, cert: m.server.cert }, fetch: () => new Response("ok") });
+      const url = "https://localhost:" + server.port;
+      const code = (e) => (e.cause && e.cause.code) || e.code || e.message;
+      useSystemCaStore({ getCACertificates: () => [m.trustedCa], setDefaultCACertificates: tls.setDefaultCACertificates });
+      const out = { proxyAware: await proxyAwareFetch(url).then(() => "ok", code) };
+      console.log(JSON.stringify(out));
+      server.stop(true);
+    `;
+    const r = spawnSync(process.execPath, ["-e", script], {
+      cwd: root,
+      env: { ...process.env, M: JSON.stringify({ server: serverMaterial, trustedCa: trusted.ca }) },
+      encoding: "utf8",
+    });
+    expect(r.status, r.stderr).toBe(0);
+    return JSON.parse(r.stdout.trim().split(String.fromCharCode(10)).pop());
+  }
+
+  it("proxyAwareFetch imported before the store is installed accepts a trusted chain", () => {
+    expect(probeProxyFetch(trusted).proxyAware).toBe("ok");
+  });
+
+  it("proxyAwareFetch imported before the store is installed rejects a distrusted chain", () => {
+    expect(probeProxyFetch(distrusted).proxyAware).toMatch(VERIFY_ERROR);
   });
 
   it("a per-request tls.ca still wins over the configured store", () => {
