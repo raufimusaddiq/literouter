@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
+import { useTempDataDir } from "#test/tempDataDir";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -10,24 +11,14 @@ import {
   decryptZedAccessToken,
 } from "open-sse/shared/zedAuth.js";
 
-const originalDataDir = process.env.DATA_DIR;
-let tempDir;
+useTempDataDir("9router-zed-auth-", { scope: "all" });
 let startZedProxy, stopZedProxy, registerZedSession, getZedSessionStatus, clearZedSession;
 let generateAuthData, exchangeTokens;
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-zed-auth-"));
-  process.env.DATA_DIR = tempDir;
-  vi.resetModules();
   ({ startZedProxy, stopZedProxy, registerZedSession, getZedSessionStatus, clearZedSession } =
     await import("@/lib/oauth/utils/server.js"));
   ({ generateAuthData, exchangeTokens } = await import("@/lib/oauth/providers/index.js"));
-});
-
-afterAll(() => {
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
 });
 
 const realFetch = globalThis.fetch;

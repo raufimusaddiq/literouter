@@ -1,13 +1,10 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { vi } from "#test/vi";
+import { describe, it, expect } from "bun:test";
+import { useTempDataDir } from "#test/tempDataDir";
 import { fingerprintKey, isKeyFingerprint } from "../../open-sse/utils/keyFingerprint.js";
 
 const PLAINTEXT = "sk-legacy-machine-aaaaaa-1234abcd";
-let tempDir;
-const originalDataDir = process.env.DATA_DIR;
 
 function writeLegacyJson(dir) {
   fs.mkdirSync(dir, { recursive: true });
@@ -39,28 +36,15 @@ function writeLegacyJson(dir) {
 }
 
 async function boot() {
-  delete global._dbAdapter;
-  vi.resetModules();
   const { getAdapter } = await import("@/lib/db/driver.js");
   return await getAdapter();
 }
 
 describe("legacy JSON import fingerprints API keys", () => {
-  beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-legacy-import-"));
-    process.env.DATA_DIR = tempDir;
-  });
-
-  afterEach(() => {
-    try { global._dbAdapter?.instance?.close?.(); } catch {}
-    delete global._dbAdapter;
-    if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
-    if (originalDataDir === undefined) delete process.env.DATA_DIR;
-    else process.env.DATA_DIR = originalDataDir;
-  });
+  const temp = useTempDataDir("9router-legacy-import-");
 
   it("fingerprints usage data but keeps apiKeys.key valid", async () => {
-    writeLegacyJson(tempDir);
+    writeLegacyJson(temp.dir);
     const db = await boot();
     const expected = fingerprintKey(PLAINTEXT);
 
@@ -79,7 +63,7 @@ describe("legacy JSON import fingerprints API keys", () => {
   });
 
   it("an imported legacy key still validates (apiKeys.key is the live credential)", async () => {
-    writeLegacyJson(tempDir);
+    writeLegacyJson(temp.dir);
     await boot();
     const { validateApiKey } = await import("../../src/lib/db/repos/apiKeysRepo.js");
     expect(await validateApiKey(PLAINTEXT)).toBeTruthy();

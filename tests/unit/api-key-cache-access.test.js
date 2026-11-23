@@ -1,12 +1,9 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { describe, it, expect } from "bun:test";
 import { vi } from "#test/vi";
-
-let tempDir;
-const originalDataDir = process.env.DATA_DIR;
+import { useTempDataDir } from "#test/tempDataDir";
 
 function writeLegacyDb(dir) {
   fs.mkdirSync(path.join(dir, "db"), { recursive: true });
@@ -17,22 +14,11 @@ function writeLegacyDb(dir) {
   db.close();
 }
 
-beforeEach(() => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-key-cache-"));
-  process.env.DATA_DIR = tempDir;
-});
-
-afterEach(() => {
-  try { global._dbAdapter?.instance?.close?.(); } catch {}
-  delete global._dbAdapter;
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
-  fs.rmSync(tempDir, { recursive: true, force: true });
-});
+const temp = useTempDataDir("9router-key-cache-");
 
 describe("API-key cache", () => {
   it("preserves restricted access when resolving by key", async () => {
-    writeLegacyDb(tempDir);
+    writeLegacyDb(temp.dir);
     vi.resetModules();
     const { createApiKey, updateApiKey, getApiKeyByKey } = await import("@/lib/db/repos/apiKeysRepo.js");
     const access = { restricted: true, allow: ["Main"] };

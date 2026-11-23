@@ -1,26 +1,16 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { vi } from "#test/vi";
+import { describe, it, expect, beforeAll } from "bun:test";
+import { useTempDataDir } from "#test/tempDataDir";
 
-const originalDataDir = process.env.DATA_DIR;
-let tempDir;
+useTempDataDir("9router-db-compare-", { scope: "all" });
 let sqliteDb;
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-db-compare-"));
-  process.env.DATA_DIR = tempDir;
-  vi.resetModules();
   sqliteDb = await import("@/lib/db/index.js");
   await sqliteDb.initDb();
 });
 
-afterAll(() => {
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
-});
 
 describe("DB SQLite layer — public API parity", () => {
   it("settings: get → defaults; update → merge", async () => {

@@ -1,8 +1,8 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
+import { useTempDataDir } from "#test/tempDataDir";
 import crypto from "node:crypto";
 
 const mocks = vi.hoisted(() => ({
@@ -65,13 +65,7 @@ describe("key format", () => {
 });
 
 describe("api key repo: legacy keys keep validating", () => {
-  let dir;
-  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "key-hard-")); process.env.DATA_DIR = dir; });
-  afterEach(() => {
-    try { global._dbAdapter?.instance?.close?.(); } catch {}
-    delete global._dbAdapter; delete process.env.DATA_DIR;
-    fs.rmSync(dir, { recursive: true, force: true });
-  });
+  useTempDataDir("key-hard-");
   it("validates new and legacy keys, rejects unknown", async () => {
     vi.resetModules();
     const repo = await import("@/lib/db/repos/apiKeysRepo.js");

@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
+import { useTempDataDir } from "#test/tempDataDir";
 
 const stub = vi.hoisted(() => {
   const nativeFetch = globalThis.fetch.bind(globalThis);
@@ -68,23 +69,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const originalDataDir = process.env.DATA_DIR;
+useTempDataDir("9router-zed-live-", { scope: "all" });
 let GET;
 let createProviderConnection;
-let tempDataDir;
 
 beforeAll(async () => {
-  tempDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-zed-live-"));
-  process.env.DATA_DIR = tempDataDir;
-  vi.resetModules();
   ({ GET } = await import("@/app/api/providers/[id]/models/route.js"));
   ({ createProviderConnection } = await import("@/models/index.js"));
-});
-
-afterAll(() => {
-  if (tempDataDir) fs.rmSync(tempDataDir, { recursive: true, force: true });
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
 });
 
 async function seedZed(n) {

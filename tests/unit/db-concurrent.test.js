@@ -1,27 +1,19 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { vi } from "#test/vi";
+import { useTempDataDir } from "#test/tempDataDir";
 
-const originalDataDir = process.env.DATA_DIR;
-let tempDir;
+useTempDataDir("9router-concurrent-", { scope: "all" });
 let db;
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-concurrent-"));
-  process.env.DATA_DIR = tempDir;
   process.env.LIVE_STATS_TTL_MS = "0";
-  vi.resetModules();
   db = await import("@/lib/db/index.js");
   await db.initDb();
 });
 
 afterAll(() => {
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
   delete process.env.LIVE_STATS_TTL_MS;
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
 });
 
 describe("DB Concurrency — atomic safety", () => {
