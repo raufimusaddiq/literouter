@@ -154,3 +154,12 @@ it("leaves the old tag alone when the deploy itself fails", () => {
   expect(result.status).not.toBe(0);
   expect(removed(result)).toEqual([]);
 });
+
+it("refuses to deploy over a running staging image", () => {
+  const staging = `ghcr.io/raufimusaddiq/literouter-staging:staging-${sha("c")}`;
+  const result = run({ args: [sha("b")], running: staging });
+
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain("is not on ghcr.io/raufimusaddiq/literouter-production");
+  expect(result.calls).not.toContain("compose");
+});

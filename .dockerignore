@@ -31,3 +31,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+
+# Not needed to build the image
+tests
+docs
+images
+bench-results
+.claude
+.rig
+cli/app
