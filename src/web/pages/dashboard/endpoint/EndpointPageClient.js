@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button, Input, Modal, CardSkeleton, ConfirmModal, PageIntro } from "@/shared/components";
+import { Button, Input, Modal, CardSkeleton, ConfirmModal } from "@/shared/components";
+import PageHeader from "@/shared/components/shell/PageHeader";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import EndpointStrip from "./components/EndpointStrip";
 import KeysTable from "./components/KeysTable";
@@ -234,10 +235,10 @@ It will only be able to call the combos and models you add. Until you add one, i
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <PageIntro
+      <PageHeader
         title="Endpoint & keys"
         description={`${keys.length} ${keys.length === 1 ? "key" : "keys"} · ${keys.filter((k) => k.isActive !== false).length} active`}
-        action={<Button icon="add" onClick={() => setShowAddModal(true)}>Create key</Button>}
+        actions={<Button icon="add" onClick={() => setShowAddModal(true)}>Create key</Button>}
       />
 
       <EndpointStrip
@@ -308,12 +309,12 @@ It will only be able to call the combos and models you add. Until you add one, i
         onClose={() => setCreatedKey(null)}
       >
         <div className="flex flex-col gap-4">
-          <div className="rounded-lg border border-warning/30 bg-warning/10 p-4">
+          <div className="rounded-md border border-warning/30 bg-warning/10 p-4">
             <p className="mb-2 flex items-center gap-2 text-sm font-medium text-warning">
               <span aria-hidden="true" className="material-symbols-outlined text-[18px]">key</span>
               Save this key now!
             </p>
-            <p className="text-sm text-text-muted">
+            <p className="text-sm text-muted">
               This is the only time you will see this key. Store it securely.
             </p>
           </div>

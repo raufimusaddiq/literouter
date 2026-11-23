@@ -1,7 +1,8 @@
 "use client";
 
 import { lazy, Suspense, useState, useEffect } from "react";
-import { Card, Button, CardSkeleton, ModelSelectModal, ConfirmModal, CapacityBadges, Select, Toggle, PageIntro } from "@/shared/components";
+import { Button, CardSkeleton, ModelSelectModal, ConfirmModal, CapacityBadges, Select, Toggle } from "@/shared/components";
+import PageHeader from "@/shared/components/shell/PageHeader";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
@@ -35,9 +36,9 @@ function normalizeCapEntry(entry) {
 
 function StrategyNote({ title, text }) {
   return (
-    <div className="border-l-2 border-border pl-3">
-      <p className="text-sm font-semibold text-text-main">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-text-muted">{text}</p>
+    <div className="border-l-2 border-line-strong pl-3">
+      <p className="text-sm font-semibold text-ink">{title}</p>
+      <p className="mt-1 text-[12.5px] leading-5 text-muted">{text}</p>
     </div>
   );
 }
@@ -190,32 +191,28 @@ export default function CombosPage() {
 
   return (
     <div className="flex min-w-0 max-w-full flex-col gap-6 overflow-x-clip px-1 sm:px-0">
-      <PageIntro
+      <PageHeader
         title="Combos"
         description="Bundle models under one client-facing name and choose how requests fall back."
-        action={<Button icon="add" onClick={() => setShowCreateModal(true)}>Create combo</Button>}
+        actions={<Button icon="add" onClick={() => setShowCreateModal(true)}>Create combo</Button>}
       />
-      <div className="grid gap-3 border-b border-border-subtle pb-6 sm:grid-cols-3">
+      <div className="grid gap-3 border-b border-line pb-6 sm:grid-cols-3">
         <StrategyNote title="Fallback" text="Try models in priority order." />
         <StrategyNote title="Round robin" text="Spread requests across the pool." />
         <StrategyNote title="Fusion" text="Parallel panel plus judge. Highest cost." />
       </div>
 
       {combos.length === 0 ? (
-        <Card>
-          <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span aria-hidden="true" className="material-symbols-outlined text-[32px]">layers</span>
-            </div>
-            <p className="text-text-main font-medium mb-1">No combos yet</p>
-            <p className="text-sm text-text-muted mb-4">Create model combos with fallback support</p>
-            <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto">
-              Create Combo
-            </Button>
-          </div>
-        </Card>
+        <div className="border-y border-line py-12 text-center">
+          <span aria-hidden="true" className="material-symbols-outlined mb-3 text-[28px] text-faint">layers</span>
+          <p className="mb-1 text-sm font-semibold text-ink">No combos yet</p>
+          <p className="mb-4 text-[12.5px] text-muted">Create model combos with fallback support</p>
+          <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto">
+            Create Combo
+          </Button>
+        </div>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col border-t border-line-strong">
           {combos.map((combo) => (
             <ComboCard
               comboByName={comboByName}
@@ -292,57 +289,55 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
   const comboCaps = aggregateComboCapabilities(combo.models, comboByName, getCaps);
 
   return (
-    <Card padding="sm" className="group">
+    <div className="border-b border-line py-4">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
-          <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <span aria-hidden="true" className="material-symbols-outlined text-primary text-[18px]">layers</span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <code className="block truncate font-mono text-sm font-medium">{combo.name}</code>
-            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
-              {combo.models.length === 0 ? (
-                <span className="text-xs text-text-muted italic">No models</span>
-              ) : (
-                combo.models.slice(0, 3).map((model, index) => (
-                  <code key={index} className="inline-flex min-w-0 max-w-full items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5">
+        <div className="min-w-0 flex-1">
+          <code className="block truncate font-mono text-sm font-semibold text-ink">{combo.name}</code>
+          <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+            {combo.models.length === 0 ? (
+              <span className="text-[12.5px] text-faint">No models</span>
+            ) : (
+              combo.models.slice(0, 3).map((model, index) => (
+                <span key={index} className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+                  {index > 0 && <span aria-hidden="true" className="text-faint">→</span>}
+                  <code className="inline-flex min-w-0 max-w-full items-center gap-1 font-mono text-[12px] tracking-[-0.01em] text-muted">
                     <span className="min-w-0 break-all">{model}</span>
-                    <CapacityBadges caps={
+                    <CapacityBadges size={14} colorOverride="text-faint" caps={
                       comboByName[model]
                         ? aggregateComboCapabilities(comboByName[model], comboByName, getCaps)
                         : getCaps?.(model)
                     } />
                   </code>
-                ))
-              )}
-              {combo.models.length > 3 && (
-                <span className="text-[11px] text-text-muted">+{combo.models.length - 3} more</span>
-              )}
-            </div>
-            {isFusion && (
-              <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-medium text-text-muted">Judge</span>
-                <button
-                  onClick={() => setShowJudgeSelect(true)}
-                  className="inline-flex max-w-full items-center gap-1 rounded border border-dashed border-primary/40 px-1.5 py-0.5 font-mono text-[11px] text-primary hover:border-primary hover:bg-primary/5 transition-colors"
-                  title="Pick the model that fuses panel answers"
-                >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[13px]">gavel</span>
-                  <span className="truncate">{judge || `Auto — ${combo.models[0] || "first model"}`}</span>
-                </button>
-                {judge && (
-                  <button
-                    onClick={() => onSetStrategy({ judgeModel: "" })}
-                    aria-label="Reset judge to Auto"
-                    className="p-0.5 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                    title="Reset judge to Auto"
-                  >
-                    <span aria-hidden="true" className="material-symbols-outlined text-[13px]">close</span>
-                  </button>
-                )}
-              </div>
+                </span>
+              ))
+            )}
+            {combo.models.length > 3 && (
+              <span className="text-[12px] text-faint">+{combo.models.length - 3} more</span>
             )}
           </div>
+          {isFusion && (
+            <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
+              <span className="text-[12px] font-medium text-muted">Judge</span>
+              <button
+                onClick={() => setShowJudgeSelect(true)}
+                className="inline-flex max-w-full items-center gap-1 rounded-md border border-dashed border-line-strong px-1.5 py-0.5 font-mono text-[12px] text-ink transition-colors hover:border-ink hover:bg-raise focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line"
+                title="Pick the model that fuses panel answers"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[13px]">gavel</span>
+                <span className="truncate">{judge || `Auto — ${combo.models[0] || "first model"}`}</span>
+              </button>
+              {judge && (
+                <button
+                  onClick={() => onSetStrategy({ judgeModel: "" })}
+                  aria-label="Reset judge to Auto"
+                  className="rounded-md p-0.5 text-muted transition-colors hover:bg-danger/10 hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line"
+                  title="Reset judge to Auto"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[13px]">close</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
@@ -352,37 +347,26 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
               options={STRATEGY_OPTIONS}
               value={current}
               onChange={(e) => onSetStrategy({ fallbackStrategy: e.target.value })}
-              selectClassName="py-1.5 text-xs"
+              selectClassName="h-8 sm:text-[13px]"
             />
           </div>
 
           <div className="grid grid-cols-3 gap-1 sm:flex">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={copied === `combo-${combo.id}` ? "check" : "content_copy"}
               onClick={(e) => { e.stopPropagation(); onCopy(combo.name, `combo-${combo.id}`); }}
-              className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
               title="Copy combo name"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
-                {copied === `combo-${combo.id}` ? "check" : "content_copy"}
-              </span>
-              <span className="text-[11px] leading-tight">Copy</span>
-            </button>
-            <button
-              onClick={onEdit}
-              className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
-              title="Edit"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">edit</span>
-              <span className="text-[11px] leading-tight">Edit</span>
-            </button>
-            <button
-              onClick={onDelete}
-              className="flex flex-col items-center rounded px-2 py-1 text-red-500 transition-colors hover:bg-red-500/10"
-              title="Delete"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">delete</span>
-              <span className="text-[11px] leading-tight">Delete</span>
-            </button>
+              Copy
+            </Button>
+            <Button variant="ghost" size="sm" icon="edit" onClick={onEdit} title="Edit">
+              Edit
+            </Button>
+            <Button variant="danger" size="sm" icon="delete" onClick={onDelete} title="Delete">
+              Delete
+            </Button>
           </div>
         </div>
       </div>
@@ -398,26 +382,26 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
           closeOnSelect={true}
         />
       )}
-    </Card>
+    </div>
   );
 }
 
 function CapacityAdapterSection({ capacityAdapter, onChange, activeProviders, getCaps }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 border-t border-line-strong pt-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-sm font-medium">Vision Adapter</p>
-          <p className="text-xs text-text-muted mt-0.5">
+          <h2 className="text-base font-semibold tracking-[-0.01em] text-ink">Vision Adapter</h2>
+          <p className="mt-0.5 text-[12.5px] text-muted">
             Your model can&apos;t read image/audio? Auto-switches to a model in the pool below.
           </p>
-          <ul className="mt-1.5 text-[11px] text-text-muted flex flex-col gap-0.5">
-            <li><span className="font-medium text-text-main">Vision</span> — images (png, jpg, webp, …)</li>
-            <li><span className="font-medium text-text-main">Audio</span> — audio input</li>
+          <ul className="mt-1.5 flex flex-col gap-0.5 text-[12px] text-muted">
+            <li><span className="font-medium text-ink">Vision</span> — images (png, jpg, webp, …)</li>
+            <li><span className="font-medium text-ink">Audio</span> — audio input</li>
           </ul>
         </div>
       </div>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col border-t border-line">
         {CAPACITY_ADAPTER_CAPS.map((cap) => (
           <CapacityAdapterCap
             key={cap.key}
@@ -457,7 +441,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
   };
 
   return (
-    <Card padding="sm" className={`group ${!enabled ? "opacity-50" : ""}`}>
+    <div className={`border-b border-line py-4 ${!enabled ? "opacity-50" : ""}`}>
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 items-start gap-2.5 sm:items-center">
           <Toggle
@@ -465,46 +449,44 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
             onChange={(v) => patch({ enabled: v })}
             aria-label={`Enable ${cap.label} adapter`}
           />
-          <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <span aria-hidden="true" className="material-symbols-outlined text-primary text-[18px]">{cap.icon}</span>
-          </div>
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-x-1.5">
-              <code className="font-mono text-sm font-medium">{cap.label}</code>
-              <span className="text-[11px] text-text-muted">— {cap.desc}</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-faint">{cap.icon}</span>
+              <code className="font-mono text-sm font-semibold text-ink">{cap.label}</code>
+              <span className="text-[12px] text-faint">— {cap.desc}</span>
             </div>
-            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
+            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
               {models.length === 0 ? (
-                <span className="text-xs text-text-muted italic">No models</span>
+                <span className="text-[12.5px] text-faint">No models</span>
               ) : (
                 models.slice(0, 3).map((model, index) => (
-                  <code
-                    key={`${model}-${index}`}
-                    className="group/chip inline-flex min-w-0 max-w-full items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5"
-                  >
-                    <span className="min-w-0 break-all">{model}</span>
-                    <CapacityBadges caps={getCaps?.(model)} />
-                    <button onClick={() => handleMove(index, -1)} disabled={index === 0} aria-label={`Move ${model} up`} className={`leading-none opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100 ${index === 0 ? "text-text-muted/20" : "text-text-muted hover:text-primary"}`}>
-                      <span aria-hidden="true" className="material-symbols-outlined text-[12px]">arrow_upward</span>
-                    </button>
-                    <button onClick={() => handleMove(index, 1)} disabled={index === models.length - 1} aria-label={`Move ${model} down`} className={`leading-none opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100 ${index === models.length - 1 ? "text-text-muted/20" : "text-text-muted hover:text-primary"}`}>
-                      <span aria-hidden="true" className="material-symbols-outlined text-[12px]">arrow_downward</span>
-                    </button>
-                    <button onClick={() => handleRemove(index)} aria-label={`Remove ${model}`} className="leading-none opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100 text-text-muted hover:text-red-500">
-                      <span aria-hidden="true" className="material-symbols-outlined text-[12px]">close</span>
-                    </button>
-                  </code>
+                  <span key={`${model}-${index}`} className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+                    {index > 0 && <span aria-hidden="true" className="text-faint">→</span>}
+                    <code className="group/chip inline-flex min-w-0 max-w-full items-center gap-1 font-mono text-[12px] tracking-[-0.01em] text-muted">
+                      <span className="min-w-0 break-all">{model}</span>
+                      <CapacityBadges size={14} colorOverride="text-faint" caps={getCaps?.(model)} />
+                      <button onClick={() => handleMove(index, -1)} disabled={index === 0} aria-label={`Move ${model} up`} className={`leading-none opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100 ${index === 0 ? "text-line-strong" : "text-muted hover:text-ink"}`}>
+                        <span aria-hidden="true" className="material-symbols-outlined text-[12px]">arrow_upward</span>
+                      </button>
+                      <button onClick={() => handleMove(index, 1)} disabled={index === models.length - 1} aria-label={`Move ${model} down`} className={`leading-none opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100 ${index === models.length - 1 ? "text-line-strong" : "text-muted hover:text-ink"}`}>
+                        <span aria-hidden="true" className="material-symbols-outlined text-[12px]">arrow_downward</span>
+                      </button>
+                      <button onClick={() => handleRemove(index)} aria-label={`Remove ${model}`} className="leading-none opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100 text-muted hover:text-danger">
+                        <span aria-hidden="true" className="material-symbols-outlined text-[12px]">close</span>
+                      </button>
+                    </code>
+                  </span>
                 ))
               )}
               {models.length > 3 && (
-                <span className="text-[11px] text-text-muted">+{models.length - 3} more</span>
+                <span className="text-[12px] text-faint">+{models.length - 3} more</span>
               )}
             </div>
           </div>
         </div>
 
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
-          <label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer select-none">
+          <label className="flex items-center gap-1.5 text-[12.5px] text-muted cursor-pointer select-none">
             <Toggle
               checked={roundRobin}
               onChange={(v) => patch({ roundRobin: v })}
@@ -539,6 +521,6 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
           closeOnSelect={false}
         />
       )}
-    </Card>
+    </div>
   );
 }

@@ -43,6 +43,8 @@ export const GUARDED_PATHS = [
   "src/shared/components/LanguageSwitcher.js",
   "src/shared/components/HeaderLanguage.js",
   "src/shared/components/ThemeToggle.js",
+  "src/web/pages/dashboard/endpoint",
+  "src/web/pages/dashboard/combos",
 ];
 
 const BACKDROP_BLUR_ALLOWED = new Set(["src/shared/components/shell/TopBar.js"]);

@@ -34,13 +34,13 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 bg-black/[0.02] hover:bg-black/[0.04] dark:bg-white/[0.02] dark:hover:bg-white/[0.04] transition-colors ${isDragging ? "shadow-md ring-1 ring-primary/30" : ""}`}
+      className={`group flex min-w-0 items-center gap-1.5 border-b border-line bg-raise px-1 py-1 transition-colors hover:bg-line/40 ${isDragging ? "rounded-md border border-line-strong shadow-float" : ""}`}
     >
       <button
         {...attributes}
         {...listeners}
         type="button"
-        className="cursor-grab touch-none p-0.5 rounded text-text-muted hover:text-primary active:cursor-grabbing shrink-0"
+        className="shrink-0 cursor-grab touch-none rounded p-0.5 text-faint transition-colors hover:text-ink active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line"
         title="Drag to reorder"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -50,7 +50,7 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
         </svg>
       </button>
 
-      <span className="text-[11px] font-medium text-text-muted w-3 text-center shrink-0">{index + 1}</span>
+      <span className="w-3 shrink-0 text-center font-mono text-[11px] tabular-nums text-faint">{index + 1}</span>
 
       {editing ? (
         <input
@@ -59,11 +59,11 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={handleKeyDown}
-          className="min-w-0 flex-1 rounded border border-primary/40 bg-white px-1.5 py-0.5 font-mono text-xs text-text-main outline-none dark:bg-black/20"
+          className="min-w-0 flex-1 rounded border border-mark-line bg-bg px-1.5 py-0.5 font-mono text-xs text-ink outline-none"
         />
       ) : (
         <div
-          className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-text-main hover:bg-black/5 dark:hover:bg-white/5"
+          className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-ink transition-colors hover:bg-line/60"
           onClick={() => setEditing(true)}
           title="Click to edit"
         >
@@ -76,7 +76,7 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
           onClick={onMoveUp}
           disabled={isFirst}
           aria-label="Move model up"
-          className={`p-0.5 rounded ${isFirst ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"}`}
+          className={`rounded p-0.5 ${isFirst ? "cursor-not-allowed text-line-strong" : "text-muted transition-colors hover:bg-line/60 hover:text-ink"}`}
           title="Move up"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-[12px]">arrow_upward</span>
@@ -85,7 +85,7 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
           onClick={onMoveDown}
           disabled={isLast}
           aria-label="Move model down"
-          className={`p-0.5 rounded ${isLast ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"}`}
+          className={`rounded p-0.5 ${isLast ? "cursor-not-allowed text-line-strong" : "text-muted transition-colors hover:bg-line/60 hover:text-ink"}`}
           title="Move down"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-[12px]">arrow_downward</span>
@@ -95,7 +95,7 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
       <button
         onClick={onRemove}
         aria-label="Remove model"
-        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-muted hover:bg-red-500/10 hover:text-red-500 transition-colors"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted transition-colors hover:bg-danger/10 hover:text-danger"
         title="Remove"
       >
         <span aria-hidden="true" className="material-symbols-outlined text-[12px]">close</span>
@@ -218,18 +218,18 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
               placeholder="my-combo"
               error={nameError}
             />
-            <p className="text-[11px] text-text-muted mt-0.5">
+            <p className="mt-0.5 text-xs text-muted">
               Only letters, numbers, -, _ and . allowed
             </p>
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Models</label>
+            <label className="mb-1.5 block text-[13px] font-medium text-ink">Models</label>
 
             {models.length === 0 ? (
-              <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
-                <span aria-hidden="true" className="material-symbols-outlined text-text-muted text-xl mb-1">layers</span>
-                <p className="text-xs text-text-muted">No models added yet</p>
+              <div className="rounded-md border border-dashed border-line-strong py-4 text-center">
+                <span aria-hidden="true" className="material-symbols-outlined mb-1 text-xl text-faint">layers</span>
+                <p className="text-xs text-muted">No models added yet</p>
               </div>
             ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToParentElement]}>
@@ -258,13 +258,16 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
             </DndContext>
             )}
 
-            <button
+            <Button
               onClick={() => setShowModelSelect(true)}
-              className="w-full mt-2 py-2 border border-dashed border-black/10 dark:border-white/10 rounded-lg text-xs text-primary font-medium hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-1"
+              variant="outline"
+              size="sm"
+              icon="add"
+              fullWidth
+              className="mt-2 border-dashed"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">add</span>
               Add Model
-            </button>
+            </Button>
           </div>
 
           <div className="flex flex-col gap-2 pt-1 sm:flex-row">
