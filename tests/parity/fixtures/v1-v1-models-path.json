@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "v1-v1-models-path",
+  "method": "GET",
+  "path": "/v1/v1/models/pm/mock-ok"
+}

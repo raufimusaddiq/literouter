@@ -1,0 +1,11 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "zz-cache-18-caveman-on",
+  "method": "PATCH",
+  "path": "/api/settings",
+  "json": {
+    "cavemanEnabled": true,
+    "cavemanLevel": "full"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "v1-v1-messages",
+  "method": "POST",
+  "path": "/v1/v1/messages",
+  "json": {
+    "model": "pm/mock-ok",
+    "max_tokens": 16,
+    "stream": false,
+    "messages": [
+      {
+        "role": "user",
+        "content": "hi"
+      }
+    ]
+  },
+  "headers": {
+    "anthropic-version": "2023-06-01"
+  }
+}

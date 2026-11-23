@@ -1,0 +1,203 @@
+{
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "object": "list",
+    "data": [
+      {
+        "id": "parity-combo",
+        "object": "model",
+        "owned_by": "combo",
+        "capabilities": {
+          "vision": false,
+          "pdf": false,
+          "audioInput": false,
+          "videoInput": false,
+          "imageOutput": false,
+          "audioOutput": false,
+          "search": false,
+          "tools": true,
+          "reasoning": false,
+          "thinkingFormat": null,
+          "thinkingCanDisable": true,
+          "thinkingRange": null,
+          "contextWindow": 200000,
+          "maxOutput": 64000
+        },
+        "context_length": 200000,
+        "max_completion_tokens": 64000
+      },
+      {
+        "id": "pm/mock-ok",
+        "object": "model",
+        "owned_by": "pm",
+        "capabilities": {
+          "vision": false,
+          "pdf": false,
+          "audioInput": false,
+          "videoInput": false,
+          "imageOutput": false,
+          "audioOutput": false,
+          "search": false,
+          "tools": true,
+          "reasoning": false,
+          "thinkingFormat": null,
+          "thinkingCanDisable": true,
+          "thinkingRange": null,
+          "thinkingEffortSupported": false,
+          "contextWindow": 200000,
+          "maxOutput": 64000
+        },
+        "context_length": 200000,
+        "max_completion_tokens": 64000
+      },
+      {
+        "id": "pm/mock-stream",
+        "object": "model",
+        "owned_by": "pm",
+        "capabilities": {
+          "vision": false,
+          "pdf": false,
+          "audioInput": false,
+          "videoInput": false,
+          "imageOutput": false,
+          "audioOutput": false,
+          "search": false,
+          "tools": true,
+          "reasoning": false,
+          "thinkingFormat": null,
+          "thinkingCanDisable": true,
+          "thinkingRange": null,
+          "thinkingEffortSupported": false,
+          "contextWindow": 200000,
+          "maxOutput": 64000
+        },
+        "context_length": 200000,
+        "max_completion_tokens": 64000
+      },
+      {
+        "id": "mmf/mimo-auto",
+        "object": "model",
+        "owned_by": "mmf",
+        "capabilities": {
+          "vision": true,
+          "pdf": false,
+          "audioInput": false,
+          "videoInput": false,
+          "imageOutput": false,
+          "audioOutput": false,
+          "search": false,
+          "tools": true,
+          "reasoning": false,
+          "thinkingFormat": null,
+          "thinkingCanDisable": true,
+          "thinkingRange": null,
+          "thinkingEffortSupported": false,
+          "contextWindow": 262144,
+          "maxOutput": 131072
+        },
+        "context_length": 262144,
+        "max_completion_tokens": 131072
+      },
+      {
+        "id": "oc/muse-spark-1.2-contributor-free",
+        "object": "model",
+        "owned_by": "oc",
+        "capabilities": {
+          "vision": true,
+          "pdf": false,
+          "audioInput": false,
+          "videoInput": false,
+          "imageOutput": false,
+          "audioOutput": false,
+          "search": false,
+          "tools": true,
+          "reasoning": true,
+          "thinkingFormat": "openai",
+          "thinkingCanDisable": true,
+          "thinkingRange": null,
+          "thinkingEffortSupported": false,
+          "contextWindow": 1048576,
+          "maxOutput": 131072
+        },
+        "context_length": 1048576,
+        "max_completion_tokens": 131072,
+        "thinking_levels": [
+          "none",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ]
+      },
+      {
+        "id": "oc/muse-spark-1.3-contributor-free",
+        "object": "model",
+        "owned_by": "oc",
+        "capabilities": {
+          "vision": true,
+          "pdf": false,
+          "audioInput": false,
+          "videoInput": false,
+          "imageOutput": false,
+          "audioOutput": false,
+          "search": false,
+          "tools": true,
+          "reasoning": true,
+          "thinkingFormat": "openai",
+          "thinkingCanDisable": true,
+          "thinkingRange": null,
+          "thinkingEffortSupported": false,
+          "contextWindow": 1048576,
+          "maxOutput": 131072
+        },
+        "context_length": 1048576,
+        "max_completion_tokens": 131072,
+        "thinking_levels": [
+          "none",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ]
+      },
+      {
+        "id": "oc/union-alpha",
+        "object": "model",
+        "owned_by": "oc",
+        "capabilities": {
+          "vision": true,
+          "pdf": false,
+          "audioInput": false,
+          "videoInput": false,
+          "imageOutput": false,
+          "audioOutput": false,
+          "search": false,
+          "tools": true,
+          "reasoning": false,
+          "thinkingFormat": null,
+          "thinkingCanDisable": true,
+          "thinkingRange": null,
+          "thinkingEffortSupported": false,
+          "contextWindow": 262144,
+          "maxOutput": 131072
+        },
+        "context_length": 262144,
+        "max_completion_tokens": 131072
+      }
+    ]
+  },
+  "upstream": [
+    {
+      "method": "GET",
+      "path": "/v1/models",
+      "body": ""
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "zz-cache-24-rtk-off",
+  "method": "PATCH",
+  "path": "/api/settings",
+  "json": {
+    "rtkEnabled": false
+  }
+}

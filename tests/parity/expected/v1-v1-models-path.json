@@ -1,0 +1,39 @@
+{
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "pm/mock-ok",
+    "object": "model",
+    "owned_by": "pm",
+    "capabilities": {
+      "vision": false,
+      "pdf": false,
+      "audioInput": false,
+      "videoInput": false,
+      "imageOutput": false,
+      "audioOutput": false,
+      "search": false,
+      "tools": true,
+      "reasoning": false,
+      "thinkingFormat": null,
+      "thinkingCanDisable": true,
+      "thinkingRange": null,
+      "thinkingEffortSupported": false,
+      "contextWindow": 200000,
+      "maxOutput": 64000
+    },
+    "context_length": 200000,
+    "max_completion_tokens": 64000
+  },
+  "upstream": [
+    {
+      "method": "GET",
+      "path": "/v1/models",
+      "body": ""
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "cache-control": "no-cache, no-transform",
+    "content-type": "text/event-stream",
+    "x-accel-buffering": "no"
+  },
+  "frames": [
+    {
+      "event": "response.created",
+      "data": "{\"type\":\"response.created\",\"response\":{\"id\":\"resp_chatcmpl-parity\",\"object\":\"response\",\"created_at\":\"<EPOCH_S>\",\"status\":\"in_progress\",\"background\":false,\"error\":null,\"output\":[]},\"sequence_number\":1}"
+    },
+    {
+      "event": "response.in_progress",
+      "data": "{\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_chatcmpl-parity\",\"object\":\"response\",\"created_at\":\"<EPOCH_S>\",\"status\":\"in_progress\"},\"sequence_number\":2}"
+    },
+    {
+      "event": "response.output_item.added",
+      "data": "{\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"id\":\"msg_<ID>\",\"type\":\"message\",\"content\":[],\"role\":\"assistant\"},\"sequence_number\":3}"
+    },
+    {
+      "event": "response.content_part.added",
+      "data": "{\"type\":\"response.content_part.added\",\"item_id\":\"msg_<ID>\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"annotations\":[],\"logprobs\":[],\"text\":\"\"},\"sequence_number\":4}"
+    },
+    {
+      "event": "response.output_text.delta",
+      "data": "{\"type\":\"response.output_text.delta\",\"item_id\":\"msg_<ID>\",\"output_index\":0,\"content_index\":0,\"delta\":\"par\",\"logprobs\":[],\"sequence_number\":5}"
+    },
+    {
+      "event": "response.output_text.delta",
+      "data": "{\"type\":\"response.output_text.delta\",\"item_id\":\"msg_<ID>\",\"output_index\":0,\"content_index\":0,\"delta\":\"ity\",\"logprobs\":[],\"sequence_number\":6}"
+    },
+    {
+      "event": "response.output_text.done",
+      "data": "{\"type\":\"response.output_text.done\",\"item_id\":\"msg_<ID>\",\"output_index\":0,\"content_index\":0,\"text\":\"parity\",\"logprobs\":[],\"sequence_number\":7}"
+    },
+    {
+      "event": "response.content_part.done",
+      "data": "{\"type\":\"response.content_part.done\",\"item_id\":\"msg_<ID>\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"annotations\":[],\"logprobs\":[],\"text\":\"parity\"},\"sequence_number\":8}"
+    },
+    {
+      "event": "response.output_item.done",
+      "data": "{\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"id\":\"msg_<ID>\",\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"annotations\":[],\"logprobs\":[],\"text\":\"parity\"}],\"role\":\"assistant\"},\"sequence_number\":9}"
+    },
+    {
+      "event": "response.completed",
+      "data": "{\"type\":\"response.completed\",\"response\":{\"id\":\"resp_chatcmpl-parity\",\"object\":\"response\",\"created_at\":\"<EPOCH_S>\",\"status\":\"completed\",\"background\":false,\"error\":null,\"output\":[{\"id\":\"msg_<ID>\",\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"annotations\":[],\"logprobs\":[],\"text\":\"parity\"}],\"role\":\"assistant\"}]},\"sequence_number\":10}"
+    }
+  ],
+  "upstream": [
+    {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "body": {
+        "model": "mock-stream",
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "hi"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,116 @@
+{
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "cache-control": "no-cache, no-transform",
+    "content-type": "text/event-stream",
+    "x-accel-buffering": "no"
+  },
+  "frames": [
+    {
+      "data": "{\"id\":\"chatcmpl-<ID>\",\"object\":\"chat.completion.chunk\",\"created\":1763800000,\"model\":\"mock-model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"par\"},\"finish_reason\":null}]}"
+    },
+    {
+      "data": "{\"id\":\"chatcmpl-<ID>\",\"object\":\"chat.completion.chunk\",\"created\":1763800000,\"model\":\"mock-model\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ity\"},\"finish_reason\":null}]}"
+    },
+    {
+      "data": "{\"id\":\"chatcmpl-<ID>\",\"object\":\"chat.completion.chunk\",\"created\":1763800000,\"model\":\"mock-model\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}"
+    },
+    {
+      "data": "[DONE]"
+    }
+  ],
+  "upstream": [
+    {
+      "method": "POST",
+      "path": "/v1/messages",
+      "body": {
+        "model": "mock-stream",
+        "max_tokens": 1024,
+        "stream": true,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are a careful coding assistant. Follow the repository conventions."
+          },
+          {
+            "type": "text",
+            "text": "Prefer small, reviewable changes.",
+            "cache_control": {
+              "type": "ephemeral",
+              "ttl": "1h"
+            }
+          }
+        ],
+        "tools": [
+          {
+            "name": "read_file",
+            "description": "read_file tool",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "q": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "q"
+              ]
+            }
+          },
+          {
+            "name": "grep_files",
+            "description": "grep_files tool",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "q": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "q"
+              ]
+            },
+            "cache_control": {
+              "type": "ephemeral",
+              "ttl": "1h"
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Summarize the repository layout."
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "The repo has src, open-sse and tests.",
+                "cache_control": {
+                  "type": "ephemeral"
+                }
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Which directory holds the executors?"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

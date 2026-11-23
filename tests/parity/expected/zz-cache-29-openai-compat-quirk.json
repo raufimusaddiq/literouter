@@ -1,0 +1,93 @@
+{
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "chatcmpl-<ID>",
+    "type": "message",
+    "role": "assistant",
+    "model": "mock-model",
+    "content": [
+      {
+        "type": "text",
+        "text": "parity ok"
+      }
+    ],
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "usage": {
+      "input_tokens": 3,
+      "output_tokens": 2
+    }
+  },
+  "upstream": [
+    {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "body": {
+        "model": "mock-ok",
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a careful coding assistant. Follow the repository conventions.\nPrefer small, reviewable changes."
+          },
+          {
+            "role": "user",
+            "content": "hi"
+          },
+          {
+            "role": "assistant",
+            "content": "hello"
+          },
+          {
+            "role": "user",
+            "content": "again"
+          }
+        ],
+        "stream": false,
+        "max_tokens": 32000,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "read_file tool",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "q": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "q"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "grep_files",
+              "description": "grep_files tool",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "q": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "q"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

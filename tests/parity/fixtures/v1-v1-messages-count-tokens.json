@@ -1,0 +1,16 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "v1-v1-messages-count-tokens",
+  "method": "POST",
+  "path": "/v1/v1/messages/count_tokens",
+  "json": {
+    "model": "pm/mock-ok",
+    "messages": [
+      {
+        "role": "user",
+        "content": "hi"
+      }
+    ]
+  }
+}
