@@ -101,8 +101,9 @@ function createSpinner(text) {
 const pkg = require("./package.json");
 const { buildInstallCmd } = require("./src/cli/utils/update");
 const { buildServerSpawn } = require("./src/cli/utils/spawn");
-const { takeoverLegacy, getProcessInfo } = require("./src/cli/utils/legacyCli");
-const { killLauncher } = require("./src/cli/utils/killProc");
+const { takeoverLegacy } = require("./src/cli/utils/legacyCli");
+const { createRuntimeDeps, killPid, isPortOpen } = require("./src/cli/utils/runtimeDeps");
+const { getListenerPid } = require("./src/cli/utils/listener");
 const { createCrashLog } = require("./src/cli/utils/crashLog");
 const { ensureRuntime } = require("./hooks/runtime");
 const {
@@ -110,7 +111,7 @@ const {
   readServerPid,
   clearServerPid,
   isTrackedServerAlive,
-  findListenerPid,
+
   buildTrayArgs,
 } = require("./src/cli/utils/serverProc");
 const { parseCommand, awaitTrayRuntime } = require("./src/cli/utils/launch");
@@ -119,17 +120,7 @@ const parsedCommand = parseCommand(args);
 
 if (parsedCommand.command === "stop") {
   const { runStop } = require("./src/cli/commands/stop");
-  runStop({
-    cliPath: __filename,
-    readServerPid,
-    clearServerPid,
-    getListenerPid,
-    isTrackedServerAlive,
-    getProcessInfo: require("./src/cli/utils/legacyCli").getProcessInfo,
-    kill: killProcess,
-    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
-    log: console.log,
-  })
+  runStop(createRuntimeDeps({ cliPath: __filename }))
     .then((code) => process.exit(code))
     .catch((err) => {
       console.error(`❌ ${err?.message || err}`);
@@ -233,69 +224,22 @@ if (skipUpdate && !trayMode && !process.stdin.isTTY) {
 
 const RUNTIME = process.execPath;
 
-function killPid(pid) {
-  try {
-    if (process.platform === "win32") {
-      execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore", windowsHide: true, timeout: 3000 });
-    } else {
-      execSync(`kill -9 ${pid}`, { stdio: "ignore", timeout: 3000 });
-    }
-  } catch (e) {
-  }
-}
-
-function getListenerPid(p) {
-  try {
-    if (process.platform === "win32") {
-      const output = execSync("netstat -ano -p TCP", {
-        encoding: "utf8",
-        windowsHide: true,
-        timeout: 5000,
-        stdio: ["ignore", "pipe", "ignore"]
-      });
-      return findListenerPid(output, p);
-    }
-    const output = execSync(`lsof -tiTCP:${p} -sTCP:LISTEN`, {
-      encoding: "utf8",
-      timeout: 5000,
-      stdio: ["ignore", "pipe", "ignore"]
-    }).trim();
-    const pid = parseInt(output.split("\n")[0], 10);
-    return Number.isInteger(pid) ? pid : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-function killProcess(pid, kind) {
-  if (kind === "launcher") {
-    killLauncher(pid, {
-      killPid,
-      signalPid: (target, signal) => {
-        try { process.kill(target, signal); } catch (e) {}
-      },
-    });
-    return;
-  }
-  killPid(pid);
-}
-
 async function claimPort() {
   const { isAutoStartEnabled, enableAutoStart } = require("./src/cli/tray/autostart");
   const legacy = await takeoverLegacy({
-    cliPath: __filename,
+    ...createRuntimeDeps({ cliPath: __filename }),
     host,
     port,
     isAutoStartEnabled,
     enableAutoStart,
-    readServerPid,
-    getListenerPid,
-    isTrackedServerAlive,
-    getProcessInfo,
-    kill: killProcess,
-    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
-    log: console.log,
   });
+  if (legacy && legacy.ambiguous) {
+    const holder = legacy.pid ? `pid ${legacy.pid}` : "a process that could not be identified";
+    console.error(`
+❌ Port ${legacy.port} is held by ${holder}, which may be an old 9router server. ${APP_NAME} will not start a second server on the same data directory.
+   If it is the old 9router server, stop it yourself (quit its tray icon or terminal, then remove the old global 9router package with the package manager you installed it with), then run ${APP_NAME} again.`);
+    process.exit(1);
+  }
   if (legacy && legacy.respawned) {
     console.error(`\n❌ The old 9router launcher keeps restarting its server on port ${port}. Quit the old 9router CLI, then run ${APP_NAME} again.`);
     process.exit(1);
@@ -314,7 +258,7 @@ async function claimPort() {
   for (let i = 0; i < MAX_PORT_ATTEMPTS; i++) {
     const candidate = port + i;
     if (candidate > 65535) break;
-    if (getListenerPid(candidate) === null) {
+    if (getListenerPid(candidate) === null && !(await isPortOpen(candidate))) {
       port = candidate;
       return;
     }

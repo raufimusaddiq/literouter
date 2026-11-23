@@ -189,4 +189,22 @@ describe("literouter stop", () => {
     });
     expect(result.stdout.toString()).toMatch(/literouter stop/);
   });
+
+  test("never reports not running while the pidfile pid is alive and the port is open but the listener is unknown", async () => {
+    const ctx = makeDeps({ listeners: [] });
+    ctx.deps.isPidAlive = () => true;
+    ctx.deps.isPortOpen = async () => true;
+    expect(await runStop(ctx.deps)).toBe(1);
+    expect(ctx.cleared).toBe(0);
+    expect(ctx.calls).toEqual([]);
+    expect(ctx.logs.join("\n")).toMatch(/still running/i);
+  });
+
+  test("a dead pid with a closed port is still a stale pidfile", async () => {
+    const ctx = makeDeps({ listeners: [] });
+    ctx.deps.isPidAlive = () => false;
+    ctx.deps.isPortOpen = async () => false;
+    expect(await runStop(ctx.deps)).toBe(0);
+    expect(ctx.cleared).toBe(1);
+  });
 });

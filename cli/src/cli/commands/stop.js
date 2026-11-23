@@ -46,7 +46,12 @@ async function runStop(deps) {
   }
 
   const port = record.port ?? DEFAULT_PORT;
-  if (!isTrackedServerAlive(record.pid, getListenerPid(port))) {
+  const listener = getListenerPid(port);
+  if (!isTrackedServerAlive(record.pid, listener)) {
+    if (listener === null && deps.isPidAlive && deps.isPidAlive(record.pid) && deps.isPortOpen && (await deps.isPortOpen(port))) {
+      log(`Cannot tell which process listens on port ${port}, and pid ${record.pid} from the pid file is still running. The pid file was kept. Install lsof or ss, or stop pid ${record.pid} yourself.`);
+      return 1;
+    }
     clearServerPid();
     log("LiteRouter is not running (removed a stale pid file).");
     return 0;
