@@ -12,31 +12,25 @@ Minimal AI router for coding tools. LiteRouter is a maintained [9Router](https:/
 - Minimal profile removes tunnel, Tailscale, and MITM runtime. No hidden compatibility process.
 - SQLite stays authoritative. Redis only invalidates connection cache between instances.
 
-## Quick start
+## Docker
 
-Use the immutable production image for a merged `main` SHA:
-
-```yaml
-services:
-  literouter:
-    image: ghcr.io/raufimusaddiq/literouter-production:production-<full-main-sha>
-    environment:
-      DATA_DIR: /app/data
-      MINIMAL_PROFILE: "true"
-      MODEL_CATALOG_SYNC: off
-      DISABLE_BACKGROUND_TOKEN_REFRESH: "true"
-      REDIS_URL: redis://idx-redis:6379 # optional; cache only
-    ports:
-      - "20128:20128"
-    volumes:
-      - ./data:/app/data
-```
+[`docker-compose.yml`](docker-compose.yml) is a ready example. Copy `.env.example` to `.env`, set `INITIAL_PASSWORD` (the default is `123456`), then:
 
 ```bash
 docker compose up -d
 ```
 
-Open `http://localhost:20128`. Configure providers in the dashboard, then point a compatible client at `http://localhost:20128/v1`.
+Or without compose:
+
+```bash
+docker run -d --name literouter -p 20128:20128 \
+  -v literouter-data:/app/data -e DATA_DIR=/app/data \
+  --env-file .env ghcr.io/raufimusaddiq/literouter:0.5.81
+```
+
+Open `http://localhost:20128`, configure providers in the dashboard, then point a compatible client at `http://localhost:20128/v1`.
+
+The `literouter-data` volume holds the SQLite database (`db/data.sqlite`) and backups; keep it across upgrades. To upgrade, set a newer version tag in the image line, then `docker compose pull && docker compose up -d` (or pull the tag and recreate the container with the same volume). Tags are published per release (`v*`); there is no `latest` tag.
 
 For the repository production deployment, use [`compose.production.yml`](compose.production.yml). Image builds run in GitHub Actions; the host pulls published images.
 
@@ -53,7 +47,7 @@ For the repository production deployment, use [`compose.production.yml`](compose
 | Tunnel, Tailscale, MITM runtime | Deleted | Included |
 | Intended operation | Small, direct routing deployment | Full product surface |
 
-LiteRouter is not an upstream drop-in package release. Build from this repository, install the CLI with `bun add -g literouter` (requires Bun 1.4.4 or newer; run `npm rm -g 9router` first if you had the upstream package), or use the production image above; `npm install -g 9router` installs upstream 9Router.
+LiteRouter is not an upstream drop-in package release. Build from this repository, install the CLI with `bun add -g literouter` (requires Bun 1.4.4 or newer; run `npm rm -g 9router` first if you had the upstream package), or use the Docker image above; `npm install -g 9router` installs upstream 9Router.
 
 ## Operations
 
