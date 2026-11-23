@@ -251,7 +251,7 @@ Checks from the whole-branch review of Plan 5, done on 2026-11-23 before the cut
 
 ## Rollback rehearsal
 
-Run on the production host (`the production host`) on 2026-11-23, approved by the owner. Production's
+Run on the production host on 2026-11-23, approved by the owner. Production's
 `literouter` container and the `9router-data` volume were only read, and every rehearsal object
 was a throwaway `lr-rehearsal-*`, all removed afterwards. All rehearsal containers ran on an
 `--internal` Docker network (no egress), so nothing on the copy could reach a real provider.
@@ -290,7 +290,7 @@ on the dev box and in CI.
 
 ### Runbook
 
-Host: `ssh the production host`. Rules: no builds or installs on the host. Never touch the other
+Host: the production host (address kept out of the repo). Rules: no builds or installs on the host. Never touch the other
 apps' containers. One writer on `9router-data` at a time (`deploy.sh` replaces the single
 `literouter` container through `compose up --wait`).
 
