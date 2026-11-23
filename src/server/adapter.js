@@ -33,7 +33,7 @@ function decode(segment) {
 function buildParams(req, route, pathname) {
   const params = {};
   for (const [key, value] of Object.entries(req.params || {})) {
-    if (key !== "*") params[key] = decode(String(value));
+    if (key !== "*") params[key] = String(value);
   }
   if (route.catchAll) {
     const prefix = route.path.endsWith("*") ? route.path.slice(0, -1) : route.path;
