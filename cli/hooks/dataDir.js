@@ -29,7 +29,6 @@ function resolveDataDir({
 
   const pickDefault = () => {
     if (!exists(current) && exists(legacy)) return { dir: legacy, source: "legacy", label: shown(LEGACY_APP_NAME) };
-    if (!exists(current)) mkdir(current);
     return { dir: current, source: "default", label: shown(APP_NAME) };
   };
 

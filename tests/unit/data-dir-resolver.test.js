@@ -37,11 +37,12 @@ describe("resolveDataDir on posix", () => {
     expect(r.source).toBe(source);
   });
 
-  test("neither exists creates ~/.literouter", () => {
+  test("neither exists returns the new path without creating anything", () => {
     const { home } = sandbox([]);
-    resolveDataDir({ env: {}, platform: "linux", home });
-    expect(fs.existsSync(path.join(home, ".literouter"))).toBe(true);
-    expect(fs.existsSync(path.join(home, ".9router"))).toBe(false);
+    const before = fs.readdirSync(home).sort();
+    const r = resolveDataDir({ env: {}, platform: "linux", home });
+    expect(r.dir).toBe(path.join(home, ".literouter"));
+    expect(fs.readdirSync(home).sort()).toEqual(before);
   });
 
   test("legacy dir is never created, moved or copied", () => {
@@ -86,11 +87,11 @@ describe("resolveDataDir on Windows", () => {
     expect(r.dir).toBe("C:\\A\\literouter");
   });
 
-  test("neither exists creates the new one, APPDATA unset uses AppData\Roaming", () => {
+  test("neither exists returns the new path without creating it, APPDATA unset uses AppData Roaming", () => {
     const made = [];
     const r = resolveDataDir({ platform: "win32", home: "C:\\Users\\u", env: {}, exists: () => false, mkdir: (d) => made.push(d) });
     expect(r.dir).toBe("C:\\Users\\u\\AppData\\Roaming\\literouter");
-    expect(made).toEqual([r.dir]);
+    expect(made).toEqual([]);
   });
 
   test("Unix-style DATA_DIR falls back to the default, legacy aware", () => {
