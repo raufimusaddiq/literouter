@@ -18,7 +18,30 @@ function hasClaudeCliHeader(headers) {
 const nativeFetch = globalThis.fetch;
 const SYSTEM_CA = Symbol.for("literouter.systemCaList");
 
-function originalFetch(url, options) {
+export const NODE_FETCH_DEFAULT_HEADERS = Object.freeze({
+  "accept-encoding": "gzip, deflate",
+  "accept-language": "*",
+  "sec-fetch-mode": "cors",
+  "user-agent": "node",
+});
+
+const CACHE_MODE_HEADERS = {
+  "no-store": { "cache-control": "no-cache", pragma: "no-cache" },
+  reload: { "cache-control": "no-cache", pragma: "no-cache" },
+  "no-cache": { "cache-control": "max-age=0" },
+};
+
+function withNodeDefaults(url, options) {
+  const headers = new Headers(url instanceof Request ? url.headers : undefined);
+  if (options?.headers) new Headers(options.headers).forEach((value, name) => headers.set(name, value));
+  const cache = options?.cache ?? (url instanceof Request ? url.cache : undefined);
+  const defaults = { ...NODE_FETCH_DEFAULT_HEADERS, ...CACHE_MODE_HEADERS[cache] };
+  for (const [name, value] of Object.entries(defaults)) if (!headers.has(name)) headers.set(name, value);
+  return { ...options, headers };
+}
+
+function originalFetch(url, rawOptions) {
+  const options = withNodeDefaults(url, rawOptions);
   const system = globalThis[SYSTEM_CA];
   const ca = options?.tls?.ca;
   const callerCa = Array.isArray(ca) ? ca.length > 0 : Boolean(ca);
