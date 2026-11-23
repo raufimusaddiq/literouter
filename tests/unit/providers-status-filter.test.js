@@ -3,7 +3,7 @@ import {
   STATUS_FILTER_OPTIONS,
   getConnectionStatus,
   matchesStatusFilter,
-} from "@/app/(dashboard)/dashboard/providers/utils.js";
+} from "@/web/pages/dashboard/providers/utils.js";
 
 describe("providers status filter", () => {
   it("exposes all/active/inactive/none options", () => {

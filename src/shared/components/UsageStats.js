@@ -11,11 +11,11 @@ function isUsageTopologyProvider(id) {
 }
 import Badge from "./Badge";
 import Card from "./Card";
-import OverviewCards from "@/app/(dashboard)/dashboard/usage/components/OverviewCards";
-import UsageTable, { fmt, fmtTime } from "@/app/(dashboard)/dashboard/usage/components/UsageTable";
+import OverviewCards from "@/web/pages/dashboard/usage/components/OverviewCards";
+import UsageTable, { fmt, fmtTime } from "@/web/pages/dashboard/usage/components/UsageTable";
 import dynamic from "next/dynamic";
-const ProviderTopology = dynamic(() => import("@/app/(dashboard)/dashboard/usage/components/ProviderTopology"), { ssr: false });
-const UsageChart = dynamic(() => import("@/app/(dashboard)/dashboard/usage/components/UsageChart"), { ssr: false });
+const ProviderTopology = dynamic(() => import("@/web/pages/dashboard/usage/components/ProviderTopology"), { ssr: false });
+const UsageChart = dynamic(() => import("@/web/pages/dashboard/usage/components/UsageChart"), { ssr: false });
 
 const STATS_REFETCH_DEBOUNCE_MS = 2000;
 

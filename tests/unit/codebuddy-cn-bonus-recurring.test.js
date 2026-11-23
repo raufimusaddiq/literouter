@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { parseQuotaData } from "@/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js";
+import { parseQuotaData } from "@/web/pages/dashboard/usage/components/ProviderLimits/utils.js";
 
 describe("parseQuotaData codebuddy-cn recurring flag", () => {
   it("forwards recurring:false for bonus packs and true for refill packs", () => {

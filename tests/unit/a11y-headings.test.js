@@ -14,6 +14,6 @@ describe("a11y structure", () => {
     expect(src("shared/components/Badge.js")).toMatch(/sm: "px-2 py-0\.5 text-\[11px\]"/);
   });
   it("provider detail name is the h1", () => {
-    expect(src("app/(dashboard)/dashboard/providers/[id]/page.js")).toMatch(/<h1[^>]*>\{providerInfo\.name\}<\/h1>/);
+    expect(src("web/pages/dashboard/providers/[id]/page.js")).toMatch(/<h1[^>]*>\{providerInfo\.name\}<\/h1>/);
   });
 });

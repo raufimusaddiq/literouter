@@ -14,7 +14,7 @@ import {
   insertPlaceholder,
   requestHeaders,
   validateKey,
-} from "../../src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js";
+} from "../../src/web/pages/dashboard/systemone/lib/requestBuilder.js";
 
 const mocks = vi.hoisted(() => ({
   getSettings: vi.fn().mockResolvedValue({ requireApiKey: false }),
@@ -244,10 +244,10 @@ describe("System One header allowlist", () => {
 
 describe("localStorage restore", () => {
   it("restored ids do not collide with ids generated after a reload", async () => {
-    const first = await import("../../src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js");
+    const first = await import("../../src/web/pages/dashboard/systemone/lib/requestBuilder.js");
     const stored = JSON.stringify({ ...first.blankForm(), questions: [first.blankQuestion("noul"), first.blankQuestion("choice")] });
     vi.resetModules();
-    const second = await import("../../src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js");
+    const second = await import("../../src/web/pages/dashboard/systemone/lib/requestBuilder.js");
     const restored = second.parseStoredForm(stored);
     const ids = [...restored.questions.map((q) => q.id)];
     for (let i = 0; i < 5; i += 1) ids.push(second.blankQuestion().id);
@@ -255,7 +255,7 @@ describe("localStorage restore", () => {
   });
 
   it("parseStoredForm falls back to a blank form on bad input", async () => {
-    const { parseStoredForm } = await import("../../src/app/(dashboard)/dashboard/systemone/lib/requestBuilder.js");
+    const { parseStoredForm } = await import("../../src/web/pages/dashboard/systemone/lib/requestBuilder.js");
     expect(parseStoredForm(null).questions).toEqual([]);
     expect(parseStoredForm("{nope").questions).toBeDefined();
     expect(parseStoredForm('{"questions":"x"}').questions).toBeInstanceOf(Array);
