@@ -89,7 +89,7 @@ describe("route table", () => {
   });
 
   test("hostile route names stay string data in the generated module", async () => {
-    const payload = 'x"); globalThis.__routeTablePwned = 1; ("' + String.fromCharCode(92, 92) + String.fromCharCode(10, 0x2028);
+    const payload = 'x"); globalThis.__routeTablePwned = 1; ("' + String.fromCharCode(92, 92) + String.fromCharCode(10, 0x2028) + "<script>alert(1)</script>";
     const hostile = [
       { source: `api/${payload}`, path: `/api/${payload}`, methods: ["GET"] },
       { source: "api/[...${evil}]", path: "/api/*", methods: ["POST"], catchAll: payload },
