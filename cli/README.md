@@ -4,15 +4,10 @@
 
 **Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to 40+ AI Providers & 100+ Models.**
 
-[![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router)
-[![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router)
-[![Docker Pulls](https://img.shields.io/docker/pulls/decolua/9router.svg?logo=docker&label=Docker%20pulls)](https://hub.docker.com/r/decolua/9router)
-[![GHCR](https://img.shields.io/badge/GHCR-decolua%2F9router-blue?logo=github)](https://github.com/decolua/9router/pkgs/container/9router)
-[![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
+[![npm](https://img.shields.io/npm/v/literouter.svg)](https://www.npmjs.com/package/literouter)
+[![License](https://img.shields.io/github/license/raufimusaddiq/literouter.svg)](https://github.com/raufimusaddiq/literouter/blob/main/LICENSE)
 
-<a href="https://trendshift.io/repositories/22628" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22628" alt="decolua%2F9router | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
-[🌐 Website](https://9router.com) • [📖 Full Docs](https://github.com/decolua/9router)
+[Repository](https://github.com/raufimusaddiq/literouter) • [Docker guide](https://github.com/raufimusaddiq/literouter/blob/main/DOCKER.md)
 
 ---
 
@@ -46,17 +41,11 @@ bun add -g literouter
 literouter
 ```
 
+Run once without installing: `bunx literouter`. Auto-start on boot needs a global install (`bun add -g`), not `bunx`. Upgrade with `bun add -g literouter@latest`. If you installed the old `9router` package, remove it first with `npm rm -g 9router`.
+
 **Option 2 — Docker (server/VPS):**
 
-```bash
-docker run -d --name 9router -p 20128:20128 \
-  -v "$HOME/.9router:/app/data" -e DATA_DIR=/app/data \
-  decolua/9router:latest
-```
-
-Published images: [Docker Hub](https://hub.docker.com/r/decolua/9router) • [GHCR](https://github.com/decolua/9router/pkgs/container/9router) (multi-platform amd64/arm64).
-
-Run once without installing: `bunx literouter`. Upgrade with `bun add -g literouter@latest`. If you installed the old `9router` package, remove it first with `npm rm -g 9router`.
+See the [Docker guide](https://github.com/raufimusaddiq/literouter/blob/main/DOCKER.md) for the image, volume and update instructions.
 
 🎉 Dashboard opens at `http://localhost:20128`
 
@@ -81,10 +70,14 @@ That's it! Start coding with FREE AI models.
 
 ```bash
 literouter                    # Start with default settings
-literouter --port 8080        # Custom port
-literouter --no-browser       # Don't open browser
+literouter -p, --port 8080   # Custom port (default 20128)
+literouter -H, --host <host>  # Host to bind (default 0.0.0.0)
+literouter -n, --no-browser   # Don't open browser
+literouter -l, --log          # Show server logs (default: hidden)
+literouter -t, --tray         # Run in system tray mode (background)
 literouter --skip-update      # Skip auto-update check
-literouter --help             # Show all options
+literouter -v, --version      # Show version
+literouter -h, --help         # Show all options
 ```
 
 ### Stop the server
@@ -119,9 +112,9 @@ Any tool supporting OpenAI/Claude-compatible API works.
 
 Full docs, advanced setup, video tutorials & development guide:
 
-- **GitHub**: https://github.com/decolua/9router
-- **Full README**: https://github.com/decolua/9router/blob/main/app/README.md
-- **Website**: https://9router.com
+- **GitHub**: https://github.com/raufimusaddiq/literouter
+- **Full README**: https://github.com/raufimusaddiq/literouter/blob/main/README.md
+- **Docker**: https://github.com/raufimusaddiq/literouter/blob/main/DOCKER.md
 
 ---
 
