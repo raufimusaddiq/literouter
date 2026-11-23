@@ -3,7 +3,7 @@ import { createProviderNode, getProviderNodes } from "@/models";
 import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, SYSTEM_ONE_PREFIX } from "@/shared/constants/providers";
 import { generateId } from "@/shared/utils";
 import { assertPublicUrlResolved } from "@/shared/utils/ssrfGuard.js";
-import { isLocalRequest } from "@/dashboardGuard";
+import { isLocalRequest } from "@/server/guard.js";
 import { PROVIDERS } from "open-sse/config/providers.js";
 
 export const dynamic = "force-dynamic";

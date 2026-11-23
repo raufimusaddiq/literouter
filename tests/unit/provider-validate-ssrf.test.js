@@ -18,23 +18,27 @@ const fetched = [];
 vi.stubGlobal("fetch", fetchMock);
 
 const { POST } = await import("../../src/app/api/providers/validate/route.js");
+const { setRequestContext } = await import("../../src/server/context.js");
+const { buildRequestContext } = await import("../../src/server/trust.js");
+
+function withPeer(req, peerIp) {
+  setRequestContext(req, buildRequestContext(peerIp, req.headers));
+  return req;
+}
 
 function request(body, { local = false } = {}) {
-  return new Request("http://127.0.0.1:20128/api/providers/validate", {
+  return withPeer(new Request("http://127.0.0.1:20128/api/providers/validate", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      ...(local
-        ? { "x-9r-peer-token": "test-peer", "x-9r-real-ip": "127.0.0.1" }
-        : { "x-9r-via-proxy": "1" }),
+      ...(local ? {} : { "x-forwarded-for": "203.0.113.9" }),
     },
     body: JSON.stringify(body),
-  });
+  }), "127.0.0.1");
 }
 
 describe("POST /api/providers/validate SSRF guard", () => {
   beforeEach(() => {
-    process.env.NINEROUTER_PEER_TOKEN = "test-peer";
     fetched.length = 0;
     getNodeMock.mockReset();
     lookupMock.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);

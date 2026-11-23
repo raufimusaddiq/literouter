@@ -1,4 +1,4 @@
-import { hasTrustedPeerHeaders } from "./trustedPeer.js";
+import { getRequestContext } from "../../server/context.js";
 
 const MAX_FAILS_BEFORE_LOCK = 5;
 const LOCK_STEPS_MS = [30_000, 120_000, 600_000, 1_800_000];
@@ -45,10 +45,8 @@ export function recordSuccess(ip) {
 }
 
 export function getClientIp(request) {
-  if (hasTrustedPeerHeaders(request)) {
-    const realIp = request.headers.get("x-9r-real-ip");
-    if (realIp) return realIp;
-  }
+  const contextIp = getRequestContext(request).clientIp;
+  if (contextIp) return contextIp;
   if (process.env.TRUST_PROXY === "true") {
     const realIp = (request.headers.get("x-real-ip") || "").trim();
     if (realIp) return realIp;

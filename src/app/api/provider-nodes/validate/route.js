@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
-import { isLocalRequest } from "@/dashboardGuard";
+import { isLocalRequest } from "@/server/guard.js";
 
 const fetchNode = (url, options, timeout = 10000) => {
   const { localOperator, ...init } = options;

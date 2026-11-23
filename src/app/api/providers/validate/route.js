@@ -8,7 +8,7 @@ import { openaiToCommandCodeRequest } from "open-sse/translator/request/openai-t
 import { resolveQoderCredentials, resolveQoderModels } from "open-sse/services/qoderModels.js";
 import { normalizeProviderId } from "@/lib/providerNormalization";
 import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
-import { isLocalRequest } from "@/dashboardGuard";
+import { isLocalRequest } from "@/server/guard.js";
 
 export async function POST(request) {
   try {

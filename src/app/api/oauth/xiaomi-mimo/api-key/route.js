@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createProviderConnection } from "@/models";
 import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
-import { isLocalRequest } from "@/dashboardGuard";
+import { isLocalRequest } from "@/server/guard.js";
 
 function trimTrailingSlashes(value) {
   let end = value.length;

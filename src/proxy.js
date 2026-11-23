@@ -1,7 +1,8 @@
-import { proxy as dashboardProxy } from "./dashboardGuard";
+import { NextResponse } from "next/server";
+import { guard } from "./server/guard.js";
 
 export default async function proxy(request) {
-  return dashboardProxy(request);
+  return (await guard(request)) ?? NextResponse.next();
 }
 
 export const config = {

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "bun:test";
 
-const source = readFileSync(new URL("../../src/dashboardGuard.js", import.meta.url), "utf8");
+const source = readFileSync(new URL("../../src/server/guard.js", import.meta.url), "utf8");
 const hiddenBlock = source.match(/MINIMAL_HIDDEN_PREFIXES = \[([\s\S]*?)\];/)?.[1] || "";
 const hidden = [...hiddenBlock.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 

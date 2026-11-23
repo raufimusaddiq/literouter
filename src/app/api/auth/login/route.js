@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { setDashboardAuthCookie } from "@/lib/auth/dashboardSession";
 import { checkLock, recordSuccess, getClientIp, beginAttempt } from "@/lib/auth/loginLimiter";
-import { isLocalRequest } from "@/dashboardGuard";
+import { isLocalRequest } from "@/server/guard.js";
 
 const RESET_HINT = "Forgot password? Reset to default via LiteRouter CLI → Settings → Reset Password to Default.";
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
