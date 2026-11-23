@@ -11,6 +11,7 @@ const HEAVY = ["node_modules/recharts", "node_modules/@xyflow", "node_modules/@d
 let outdir;
 let outputs;
 let initial;
+let devOutdir;
 
 function norm(key) {
   return key.split("\\").join("/");
@@ -60,9 +61,55 @@ beforeAll(async () => {
 
 afterAll(() => {
   if (outdir) fs.rmSync(outdir, { recursive: true, force: true });
+  if (devOutdir) fs.rmSync(devOutdir, { recursive: true, force: true });
 });
 
+function jsFilesIn(dir) {
+  return fs
+    .readdirSync(path.join(dir, "assets"))
+    .filter((name) => name.endsWith(".js"))
+    .map((name) => path.join(dir, "assets", name));
+}
+
+function entryJs(metafile) {
+  const key = Object.entries(metafile.outputs).find(
+    ([name, output]) => output.entryPoint && norm(output.entryPoint).endsWith("web/index.html") && name.endsWith(".js"),
+  )[0];
+  return `assets/${path.basename(norm(key))}`;
+}
+
+function evalWithoutProcess(dir, entry) {
+  const run = Bun.spawnSync({
+    cmd: [process.execPath, path.join(import.meta.dir, "fixtures", "eval-without-process.mjs"), dir, entry],
+    stdout: "pipe",
+    stderr: "pipe",
+    env: { ...process.env, NODE_ENV: "test" },
+  });
+  const out = run.stdout.toString();
+  const line = out.split(/\r?\n/).find((text) => text.startsWith("RESULT "));
+  if (!line) throw new Error(["no RESULT line", `stdout: ${out}`, `stderr: ${run.stderr.toString()}`].join("\n"));
+  return JSON.parse(line.slice("RESULT ".length));
+}
+
 describe("web build", () => {
+  it("production output contains no process.env access", () => {
+    const offenders = jsFilesIn(outdir).filter((file) => fs.readFileSync(file, "utf8").includes("process.env"));
+    expect(offenders.map((file) => path.basename(file))).toEqual([]);
+  });
+
+  it("production entry chunk graph evaluates without a process global", () => {
+    const entry = entryJs({ outputs });
+    expect(evalWithoutProcess(outdir, entry)).toEqual({ processHidden: true, ok: true });
+  }, 60_000);
+
+  it("dev build contains no process.env access and evaluates without a process global", async () => {
+    devOutdir = fs.mkdtempSync(path.join(os.tmpdir(), "lr-web-build-dev-"));
+    const result = await buildWeb({ production: false, outdir: devOutdir });
+    const offenders = jsFilesIn(devOutdir).filter((file) => fs.readFileSync(file, "utf8").includes("process.env"));
+    expect(offenders.map((file) => path.basename(file))).toEqual([]);
+    expect(evalWithoutProcess(devOutdir, entryJs(result.metafile))).toEqual({ processHidden: true, ok: true });
+  }, 120_000);
+
   it("index.html uses absolute asset URLs", () => {
     const html = fs.readFileSync(path.join(outdir, "index.html"), "utf8");
     expect(html).toMatch(/src="\/assets\/index-[^"]+\.js"/);

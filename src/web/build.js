@@ -24,10 +24,11 @@ export function webBuildOptions({ production, outdir }) {
     metafile: true,
     target: "browser",
     plugins: [tailwind],
+    define: { "process.env": "{}" },
   };
   if (production) {
     options.minify = true;
-    options.define = { "process.env.NODE_ENV": '"production"' };
+    options.define["process.env.NODE_ENV"] = '"production"';
   } else {
     options.sourcemap = "linked";
   }
