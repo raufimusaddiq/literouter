@@ -16,6 +16,7 @@ afterAll(async () => {
 const { default: Card } = await import("../../src/shared/components/Card.js");
 const { default: Button } = await import("../../src/shared/components/Button.js");
 const { default: Modal, ConfirmModal } = await import("../../src/shared/components/Modal.js");
+const { default: PricingModal } = await import("../../src/shared/components/PricingModal.js");
 const { default: Drawer } = await import("../../src/shared/components/Drawer.js");
 const { default: Input } = await import("../../src/shared/components/Input.js");
 const { default: Select } = await import("../../src/shared/components/Select.js");
@@ -237,6 +238,37 @@ describe("Route Sheet base components", () => {
     expect(view.container.innerHTML).toContain("bg-surface-2");
     expect(view.container.innerHTML).not.toContain("animate-pulse");
     expect(view.container.innerHTML).not.toMatch(/shadow/);
+    await view.unmount();
+  });
+
+  it.each([
+    { saving: true, expectedCalls: 0 },
+    { saving: false, expectedCalls: 2 },
+  ])("PricingModal with saving=$saving closes via Escape and the X $expectedCalls times", async ({ saving, expectedCalls }) => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (url, init) => {
+      if (init?.method === "PATCH" && saving) return new Promise(() => {});
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+    };
+    let calls = 0;
+    const view = await mount(<PricingModal isOpen onClose={() => { calls += 1; }} onSave={() => {}} />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    if (saving) {
+      const save = [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Save Changes"));
+      await act(async () => {
+        save.click();
+      });
+    }
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    await act(async () => {
+      document.querySelector('button[aria-label="Close"]').click();
+    });
+    expect(calls).toBe(expectedCalls);
+    globalThis.fetch = originalFetch;
     await view.unmount();
   });
 });

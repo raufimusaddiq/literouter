@@ -23,6 +23,7 @@ export default function Modal({
     lg: "max-w-lg",
     xl: "max-w-xl",
     full: "max-w-4xl",
+    xxl: "max-w-6xl",
   };
 
   const isTopLayer = useEscapeLayer(isOpen, onClose);

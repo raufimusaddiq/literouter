@@ -89,6 +89,10 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
     }
   };
 
+  const handleClose = () => {
+    if (!saving) onClose();
+  };
+
   if (!isOpen) return null;
 
   const allProviders = Object.keys(pricingData).sort();
@@ -97,9 +101,10 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
+      closeOnOverlay={!saving}
       title="Pricing Configuration"
-      size="full"
+      size="xxl"
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-2">
           <Button

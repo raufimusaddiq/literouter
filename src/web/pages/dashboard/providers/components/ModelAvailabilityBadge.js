@@ -6,10 +6,10 @@ import { Button } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 
 const STATUS_CONFIG = {
-  available: { icon: "check_circle", dotClass: "bg-ok", textClass: "text-ok", label: "Available" },
-  cooldown: { icon: "schedule", dotClass: "bg-warning", textClass: "text-warning", label: "Cooldown" },
-  unavailable: { icon: "error", dotClass: "bg-danger", textClass: "text-danger", label: "Unavailable" },
-  unknown: { icon: "help", dotClass: "bg-faint", textClass: "text-faint", label: "Unknown" },
+  available: { dotClass: "bg-ok", textClass: "text-ok", label: "Available" },
+  cooldown: { dotClass: "bg-warning", textClass: "text-warning", label: "Cooldown" },
+  unavailable: { dotClass: "bg-danger", textClass: "text-danger", label: "Unavailable" },
+  unknown: { dotClass: "bg-faint", textClass: "text-faint", label: "Unknown" },
 };
 
 export default function ModelAvailabilityBadge() {
@@ -133,6 +133,7 @@ export default function ModelAvailabilityBadge() {
                                 className={`size-1.5 shrink-0 rounded-full ${status.dotClass}`}
                               />
                               <span className="truncate font-mono text-xs text-ink">{m.model}</span>
+                              <span className={`shrink-0 text-xs ${status.textClass}`}>{status.label}</span>
                             </div>
                             {m.status === "cooldown" && (
                               <Button
