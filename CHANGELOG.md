@@ -1,4 +1,5 @@
 # v0.5.82 (unreleased)
+- **Data dir**: the default data directory is now `~/.literouter` (`%APPDATA%\literouter` on Windows). An existing `~/.9router` is still used when the new directory is absent, and nothing is moved or copied; `DATA_DIR` still wins. The server logs which directory it chose at startup, and the CLI removes the old `9router` autostart entries.
 - **Runtime**: run on Bun end to end. `bun run build` bundles the server and dashboard into `dist/app`, `bun run compile` builds one musl executable, and the Docker image is Alpine plus that executable (116.3 MB for amd64, limit 150 MB). Next.js, Node, npm, `package-lock.json`, `better-sqlite3`, `sql.js`, `undici` and `open` are gone from the repo; `bun:sqlite` is the only database driver.
 - **Lint**: the `@next/*` rules left with `eslint-config-next`; `jsx-a11y` and `import` rules are kept, now configured directly in `eslint.config.mjs`.
 - **CLI**: the package is renamed `literouter` (install with `bun add -g literouter`, Bun 1.4.4 or newer; remove the old package with `npm rm -g 9router`), adds a `literouter stop` command, and checks for updates by default (`--skip-update` turns it off).
