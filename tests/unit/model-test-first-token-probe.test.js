@@ -142,42 +142,22 @@ describe("pingModelByKind first-token probe", () => {
     expect(cancelled).toHaveBeenCalled();
   });
 
-  it("accepts mixed LF and CRLF boundaries in the same stream", async () => {
-    fetchMock.mockResolvedValue(
-      sseResponse([
+  it.each([
+    [
+      "accepts mixed LF and CRLF boundaries in the same stream",
+      [
         'data: {"choices":[{"delta":{}}]}\n\n',
         'data: {"choices":[{"delta":{"content":"hi"}}]}\r\n\r\n',
-      ])
-    );
-
-    const result = await pingModelByKind("kenari/deepseek-v4-1-flash", "llm", BASE);
-    expect(result.ok).toBe(true);
-  });
-
-  it("accepts lone-CR line endings", async () => {
-    fetchMock.mockResolvedValue(
-      sseResponse(['data: {"choices":[{"delta":{"content":"hi"}}]}\r\r'])
-    );
-
-    const result = await pingModelByKind("kenari/deepseek-v4-1-flash", "llm", BASE);
-    expect(result.ok).toBe(true);
-  });
-
-  it("resolves a CRLF-framed event that ends the stream without a blank line", async () => {
-    fetchMock.mockResolvedValue(
-      sseResponse(['data: {"choices":[{"delta":{"content":"hi"}}]}'])
-    );
-
-    const result = await pingModelByKind("kenari/deepseek-v4-1-flash", "llm", BASE);
-    expect(result.ok).toBe(true);
-  });
-
-  it("classifies each data line of a multi-line event separately", async () => {
-    fetchMock.mockResolvedValue(
-      sseResponse([
-        'data: {"choices":[{"delta":{}}]}\r\ndata: {"choices":[{"delta":{"content":"hi"}}]}\r\n\r\n',
-      ])
-    );
+      ],
+    ],
+    ["accepts lone-CR line endings", ['data: {"choices":[{"delta":{"content":"hi"}}]}\r\r']],
+    ["resolves a CRLF-framed event that ends the stream without a blank line", ['data: {"choices":[{"delta":{"content":"hi"}}]}']],
+    [
+      "classifies each data line of a multi-line event separately",
+      ['data: {"choices":[{"delta":{}}]}\r\ndata: {"choices":[{"delta":{"content":"hi"}}]}\r\n\r\n'],
+    ],
+  ])("%s", async (_label, chunks) => {
+    fetchMock.mockResolvedValue(sseResponse(chunks));
 
     const result = await pingModelByKind("kenari/deepseek-v4-1-flash", "llm", BASE);
     expect(result.ok).toBe(true);

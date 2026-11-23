@@ -191,26 +191,8 @@ describe("fetchAntigravityWeeklyQuota", () => {
     expect(result.claude_gpt_weekly).toBeDefined();
   });
 
-  it("returns {} on HTTP 401", async () => {
-    proxyAwareFetch.mockResolvedValue({ ok: false, status: 401 });
-    const result = await fetchAntigravityWeeklyQuota("token", "project-1");
-    expect(result).toEqual({});
-  });
-
-  it("returns {} on HTTP 403", async () => {
-    proxyAwareFetch.mockResolvedValue({ ok: false, status: 403 });
-    const result = await fetchAntigravityWeeklyQuota("token", "project-1");
-    expect(result).toEqual({});
-  });
-
-  it("returns {} on HTTP 404", async () => {
-    proxyAwareFetch.mockResolvedValue({ ok: false, status: 404 });
-    const result = await fetchAntigravityWeeklyQuota("token", "project-1");
-    expect(result).toEqual({});
-  });
-
-  it("returns {} on HTTP 429", async () => {
-    proxyAwareFetch.mockResolvedValue({ ok: false, status: 429 });
+  it.each([401, 403, 404, 429])("returns {} on HTTP %i", async (status) => {
+    proxyAwareFetch.mockResolvedValue({ ok: false, status });
     const result = await fetchAntigravityWeeklyQuota("token", "project-1");
     expect(result).toEqual({});
   });

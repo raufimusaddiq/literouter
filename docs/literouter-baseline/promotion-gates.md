@@ -23,6 +23,21 @@ against a live volume. Only the capture id in `README.md` is authoritative; a
 count quoted in a phase document is evidence for that document's check, not a
 current total.
 
+## Bun runtime cutover (2026-11-23)
+
+These are the gates for switching production from the Node/Next image to the Bun image (spec
+`docs/superpowers/specs/2026-11-22-bun-rewrite-design.md` §8). The full evidence is in
+`phase-bun-cutover.md`.
+
+| # | Gate | Status | Evidence |
+|---|---|---|---|
+| B1 | Differential parity with `main`'s Node image | PASS | 407 fixtures and 125/125 routes. Upstream request bodies are byte-identical, including the prompt-cache cases. The differences found (JSON `content-type` charset, Node's default upstream fetch headers, the 404 title) were fixed. Header allowlist `[]` |
+| B2 | Performance: RSS, latency, image size | PASS | Idle RSS 115.8 → 57.4 MiB; post-burst 123.0 → 89.6 MiB; p50 7.6 → 3.5 ms; p95 20.2 → 11.2 ms. Image 116.3 MB (amd64) and 117.8 MB (arm64), both ≤ 150 MB |
+| B3 | Trust model behind a production-shaped Caddy, plus SSRF | PASS | 13/13 on the staging image and on `production-e428843d`. Mutants with the proxy-marker or SSRF check disabled turn their cases red |
+| B4 | Soak | SKIPPED | Skipped by the owner's decision. The DB-compatibility proof moved into B5 |
+| B5 | Rollback rehearsal on a copy of the live DB | PASS | Bun, then the Node image `production-a6c24a6d`, ran on the same sanitized snapshot: `integrity_check` ok, identical row counts, stream and non-stream traffic through both |
+| B6 | Production cutover | PASS | `deploy.sh e428843d…` after checking out the host tree. One failed probe at 1 s intervals. Post-switch checks all pass, and real traffic is served on `bun:sqlite` with Redis connected. No rollback |
+
 ## Client endpoint compatibility
 
 PRD section 21 requires existing clients to keep working against the same

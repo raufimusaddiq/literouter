@@ -62,10 +62,4 @@ describe("pingModelByKind reasoning models (#3010)", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/no completion choices/);
   });
-
-  it("passes a normal answer with the larger budget", async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ choices: [{ message: { content: "Hello!" } }] }));
-    const result = await pingModelByKind("openai/gpt-4o", "llm", "http://127.0.0.1:20127");
-    expect(result.ok).toBe(true);
-  });
 });

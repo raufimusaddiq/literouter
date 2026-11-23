@@ -78,7 +78,7 @@ describe("cline free-models {success,data} envelope", () => {
     expect(result.error).toMatch(/empty response content/);
   });
 
-  it("ping: bare (un-enveloped) body still passes", async () => {
+  it("ping: bare (un-enveloped) body with a normal answer still passes", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ choices: [{ message: { content: "Hello!" } }] }));
     const result = await pingModelByKind("openai/gpt-4o", "llm", "http://127.0.0.1:20127");
     expect(result.ok).toBe(true);
