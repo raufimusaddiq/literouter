@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, PageIntro } from "@/shared/components";
+import { Card, Button } from "@/shared/components";
+import PageHeader from "@/shared/components/shell/PageHeader";
 import { CONSOLE_LOG_CONFIG } from "@/shared/constants/config";
 
 const LOG_LEVEL_COLORS = {
@@ -68,7 +69,7 @@ export default function ConsoleLogClient() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageIntro title="Console log" description="Live server events and route diagnostics from the local process." action={<Button size="sm" variant="outline" icon="delete" onClick={handleClear}>Clear log</Button>} />
+      <PageHeader title="Console log" description="Live server events and route diagnostics from the local process." actions={<Button size="sm" variant="outline" icon="delete" onClick={handleClear}>Clear log</Button>} />
       <Card variant="raised" padding="none" className="overflow-hidden">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <div>

@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link, usePathname } from "@/web/router";
 import { APP_CONFIG } from "@/shared/constants/config";
 import { NAV_GROUPS, NAV_ITEMS, isNavActive } from "@/shared/components/nav/navItems";
-import { getPageInfo } from "@/shared/components/Header";
+import { getPageInfo } from "@/shared/components/shell/pageInfo";
 import ThemeToggle from "@/shared/components/ThemeToggle";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
 import HeaderMenu from "@/shared/components/HeaderMenu";
