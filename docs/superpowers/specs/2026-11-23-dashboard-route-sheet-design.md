@@ -103,6 +103,8 @@ The work fails, even if it technically works, if any of these happen:
 - **Mono:** JetBrains Mono stays, used for IDs, models, keys, URLs, axis ticks and table figures.
 - **Scale:** page title 30/600 (24 at 390px); section title 16/600; big figures 34–44/600 with proportional numerals; body 14; meta 12–12.5. Tabular numerals in tables and anything that updates.
 - **Case:** sentence case everywhere, no tracked uppercase labels.
+- **Font delivery:** today both web fonts are inlined as base64 in the main CSS (about 115 KB of its 243 KB). Serve the text and mono fonts as separate hashed `woff2` files under `/assets/`, as Material Symbols already is, so they cache independently. Report the CSS size before and after.
+- **Tailwind stays** (owner decision, 2026-11-23). Tokens are wired through `@theme inline`. Moving off Tailwind is out of scope and may be a later project.
 
 ### Shell (`DashboardLayout`, `Sidebar`, `Header`)
 
