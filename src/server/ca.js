@@ -1,11 +1,17 @@
 import tls from "node:tls";
 
 const WRAPPED = Symbol.for("literouter.systemCaFetch");
+const SYSTEM_CA = Symbol.for("literouter.systemCaList");
+
+function hasCallerCa(init) {
+  const ca = init?.tls?.ca;
+  return Array.isArray(ca) ? ca.length > 0 : Boolean(ca);
+}
 
 function wrapFetch(original, system) {
   const wrapped = function fetch(input, init) {
-    if (init?.tls?.ca) return original.call(this, input, init);
-    return original.call(this, input, { ...init, tls: { ca: system, ...init?.tls } });
+    if (hasCallerCa(init)) return original.call(this, input, init);
+    return original.call(this, input, { ...init, tls: { ...init?.tls, ca: system } });
   };
   if (typeof original.preconnect === "function") wrapped.preconnect = original.preconnect.bind(original);
   wrapped[WRAPPED] = original;
@@ -22,6 +28,7 @@ export function useSystemCaStore(tlsApi = tls, fetchHost = globalThis) {
   }
   tlsApi.setDefaultCACertificates(system);
   if (typeof fetchHost?.fetch === "function") {
+    if (fetchHost === globalThis) globalThis[SYSTEM_CA] = system;
     fetchHost.fetch = wrapFetch(fetchHost.fetch[WRAPPED] ?? fetchHost.fetch, system);
   }
   return system.length;

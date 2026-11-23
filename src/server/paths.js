@@ -19,5 +19,3 @@ export const SPA_DIR_OVERRIDE = process.env.LITEROUTER_SPA_DIR
   : null;
 
 export const SPA_DIR = SPA_DIR_OVERRIDE ?? (packaged ? join(import.meta.dir, "web") : join(REPO_ROOT, "dist", "web"));
-
-export function assertBundleCwd() {}

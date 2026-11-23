@@ -45,7 +45,7 @@ async function getProcessInfo(pid) {
 async function stopLegacyServer(deps) {
   const { readServerPid, getListenerPid, isTrackedServerAlive, getProcessInfo: infoOf, kill, sleep, log } = deps;
   const record = readServerPid();
-  if (!record) return { stopped: false };
+  if (!record || record.launcherPid) return { stopped: false };
   if (!isTrackedServerAlive(record.pid, getListenerPid(record.port))) return { stopped: false };
 
   const info = await infoOf(record.pid);
@@ -59,7 +59,20 @@ async function stopLegacyServer(deps) {
     for (let i = 0; i < 20 && getListenerPid(record.port) !== null; i++) await sleep(100);
   }
 
-  if (getListenerPid(record.port) === record.pid) kill(record.pid, "server");
+  if (getListenerPid(record.port) === record.pid) {
+    kill(record.pid, "server");
+    for (let i = 0; i < 20 && getListenerPid(record.port) === record.pid; i++) await sleep(100);
+    if (!launcherPid) {
+      for (let i = 0; i < 20; i++) {
+        const listener = getListenerPid(record.port);
+        if (listener !== null && listener !== record.pid) {
+          log(`The old 9router server (pid ${record.pid}) was stopped but a new one (pid ${listener}) is listening again: the old 9router launcher is still running. Quit it (close its terminal or tray icon), then start LiteRouter again.`);
+          return { stopped: false, respawned: true };
+        }
+        await sleep(100);
+      }
+    }
+  }
 
   log(`Stopped the server started by the old 9router CLI (pid ${record.pid}). Remove the old global 9router package with the package manager you installed it with.`);
   return { stopped: true, launcherPid, serverPid: record.pid };

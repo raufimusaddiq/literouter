@@ -86,6 +86,82 @@ describe("literouter stop", () => {
     expect(ctx.calls).toEqual(["server:100"]);
   });
 
+  test("kills a launcher shown by its symlinked bin path when it is the server's parent", async () => {
+    const ctx = makeDeps({
+      record: { pid: 100, port: 20128, launcherPid: 50 },
+      infos: {
+        100: { ppid: 50, cmdline: "/home/u/.bun/bin/bun /pkg/app/index.js" },
+        50: { ppid: 1, cmdline: "/home/u/.bun/bin/bun /home/u/.bun/bin/literouter --tray" },
+      },
+    });
+    expect(await runStop(ctx.deps)).toBe(0);
+    expect(ctx.calls).toEqual(["launcher:50"]);
+  });
+
+  test("proves launcher ownership by parentage even when its command line is unrecognisable", async () => {
+    const ctx = makeDeps({
+      record: { pid: 100, port: 20128, launcherPid: 50 },
+      infos: {
+        100: { ppid: 50, cmdline: "bun app" },
+        50: { ppid: 1, cmdline: "something-else --tray" },
+      },
+    });
+    expect(await runStop(ctx.deps)).toBe(0);
+    expect(ctx.calls).toEqual(["launcher:50"]);
+  });
+
+  test("leaves an unrelated launcher pid alone when the server's parent differs", async () => {
+    const ctx = makeDeps({
+      record: { pid: 100, port: 20128, launcherPid: 50 },
+      infos: {
+        100: { ppid: 1, cmdline: "bun app" },
+        50: { ppid: 1, cmdline: `bun ${CLI_PATH}` },
+      },
+    });
+    expect(await runStop(ctx.deps)).toBe(0);
+    expect(ctx.calls).toEqual(["server:100"]);
+  });
+
+  test("leaves the launcher pid alone when that process is gone", async () => {
+    const ctx = makeDeps({
+      record: { pid: 100, port: 20128, launcherPid: 50 },
+      infos: { 100: { ppid: 50, cmdline: "bun app" } },
+    });
+    expect(await runStop(ctx.deps)).toBe(0);
+    expect(ctx.calls).toEqual(["server:100"]);
+  });
+
+  test("without parentage accepts the realpath of cli.js", async () => {
+    const ctx = makeDeps({
+      record: { pid: 100, port: 20128, launcherPid: 50 },
+      infos: { 50: { ppid: 1, cmdline: "bun /real/store/literouter/cli.js --tray" } },
+    });
+    ctx.deps.realpath = () => "/real/store/literouter/cli.js";
+    expect(await runStop(ctx.deps)).toBe(0);
+    expect(ctx.calls).toEqual(["launcher:50"]);
+  });
+
+  test("reports failure and exits 1 when a new listener appears after the stop", async () => {
+    const ctx = makeDeps({
+      record: { pid: 100, port: 20128, launcherPid: 50 },
+      infos: { 100: { ppid: 50, cmdline: "bun app" }, 50: { ppid: 1, cmdline: "bun launcher" } },
+    });
+    let launcherKilled = false;
+    let polls = 0;
+    ctx.deps.kill = (pid, kind) => {
+      ctx.calls.push(`${kind}:${pid}`);
+      if (kind === "launcher") launcherKilled = true;
+    };
+    ctx.deps.getListenerPid = () => {
+      if (!launcherKilled) return 100;
+      return ++polls > 3 ? 200 : null;
+    };
+    expect(await runStop(ctx.deps)).toBe(1);
+    expect(ctx.cleared).toBe(0);
+    expect(ctx.logs.join("\n")).toMatch(/200/);
+    expect(ctx.logs.join("\n")).not.toMatch(/stopped the/i);
+  });
+
   test("exits 1 when the server keeps listening", async () => {
     const ctx = makeDeps();
     ctx.deps.kill = (pid, kind) => ctx.calls.push(`${kind}:${pid}`);

@@ -15,7 +15,16 @@ function hasClaudeCliHeader(headers) {
   return values.some((v) => typeof v === "string" && CLAUDE_UA_PROBE.test(v));
 }
 
-const originalFetch = globalThis.fetch;
+const nativeFetch = globalThis.fetch;
+const SYSTEM_CA = Symbol.for("literouter.systemCaList");
+
+function originalFetch(url, options) {
+  const system = globalThis[SYSTEM_CA];
+  const ca = options?.tls?.ca;
+  const callerCa = Array.isArray(ca) ? ca.length > 0 : Boolean(ca);
+  if (!system || callerCa) return nativeFetch(url, options);
+  return nativeFetch(url, { ...options, tls: { ...options?.tls, ca: system } });
+}
 
 export function isStaleSocketError(error) {
   if (!error || error.name === "AbortError") return false;

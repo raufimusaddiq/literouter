@@ -70,12 +70,21 @@ describe("bundle-safe runtime paths", () => {
     expect(paths.isCompiled).toBe(false);
   });
 
-  it("assertBundleCwd never throws, in a source run or a bundle run from any cwd", async () => {
-    const source = await loadPaths();
-    expect(() => source.assertBundleCwd()).not.toThrow();
-    process.chdir(tmpdir());
-    const bundled = await loadPaths({ LITEROUTER_BUNDLED: "1" });
-    expect(() => bundled.assertBundleCwd()).not.toThrow();
+  it("a bundled getAppVersion and getAppPackageVersion read the package version from any cwd", async () => {
+    const work = join(tmpdir(), `lr-version-probe-${process.pid}`);
+    const out = join(work, "out");
+    const cwd = join(work, "cwd");
+    const entry = join(work, "entry.js");
+    await Bun.write(entry, `import { getAppVersion } from ${JSON.stringify(join(root, "src", "lib", "db", "version.js"))};
+import { getAppPackageVersion } from ${JSON.stringify(join(root, "open-sse", "config", "appConstants.js"))};
+console.log(JSON.stringify([getAppVersion(), getAppPackageVersion()]));
+`);
+    await Bun.write(join(cwd, ".keep"), "");
+    const built = await Bun.build({ entrypoints: [entry], outdir: out, target: "bun", naming: { entry: "index.js" } });
+    expect(built.success).toBe(true);
+    const run = Bun.spawnSync([process.execPath, join(out, "index.js")], { cwd });
+    expect(run.stderr.toString()).toBe("");
+    expect(JSON.parse(run.stdout.toString().trim())).toEqual([pkgVersion, pkgVersion]);
   });
 
   it("a bundle resolves its assets from import.meta.dir, not from cwd", async () => {
