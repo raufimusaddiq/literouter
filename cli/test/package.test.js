@@ -12,7 +12,7 @@ describe("cli package metadata", () => {
   });
 
   test("is Bun-only", () => {
-    expect(pkg.engines).toEqual({ bun: "1.4.4" });
+    expect(pkg.engines).toEqual({ bun: ">=1.4.4" });
     const first = readFileSync(join(cliDir, "cli.js"), "utf8").split("\n")[0];
     expect(first.replace(/\r$/, "")).toBe("#!/usr/bin/env bun");
   });
