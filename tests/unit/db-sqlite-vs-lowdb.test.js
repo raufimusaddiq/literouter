@@ -65,6 +65,7 @@ describe("DB SQLite layer — public API parity", () => {
     expect(list[1].priority).toBe(2);
     expect(list[2].priority).toBe(3);
 
+    await Bun.sleep(5);
     await sqliteDb.updateProviderConnection(c3.id, { priority: 1 });
     const reordered = await sqliteDb.getProviderConnections({ provider: "test" });
     expect(reordered[0].name).toBe("c");
