@@ -1,26 +1,3 @@
 # Expected-red tests, keyed as 'tests/<file> :: <full name>'.
-# Observed on a Windows run (25 fail, 3255 pass). Linux CI is green, so on CI this list is unused;
-# the entries are Windows/timing-sensitive (bash deploy scripts, sockets, golden header snapshots).
-tests/translator/golden-url-header.test.js :: GOLDEN buildHeaders (default executor providers) cline → headers (apiKey / oauth)
-tests/translator/golden-url-header.test.js :: GOLDEN buildHeaders (default executor providers) clinepass → headers (apiKey / oauth)
-tests/unit/codex-refresh-token.test.js :: Codex Refresh Token refreshCodexToken should return new refresh_token when server provides one (token rotation)
-tests/unit/compatible-provider-connections.test.js :: compatible provider connections API creates one API-key connection for an Anthropic-compatible node
-tests/unit/compatible-provider-connections.test.js :: compatible provider connections API creates one API-key connection for an OpenAI-compatible node
-tests/unit/deploy-script.test.js :: aborts without deploying when the running tag cannot be determined
-tests/unit/deploy-script.test.js :: keeps the previous tag when the container is not healthy
-tests/unit/deploy-script.test.js :: keeps the previous tag when the public endpoint does not answer
-tests/unit/deploy-script.test.js :: keeps the replaced tag when health never arrives
-tests/unit/deploy-script.test.js :: prunes once the replacement reports healthy after starting
-tests/unit/deploy-script.test.js :: refuses a missing, short or malformed SHA without touching docker
-tests/unit/deploy-script.test.js :: removes exactly the replaced tag after health and the endpoint pass
-tests/unit/deploy-script.test.js :: removes nothing when the same tag is redeployed
-tests/unit/deploy-script.test.js :: waits for health before checking it
-tests/unit/headroom-detect.test.js :: headroom detect prefers the interpreter that actually has headroom-ai installed
-tests/unit/model-routing.test.js :: model routing keeps built-in provider aliases ahead of compatible node prefixes
-tests/unit/model-routing.test.js :: model routing still routes non-reserved compatible node prefixes
-tests/unit/production-image-retention.test.js :: fails closed on missing/invalid releases, unhealthy or wrong running image, and inventory failures
-tests/unit/production-image-retention.test.js :: keeps N=2 releases after successive deploys, regardless of image-list order
-tests/unit/production-image-retention.test.js :: stops if deployment changes or a candidate is retagged during cleanup
-tests/unit/proxy-keepalive-dead-socket.test.js :: direct fetch replay replays once on a fresh socket when a pooled socket died
-tests/unit/qoder-proxy-replay.test.js :: Qoder signed inference transport does not replay a signed POST after proxy response loss (null)
-tests/unit/token-refresh-generic.test.js :: refreshAccessToken — config-driven profiles iflow: Basic Auth header from clientId:clientSecret, form body keeps client_secret
+# Observed on a Windows bun test --parallel run: 0 known fails (3932 pass, 0 fail). Linux CI is green too.
+# Add an entry only for a test that fails on a supported platform, and keep the list shrinking.
