@@ -11,7 +11,7 @@ import {
   PONYTAIL_LEVELS,
 } from "../endpoint/endpointConstants";
 
-const linkButton = "text-xs text-ink underline underline-offset-[3px] hover:opacity-80";
+const linkButton = "inline-flex items-center text-xs text-ink underline underline-offset-[3px] hover:opacity-80 max-sm:min-h-11 max-sm:px-2";
 
 function SourceLink({ href, children }) {
   return (

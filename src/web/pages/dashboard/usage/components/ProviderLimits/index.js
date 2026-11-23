@@ -58,7 +58,7 @@ const KIRO_METHOD_LABELS = {
 };
 
 const ICON_BUTTON =
-  "flex size-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-bg hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line disabled:cursor-not-allowed disabled:opacity-50";
+  "flex size-8 max-sm:size-11 items-center justify-center rounded-md text-muted transition-colors hover:bg-bg hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line disabled:cursor-not-allowed disabled:opacity-50";
 
 const AUTO_PING_SETTINGS_KEYS = {
   claude: "claudeAutoPing",
@@ -1124,7 +1124,7 @@ export default function ProviderLimits() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 max-sm:gap-2 shrink-0">
                     {isCodex && (
                       <>
                         <Tooltip
@@ -1217,7 +1217,7 @@ export default function ProviderLimits() {
                         onClick={() => handleDeleteConnection(conn.id)}
                         disabled={rowBusy}
                         aria-label="Delete connection"
-                        className="flex size-8 items-center justify-center rounded-md text-danger transition-colors hover:bg-danger/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex size-8 max-sm:size-11 items-center justify-center rounded-md text-danger transition-colors hover:bg-danger/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <span aria-hidden="true"
                           className={`material-symbols-outlined text-[18px] ${deletingId === conn.id ? "animate-pulse" : ""}`}
