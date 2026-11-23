@@ -48,7 +48,7 @@ jobs:
       - run: bun scripts/migrate-vitest-to-bun.mjs --check tests
       - run: bun scripts/migrate-vitest-to-bun.mjs --snapshots --check tests
 
-      - run: bunx --bun eslint .
+      - run: bun --bun run eslint .
 
       - run: bun scripts/comments/ratchet.mjs --check
 
