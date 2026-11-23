@@ -1,13 +1,19 @@
 import fs from "node:fs";
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import os from "node:os";
+import path from "node:path";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
-import { getCapabilitiesForModel, setCatalogSource } from "../../open-sse/providers/capabilities.js";
-import { KENARI_CATALOG_FILE, getKenariProviderLive, invalidateKenariCatalog } from "../../open-sse/providers/kenariCatalog.js";
-import { getThinkingLevels } from "../../open-sse/providers/thinkingLevels.js";
-import { applyThinking } from "../../open-sse/translator/concerns/thinkingUnified.js";
-import { translateRequest } from "../../open-sse/translator/index.js";
-import { normalizeKenariModels } from "../../src/lib/modelCatalog/kenariSync.js";
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "kenari-test-"));
+const originalDataDir = process.env.DATA_DIR;
+process.env.DATA_DIR = dataDir;
+
+const { getCapabilitiesForModel, setCatalogSource } = await import("../../open-sse/providers/capabilities.js");
+const { KENARI_CATALOG_FILE, getKenariProviderLive, invalidateKenariCatalog } = await import("../../open-sse/providers/kenariCatalog.js");
+const { getThinkingLevels } = await import("../../open-sse/providers/thinkingLevels.js");
+const { applyThinking } = await import("../../open-sse/translator/concerns/thinkingUnified.js");
+const { translateRequest } = await import("../../open-sse/translator/index.js");
+const { normalizeKenariModels } = await import("../../src/lib/modelCatalog/kenariSync.js");
 
 const mocks = vi.hoisted(() => ({ getProviderConnectionById: vi.fn() }));
 vi.mock("@/models", async () => ({
@@ -20,13 +26,6 @@ const fixture = JSON.parse(
 );
 const LEVELS = ["minimal", "low", "medium", "high", "xhigh", "max"];
 
-vi.mock("@/lib/dataDir.js", async () => {
-  const { mkdtempSync } = await import("node:fs");
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
-  return { DATA_DIR: mkdtempSync(join(tmpdir(), "kenari-test-")) };
-});
-
 function install(models) {
   fs.writeFileSync(KENARI_CATALOG_FILE, JSON.stringify({ v: 1, models }));
   invalidateKenariCatalog();
@@ -34,6 +33,12 @@ function install(models) {
 }
 
 const MUSE = { contextWindow: 1048576, maxOutput: 524288, reasoning: true, reasoningToggle: false, reasoningLevels: LEVELS };
+
+afterAll(() => {
+  if (originalDataDir === undefined) delete process.env.DATA_DIR;
+  else process.env.DATA_DIR = originalDataDir;
+  fs.rmSync(dataDir, { recursive: true, force: true });
+});
 
 afterEach(() => {
   setCatalogSource(null);
