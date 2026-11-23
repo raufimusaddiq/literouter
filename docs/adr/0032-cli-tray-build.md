@@ -1,6 +1,6 @@
 # ADR-0032: CLI launcher runtime deps, tray and build
 
-- Status: Accepted
+- Status: Accepted (describes the Next-era launcher; `cli/` is rebuilt for Bun in Plan 4, and the root server no longer uses the better-sqlite3 or sql.js drivers named here, see ADR 0006)
 - Date: 2026-11-23
 - Origin: recovered from code comments in the 2026-11-23 comment audit
 
@@ -54,7 +54,7 @@ Windows autostart runs node plus `cli.js` directly with a hidden window, avoidin
 
 ### D8. Build must include dependencies that tracing can drop
 
-Next 16 nests standalone output under the project name when `NEXT_TRACING_ROOT_MODE=workspace` (for example `standalone/9router/server.js`), so the build locates the server accordingly. `open` is an external (`serverExternalPackages` in `next.config.mjs`) and must exist in the bundle's `node_modules` or every importer throws MODULE_NOT_FOUND; output tracing normally copies it, and the build re-checks it as it does for sql.js. The complete generated server tree is merged in step 6b because trace-pruned standalone output can omit dynamically loaded route modules or chunks.
+Next 16 nests standalone output under the project name when `NEXT_TRACING_ROOT_MODE=workspace` (for example `standalone/9router/server.js`), so the build locates the server accordingly. At the time of this decision `open` was an external (`serverExternalPackages` in `next.config.mjs`) that had to exist in the bundle's `node_modules` or every importer threw MODULE_NOT_FOUND, and the build re-checked it as it does for sql.js. Superseded: `open` and `serverExternalPackages` are gone (ADR 0033 D1), so that re-check no longer applies to it. The complete generated server tree is merged in step 6b because trace-pruned standalone output can omit dynamically loaded route modules or chunks.
 
 **Where:** `cli/scripts/build-cli.js`
 

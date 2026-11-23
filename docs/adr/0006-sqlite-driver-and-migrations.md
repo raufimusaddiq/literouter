@@ -1,6 +1,6 @@
 # ADR-0006: SQLite driver chain, migrations and data directory
 
-- Status: Accepted
+- Status: Accepted. The driver chain is superseded: `src/lib/db/driver.js` now uses `bun:sqlite` only and the better-sqlite3, node:sqlite and sql.js adapters are gone. D2, D8 and D9 (and the better-sqlite3/node:sqlite parts of D1 and D7) are kept as history; the NUL-safe wrapper, migrations, data directory, cache and shutdown-ordering decisions still apply.
 - Date: 2026-11-23
 - Origin: recovered from code comments in the 2026-11-23 comment audit
 

@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-LiteRouter (`9router-app`) — a local AI routing gateway + Next.js dashboard. It exposes one OpenAI-compatible endpoint (`/v1/*`) and routes traffic across 40+ upstream providers with format translation, model-combo fallback, multi-account fallback, OAuth/API-key credential management, token refresh, and quota/usage tracking. This is the minimal profile: no tunnel/Tailscale/MITM runtime, no cloud sync, no CLI-tools writers.
+LiteRouter (`9router-app`) — a local AI routing gateway + dashboard. A single `Bun.serve` process serves the gateway, the dashboard/compat APIs and the dashboard pages; Next.js remains only as the build tool for the dashboard pages until Plan 3 ports them. It exposes one OpenAI-compatible endpoint (`/v1/*`) and routes traffic across 40+ upstream providers with format translation, model-combo fallback, multi-account fallback, OAuth/API-key credential management, token refresh, and quota/usage tracking. This is the minimal profile: no tunnel/Tailscale/MITM runtime, no cloud sync, no CLI-tools writers.
 
 Two published artifacts live in this one repo:
-- The **dashboard + gateway** (root `package.json`, `9router-app`) — the Next.js server that does the actual routing.
+- The **dashboard + gateway** (root `package.json`, `9router-app`) — the `Bun.serve` server (`src/server/index.js`) that does the actual routing and serves the dashboard.
 - The **CLI launcher** (`cli/`, published to npm as `9router`) — a separate package that installs/starts the server and manages the tray. It has its own `package.json`, version, and build.
 
-The code lives in `src/` (Next.js app + dashboard/compat APIs), `open-sse/` (the provider-agnostic routing/translation engine), `cli/` (the launcher package), and `tests/`.
+The code lives in `src/` (`Bun.serve` server in `src/server/`, route handlers under `src/app/api/`, and the dashboard pages under `src/app/`, which Next still builds until Plan 3), `open-sse/` (the provider-agnostic routing/translation engine), `cli/` (the launcher package; still the Next-era launcher that bundles the Next standalone build until Plan 4 rebuilds it for Bun), and `tests/`.
 
 ## Commands
 
@@ -35,9 +35,9 @@ cd cli && npm run dev  # nodemon watch
 
 **Always run the suite with `--parallel`** (`cd tests && bun test --parallel`, or the `test` script). Plain `bun test` over the whole tree shares one module registry across files and can hang. Running a single file without it is fine.
 
-Tests (`bun test`, in `tests/`, an **independent** ESM package; the root `npm test` script just calls `cd tests && bun test --parallel`):
+Tests (`bun test`, in `tests/`, an **independent** ESM package; the root `test` script (`bun run test`) just calls `cd tests && bun test --parallel`):
 ```bash
-bun install                             # ROOT deps first: tests import from src/ which needs `open`, `sql.js`, etc.
+bun install                             # ROOT deps first: tests import from src/, which resolves the app's own dependencies from the root node_modules
 cd tests && bun install                 # tests' own install (no dependencies today)
 cd tests && bun test --parallel         # all tests
 cd tests && bun test unit/capabilities.test.js   # single file (path relative to tests/)
@@ -79,7 +79,7 @@ Two authoritative docs already exist — read them before working in these areas
 - One file per provider. `providers/registry/index.js` is an **auto-generated** static import list — regenerate it with `scripts/injectDisplayToRegistry.mjs`, don't hand-edit.
 - Add a provider: copy `providers/REGISTRY_TEMPLATE.js`, add models to `config/providerModels.js`. Only add an executor for non-OpenAI-compatible upstreams.
 
-### Persistence — IMPORTANT (ARCHITECTURE.md is stale here)
+### Persistence — IMPORTANT
 State is **no longer `db.json`**. It's a SQLite layer under `src/lib/db/` on `bun:sqlite` only (`driver.js` throws without the Bun runtime); the former `better-sqlite3`, `node:sqlite` and `sql.js` fallbacks are gone.
 - `src/lib/localDb.js` is a **backward-compat shim** re-exporting `src/lib/db/index.js`. New code should import from `@/lib/db/index.js`; per-entity logic lives in `src/lib/db/repos/*`. Schema/migrations in `src/lib/db/migrations/`.
 - DB file location resolves via `src/lib/db/paths.js` (`DATA_DIR`, else `~/.9router/`).
@@ -94,6 +94,6 @@ Pre-translate hooks that compress `tool_result` content in-place to cut tokens. 
 - **Comments:** code comments are banned, enforced by the `local/no-comments` ESLint rule and `.comment-baseline.json` (a ratchet that only goes down; `bun scripts/comments/ratchet.mjs --check`). Record non-obvious decisions in `docs/adr/` instead. Run `/delete-comment` to audit again. Directives such as `eslint-disable` and magic bundler comments (e.g. turbopack/webpack hints) are allowed.
 - Client IP and locality come from the TCP socket, never from headers: `src/server/trust.js` builds `{ peerIp, clientIp, isLocal }` per request (stored by `src/server/context.js`), trusts `X-Real-IP` / the rightmost `X-Forwarded-For` hop only from a loopback peer, and `src/server/index.js` strips `x-forwarded-for` and the retired `x-9r-*` peer headers before the guard. No source may read `NINEROUTER_PEER_TOKEN` or `x-9r-real-ip` (guard test). Preserve this when touching request/IP/rate-limit code; ADR 0001 has the rules.
 - `bun scripts/port-next-routes.mjs --check` is scoped to `src/app/api src/server` until Plan 3: the dashboard pages and components still import `next/*`, so `--check src` reports them.
-- Security-sensitive env: `JWT_SECRET` (session cookie), `INITIAL_PASSWORD` (default `123456` — must override), `API_KEY_SECRET`, `MACHINE_ID_SALT`. Full env contract in `.env.example` and ARCHITECTURE.md's env matrix.
+- Security-sensitive env: `JWT_SECRET` (session cookie), `INITIAL_PASSWORD` (default `123456` — must override), `API_KEY_SECRET`, `MACHINE_ID_SALT`. Full env contract in `.env.example` (there is no `ARCHITECTURE.md` in the tree).
 - Binary/protobuf upstreams (kiro EventStream, cursor protobuf, commandcode NDJSON) don't round-trip through OpenAI — they're handled inside their own executor, not the translator.
 - Versioning: root and `cli/` are versioned independently; changes are logged in `CHANGELOG.md`. Commit style is Conventional Commits (`fix(translator): …`, `feat(...)`).
