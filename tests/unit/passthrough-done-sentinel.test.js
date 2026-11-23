@@ -49,4 +49,16 @@ describe("passthrough [DONE] sentinel", () => {
     const out = await run(`data: ${chunk}\n\n`);
     expect(count(out)).toBe(1);
   });
+
+  it("drops a chunk with an empty delta and still terminates once", async () => {
+    const empty = JSON.stringify({ id: "chatcmpl-abc12345", object: "chat.completion.chunk", created: 1700000000, model: "m", choices: [{ index: 0, delta: {} }] });
+    const out = await run(`data: ${chunk}
+
+data: ${empty}
+
+`);
+    expect(out).toContain("hi");
+    expect(out).not.toContain(`data: ${empty}`);
+    expect(count(out)).toBe(1);
+  });
 });

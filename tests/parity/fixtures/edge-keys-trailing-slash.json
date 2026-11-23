@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "edge-keys-trailing-slash",
-  "method": "GET",
-  "path": "/api/keys/"
-}

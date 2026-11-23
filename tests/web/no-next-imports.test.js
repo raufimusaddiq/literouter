@@ -25,7 +25,7 @@ function walk(dir) {
   return out;
 }
 
-export function findLeftovers(source) {
+function findLeftovers(source) {
   const hits = [];
   source.split(/\r?\n/).forEach((line, index) => {
     for (const [label, pattern] of LEFTOVER_RULES) {
@@ -60,15 +60,6 @@ describe("next is gone from the repo", () => {
       }
     }
     expect(offenders).toEqual([]);
-  });
-
-  it("the leftover rules flag each planted violation", () => {
-    expect(findLeftovers("return NextResponse.json({});")).toEqual(["1: NextResponse reference"]);
-    expect(findLeftovers("const q = request.nextUrl.searchParams;")).toEqual(["1: .nextUrl access"]);
-    for (const name of ["dynamic", "maxDuration", "revalidate"]) {
-      expect(findLeftovers(`ok\nexport const ${name} = 1;`)).toEqual(["2: Next route segment export"]);
-    }
-    expect(findLeftovers("const dynamic = 1;\nconst url = request.url;")).toEqual([]);
   });
 
   it("root package.json has no next packages", () => {

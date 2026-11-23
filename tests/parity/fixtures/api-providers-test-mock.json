@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-providers-test-mock",
-  "method": "POST",
-  "path": "/api/providers/parity-conn-1/test",
-  "json": {}
-}

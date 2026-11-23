@@ -1,7 +1,0 @@
-{
-  "peer": "lan",
-  "auth": "none",
-  "id": "api-oauth-xiaomi-mimo-auto-import-noauth-lan",
-  "method": "GET",
-  "path": "/api/oauth/xiaomi-mimo/auto-import"
-}

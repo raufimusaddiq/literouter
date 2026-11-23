@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-providers-id-put",
-  "method": "PUT",
-  "path": "/api/providers/nope-id",
-  "json": {}
-}

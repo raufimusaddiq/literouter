@@ -46,3 +46,18 @@ describe("T-30 provider detail a11y", () => {
     expect(src).not.toMatch(/sm:group-hover:opacity-100(?! sm:group-focus-within)/);
   });
 });
+
+describe("a11y heading and size guards", () => {
+  it("Card title renders as h2 and never h3", () => {
+    const s = read("src/shared/components/Card.js");
+    expect(s).toMatch(/<h2 [^>]*>\{title\}<\/h2>/);
+    expect(s).not.toMatch(/<h3/);
+  });
+
+  it.each([
+    ["Badge size sm is at least 11px", "src/shared/components/Badge.js", /sm: "[^"]*text-\[11px\]/],
+    ["provider detail name is the h1", "src/web/pages/dashboard/providers/[id]/page.js", /<h1[^>]*>\{providerInfo\.name\}<\/h1>/],
+  ])("%s", (_label, file, pattern) => {
+    expect(read(file)).toMatch(pattern);
+  });
+});

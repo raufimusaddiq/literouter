@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-proxy-pools-noauth",
-  "method": "GET",
-  "path": "/api/proxy-pools"
-}

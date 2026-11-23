@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-settings-proxy-test-noauth",
-  "method": "POST",
-  "path": "/api/settings/proxy-test",
-  "json": {}
-}

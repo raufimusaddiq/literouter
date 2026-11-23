@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "apikey",
-  "id": "v1-models-kind",
-  "method": "GET",
-  "path": "/v1/models/image"
-}

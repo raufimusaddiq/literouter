@@ -19,15 +19,6 @@ docker run -d \
 
 App listens on port `20128`. Open: http://localhost:20128
 
-## Manage container
-
-```bash
-docker logs -f 9router        # view logs
-docker stop 9router           # stop
-docker start 9router          # start again
-docker rm -f 9router          # remove
-```
-
 ## Data persistence
 
 ```bash
@@ -49,20 +40,6 @@ $DATA_DIR/
 
 Host path: `$HOME/.9router/db/data.sqlite`
 Container path: `/app/data/db/data.sqlite`
-
-## Optional env vars
-
-```bash
-docker run -d \
-  -p 20128:20128 \
-  -v "$HOME/.9router:/app/data" \
-  -e DATA_DIR=/app/data \
-  -e PORT=20128 \
-  -e HOSTNAME=0.0.0.0 \
-  -e DEBUG=true \
-  --name 9router \
-  decolua/9router:latest
-```
 
 ## Optional Headroom sidecar
 
@@ -92,21 +69,13 @@ In the dashboard, open `Endpoint` → `Token Saver` → `Headroom`, confirm the 
 
 If Headroom runs on the Docker host instead of as a sidecar, use `http://host.docker.internal:8787` on macOS/Windows. On Linux, add `--add-host=host.docker.internal:host-gateway` or the equivalent compose `extra_hosts` entry.
 
-## Update to latest
-
-```bash
-docker pull decolua/9router:latest
-docker rm -f 9router
-# re-run the quick start command
-```
-
 ---
 
 # 🛠 For Developers
 
 ## TLS trust store
 
-The image sets `LITEROUTER_SYSTEM_CA=1`: at startup the server (`src/server/ca.js`, ADR 0001 D9) replaces the runtime's bundled CA roots with the container's OS bundle for `fetch` and `node:tls` alike (`/etc/ssl/certs`, from `ca-certificates`), so a root removed from the OS bundle is no longer trusted by any outbound client. The server exits at boot if the OS bundle is empty. Rebuild the image to pick up a refreshed `ca-certificates`.
+The image sets `LITEROUTER_SYSTEM_CA=1`: at startup the server (`src/server/ca.js`, `docs/adr/server-runtime.md`) replaces the runtime's bundled CA roots with the container's OS bundle for `fetch` and `node:tls` alike (`/etc/ssl/certs`, from `ca-certificates`), so a root removed from the OS bundle is no longer trusted by any outbound client. The server exits at boot if the OS bundle is empty. Rebuild the image to pick up a refreshed `ca-certificates`.
 
 ## Build image locally (test)
 
@@ -129,6 +98,6 @@ docker exec -e BUN_BE_BUN=1 <container> /app/literouter -e "console.log(Bun.vers
 
 The runtime is Bun (JavaScriptCore), so V8's `--max-old-space-size` does nothing. Cap memory with `mem_limit` (compose) or `docker run --memory`; `BUN_OPTIONS=--smol` is the opt-in knob for a smaller heap.
 
-## Publish (automatic via CI)
+## Publish
 
-A push to `staging` builds both platforms (amd64 and arm64) and publishes only `ghcr.io/<repo>-staging:staging-<sha>`. Production images are `ghcr.io/<repo>-production:production-<full-sha>`, and the deploy scripts accept only that form.
+CI publishes `ghcr.io/<repo>-production:production-<full-sha>` for every `main` commit; see [docs/ops.md](docs/ops.md).

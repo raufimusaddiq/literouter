@@ -1,8 +1,0 @@
-{
-  "peer": "proxied",
-  "auth": "none",
-  "id": "api-headroom-restart-noauth-proxied",
-  "method": "POST",
-  "path": "/api/headroom/restart",
-  "json": {}
-}

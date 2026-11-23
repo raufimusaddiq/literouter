@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # N=2: the deployed release and the explicitly recorded rollback release.
-# See docs/literouter-baseline/pr-merge-runbook.md#production-image-retention.
+# See docs/ops.md.
 repository=ghcr.io/raufimusaddiq/literouter-production
 docker_bin=${DOCKER_BIN:-docker}
 current=${LITEROUTER_PRODUCTION_TAG:?set LITEROUTER_PRODUCTION_TAG to the running production-<full-sha> tag}

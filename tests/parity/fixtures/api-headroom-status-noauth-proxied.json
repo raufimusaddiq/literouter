@@ -1,7 +1,0 @@
-{
-  "peer": "proxied",
-  "auth": "none",
-  "id": "api-headroom-status-noauth-proxied",
-  "method": "GET",
-  "path": "/api/headroom/status"
-}

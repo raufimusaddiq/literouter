@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";
+import { capabilitiesFromServiceKind, getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";
 
 describe("getCapabilitiesForModel", () => {
 
@@ -169,5 +169,57 @@ describe("OpenCode Free ids newer than the capability tables", () => {
       contextWindow: 1048576,
       maxOutput: 131072,
     });
+  });
+});
+
+describe("capabilitiesFromServiceKind", () => {
+  it.each([
+    ["imageToText", { vision: true }],
+    ["image", { imageOutput: true }],
+    ["stt", { audioInput: true }],
+    ["tts", { audioOutput: true }],
+  ])("maps the %s custom model kind to runtime capabilities", (kind, expected) => {
+    expect(capabilitiesFromServiceKind(kind)).toMatchObject(expected);
+  });
+});
+
+describe("Claude Sonnet 5.5 capabilities", () => {
+  it.each(["claude-sonnet-5-5", "claude-sonnet-5.5", "anthropic/claude-sonnet-5-5"])(
+    "%s resolves to adaptive thinking + 1M context",
+    (model) => {
+      expect(getCapabilitiesForModel("claude", model)).toMatchObject({
+        thinkingFormat: "claude-adaptive",
+        contextWindow: 1000000,
+        maxOutput: 128000,
+        reasoning: true,
+      });
+    }
+  );
+});
+
+describe("Claude Opus 1M context capabilities", () => {
+  it.each([
+    "claude-opus-5",
+    "claude-opus-5-thinking",
+    "claude-opus-5-agentic",
+    "claude-opus-5-thinking-agentic",
+    "claude-opus-4-8",
+    "claude-opus-4.8",
+    "claude-opus-4-7",
+    "claude-opus-4.7",
+    "claude-opus-4-6",
+  ])("resolves %s to a 1M context window", (model) => {
+    expect(getCapabilitiesForModel("cc", model)).toMatchObject({
+      contextWindow: 1000000,
+      maxOutput: 128000,
+      thinkingFormat: "claude-adaptive",
+      reasoning: true,
+      vision: true,
+      search: true,
+    });
+  });
+
+  it("keeps the older Opus 4.5 at the standard 200k context", () => {
+    expect(getCapabilitiesForModel("cc", "claude-opus-4-5-20251101").contextWindow).toBe(200000);
   });
 });

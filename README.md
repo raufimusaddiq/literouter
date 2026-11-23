@@ -38,7 +38,7 @@ docker compose up -d
 
 Open `http://localhost:20128`. Configure providers in the dashboard, then point a compatible client at `http://localhost:20128/v1`.
 
-For the repository production deployment, use [`compose.production.yml`](compose.production.yml). Image builds run in GitHub Actions; the host pulls published images. `staging` is the pre-main integration branch: it builds CI and a `-staging` image only, with no staging deployment and no `staging-latest` tag.
+For the repository production deployment, use [`compose.production.yml`](compose.production.yml). Image builds run in GitHub Actions; the host pulls published images.
 
 ## LiteRouter vs 9Router
 
@@ -55,47 +55,12 @@ For the repository production deployment, use [`compose.production.yml`](compose
 
 LiteRouter is not an upstream drop-in package release. Build from this repository, install the CLI with `bun add -g literouter` (requires Bun 1.4.4 or newer; run `npm rm -g 9router` first if you had the upstream package), or use the production image above; `npm install -g 9router` installs upstream 9Router.
 
-Staging images are published as `ghcr.io/raufimusaddiq/literouter-staging:staging-<sha>` for side-by-side checks and are never deployable to production.
-
-## Measured production baseline
-
-All figures are documented with method and limits in the [baseline report](docs/literouter-baseline/phase-latency-resource.md).
-
-| Measurement | Production 9Router | LiteRouter |
-| --- | ---: | ---: |
-| Mock-router median latency, n=30 | 16.53 ms | 13.64 ms |
-| Mock-router p95 latency, n=30 | 25.36 ms | 19.40 ms |
-| Kenari `kn/deepseek-v4-1-flash` median, n=24 | 1715 ms | 1580 ms |
-| Kenari `kn/deepseek-v4-1-flash` p95, n=24 | 2053 ms | 2062 ms |
-| Post-burst RSS | 236.6 MiB | 72.3 MiB |
-| Image size | 1.03 GB | 1.03 GB |
-
-The image is not smaller. Runtime memory is. Public-model tail latency is effectively equal; controlled router overhead is lower.
-
-## Provider notes
-
-Provider availability changes. Current verified notes:
-
-| Provider | Status |
-| --- | --- |
-| Kiro | `kr/glm-5`, `kr/deepseek-3.2`, `kr/qwen3-coder-next`; roughly 50 credits/month |
-| OpenCode Free | `oc/` models; unauthenticated rotating catalog |
-| Vertex | Gemini preview and Flash models |
-| iFlow | Paid |
-| Qwen Code | OAuth free tier ended |
-| Gemini CLI | Shut down/deprecated |
-
-Use the dashboard model list as the live source of truth.
-
 ## Operations
 
-- [PR and deployment runbook](docs/literouter-baseline/pr-merge-runbook.md)
-- [Minimal profile boundary](docs/literouter-baseline/phase-minimal-boundary.md)
-- [Baseline index](docs/literouter-baseline/README.md)
-- [Changelog](CHANGELOG.md)
+Production topology, deploy, rollback and backup: [docs/ops.md](docs/ops.md). Release notes: [CHANGELOG.md](CHANGELOG.md).
 
 ## Upstream
 
-LiteRouter tracks [9Router](https://github.com/decolua/9router). Keep local changes focused; bring upstream fixes over by reviewing and cherry-picking them.
+LiteRouter tracks [9Router](https://github.com/decolua/9router). Upstream is still Next.js on Node, so fixes come over by reviewed cherry-picks, rewritten to Bun where they touch Next or Node-only code. The steps are in [AGENTS.md](AGENTS.md#upstream-intake).
 
 Licensed under [MIT](LICENSE). Upstream 9Router attribution remains in [9Router](https://github.com/decolua/9router).
