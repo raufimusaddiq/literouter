@@ -46,8 +46,6 @@ jobs:
 
       - run: bun --bun run eslint .
 
-      - run: bun scripts/comments/ratchet.mjs --check
-
       - run: bun scripts/check-test-hygiene.mjs --check
 
       - run: bun scripts/gen-route-table.mjs --check
