@@ -35,10 +35,15 @@ function serverBuildOptions({ root, entry }) {
   };
 }
 
+function describeLog(log) {
+  const where = log.position?.file ? `${log.position.file}:${log.position.line}:${log.position.column}: ` : "";
+  return `${where}${log.message ?? String(log)}`;
+}
+
 async function runBuild(options) {
-  const result = await Bun.build(options);
+  const result = await Bun.build({ ...options, throw: false });
   if (!result.success) {
-    throw new Error(`build failed:\n${result.logs.map((log) => log.message ?? String(log)).join("\n")}`);
+    throw new Error(`build failed:\n${result.logs.map(describeLog).join("\n")}`);
   }
   return result;
 }
