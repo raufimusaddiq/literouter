@@ -90,7 +90,7 @@ describe("vi helper", () => {
 
   it("keeps bun's own function references", async () => {
     const bun = (await import("bun:test")).vi;
-    for (const k of ["mock", "fn", "spyOn", "useFakeTimers", "clearAllMocks"]) expect(vi[k]).toBe(bun[k]);
+    for (const k of ["mock", "fn", "spyOn", "clearAllMocks"]) expect(vi[k]).toBe(bun[k]);
   });
 
   it("advanceTimersByTimeAsync jumps 1h quickly and respects the window end", async () => {
@@ -169,6 +169,23 @@ describe("vi helper", () => {
     setTimeout(() => {}, 250);
     await vi.advanceTimersByTimeAsync(1234);
     expect(Date.now() - start).toBe(1234);
+  });
+
+  it("useFakeTimers({ toFake: ['Date'] }) freezes Date but leaves timers real", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2021-06-01T00:00:00Z") });
+    try {
+      expect(new Date().toISOString()).toBe("2021-06-01T00:00:00.000Z");
+      let fired = false;
+      setTimeout(() => {
+        fired = true;
+      }, 5);
+      await new Promise((r) => setTimeout(r, 30));
+      expect(fired).toBe(true);
+      expect(Date.now()).toBe(new Date("2021-06-01T00:00:00Z").getTime());
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(Date.now()).toBeGreaterThan(new Date("2025-01-01T00:00:00Z").getTime());
   });
 
   it("isolation pin actually runs (not skipped) under bun test --parallel", async () => {

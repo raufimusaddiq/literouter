@@ -7,7 +7,36 @@ const flushMicrotasks = async () => {
 const envStubs = new Map();
 const globalStubs = new Map();
 
+const TIMER_APIS = new Set([
+  "setTimeout", "clearTimeout", "setInterval", "clearInterval", "setImmediate", "clearImmediate",
+  "queueMicrotask", "nextTick", "performance", "requestAnimationFrame", "cancelAnimationFrame",
+]);
+
+let dateOnlyFake = false;
+
 const extras = {
+  useFakeTimers(opts) {
+    const toFake = opts?.toFake;
+    if (Array.isArray(toFake) && !toFake.some((n) => TIMER_APIS.has(n))) {
+      dateOnlyFake = true;
+      jest.setSystemTime(opts.now ?? new Date());
+      return bunVi;
+    }
+    dateOnlyFake = false;
+    bunVi.useFakeTimers(opts);
+    return bunVi;
+  },
+
+  useRealTimers() {
+    if (dateOnlyFake) {
+      dateOnlyFake = false;
+      jest.setSystemTime();
+      return bunVi;
+    }
+    bunVi.useRealTimers();
+    return bunVi;
+  },
+
   hoisted(fn) {
     return fn();
   },
