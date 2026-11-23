@@ -33,6 +33,7 @@ import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
 import { toAnthropicModelList } from "open-sse/utils/anthropicModels.js";
 import { buildErrorBody, resolveErrorFormat } from "open-sse/utils/error.js";
 import { FORMATS } from "open-sse/translator/formats.js";
+import { nextUrl } from "@/server/http.js";
 
 const ALIAS_TO_PROVIDER_ID = {
   ...Object.fromEntries(
@@ -616,14 +617,14 @@ export async function OPTIONS() {
 export async function GET(request) {
   try {
     const skipDynamicFetch = request?.headers?.get(INTERNAL_MODELS_FETCH_HEADER) === "1";
-    const kind = request.nextUrl?.searchParams?.get("kind");
+    const kind = nextUrl(request).searchParams?.get("kind");
     const kindFilter = kind ? [kind] : [LLM_KIND];
     const data = await filterModelsListForKey(
       await getKeyAccessContext(request),
       await buildModelsList(kindFilter, { skipDynamicFetch })
     );
     if (request.headers.get("anthropic-version")) {
-      const params = request.nextUrl?.searchParams;
+      const params = nextUrl(request).searchParams;
       return Response.json(
         toAnthropicModelList(data, {
           limit: params?.get("limit"),
