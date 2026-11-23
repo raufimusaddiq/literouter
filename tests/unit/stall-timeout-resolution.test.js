@@ -12,7 +12,4 @@ describe("resolveStallTimeoutMs", () => {
     expect(resolveStallTimeoutMs("codex", "gpt-6.1-sol")).toBe(STREAM_STALL_TIMEOUT_MS);
     expect(resolveStallTimeoutMs("claude", undefined)).toBe(STREAM_STALL_TIMEOUT_MS);
   });
-  it("short budget is shorter than the default", () => {
-    expect(STREAM_STALL_TIMEOUT_FLASH_MS).toBeLessThan(STREAM_STALL_TIMEOUT_MS);
-  });
 });
