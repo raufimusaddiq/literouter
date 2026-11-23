@@ -19,9 +19,13 @@ Step 6 command sequence (run on a quiet host; alternate Node, Bun, Node, Bun, No
   3. bun scripts/cutover/measure.mjs <container> http://127.0.0.1:<port>/v1 "$KEY" <model> round-N-node.json
      The script starts the host mock itself on 0.0.0.0:9101 (chunks 200); do not start another.
      Remove the container, then repeat for the other image. Take the median per metric over 3 rounds.
-  4. Image size (writes imageBytes into the JSON, pulling both arches, never running arm64):
+  4. Median per metric over the rounds:
+       bun scripts/cutover/perf-gate.mjs --median round-1-node.json round-2-node.json round-3-node.json > node.json
+       bun scripts/cutover/perf-gate.mjs --median round-1-bun.json round-2-bun.json round-3-bun.json > bun.json
+  5. Image size, ONLY AFTER all measurement rounds: it pulls both arches under the same tag (arm64 first, amd64 last,
+     so the local tag ends on amd64; arm64 is never run) and writes imageBytes into the JSON:
        bun scripts/cutover/measure.mjs --image $BUN_IMG bun.json
-  5. bun scripts/cutover/perf-gate.mjs node.json bun.json
+  6. bun scripts/cutover/perf-gate.mjs node.json bun.json
 The key is only used for requests and is never written to the output file.
 
 usage: bun scripts/cutover/measure.mjs <container> <baseUrl> <key> <model> <out.json>
@@ -35,7 +39,7 @@ const IDLE_WAIT_MS = 60_000;
 const READ_GAP_MS = 10_000;
 const SETTLE_MS = 30_000;
 const MOCK_PORT = 9101;
-const ARCHES = ["amd64", "arm64"];
+const ARCHES = ["arm64", "amd64"];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const median = (xs) => percentile(xs, 50);
