@@ -42,7 +42,12 @@ A plan that needs to change a name here must update this file in the same PR.
   - `json(body, init?) → Response`. Its content type is `application/json;charset=utf-8`, because the goldens were recorded on Next running under Bun. Plan 5 compares against Node `main`, so any difference in this header is judged there.
   - `redirect(url, status = 307) → Response`
   - `nextUrl(req) → URL`
-  - `cookies(req) → Bun.CookieMap`
+  - `cookies(req) → CookieJar`, not `Bun.CookieMap`. A request has one jar (a `WeakMap` keyed by the `Request`), shared by the guard, the SPA and the handlers.
+    - `get(name) → string | null` is the decoded value, not an object with `.value` as in Next, and `has(name) → boolean`.
+    - `set(name, value, options?)` and `delete(name, options?)` return nothing to await and queue a `Set-Cookie` line; `delete` writes an empty value with `Expires` at the epoch. `toSetCookieHeaders() → string[]` returns the queued lines.
+    - Options match Next's: `path` (default `/`), `maxAge`, `expires`, `domain`, `secure`, `httpOnly`, `sameSite` (written as given, so `lax` not `Lax`, as in the goldens), `partitioned`, `priority`. `serializeCookie(name, value, options)` is exported for the same format.
+    - The adapter applies the queued lines once per response through `applyCookies(req, res)`, as separate `Set-Cookie` headers (they survive gzip). A handler never writes `Set-Cookie` itself.
+    - It has no `getAll`, iteration or `size` (`Bun.CookieMap` does); Plans 3–5 code against the jar above. It exists so the `Set-Cookie` bytes match what Next produced.
   - `NextResponse.next()` in the guard becomes `null`.
 - **`src/server/context.js`**
   - `setRequestContext(req, ctx)`
@@ -60,7 +65,8 @@ A plan that needs to change a name here must update this file in the same PR.
 - **`src/server/ca.js`**
   - `export function useSystemCaStore(tlsApi = tls, fetchHost = globalThis) → number`.
   - Plan 2 creates it, and Plan 4 Task 3 replaces the mechanism.
-  - Bun's `fetch` ignores `tls.setDefaultCACertificates`, so Plan 4 wraps `fetch` with `tls.ca`. It fails closed on an empty store.
+  - Bun's `fetch` ignores `tls.setDefaultCACertificates` (Bun 1.4.4), so Plan 4 Task 3 wraps `fetch` with `tls.ca`, which is what `fetchHost` is reserved for. It fails closed on an empty store.
+  - What it does today: the `import.meta.main` block of `src/server/index.js` calls it when `LITEROUTER_SYSTEM_CA=1`, and `node:tls`, `node:https` and `node:http2` use the system store; the gateway's `fetch` calls still use Bun's bundled roots, and the startup log line says so. Plan 4 Task 3 completes it and must keep the call on whichever path the launcher uses (ADR 0001 D9).
 - **`src/server/boot.js`**
   - `export async function runBootOnce()` contains what `instrumentation.register()` did, plus `initOutboundProxy` and `initConsoleLogCapture`.
 - **`src/server/paths.js`**
