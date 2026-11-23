@@ -40,6 +40,24 @@ Open `http://localhost:20128`. Configure providers in the dashboard, then point 
 
 For the repository production deployment, use [`compose.production.yml`](compose.production.yml). Image builds run in GitHub Actions; the host pulls published images. `staging` is the pre-main integration branch: it builds CI and a `-staging` image only, with no staging deployment and no `staging-latest` tag.
 
+## Install the CLI
+
+Requires [Bun](https://bun.sh) 1.4.4 or newer.
+
+```bash
+bun add -g literouter
+literouter
+```
+
+Run once without installing: `bunx literouter`. Upgrade with `bun add -g literouter@latest`.
+
+Coming from the upstream `9router` package? Remove it, then install LiteRouter. Config, database and environment are unchanged:
+
+```bash
+npm rm -g 9router
+bun add -g literouter
+```
+
 ## LiteRouter vs 9Router
 
 | Area | LiteRouter | 9Router |
@@ -53,7 +71,7 @@ For the repository production deployment, use [`compose.production.yml`](compose
 | Tunnel, Tailscale, MITM runtime | Deleted | Included |
 | Intended operation | Small, direct routing deployment | Full product surface |
 
-LiteRouter is not an upstream drop-in package release. Build from this repository, install the CLI with `bun add -g literouter` (requires Bun 1.4.4 or newer; run `npm rm -g 9router` first if you had the upstream package), or use the production image above; `npm install -g 9router` installs upstream 9Router.
+LiteRouter is not an upstream drop-in package release. Build from this repository, install the CLI with `bun add -g literouter` (see above), or use the production image above; `npm install -g 9router` installs upstream 9Router.
 
 Staging images are published as `ghcr.io/raufimusaddiq/literouter-staging:staging-<sha>` for side-by-side checks and are never deployable to production.
 

@@ -41,7 +41,7 @@ bun add -g literouter
 literouter
 ```
 
-Run once without installing: `bunx literouter`. Auto-start on boot needs a global install (`bun add -g`), not `bunx`. Upgrade with `bun add -g literouter@latest`. If you installed the old `9router` package, remove it first with `npm rm -g 9router`.
+Run once without installing: `bunx literouter`. Auto-start on boot needs a global install (`bun add -g`), not `bunx`. Upgrade with `bun add -g literouter@latest`. Coming from the old `9router` package? Run `npm rm -g 9router`, then `bun add -g literouter`. Config, database and environment are unchanged.
 
 **Option 2 — Docker (server/VPS):**
 
