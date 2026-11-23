@@ -34,6 +34,13 @@ describe("server bundle", () => {
     expect(text).not.toContain("lightningcss/node");
   });
 
+  it("does not inline the root package.json beyond its version", () => {
+    const text = readFileSync(join(outdir, "index.js"), "utf8");
+    expect(text).not.toContain("Lean multi-provider AI routing gateway");
+    expect(text).not.toContain("cli:publish");
+    expect(text).not.toContain("eslint-plugin-jsx-a11y");
+  });
+
   it("emits no native .node files", () => {
     expect(listFiles(outdir).filter((file) => file.endsWith(".node"))).toEqual([]);
   });

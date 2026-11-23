@@ -1,7 +1,7 @@
 import { platform, arch, hostname } from "os";
 import { PROVIDERS, PROVIDER_OAUTH } from "./providers.js";
 import { ANTIGRAVITY_IDE_USER_AGENT } from "../providers/shared.js";
-import pkg from "../../package.json" with { type: "json" };
+import { version } from "../../package.json" with { type: "json" };
 
 export const GEMINI_CLI_VERSION = PROVIDERS["gemini-cli"]?.cliVersion;
 export const GEMINI_CLI_API_CLIENT = PROVIDERS["gemini-cli"]?.apiClient;
@@ -171,7 +171,7 @@ export const OAUTH_ENDPOINTS = {
 };
 
 export function getAppPackageVersion() {
-  return pkg.version || "0.0.0";
+  return version || "0.0.0";
 }
 
 export function buildKimiHeaders(deviceId) {

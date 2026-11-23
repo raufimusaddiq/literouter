@@ -1,9 +1,9 @@
-import pkg from "../../../package.json" with { type: "json" };
+import { version } from "../../../package.json" with { type: "json" };
 
 export const APP_CONFIG = {
   name: "LiteRouter",
   description: "Lean AI routing control plane",
-  version: pkg.version,
+  version: version,
 };
 
 export const UPDATER_CONFIG = {

@@ -1,6 +1,6 @@
-import pkg from "../../package.json" with { type: "json" };
+import { version } from "../../package.json" with { type: "json" };
 
-const APP_VERSION = pkg.version || "0.0.0";
+const APP_VERSION = version || "0.0.0";
 
 export function getClineAccessToken(token) {
   if (typeof token !== "string") return "";
