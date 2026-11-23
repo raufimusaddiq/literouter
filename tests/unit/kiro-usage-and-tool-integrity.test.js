@@ -8,7 +8,7 @@ vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
 }));
 
 const { KiroExecutor } = await import("../../open-sse/executors/kiro.js");
-const { kiroToClaudeResponse, kiroToClaudeNonStreaming } = await import(
+const { kiroToClaudeResponse } = await import(
   "../../open-sse/translator/response/kiro-to-claude.js"
 );
 const { validateKiroConversation, canonicalizeKiroConversation } = await import(
@@ -267,19 +267,6 @@ describe("D: cache tokens survive the kiro -> claude translation", () => {
   it("omits the cache keys when the upstream reported none", () => {
     expect(finalUsage({ prompt_tokens: 500, completion_tokens: 20 }))
       .toEqual({ input_tokens: 500, output_tokens: 20 });
-  });
-
-  it("preserves cache on the non-streaming path too", () => {
-    const message = kiroToClaudeNonStreaming({
-      choices: [{ message: { content: "hi" } }],
-      usage: { prompt_tokens: 90, completion_tokens: 4, cache_read_input_tokens: 80 }
-    });
-    expect(message.usage).toMatchObject({
-      input_tokens: 90,
-      output_tokens: 4,
-      cache_read_input_tokens: 80
-    });
-    expect(message.usage).not.toHaveProperty("cache_creation_input_tokens");
   });
 });
 

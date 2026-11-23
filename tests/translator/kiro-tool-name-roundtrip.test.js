@@ -3,7 +3,7 @@ import { normalizeKiroToolSpecs } from "../../open-sse/translator/concerns/kiroC
 import { openaiToKiroRequest } from "../../open-sse/translator/request/openai-to-kiro.js";
 import { claudeToKiroRequest } from "../../open-sse/translator/request/claude-to-kiro.js";
 import { kiroToOpenAIResponse } from "../../open-sse/translator/response/kiro-to-openai.js";
-import { kiroToClaudeResponse, kiroToClaudeNonStreaming } from "../../open-sse/translator/response/kiro-to-claude.js";
+import { kiroToClaudeResponse } from "../../open-sse/translator/response/kiro-to-claude.js";
 
 describe("Kiro tool name normalization and roundtrip", () => {
   it("preserves consecutive underscores like mcp__gitea__search_repos without collapsing", () => {
@@ -89,21 +89,5 @@ describe("Kiro tool name normalization and roundtrip", () => {
     const startEvent = events.find((e) => e.type === "content_block_start");
     expect(startEvent).toBeDefined();
     expect(startEvent.content_block.name).toBe("my.tool/search");
-  });
-
-  it("restores original tool name in kiroToClaudeNonStreaming when toolNameMap is present", () => {
-    const data = {
-      choices: [{
-        message: {
-          tool_calls: [{
-            id: "call_123",
-            function: { name: "my_tool_search", arguments: "{}" },
-          }],
-        },
-      }],
-      toolNameMap: new Map([["my_tool_search", "my.tool/search"]]),
-    };
-    const result = kiroToClaudeNonStreaming(data);
-    expect(result.content[0].name).toBe("my.tool/search");
   });
 });

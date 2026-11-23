@@ -130,7 +130,7 @@ A plan that needs to change a name here must update this file in the same PR.
 ### Tests and gates
 
 - **Server tests:** `tests/server/*.test.js`. They start the app with `startServer({ port: 0, hostname: "127.0.0.1" })` and stop it with `server.stop(true)` in `afterAll`.
-- **`tests/__baseline__/test-counts.json`:** the Plan 1 shape plus a `"waived": { "<file key>": "<replacement file> — <reason>" }` map, added by Plan 2 Task 1. A waived key passes the count gate only if its replacement file exists and has at least as many cases.
+- **`tests/__baseline__/test-counts.json`:** the Plan 1 shape plus a `"waived": { "<file key>": "<replacement file> — <reason>" }` map, added by Plan 2 Task 1, and a `"deleted": { "<file> :: <full name>": "<reason>" }` map added by Plan 1 (a whole-file deletion uses `"<file> :: *"`). A waived key passes the count gate only if its replacement file exists and has at least as many cases. A deleted entry passes only if its case no longer runs; `verify-test-counts.mjs` prints the deleted list on every run.
 - **Parity harness:** Plan 2 Task 1 builds it, and Plan 5 runs the final pass. It consists of:
   - `tests/parity/fixtures/*.json`
   - `tests/parity/mock-upstream.js`. It writes every upstream request it receives to `<outDir>/upstream-requests.jsonl`, one JSON object per line: `{ seq, method, path, headers: [[k, v], …] in wire order, bodyBase64 }`.
