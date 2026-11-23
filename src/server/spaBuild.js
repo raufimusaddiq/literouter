@@ -7,6 +7,8 @@ const MISSING_CODE = "SPA_MISSING";
 const WATCHED = ["src", "open-sse"];
 const DEV_ROOT = join(REPO_ROOT, "dist", "web-dev");
 const DEV_OUTDIR = join(DEV_ROOT, String(process.pid));
+const EXIT_CLEANUP_FLAG = "__lrSpaExitCleanup";
+const MISSING_BODY = "The dashboard is not built: run bun run build:web.";
 
 let pending = null;
 let buildTail = Promise.resolve();
@@ -25,32 +27,34 @@ async function readBuilt(dir) {
   return { dir, indexHtml: await file.text() };
 }
 
-function isAlive(pid) {
+export function isAlive(pid) {
   try {
     process.kill(pid, 0);
     return true;
   } catch (error) {
-    return error?.code === "EPERM";
+    return error?.code !== "ESRCH";
   }
 }
 
-function pruneStaleDevBuilds() {
+export function pruneStaleDevBuilds(root = DEV_ROOT, { alive = isAlive, remove = rmSync } = {}) {
   let names;
   try {
-    names = readdirSync(DEV_ROOT);
+    names = readdirSync(root);
   } catch {
     return;
   }
   for (const name of names) {
-    if (/^\d+$/.test(name) && !isAlive(Number(name))) {
-      rmSync(join(DEV_ROOT, name), { recursive: true, force: true });
+    if (!/^\d+$/.test(name) || alive(Number(name))) continue;
+    try {
+      remove(join(root, name), { recursive: true, force: true });
+    } catch (error) {
+      console.error("[spa] could not remove stale dev build", name, error?.code ?? error);
     }
   }
 }
 
-function startWatchers() {
+export function startWatchers() {
   if (watchersStarted) return;
-  watchersStarted = true;
   pruneStaleDevBuilds();
   globalThis.__lrSpaWatchers?.forEach((watcher) => watcher.close());
   globalThis.__lrSpaWatchers = WATCHED.map((name) => {
@@ -58,7 +62,16 @@ function startWatchers() {
     watcher.unref?.();
     return watcher;
   });
-  process.once("exit", () => rmSync(DEV_OUTDIR, { recursive: true, force: true }));
+  watchersStarted = true;
+  if (globalThis[EXIT_CLEANUP_FLAG]) return;
+  globalThis[EXIT_CLEANUP_FLAG] = true;
+  process.once("exit", () => {
+    try {
+      rmSync(DEV_OUTDIR, { recursive: true, force: true });
+    } catch {
+      return;
+    }
+  });
 }
 
 function devBuild() {
@@ -94,7 +107,7 @@ export function invalidateSpa() {
 export function spaUnavailableResponse(error) {
   console.error("[spa] dashboard build unavailable:", error?.code === MISSING_CODE ? error.message : error);
   const body = error?.code === MISSING_CODE
-    ? `The dashboard is not built (${error.message}).`
+    ? MISSING_BODY
     : "The dashboard build failed; see the server log.";
   return new Response(body, {
     status: 500,

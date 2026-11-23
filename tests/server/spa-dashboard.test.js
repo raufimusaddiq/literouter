@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "bun:test";
 import fs from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { useTempDataDirAtLoad } from "../helpers/tempDataDir.js";
@@ -25,10 +26,26 @@ let base;
 
 const get = (pathname, init = {}) => fetch(`${base}${pathname}`, { redirect: "manual", ...init });
 
-function bootScript(html) {
-  const start = html.indexOf("window.__LR_BOOT__=");
+function rawRequest(pathname) {
+  return new Promise((resolve, reject) => {
+    const socket = net.connect(server.port, "127.0.0.1");
+    let data = "";
+    socket.setTimeout(10_000, () => socket.destroy(new Error("raw request timed out")));
+    socket.on("data", (chunk) => {
+      data += chunk.toString("latin1");
+    });
+    socket.on("error", reject);
+    socket.on("close", () => resolve({ status: Number(data.split(" ")[1]), raw: data }));
+    socket.write(`GET ${pathname} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n`);
+  });
+}
+
+function bootElement(html) {
+  const start = html.indexOf("<script>window.__LR_BOOT__=");
   expect(start).toBeGreaterThan(-1);
-  return html.slice(start, html.indexOf("</script>", start));
+  const head = html.slice(start, html.indexOf("</head>", start)).trimEnd();
+  expect(head.endsWith("</script>")).toBe(true);
+  return head.slice("<script>".length, -"</script>".length);
 }
 
 beforeAll(async () => {
@@ -97,13 +114,16 @@ describe("SPA pages", () => {
   });
 
   it("boot values are escaped", async () => {
-    process.env.NEXT_PUBLIC_GA_ID = "</script><!--  ";
+    const hostile = "</script><!--\u2028\u2029&";
+    process.env.NEXT_PUBLIC_GA_ID = hostile;
     const res = await get("/login", { headers: { cookie: "locale=</script><!--" } });
-    const script = bootScript(await res.text());
-    expect(script).not.toContain("</script");
-    expect(script).not.toContain("<!--");
-    expect(script).not.toContain(" ");
-    expect(script).not.toContain(" ");
+    const inner = bootElement(await res.text());
+    expect(inner).not.toContain("</script");
+    expect(inner).not.toContain("<!--");
+    expect(inner).not.toContain("\u2028");
+    expect(inner).not.toContain("\u2029");
+    const boot = JSON.parse(inner.slice("window.__LR_BOOT__=".length));
+    expect(boot.gaId).toBe(hostile);
   });
 
   it("no analytics tag when the id is unset", async () => {
@@ -171,17 +191,25 @@ describe("assets and public files", () => {
     }
   });
 
-  it("traversal is refused", async () => {
-    for (const pathname of ["/..%2f..%2fpackage.json", "/%2e%2e/package.json", "/icons/..%5c..%5cpackage.json", "/assets/..%2findex.html", "/assets/%2e%2e/index.html"]) {
-      const res = await get(pathname);
-      expect(res.status).toBe(404);
-      const body = await res.text();
-      expect(body).not.toContain('"dependencies"');
-      expect(body).not.toContain("__LR_BOOT__");
+  it("traversal is refused, with the encoded path sent to the server unnormalised", async () => {
+    const paths = [
+      "/..%2f..%2fpackage.json",
+      "/%2e%2e/package.json",
+      "/icons/..%5c..%5cpackage.json",
+      "/assets/..%2findex.html",
+      "/assets/%2e%2e/index.html",
+      "/assets/..%2f..%2fpackage.json",
+      "/assets/%2e%2e%2findex.html",
+    ];
+    for (const pathname of paths) {
+      const { status, raw } = await rawRequest(pathname);
+      expect(status).toBe(404);
+      expect(raw).not.toContain('"dependencies"');
+      expect(raw).not.toContain("__LR_BOOT__");
     }
   });
 
-  it("unknown api path stays JSON 404", async () => {
+  it("unknown api path is 404, not the SPA", async () => {
     const res = await get("/api/does-not-exist");
     expect(res.status).toBe(404);
     expect(await res.text()).not.toContain("__LR_BOOT__");

@@ -43,6 +43,16 @@ describe("a missing SPA build", () => {
     expect(await res.text()).toContain("The dashboard is not built");
   });
 
+  it("keeps the resolved directory out of the HTTP body", async () => {
+    for (const pathname of ["/dashboard", "/assets/index-abc.js"]) {
+      const body = await (await get(pathname)).text();
+      expect(body).not.toContain(spaDir);
+      expect(body).not.toContain(path.basename(spaDir));
+      expect(body).not.toContain(os.tmpdir());
+      expect(body).toContain("bun run build:web");
+    }
+  });
+
   it("answers /assets/* with the same plain-text 500 and keeps serving public files", async () => {
     const asset = await get("/assets/index-abc.js");
     expect(asset.status).toBe(500);
