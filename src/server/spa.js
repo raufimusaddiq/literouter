@@ -1,10 +1,10 @@
-import { join } from "node:path";
 import { getSettings } from "@/lib/db/index.js";
 import { getServerTimeZone } from "@/shared/utils/dateTime";
 import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
+import { headExtras } from "@/web/head.js";
 import { cookies } from "./http.js";
+import { getSpa, spaUnavailableResponse } from "./spaBuild.js";
 
-const INDEX_PATH = join(import.meta.dir, "..", "web", "index.html");
 const UNSAFE_IN_SCRIPT = /[<>&\u2028\u2029]/g;
 
 export function serializeBoot(boot) {
@@ -33,14 +33,22 @@ async function buildBoot(req) {
 }
 
 export async function serveSpa(req) {
-  const script = `<script>window.__LR_BOOT__=${serializeBoot(await buildBoot(req))}</script>`;
+  let spa;
+  try {
+    spa = await getSpa();
+  } catch (error) {
+    return spaUnavailableResponse(error);
+  }
+  const boot = await buildBoot(req);
+  const script = `<script>window.__LR_BOOT__=${serializeBoot(boot)}</script>`;
   const html = await new HTMLRewriter()
     .on("head", {
       element(head) {
+        head.append(headExtras({ gaId: boot.gaId }), { html: true });
         head.append(script, { html: true });
       },
     })
-    .transform(new Response(Bun.file(INDEX_PATH)))
+    .transform(new Response(spa.indexHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
     .text();
   const headers = {
     "content-type": "text/html; charset=utf-8",
