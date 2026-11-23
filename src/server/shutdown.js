@@ -14,5 +14,7 @@ export function flushAndExit() {
 }
 
 export function installShutdownHandlers() {
+  if (globalThis.__lrShutdownInstalled) return;
+  globalThis.__lrShutdownInstalled = true;
   for (const signal of SIGNALS) process.once(signal, flushAndExit);
 }

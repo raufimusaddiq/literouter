@@ -64,6 +64,7 @@ describe("idle timeout wiring", () => {
   it("a regular route is cut once it is silent past the idle timeout", async () => {
     const server = await startServer({ port: 0, hostname: "127.0.0.1", idleTimeout: 2 });
     servers.push(server);
+    const started = Date.now();
     let outcome;
     try {
       const res = await fetch(`http://127.0.0.1:${server.port}/api/health`);
@@ -71,7 +72,8 @@ describe("idle timeout wiring", () => {
     } catch (err) {
       outcome = err.code ?? err.message;
     }
-    expect(outcome).not.toBe("ab");
+    expect(["ECONNRESET", "a"]).toContain(outcome);
+    expect(Date.now() - started).toBeLessThan(4500);
   }, SILENCE_TEST_TIMEOUT_MS);
 });
 

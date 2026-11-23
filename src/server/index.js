@@ -13,6 +13,7 @@ import { useSystemCaStore } from "./ca.js";
 import { installShutdownHandlers } from "./shutdown.js";
 
 const IDLE_TIMEOUT_SECONDS = 255;
+const BODY_LIMIT_ERROR = "Request body exceeded maxRequestBodySize";
 const STRIPPED_HEADERS = ["x-9r-real-ip", "x-9r-peer-token", "x-9r-via-proxy", "x-forwarded-for"];
 
 function isSpaPath(pathname) {
@@ -58,6 +59,7 @@ async function serve(req, server, inner) {
     if (blocked) return await maybeCompress(req, blocked);
     return await inner(req, server);
   } catch (err) {
+    if (err?.message === BODY_LIMIT_ERROR) return new Response(null, { status: 413 });
     console.error("[server] request failed:", err);
     return new Response(null, { status: 500 });
   }
@@ -110,9 +112,11 @@ export async function startServer({
 
 if (import.meta.main) {
   installShutdownHandlers();
-  if (process.env.LITEROUTER_SYSTEM_CA === "1") {
+  if (process.env.LITEROUTER_SYSTEM_CA === "1" && !globalThis.__lrSystemCaInstalled) {
     try {
-      console.log(`[CA trust] using ${useSystemCaStore()} system CA certificates`);
+      const count = useSystemCaStore();
+      globalThis.__lrSystemCaInstalled = true;
+      console.log(`[CA trust] node:tls, node:https and node:http2 now use ${count} system CA certificates; fetch still uses Bun's bundled roots until Plan 4 wraps it (ADR 0001 D9)`);
     } catch (e) {
       console.error(e.message);
       process.exit(1);

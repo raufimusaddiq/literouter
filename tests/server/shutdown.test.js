@@ -46,6 +46,25 @@ describe("SIGTERM shutdown", () => {
   });
 });
 
+describe("installShutdownHandlers", () => {
+  it("adds the SIGINT and SIGTERM listeners once per process, however often it runs", async () => {
+    const { installShutdownHandlers } = await import("../../src/server/shutdown.js");
+    const original = globalThis.__lrShutdownInstalled;
+    delete globalThis.__lrShutdownInstalled;
+    const once = spyOn(process, "once").mockImplementation(() => process);
+    try {
+      installShutdownHandlers();
+      installShutdownHandlers();
+      installShutdownHandlers();
+      expect(once.mock.calls.map((call) => call[0])).toEqual(["SIGINT", "SIGTERM"]);
+    } finally {
+      once.mockRestore();
+      if (original === undefined) delete globalThis.__lrShutdownInstalled;
+      else globalThis.__lrShutdownInstalled = original;
+    }
+  });
+});
+
 describe("flushAndExit", () => {
   it("closes the open db adapter, which drains the buffers, and exits 0", async () => {
     const { flushAndExit } = await import("../../src/server/shutdown.js");

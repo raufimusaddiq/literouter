@@ -37,12 +37,13 @@ describe("Next's server pieces are gone", () => {
     const names = ["NINEROUTER_PEER_TOKEN", "x-9r-real-ip", "x-9r-peer-token", "x-9r-via-proxy"];
     const offenders = [];
     for (const file of files) {
-      const text = read(file);
+      const text = read(file).toLowerCase();
       for (const name of names) {
-        if (text.includes(name)) offenders.push(`${rel(file)}:${name}`);
+        const count = text.split(name.toLowerCase()).length - 1;
+        if (count > 0) offenders.push(`${rel(file)}:${name}:${count}`);
       }
     }
-    expect(offenders).toEqual(["src/server/index.js:x-9r-real-ip", "src/server/index.js:x-9r-peer-token", "src/server/index.js:x-9r-via-proxy"]);
+    expect(offenders).toEqual(["src/server/index.js:x-9r-real-ip:1", "src/server/index.js:x-9r-peer-token:1", "src/server/index.js:x-9r-via-proxy:1"]);
     const stripList = /const STRIPPED_HEADERS = \[([^\]]*)\]/.exec(read(join(root, "src/server/index.js")));
     expect(stripList).not.toBeNull();
     for (const name of names.slice(1)) expect(stripList[1]).toContain(`"${name}"`);

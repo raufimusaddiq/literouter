@@ -34,7 +34,7 @@ describe("useSystemCaStore", () => {
     expect(readFileSync(join(root, "Dockerfile"), "utf8")).toMatch(/^ENV LITEROUTER_SYSTEM_CA=1$/m);
   });
 
-  it("startServer refuses to start when LITEROUTER_SYSTEM_CA=1 and the store is unavailable", () => {
+  it("the entry script refuses to start when LITEROUTER_SYSTEM_CA=1 and the store is unavailable", () => {
     const home = mkdtempSync(join(tmpdir(), "lr-ca-"));
     try {
       const run = Bun.spawnSync(["bun", "--preload", preload, join(root, "src/server/index.js")], {

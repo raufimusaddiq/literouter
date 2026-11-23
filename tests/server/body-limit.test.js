@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it, spyOn } from "bun:test";
 import net from "node:net";
 import { loadServerModule } from "./helpers/inproc.js";
 
@@ -81,6 +81,18 @@ describe("request body cap", () => {
     const res = await fetch(`${base}/__sink`, { method: "POST", body: "x".repeat(2048) });
     expect(res.status).toBe(413);
     expect(seen.length).toBe(before);
+  });
+
+  it("an oversize chunked POST logs no request failure", async () => {
+    const logged = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const response = await rawChunked(2048);
+      await Bun.sleep(100);
+      expect(response.startsWith("HTTP/1.1 413 ")).toBe(true);
+      expect(logged).not.toHaveBeenCalled();
+    } finally {
+      logged.mockRestore();
+    }
   });
 
   it("a 2 KB chunked POST gets 413", async () => {

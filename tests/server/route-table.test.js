@@ -45,7 +45,8 @@ describe("route table", () => {
     expect(sourceOf("/v1/models/*")).toEqual(["api/v1/models/[...model]"]);
     expect(sourceOf("/v1")).toEqual(["api/v1"]);
     expect(sourceOf("/v1/v1")).toEqual(["api/v1"]);
-    expect(sourceOf("/v1beta")).toEqual(["api/v1beta"].filter((s) => routeTable.some((e) => e.source === s)));
+    expect(sourceOf("/v1beta")).toEqual([]);
+    expect(sourceOf("/api/v1beta")).toEqual([]);
     expect(sourceOf("/codex")).toEqual(["api/v1/responses"]);
     expect(sourceOf("/codex/*")).toEqual(["api/v1/responses"]);
     expect(sourceOf("/responses")).toEqual(["api/v1/responses"]);

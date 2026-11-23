@@ -32,7 +32,7 @@ export function compareDirs(expectedDir, actualDir, known = []) {
     };
     for (const d of diffValues(read(expectedDir), read(actualDir))) diffs.push({ file: file.replace(/\.json$/, ""), ...d });
   }
-  const pinnedValue = (k, d) => (k.absent ? d.actual === undefined : !("actual" in k) || same(k.actual, d.actual));
+  const pinnedValue = (k, d) => (k.any === true ? d.actual !== undefined : k.absent ? d.actual === undefined : !("actual" in k) || same(k.actual, d.actual));
   const matches = (k, d) => k.file === d.file && k.path === d.path && pinnedValue(k, d);
   const unlisted = diffs.filter((d) => !known.some((k) => matches(k, d)));
   const stale = known.filter((k) => !diffs.some((d) => matches(k, d)));
@@ -44,6 +44,7 @@ export function validateKnownDiffs(known) {
     const problems = [];
     if (typeof k.file !== "string" || typeof k.path !== "string") problems.push("file and path must be strings");
     if (typeof k.reason !== "string" || k.reason.length < 10) problems.push("reason of at least 10 characters is required");
+    if (k.any === true && ("actual" in k || k.absent === true)) problems.push("any cannot be combined with actual or absent");
     return problems.map((problem) => `known-diffs[${i}]: ${problem}`);
   });
 }

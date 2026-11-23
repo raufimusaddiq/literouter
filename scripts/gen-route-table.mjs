@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { Glob } from "bun";
 
 const VERBS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]);
@@ -85,11 +85,6 @@ function buildEntries(routes, rewrites) {
     entries.push(entry);
   }
   return entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : a.source < b.source ? -1 : 1));
-}
-
-export async function loadRewrites() {
-  const mod = await import(pathToFileURL(join(repoRoot, "next.config.mjs")).href);
-  return mod.default.rewrites();
 }
 
 export function renderRouteTable(routes, rewrites) {

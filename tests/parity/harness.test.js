@@ -222,9 +222,38 @@ describe("compare", () => {
     expect(changed.stale.length).toBe(1);
   });
 
-  test("every committed known-diff pins its actual value or marks it absent", () => {
-    const unpinned = loadKnownDiffs().filter((k) => !("actual" in k) && k.absent !== true);
+  test("a known-diff marked any matches whatever value is present and goes stale when the value is missing", () => {
+    const expected = tmp("parity-exp-");
+    const actual = tmp("parity-act-");
+    write(expected, "a", { body: { sha256: "one" } });
+    write(actual, "a", { body: { sha256: "two" } });
+    const any = [{ file: "a", path: "body.sha256", any: true, reason: "the value follows the catalog" }];
+    expect(compareDirs(expected, actual, any)).toMatchObject({ unlisted: [], stale: [] });
+    const other = tmp("parity-act-");
+    write(other, "a", { body: { sha256: "three" } });
+    expect(compareDirs(expected, other, any)).toMatchObject({ unlisted: [], stale: [] });
+    const missing = tmp("parity-act-");
+    write(missing, "a", { body: {} });
+    const gone = compareDirs(expected, missing, any);
+    expect(gone.unlisted.map((d) => d.path)).toEqual(["body.sha256"]);
+    expect(gone.stale.length).toBe(1);
+    expect(validateKnownDiffs([{ ...any[0], actual: "x" }])).toEqual(["known-diffs[0]: any cannot be combined with actual or absent"]);
+  });
+
+  test("every committed known-diff pins its actual value, marks it absent, or is marked any", () => {
+    const unpinned = loadKnownDiffs().filter((k) => !("actual" in k) && k.absent !== true && k.any !== true);
     expect(unpinned).toEqual([]);
+  });
+
+  test("only the catalog-coupled known-diffs are marked any", () => {
+    const anyPaths = loadKnownDiffs().filter((k) => k.any === true).map((k) => `${k.file}:${k.path}`).sort();
+    expect(anyPaths).toEqual([
+      "api-v1-models-noauth:body.data",
+      "api-v1-noauth:body.data",
+      "api-v1beta-models-noauth:body.bytes",
+      "api-v1beta-models-noauth:body.sha256",
+      "api-v1beta-models-noauth:body.shape",
+    ]);
   });
 
   test("known-diffs entries need a file, a path and a reason", () => {
@@ -606,7 +635,14 @@ describe("compare-upstream by fixture", () => {
   });
 
   test("known-upstream-diffs entries are valid", () => {
-    for (const k of loadKnownUpstreamDiffs()) {
+    const upstream = loadKnownUpstreamDiffs();
+    expect([...new Set(upstream.map((k) => k.file))].sort()).toEqual([
+      "api-v1-models-model-noauth",
+      "api-v1-models-noauth",
+      "api-v1-noauth",
+    ]);
+    expect(upstream.length).toBe(3);
+    for (const k of upstream) {
       expect(fs.existsSync(path.join(import.meta.dir, "expected", `${k.file}.json`))).toBe(true);
       expect(k.path).toBe("count");
     }
