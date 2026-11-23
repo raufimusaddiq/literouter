@@ -1,4 +1,3 @@
-// T-5: Gemini key extraction, combo cycle guards, v1beta 400 on bad JSON.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const fx = vi.hoisted(() => ({ combos: [] }));

@@ -6,9 +6,6 @@ import { useNotificationStore } from "@/store/notificationStore";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
 
-// One <Sidebar> in the tree: it is the static column on desktop and the
-// off-canvas drawer on mobile, so nav links are not rendered twice (which
-// doubled RSC prefetches and duplicated nav/aside/h1 in the a11y tree).
 const DESKTOP_QUERY = "(min-width: 1024px)";
 const subscribeDesktop = (onChange) => {
   const mql = window.matchMedia(DESKTOP_QUERY);
@@ -87,7 +84,6 @@ export default function DashboardLayout({ children }) {
           );
         })}
       </div>
-      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/35 lg:hidden"
@@ -96,7 +92,6 @@ export default function DashboardLayout({ children }) {
       )}
 
       <div className="mx-auto flex h-full w-full max-w-[1920px]">
-        {/* Sidebar — desktop column, mobile drawer */}
         <div
           className={
             isDesktop
@@ -110,7 +105,6 @@ export default function DashboardLayout({ children }) {
           <Sidebar onClose={() => setSidebarOpen(false)} />
         </div>
 
-        {/* Main workspace */}
         <main id="main-content" className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg transition-colors duration-300">
           <Header key={pathname} onMenuClick={() => setSidebarOpen(true)} />
           <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-4 py-7 sm:px-7 lg:px-12 lg:py-10">

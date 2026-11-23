@@ -1,12 +1,3 @@
-/**
- * Regression: the poll-status/exchange session lifecycle for xiaomi-mimo.
- *
- * The original PR cleared the session inside poll-status, so the client's
- * following POST /exchange always saw a missing session and returned 400 —
- * the whole browser-OAuth fallback was dead. These tests pin the contract:
- *   - a finished session survives /poll-status until /exchange consumes it
- *   - a failed session is cleaned up by /poll-status itself
- */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("next/server", () => ({
@@ -37,8 +28,6 @@ vi.mock("open-sse/shared/mimoAccount.js", () => ({
 
 vi.mock("@/lib/oauth/utils/ideDetect", () => ({ detectIdeInstalled: vi.fn() }));
 
-// Session store backing the mocked OAuth server helpers, so the test can assert
-// on real lifecycle transitions rather than on call counts alone.
 const sessions = new Map();
 const stopped = { count: 0 };
 
@@ -97,7 +86,6 @@ describe("xiaomi-mimo OAuth session lifecycle", () => {
     expect(poll.status).toBe(200);
     expect(await poll.json()).toMatchObject({ status: "done" });
 
-    // The bug: this used to be gone, making /exchange always 400.
     expect(sessions.has("st1")).toBe(true);
 
     const res = await exchange("st1");

@@ -3,20 +3,18 @@
 const fs = require('fs');
 const path = require('path');
 
-// ============ CONFIGURATION ============
 const API_ENDPOINT = process.env.GLM_API_ENDPOINT || 'https://api.z.ai/api/anthropic/v1/messages';
 const API_MODEL = process.env.GLM_API_MODEL || 'glm-5';
 const API_KEY = process.env.GLM_API_KEY;
 const MAX_TOKENS = parseInt(process.env.GLM_MAX_TOKENS || '32000');
 const TEMPERATURE = parseFloat(process.env.GLM_TEMPERATURE || '0.3');
-const BATCH_SIZE = parseInt(process.env.TRANSLATE_BATCH_SIZE || '2'); // Number of languages to translate in parallel
+const BATCH_SIZE = parseInt(process.env.TRANSLATE_BATCH_SIZE || '2');
 
 const SUPPORTED_LANGUAGES = {
   vi: 'Vietnamese',
   'zh-CN': 'Simplified Chinese'
 };
 
-// ============ VALIDATION ============
 if (!API_KEY) {
   console.error('Error: GLM_API_KEY environment variable not set');
   process.exit(1);
@@ -36,7 +34,6 @@ for (const lang of targetLangs) {
   }
 }
 
-// ============ TRANSLATION FUNCTION ============
 async function translateToLanguage(readmeContent, targetLang) {
   const langName = SUPPORTED_LANGUAGES[targetLang];
   console.log(`\n[${targetLang}] Translating to ${langName}...`);
@@ -102,7 +99,6 @@ ${readmeContent}`;
             }
           }
         } catch (e) {
-          // Skip invalid JSON
         }
       }
     }
@@ -118,7 +114,6 @@ ${readmeContent}`;
   
   console.log(`[${targetLang}] Fixing image paths...`);
   
-  // Fix image paths
   translatedContent = translatedContent
     .replace(/!\[([^\]]*)\]\(\.\/images\//g, '![$1](../images/')
     .replace(/!\[([^\]]*)\]\(\.\/public\//g, '![$1](../public/')
@@ -137,7 +132,6 @@ ${readmeContent}`;
   return { lang: targetLang, success: true, path: outputPath };
 }
 
-// ============ MAIN ============
 async function main() {
   console.log('='.repeat(60));
   console.log('README Translation Tool (Streaming Mode)');
@@ -152,22 +146,18 @@ async function main() {
   const readmePath = path.join(__dirname, '../README.md');
   const readmeContent = fs.readFileSync(readmePath, 'utf8');
   
-  // Translate languages in batches (parallel within batch)
   const results = [];
   for (let i = 0; i < targetLangs.length; i += BATCH_SIZE) {
     const batch = targetLangs.slice(i, i + BATCH_SIZE);
     console.log(`\nBatch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(targetLangs.length / BATCH_SIZE)}: ${batch.join(', ')}`);
     console.log('Starting translations in parallel...\n');
     
-    // Start all translations in parallel (don't await yet)
     const batchPromises = batch.map(lang => translateToLanguage(readmeContent, lang));
     
-    // Wait for all to complete
     const batchResults = await Promise.allSettled(batchPromises);
     
     results.push(...batchResults);
     
-    // Wait between batches to avoid rate limit
     if (i + BATCH_SIZE < targetLangs.length) {
       console.log('\nWaiting 3s before next batch...');
       await new Promise(resolve => setTimeout(resolve, 3000));

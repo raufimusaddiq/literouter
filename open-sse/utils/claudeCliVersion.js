@@ -1,18 +1,3 @@
-// Live Claude Code CLI version for the `claude-cli/x.y.z` fingerprint.
-//
-// Anthropic gates new models on a minimum CLI version (error_code
-// "claude_code_version_too_old"), so a hardcoded version goes stale with every
-// model launch. We resolve the latest published @anthropic-ai/claude-code from
-// npm and use it to raise the advertised version.
-//
-// Guarantees (LiteRouter hardening):
-//   - never advertise below the pinned floor (2.1.295, providers/shared.js),
-//   - bounded: 3s abort on the lookup, 6h success cache, 10min failure backoff,
-//   - at most one lookup in flight; a second caller joins it,
-//   - fails open: any error keeps the last known value,
-//   - never blocks a chat request: the refresh is fired and not awaited.
-//
-// Override: CLAUDE_CLI_VERSION env pins a version (clamped up to the floor).
 
 const NPM_URL = "https://registry.npmjs.org/@anthropic-ai/claude-code/latest";
 const TTL_MS = 6 * 60 * 60 * 1000;
@@ -36,8 +21,6 @@ const envPin = typeof process !== "undefined" && VERSION_RE.test(process.env?.CL
   ? process.env.CLAUDE_CLI_VERSION
   : null;
 
-// Only ever raise the floor — a module that loads before shared.js still sends
-// a real, acceptable version instead of a placeholder.
 export function setClaudeCliFallback(version) {
   if (VERSION_RE.test(version) && cmp(version, fallback) > 0) fallback = version;
 }
@@ -48,8 +31,6 @@ export function getClaudeCliVersion() {
   return current && cmp(current, floor) > 0 ? current : floor;
 }
 
-// Lazily resolve the proxy-aware fetch. A static import would cycle through
-// proxyFetch -> claudeCliVersion; this keeps the module graph one-way.
 let defaultFetchPromise = null;
 function defaultFetch(url, options) {
   if (!defaultFetchPromise) {
@@ -66,8 +47,6 @@ async function lookup(fetchImpl) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    // Default to the patched proxy-aware fetch so the npm probe follows the same
-    // proxy/keep-alive policy as every other outbound call; tests inject their own.
     const doFetch = fetchImpl || defaultFetch;
     const res = await doFetch(NPM_URL, {
       signal: ctrl.signal,
@@ -79,7 +58,6 @@ async function lookup(fetchImpl) {
     current = version;
     nextCheckAt = Date.now() + TTL_MS;
   } catch {
-    // Fail open: keep the last known (or floor) version and retry later.
     nextCheckAt = Date.now() + RETRY_MS;
   } finally {
     clearTimeout(timer);
@@ -87,14 +65,12 @@ async function lookup(fetchImpl) {
   }
 }
 
-// Fire-and-forget refresh. Returns the version to use right now, always.
 export function ensureClaudeCliVersion(fetchImpl) {
   if (envPin || Date.now() < nextCheckAt) return getClaudeCliVersion();
   if (!inflight) inflight = lookup(fetchImpl);
   return getClaudeCliVersion();
 }
 
-// Test seam: forget the live value and any backoff window.
 export function resetClaudeCliVersion() {
   current = null;
   nextCheckAt = 0;
@@ -103,7 +79,6 @@ export function resetClaudeCliVersion() {
 
 const UA_RE = /claude-cli\/\d+\.\d+\.\d+/g;
 
-// Rewrite claude-cli/x.y.z in header values to the live version (object, array or Headers).
 export function applyClaudeCliVersion(headers) {
   if (!headers) return headers;
   const v = getClaudeCliVersion();

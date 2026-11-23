@@ -1,7 +1,3 @@
-// Fixes for agent clients (Claude Code) driving non-Anthropic upstreams:
-// - tool-result images survive the Claude → OpenAI / Kiro request translation
-// - Kiro tool calls stream back under the client's own (unsanitized) names
-// - the client's thinking `display` is kept on Claude-format upstreams
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
 import { translateRequest, translateResponse, initState } from "../../open-sse/translator/index.js";
@@ -171,7 +167,6 @@ describe("tool-result images reach Anthropic-compatible and Command Code upstrea
     expect(user.content[0].content.every((c) => c.type !== "image")).toBe(true);
     expect(user.content.some((c) => c.type === "image" && c.source?.data === PNG)).toBe(true);
     expect(user.content.find((c) => c.type === "text" && /toolu_1/.test(c.text))).toBeTruthy();
-    // No image: untouched object identity.
     const plain = { messages: [{ role: "user", content: [{ type: "tool_result", tool_use_id: "x", content: "ok" }] }] };
     expect(hoistToolResultImages(plain)).toBe(plain);
   });

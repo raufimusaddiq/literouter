@@ -1,4 +1,3 @@
-// T-36: request/model/account failure scope, honest account-health bookkeeping.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const fx = vi.hoisted(() => ({
@@ -19,7 +18,6 @@ vi.mock("@/lib/db/index.js", () => ({
   getCustomModels: async () => [],
   validateApiKey: async () => true,
   getProxyPools: async () => [],
-  // Same contract as the real repo: mutator runs against the stored row, null skips the write.
   mutateProviderConnection: async (id, mutate) => {
     const existing = fx.conns.get(id);
     if (!existing) return null;
@@ -102,7 +100,6 @@ describe("error-rule scope classification", () => {
     const r = checkFallbackError(status, text);
     expect(r.scope).toBe(scope);
     expect(r.shouldFallback).toBe(comboFallback);
-    // Only account scope rotates accounts / writes locks.
     expect(shouldRotateAccount(r)).toBe(scope === "account");
   });
 });

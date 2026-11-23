@@ -4,9 +4,6 @@ import { PROVIDERS } from "open-sse/config/providers.js";
 import { APIKEY_PROVIDERS, supportsServiceKind } from "@/shared/constants/providers.js";
 import { getModelsByProviderId } from "open-sse/config/providerModels.js";
 
-// The dashboard groups providers by capability: chat providers stay in the API Key
-// list, System One providers get their own section. Both lists must be disjoint so a
-// provider never appears twice.
 describe("System One provider catalog", () => {
   const systemOneIds = Object.values(APIKEY_PROVIDERS)
     .filter((provider) => supportsServiceKind(provider, "systemone"))
@@ -18,8 +15,6 @@ describe("System One provider catalog", () => {
       .map(([id]) => id)
       .sort();
 
-    // cloudflare-ai carries a dedicated systemOneTransport (Clef/Clef-Flash),
-    // not a systemone-format primary transport, so it is excluded here.
     expect(systemOneIds.filter((id) => id !== "cloudflare-ai").sort()).toEqual(registrySystemOneIds);
   });
 

@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { createProviderConnection } from "@/models";
+import { parseGitLabBaseUrl } from "@/shared/utils/gitlabBaseUrl";
 
-const GITLAB_DEFAULT_BASE = "https://gitlab.com";
-
-/**
- * POST /api/oauth/gitlab/pat
- * Authenticate GitLab Duo with a Personal Access Token (PAT)
- */
 export async function POST(request) {
   try {
     let body;
@@ -21,9 +16,11 @@ export async function POST(request) {
       return NextResponse.json({ error: "Personal Access Token is required" }, { status: 400 });
     }
 
-    const base = (baseUrl?.trim() || GITLAB_DEFAULT_BASE).replace(/\/$/, "");
+    const base = parseGitLabBaseUrl(baseUrl);
+    if (!base) {
+      return NextResponse.json({ error: "GitLab base URL must be an http(s) URL" }, { status: 400 });
+    }
 
-    // Verify token by fetching current user
     const userRes = await fetch(`${base}/api/v4/user`, {
       headers: { "Private-Token": token.trim(), Accept: "application/json" },
     });

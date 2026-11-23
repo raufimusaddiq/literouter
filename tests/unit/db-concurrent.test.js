@@ -1,5 +1,3 @@
-// Concurrency stress test — simulate many parallel saveRequestUsage / saveRequestDetail
-// to verify atomic counter, no data loss, no race conditions.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -12,7 +10,7 @@ let db;
 beforeAll(async () => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-concurrent-"));
   process.env.DATA_DIR = tempDir;
-  process.env.LIVE_STATS_TTL_MS = "0"; // this test reads stats right after writes; disable the recompute floor
+  process.env.LIVE_STATS_TTL_MS = "0";
   vi.resetModules();
   db = await import("@/lib/db/index.js");
   await db.initDb();
@@ -34,10 +32,6 @@ describe("DB Concurrency — atomic safety", () => {
         provider: "openai", model: "gpt-4", connectionId: "c1",
         tokens: { prompt_tokens: 10, completion_tokens: 5 },
         endpoint: "/v1/chat", status: "ok",
-        // saveRequestUsage intentionally collapses rows that share
-        // (timestamp, provider, model, connectionId, apiKey, tokens) so a
-        // retried/duplicated write does not double-count. Distinct ms are
-        // required for this test to exercise real concurrency.
         timestamp: new Date(Date.now() + i).toISOString(),
       }));
     }
@@ -66,7 +60,6 @@ describe("DB Concurrency — atomic safety", () => {
     }
     await Promise.all(promises);
 
-    // Deterministic drain instead of racing the interval flush timer.
     await db.flushRequestDetails();
 
     const list = await db.getRequestDetails({ provider: "openai", pageSize: 500 });
@@ -106,7 +99,7 @@ describe("DB Concurrency — atomic safety", () => {
     await Promise.all(promises);
     const s = await db.getSettings();
     for (let i = 0; i < N; i++) {
-      expect(s[`field${i}`]).toBe(`v${i}`); // all updates preserved
+      expect(s[`field${i}`]).toBe(`v${i}`);
     }
   });
 
@@ -116,7 +109,6 @@ describe("DB Concurrency — atomic safety", () => {
       accessToken: "initial", refreshToken: "rt-initial",
     });
 
-    // 20 parallel updates each with a unique field
     const N = 20;
     const promises = [];
     for (let i = 0; i < N; i++) {
@@ -126,9 +118,9 @@ describe("DB Concurrency — atomic safety", () => {
 
     const after = await db.getProviderConnectionById(conn.id);
     for (let i = 0; i < N; i++) {
-      expect(after[`marker${i}`]).toBe(i); // no field lost
+      expect(after[`marker${i}`]).toBe(i);
     }
-    expect(after.refreshToken).toBe("rt-initial"); // base preserved
+    expect(after.refreshToken).toBe("rt-initial");
   });
 
   it("addCustomModel race: parallel duplicate adds → only 1 inserted", async () => {
@@ -139,7 +131,7 @@ describe("DB Concurrency — atomic safety", () => {
     }
     const results = await Promise.all(promises);
     const trueCount = results.filter((r) => r === true).length;
-    expect(trueCount).toBe(1); // exactly one wins
+    expect(trueCount).toBe(1);
     const all = await db.getCustomModels();
     expect(all.filter((m) => m.providerAlias === "racep" && m.id === "racemodel").length).toBe(1);
   });

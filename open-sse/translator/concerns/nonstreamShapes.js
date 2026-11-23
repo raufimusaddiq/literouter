@@ -1,7 +1,3 @@
-// Non-streaming client-shape converters: [OI] Chat Completions JSON → the
-// shape a non-Chat client expects (Responses `output`, Gemini candidates).
-// Shared by the JSON handler and the forced-stream (SSE→JSON) handler so the
-// two paths cannot drift.
 import { FORMATS } from "../formats.js";
 import { GEMINI_ROLE, ROLE, RESPONSES_ITEM, OPENAI_FINISH } from "../schema/index.js";
 import { fromOpenAIFinish } from "./finishReason.js";
@@ -11,7 +7,7 @@ function extractCustomToolInput(argumentsValue) {
   try {
     const parsed = JSON.parse(argumentsText);
     if (parsed && typeof parsed === "object" && typeof parsed.input === "string") return parsed.input;
-  } catch { /* raw freeform input */ }
+  } catch {}
   return argumentsText;
 }
 
@@ -22,7 +18,6 @@ export function chatCompletionToResponses(responseBody, customToolNames = null) 
   const message = choice.message || {};
   const output = [];
 
-  // Reasoning → a reasoning item (summary text), mirroring the streaming path.
   const reasoning = message.reasoning_content || message.reasoning;
   if (typeof reasoning === "string" && reasoning.length > 0) {
     output.push({
@@ -31,7 +26,6 @@ export function chatCompletionToResponses(responseBody, customToolNames = null) 
     });
   }
 
-  // Assistant text → a message item with output_text content.
   const text = typeof message.content === "string" ? message.content : "";
   if (text.length > 0) {
     output.push({
@@ -41,7 +35,6 @@ export function chatCompletionToResponses(responseBody, customToolNames = null) 
     });
   }
 
-  // tool_calls → function_call/custom_tool_call items (Responses-native tool shape).
   for (const tc of message.tool_calls || []) {
     const fn = tc.function || {};
     const custom = customToolNames?.has(fn.name);
@@ -57,7 +50,6 @@ export function chatCompletionToResponses(responseBody, customToolNames = null) 
   }
 
   const usage = responseBody.usage || {};
-  // Responses `status` is completed|incomplete|failed; provider stop reasons must not leak into it.
   const finishReason = String(choice.finish_reason || "").toLowerCase();
   let status = "completed";
   let incompleteReason = null;
@@ -97,7 +89,6 @@ function parseArgs(value) {
   }
 }
 
-// [OI] Chat Completions JSON → Gemini generateContent response body.
 export function openAICompletionToGemini(responseBody) {
   const choice = responseBody?.choices?.[0];
   if (!choice) return responseBody;

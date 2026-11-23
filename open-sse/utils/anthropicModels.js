@@ -1,5 +1,3 @@
-// Anthropic-shaped /v1/models list, served when the client sends `anthropic-version`.
-// https://docs.anthropic.com/en/api/models-list
 
 const EPOCH_ISO = "1970-01-01T00:00:00Z";
 const DEFAULT_LIMIT = 20;
@@ -9,10 +7,6 @@ function toCreatedAt(created) {
   return Number.isFinite(created) ? new Date(created * 1000).toISOString() : EPOCH_ISO;
 }
 
-/**
- * @param {Array<{id:string,name?:string,created?:number}>} models - OpenAI-shaped model entries
- * @param {{limit?:string|number, afterId?:string, beforeId?:string}} [page]
- */
 export function toAnthropicModelList(models, page = {}) {
   const limitNum = parseInt(page.limit, 10);
   const limit = Number.isFinite(limitNum) ? Math.min(Math.max(limitNum, 1), MAX_LIMIT) : DEFAULT_LIMIT;

@@ -174,8 +174,6 @@ export default function ProvidersPage() {
     fetchData();
   }, []);
 
-  // Sort comparators call this O(P log P) times per render; each call scans every
-  // connection, so cache results for the duration of this render.
   const providerStatsCache = new Map();
   const getProviderStats = (providerId, authType) => {
     const authTypes = Array.isArray(authType) ? authType : [authType];
@@ -229,8 +227,6 @@ export default function ProvidersPage() {
   const matchStatus = (stats, isNoAuth) =>
     matchesStatusFilter(statusFilter, stats, isNoAuth);
 
-  // Toggle all connections for a provider on/off. authType may be a single
-  // string or an array (kiro counts oauth + api_key/apikey together).
   const handleToggleProvider = async (providerId, authType, newActive) => {
     const authTypes = Array.isArray(authType) ? authType : [authType];
     const matches = (c) =>
@@ -300,15 +296,9 @@ export default function ProvidersPage() {
       (p) => matchSearch(p.name) && matchStatus(getProviderStats(p.id, "apikey")),
     );
 
-  // Dual-auth providers (oauth + apikey) store API keys as authType "apikey"
-  // (and sometimes "api_key"). Card stats must count both so totals match detail.
-  // kiro has no authModes in registry but accepts both (headless uses "api_key").
   const dualAuthTypes = (info, key) => {
     if (key === "kiro") return ["oauth", "apikey", "api_key"];
     const modes = info?.authModes;
-    // Free-tier and API-key providers default to supporting apikey even when the
-    // registry entry omits authModes (e.g. cloudflare-ai, byteplus, ollama,
-    // vertex) — otherwise their apikey connections are invisible on the grid card.
     if (!Array.isArray(modes)) {
       return key in FREE_TIER_PROVIDERS || key in APIKEY_PROVIDERS
         ? ["oauth", "apikey", "api_key"]
@@ -335,9 +325,6 @@ export default function ProvidersPage() {
         matchStatus(getProviderStats(key, dualAuthTypes(info, key)), info.noAuth),
     )
     .sort(([, a], [, b]) => (b.noAuth ? 1 : 0) - (a.noAuth ? 1 : 0));
-  // Free Tier cards may be oauth-only (e.g. kimchi) or dual-auth, so count via
-  // dualAuthTypes per provider instead of a fixed "apikey" — otherwise oauth
-  // connections are invisible here (mismatch with the detail page).
   const freeTierEntries = Object.entries(FREE_TIER_PROVIDERS)
     .filter(
       ([key, info]) =>
@@ -357,7 +344,6 @@ export default function ProvidersPage() {
       if (ca !== cb) return ca - cb;
       return (a.name || "").localeCompare(b.name || "");
     });
-  // API Key: connected providers first, then alphabetical by name
   const apikeyEntries = Object.entries(APIKEY_PROVIDERS)
     .filter(
       ([key, info]) =>
@@ -475,7 +461,6 @@ export default function ProvidersPage() {
         </div>
       )}
 
-      {/* Custom Providers (OpenAI/Anthropic Compatible) — dynamic */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
@@ -576,7 +561,6 @@ export default function ProvidersPage() {
       </div>
       )}
 
-      {/* OAuth Providers */}
       {oauthEntries.length > 0 && (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -623,7 +607,6 @@ export default function ProvidersPage() {
       </div>
       )}
 
-      {/* Free Tier Providers */}
       {(freeEntries.length > 0 || freeTierEntries.length > 0) && (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -651,8 +634,6 @@ export default function ProvidersPage() {
         </div>
         <div className="flex flex-col divide-y divide-border-subtle overflow-hidden rounded-[10px] bg-surface ring-1 ring-border-subtle">
           {freeEntries.map(([key, info]) => {
-            // Dual-auth (e.g. kiro): count/toggle oauth + apikey/api_key so the
-            // card total matches the provider detail page.
             const freeAuthTypes = dualAuthTypes(info, key);
             return (
               <ProviderCard
@@ -684,7 +665,6 @@ export default function ProvidersPage() {
       </div>
       )}
 
-      {/* API Key Providers — fixed list */}
       {apikeyEntries.length > 0 && (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -734,26 +714,6 @@ export default function ProvidersPage() {
       </div>
       )}
 
-      {/* Web Cookie Providers — use browser subscription cookie instead of API key */}
-      {/* <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            Web Cookie Providers{" "}
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Object.entries(WEB_COOKIE_PROVIDERS).map(([key, info]) => (
-            <ApiKeyProviderCard
-              key={key}
-              providerId={key}
-              provider={info}
-              stats={getProviderStats(key, "apikey")}
-              authType="apikey"
-              onToggle={(active) => handleToggleProvider(key, "apikey", active)}
-            />
-          ))}
-        </div>
-      </div> */}
 
       <AddCompatibleModal
         variant="openai"
@@ -783,7 +743,6 @@ export default function ProvidersPage() {
         }}
       />
 
-      {/* Test Results Modal */}
       {testResults && (
         <div
           className="fixed inset-0 z-50 flex items-start justify-center px-3 pt-[6vh] sm:pt-[10vh]"

@@ -1,5 +1,3 @@
-// T-35 review fixes: every body read / prefetch stays bounded, and the
-// non-stream request signal is disposed once the body is consumed.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const fx = vi.hoisted(() => ({ execute: vi.fn(), pending: vi.fn(), imageOpts: [] }));

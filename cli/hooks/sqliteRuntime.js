@@ -1,15 +1,8 @@
-// Ensure better-sqlite3 is installed in USER_DATA_DIR/runtime/node_modules
-// (user-writable, avoids Windows EBUSY locks during npm i -g updates).
-// sql.js is bundled in bin/app already; node:sqlite / bun:sqlite are built-in.
 const { spawn } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-// Gate the pinned version by Node major, mirroring src/lib/db/driver.js gating
-// style: 13.x is N-API and ships per-platform prebuilds inside the package, so
-// it needs no ABI-specific download. It requires Node >= 22; older runtimes stay
-// on 12.6.2, which fetches an ABI-specific binary via prebuild-install.
 const [NODE_MAJOR] = process.versions.node.split(".").map(Number);
 const USE_NAPI_BUILD = NODE_MAJOR >= 22;
 const BETTER_SQLITE3_VERSION = USE_NAPI_BUILD ? "13.0.3" : "12.6.2";
@@ -34,7 +27,6 @@ function ensureRuntimeDir() {
   const dir = getRuntimeDir();
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-  // Minimal package.json so npm treats it as a project root
   const pkgPath = path.join(dir, "package.json");
   if (!fs.existsSync(pkgPath)) {
     fs.writeFileSync(pkgPath, JSON.stringify({
@@ -55,7 +47,6 @@ function isGlibcRuntime() {
   try { return Boolean(process.report?.getReport()?.header?.glibcVersionRuntime); } catch { return true; }
 }
 
-// 12.x compiles/downloads into build/Release; 13.x ships prebuilds/<platform>-<arch>.node.
 function getBetterSqliteBinary() {
   const root = path.join(getRuntimeNodeModules(), "better-sqlite3");
   const platform = process.platform === "linux" && !isGlibcRuntime() ? "linuxmusl" : process.platform;
@@ -81,7 +72,6 @@ function isBetterSqliteBinaryValid() {
   } catch { return false; }
 }
 
-// Extract a short, user-friendly reason from npm stderr.
 function summarizeNpmError(stderr = "") {
   const text = String(stderr);
   if (/ENOTFOUND|ETIMEDOUT|ECONNREFUSED|ECONNRESET|EAI_AGAIN|fetch failed|network|getaddrinfo/i.test(text)) return "No internet connection or registry unreachable";
@@ -106,7 +96,6 @@ function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return null; }
 }
 
-// Backoff window after failed installs: 5m, 10m, 20m ... capped at 24h.
 function backoffMs(failures) {
   return Math.min(BACKOFF_BASE_MS * 2 ** Math.max(0, failures - 1), BACKOFF_MAX_MS);
 }
@@ -128,7 +117,6 @@ function clearFailure() {
   try { fs.rmSync(markerPath(), { force: true }); } catch {}
 }
 
-// Async npm install: never blocks the event loop, so server start is not delayed.
 function runNpmInstall({ cwd, args, timeout = INSTALL_TIMEOUT_MS }) {
   return new Promise((resolve) => {
     const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
@@ -145,8 +133,6 @@ function runNpmInstall({ cwd, args, timeout = INSTALL_TIMEOUT_MS }) {
     try {
       const npmArgs = ["install", ...args, "--no-audit", "--no-fund", "--prefer-online"];
       const stdio = ["ignore", "ignore", "pipe"];
-      // Windows needs a shell for npm.cmd; pass one command string (args are
-      // static flags) rather than an args array to avoid Node's DEP0190 warning.
       child = process.platform === "win32"
         ? spawn(`${npmCmd} ${npmArgs.join(" ")}`, { cwd, stdio, shell: true, windowsHide: true })
         : spawn(npmCmd, npmArgs, { cwd, stdio });
@@ -169,11 +155,6 @@ function isSqlJsWasmValid() {
   return fs.existsSync(path.join(getRuntimeNodeModules(), "sql.js", "dist", "sql-wasm.wasm"));
 }
 
-// One combined install: sql.js, better-sqlite3 and (non-Windows) systray2 go in
-// a single `npm install` and are written into the runtime package.json, so a
-// later install of one cannot prune the other. Native packages are saved as
-// optionalDependencies so a failed native build does not fail the whole install.
-// Returns { skipped, ok, reason? }. Never throws.
 async function installRuntime({ silent = true, extraPackages = [] } = {}) {
   try {
     const dir = ensureRuntimeDir();
@@ -189,9 +170,6 @@ async function installRuntime({ silent = true, extraPackages = [] } = {}) {
 
     try {
       if (!silent) console.log("⏳ Installing runtime dependencies in background...");
-      // Declare every dep in the runtime package.json, then run one plain
-      // `npm install`: nothing can be pruned and native packages (optional)
-      // may fail without failing sql.js.
       const pkgPath = path.join(dir, "package.json");
       const manifest = readJson(pkgPath) || { name: "9router-runtime", version: "1.0.0", private: true };
       manifest.dependencies = { ...manifest.dependencies, "sql.js": SQL_JS_VERSION };
@@ -201,7 +179,6 @@ async function installRuntime({ silent = true, extraPackages = [] } = {}) {
         ...Object.fromEntries(extraPackages.map((p) => [p.name, p.version])),
       };
       fs.writeFileSync(pkgPath, JSON.stringify(manifest, null, 2));
-      // 13.x bundles prebuilds; skip the implicit `node-gyp rebuild`.
       const res = await runNpmInstall({ cwd: dir, args: USE_NAPI_BUILD ? ["--ignore-scripts"] : [] });
       const ok = res.ok;
       if (ok) clearFailure();
@@ -219,8 +196,6 @@ async function installRuntime({ silent = true, extraPackages = [] } = {}) {
   }
 }
 
-// Inject runtime + bundled node_modules into NODE_PATH so child Node processes
-// resolve sql.js (bundled in bin/app/node_modules) and better-sqlite3 (runtime).
 function buildEnvWithRuntime(baseEnv = process.env) {
   const runtimeNm = getRuntimeNodeModules();
   const bundledNm = path.join(__dirname, "..", "app", "node_modules");

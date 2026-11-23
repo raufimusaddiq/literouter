@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { createProviderConnection } from "@/models";
+import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
+import { isLocalRequest } from "@/dashboardGuard";
 
-/**
- * POST /api/oauth/xiaomi-mimo/api-key
- * Import a Xiaomi MiMo API key manually (or from auto-import).
- * The key is validated against the models endpoint, then stored.
- *
- * Body: { apiKey, uid?, baseUrl? }
- */
+function trimTrailingSlashes(value) {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end--;
+  return value.slice(0, end);
+}
+
 export async function POST(request) {
   try {
     const { apiKey, uid, baseUrl, mimoPassToken, mimoUserId, mimoCUserId } = await request.json();
@@ -27,35 +28,54 @@ export async function POST(request) {
       );
     }
 
-    const effectiveBaseUrl = (baseUrl || "https://api.xiaomimimo.com/v1").replace(/\/+$/, "");
+    const rawBaseUrl = typeof baseUrl === "string" && baseUrl.trim() ? baseUrl.trim() : "https://api.xiaomimimo.com/v1";
+    let parsedBase;
+    try {
+      parsedBase = new URL(rawBaseUrl);
+    } catch {
+      parsedBase = null;
+    }
+    if (!parsedBase || (parsedBase.protocol !== "http:" && parsedBase.protocol !== "https:")) {
+      return NextResponse.json({ error: "baseUrl not allowed" }, { status: 400 });
+    }
+    const effectiveBaseUrl = trimTrailingSlashes(rawBaseUrl);
 
-    // Validate the key against the models endpoint
+    const localOperator = isLocalRequest(request);
+    if (!localOperator) {
+      try {
+        await assertPublicUrlResolved(effectiveBaseUrl);
+      } catch {
+        return NextResponse.json({ error: "baseUrl not allowed" }, { status: 400 });
+      }
+    }
+
     let validated = false;
     let modelCount = 0;
     try {
-      const resp = await fetch(`${effectiveBaseUrl}/models`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          "X-Mimo-Source": "mimocode-cli",
+      const resp = await fetchPublic(
+        `${effectiveBaseUrl}/models`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "X-Mimo-Source": "mimocode-cli",
+          },
+          signal: AbortSignal.timeout(10000),
         },
-        signal: AbortSignal.timeout(10000),
-      });
+        { allowPrivate: localOperator === true },
+      );
       if (resp.ok) {
         const data = await resp.json();
         modelCount = Array.isArray(data?.data) ? data.data.length : 0;
         validated = true;
       }
     } catch {
-      // Network error — still allow import (key may be valid but network blocked)
     }
 
     if (!validated) {
-      // Soft-fail: store the key but mark as untested
       console.log("[xiaomi-mimo] key validation failed, storing as untested");
     }
 
-    // Dedup: if a connection with the same uid or same key already exists, update it
     const { getProviderConnections, updateProviderConnection } = await import("@/models");
     const existing = (await getProviderConnections()).find(
       (c) => c.provider === "xiaomi-mimo" && (
@@ -70,7 +90,6 @@ export async function POST(request) {
           ...existing.providerSpecificData,
           uid: uid || existing.providerSpecificData?.uid || null,
           baseUrl: effectiveBaseUrl,
-          // Per-account session credential — enables multi-account rotation.
           mimoPassToken: mimoPassToken || existing.providerSpecificData?.mimoPassToken || null,
           mimoUserId: mimoUserId || existing.providerSpecificData?.mimoUserId || null,
           mimoCUserId: mimoCUserId || existing.providerSpecificData?.mimoCUserId || null,
@@ -97,7 +116,6 @@ export async function POST(request) {
       authType: "api_key",
       accessToken: key,
       refreshToken: null,
-      // API keys don't expire on a fixed schedule; use a long horizon
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       email: uid ? `${uid}@xiaomi` : null,
       displayName: uid ? `Xiaomi ${uid}` : "Xiaomi MiMo",
@@ -107,7 +125,6 @@ export async function POST(request) {
         authMethod: "api_key",
         provider: "API Key",
         modelCount,
-        // Per-account session credential — enables multi-account rotation.
         mimoPassToken: mimoPassToken || null,
         mimoUserId: mimoUserId || null,
         mimoCUserId: mimoCUserId || null,

@@ -1,6 +1,3 @@
-// Gate: so kết quả test hiện tại với baseline known-fails.
-// PASS nếu KHÔNG có test nào pass(baseline) → fail(now). Test mới được phép.
-// Usage: node tests/__baseline__/verify-no-regression.mjs <current-results.json>
 import { readFileSync } from "fs";
 
 const knownFails = new Set(
@@ -11,8 +8,6 @@ const knownFails = new Set(
 const resultsPath = process.argv[2];
 if (!resultsPath) { console.error("Missing results.json path"); process.exit(2); }
 
-// Report names are absolute and platform-specific; known-fails keys are repo-relative
-// ("tests/unit/x.test.js :: full name"). Normalise to that shape.
 const relative = name => {
   const n = name.split(String.fromCharCode(92)).join("/");
   const j = n.lastIndexOf("/tests/");
@@ -25,7 +20,6 @@ const nowFails = r.testResults.flatMap(f =>
     .map(a => relative(f.name) + " :: " + a.fullName)
 );
 
-// Regression = fail bây giờ NHƯNG không có trong baseline known-fails
 const regressions = nowFails.filter(f => !knownFails.has(f));
 
 if (regressions.length) {

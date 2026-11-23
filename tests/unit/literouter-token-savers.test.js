@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-// PRD 10: RTK, Caveman, and Ponytail must each work independently.
 describe("token savers", () => {
   const savers = [
     ["Caveman", "open-sse/rtk/caveman.js", "injectCaveman"],
     ["Ponytail", "open-sse/rtk/ponytail.js", "injectPonytail"],
   ];
 
-  // PRD 23 / docs/literouter-baseline/transform-field-map.md: assert the exact
-  // field each transform writes, per wire shape, not merely "body changed".
   describe.each(savers)("%s", (_name, mod, fn) => {
     const load = async () => (await import(mod))[fn];
 
@@ -65,7 +62,6 @@ describe("token savers", () => {
       const arrayBody = { model: "m", system: [{ type: "text", text: "base", cache_control: { type: "ephemeral" } }], messages: [] };
       inject(arrayBody, "claude", "full");
       expect(arrayBody.system).toHaveLength(2);
-      // insert occurs before the last cache_control block
       expect(arrayBody.system[1].cache_control).toEqual({ type: "ephemeral" });
     });
 
@@ -81,7 +77,6 @@ describe("token savers", () => {
       expect(snake.system_instruction.parts).toHaveLength(1);
       expect(snake.systemInstruction).toBeUndefined();
 
-      // Antigravity wraps the shape in body.request
       const wrapped = { model: "m", request: { contents: [] } };
       inject(wrapped, "antigravity", "full");
       expect(wrapped.request.systemInstruction.parts[0].text).toBeTruthy();
@@ -134,14 +129,9 @@ describe("token savers", () => {
   });
 });
 
-// PRD 23 / transform-field-map.md RTK row: compression rewrites text already
-// present in tool results, at each wire shape, and never adds top-level fields.
 describe("RTK field map", () => {
   const load = async () => (await import("open-sse/rtk/index.js")).compressMessages;
 
-  // Must exceed MIN_COMPRESS_SIZE (500) and look like dedup-log noise, or RTK
-  // correctly no-ops and the assertion would test nothing.
-  // dedupLog only collapses *consecutive* duplicates, so emit long runs.
   const noisy = Array.from({ length: 6 }, (_, i) =>
     Array.from({ length: 20 }, () => `warn retrying transport handshake for provider node ${i}`).join("\n")
   ).join("\n");

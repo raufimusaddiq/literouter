@@ -1,10 +1,3 @@
-// Locks openai-compatible apiType resolution: the stored apiType on the
-// connection's providerSpecificData (kept in sync with the node) is
-// authoritative, and the node-ID substring is only a legacy fallback.
-//
-// Regression for: editing a node's apiType to "responses" had no effect because
-// runtime derived chat/responses from the immutable node ID string
-// (`openai-compatible-<chat|responses>-<uuid>`) instead of the stored value.
 import { describe, it, expect } from "vitest";
 import { resolveOpenAICompatibleApiType, getTargetFormat } from "open-sse/services/provider.js";
 import { DefaultExecutor } from "open-sse/executors/default.js";

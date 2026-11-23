@@ -1,18 +1,16 @@
-// In-memory progressive lockout for dashboard login. Resets on process restart.
 import { hasTrustedPeerHeaders } from "./trustedPeer.js";
 
 const MAX_FAILS_BEFORE_LOCK = 5;
-const LOCK_STEPS_MS = [30_000, 120_000, 600_000, 1_800_000]; // 30s, 2m, 10m, 30m
-const FAIL_WINDOW_MS = 60 * 60 * 1000; // 1h since last fail → auto reset
+const LOCK_STEPS_MS = [30_000, 120_000, 600_000, 1_800_000];
+const FAIL_WINDOW_MS = 60 * 60 * 1000;
 
-const attempts = new Map(); // ip → { fails, lockUntil, lockLevel, lastFailAt }
+const attempts = new Map();
 
 function now() { return Date.now(); }
 
 function getEntry(ip) {
   const e = attempts.get(ip);
   if (!e) return null;
-  // Auto reset if window expired and not currently locked
   if (e.lastFailAt && now() - e.lastFailAt > FAIL_WINDOW_MS && (!e.lockUntil || now() >= e.lockUntil)) {
     attempts.delete(ip);
     return null;
@@ -47,32 +45,19 @@ export function recordSuccess(ip) {
 }
 
 export function getClientIp(request) {
-  // Trusted only when custom-server.js proves it stamped the header from the TCP socket;
-  // otherwise a client could rotate the value to escape its own lockout bucket.
   if (hasTrustedPeerHeaders(request)) {
     const realIp = request.headers.get("x-9r-real-ip");
     if (realIp) return realIp;
   }
-  // Behind a trusted reverse proxy that overwrites XFF with the real client IP.
-  // Rightmost-hop selection (custom-server.js) assumes exactly one trusted loopback
-  // proxy hop; a longer chain would key on an inner proxy instead of the client.
   if (process.env.TRUST_PROXY === "true") {
-    // Same rule as custom-server.js: X-Real-IP, else the rightmost XFF hop (the one
-    // the trusted proxy appended). The leftmost entry is client-controlled.
     const realIp = (request.headers.get("x-real-ip") || "").trim();
     if (realIp) return realIp;
     const hops = (request.headers.get("x-forwarded-for") || "").split(",").map((h) => h.trim()).filter(Boolean);
     if (hops.length) return hops[hops.length - 1];
   }
-  // Direct exposure without custom-server: single bucket so spoofed XFF
-  // rotation cannot escape the limiter.
   return "unknown";
 }
 
-// Count the attempt as a failure BEFORE the caller runs the (slow) password
-// compare. Parallel guesses would otherwise all read the same pre-lockout
-// count, pass checkLock together, and land several tries inside one budget.
-// A success deletes the entry, so a correct password still resets the window.
 export function beginAttempt(ip) {
   const lock = checkLock(ip);
   if (lock.locked) return { locked: true, retryAfter: lock.retryAfter };

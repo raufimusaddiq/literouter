@@ -6,7 +6,6 @@ import { openaiToAntigravityRequest } from "../../open-sse/translator/request/op
 const HEADER = "x-anthropic-billing-header: cc_version=2.1.275.f15; cc_entrypoint=cli;";
 
 function systemTextSentToAntigravity(systemContent) {
-  // OpenAI-format client (e.g. a proxy converting Claude Code to /v1/chat/completions).
   const body = openaiToAntigravityRequest("gemini-3.8-flash-tiered", {
     messages: [
       { role: "system", content: systemContent },

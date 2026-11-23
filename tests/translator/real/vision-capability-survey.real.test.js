@@ -1,11 +1,3 @@
-// REAL survey: send an image to EVERY chat LLM (all providers with active creds) and
-// record how each model behaves vs its declared vision capability.
-// Purpose: discover where non-vision models 400 on image input (need auto-strip) and
-// where capability data is wrong. This is a SURVEY: it logs a table, it does not fail
-// on capability mismatches (only real harness errors throw).
-//
-//   RUN_REAL=1 npx vitest run --config tests/vitest.config.js tests/translator/real/vision-capability-survey.real.test.js
-//   RUN_REAL=1 REAL_PROVIDERS=mistral,nvidia npx vitest run ... (optional filter)
 import { describe, it, expect, afterAll } from "vitest";
 import { getProviderCredentials } from "../../../src/sse/services/auth.js";
 import { checkAndRefreshToken } from "../../../src/sse/services/tokenRefresh.js";
@@ -21,17 +13,12 @@ const NON_CHAT_KINDS = new Set(["embedding", "image", "imageToText", "tts", "stt
 const PROVIDER_FILTER = (process.env.REAL_PROVIDERS || "")
   .split(",").map((s) => s.trim()).filter(Boolean);
 
-// Valid 16x16 red PNG (1x1 is rejected as malformed by some strict providers).
 const PNG_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGO4I2JDEmIY1TCqYfhqAAAeBCwQ8YdREQAAAABJRU5ErkJggg==";
-// Tiny silent WAV (44-byte header, no samples) — enough to probe audioInput acceptance.
 const WAV_B64 = "UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-// Stable public image URL (probe remote-URL handling vs base64).
 const IMAGE_REMOTE_URL = "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png";
-// Tiny valid PDF (probe file/document handling).
 const PDF_B64 = "JVBERi0xLjEKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgMjAwIDIwMF0+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1MiAwMDAwMCBuIAowMDAwMDAwMTAxIDAwMDAwIG4gCnRyYWlsZXI8PC9TaXplIDQvUm9vdCAxIDAgUj4+CnN0YXJ0eHJlZgoxNjYKJSVFT0Y=";
 const PDF_DATA_URI = `data:application/pdf;base64,${PDF_B64}`;
 
-// Capability probes: each sends one modality-specific content block. cap = capability flag tested.
 const CAPABILITY_PROBES = {
   vision: {
     cap: "vision",
@@ -62,13 +49,10 @@ const CAPABILITY_PROBES = {
     ],
   },
 };
-// Set PROBES=vision,audio (default vision only to limit live quota).
 const ACTIVE_PROBES = (process.env.PROBES || "vision").split(",").map((s) => s.trim()).filter(Boolean);
 
-// Status/message patterns that indicate account/credential issues (not a vision-capability signal).
 const CRED_MSG_RE = /subscription|unauthorized|invalid api key|invalid access token|insufficient|credits|payment|spending|organization policy|disallowed|quota|exhausted|not supported when using|not available for integrator|requires a subscription|model.*not found|does not exist|not yet known|requires a role/i;
 
-// Collected rows for the end-of-run summary table.
 const results = [];
 
 async function drainSSE(response) {
@@ -146,17 +130,15 @@ describe.skipIf(!RUN_REAL)("REAL vision capability survey", () => {
         const credIssue = CRED_ISSUE.includes(status) || CRED_MSG_RE.test(errMsg);
         const ok = result.success;
 
-        // Classify outcome vs declared capability (cred/account noise filtered out).
         let verdict;
         if (credIssue) verdict = "skip-cred";
         else if (ok && capOn) verdict = `ok-${probeName}`;
-        else if (ok && !capOn) verdict = `ok-no${probeName}-tolerated`; // provider silently ignored modality
-        else if (!ok && !capOn) verdict = `FAIL-no${probeName}-needs-strip`; // target problem
-        else verdict = `FAIL-${probeName}-capdata-wrong`; // declared cap but rejected
+        else if (ok && !capOn) verdict = `ok-no${probeName}-tolerated`;
+        else if (!ok && !capOn) verdict = `FAIL-no${probeName}-needs-strip`;
+        else verdict = `FAIL-${probeName}-capdata-wrong`;
 
         if (ok) await drainSSE(result.response).catch(() => {});
         results.push({ probe: probeName, providerId, model, cap: capOn, status, verdict, error: ok ? "" : String(result.error || "").slice(0, 80) });
-        // Survey never fails on capability outcome.
         return expect(true).toBe(true);
       }, TIMEOUT_MS);
       }
@@ -165,7 +147,6 @@ describe.skipIf(!RUN_REAL)("REAL vision capability survey", () => {
 
   afterAll(() => {
     if (!results.length) return;
-    // FAIL groups first (most actionable), then ok/skip; alphabetical within rank.
     const rank = (v) => (v.startsWith("FAIL") ? 0 : v.startsWith("ok") ? 1 : 2);
     const groups = [...new Set(results.map((r) => r.verdict))]
       .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));

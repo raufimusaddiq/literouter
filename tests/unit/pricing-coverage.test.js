@@ -22,9 +22,6 @@ function chatModels() {
   return out;
 }
 
-// Guard scope: only null/missing pricing fails. An explicit 0 row counts as covered
-// (cost not tracked, marked TODO(<provider>) in pricing.js); the audit script
-// tests/__baseline__/report-pricing-coverage.mjs keeps those zero rows visible.
 describe("pricing coverage", () => {
   it("every chat/llm catalog model has a pricing row or an allowlist entry with a reason", () => {
     const allowed = new Set(allow.map((e) => `${e.provider}\t${e.model}`));

@@ -1,10 +1,3 @@
-/**
- * Unit tests for open-sse/utils/claudeCloaking.js
- *
- * Tests cover:
- *  - cloakClaudeTools() - tool renaming and forced tool_choice suffixing
- *  - decloakStreamChunk() - restoring tool names in streamed Claude SSE events
- */
 
 import { describe, it, expect } from "vitest";
 import { applyCloaking, cloakClaudeTools, decloakStreamChunk } from "../../open-sse/utils/claudeCloaking.js";
@@ -33,7 +26,6 @@ describe("cloakClaudeTools", () => {
       ...baseBody,
       tool_choice: { type: "tool", name: "todo_write" }
     });
-    // Without this, Claude rejects: "Tool 'todo_write' not found in provided tools".
     expect(body.tool_choice).toEqual({ type: "tool", name: `todo_write${CLAUDE_TOOL_SUFFIX}` });
   });
 
@@ -54,7 +46,6 @@ describe("cloakClaudeTools", () => {
       const input = withReferences([{ type: "tool_reference", tool_name: "Monitor" }]);
       const { body } = cloakClaudeTools(input);
       const [reference] = body.messages[1].content[0].content;
-      // Without this, Claude rejects: "Tool reference 'Monitor' not found in available tools".
       expect(reference).toEqual({ type: "tool_reference", tool_name: `Monitor${CLAUDE_TOOL_SUFFIX}` });
       expect(body.tools.some(t => t.name === reference.tool_name)).toBe(true);
     });
@@ -97,7 +88,6 @@ describe("cloakClaudeTools", () => {
   });
 
   it("does not suffix a forced choice that targets a non-client (decoy/built-in) tool", () => {
-    // "Bash" is an injected decoy sent unsuffixed; forcing it must stay as-is.
     const { body } = cloakClaudeTools({ ...baseBody, tool_choice: { type: "tool", name: "Bash" } });
     expect(body.tool_choice).toEqual({ type: "tool", name: "Bash" });
   });
@@ -122,7 +112,6 @@ describe("cloakClaudeTools", () => {
 });
 
 describe("decloakStreamChunk", () => {
-  // Cloaked exactly as cloakClaudeTools() does on the request side
   const toolNameMap = new Map([["run_code" + CLAUDE_TOOL_SUFFIX, "run_code"]]);
 
   const toolUseStart = (name) => ({

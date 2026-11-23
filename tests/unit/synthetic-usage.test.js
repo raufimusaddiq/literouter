@@ -24,7 +24,6 @@ describe("synthetic registry usage flags", () => {
   });
 
   it("validates keys against /v2/quotas, not the public model catalog", () => {
-    // /openai/v1/models answers 200 for any Bearer value, so it cannot reject a bad key.
     expect(PROVIDERS.synthetic.validateUrl).toBe(QUOTAS_URL);
   });
 });

@@ -4,7 +4,7 @@ import { useState } from "react";
 import PropTypes from "prop-types";
 import { Modal, Button, Input, OAuthModal } from "@/shared/components";
 
-const GITLAB_COM = "https://gitlab.com";
+import { GITLAB_COM, normalizeGitLabBaseUrl } from "@/shared/utils/gitlabBaseUrl";
 
 function getRedirectUri() {
   if (typeof window === "undefined") return "http://localhost/callback";
@@ -12,14 +12,8 @@ function getRedirectUri() {
   return `http://localhost:${port}/callback`;
 }
 
-/**
- * GitLab Duo Authentication Modal
- * Supports two modes:
- * - OAuth (PKCE): requires OAuth App Client ID (and optional Client Secret)
- * - PAT: requires Personal Access Token
- */
 export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClose }) {
-  const [mode, setMode] = useState(null); // null | "oauth" | "pat"
+  const [mode, setMode] = useState(null);
   const [baseUrl, setBaseUrl] = useState(GITLAB_COM);
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -82,7 +76,6 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
 
   if (!isOpen) return null;
 
-  // Sub-modal for OAuth PKCE flow
   if (showOAuth && oauthMeta) {
     return (
       <OAuthModal
@@ -99,7 +92,6 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
   return (
     <Modal isOpen={isOpen} title="Connect GitLab Duo" onClose={handleClose} size="lg">
       <div className="flex flex-col gap-4">
-        {/* Mode selection */}
         {!mode && (
           <>
             <p className="text-sm text-text-muted">
@@ -130,12 +122,11 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
           </>
         )}
 
-        {/* OAuth mode */}
         {mode === "oauth" && (
           <>
             <p className="text-xs text-text-muted">
               Create an OAuth app at{" "}
-              <a href={`${baseUrl.trim() || GITLAB_COM}/-/profile/applications`} target="_blank" rel="noreferrer" className="text-primary underline">
+              <a href={`${normalizeGitLabBaseUrl(baseUrl)}/-/profile/applications`} target="_blank" rel="noreferrer" className="text-primary underline">
                 GitLab Applications
               </a>{" "}
               with redirect URI{" "}
@@ -156,12 +147,11 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
           </>
         )}
 
-        {/* PAT mode */}
         {mode === "pat" && (
           <>
             <p className="text-xs text-text-muted">
               Create a PAT at{" "}
-              <a href={`${baseUrl.trim() || GITLAB_COM}/-/user_settings/personal_access_tokens`} target="_blank" rel="noreferrer" className="text-primary underline">
+              <a href={`${normalizeGitLabBaseUrl(baseUrl)}/-/user_settings/personal_access_tokens`} target="_blank" rel="noreferrer" className="text-primary underline">
                 GitLab Access Tokens
               </a>{" "}
               with scopes: <code className="bg-sidebar px-1 rounded text-xs">api</code>,{" "}

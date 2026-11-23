@@ -1,5 +1,3 @@
-// System One pass-through providers (registry `format: "systemone"`).
-// The registration order drives the dashboard list; add new provider specs here.
 export default {
   id: "typesafe",
   priority: 130,

@@ -2,26 +2,16 @@ const { spawn } = require("child_process");
 const path = require("path");
 const readline = require("readline");
 
-// PowerShell-based tray for Windows (AV-safe, zero binary deps)
 
 let psProcess = null;
 let clickHandler = null;
 
-/**
- * Send JSON command to PowerShell tray process via stdin
- */
 function sendCommand(cmd) {
   if (psProcess && psProcess.stdin.writable) {
     psProcess.stdin.write(`${JSON.stringify(cmd)}\n`, "utf8");
   }
 }
 
-/**
- * Initialize Windows tray using PowerShell NotifyIcon
- * @param {Object} options - { iconPath, tooltip, items, onClick }
- *   items: [{ title, enabled }]
- * @returns {Object|null} controller with sendAction/kill
- */
 function initWinTray(options) {
   const { iconPath, tooltip, items, onClick } = options;
   clickHandler = onClick;
@@ -60,7 +50,6 @@ function initWinTray(options) {
   psProcess.on("error", () => {});
   psProcess.stderr.on("data", () => {});
 
-  // Send initial menu items
   items.forEach((item, index) => {
     sendCommand({ action: "add-item", index, title: item.title, enabled: item.enabled });
   });

@@ -1,7 +1,3 @@
-// Tests for Windows path support in the `find` filter + autodetect
-// Windows absolute paths ("C:\Users\me\src\a.js") carry a drive-letter
-// separator that the Unix-only colon check used to reject, so no compaction
-// happened for Windows `find`-style dumps. See fix(rtk/find).
 import { describe, it, expect } from "vitest";
 import { autoDetectFilter } from "../../open-sse/rtk/autodetect.js";
 import { find } from "../../open-sse/rtk/filters/find.js";
@@ -34,9 +30,6 @@ describe("Windows find-path detection", () => {
       "C:\\Users\\me\\project\\src\\b.js:20:const y = 2",
       "C:\\Users\\me\\project\\src\\c.js:30:const z = 3"
     ].join("\n");
-    // Each line is grep-shaped (file:line:content), so it routes to `grep`
-    // — but a drive-letter-only dump would route to `find`. Both are
-    // compaction-positive, so either is acceptable here.
     const f = autoDetectFilter(input);
     expect(f).not.toBeNull();
     expect([find, grep]).toContain(f);
@@ -51,7 +44,6 @@ describe("Windows find-path grouping", () => {
     expect(out).toContain("a.js");
     expect(out).toContain("b.js");
     expect(out).toContain("c.js");
-    // backslashes must not leak into output
     expect(out).not.toContain("\\");
   });
 

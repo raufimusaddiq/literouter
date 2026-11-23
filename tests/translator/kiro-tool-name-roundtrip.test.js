@@ -26,7 +26,6 @@ describe("Kiro tool name normalization and roundtrip", () => {
     }, true, {});
 
     expect(openaiPayload._toolNameMap).toBeInstanceOf(Map);
-    // my.tool/search cleaned to my_tool_search. Since my_tool_search comes next, it becomes my_tool_search_2
     expect(openaiPayload._toolNameMap.get("my_tool_search")).toBe("my.tool/search");
 
     const claudePayload = claudeToKiroRequest("claude-sonnet-4.6", {

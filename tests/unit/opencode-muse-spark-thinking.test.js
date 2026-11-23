@@ -208,13 +208,10 @@ describe("OpenCode Free Muse Spark thinking", () => {
     const out = executor.transformRequest(model, body, true, {});
     expect(out.stream).toBe(true);
     expect(out.store).toBe(false);
-    // Prior reasoning items stripped to prevent 400 "reasoning encrypted_content was not issued to this caller"
     expect(out.input.some((item) => item.type === "reasoning")).toBe(false);
     expect(JSON.stringify(out.input)).not.toContain("ENC_BLOB_TURN_1");
-    // User message, function_call, function_call_output, and next user message survive
     const types = out.input.map((item) => item.type);
     expect(types).toEqual(["message", "function_call", "function_call_output", "message"]);
-    // Caller tools flattened; required fingerprint decoys remain cloaked.
     expect(out.tools).toEqual([
       {
         type: "function",

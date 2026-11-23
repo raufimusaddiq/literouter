@@ -3,11 +3,6 @@ import { buildClineHeaders } from "../shared/clineAuth.js";
 const CLINEPASS_MODELS_ENDPOINT = "https://api.cline.bot/api/v1/models";
 const FETCH_TIMEOUT_MS = 5000;
 
-/**
- * Build request headers for the ClinePass /models endpoint (Cline's upstream API).
- * - API keys are sent as plain Bearer tokens.
- * - OAuth access tokens must carry the WorkOS `workos:` prefix (handled by buildClineHeaders).
- */
 function buildModelListHeaders(token, isApiKey) {
   if (isApiKey) {
     return {
@@ -18,10 +13,6 @@ function buildModelListHeaders(token, isApiKey) {
   return buildClineHeaders(token, { Accept: "application/json" });
 }
 
-/**
- * Internal: fetch the raw model list from Cline's /models endpoint.
- * Returns the parsed array or null on any failure.
- */
 async function fetchClineRawModels(credentials) {
   const isApiKey = Boolean(credentials?.apiKey);
   const token = isApiKey ? credentials.apiKey : credentials?.accessToken;
@@ -51,13 +42,6 @@ async function fetchClineRawModels(credentials) {
   }
 }
 
-/**
- * Fetch ClinePass live model catalog from Cline's /models endpoint.
- * Returns only models with the cline-pass/ prefix.
- *
- * @param {object} credentials - Connection credentials ({ accessToken, apiKey })
- * @returns {Promise<{ models: { id: string, name: string }[] } | null>}
- */
 export async function resolveClinepassModels(credentials) {
   const rawList = await fetchClineRawModels(credentials);
   if (!rawList) return null;
@@ -72,14 +56,6 @@ export async function resolveClinepassModels(credentials) {
   return models.length ? { models } : null;
 }
 
-/**
- * Fetch Cline live model catalog from Cline's /models endpoint.
- * Unlike resolveClinepassModels, this returns ALL models (including
- * free-tier models like z-ai/glm-5.3-flash) without the cline-pass/ prefix filter.
- *
- * @param {object} credentials - Connection credentials ({ accessToken, apiKey })
- * @returns {Promise<{ models: { id: string, name: string }[] } | null>}
- */
 export async function resolveClineModels(credentials) {
   const rawList = await fetchClineRawModels(credentials);
   if (!rawList) return null;

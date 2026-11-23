@@ -1,14 +1,6 @@
-/**
- * Stream-to-JSON Converter
- * Converts Responses API SSE stream to single JSON response
- * Used when client requests non-streaming but provider forces streaming (e.g., Codex)
- */
 import { GatewayTimeoutError, readWithIdleTimeout } from "../utils/requestTimeouts.js";
 import { NON_STREAM_TOTAL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS } from "../config/runtimeConfig.js";
 
-/**
- * Process a single SSE message and update state accordingly.
- */
 function processSSEMessage(msg, state) {
   if (!msg.trim()) return;
 
@@ -47,11 +39,6 @@ function processSSEMessage(msg, state) {
 
 const EMPTY_RESPONSE = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
 
-/**
- * Convert Responses API SSE stream to single JSON response
- * @param {ReadableStream} stream - SSE stream from provider
- * @returns {Promise<Object>} Final JSON response in Responses API format
- */
 export async function convertResponsesStreamToJson(stream, { signal, idleMs, totalMs } = {}) {
   if (!stream || typeof stream.getReader !== "function") {
     return { id: `resp_${Date.now()}`, object: "response", created_at: Math.floor(Date.now() / 1000), status: "failed", output: [], usage: { ...EMPTY_RESPONSE } };
@@ -85,8 +72,6 @@ export async function convertResponsesStreamToJson(stream, { signal, idleMs, tot
       if (done) break;
 
       const text = decoder.decode(value, { stream: true });
-      // buffer holds no "\n\n" after the previous split, so a new boundary can only
-      // be inside `text` or straddle the join; otherwise skip re-scanning the buffer.
       const straddles = text.charCodeAt(0) === 10 && buffer.charCodeAt(buffer.length - 1) === 10;
       buffer += text;
       if (!straddles && !text.includes("\n\n")) continue;
@@ -98,18 +83,16 @@ export async function convertResponsesStreamToJson(stream, { signal, idleMs, tot
       }
     }
 
-    // Flush remaining buffer (last event may not end with \n\n)
     if (buffer.trim()) {
       processSSEMessage(buffer, state);
     }
   } catch (error) {
-    if (bounded) { try { await reader.cancel(error); } catch { /* closed */ } }
+    if (bounded) { try { await reader.cancel(error); } catch {} }
     throw error;
   } finally {
-    try { reader.releaseLock(); } catch { /* released */ }
+    try { reader.releaseLock(); } catch {}
   }
 
-  // Build output array from accumulated items (ordered by index)
   const output = [];
   const maxIndex = state.items.size > 0 ? Math.max(...state.items.keys()) : -1;
   for (let i = 0; i <= maxIndex; i++) {

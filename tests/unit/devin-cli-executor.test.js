@@ -2,8 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import { EventEmitter } from "node:events";
 import os from "node:os";
 
-// `vi.hoisted` runs before the mocked module is evaluated, so the factory can
-// safely reference the mock fn.
 const { spawnMock } = vi.hoisted(() => ({ spawnMock: vi.fn() }));
 
 vi.mock("node:child_process", () => ({
@@ -12,9 +10,6 @@ vi.mock("node:child_process", () => ({
 
 const { default: DevinCliExecutor } = await import("open-sse/executors/devin-cli.js");
 
-// Fake devin ACP subprocess. Mirrors the real CLI's session/new validation:
-// it requires `mcpServers` to be an array, otherwise returns -32602 — this is
-// the exact error the dashboard "test" button hit ("Invalid params").
 function makeFakeChild() {
   const child = new EventEmitter();
   child.writes = [];
@@ -26,7 +21,6 @@ function makeFakeChild() {
       const msg = JSON.parse(String(data).trim());
       handle(msg);
     } catch {
-      /* ignore */
     }
     return true;
   };
@@ -47,7 +41,6 @@ function makeFakeChild() {
     if (msg.method === "initialize") {
       send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
     } else if (msg.method === "session/new") {
-      // Mirror devin 3000.2.x: `mcpServers` is a required sequence.
       if (Array.isArray(msg.params && msg.params.mcpServers)) {
         send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "fake-session" } });
       } else if (!msg.params || msg.params.mcpServers === undefined) {
@@ -64,9 +57,7 @@ function makeFakeChild() {
         });
       }
     } else if (msg.method === "session/prompt") {
-      // devin 3000.2.x requires `prompt` (a sequence), not `content`.
       if (Array.isArray(msg.params && msg.params.prompt)) {
-        // Agent requests permission to run a tool before replying.
         send({
           jsonrpc: "2.0",
           id: 777,
@@ -79,7 +70,6 @@ function makeFakeChild() {
             ],
           },
         });
-        // New ACP shape: streaming via session/update with params.update.sessionUpdate.
         send({
           jsonrpc: "2.0",
           method: "session/update",
@@ -90,7 +80,6 @@ function makeFakeChild() {
           method: "session/update",
           params: { sessionId: "fake-session", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "hello world" } } },
         });
-        // Stop signal: _cognition.ai/agent_stopped notification.
         send({ jsonrpc: "2.0", method: "_cognition.ai/agent_stopped", params: { cause: "complete" } });
       } else {
         send({
@@ -153,7 +142,7 @@ describe("DevinCliExecutor ACP session/new", () => {
       child.opts = opts;
       return child;
     });
-    const workspace = os.tmpdir(); // known existing absolute dir
+    const workspace = os.tmpdir();
     const exec = new DevinCliExecutor();
     const { response } = await exec.execute({
       model: "swe-1.6-fast",
@@ -196,9 +185,7 @@ describe("DevinCliExecutor ACP session/new", () => {
   });
 
   it("emits agent_message_chunk content and skips agent_thought_chunk", async () => {
-    // devin 3000.2.x streams via params.update.sessionUpdate.
     const { acc } = await runExecute();
-    // Reply text is delivered, finish chunk present, thinking is not surfaced.
     expect(acc.toLowerCase()).toContain("hello world");
     expect(acc).toContain("finish_reason");
     expect(acc.toLowerCase()).not.toContain("(thinking)");
@@ -218,7 +205,6 @@ describe("DevinCliExecutor ACP session/new", () => {
     spawnMock.mockImplementation((bin, args, opts) => {
       child.args = args;
       child.opts = opts;
-      // Capture config at spawn time (finish() cleans the temp dir).
       if (opts?.env?.XDG_CONFIG_HOME) {
         capturedCfg = JSON.parse(
           fs.readFileSync(opts.env.XDG_CONFIG_HOME + "/devin/config.json", "utf8")
@@ -235,7 +221,6 @@ describe("DevinCliExecutor ACP session/new", () => {
           capturedPrompt = msg.params.prompt[0].text;
         }
       } catch {
-        /* ignore */
       }
       return origWrite.call(child.stdin, data);
     };
@@ -284,7 +269,6 @@ describe("DevinCliExecutor ACP session/new", () => {
   });
 
   it("bridges a client-tool MCP call to an OpenAI tool_use", async () => {
-    // Custom fake: on session/prompt, report devin calling our exposed MCP tool.
     const child = new EventEmitter();
     child.writes = [];
     child.stdin = new EventEmitter();
@@ -303,7 +287,6 @@ describe("DevinCliExecutor ACP session/new", () => {
       if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
       else if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "s1" } });
       else if (msg.method === "session/prompt") {
-        // Mirror real ACP: title on first event, rawInput on a later update.
         send({
           jsonrpc: "2.0",
           method: "session/update",
@@ -336,7 +319,7 @@ describe("DevinCliExecutor ACP session/new", () => {
       if (acc.includes("[DONE]")) break;
     }
     const tc = JSON.parse(acc.match(/"tool_calls":\[(\{.*?\})\]/)?.[1] ?? "{}");
-    expect(tc.function.name).toBe("get_weather"); // mcp_ prefix stripped, MCP-real untouched
+    expect(tc.function.name).toBe("get_weather");
     expect(tc.id).toBe("call_abc");
     expect(JSON.parse(tc.function.arguments).city).toBe("Paris");
     expect(acc).toContain('"finish_reason":"tool_calls"');
@@ -359,8 +342,6 @@ describe("DevinCliExecutor ACP session/new", () => {
   });
 
   it("does not inject WINDSURF_API_KEY — devin-cli uses stored CLI creds (devin auth login)", async () => {
-    // Provider is noAuth; devin must fall back to ~/.local/share/devin/credentials.toml.
-    // Injecting a bogus WINDSURF_API_KEY makes devin reject stored creds → -32000.
     const { child } = await runExecute({ accessToken: "bogus-token", apiKey: "bogus-key" });
     expect(child.opts.env.WINDSURF_API_KEY).toBeUndefined();
   });
@@ -391,16 +372,12 @@ describe("DevinCliExecutor ACP session/new", () => {
     try {
       const { child } = await runExecute();
       expect(child.opts.env.XDG_CONFIG_HOME).toBeTruthy();
-      // devin reads $XDG_CONFIG_HOME/devin/config.json (E2E verifies content).
     } finally {
       delete process.env.DEVIN_MCP_SERVERS;
     }
   });
 
   it("does not set XDG_CONFIG_HOME when DEVIN_MCP_SERVERS is absent", async () => {
-    // The executor inherits process.env, so a runner-provided XDG_CONFIG_HOME
-    // (GitHub Actions sets /home/runner/.config) would leak through. Clear it
-    // to assert the executor's own behavior, not the host environment.
     const saved = process.env.XDG_CONFIG_HOME;
     delete process.env.XDG_CONFIG_HOME;
     try {
@@ -435,9 +412,7 @@ describe("DevinCliExecutor ACP session/new", () => {
     });
     const reader = response.body.getReader();
     await reader.read();
-    // XDG_CONFIG_HOME set so devin loads the generated config.
     expect(child.opts.env.XDG_CONFIG_HOME).toBeTruthy();
-    // Static MCP bridge script written to disk.
     const scriptPath = path.join(os.tmpdir(), "9router-devin-client-tools.mjs");
     expect(fs.existsSync(scriptPath)).toBe(true);
     expect(fs.readFileSync(scriptPath, "utf8")).toContain("clientTools");

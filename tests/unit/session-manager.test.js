@@ -1,8 +1,6 @@
-// A2: locks resolveSessionId priority/stickiness (codex/kiro/antigravity centralization).
 import { describe, it, expect, beforeEach } from "vitest";
 import { resolveContinuationId, resolveSessionId, resolveSessionIdentity, deriveSessionId, clearSessionStore } from "../../open-sse/utils/sessionManager.js";
 
-// Assistant text must reach ASSISTANT_MIN_LEN (80) to use assistant anchor; else first user message.
 const longAssistant = "x".repeat(80);
 const bodyWithAssistant = { messages: [{ role: "assistant", content: longAssistant }] };
 const bodyWithUserOnly = { messages: [{ role: "user", content: "hello from first user message anchor" }] };

@@ -1,4 +1,3 @@
-// Redact credential-bearing query params from URLs/strings before logging.
 const SECRET_PARAM_RE = /([?&](?:key|api_key|apikey|access_token|token)=)[^&#\s"']*/gi;
 
 export function redactUrlSecrets(text) {

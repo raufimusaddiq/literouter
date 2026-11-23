@@ -1,6 +1,3 @@
-// End-to-end integration test: hit live local proxy and verify [RTK] behavior.
-// Run with: RUN_E2E=1 RTK_E2E_PORT=... RTK_E2E_KEY=... RTK_E2E_LOG=<absolute path to server stdout file> npm test rtk.e2e.test.js
-// Requires: dev server running, rtkEnabled=true, API key present.
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 
@@ -23,7 +20,6 @@ function readLogTail(bytes = 8192) {
   return buf.toString("utf8");
 }
 
-// Read new bytes appended to log since `offset`. Returns text + new offset.
 function readLogSince(offset) {
   if (!LOG_FILE || !fs.existsSync(LOG_FILE)) return { text: "", next: offset };
   const stat = fs.statSync(LOG_FILE);
@@ -98,7 +94,6 @@ maybe("RTK end-to-end", () => {
     await new Promise(r => setTimeout(r, 500));
     const { text } = readLogSince(offset);
     const matches = [...text.matchAll(/\[RTK\] saved (\d+)B \/ (\d+)B \([\d.]+%\) via \[([\w,-]+)\] hits=(\d+)/g)];
-    // Find the log line that corresponds to OUR request (total ≥ diff.length and contains git-diff)
     const mine = matches.find(m => Number(m[2]) >= diff.length && m[3].includes("git-diff"));
     expect(mine, `no matching [RTK] line for our request (diff=${diff.length}B) in ${matches.length} log entries`).toBeTruthy();
     expect(Number(mine[1])).toBeGreaterThan(500);

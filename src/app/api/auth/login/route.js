@@ -12,8 +12,6 @@ const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 export async function POST(request) {
   try {
     const ip = getClientIp(request);
-    // Reserve the attempt before the bcrypt compare: parallel guesses otherwise
-    // all pass checkLock with the same pre-lockout count.
     const attempt = beginAttempt(ip);
     if (attempt.locked) {
       return NextResponse.json(
@@ -25,14 +23,12 @@ export async function POST(request) {
     const { password } = await request.json();
     const settings = await getSettings();
 
-    // Default password is '123456' if not set
     const storedHash = settings.password;
 
     let isValid = false;
     if (storedHash) {
       isValid = await bcrypt.compare(password, storedHash);
     } else {
-      // Use env var or default
       const initialPassword = process.env.INITIAL_PASSWORD || "123456";
       isValid = password === initialPassword;
     }
@@ -40,25 +36,10 @@ export async function POST(request) {
     if (isValid) {
       recordSuccess(ip);
 
-      // Default password still in use on a remote client → force a password
-      // change before the dashboard is exposed remotely (keeps local UX intact).
       const mustChangePassword =
         !storedHash && !process.env.INITIAL_PASSWORD && !isLocalRequest(request);
 
       if (mustChangePassword) {
-        // Do NOT issue a session token: a fresh install's default password is
-        // public knowledge ("123456"), so handing out a valid JWT would let any
-        // remote attacker authenticate and (e.g.) PATCH /api/settings to disable
-        // authentication entirely (CVE-2026-56679 class). Require the password
-        // to be changed first.
-        //
-        // NOTE: this intentionally leaves no remote self-service password-change
-        // path — the change-password flow (PATCH /api/settings) requires a JWT,
-        // which we deliberately withhold. A remote fresh-install user must either
-        // change the password from the local machine or set INITIAL_PASSWORD
-        // before first launch. This is a deliberate security trade-off, not an
-        // oversight: issuing any credential before the default password is
-        // rotated re-opens the exact attack chain this branch closes.
         return NextResponse.json(
           { success: false, error: "Default password must be changed before remote access. Change it from the local machine (or set INITIAL_PASSWORD).", mustChangePassword },
           { status: 403, headers: NO_STORE_HEADERS }

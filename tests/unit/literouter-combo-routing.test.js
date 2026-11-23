@@ -5,10 +5,6 @@ import {
   reorderByCapabilities,
 } from "../../open-sse/services/combo.js";
 
-// Deterministic routing fixtures for the LiteRouter minimal profile.
-// These replace the two stale assertions in combo-autoswitch.test.js that
-// assume capability auto-switch still ranks `search` (disabled upstream) and
-// compare array identity with `toBe`.
 
 describe("combo rotation (round-robin)", () => {
   beforeEach(() => resetComboRotation("rr"));

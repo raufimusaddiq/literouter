@@ -22,20 +22,17 @@ import { ROLE, OPENAI_BLOCK } from "../translator/schema/index.js";
 import zlib from "zlib";
 import crypto from "crypto";
 
-// Detect cloud environment
 const isCloudEnv = () => {
   if (typeof caches !== "undefined" && typeof caches === "object") return true;
   if (typeof EdgeRuntime !== "undefined") return true;
   return false;
 };
 
-// Lazy import http2 (only in Node.js environment)
 let http2 = null;
 if (!isCloudEnv()) {
   try {
     http2 = await import("http2");
   } catch {
-    // http2 not available
   }
 }
 
@@ -79,9 +76,6 @@ function isTextPart(part) {
 }
 
 export function isAgentCapableRequest(body) {
-  // ChatService rejects auto/composer and most thinking variants. AgentService
-  // can answer text turns (including declared tool schemas) and tool-call
-  // history. Image parts still need the legacy protobuf path.
   if (!Array.isArray(body?.messages) || body.messages.length === 0) return false;
   return body.messages.every((message) => {
     if (Array.isArray(message?.content)) return message.content.every(isTextPart);
@@ -103,7 +97,6 @@ function encodeHistoryMessage(message) {
   const textBody = [content, ...extras].filter(Boolean).join("\n");
   if (!textBody) return null;
 
-  // ConversationHistoryMessage.user / .assistant -> repeated content -> text.
   const text = agentString(1, textBody);
   if (message.role === ROLE.ASSISTANT) {
     return agentMessage(2, agentMessage(1, agentMessage(1, text)));
@@ -112,8 +105,6 @@ function encodeHistoryMessage(message) {
 }
 
 export function buildAgentRunFrame(messages, model, tools = [], reasoningEffort = null) {
-  // custom_system_prompt (RunRequest field 8) makes AgentService return an
-  // empty turn. Fold system text into the current user message instead.
   const system = messages
     .filter((message) => message?.role === ROLE.SYSTEM)
     .map((message) => textFromContent(message.content))
@@ -129,9 +120,6 @@ export function buildAgentRunFrame(messages, model, tools = [], reasoningEffort 
   const rawUser = textFromContent(current?.content) || "Continue.";
   const userText = system ? `${system}\n\n${rawUser}` : rawUser;
 
-  // agent.v1.UserMessageAction.user_message and its optional history.
-  // selected_context (3) + mode=1 (4) match cursor-agent's wire format; without
-  // them the server may accept the RPC and stream an empty turn.
   const userMessage = concatBuffers(
     agentString(1, userText),
     agentString(2, crypto.randomUUID()),
@@ -158,8 +146,6 @@ export function buildAgentRunFrame(messages, model, tools = [], reasoningEffort 
     agentString(1, model), agentBool(7, true),
     ...(parameter ? [parameter] : []),
   );
-  // ModelDetails (field 3): thinking variants (Composer, Grok, *-thinking)
-  // return an empty turn when only RequestedModel (field 9) is set.
   const modelDetails = concatBuffers(
     agentString(1, model),
     agentString(3, model),
@@ -167,7 +153,6 @@ export function buildAgentRunFrame(messages, model, tools = [], reasoningEffort 
   );
   const mcpTools = encodeMcpTools(tools);
   const runRequest = concatBuffers(
-    // An empty ConversationStateStructure starts a fresh local agent session.
     agentMessage(1, new Uint8Array()),
     agentMessage(2, conversationAction),
     agentMessage(3, modelDetails),
@@ -175,7 +160,6 @@ export function buildAgentRunFrame(messages, model, tools = [], reasoningEffort 
     agentMessage(9, requestedModel),
   );
 
-  // agent.v1.AgentClientMessage.run_request.
   return wrapConnectRPCFrame(agentMessage(1, runRequest));
 }
 
@@ -215,15 +199,12 @@ function wrapExecClientMessage(execMsgId, execId, resultField, resultPayload) {
 }
 
 function createRequestContextResponse(execRequest) {
-  // Tools already go out on AgentRunRequest.mcp_tools. Echoing them again on
-  // this ack makes AgentService stall silently (0 SSE bytes until abort).
   const { id, execId } = execIds(execRequest);
   const requestContextSuccess = agentMessage(1, new Uint8Array());
   const requestContextResult = agentMessage(1, requestContextSuccess);
   return wrapExecClientMessage(id, execId, 10, requestContextResult);
 }
 
-// ExecServerMessage variant → ExecClientMessage result field (same numbers).
 const EXEC_RESULT_FIELD = {
   2: 2, 3: 3, 4: 4, 5: 5, 7: 7, 8: 8, 9: 9, 16: 16, 20: 20, 23: 23,
 };
@@ -233,7 +214,6 @@ function rejectExecRequest(execRequest) {
   const variant = [...(execRequest?.keys?.() || [])].find((field) => field !== 1 && field !== 15);
   const resultField = EXEC_RESULT_FIELD[variant];
   if (!resultField) return null;
-  // Diagnostics has no rejected variant — empty success unblocks the stream.
   if (variant === 9) return wrapExecClientMessage(id, execId, 9, new Uint8Array());
   const rejected = agentMessage(2, agentString(2, "Tool not available in this environment. Use the MCP tools provided instead."));
   return wrapExecClientMessage(id, execId, resultField, rejected);
@@ -247,13 +227,6 @@ export function encodeKvClientMessage(kvId, resultField, resultPayload, metadata
   return wrapConnectRPCFrame(agentMessage(3, concatBuffers(...parts)));
 }
 
-// The AgentService h2 path bypasses proxyAwareFetch (Node http2 duplex, no
-// dispatcher), so the strict-proxy guarantee that proxyFetch enforces for
-// regular fetch never applies here. Until h2 proxying lands (see #3276),
-// honor just the policy side: when a proxy is intended AND strict AND cannot
-// be resolved for this request, fail closed instead of silently opening a
-// direct socket that exposes the host's real IP — the exact leak strict mode
-// exists to prevent (#4333). Non-strict callers keep today's direct behavior.
 const proxyIntentFailed = (proxyOptions) => {
   if (proxyOptions?.strictProxy !== true) return false;
   const proxyIntended = Boolean(
@@ -264,7 +237,6 @@ const proxyIntentFailed = (proxyOptions) => {
     || (proxyOptions?.url || proxyOptions?.connectionProxyUrl || "").trim().length > 0,
   );
   if (!proxyIntended) return false;
-  // Proxy intended and strict: the h2 transport below cannot carry it.
   return true;
 };
 
@@ -287,7 +259,6 @@ function visibleComposerContentFromThinking(thinking) {
 }
 
 function decompressPayload(payload, flags) {
-  // Check if payload is JSON error (starts with {"error")
   if (payload.length > 10 && payload[0] === 0x7b && payload[1] === 0x22) {
     try {
       const text = payload.toString("utf-8");
@@ -303,15 +274,12 @@ function decompressPayload(payload, flags) {
     flags === COMPRESS_FLAG.TRAILER ||
     flags === COMPRESS_FLAG.GZIP_TRAILER
   ) {
-    // Primary: try gzip decompression (standard gzip header 0x1f 0x8b)
     try {
       return zlib.gunzipSync(payload);
     } catch (gzipErr) {
-      // Fallback: TRAILER and GZIP_TRAILER frames sometimes use raw zlib deflate format
       try {
         return zlib.inflateSync(payload);
       } catch (deflateErr) {
-        // Last resort: try raw deflate (no zlib header)
         try {
           return zlib.inflateRawSync(payload);
         } catch (rawErr) {
@@ -330,7 +298,6 @@ function decompressPayload(payload, flags) {
   return payload;
 }
 
-// Read one cursor protobuf frame: header + bounds + decompress. Returns status + payload + new offset.
 function readCursorFrame(buffer, offset, frameNum, tag) {
   if (offset + 5 > buffer.length) {
     debugLog(`[CURSOR BUFFER${tag}] Reached end, offset=${offset}, remaining=${buffer.length - offset}`);
@@ -398,19 +365,15 @@ export class CursorExecutor extends BaseExecutor {
   }
 
   transformRequest(model, body, stream, credentials) {
-    // Messages are already translated by chatCore (claude→openai→cursor)
-    // Do NOT call openaiToCursorRequest again — double-translation drops tool_results
     const messages = body.messages || [];
     const tools = body.tools || [];
     const reasoningEffort = body.reasoning_effort || null;
-    // Detect Claude Code UA to force Agent mode (issue #643)
     const ua = credentials?.rawHeaders?.["user-agent"] || "";
     const forceAgentMode = ua.includes("claude-cli") || ua.includes("claude-code") || ua.includes("Claude Code");
     return generateCursorBody(messages, model, tools, reasoningEffort, forceAgentMode);
   }
 
   async makeFetchRequest(url, headers, body, signal, proxyOptions = null) {
-    // Whole body is buffered below, so the total (non-stream) budget applies.
     const response = await fetchWithTimeouts(url, {
       method: "POST",
       headers,
@@ -429,7 +392,7 @@ export class CursorExecutor extends BaseExecutor {
       throw new Error("http2 module not available");
     }
 
-    const HTTP2_TIMEOUT_MS = 60000; // 60s max — prevent hung sessions
+    const HTTP2_TIMEOUT_MS = 60000;
 
     return new Promise((resolve, reject) => {
       const urlObj = new URL(url);
@@ -438,7 +401,6 @@ export class CursorExecutor extends BaseExecutor {
       let responseHeaders = {};
       let settled = false;
 
-      // Ensure client is always closed on settle
       const finish = (fn) => (...args) => {
         if (settled) return;
         settled = true;
@@ -447,7 +409,6 @@ export class CursorExecutor extends BaseExecutor {
         fn(...args);
       };
 
-      // Hard timeout: close session if server never responds
       const hangTimeout = setTimeout(finish(() => {
         reject(new Error("HTTP/2 request timed out"));
       }), HTTP2_TIMEOUT_MS);
@@ -483,10 +444,6 @@ export class CursorExecutor extends BaseExecutor {
     });
   }
 
-  /**
-   * AgentService (agent.api5.cursor.sh) is HTTP/2-only. Node's fetch/undici speaks
-   * HTTP/1.1 and fails with HTTPParserError on the h2 preface — use http2 duplex.
-   */
   openAgentHttp2Stream(url, headers, signal, { stream = true } = {}) {
     if (!http2) {
       throw new Error("HTTP/2 is required for Cursor AgentService (endpoint is h2-only)");
@@ -521,9 +478,6 @@ export class CursorExecutor extends BaseExecutor {
       try { client.close(); } catch {}
     };
 
-    // Bounded: no headers within the connect/headers timeout, no chunk within the idle timeout
-    // and (non-stream) no completion within the total budget all fail the stream with a
-    // GatewayTimeoutError, which the gateway maps to 504 without touching the account.
     const timeoutFail = (message, phase) => {
       fail(new GatewayTimeoutError(message, phase));
       close();
@@ -608,9 +562,6 @@ export class CursorExecutor extends BaseExecutor {
     const agentEndpoint = PROVIDER_OAUTH.cursor?.agentEndpoint;
     if (!agentEndpoint) throw new Error("Cursor AgentService endpoint is not configured");
 
-    // Policy guard: the h2 duplex stream below cannot ride a proxy, so a
-    // strict proxy configuration must fail closed here rather than leak the
-    // real IP on a direct socket (see proxyIntentFailed above).
     if (proxyIntentFailed(proxyOptions)) {
       throw new Error(
         "Cursor AgentService requires a strict proxy that this HTTP/2 transport cannot honor; refusing to open a direct connection"
@@ -674,9 +625,6 @@ export class CursorExecutor extends BaseExecutor {
       };
     }
 
-    // The Claude SSE translator derives Anthropic's message ID by stripping
-    // `chatcmpl-`. Keep the remaining ID in Anthropic's required `msg_` form
-    // so strict clients such as Claude Code accept the completed stream.
     const responseId = `chatcmpl-msg_${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
     const composerModel = isComposerModel(model);
@@ -710,12 +658,9 @@ export class CursorExecutor extends BaseExecutor {
           if (done) break;
           pending = Buffer.concat([pending, Buffer.from(value)]);
           pending = decodeAgentFrames(pending, (payload) => {
-            // A single read can carry several frames; once the turn is over the
-            // rest of the batch must not reach the already-closed controller.
             if (finished) return;
             const serverMessage = decodeMessage(payload);
 
-            // agent.v1.AgentServerMessage.interaction_update
             if (serverMessage.has(1)) {
               const update = decodeMessage(serverMessage.get(1)[0].value);
               if (update.has(1)) {
@@ -725,8 +670,6 @@ export class CursorExecutor extends BaseExecutor {
                   onEvent({ type: "text", value: textDelta });
                 }
               }
-              // thinking_delta (field 4). Composer (and some Grok variants) put
-              // the visible answer after </think> here and never send text_delta.
               if (update.has(4)) {
                 const thinkingDelta = extractAgentString(decodeMessage(update.get(4)[0].value), 1);
                 if (thinkingDelta) {
@@ -742,13 +685,11 @@ export class CursorExecutor extends BaseExecutor {
                   }
                 }
               }
-              // Keep unsigned reasoning upstream-only for Anthropic clients.
               if (update.has(14)) {
                 finishTurn();
               }
             }
 
-            // KvServerMessage (field 4): get/set blob. Ack so the stream proceeds.
             if (serverMessage.has(4)) {
               const kv = decodeMessage(serverMessage.get(4)[0].value);
               const kvId = kv.get(1)?.[0]?.value || 0;
@@ -760,7 +701,6 @@ export class CursorExecutor extends BaseExecutor {
               }
             }
 
-            // AgentService requests IDE context before producing a response.
             if (serverMessage.has(2)) {
               const execRequest = decodeMessage(serverMessage.get(2)[0].value);
               if (execRequest.has(10)) {
@@ -787,9 +727,6 @@ export class CursorExecutor extends BaseExecutor {
                   onEvent({ type: "error", value: "Cursor AgentService requested an unsupported IDE tool" });
                 }
               } else {
-                // Auto/Composer often probe IDE builtins (shell/read/…). Reject
-                // them so the model can continue with MCP tools or a text answer
-                // instead of stalling the h2 stream.
                 const rejection = rejectExecRequest(execRequest);
                 if (rejection) {
                   log?.info?.("CURSOR", `AgentService rejected IDE exec fields=${[...execRequest.keys()].join(",")}`);
@@ -885,9 +822,6 @@ export class CursorExecutor extends BaseExecutor {
               },
             })));
           } else if (event.type === "error") {
-            // An SSE error frame, not a content delta: a protocol failure must not
-            // be rendered to the user as the assistant's reply, and downstream
-            // usage tracking must not record the turn as a success.
             controller.enqueue(encoder.encode(sseChunk({ error: { message: event.value, type: "api_error" } })));
             controller.enqueue(encoder.encode(SSE_DONE));
             controller.close();
@@ -986,7 +920,7 @@ export class CursorExecutor extends BaseExecutor {
     let totalContent = "";
     let totalThinking = "";
     const toolCalls = [];
-    const toolCallsMap = new Map(); // Track streaming tool calls by ID
+    const toolCallsMap = new Map();
     const finalizedIds = new Set();
     let frameCount = 0;
 
@@ -1000,7 +934,6 @@ export class CursorExecutor extends BaseExecutor {
       if (frame.status === "skip") continue;
       const payload = frame.payload;
 
-      // Check for JSON error frames (byte guard: skip toString on non-JSON frames)
       if (payload.length > 0 && payload[0] === 0x7b) {
         try {
           const text = payload.toString("utf-8");
@@ -1045,16 +978,13 @@ export class CursorExecutor extends BaseExecutor {
         const tc = result.toolCall;
 
         if (toolCallsMap.has(tc.id)) {
-          // Accumulate arguments for existing tool call
           const existing = toolCallsMap.get(tc.id);
           existing.function.arguments += tc.function.arguments;
           existing.isLast = tc.isLast;
         } else {
-          // New tool call
           toolCallsMap.set(tc.id, { ...tc });
         }
 
-        // Push to final array when isLast is true
         if (tc.isLast) {
           const finalToolCall = toolCallsMap.get(tc.id);
           finalizedIds.add(tc.id);
@@ -1082,9 +1012,7 @@ export class CursorExecutor extends BaseExecutor {
       `[CURSOR BUFFER] Parsed ${frameCount} frames, toolCallsMap size: ${toolCallsMap.size}, finalized toolCalls: ${toolCalls.length}`
     );
 
-    // Finalize all remaining tool calls in map (in case stream ended without isLast=true)
     for (const [id, tc] of toolCallsMap.entries()) {
-      // Check if already in final array
       if (!finalizedIds.has(id)) {
         debugLog(`[CURSOR BUFFER] Finalizing incomplete tool call: ${id}, isLast=${tc.isLast}`);
         toolCalls.push({
@@ -1141,7 +1069,7 @@ export class CursorExecutor extends BaseExecutor {
     let totalThinking = "";
     let emittedComposerThinkingContentLength = 0;
     const toolCalls = [];
-    const toolCallsMap = new Map(); // Track streaming tool calls by ID
+    const toolCallsMap = new Map();
     const finalizedIds = new Set();
     const emittedToolCallIds = new Set();
     let frameCount = 0;
@@ -1156,7 +1084,6 @@ export class CursorExecutor extends BaseExecutor {
       if (frame.status === "skip") continue;
       const payload = frame.payload;
 
-      // Check for JSON error frames (byte-guard: only decode if starts with '{')
       if (payload[0] === 0x7b) {
         try {
           const text = payload.toString("utf-8");
@@ -1205,13 +1132,11 @@ export class CursorExecutor extends BaseExecutor {
         }
 
         if (toolCallsMap.has(tc.id)) {
-          // Accumulate arguments for existing tool call
           const existing = toolCallsMap.get(tc.id);
           const oldArgsLen = existing.function.arguments.length;
           existing.function.arguments += tc.function.arguments;
           existing.isLast = tc.isLast;
 
-          // Stream the delta arguments
           if (tc.function.arguments) {
             emittedToolCallIds.add(tc.id);
             chunks.push(chatChunkSse({
@@ -1232,13 +1157,11 @@ export class CursorExecutor extends BaseExecutor {
             }));
           }
         } else {
-          // New tool call - assign index and add to map
           const toolCallIndex = toolCalls.length;
           finalizedIds.add(tc.id);
           toolCalls.push({ ...tc, index: toolCallIndex });
           toolCallsMap.set(tc.id, { ...tc, index: toolCallIndex });
 
-          // Stream initial tool call with name
           emittedToolCallIds.add(tc.id);
           chunks.push(chatChunkSse({
             id: responseId, created, model,
@@ -1292,7 +1215,6 @@ export class CursorExecutor extends BaseExecutor {
       `[CURSOR BUFFER SSE] Parsed ${frameCount} frames, toolCallsMap size: ${toolCallsMap.size}, toolCalls array: ${toolCalls.length}`
     );
 
-    // Finalize all remaining tool calls in map (stream may have ended without isLast=true)
     for (const [id, tc] of toolCallsMap.entries()) {
       if (!finalizedIds.has(id)) {
         debugLog(`[CURSOR BUFFER SSE] Finalizing incomplete tool call: ${id}, isLast=${tc.isLast}`);
@@ -1307,7 +1229,6 @@ export class CursorExecutor extends BaseExecutor {
           }
         });
 
-        // Emit SSE chunk for the finalized tool call if not already emitted
         if (!emittedToolCallIds.has(tc.id)) {
           chunks.push(chatChunkSse({
             id: responseId, created, model,

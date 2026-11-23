@@ -1,6 +1,3 @@
-// Claude → Kiro (direct route) request translation + Kiro → Claude response.
-// Verifies the direct claude:kiro / kiro:claude routes added to bypass the
-// OpenAI pivot, and that the "Improperly formed request" 400-guards survive.
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
 import { translateRequest, translateResponse } from "../../open-sse/translator/index.js";
@@ -9,9 +6,6 @@ import { FORMATS } from "../../open-sse/translator/formats.js";
 const C2K = (body, credentials = null, model = "claude-sonnet-4.5") =>
   translateRequest(FORMATS.CLAUDE, FORMATS.KIRO, model, body, true, credentials, "kiro");
 
-// The CodeWhisperer surface rejects a top-level `systemPrompt`, so the
-// translator carries the system text inside the first user turn's content
-// (contentPrefix). Assertions below read that real surface.
 const sysText = (out) =>
   out?.conversationState?.currentMessage?.userInputMessage?.content || "";
 
@@ -43,7 +37,6 @@ describe("Claude → Kiro (direct route)", () => {
   });
 
   it("guard 1: with no tools, a dangling tool_result is flattened to text (no structured ref)", () => {
-    // Client omitted `tools` but kept a tool_result after compaction.
     const out = C2K({
       messages: [
         { role: "user", content: "go" },
@@ -51,8 +44,6 @@ describe("Claude → Kiro (direct route)", () => {
         { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "result" }] },
       ],
     });
-    // No userInputMessageContext.tools/toolResults anywhere → won't trip the
-    // "tools required" validator.
     const cur = out.conversationState.currentMessage.userInputMessage;
     expect(cur.userInputMessageContext?.toolResults).toBeFalsy();
     const everyHistoryClean = out.conversationState.history.every(
@@ -66,12 +57,10 @@ describe("Claude → Kiro (direct route)", () => {
       tools: [{ name: "f", description: "fn", input_schema: { type: "object", properties: {} } }],
       messages: [
         { role: "user", content: "go" },
-        // tool_result references a tool_use that never appears → orphan
         { role: "user", content: [{ type: "tool_result", tool_use_id: "ghost", content: "salvage me" }] },
       ],
     });
     const cur = out.conversationState.currentMessage.userInputMessage;
-    // The orphan content survives as text, not as a dangling structured ref.
     expect(cur.content).toContain("salvage me");
     expect(cur.userInputMessageContext?.toolResults?.length ?? 0).toBe(0);
   });
@@ -210,8 +199,6 @@ describe("Claude → Kiro (direct route)", () => {
 });
 
 describe("Kiro → Claude (direct route, OpenAI-shaped chunks from executor)", () => {
-  // KiroExecutor emits chat.completion.chunk objects; translateResponse must
-  // convert them to Claude SSE events.
   const R = (chunk, state) => translateResponse(FORMATS.KIRO, FORMATS.CLAUDE, chunk, state);
 
   it("first text chunk emits message_start + content_block_start + text_delta", () => {

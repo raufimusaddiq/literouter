@@ -1,5 +1,3 @@
-// Generates src/shared/constants/providerIconManifest.js from public/providers/*.png.
-// Run by prebuild/predev; the output is committed so dev/tests work without it.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

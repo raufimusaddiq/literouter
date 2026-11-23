@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import { FORMATS } from "open-sse/translator/formats.js";
 import { createSSETransformStreamWithLogger } from "open-sse/utils/stream.js";
 
-// Responses and Claude upstreams never send `data: [DONE]`; a Chat Completions
-// client behind them must still get exactly one sentinel at the end.
 async function collect(targetFormat, events) {
   const upstream = new ReadableStream({
     start(controller) {

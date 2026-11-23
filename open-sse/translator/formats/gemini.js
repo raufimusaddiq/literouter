@@ -1,49 +1,29 @@
-// Gemini helper functions for translator
 
 import { safeParseJSON } from "../concerns/json.js";
 import { DEFAULT_IMAGE_MIME, OPENAI_BLOCK } from "../schema/index.js";
 import { isGemini4Model } from "../../providers/capabilities.js";
 
-// Unsupported JSON Schema constraints that should be removed for Antigravity
 export const UNSUPPORTED_SCHEMA_CONSTRAINTS = [
-  // Basic constraints (not supported by Gemini API)
   "minLength", "maxLength", "exclusiveMinimum", "exclusiveMaximum",
   "minItems", "maxItems", "format", "multipleOf",
-  // Array keywords the Gemini schema proto has no field for. Agent tool
-  // schemas set these routinely, and one occurrence rejects the whole request
-  // with "Unknown name ...: Cannot find field".
   "uniqueItems", "contains",
-  // 2020-12 keywords with no Gemini equivalent
   "unevaluatedProperties", "unevaluatedItems", "contentSchema",
-  // Tuple-array keywords; converted to items first, leftovers stripped
   "prefixItems", "additionalItems",
-  // Claude rejects these in VALIDATED mode
   "default", "examples",
-  // JSON Schema meta keywords
   "$schema", "$defs", "definitions", "const", "$ref", "$comment",
-  // Annotation keywords (rejected by Gemini/Antigravity - e.g. MCP tool schemas set these)
   "deprecated", "readOnly", "writeOnly",
-  // Object validation keywords (not supported)
   "additionalProperties", "propertyNames", "patternProperties", "enumDescriptions",
-  // Complex schema keywords (handled by flattenAnyOfOneOf/mergeAllOf)
   "anyOf", "oneOf", "allOf", "not",
-  // Dependency keywords (not supported)
   "dependencies", "dependentSchemas", "dependentRequired",
-  // Other unsupported keywords
   "title", "optional", "~optional", "deprecated", "if", "then", "else", "contentMediaType", "contentEncoding",
-  // UI/Styling properties (from Cursor tools - NOT JSON Schema standard)
   "cornerRadius", "fillColor", "fontFamily", "fontSize", "fontWeight",
   "gap", "padding", "strokeColor", "strokeThickness", "textColor",
-  // Non-standard annotation/error keywords used by some MCP tool schemas (#4283).
-  // Gemini's schema proto has no field for these and rejects the whole request with
-  // "Unknown name X: Cannot find field" if any nested schema node carries them.
   "errorMessage", "errorMessages", "x-errorMessage", "x-errorMessages",
   "markdownDescription", "x-intellij-html-description",
   "x-taplo-info", "x-taplo", "doNotSuggest", "suggestSortText",
   "minProperties", "maxProperties"
 ];
 
-// Default safety settings
 export const DEFAULT_SAFETY_SETTINGS = [
   { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "OFF" },
   { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "OFF" },
@@ -63,7 +43,6 @@ function remoteImageMimeType(url) {
   return DEFAULT_IMAGE_MIME;
 }
 
-// Convert OpenAI content to Gemini parts
 export function convertOpenAIContentToParts(content) {
   const parts = [];
 
@@ -77,7 +56,7 @@ export function convertOpenAIContentToParts(content) {
         const url = item.image_url.url;
         const commaIndex = url.indexOf(",");
         if (commaIndex !== -1) {
-          const mimePart = url.substring(5, commaIndex); // skip "data:"
+          const mimePart = url.substring(5, commaIndex);
           const data = url.substring(commaIndex + 1);
           const mimeType = mimePart.split(";")[0];
 
@@ -120,7 +99,6 @@ export function convertOpenAIContentToParts(content) {
 
   return parts;
 }
-// Extract text content from OpenAI content
 export function extractTextContent(content, separator = "") {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
@@ -129,22 +107,18 @@ export function extractTextContent(content, separator = "") {
   return "";
 }
 
-// Try parse JSON safely (null fallback on parse error; re-export keeps legacy API)
 export function tryParseJSON(str) {
   return safeParseJSON(str, null);
 }
 
-// Generate request ID
 export function generateRequestId() {
   return `agent-${crypto.randomUUID()}`;
 }
 
-// Generate session ID (binary-compatible format: UUID + timestamp)
 export function generateSessionId() {
   return crypto.randomUUID() + Date.now().toString();
 }
 
-// Generate project ID
 export function generateProjectId() {
   const adjectives = ["useful", "bright", "swift", "calm", "bold"];
   const nouns = ["fuze", "wave", "spark", "flow", "core"];
@@ -153,8 +127,6 @@ export function generateProjectId() {
   return `${adj}-${noun}-${crypto.randomUUID().slice(0, 5)}`;
 }
 
-// Helper: Remove unsupported keywords recursively from object/array
-// Also strips all vendor extension fields (x- prefixed) not supported by Gemini
 function removeUnsupportedKeywords(obj, keywords) {
   if (!obj || typeof obj !== "object") return;
 
@@ -178,7 +150,6 @@ function removeUnsupportedKeywords(obj, keywords) {
   }
 }
 
-// Convert const to enum
 function convertConstToEnum(obj) {
   if (!obj || typeof obj !== "object") return;
 
@@ -194,13 +165,11 @@ function convertConstToEnum(obj) {
   }
 }
 
-// Convert enum values to strings (Gemini requires string enum values + explicit type:"string")
 function convertEnumValuesToStrings(obj) {
   if (!obj || typeof obj !== "object") return;
 
   if (obj.enum && Array.isArray(obj.enum)) {
     obj.enum = obj.enum.map(v => String(v));
-    // Gemini API requires type:"string" when enum is present — without it returns 400
     if (!obj.type) {
       obj.type = "string";
     }
@@ -213,7 +182,6 @@ function convertEnumValuesToStrings(obj) {
   }
 }
 
-// Merge allOf schemas
 function mergeAllOf(obj) {
   if (!obj || typeof obj !== "object") return;
 
@@ -247,7 +215,6 @@ function mergeAllOf(obj) {
   }
 }
 
-// Select best schema from anyOf/oneOf
 function selectBest(items) {
   let bestIdx = 0;
   let bestScore = -1;
@@ -274,7 +241,6 @@ function selectBest(items) {
   return bestIdx;
 }
 
-// Flatten anyOf/oneOf
 function flattenAnyOfOneOf(obj) {
   if (!obj || typeof obj !== "object") return;
 
@@ -305,7 +271,6 @@ function flattenAnyOfOneOf(obj) {
   }
 }
 
-// Choose one type from a multi-type union: structural clues first, then string > number > integer > boolean
 function pickBestType(obj, types) {
   if (types.length === 0) return "string";
   if (types.length === 1) return types[0];
@@ -315,7 +280,6 @@ function pickBestType(obj, types) {
   return types[0];
 }
 
-// Flatten type arrays
 function flattenTypeArrays(obj) {
   if (!obj || typeof obj !== "object") return;
 
@@ -331,7 +295,6 @@ function flattenTypeArrays(obj) {
   }
 }
 
-// Infer missing type=object when properties exist (Gemini requires explicit type)
 function ensureObjectType(obj) {
   if (!obj || typeof obj !== "object") return;
   if (obj.properties && !obj.type) obj.type = "object";
@@ -345,8 +308,6 @@ function ensureObjectType(obj) {
   }
 }
 
-// Convert prefixItems (tuple validation) to items — Gemini cannot express tuples,
-// and a type:"array" schema without items is rejected with "missing field"
 function convertPrefixItems(obj) {
   if (!obj || typeof obj !== "object") return;
 
@@ -367,7 +328,6 @@ function convertPrefixItems(obj) {
   }
 }
 
-// Gemini requires items on every type:"array" schema — fill a permissive placeholder
 function ensureArrayItems(obj) {
   if (!obj || typeof obj !== "object") return;
   if (obj.type === "array") {
@@ -380,9 +340,6 @@ function ensureArrayItems(obj) {
   for (const v of Object.values(obj)) if (v && typeof v === "object") ensureArrayItems(v);
 }
 
-// Gemini proto predicates: `items` only on type:"array"; `properties`/`required` only on type:"object".
-// Schema-aware walk: `properties` is a name->schema map, so a parameter literally named
-// "items"/"properties"/"required" is never mistaken for a keyword. Untyped schemas are left alone.
 function enforceTypeConstraints(schema) {
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) return;
 
@@ -399,31 +356,24 @@ function enforceTypeConstraints(schema) {
   }
 }
 
-// Clean JSON Schema for Antigravity API compatibility - removes unsupported keywords recursively
 export function cleanJSONSchemaForAntigravity(schema) {
   if (!schema || typeof schema !== "object") return schema;
 
-  // Mutate directly (schema is only used once per request)
   let cleaned = schema;
 
-  // Phase 1: Convert and prepare
   convertConstToEnum(cleaned);
   convertEnumValuesToStrings(cleaned);
 
-  // Phase 2: Flatten complex structures
   mergeAllOf(cleaned);
   convertPrefixItems(cleaned);
   flattenAnyOfOneOf(cleaned);
   flattenTypeArrays(cleaned);
 
-  // Phase 2.5: Infer missing type=object when properties exist (Gemini requirement)
   ensureObjectType(cleaned);
   ensureArrayItems(cleaned);
 
-  // Phase 3: Remove all unsupported keywords at ALL levels (including inside arrays)
   removeUnsupportedKeywords(cleaned, UNSUPPORTED_SCHEMA_CONSTRAINTS);
 
-  // Phase 4: Cleanup required fields recursively
   function cleanupRequired(obj) {
     if (!obj || typeof obj !== "object") return;
 
@@ -438,7 +388,6 @@ export function cleanJSONSchemaForAntigravity(schema) {
       }
     }
 
-    // Recurse into nested objects
     for (const value of Object.values(obj)) {
       if (value && typeof value === "object") {
         cleanupRequired(value);
@@ -448,11 +397,9 @@ export function cleanJSONSchemaForAntigravity(schema) {
 
   cleanupRequired(cleaned);
 
-  // Phase 5: Add placeholder for empty object schemas (Antigravity requirement)
   function addPlaceholders(obj) {
     if (!obj || typeof obj !== "object") return;
 
-    // Empty schema {} (no type, no properties) after $ref removal — treat as object with placeholder
     if (Object.keys(obj).length === 0) {
       obj.type = "object";
       obj.properties = {
@@ -477,7 +424,6 @@ export function cleanJSONSchemaForAntigravity(schema) {
       }
     }
 
-    // Recurse into nested objects
     for (const value of Object.values(obj)) {
       if (value && typeof value === "object") {
         addPlaceholders(value);
@@ -487,20 +433,13 @@ export function cleanJSONSchemaForAntigravity(schema) {
 
   addPlaceholders(cleaned);
 
-  // Phase 6: Enforce Gemini type predicates (items only on array, properties/required only on object)
   enforceTypeConstraints(cleaned);
 
   return cleaned;
 }
 
-// Gemini / Cloud Code treat a `$ref` key inside functionResponse.response as a
-// pointer to functionResponse.parts and reject the request with
-// "The referenced name `#/$defs/...` in function_response.response does not match
-// to a display_name in the function_response.parts". Tool results that carry a
-// JSON Schema / OpenAPI document (webfetch, read, MCP) hit this, so rename the key.
 export const GEMINI_RESERVED_RESPONSE_KEYS = { "$ref": "_ref" };
 
-// Recursively rename reserved keys in a tool-result payload (arrays/objects only)
 export function sanitizeFunctionResponsePayload(value) {
   if (Array.isArray(value)) return value.map(sanitizeFunctionResponsePayload);
   if (!value || typeof value !== "object") return value;
@@ -511,21 +450,18 @@ export function sanitizeFunctionResponsePayload(value) {
   return out;
 }
 
-// Return the part with a sanitized functionResponse.response (same reference when untouched)
 function sanitizeFunctionResponsePart(part) {
   const response = part?.functionResponse?.response;
   if (!response || typeof response !== "object") return part;
   return { ...part, functionResponse: { ...part.functionResponse, response: sanitizeFunctionResponsePayload(response) } };
 }
 
-// Gemini 4 rejects a merged user turn whose last part is not a functionResponse (#4802)
 function moveFunctionResponsesLast(parts) {
   const responses = parts.filter(p => p.functionResponse);
   if (!responses.length) return parts;
   return [...parts.filter(p => !p.functionResponse), ...responses];
 }
 
-// Merge adjacent same-role messages, strip empty parts, ensure initial and terminal user turns
 export function normalizeGeminiContents(contents, model = null) {
   const frLast = isGemini4Model(model);
   const out = [];

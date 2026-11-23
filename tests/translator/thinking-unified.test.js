@@ -1,5 +1,3 @@
-// Unit tests for unified thinking normalization (thinkingUnified.js).
-// Covers extract, suffix parse, and per-provider apply per MATRIX (.docs/thinking/plan.md).
 import { describe, it, expect } from "vitest";
 import {
   parseSuffix,
@@ -76,10 +74,6 @@ describe("applyThinking per provider format", () => {
   it("claude 4.6+ → adaptive thinking + output_config (no budget_tokens)", () => {
     const out = apply("claude", "claude-opus-4.7", { reasoning_effort: "high" }, "claude");
     expect(out.output_config).toEqual({ effort: "high" });
-    // Anthropic: on Opus 4.6/4.7/4.8 and Sonnet 4.6 thinking stays OFF unless
-    // thinking:{type:"adaptive"} is sent explicitly; output_config alone is not
-    // enough (and Anthropic-compatible shims like Copilot default off even on
-    // Sonnet 5). Both fields together are the documented adaptive shape.
     expect(out.thinking).toEqual({ type: "adaptive" });
   });
   it("claude adaptive thinking maps auto effort to a supported level", () => {

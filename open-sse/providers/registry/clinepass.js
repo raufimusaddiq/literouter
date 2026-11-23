@@ -14,9 +14,6 @@ export default {
     },
   },
   category: "oauth",
-  // ClinePass authenticates with a plain API key from app.cline.bot/settings/api-keys
-  // (category "apikey"). The OAuth extension flow used by Cline does not issue
-  // tokens that the ClinePass API consumer endpoint accepts (HTTP 401) — see #2333.
   authModes: ["apikey", "oauth"],
   hasOAuth: true,
   transport: {
@@ -25,10 +22,7 @@ export default {
       "HTTP-Referer": "https://cline.bot",
       "X-Title": "Cline",
     },
-    // Non-stream chat completions come back wrapped in {"success":true,"data":{...}}
     quirks: { clineEnvelope: true },
-    // Dashboard quota: five_hour / weekly / monthly percentUsed windows.
-    // Accepts ClinePass API keys and WorkOS OAuth (Bearer workos:<JWT>).
     usage: {
       url: "https://api.cline.bot/api/v1/users/me/plan/usage-limits",
     },
@@ -66,7 +60,6 @@ export default {
   },
   features: {
     usage: true,
-    // API-key connections use the same usage-limits endpoint (plain Bearer).
     usageApikey: true,
   },
 };

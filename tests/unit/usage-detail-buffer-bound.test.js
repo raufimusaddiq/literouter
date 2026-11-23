@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-// PRD 24: the request-details buffer must be bounded, must apply a documented
-// drop policy on overflow, and shutdown must flush within a fixed timeout.
 describe("request details buffer", () => {
   it("drops oldest instead of growing without bound", async () => {
     const mod = await import("../../src/lib/db/repos/requestDetailsRepo.js").catch(() => null);
     if (!mod) return;
 
-    // Buffer only, never flush: keep the batch threshold out of reach.
     process.env.OBSERVABILITY_ENABLED = "true";
     process.env.OBSERVABILITY_BATCH_SIZE = "100000";
     process.env.OBSERVABILITY_MAX_BUFFERED = "10";
@@ -31,8 +28,6 @@ describe("request details buffer", () => {
     const mod = await import("../../src/lib/db/repos/requestDetailsRepo.js").catch(() => null);
     if (!mod) return;
     mod.ensureShutdownHandler();
-    // The handler must be sync: Next also listens for these signals and closes
-    // the DB, so an async drain would find a dead connection.
     const listeners = process.listeners("SIGTERM");
     expect(listeners.length).toBeGreaterThan(0);
     expect(listeners.some((fn) => fn.constructor.name !== "AsyncFunction")).toBe(true);

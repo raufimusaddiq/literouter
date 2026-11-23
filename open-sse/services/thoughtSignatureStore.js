@@ -4,18 +4,13 @@ import { stringifyJson } from "../../src/lib/db/helpers/jsonCol.js";
 
 const MAX_SIGNATURES = 2000;
 const MAX_PERSISTED_SIGNATURES = 10_000;
-const MEMORY_TTL_MS = 1000 * 60 * 60; // 1 hour
-const PERSISTED_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
+const MEMORY_TTL_MS = 1000 * 60 * 60;
+const PERSISTED_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const SCOPE = "gemini_thought_signatures";
 
 const signatureKv = makeKv(SCOPE);
 const memorySignatures = new Map();
 
-/**
- * Model family that produced / will consume a signature. Antigravity serves Gemini and Claude
- * models behind the same API, and each backend only accepts its own signatures: a Claude
- * signature replayed to Gemini fails with 400 "Corrupted thought signature." (and vice versa).
- */
 export function signatureFamily(model) {
   const m = typeof model === "string" ? model.toLowerCase() : "";
   if (!m) return null;
@@ -24,7 +19,6 @@ export function signatureFamily(model) {
   return m;
 }
 
-// Entries stored before families were recorded (no `family`) stay usable for any model.
 function isCompatible(entry, family) {
   return !entry.family || !family || entry.family === family;
 }
@@ -33,8 +27,6 @@ const MEMORY_PRUNE_INTERVAL_MS = 60 * 1000;
 const PERSIST_FLUSH_INTERVAL_MS = 1000;
 const PERSISTED_PRUNE_INTERVAL_MS = 10 * 60 * 1000;
 
-// Reads already check expiry themselves, so expired entries only need sweeping
-// on a timer (not a full scan on every get/store).
 function pruneMemoryExpired() {
   const now = Date.now();
   for (const [key, value] of memorySignatures.entries()) {
@@ -45,7 +37,6 @@ function pruneMemoryExpired() {
   trimMemoryToCap();
 }
 
-// O(1) amortized size cap on the hot path (Map iterates in insertion order).
 function trimMemoryToCap() {
   while (memorySignatures.size > MAX_SIGNATURES) {
     const oldestKey = memorySignatures.keys().next().value;
@@ -54,8 +45,6 @@ function trimMemoryToCap() {
   }
 }
 
-// Batched persistence: one transaction per interval instead of two sync kv
-// writes per store.
 const pendingPersist = new Map();
 let flushTimer = null;
 let pruneTimer = null;
@@ -69,11 +58,9 @@ export async function flushPendingSignatures() {
   try {
     await signatureKv.setMany(batch);
   } catch {
-    // Fail-open: RAM cache still serves this process
   }
 }
 
-// Synchronous drain for shutdown: the 1s unref'd timer may never fire.
 export function flushPendingSignaturesSync() {
   if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
   if (pendingPersist.size === 0) return;
@@ -133,14 +120,9 @@ async function prunePersisted() {
     }
     await signatureKv.removeMany(toRemove);
   } catch {
-    // Fail-open
   }
 }
 
-/**
- * Store a thought signature for a tool_call_id with optional sessionId namespace (RAM + batched SQLite).
- * `model` is the model that produced the signature; lookups for another model family skip it.
- */
 export function storeGeminiThoughtSignature(toolCallId, signature, sessionId = null, model = null) {
   if (typeof toolCallId !== "string" || !toolCallId) return;
   if (typeof signature !== "string" || !signature) return;
@@ -156,7 +138,6 @@ export function storeGeminiThoughtSignature(toolCallId, signature, sessionId = n
   keys.push(toolCallId);
 
   for (const k of keys) {
-    // delete first so a refreshed key moves to the newest slot
     memorySignatures.delete(k);
     memorySignatures.set(k, {
       signature,
@@ -174,10 +155,6 @@ export function storeGeminiThoughtSignature(toolCallId, signature, sessionId = n
   schedulePersistFlush();
 }
 
-/**
- * Synchronous get from RAM cache only (for sync translators).
- * `model` is the target model; signatures produced by another model family are ignored.
- */
 export function getGeminiThoughtSignatureSync(toolCallId, sessionId = null, model = null) {
   if (typeof toolCallId !== "string" || !toolCallId) return null;
   const family = signatureFamily(model);

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { clearRollupKeyCache, getRollupKeyId } from "@/lib/db/usageRollup.js";
 
-// Minimal fake db: usageRollupKey rows live in `committed`; txn() rolls back inserts on throw.
 function makeDb() {
   const committed = new Map();
   let pending = null;
@@ -31,7 +30,6 @@ describe("rollup key cache vs rollback", () => {
     let staleId;
     expect(() => db.transaction(() => { staleId = getRollupKeyId(db, A); throw new Error("boom"); })).toThrow("boom");
     clearRollupKeyCache(db);
-    // Row for A was rolled back; an unrelated tuple now gets a fresh id, and A must not resolve from a stale cache.
     db.transaction(() => { getRollupKeyId(db, B); });
     let idA;
     db.transaction(() => { idA = getRollupKeyId(db, A); });

@@ -1,13 +1,3 @@
-// Zed hosted LLM aggregator — auth + model-catalog helpers.
-//
-// Zed's cloud (cloud.zed.dev) authenticates native apps with a self-generated RSA
-// keypair instead of a registered OAuth client_id/secret:
-//   1. Client generates an ephemeral RSA keypair.
-//   2. Sends the public key to zed.dev/native_app_signin.
-//   3. User signs in via browser; Zed redirects to a local callback with the
-//      access token RSA-encrypted against the public key.
-//   4. Client decrypts locally with the private key that never left the host.
-// No embedded client_id/secret — the credential is a per-login keypair.
 
 import crypto from "node:crypto";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
@@ -56,7 +46,6 @@ function zedUrl(config, key, path, fallbackBase) {
   return `${base}${path}`;
 }
 
-/** Encode a PEM private key as an opaque verifier (flows through the OAuth codeVerifier slot). */
 export function encodeZedPrivateKeyVerifier(privateKeyPem) {
   return `${PRIVATE_KEY_PREFIX}${b64url(privateKeyPem)}`;
 }
@@ -69,7 +58,6 @@ export function decodeZedPrivateKeyVerifier(verifier) {
   return fromB64url(value.slice(PRIVATE_KEY_PREFIX.length));
 }
 
-/** Generate a fresh RSA keypair + the zed.dev native_app_signin URL for it. */
 export function createZedNativeAuthData(config = {}, options = {}) {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
     modulusLength: 2048,
@@ -98,7 +86,6 @@ export function createZedNativeAuthData(config = {}, options = {}) {
   };
 }
 
-/** Parse the pasted native-app callback URL/JSON/query into userId + encrypted token. */
 export function parseZedCallbackPayload(input) {
   const raw = String(input || "").trim();
   if (!raw) throw new Error("Missing Zed callback URL");
@@ -112,10 +99,6 @@ export function parseZedCallbackPayload(input) {
       url = new URL(raw);
     } catch {
       try {
-        // Accept pathname+query (what the local proxy forwards, e.g.
-        // "/?user_id=..&access_token=.." or "/callback?.."), a bare query,
-        // or a lone query string. Only the query part is parsed — a leading
-        // path must never become part of the first parameter name.
         const query = raw.includes("?")
           ? raw.slice(raw.indexOf("?") + 1)
           : raw.replace(/^\?/, "");
@@ -137,7 +120,6 @@ export function parseZedCallbackPayload(input) {
   return { userId: String(userId), encryptedAccessToken: String(encryptedAccessToken) };
 }
 
-/** Decrypt the RSA-encrypted access token using the stored private key. */
 export function decryptZedAccessToken(encryptedAccessToken, privateKeyVerifier) {
   const privateKey = decodeZedPrivateKeyVerifier(privateKeyVerifier);
   const encrypted = Buffer.from(String(encryptedAccessToken), "base64url");
@@ -153,9 +135,6 @@ export function decryptZedAccessToken(encryptedAccessToken, privateKeyVerifier) 
       )
       .toString("utf8");
   } catch (oaepError) {
-    // The callback helper sends RSA-OAEP/SHA-256. PKCS#1 v1.5 has no integrity
-    // check: decrypting a token for another key can produce arbitrary UTF-8 and
-    // be stored as a valid session. Fail closed instead of accepting that output.
     fail(oaepError);
   }
 }
@@ -358,7 +337,6 @@ export function mapZedModel(model) {
   };
 }
 
-/** Resolve (and cache) the live Zed model catalog. Never hardcoded — always a live fetch. */
 export async function resolveZedModels(credentials, options = {}) {
   if (!credentials?.accessToken) return null;
   const key = zedModelCacheKey(credentials);

@@ -1,6 +1,3 @@
-// Legacy JSON import (one-time, fresh DB) must not carry client API keys into
-// SQLite as plaintext: usage rows and daily buckets get the same keyed HMAC
-// fingerprint migration 003 writes, while apiKeys.key stays the live credential.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

@@ -72,7 +72,6 @@ describe("Usage batch persistence", () => {
     const dailyWrites = () => mocks.db.run.mock.calls.filter(([sql]) =>
       String(sql).includes("INSERT INTO usageDaily")
     );
-    // The daily aggregate is held in memory and written on a slower cadence.
     expect(dailyWrites()).toHaveLength(0);
     flushUsageDailySync(mocks.db);
     expect(dailyWrites()).toHaveLength(1);
@@ -95,7 +94,6 @@ describe("Usage batch persistence", () => {
     expect(dailyWrites()).toHaveLength(0);
     globalThis.__liteRouterUsageDrainSync();
     expect(dailyWrites()).toHaveLength(1);
-    // Nothing dirty afterwards: a second drain writes nothing more.
     globalThis.__liteRouterUsageDrainSync();
     expect(dailyWrites()).toHaveLength(1);
   });
@@ -110,7 +108,6 @@ describe("Usage batch persistence", () => {
     await p.catch(() => {});
     flushUsageDailySync(mocks.db);
     const writes = mocks.db.run.mock.calls.filter(([sql]) => String(sql).includes("INSERT INTO usageDaily"));
-    // retry succeeded exactly once => aggregate counts 1 request, never 2
     for (const w of writes) expect(JSON.parse(w[1][1]).requests).toBeLessThanOrEqual(1);
   });
 });

@@ -7,8 +7,6 @@ import {
   getQuotaCooldown,
 } from "../../open-sse/services/accountFallback.js";
 
-// PRD section 24: quota states must be explicit and the router must never loop
-// indefinitely on quota or retry errors.
 
 const MODEL = "test-model";
 const LOCK_KEY = `modelLock_${MODEL}`;
@@ -37,7 +35,6 @@ describe("quota states", () => {
   });
 
   it("error: unknown accounts stay eligible rather than being treated as exhausted", () => {
-    // A connection with no lock fields and no status is eligible, not blocked.
     const conn = { testStatus: "unknown" };
     expect(isModelLockActive(conn, MODEL)).toBe(false);
   });
@@ -59,8 +56,6 @@ describe("retry bound", () => {
   });
 
   it("client request errors do not cool down the account", () => {
-    // 404 is intentionally treated as an account-scoped signal upstream (it can
-    // mean a revoked or deleted credential), so it is excluded here.
     for (const status of [400, 422]) {
       expect(checkFallbackError(status, "bad request", 0).shouldFallback).toBe(false);
     }

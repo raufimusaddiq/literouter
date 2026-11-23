@@ -41,7 +41,6 @@ function encode(parts) {
   }).join("")}`;
 }
 
-// Decode one RESP reply from buffer, or null while incomplete.
 function decode(buffer) {
   if (!buffer.length) return null;
   const end = buffer.indexOf(13);
@@ -172,8 +171,6 @@ function runOnLane(lane, parts) {
     }
   };
 
-  // RESP replies on one socket are ordered. Serialize only within that socket,
-  // not across the whole Redis client. Other lanes remain free concurrently.
   const result = lane.chain.then(run, run);
   lane.chain = result.catch(() => {});
   return result;
@@ -227,7 +224,6 @@ export function closeRedisPool() {
   state.cursor = 0;
 }
 
-// Test hooks: no live Redis server required for decoder/pool shape checks.
 export const __redisState = state;
 export function __ensureRedisLanes() {
   return ensureLanes().length;

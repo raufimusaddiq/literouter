@@ -33,7 +33,7 @@ describe("dashboard client requests", () => {
     expect(getProviderIconSrc("openai")).toBe("/providers/openai.png");
     expect(getProviderIconSrc("gitlab-duo")).toBe("/providers/gitlab.png");
     expect(getProviderIconSrc("typesafe")).toBeNull();
-    expect(getProviderIconSrc("kenari")).toBeNull();
+    expect(getProviderIconSrc("kenari")).toBe("/providers/kenari.png");
     expect(getProviderIconSrc("openai-compatible-chat-6d0ab93c-cc80-4278-b1dc-f2da26f80fc6")).toBeNull();
     expect(getProviderIconSrc("anthropic-compatible-x-6d0ab93c-cc80-4278-b1dc-f2da26f80fc6")).toBeNull();
   });

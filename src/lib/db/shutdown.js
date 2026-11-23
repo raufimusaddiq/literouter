@@ -1,9 +1,3 @@
-// Shared synchronous shutdown drain for every DB adapter.
-//
-// Usage and request-detail buffering intentionally sit off the request path.
-// Every adapter must flush those accepted events before closing/persisting the
-// underlying database, otherwise fallback runtimes can lose the tail of Usage
-// history during SIGTERM/beforeExit.
 export function drainRuntimeBuffersSync() {
   const drains = [
     ["usage", globalThis.__liteRouterUsageDrainSync],

@@ -1,10 +1,3 @@
-/**
- * Qoder context-window tiers + routable model listing.
- *
- * The Qoder IDE lets a user pick 200K / 400K / 1M for a model; qodercli-style
- * requests (what 9router sends) only carry the default max_input_tokens. These
- * tests pin the escalation policy and the payload fields the IDE writes.
- */
 import { describe, it, expect } from "vitest";
 
 import {
@@ -16,7 +9,6 @@ import {
 } from "../../open-sse/shared/qoder/contextTier.js";
 import { routableQoderModels } from "../../open-sse/services/qoderModels.js";
 
-// Shape mirrors the live /algo/api/v2/model/list entry for qmodel_38max.
 const MODEL_CONFIG = {
   key: "qmodel_38max",
   display_name: "Qwen3.8-Max",
@@ -31,7 +23,6 @@ const MODEL_CONFIG = {
 };
 
 function promptOfTokens(n) {
-  // ~4 ASCII chars per token
   return { system: "", messages: [{ role: "user", content: "abcd".repeat(n) }], tools: [] };
 }
 
@@ -109,9 +100,7 @@ describe("resolveQoderContextTier (auto)", () => {
   });
 
   it("applies headroom so a prompt just under the limit still escalates", () => {
-    // 170K estimated * 1.15 = 195.5K > 180K current → smallest tier above the current limit (200K)
     expect(resolveQoderContextTier(MODEL_CONFIG, promptOfTokens(170_000))?.tier.name).toBe("200K");
-    // 190K * 1.15 = 218.5K → 200K no longer fits → 400K
     expect(resolveQoderContextTier(MODEL_CONFIG, promptOfTokens(190_000))?.tier.name).toBe("400K");
   });
 

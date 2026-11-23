@@ -69,6 +69,7 @@ export const PROVIDER_ICON_IDS = new Set([
   "jcode",
   "jina-ai",
   "jina-reader",
+  "kenari",
   "kilo-gateway",
   "kilocode",
   "kimchi",

@@ -1,11 +1,9 @@
-// #147: an aborted stream must name its request, and the persisted row must be an error.
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { pipeWithDisconnect, createStreamController } from "../../open-sse/utils/streamHandler.js";
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 function stalledResponse() {
-  // Never yields a chunk; closes only when the consumer cancels.
   return { body: new ReadableStream({ start() {}, cancel() {} }) };
 }
 

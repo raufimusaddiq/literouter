@@ -1,7 +1,3 @@
-// Derive per-node client transport routes from a compatible provider node.
-// One source of truth for the API layer, routing executor, and UI.
-// Legacy openai-compatible nodes with apiType "chat" keep chat + translation
-// fallback; new nodes may advertise several native transports at once.
 
 export const CHAT_PATH = "/chat/completions";
 export const RESPONSES_PATH = "/responses";

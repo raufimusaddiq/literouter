@@ -21,7 +21,7 @@ export default {
   transport: {
     baseUrls: [ANTIGRAVITY_IDE_BASE_URL],
     format: "antigravity",
-    quirks: { noDoneSentinel: true }, // Gemini-family clients reject the OpenAI [DONE] sentinel
+    quirks: { noDoneSentinel: true },
     headers: {
       "User-Agent": ANTIGRAVITY_IDE_USER_AGENT,
     },
@@ -70,7 +70,6 @@ export default {
     { id: "claude-opus-4-6-thinking", name: "Claude Opus 4.6 (Thinking)" },
     { id: "gpt-oss-120b-medium", name: "GPT-OSS 120B (Medium)" },
     { id: "gemini-3-flash", name: "Gemini 3 Flash", thinking: false },
-    // Image generation models
   ],
   oauth: {
     authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",

@@ -31,7 +31,7 @@ describe("getClaudeUsage cache", () => {
   it("caches good results and serves them", async () => {
     fetchMock.mockResolvedValue(okResp());
     const r1 = await getClaudeUsage("tok-ok");
-    if (!r1?.quotas) return; // shape guard: only meaningful when parse yields quotas
+    if (!r1?.quotas) return;
     const calls = fetchMock.mock.calls.length;
     const r2 = await getClaudeUsage("tok-ok");
     expect(r2).toBe(r1);
@@ -41,7 +41,6 @@ describe("getClaudeUsage cache", () => {
   it("bounds the map size", async () => {
     fetchMock.mockResolvedValue(okResp());
     for (let i = 0; i < 260; i++) await getClaudeUsage(`tok-${i}`);
-    // oldest entries evicted: first token must refetch
     const before = fetchMock.mock.calls.length;
     await getClaudeUsage("tok-0");
     expect(fetchMock.mock.calls.length).toBeGreaterThan(before);

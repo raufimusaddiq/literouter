@@ -1,20 +1,3 @@
-/**
- * Regression: Anthropic rejects a tool that carries BOTH `defer_loading: true`
- * and `cache_control`:
- *
- *   [400] Tool 'mcp__x__y' cannot both defer_loading=true cache_control set.
- *         Tools defer_loading cannot use prompt caching.
- *
- * 9router anchors the 1h cache breakpoint on the LAST tool of the array with
- * no guard. Clients that speak MCP (Claude Code) put deferred tools at the
- * tail, so the anchor lands exactly on a tool that cannot be cached and the
- * request 400s before combo fallback can try the next hop.
- *
- * The fix anchors on the last tool that is NOT deferred, so prompt caching is
- * kept for the tools that can use it instead of being dropped wholesale.
- *
- * See: #3567.
- */
 
 import { describe, it, expect } from "vitest";
 import { anchorClaudeCache } from "../../open-sse/translator/formats/claude.js";

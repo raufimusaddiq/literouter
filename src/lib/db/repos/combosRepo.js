@@ -15,7 +15,6 @@ function rowToCombo(row) {
   };
 }
 
-// ponytail: process-local cache; UI writes invalidate it, external writers wait for TTL
 const comboCache = global.__liteRouterComboCache ??= { rows: null, expiresAt: 0 };
 const COMBO_CACHE_TTL_MS = Math.max(1000, Number(process.env.RUNTIME_CONFIG_TTL_MS || 5000));
 function invalidateComboCache() { comboCache.rows = null; comboCache.expiresAt = 0; bumpConfigVersion(); }

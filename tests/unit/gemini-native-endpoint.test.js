@@ -35,10 +35,6 @@ beforeEach(() => {
   global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [] }), { status: 200 }));
 });
 
-// The old suite here asserted TTS model names that the route no longer serves
-// (ttsModels.js is a separate table). This asserts the live contract: every
-// provider model is listed under models/<provider>/<id>, and gemini models also
-// get the bare models/<id> alias Gemini clients call.
 describe("Gemini native v1beta models endpoint", () => {
   it("answers CORS preflight", async () => {
     const res = await OPTIONS();

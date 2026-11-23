@@ -6,15 +6,9 @@ const tls = require("tls");
 
 const origCreate = http.createServer.bind(http);
 
-// Per-process secret proving x-9r-real-ip was stamped below rather than sent by the client.
-// A bare `next start` / `next dev` never loads this file, so it cannot produce a matching
-// header even though the env var is inherited by child processes. Named like x-9r-cli-token
-// so the request-detail header sanitizer redacts it too.
 const PEER_TOKEN = crypto.randomBytes(24).toString("hex");
 process.env.NINEROUTER_PEER_TOKEN = PEER_TOKEN;
 
-// Same ceiling as Next's proxyClientMaxBodySize (next.config.mjs) so the h2c
-// downgrade path cannot buffer more than the normal request path.
 function parseBodyLimit(raw) {
   const m = /^\s*(\d+(?:\.\d+)?)\s*(b|kb|mb|gb)?\s*$/i.exec(String(raw ?? ""));
   if (!m) return 128 * 1024 * 1024;
@@ -24,9 +18,6 @@ function parseBodyLimit(raw) {
 const MAX_H2C_BODY_BYTES = parseBodyLimit(process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE || "128mb");
 const H2C_READ_TIMEOUT_MS = 120_000;
 
-// Wrap Next standalone HTTP server: derive client IP from the TCP socket
-// (unspoofable) and strip client-supplied forwarding headers so downstream
-// rate-limiting keys on the real peer address instead of attacker-controlled XFF.
 http.createServer = (...args) => {
   const handler = args.find((a) => typeof a === "function");
   const rest = args.filter((a) => typeof a !== "function");
@@ -35,20 +26,10 @@ http.createServer = (...args) => {
     const socketIp = req.socket && req.socket.remoteAddress ? req.socket.remoteAddress : "";
     const xff = req.headers["x-forwarded-for"];
     const xRealIp = req.headers["x-real-ip"];
-    // Any of these on a loopback peer means a reverse proxy/CDN hop, not a local operator.
-    // Keep in sync with src/lib/auth/proxyMarkers.js. Caddy sends X-Forwarded-*; nginx's
-    // bare proxy_pass sends none, hence the TRUST_LOOPBACK_AS_LOCAL=false opt-out.
     const PROXY_MARKERS = ["x-forwarded-for", "x-real-ip", "forwarded", "x-forwarded-proto", "x-forwarded-host", "via", "cf-connecting-ip", "true-client-ip"];
     const trustLoopback = String(process.env.TRUST_LOOPBACK_AS_LOCAL ?? "true").trim().toLowerCase() !== "false";
     const viaProxy = !trustLoopback || PROXY_MARKERS.some((h) => !!req.headers[h]);
     const isLoopbackProxy = socketIp === "127.0.0.1" || socketIp === "::1" || socketIp === "::ffff:127.0.0.1";
-    // Trust forwarding headers only when the TCP peer is a local reverse proxy.
-    // Direct/public sockets remain keyed by the unspoofable peer address.
-    // A proxy appends the hop it accepted to the right of XFF, so the rightmost
-    // entry is the one the trusted loopback proxy observed; leftmost is whatever
-    // the client sent and must never key a rate limit or lockout bucket.
-    // ASSUMPTION: exactly ONE trusted loopback proxy hop sits in front. With a
-    // longer proxy chain the rightmost entry is an inner proxy, not the client.
     const xffHops = xff ? String(xff).split(",").map((h) => h.trim()).filter(Boolean) : [];
     const proxyIp = String(xRealIp || "").trim() || (xffHops.length ? xffHops[xffHops.length - 1] : "");
     const ip = isLoopbackProxy && proxyIp ? proxyIp : socketIp;
@@ -57,16 +38,12 @@ http.createServer = (...args) => {
     delete req.headers["x-9r-via-proxy"];
     delete req.headers["x-9r-peer-token"];
     req.headers["x-9r-real-ip"] = ip;
-    // The token is proof that this file overwrote x-9r-real-ip from the TCP socket,
-    // which is what makes downstream local-operator trust worth anything. It is
-    // stamped on every request the wrapper handles, not only proxied ones.
     req.headers["x-9r-peer-token"] = PEER_TOKEN;
     if (viaProxy) req.headers["x-9r-via-proxy"] = "1";
     return handler(req, res);
   };
   const server = origCreate(...rest, wrapped);
   const origEmit = server.emit;
-  // JBR 25 sends h2c upgrades that the HTTP/1.1 server would otherwise close.
   server.emit = function (event, ...eventArgs) {
     const [req, socket, head] = eventArgs;
     if (event !== "upgrade" || String(req.headers.upgrade || "").toLowerCase() !== "h2c") {
@@ -75,8 +52,6 @@ http.createServer = (...args) => {
 
     const contentLength = Number(req.headers["content-length"] || 0);
     const transferEncoding = req.headers["transfer-encoding"];
-    // Chunked framing inside an upgrade is not replayable as HTTP/1.1; before
-    // this returned the request to the HTTP/1.1 parser as a bodyless POST.
     if (transferEncoding) {
       socket.end("HTTP/1.1 411 Length Required\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
       return true;
@@ -95,7 +70,6 @@ http.createServer = (...args) => {
     const chunks = [head];
     let received = head.length;
     const serve = () => {
-      // Replay the upgraded request through the existing HTTP/1.1 handler.
       const replay = new http.IncomingMessage(socket);
       Object.assign(replay, { method: req.method, url: req.url, headers: req.headers, complete: true });
       if (received) replay.push(Buffer.concat(chunks, received).subarray(0, contentLength));
@@ -111,7 +85,6 @@ http.createServer = (...args) => {
     };
     if (received >= contentLength) serve();
     else {
-      // A stalled sender must not hold the socket forever.
       socket.setTimeout(H2C_READ_TIMEOUT_MS, () => socket.destroy());
       socket.on("data", function readBody(chunk) {
         if (received + chunk.length > MAX_H2C_BODY_BYTES) {
@@ -133,13 +106,6 @@ http.createServer = (...args) => {
   return server;
 };
 
-// Node verifies TLS against its bundled Mozilla store (tls.rootCertificates), not the OS
-// bundle, so patching ca-certificates in the image does not remove a distrusted root.
-// Replace the process-wide default CA list once, before any outbound connection, so every
-// client that does not pass its own `ca` (global fetch, undici Agent/ProxyAgent, https.get)
-// verifies against the OS bundle. Needs Node >= 22.19 (tls.setDefaultCACertificates).
-// Fails closed: no usable system store means refusing to start, never silently keeping
-// the bundled roots.
 function useSystemCaStore(tlsApi = tls) {
   if (typeof tlsApi.setDefaultCACertificates !== "function" || typeof tlsApi.getCACertificates !== "function") {
     throw new Error("CA trust: tls.setDefaultCACertificates is unavailable (Node >= 22.19 required)");
@@ -153,7 +119,6 @@ function useSystemCaStore(tlsApi = tls) {
 }
 
 if (require.main === module) {
-  // Opt-in (set in the Dockerfile) so CLI installs on older Node keep working.
   if (process.env.LITEROUTER_SYSTEM_CA === "1") {
     try {
       console.log(`[CA trust] using ${useSystemCaStore()} system CA certificates`);
@@ -166,8 +131,6 @@ if (require.main === module) {
   if (fs.existsSync(standalone)) {
     require(standalone);
   } else {
-    // Repo checkout has no standalone build next to us. `next start` builds its HTTP
-    // server in-process, so the wrapper above still sanitizes every request.
     const nextBin = require.resolve("next/dist/bin/next");
     process.argv = [process.argv[0], nextBin, "start", ...process.argv.slice(2)];
     require(nextBin);

@@ -10,7 +10,6 @@ import { normalizeProviderId } from "@/lib/providerNormalization";
 import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
 import { isLocalRequest } from "@/dashboardGuard";
 
-// POST /api/providers/validate - Validate API key with provider
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -19,11 +18,6 @@ export async function POST(request) {
     const remote = !isLocalRequest(request);
     const validateFetch = remote ? fetchPublic : fetch;
 
-    // One gate for every caller-controlled URL this route fetches. Branches below
-    // vary a lot (provider node, azure endpoint, ollama host), so guarding each
-    // call site separately kept missing sinks; this rejects any private/metadata
-    // target before the branch runs. The local operator keeps self-hosted hosts
-    // (``ollama-local`` on the LAN) the same way provider-nodes/validate does.
     if (remote) {
       const candidates = [
         providerSpecificData?.azureEndpoint,
@@ -46,15 +40,12 @@ export async function POST(request) {
     let isValid = false;
     let error = null;
 
-    // Validate with each provider
     try {
       if (isOpenAICompatibleProvider(provider)) {
         const node = await getProviderNodeById(provider);
         if (!node) {
           return NextResponse.json({ error: "OpenAI Compatible node not found" }, { status: 404 });
         }
-        // SSRF guard for remote callers; a local operator may target a
-        // self-hosted node on the private network.
         if (remote) {
           try { await assertPublicUrlResolved(node.baseUrl?.trim() || ""); }
           catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
@@ -82,7 +73,7 @@ export async function POST(request) {
         }
         let normalizedBase = node.baseUrl?.trim().replace(/\/$/, "") || "";
         if (normalizedBase.endsWith("/messages")) {
-          normalizedBase = normalizedBase.slice(0, -9); // remove /messages
+          normalizedBase = normalizedBase.slice(0, -9);
         }
 
         const messagesUrl = `${normalizedBase}/v1/messages`;
@@ -103,7 +94,6 @@ export async function POST(request) {
           }),
         });
 
-        // 400/529 still confirms key accepted; only 401/403 = bad key
         isValid = res.status !== 401 && res.status !== 403;
         return NextResponse.json({
           valid: isValid,
@@ -143,7 +133,6 @@ export async function POST(request) {
           try { await assertPublicUrlResolved(node.baseUrl?.trim() || ""); }
           catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
         }
-        // Invalid questions authenticate without spending an evaluation.
         const res = await validateFetch(node.baseUrl.replace(/\/$/, ""), {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -166,9 +155,6 @@ export async function POST(request) {
         };
         if (organization) headers["OpenAI-Organization"] = organization;
 
-        // `azureEndpoint` is caller-supplied. The remote gate at the top of this handler
-        // resolves it once before the branch runs; fetchPublic re-resolves and then
-        // re-validates every redirect hop on top of that.
         const azureRes = await fetchPublic(url, {
           method: "POST",
           headers,
@@ -189,7 +175,6 @@ export async function POST(request) {
           const typesafeRes = await validateFetch(PROVIDERS.typesafe.baseUrl, {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            // Invalid questions authenticate without spending an evaluation.
             body: JSON.stringify({ model: "jev-latest", state: "ping", questions: {} }),
           });
           isValid = typesafeRes.status !== 401 && typesafeRes.status !== 403;
@@ -248,7 +233,6 @@ export async function POST(request) {
         case "alims-intl":
         case "alicode":
         case "agentrouter": {
-          // Use baseUrl from PROVIDERS (DRY); separate openai-format vs claude-format flow
           const cfg = PROVIDERS[provider];
           const isOpenAiFormat = provider === "glm-cn" || provider === "alicode" || provider === "alicode-intl" || provider === "alims-intl";
 
@@ -272,7 +256,6 @@ export async function POST(request) {
               },
               body: JSON.stringify({ model: testModel, max_tokens: 1, messages: [{ role: "user", content: "test" }] }),
             });
-            // 400 = model resolution error but auth passed (e.g. agentrouter "no available channel")
             isValid = res.status !== 401 && res.status !== 403;
           }
           break;
@@ -310,8 +293,6 @@ export async function POST(request) {
         case "ollama":
         case "ollama-local":
         case "chutes":
-        // synthetic: validateUrl is /v2/quotas, because the public /openai/v1/models
-        // answers 200 for any Bearer value and cannot reject a revoked key.
         case "synthetic":
         case "xiaomi-mimo":
         case "xiaomi-tokenplan":
@@ -320,18 +301,15 @@ export async function POST(request) {
             ...Object.fromEntries(
               Object.entries(PROVIDERS).filter(([, t]) => t.validateUrl).map(([id, t]) => [id, t.validateUrl])
             ),
-            // dynamic URLs (depend on providerSpecificData) — kept inline
             "ollama-local": `${resolveOllamaLocalHost({ providerSpecificData })}/api/tags`,
             "xiaomi-tokenplan": `${resolveXiaomiTokenplanBaseUrl({ providerSpecificData })}/models`,
           };
           const headers = {};
           if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
           const res = await validateFetch(endpoints[provider], { headers, signal: AbortSignal.timeout(8000) });
-          // xai returns 400 for bad key, 403 for valid-but-no-credit. Other providers use 401.
           if (provider === "xai") {
             isValid = res.status === 200 || res.status === 403;
           } else if (provider === "xiaomi-tokenplan") {
-            // /models returns 403 for valid keys lacking list permission; only 401 means invalid
             isValid = res.status !== 401;
           } else {
             isValid = res.ok;
@@ -389,20 +367,15 @@ export async function POST(request) {
               max_tokens: 10,
             }),
           });
-          // Returns 401 for invalid key, 200 for valid, 400 for malformed
           isValid = res.status === 200 || res.status === 400;
           break;
         }
 
         case "vertex": {
-          // Raw key: probe global endpoint (always 404 for unknown model, never 401)
-          // SA JSON: attempt token mint via JWT assertion
           const saJson = (() => { try { const p = JSON.parse(apiKey); return p.type === "service_account" ? p : null; } catch { return null; } })();
           if (saJson) {
-            // Validate SA JSON has required fields
             isValid = !!(saJson.client_email && saJson.private_key && saJson.project_id);
           } else {
-            // Raw key: probe Vertex — 404 means key is valid (model just doesn't exist), 401 means invalid key
             const probeRes = await fetch(
               `https://aiplatform.googleapis.com/v1/publishers/google/models/__probe__:generateContent?key=${apiKey}`,
               { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }
@@ -428,7 +401,6 @@ export async function POST(request) {
 
         case "grok-web": {
           const token = apiKey.startsWith("sso=") ? apiKey.slice(4) : apiKey;
-          // Cloudflare-bypass: send POST with same browser fingerprint headers as GrokWebExecutor
           const randomHex = (n) => {
             const a = new Uint8Array(n);
             crypto.getRandomValues(a);
@@ -470,7 +442,6 @@ export async function POST(request) {
               forceSideBySide: false, isAsyncChat: false, disableSelfHarmShortCircuit: false,
             }),
           });
-          // Cookie valid = any non-401/403 response (200, 400, 429 all mean cookie accepted)
           if (res.status === 401 || res.status === 403) {
             isValid = false;
             error = "Invalid SSO cookie — re-paste from grok.com DevTools → Cookies → sso";
@@ -519,8 +490,6 @@ export async function POST(request) {
         }
 
         case "qoder": {
-          // PAT (pt-...) needs the job-token exchange before it can sign
-          // anything — the generic OpenAI-compat probe below can't validate it.
           try {
             const resolved = await resolveQoderCredentials({ apiKey, providerSpecificData }, null, AbortSignal.timeout(8000));
             const result = await resolveQoderModels(resolved, { forceRefresh: true });
@@ -533,7 +502,6 @@ export async function POST(request) {
         }
 
         default: {
-          // Generic probe for OpenAI-compatible providers (config-driven from PROVIDERS)
           const cfg = PROVIDERS[provider];
           if (!cfg || cfg.format !== "openai" || !cfg.baseUrl) {
             return NextResponse.json({ error: "Provider validation not supported" }, { status: 400 });
@@ -542,23 +510,20 @@ export async function POST(request) {
             isValid = true;
             break;
           }
-          // Build auth headers based on cfg.authHeader (default: bearer)
           const headers = { "Content-Type": "application/json", ...(cfg.headers || {}) };
           if (cfg.authHeader === "x-api-key") headers["X-API-Key"] = apiKey;
           else headers["Authorization"] = `Bearer ${apiKey}`;
-          // Try /models first (fast GET), fallback to chat probe on ambiguous response
           const modelsUrl = cfg.baseUrl.replace(/\/chat\/completions$/, "/models").replace(/\/chatbot$/, "/models");
           let probeOk = null;
           try {
             const probeRes = await fetch(modelsUrl, { headers, signal: AbortSignal.timeout(8000) });
             if (probeRes.status === 401 || probeRes.status === 403) probeOk = false;
             else if (probeRes.ok) probeOk = true;
-          } catch { /* fallback to chat */ }
+          } catch {}
           if (probeOk !== null) {
             isValid = probeOk;
             break;
           }
-          // Fallback: minimal chat probe
           const defaultModel = getDefaultModel(provider) || "test";
           const chatRes = await fetch(cfg.baseUrl, {
             method: "POST",

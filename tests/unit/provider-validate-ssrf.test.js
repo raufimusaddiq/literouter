@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// The OpenAI/Anthropic "compatible" branches fetch a node-supplied baseUrl
-// server-side. A remote caller must not be able to aim that fetch at an
-// internal address (CodeQL js/request-forgery on providers/validate).
 
 const { getNodeMock, lookupMock, fetchMock } = vi.hoisted(() => ({
   getNodeMock: vi.fn(), lookupMock: vi.fn(), fetchMock: vi.fn(),
@@ -23,7 +20,6 @@ function request(body, { local = false } = {}) {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      // custom-server.js stamps this when headers came through a reverse proxy
       ...(local
         ? { "x-9r-peer-token": "test-peer", "x-9r-real-ip": "127.0.0.1" }
         : { "x-9r-via-proxy": "1" }),

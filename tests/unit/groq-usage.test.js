@@ -81,7 +81,6 @@ describe("getUsageForProvider(groq)", () => {
       total: 18000,
       unlimited: false,
     });
-    // Duration-string reset headers resolve to a real future ISO timestamp.
     expect(new Date(usage.quotas["Requests"].resetAt).getTime()).toBeGreaterThan(Date.now());
     expect(new Date(usage.quotas["Tokens"].resetAt).getTime()).toBeGreaterThan(Date.now());
   });

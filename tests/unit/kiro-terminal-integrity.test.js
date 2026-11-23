@@ -82,9 +82,6 @@ function response(frames, status = 200) {
   }), {
     status,
     statusText: status === 200 ? "OK" : "Upstream Error",
-    // Kiro answers with the AWS EventStream content type and the executor reads
-    // it back when classifying a failed attempt. Omitting it made the mocked
-    // failure path look like a transport error and retry forever.
     headers: { "content-type": "application/vnd.amazon.eventstream" },
   });
 }
@@ -349,8 +346,6 @@ describe("Kiro terminal integrity recovery", () => {
     const retryBody = JSON.parse(fetchMock.mock.calls[1][1].body);
 
     expect(body).toContain("Recovered safely.");
-    // The repair instruction rides in the user turn: kiro.dev rejects a
-    // top-level systemPrompt with 400 REQUEST_BODY_INVALID.
     const retryContent = retryBody.conversationState.currentMessage.userInputMessage.content;
     expect(retryBody.systemPrompt).toBeUndefined();
     expect(retryContent).toContain("tool_call wrapper was malformed");
@@ -711,13 +706,9 @@ describe("Kiro terminal integrity recovery", () => {
     expect(body).not.toContain("must stay private");
   });
 
-  // The retry leg runs the 502 backoff ladder (3 attempts + host fallback), so
-  // these two need headroom beyond the 5s default.
   it("surfaces retry HTTP failures as SSE after heartbeat commits headers", async () => {
     fetchMock
       .mockResolvedValueOnce(response([]))
-      // Every later call (retries + fallback hosts) must be a real 401; a
-      // drained mock hands back `undefined` and the executor loops on it.
       .mockImplementation(async () => new Response("unauthorized", {
         status: 401,
         statusText: "Unauthorized"

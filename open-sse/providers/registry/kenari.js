@@ -9,7 +9,7 @@ export default {
   display: {
     name: "Kenari",
     icon: "flight",
-    color: "#0EA5E9",
+    color: "#B5362A",
     textIcon: "KN",
     website: "https://kenari.id",
     notice: {
@@ -25,17 +25,10 @@ export default {
       url: "https://kenari.id/v1/account/quota",
     },
     quirks: {
-      // /v1/responses only honors flat `function` tools and rejects text.format
-      // structured outputs — convert Codex's `custom` exec tool and strip
-      // text.format so Codex keeps its native custom-tool wire events.
       responsesFunctionToolsOnly: true,
-      // Kenari's Responses endpoint rejects `role:"system"`; fold instructions
-      // into the first user turn before dispatch.
       responsesSystemRoleUnsupported: true,
     },
   },
-  // Multi-endpoint: Chat + Responses + Claude-compatible. Pick the transport
-  // matching the client sourceFormat so most clients skip translation.
   transports: [
     {
       format: "openai",
@@ -125,9 +118,6 @@ export default {
     usage: true,
     usageApikey: true,
   },
-  // Kenari's catalogue moves fast (new model ids weekly). The seed list above is
-  // for offline model pickers; unknown ids still route, and the live list is
-  // fetched on demand by the dashboard.
   passthroughModels: true,
   modelsFetcher: { url: "https://kenari.id/v1/models", type: "kenari" },
 };

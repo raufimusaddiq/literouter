@@ -44,9 +44,6 @@ describe("netlifyRelay helpers", () => {
   });
 
   it("relay bundle is Lambda-compatible CJS with string body (digest deploys run no build step)", async () => {
-    // Live-verified failure modes: `export default` -> Runtime.UserCodeSyntaxError
-    // (502); stream object as body -> cannot-unmarshal-object-into-Go-struct
-    // (502). The bundle must use exports.handler and return a string body.
     expect(net.NETLIFY_RELAY_FUNCTION_CODE).not.toMatch(/\bexport\b/);
     expect(net.NETLIFY_RELAY_FUNCTION_CODE).toContain("exports.handler");
 
@@ -60,7 +57,6 @@ describe("netlifyRelay helpers", () => {
     const missing = await runHandler(async () => { throw new Error("no upstream"); }, { headers: {}, httpMethod: "GET" });
     expect(missing.statusCode).toBe(400);
 
-    // Text (JSON/SSE) returns utf8 string with isBase64Encoded false.
     const textFetch = async () => ({
       status: 200,
       headers: new Headers({ "content-type": "application/json; charset=utf-8" }),
@@ -75,7 +71,6 @@ describe("netlifyRelay helpers", () => {
     expect(text.body).toBe(JSON.stringify({ ok: true }));
     expect(text.isBase64Encoded).toBe(false);
 
-    // SSE stays valid text (buffered, not chunked — Lambda constraint).
     const sseFetch = async () => ({
       status: 200,
       headers: new Headers({ "content-type": "text/event-stream" }),
@@ -89,7 +84,6 @@ describe("netlifyRelay helpers", () => {
     expect(sse.body).toBe("data: hi\n\n");
     expect(sse.isBase64Encoded).toBe(false);
 
-    // Binary returns base64 with the flag set; whole shape stays JSON-serializable.
     const binBytes = Uint8Array.from([137, 80, 78, 71]);
     const binFetch = async () => ({
       status: 200,
@@ -118,14 +112,13 @@ describe("netlifyRelay helpers", () => {
     expect(sha1).toHaveLength(40);
 
     const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
-    expect(view.getUint32(0, true)).toBe(0x04034b50); // local file header
+    expect(view.getUint32(0, true)).toBe(0x04034b50);
     const nameLen = view.getUint16(26, true);
     const size = view.getUint32(18, true);
     const name = Buffer.from(zip.subarray(30, 30 + nameLen)).toString("utf8");
     expect(name).toBe("relay.js");
     const content = zip.subarray(30 + nameLen, 30 + nameLen + size);
     expect(content.length).toBe(size);
-    // CRC32 in header matches recomputation over the stored content.
     expect(view.getUint32(14, true)).toBe(net.crc32(content));
     expect(Buffer.from(content).toString("utf8")).toBe(net.NETLIFY_RELAY_FUNCTION_CODE);
   });

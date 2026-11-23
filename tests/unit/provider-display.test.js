@@ -1,6 +1,3 @@
-// providersDisplay.js derives UI display fields from the provider registry and
-// merges them into AI_PROVIDERS. Locks the merge contract only — the previous
-// suite also asserted TTS surfaces that have since been removed.
 import { describe, it, expect } from "vitest";
 import { AI_PROVIDERS } from "../../src/shared/constants/providers.js";
 import {
@@ -29,7 +26,6 @@ describe("provider display merge", () => {
     const deprecated = Object.values(AI_PROVIDERS).filter(
       (p) => p.deprecationNotice === RISK_NOTICE
     );
-    // Any provider carrying the token must carry the expanded text, never the token.
     for (const p of Object.values(AI_PROVIDERS)) {
       expect(p.deprecationNotice).not.toBe("RISK_NOTICE");
     }

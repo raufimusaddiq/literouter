@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 
-// "⋯" row menu. Rename is omitted: PUT /api/keys/[id] only accepts isActive and access.
 export default function KeyRowMenu({ keyName, onCopy, onDelete }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);

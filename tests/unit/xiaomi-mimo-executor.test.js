@@ -21,12 +21,10 @@ describe("xiaomi-mimo executor", () => {
     const expected = "https://mimo-server-cn.xiaomimimo.com/api/route/chat/completions";
     expect(ex.buildUrl("mimo-x-pro-preview", true, 0, OPENAI_T)).toBe(expected);
     expect(ex.buildUrl("mimo-x-pro-preview", true, 0, CLAUDE_T)).toBe(expected);
-    // body.model arrives as `xiaomi/<id>` via upstreamModelId
     expect(ex.buildUrl("xiaomi/mimo-x-flash-preview", true, 0, OPENAI_T)).toBe(expected);
   });
 
   it("keeps the sourceFormat-matched endpoint for cloud models", () => {
-    // Regression: a Claude client must reach /anthropic/v1/messages, not /v1/chat/completions.
     expect(ex.buildUrl("mimo-v2.5-pro", true, 0, CLAUDE_T)).toBe(CLAUDE_T.runtimeTransport.baseUrl);
     expect(ex.buildUrl("mimo-v2.5-pro", true, 0, OPENAI_T)).toBe(OPENAI_T.runtimeTransport.baseUrl);
   });
@@ -62,8 +60,8 @@ describe("xiaomi-mimo executor", () => {
   it("applies Preview defaults without overriding explicit values", () => {
     const body = { messages: [{ role: "user", content: "hi" }], temperature: 0.2 };
     const out = ex.transformRequest("mimo-x-pro-preview", body, true, {});
-    expect(out.temperature).toBe(0.2);       // caller's value kept
-    expect(out.top_p).toBe(0.95);            // default filled in
+    expect(out.temperature).toBe(0.2);
+    expect(out.top_p).toBe(0.95);
     expect(out.max_tokens).toBe(4096);
   });
 

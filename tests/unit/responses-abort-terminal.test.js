@@ -5,7 +5,6 @@ import { buildAbortedResponsesTerminalBytes } from "../../open-sse/utils/respons
 import { buildStreamErrorBytes } from "../../open-sse/utils/streamHelpers.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 
-// Minimal stream controller stub
 function makeController() {
   let connected = true;
   return {
@@ -34,7 +33,6 @@ async function readAll(stream) {
 
 describe("Responses abort terminal synthesis", () => {
   it("emits response.failed + [DONE] when upstream errors (abort/stall)", async () => {
-    // Upstream readable that errors mid-stream (simulates fetch abort on stall)
     const upstream = new ReadableStream({
       start(controller) {
         controller.enqueue(new TextEncoder().encode("event: response.created\ndata: {}\n\n"));
@@ -73,16 +71,10 @@ describe("Responses abort terminal synthesis", () => {
   });
 });
 
-// A stream that aborts after HTTP 200 cannot change status, so the failure must
-// travel in-band: structured error frame first, then [DONE]. openai-python raises
-// APIError on any `data:` payload carrying an `error` key (checked before [DONE]);
-// Anthropic clients need `event: error`. Never a fabricated finish_reason.
 describe("buildStreamErrorBytes", () => {
   const jsonOf = (sse) => JSON.parse(sse.match(/\{.*\}/s)[0]);
   const textOf = (bytes) => new TextDecoder().decode(bytes);
 
-  // onAbortTerminal callbacks are enqueued verbatim, so a string here is a
-  // silent no-op at runtime (createDisconnectAwareStream swallows the throw).
   it("returns bytes, not a string", () => {
     expect(buildStreamErrorBytes(504, "x", FORMATS.OPENAI)).toBeInstanceOf(Uint8Array);
   });
@@ -109,15 +101,10 @@ describe("buildStreamErrorBytes", () => {
   });
 });
 
-// The wiring, not just the frame builder: the watchdog must hand its reason to
-// onAbortTerminal and the bytes must reach a real consumer.
 describe("stall abort through pipeWithDisconnect", () => {
   it("delivers the error frame and closes the stream", async () => {
-    // Real controller: the stub above never fires its signal, and the abort
-    // must reach the upstream body for the pipe to end.
     const ctrl = createStreamController({ provider: "ollama", model: "test" });
 
-    // Emits one chunk then goes silent; errors on abort like a real fetch body.
     const upstream = new ReadableStream({
       start(controller) {
         controller.enqueue(new TextEncoder().encode("data: hi\n\n"));

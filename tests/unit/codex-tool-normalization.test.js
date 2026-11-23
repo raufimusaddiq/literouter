@@ -153,7 +153,6 @@ describe("CodexExecutor tool normalization", () => {
             slug: { type: "string", pattern: validPattern },
           },
         },
-        // A property named "pattern" is data, not the schema keyword.
         pattern: { type: "string", pattern: validPattern },
       },
       allOf: [{ properties: { title: { type: "string", pattern: unicodePattern } } }],
@@ -168,7 +167,6 @@ describe("CodexExecutor tool normalization", () => {
     expect(tools[0].parameters.properties.artifact.properties.slug.pattern).toBe(validPattern);
     expect(tools[0].parameters.properties.pattern.pattern).toBe(validPattern);
     expect(tools[0].parameters.allOf[0].properties.title.pattern).toBeUndefined();
-    // Copy-on-write: the caller's schema remains available for another provider.
     expect(sourceParameters.properties.artifact.properties.name.pattern).toBe(unicodePattern);
   });
 

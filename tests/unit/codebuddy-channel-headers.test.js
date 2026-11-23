@@ -2,10 +2,6 @@ import { describe, it, expect } from "vitest";
 import { PROVIDERS } from "open-sse/config/providers.js";
 import { getExecutor } from "open-sse/executors/index.js";
 
-// The CodeBuddy gateways (CN + intl) run a per-request channel check. Without
-// the official plugin's request/conversation identifiers upstream rejects the
-// call with 400 / 11128 "request illegal" ("failed channel verification").
-// These tests lock the header wiring so the ids cannot silently disappear.
 const REQUIRED = [
   "X-Request-ID",
   "X-Conversation-ID",

@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-// End-to-end MOCK benchmark: spawns mock upstreams + the built gateway (node custom-server.js,
-// temp DATA_DIR), provisions a provider node + API key through the dashboard API, then runs
-//   a) overhead (direct vs gateway, c=1)   b) concurrency sweep   c) soak + RSS sampling   d) client-abort
-// and writes bench-results/<ts>-mock.{md,json}.  Run `npm run build` first.
-//
-//   node scripts/bench/mock-suite.mjs [--soak-seconds 600] [--only a,b,c,d] [--gw-port 20190]
 import { spawn, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -20,8 +14,8 @@ const repoRoot = path.resolve(here, "../..");
 const argv = process.argv.slice(2);
 const arg = (n, d) => { const i = argv.indexOf(`--${n}`); return i !== -1 ? argv[i + 1] : d; };
 const GW_PORT = Number(arg("gw-port", 20190));
-const FAST_PORT = Number(arg("mock-fast-port", 9101));   // no delay, for overhead measurement
-const SLOW_PORT = Number(arg("mock-slow-port", 9102));   // 20ms chunk delay, for streams
+const FAST_PORT = Number(arg("mock-fast-port", 9101));
+const SLOW_PORT = Number(arg("mock-slow-port", 9102));
 const SOAK_SEC = Number(arg("soak-seconds", 600));
 const only = new Set(String(arg("only", "a,b,c,d")).split(","));
 const PASSWORD = "bench-password";
@@ -39,12 +33,11 @@ function rssMb(pid) {
   } catch { return NaN; }
 }
 
-/** Every process in the gateway's tree (custom-server may fork nothing, but be safe). */
 
 async function waitHttp(url, ms = 90000) {
   const end = Date.now() + ms;
   while (Date.now() < end) {
-    try { const r = await fetch(url); if (r.status < 500) return; } catch { /* retry */ }
+    try { const r = await fetch(url); if (r.status < 500) return; } catch {}
     await sleep(500);
   }
   throw new Error(`timeout waiting for ${url}`);
@@ -64,14 +57,13 @@ async function main() {
     },
     stdio: ["ignore", gwLog, gwLog],
   });
-  const cleanup = async () => { try { gw.kill(); } catch { /* gone */ } await fast.close(); await slow.close(); };
+  const cleanup = async () => { try { gw.kill(); } catch {} await fast.close(); await slow.close(); };
   process.on("SIGINT", () => cleanup().then(() => process.exit(130)));
 
   try {
     const origin = `http://127.0.0.1:${GW_PORT}`;
     await waitHttp(`${origin}/api/auth/status`);
 
-    // --- provision through the same endpoints the dashboard uses ---
     const login = await fetch(`${origin}/api/auth/login`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password: PASSWORD }),
     });
@@ -93,7 +85,6 @@ async function main() {
     const [fastModel, slowModel] = models;
     const gwBase = `${origin}/v1`;
 
-    // sanity: one request through the gateway
     const probe = await runBench({ baseUrl: gwBase, key, model: slowModel, mode: "nonstream", requests: 1, maxTokens: 5, label: "probe" });
     if (probe.report.failed) throw new Error(`gateway probe failed: ${JSON.stringify(probe.report.errors)} (see ${dataDir}/gateway.log)`);
 
@@ -105,7 +96,6 @@ async function main() {
     const row = (r) => `| ${r.label} | ${r.total} | ${r.failed} | ${fmt(r.throughputReqPerSec, 1)} | ${fmt(r.ttfbMs.p50)} / ${fmt(r.ttfbMs.p99)} | ${fmt(r.ttftMs.p50)} / ${fmt(r.ttftMs.p99)} | ${fmt(r.totalMs.p50)} / ${fmt(r.totalMs.p99)} | ${fmt(r.maxInterChunkGapMs.max)} |`;
     const head = ["| run | reqs | failed | req/s | TTFB p50/p99 ms | TTFT p50/p99 ms | total p50/p99 ms | max chunk gap ms |", "|---|---|---|---|---|---|---|---|"];
 
-    // ---- a) overhead ----
     if (only.has("a")) {
       const res = {};
       for (const mode of ["nonstream", "stream"]) {
@@ -129,7 +119,6 @@ async function main() {
       checkpoint();
     }
 
-    // ---- b) sweep ----
     if (only.has("b")) {
       const res = [];
       for (const c of [1, 10, 50, 100]) {
@@ -143,7 +132,6 @@ async function main() {
       checkpoint();
     }
 
-    // ---- c) soak ----
     if (only.has("c")) {
       const samples = [];
       const t0 = Date.now();
@@ -176,14 +164,12 @@ async function main() {
       checkpoint();
     }
 
-    // ---- d) abort ----
     if (only.has("d")) {
       const before = await (await fetch(`${slow.url}/_stats`)).json();
       const r = await runBench({ baseUrl: gwBase, key, model: slowModel, mode: "stream", concurrency: 50, requests: 50, maxTokens: 200, abortAfterMs: 1000, label: "abort-c50" });
       const t1 = await (await fetch(`${slow.url}/_stats`)).json();
       await sleep(5000);
       const after = await (await fetch(`${slow.url}/_stats`)).json();
-      // The gateway's own pending-request view (what the dashboard shows as in-flight).
       let gwPending = null;
       try { gwPending = await (await fetch(`${origin}/api/usage/stream`, { headers: { cookie }, signal: AbortSignal.timeout(2000) })).text().catch(() => null); } catch { gwPending = null; }
       out.sections.d = { client: r.report, upstreamBefore: before, upstreamImmediately: t1, upstreamAfter5s: after, gwPending: gwPending ? gwPending.slice(0, 600) : null };

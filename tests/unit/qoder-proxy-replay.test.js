@@ -29,7 +29,6 @@ async function loadExecutor(fetchMock, useProxy = true) {
     vi.stubEnv(key, "");
   }
   if (useProxy) vi.stubEnv("HTTPS_PROXY", "http://proxy.test:3128");
-  // Exercise the real proxyAwareFetch: it captures fetch when imported.
   vi.stubGlobal("fetch", fetchMock);
   const { QoderExecutor } = await import("../../open-sse/executors/qoder.js");
   return new QoderExecutor();
@@ -107,7 +106,6 @@ describe("Qoder signed inference transport", () => {
     expect(result.response.ok).toBe(true);
     await result.response.text();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    // The direct path now always carries the capped keep-alive agent; a proxy brings its own.
     expect(!!fetchMock.mock.calls[0][1].dispatcher).toBe(true);
   });
 

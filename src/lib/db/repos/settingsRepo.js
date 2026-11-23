@@ -51,13 +51,10 @@ const DEFAULT_SETTINGS = {
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,
   pxpipeTimeoutMs: 15000,
-  // Days of per-request usageHistory rows to keep (0 = forever). usageDaily
-  // aggregates are never pruned, so all-time totals stay correct.
   usageHistoryRetentionDays: 90,
 };
 
 async function readRaw() {
-  // ponytail: process-local cache, invalidated on write; add Redis version key if multi-process writes appear
   const cache = global.__liteRouterSettingsCache ??= { raw: null, merged: null };
   if (cache.raw) return cache.raw;
   const db = await getAdapter();
@@ -66,7 +63,6 @@ async function readRaw() {
   return cache.raw;
 }
 
-// Merge raw settings with defaults; backward-compat for missing keys
 export function mergeWithDefaults(raw) {
   const merged = { ...DEFAULT_SETTINGS, ...(raw || {}) };
   for (const [key, defVal] of Object.entries(DEFAULT_SETTINGS)) {
@@ -86,14 +82,11 @@ export function mergeWithDefaults(raw) {
 }
 
 export async function getSettings() {
-  // Cache the merged object too: mergeWithDefaults + raw parse dominated the
-  // call cost, and every caller only reads the result.
   const cache = global.__liteRouterSettingsCache ??= { raw: null, merged: null };
   if (!cache.merged) cache.merged = mergeWithDefaults(await readRaw());
   return cache.merged;
 }
 
-// Atomic read-merge-write inside transaction (prevents losing concurrent updates)
 export async function updateSettings(updates) {
   const db = await getAdapter();
   let next;

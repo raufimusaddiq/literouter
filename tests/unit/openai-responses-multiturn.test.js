@@ -1,7 +1,3 @@
-/**
- * Multi-turn continuity for store=false Responses backends (Grok CLI / Codex).
- * Prior-turn reasoning (+ encrypted_content) must survive Chat Completions ↔ Responses.
- */
 import { describe, it, expect } from "vitest";
 import {
   openaiToOpenAIResponsesRequest,
@@ -34,7 +30,6 @@ describe("openai ↔ responses multi-turn reasoning", () => {
     expect(reasoning[0].encrypted_content).toBe("enc_blob_turn1");
     expect(reasoning[0].summary?.[0]?.text).toMatch(/thinking hard/);
 
-    // Order: user → reasoning → assistant → user
     const types = out.input.map((i) => i.type || i.role);
     expect(types).toEqual(["message", "reasoning", "message", "message"]);
     expect(out.input[0].role).toBe("user");
@@ -168,9 +163,7 @@ describe("GrokCliExecutor multi-turn input", () => {
     expect(reasoning[0].summary?.[0]?.text).toBe("prior plan");
     expect(reasoning[0].id).toBe("rs_3e3f6187-892a-96db-893b-904eff019e19");
 
-    // system preserved (not developer)
     expect(out.input[0].role).toBe("system");
-    // Native Grok IDs are required for encrypted continuity.
     for (const item of out.input) {
       if (item.type === "message" && item.id) expect(item.id).toMatch(/^msg_[0-9a-f-]{36}$/);
     }

@@ -3,16 +3,10 @@ import { statsEmitter, getActiveRequests } from "@/lib/usageDb";
 
 export const dynamic = "force-dynamic";
 
-// Lightweight live feed: only the fields the dashboard merges in real time
-// (activeRequests, recentRequests, errorProvider, pending). Period totals are
-// NOT computed here — getUsageStats() per client per event was O(history). On a
-// persisted-usage "update" the event carries `refresh: true` and the client
-// refetches /api/usage/stats on a debounce.
 export async function GET(request) {
   const encoder = new TextEncoder();
   const state = { closed: false, keepalive: null, send: null, sendPending: null };
 
-  // Idempotent: safe to call from request.signal abort, cancel(), or enqueue failure.
   const cleanup = () => {
     if (state.closed) return;
     state.closed = true;
@@ -21,8 +15,6 @@ export async function GET(request) {
     clearInterval(state.keepalive);
   };
 
-  // request.signal fires reliably on client disconnect; ReadableStream.cancel()
-  // is not always invoked in Next.js, so a closed tab kept its listeners.
   request.signal.addEventListener("abort", cleanup, { once: true });
 
   const stream = new ReadableStream({
@@ -40,7 +32,6 @@ export async function GET(request) {
       state.sendPending = () => push(false);
 
       await push(false);
-      // Disconnected (or failed) during the initial send: never register.
       if (state.closed) return;
 
       statsEmitter.on("update", state.send);

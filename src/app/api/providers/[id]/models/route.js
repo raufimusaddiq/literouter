@@ -15,13 +15,12 @@ import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { resolveClineModels, resolveClinepassModels } from "open-sse/services/clinepassModels.js";
 import { resolveCommandCodeModels } from "open-sse/services/commandcodeModels.js";
 import { noteUntrackedModel } from "open-sse/providers/trackingGaps.js";
+import { listKenariModels } from "open-sse/providers/kenariCatalog.js";
+import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
+import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
 
 const GEMINI_CLI_MODELS_URL = "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
 
-// The /codex/models endpoint gates each entry by minimal_client_version against this
-// value, and codex CLI's own manifest (openai/codex codex-rs/models-manager/models.json)
-// already requires 0.144.0 for its newest models, so a stale client_version here comes
-// back 200 with those entries quietly missing instead of erroring.
 const CODEX_CLIENT_VERSION = "0.144.6";
 const CODEX_MODELS_URL = `https://chatgpt.com/backend-api/codex/models?client_version=${CODEX_CLIENT_VERSION}`;
 
@@ -90,8 +89,6 @@ const getStaticProviderModels = (providerId) =>
     name: model.name || model.id,
   }));
 
-// Generic custom resolver for OAuth providers that need refresh-on-401 + token persist.
-// Receives a `fetchFn(token)` and returns parsed models or throws.
 const buildOAuthResolver = ({ refreshFn, fetchFn, parseFn, errorLabel }) => async (connection) => {
   const { accessToken, refreshToken } = connection;
   if (!accessToken) {
@@ -129,10 +126,7 @@ const buildOAuthResolver = ({ refreshFn, fetchFn, parseFn, errorLabel }) => asyn
   return { models: [], warning };
 };
 
-// Provider models endpoints configuration
 const PROVIDER_MODELS_CONFIG = {
-  // OAuth (sk-ant-oat) token: Bearer + oauth beta header. Live list lets new
-  // Claude models show up without a release.
   claude: {
     url: "https://api.anthropic.com/v1/models?limit=1000",
     method: "GET",
@@ -149,7 +143,7 @@ const PROVIDER_MODELS_CONFIG = {
     url: "https://generativelanguage.googleapis.com/v1beta/models",
     method: "GET",
     headers: { "Content-Type": "application/json" },
-    authQuery: "key", // Use query param for API key
+    authQuery: "key",
     parseResponse: (data) => data.models || []
   },
   codex: {
@@ -191,10 +185,9 @@ const PROVIDER_MODELS_CONFIG = {
     authPrefix: "Bearer ",
     parseResponse: (data) => {
       if (!data?.data) return [];
-      // Filter out embeddings, non-chat models, and disabled models
       return data.data
         .filter(m => m.capabilities?.type === "chat")
-        .filter(m => m.policy?.state !== "disabled") // Only return explicitly enabled models
+        .filter(m => m.policy?.state !== "disabled")
         .map(m => ({
           id: m.id,
           name: m.name || m.id,
@@ -206,20 +199,39 @@ const PROVIDER_MODELS_CONFIG = {
   },
   openai: createOpenAIModelsConfig("https://api.openai.com/v1/models"),
   openrouter: createOpenAIModelsConfig("https://openrouter.ai/api/v1/models"),
-  // CommandCode's catalog URL needs no auth, but the route's token guard above
-  // still requires a configured connection, so an empty key cannot enumerate it.
   commandcode: {
     customResolver: async () => {
       const result = await resolveCommandCodeModels({ forceRefresh: true });
       if (result?.models?.length) {
-        // Live ids may be newer than the static pricing/caps tables; note the gap
-        // once per id so the cost blind spot is visible in the logs.
         for (const model of result.models) noteUntrackedModel("commandcode", model.id, "live-catalog");
         return { models: result.models };
       }
       return {
         models: getStaticProviderModels("commandcode"),
         warning: "CommandCode returned no live models; falling back to static catalog.",
+      };
+    },
+  },
+  kenari: {
+    customResolver: async () => {
+      const cached = listKenariModels();
+      if (!cached?.length) return { models: getStaticProviderModels("kenari") };
+      return {
+        models: cached.map((m) => {
+          const model = { id: m.id, name: m.name || m.id };
+          if (m.kind && m.kind !== "llm") return { ...model, kind: m.kind };
+          const c = getCapabilitiesForModel("kenari", m.id);
+          model.caps = {
+            vision: c.vision,
+            search: c.search,
+            reasoning: c.reasoning,
+            contextWindow: c.contextWindow,
+            maxOutput: c.maxOutput,
+          };
+          const levels = getThinkingLevels("kenari", m.id);
+          if (levels) model.thinkingLevels = levels;
+          return model;
+        }),
       };
     },
   },
@@ -261,7 +273,6 @@ const PROVIDER_MODELS_CONFIG = {
   "volcengine-ark": createOpenAIModelsConfig("https://ark.cn-beijing.volces.com/api/coding/v3/models"),
   byteplus: createOpenAIModelsConfig("https://ark.ap-southeast.bytepluses.com/api/coding/v3/models"),
 
-  // OpenAI-compatible API key providers
   deepseek: createOpenAIModelsConfig("https://api.deepseek.com/models"),
   groq: createOpenAIModelsConfig("https://api.groq.com/openai/v1/models"),
   xai: createOpenAIModelsConfig("https://api.x.ai/v1/models"),
@@ -276,7 +287,6 @@ const PROVIDER_MODELS_CONFIG = {
   siliconflow: createOpenAIModelsConfig("https://api.siliconflow.com/v1/models"),
   hyperbolic: createOpenAIModelsConfig("https://api.hyperbolic.xyz/v1/models"),
   ollama: createOpenAIModelsConfig("https://ollama.com/api/tags"),
-  // ollama-local: url resolved dynamically below via providerSpecificData.baseUrl
   chutes: createOpenAIModelsConfig("https://llm.chutes.ai/v1/models"),
   nvidia: createOpenAIModelsConfig("https://integrate.api.nvidia.com/v1/models"),
   synthetic: createOpenAIModelsConfig("https://api.synthetic.new/openai/v1/models"),
@@ -310,10 +320,6 @@ const PROVIDER_MODELS_CONFIG = {
       };
     },
   },
-  // Zed has no static catalog by design (live /models only) — same cursor
-  // direct pattern: resolve with the connection's own credentials (never
-  // exposed to the browser), return rich metadata, drop disabled entries.
-  // Empty/failure yields an explicit warning, never a silent zero list.
   zed: {
     customResolver: async (connection) => {
       try {
@@ -349,10 +355,6 @@ const PROVIDER_MODELS_CONFIG = {
     },
   },
 
-  // Cline/ClinePass share api.cline.bot/api/v1/models. The service layer already
-  // handles Bearer-vs-`workos:` auth and swallows failures into null, so these follow
-  // the cursor direct pattern (no refreshFn) and only differ in filtering:
-  // cline returns the whole catalog verbatim, clinepass keeps cline-pass/* only.
   cline: {
     customResolver: async (connection) => {
       const result = await resolveClineModels({
@@ -380,7 +382,6 @@ const PROVIDER_MODELS_CONFIG = {
     },
   },
 
-  // Custom resolvers (non-OpenAI-shaped APIs / token-refresh flows)
   kiro: {
     customResolver: async (connection) => {
       const credentials = {
@@ -441,8 +442,6 @@ const PROVIDER_MODELS_CONFIG = {
         if (result?.models?.length) {
           return {
             models: result.models.map((m) => ({
-              // Use the canonical "qoder/<key>" id so the dashboard
-              // surfaces the same identifier the chat router expects.
               id: `qoder/${m.id}`,
               name: m.name,
               contextLength: m.contextLength,
@@ -530,9 +529,6 @@ const PROVIDER_MODELS_CONFIG = {
   }
 };
 
-/**
- * GET /api/providers/[id]/models - Get models list from provider
- */
 export async function GET(request, { params }) {
   try {
     const { id } = await params;
@@ -624,7 +620,6 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Config-driven custom resolver path (OAuth refresh, non-OpenAI shape, etc.)
     if (typeof config.customResolver === "function") {
       const result = await config.customResolver(connection);
       if (result.error) {
@@ -638,25 +633,21 @@ export async function GET(request, { params }) {
       });
     }
 
-    // Get auth token
     const token = connection.providerSpecificData?.copilotToken || connection.accessToken || connection.apiKey;
     if (!token) {
       return NextResponse.json({ error: "No valid token found" }, { status: 401 });
     }
 
-    // Build request URL
     let url = config.url;
     if (config.authQuery) {
       url += `?${config.authQuery}=${token}`;
     }
 
-    // Build headers
     const headers = { ...config.headers };
     if (config.authHeader && !config.authQuery) {
       headers[config.authHeader] = (config.authPrefix || "") + token;
     }
 
-    // Make request
     const fetchOptions = {
       method: config.method,
       headers

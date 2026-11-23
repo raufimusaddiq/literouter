@@ -6,14 +6,11 @@ import { collapseTextParts } from "../concerns/message.js";
 import { ROLE, GEMINI_ROLE, OPENAI_BLOCK } from "../schema/index.js";
 import { toOpenAIStop } from "../concerns/requestParams.js";
 
-// Gemini function-calling modes -> OpenAI tool_choice
 const GEMINI_MODE_AUTO = "AUTO";
 const GEMINI_MODE_NONE = "NONE";
 const GEMINI_MODE_ANY = "ANY";
 const JSON_MIME_TYPE = "application/json";
 
-// Gemini SDKs (@google/genai) emit upper-case schema types ("OBJECT", "STRING");
-// OpenAI-style providers want JSON Schema's lower-case spelling.
 function lowerCaseSchemaTypes(schema) {
   if (Array.isArray(schema)) return schema.map(lowerCaseSchemaTypes);
   if (!schema || typeof schema !== "object") return schema;
@@ -41,16 +38,12 @@ function geminiToolConfigToChoice(toolConfig) {
   }
 }
 
-// Gemini's functionCall.id is optional. Without one, mint a unique id per call and
-// pair each functionResponse (also id-less) with the oldest unanswered call of the
-// same name, so two calls to one function in a turn do not collide.
 function createCallIdTracker() {
   const counts = new Map();
   const pending = new Map();
   return {
     next(call) {
       if (call.id) return call.id;
-      // First call of a name keeps the plain `call_<name>` id; repeats get a suffix.
       const n = counts.get(call.name) || 0;
       counts.set(call.name, n + 1);
       const id = n === 0 ? `call_${call.name}` : `call_${call.name}_${n}`;
@@ -65,7 +58,6 @@ function createCallIdTracker() {
   };
 }
 
-// Convert Gemini request to OpenAI format
 export function geminiToOpenAIRequest(model, body, stream) {
   const result = {
     model: model,
@@ -73,7 +65,6 @@ export function geminiToOpenAIRequest(model, body, stream) {
     stream: stream
   };
 
-  // Generation config
   if (body.generationConfig) {
     const config = body.generationConfig;
     if (config.maxOutputTokens) {
@@ -96,7 +87,6 @@ export function geminiToOpenAIRequest(model, body, stream) {
     if (Number.isFinite(config.candidateCount) && config.candidateCount > 1) {
       result.n = config.candidateCount;
     }
-    // responseMimeType/responseSchema -> response_format
     const schema = config.responseJsonSchema || config.responseSchema;
     if (schema && typeof schema === "object") {
       result.response_format = {
@@ -108,7 +98,6 @@ export function geminiToOpenAIRequest(model, body, stream) {
     }
   }
 
-  // System instruction
   if (body.systemInstruction) {
     const systemText = extractGeminiText(body.systemInstruction);
     if (systemText) {
@@ -119,7 +108,6 @@ export function geminiToOpenAIRequest(model, body, stream) {
     }
   }
 
-  // Convert contents to messages
   if (body.contents && Array.isArray(body.contents)) {
     const callIds = createCallIdTracker();
     for (const content of body.contents) {
@@ -131,7 +119,6 @@ export function geminiToOpenAIRequest(model, body, stream) {
     }
   }
 
-  // Tools
   if (body.tools && Array.isArray(body.tools)) {
     result.tools = [];
     for (const tool of body.tools) {
@@ -160,7 +147,6 @@ export function geminiToOpenAIRequest(model, body, stream) {
   return result;
 }
 
-// Convert Gemini content to OpenAI message
 function convertGeminiContent(content, callIds) {
   const role = content.role === GEMINI_ROLE.USER ? ROLE.USER : ROLE.ASSISTANT;
   
@@ -173,7 +159,6 @@ function convertGeminiContent(content, callIds) {
   const toolResults = [];
 
   for (const part of content.parts) {
-    // Echoed reasoning from a previous turn is not user-visible content.
     if (part.thought === true) continue;
 
     if (part.text !== undefined) {
@@ -190,8 +175,6 @@ function convertGeminiContent(content, callIds) {
     }
 
     if (part.functionCall) {
-      // Gemini lacks a native call id; derive a deterministic one from the name so the
-      // matching functionResponse maps to the same tool_call_id (providers require pairing).
       toolCalls.push({
         id: callIds.next(part.functionCall),
         type: OPENAI_BLOCK.FUNCTION,
@@ -225,15 +208,12 @@ function convertGeminiContent(content, callIds) {
     };
   }
 
-  // Complete the parts scan before returning: parallel results must all precede
-  // any co-located follow-up text or calls in the OpenAI message sequence.
   if (toolResults.length > 0) {
     return message ? [...toolResults, message] : toolResults;
   }
   return message;
 }
 
-// Extract text from Gemini content
 function extractGeminiText(content) {
   if (typeof content === "string") return content;
   if (content.parts && Array.isArray(content.parts)) {
@@ -242,7 +222,6 @@ function extractGeminiText(content) {
   return "";
 }
 
-// Register
 register(FORMATS.GEMINI, FORMATS.OPENAI, geminiToOpenAIRequest, null);
 register(FORMATS.GEMINI_CLI, FORMATS.OPENAI, geminiToOpenAIRequest, null);
 

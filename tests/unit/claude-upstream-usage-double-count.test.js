@@ -1,6 +1,3 @@
-// #130 (LiteRouter equivalent of decolua/9router#5213): Claude cache usage across
-// format translation. Claude reports input_tokens EXCLUDING cache; OpenAI reports
-// prompt_tokens INCLUDING it. Each fact is asserted with exact numbers.
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@/lib/usageDb.js", () => ({
@@ -17,13 +14,12 @@ import { saveUsageStats } from "../../open-sse/handlers/chatCore/requestDetail.j
 import { translateNonStreamingResponse } from "../../open-sse/handlers/chatCore/nonStreamingHandler.js";
 import { openAICompletionToClaudeMessage } from "../../open-sse/translator/response/nonstream-to-claude.js";
 
-const BUFFER = 0; // streamed usage is reported to clients exactly as the upstream sent it (no safety buffer)
+const BUFFER = 0;
 
 const sse = (event, data) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 
-// Upstream #5213 fixture: in 255, cache read 228,399, cache write 253, out 302.
 const IN = 255, READ = 228399, WRITE = 253, OUT = 302;
-const PROMPT = IN + READ + WRITE; // 228,907, counted once
+const PROMPT = IN + READ + WRITE;
 
 async function streamClaudeToOpenAI() {
   let finalUsage = null;
@@ -97,7 +93,6 @@ describe("#130 path A: stream, Claude upstream -> OpenAI client", () => {
 });
 
 describe("#130 path B: non-stream, Claude upstream -> OpenAI client", () => {
-  // Upstream #5213 non-stream fixture: in 489, read 4,702, write 2, out 387.
   const claudeBody = () => ({
     id: "m1", type: "message", role: "assistant", model: "claude-x",
     content: [{ type: "text", text: "OK" }], stop_reason: "end_turn",

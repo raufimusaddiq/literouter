@@ -1,5 +1,3 @@
-// Tests for Kiro format RTK support
-// Verifies that RTK compression works with Kiro's conversationState format
 import { describe, it, expect } from "vitest";
 import { compressMessages } from "../../open-sse/rtk/index.js";
 
@@ -60,15 +58,13 @@ describe("Kiro format RTK support", () => {
     expect(stats.hits[0].filter).toBe("build-output");
     expect(stats.hits[0].shape).toBe("kiro-tool-result");
 
-    // Verify compression happened
     const savedBytes = stats.bytesBefore - stats.bytesAfter;
     expect(savedBytes).toBeGreaterThan(0);
     const savedPercent = (savedBytes / stats.bytesBefore) * 100;
-    expect(savedPercent).toBeGreaterThan(10); // At least 10% savings
+    expect(savedPercent).toBeGreaterThan(10);
   });
 
   it("compresses tool results in Kiro conversationState.history", () => {
-    // Need >500 bytes for compression to trigger
     const compilingLines = [];
     for (let i = 1; i <= 20; i++) {
       compilingLines.push(`   Compiling package-${i} v1.0.${i}`);
@@ -118,7 +114,6 @@ describe("Kiro format RTK support", () => {
   });
 
   it("handles multiple tool results across history and currentMessage", () => {
-    // Need >500 bytes for each tool result to trigger compression
     const deprecations1 = [];
     const deprecations2 = [];
     for (let i = 1; i <= 10; i++) {
@@ -178,7 +173,7 @@ describe("Kiro format RTK support", () => {
     const stats = compressMessages(kiroBody, true);
 
     expect(stats).not.toBeNull();
-    expect(stats.hits.length).toBe(2); // Both tool results compressed
+    expect(stats.hits.length).toBe(2);
     expect(stats.hits.every(h => h.filter === "build-output")).toBe(true);
   });
 
@@ -214,9 +209,8 @@ describe("Kiro format RTK support", () => {
     const stats = compressMessages(kiroBody, true);
 
     expect(stats).not.toBeNull();
-    expect(stats.hits.length).toBe(0); // Error not compressed
+    expect(stats.hits.length).toBe(0);
     
-    // Verify error text unchanged
     const afterText = kiroBody.conversationState.currentMessage.userInputMessage.userInputMessageContext.toolResults[0].content[0].text;
     expect(afterText).toBe(originalText);
   });
@@ -245,7 +239,7 @@ describe("Kiro format RTK support", () => {
       }
     };
 
-    const stats = compressMessages(kiroBody, false); // RTK disabled
+    const stats = compressMessages(kiroBody, false);
     expect(stats).toBeNull();
   });
 
@@ -282,7 +276,6 @@ describe("Kiro format RTK support", () => {
 
     for (const body of malformedBodies) {
       const stats = compressMessages(body, true);
-      // Malformed bodies may return null (caught by try-catch) or empty stats
       if (stats !== null) {
         expect(stats.hits.length).toBe(0);
       }

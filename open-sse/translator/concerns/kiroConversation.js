@@ -6,16 +6,9 @@ import {
 
 const TOOL_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
-/**
- * Kiro rejects user turns with empty `content`, so a turn that only carries
- * tool results needs placeholder text. It must not read like a user
- * instruction: with "continue", models answer the word itself ("Nothing in
- * progress to continue") and drop the task they were in the middle of.
- */
 export const KIRO_TOOL_RESULTS_PLACEHOLDER = "Tool results provided.";
 export const KIRO_EMPTY_USER_PLACEHOLDER = "continue";
 
-/** Placeholder content for a user turn with no text of its own. */
 export function kiroEmptyUserContent(hasToolResults) {
   return hasToolResults ? KIRO_TOOL_RESULTS_PLACEHOLDER : KIRO_EMPTY_USER_PLACEHOLDER;
 }
@@ -88,7 +81,6 @@ function normalizeRootSchema(schema) {
   return cleaned;
 }
 
-/** Normalize OpenAI- or Claude-shaped tool definitions into Kiro tool specs. */
 export function normalizeKiroToolSpecs(tools) {
   const specs = [];
   const nameMap = new Map();
@@ -99,7 +91,6 @@ export function normalizeKiroToolSpecs(tools) {
     const rawName = tool.function?.name ?? tool.name;
     if (typeof rawName !== "string" || !rawName.trim()) continue;
 
-    // A repeated definition with the same source name describes the same tool.
     if (nameMap.has(rawName)) continue;
     const name = uniqueName(rawName, index, usedNames);
     nameMap.set(rawName, name);
@@ -337,7 +328,6 @@ function reconcileToolPair(assistant, user, turnIndex, nameMap, specNames, usedI
   cleanUserContext(user);
 }
 
-/** Validate the final Kiro wire conversation without mutating it. */
 export function validateKiroConversation(history, currentMessage, toolSpecs = []) {
   const errors = [];
   const turns = [...(history || []), currentMessage].filter(Boolean);
@@ -390,10 +380,6 @@ function flattenAllStructuredTools(turns, repairs) {
   }
 }
 
-/**
- * Produce a strict Kiro conversation: alternating turns, current user message,
- * adjacent one-to-one tool use/result pairs, and tool specs only on currentMessage.
- */
 export function canonicalizeKiroConversation({
   history,
   currentMessage,

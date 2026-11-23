@@ -50,6 +50,7 @@ logs/*
 source/*
 .cursor/*
 docs/*
+!docs/adr/
 !docs/ARCHITECTURE.md
 !docs/systemone-prd.md
 !docs/literouter-baseline/
@@ -80,7 +81,8 @@ open-sse.old/
 graphify-out/*
 
 # Local-only working dirs (notes, vendored repos, scripts, skills)
-.claude/
+.claude/*
+!.claude/skills/
 .docs/
 .repo/
 .script/

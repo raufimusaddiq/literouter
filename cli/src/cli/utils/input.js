@@ -18,8 +18,6 @@ const COLORS = {
   bgTerracotta: "\x1b[48;2;217;119;87m"
 };
 
-// Prime stdin once globally. Toggling raw mode between menus adds latency on
-// macOS, so we keep raw mode on for the whole TUI session.
 let rawPrimed = false;
 function primeRawOnce() {
   if (rawPrimed || !process.stdin.isTTY) return;
@@ -33,7 +31,6 @@ function primeRawOnce() {
 }
 
 function suspendRawFor(fn) {
-  // Temporarily drop raw mode so readline.question can buffer line input.
   const wasPrimed = rawPrimed;
   if (wasPrimed && process.stdin.isTTY) {
     try { process.stdin.setRawMode(false); } catch {}
@@ -84,11 +81,6 @@ async function pause(message = "Press Enter to continue...") {
   }));
 }
 
-/**
- * Interactive arrow-key menu. Renders ★/☆ icons; selected line uses reverse+bright
- * (no underline). Uses readline keypress + raw 'data' fallback to prevent
- * arrow-key escape sequence leaks on macOS.
- */
 async function selectMenu(title, items, defaultIndex = 0, subtitle = "", headerContent = "", breadcrumb = []) {
   return new Promise((resolve) => {
     let selectedIndex = defaultIndex;

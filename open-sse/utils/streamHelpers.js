@@ -6,11 +6,9 @@ import { CLAUDE_EVENT } from "../translator/schema/index.js";
 
 const sharedEncoder = new TextEncoder();
 
-// Parse SSE data line
 export function parseSSELine(line, format = null) {
   if (!line) return null;
 
-  // NDJSON format (Ollama): raw JSON lines without "data:" prefix
   if (format === FORMATS.OLLAMA) {
     const trimmed = line.trim();
     if (trimmed.startsWith("{")) {
@@ -23,8 +21,7 @@ export function parseSSELine(line, format = null) {
     return null;
   }
 
-  // Standard SSE format: "data: {...}"
-  if (line.charCodeAt(0) !== 100) return null; // 'd' = 100
+  if (line.charCodeAt(0) !== 100) return null;
 
   const data = line.slice(5).trim();
   if (data === "[DONE]") return { done: true };
@@ -39,9 +36,7 @@ export function parseSSELine(line, format = null) {
   }
 }
 
-// Check if chunk has valuable content (not empty)
 export function hasValuableContent(chunk, format) {
-  // OpenAI format
   if (format === FORMATS.OPENAI && chunk.choices?.[0]?.delta) {
     const delta = chunk.choices[0].delta;
     return delta.content && delta.content !== "" ||
@@ -51,7 +46,6 @@ export function hasValuableContent(chunk, format) {
            delta.role;
   }
 
-  // Claude format
   if (format === FORMATS.CLAUDE) {
     const isContentBlockDelta = chunk.type === CLAUDE_EVENT.CONTENT_BLOCK_DELTA;
     const hasText = chunk.delta?.text && chunk.delta.text !== "";
@@ -64,26 +58,9 @@ export function hasValuableContent(chunk, format) {
     return true;
   }
 
-  return true; // Other formats: keep all chunks
+  return true;
 }
 
-// Ensure every streamed tool_call carries an id.
-//
-// OpenAI's streaming contract: the id and function.name arrive on the FIRST
-// fragment of a tool call; later fragments carry only `index` + argument
-// deltas. Some providers instead open a brand-new `index` in a late fragment
-// and omit the id entirely. Strict OpenAI-compatible clients
-// (@ai-sdk/openai-compatible) then throw
-// "AI_InvalidResponseDataError: Expected 'id' to be a string." and abort the
-// whole turn.
-//
-// Fix: remember which tool-call indexes the client has seen, and mint an id
-// only when a fragment opens an unseen index. Continuation fragments of a known
-// index keep the id absent: OpenAI-style accumulators concatenate string delta
-// fields, so repeating the id would turn `call_abc` into `call_abccall_abc` and
-// the client's tool result would no longer match upstream history.
-//
-// Returns true when a chunk was modified.
 export function ensureStreamToolCallIds(chunk, seenIds) {
   if (!chunk?.choices?.length) return false;
   let changed = false;
@@ -100,11 +77,8 @@ export function ensureStreamToolCallIds(chunk, seenIds) {
         continue;
       }
 
-      // No id on this fragment. A known index is a normal continuation: leave
-      // it id-less so the client keeps the id from the opening fragment.
       if (tc.index !== undefined && seenIds.has(tc.index)) continue;
 
-      // The index is new to the client: mint the id it must open with.
       const id = fallbackToolCallId(tc.index);
       tc.id = id;
       if (tc.index !== undefined) seenIds.set(tc.index, id);
@@ -115,7 +89,6 @@ export function ensureStreamToolCallIds(chunk, seenIds) {
   return changed;
 }
 
-// Fix invalid id (generic or too short)
 export function fixInvalidId(parsed) {
   if (parsed.id && (parsed.id === "chat" || parsed.id === "completion" || parsed.id.length < 8)) {
     const fallbackId = parsed.extend_fields?.requestId || 
@@ -154,8 +127,6 @@ function cleanUsagePayload(payload) {
   return cleaned;
 }
 
-// Responses same-format passthrough: when the event needs no cleanup, forward the
-// original JSON text instead of re-stringifying (response.completed can be large).
 export function formatResponsesPassthroughSSE(eventName, parsed, rawJson) {
   if (typeof rawJson === "string" && rawJson.length > 0 && cleanUsagePayload(parsed) === parsed) {
     return `event: ${eventName}
@@ -166,12 +137,10 @@ data: ${rawJson}
   return formatSSE({ event: eventName, data: parsed });
 }
 
-// Format output as SSE
 export function formatSSE(data, sourceFormat) {
   if (data === null || data === undefined) return "data: null\n\n";
   if (data && data.done) return "data: [DONE]\n\n";
 
-  // OpenAI Responses API format
   if (data && data.event && data.data) {
     const cleanedEventData = cleanUsagePayload(data.data);
     return `event: ${data.event}\ndata: ${JSON.stringify(cleanedEventData)}\n\n`;
@@ -179,7 +148,6 @@ export function formatSSE(data, sourceFormat) {
 
   data = cleanUsagePayload(data);
 
-  // Claude format
   if (sourceFormat === FORMATS.CLAUDE && data && data.type) {
     return `event: ${data.type}\ndata: ${JSON.stringify(data)}\n\n`;
   }
@@ -187,24 +155,10 @@ export function formatSSE(data, sourceFormat) {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
 
-// Terminal frames for a stream that aborted after HTTP 200 was already sent, so
-// the status code can no longer change. OpenAI-compatible clients (openai-python
-// raises APIError on any `data:` payload carrying an `error` key, checked before
-// [DONE]) need the error frame first, then [DONE]; Anthropic clients need
-// `event: error`. Never fabricate a successful finish_reason instead.
-//
-// Returns encoded bytes: onAbortTerminal callbacks are enqueued verbatim, same
-// as buildAbortedResponsesTerminalBytes.
-//
-// NOTE: non-SSE client formats (Ollama NDJSON) get an SSE frame here — dead in
-// practice because detectFormatByEndpoint never resolves to OLLAMA.
 export function buildStreamErrorBytes(statusCode, message, clientFormat) {
   const format = resolveErrorFormat(null, clientFormat);
   const body = buildErrorBody(statusCode, message, format);
 
-  // Claude: `event: error` with the Anthropic envelope. Gemini: a bare error
-  // frame and no [DONE] sentinel (Gemini streams end by closing). OpenAI: error
-  // frame then [DONE].
   let sse;
   if (format === FORMATS.CLAUDE) sse = formatSSE(body, FORMATS.CLAUDE);
   else if (format === FORMATS.GEMINI) sse = formatSSE(body, clientFormat);

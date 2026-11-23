@@ -23,7 +23,6 @@ describe("Antigravity usage headers", () => {
 
     await getAntigravityUsage("access-token", {});
 
-    // loadCodeAssist + fetchAvailableModels + retrieveUserQuotaSummary
     expect(proxyAwareFetch).toHaveBeenCalledTimes(3);
     for (const [, options] of proxyAwareFetch.mock.calls) {
       expect(options.headers["User-Agent"]).toBe("antigravity/ide/2.11.0 darwin/arm64");

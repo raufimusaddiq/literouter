@@ -1,4 +1,3 @@
-// Quota auto-ping scheduler: warms 5h windows by sending tiny opt-in requests right after reset.
 import "open-sse/index.js";
 
 import { getSettings, getProviderConnections, updateProviderConnection } from "@/lib/localDb";
@@ -25,7 +24,6 @@ const providerHandlers = {
   },
 };
 
-// Survive Next.js hot reload and keep one scheduler per server process.
 const g = (global.__quotaAutoPing ??= {
   interval: null,
   running: false,
@@ -171,11 +169,10 @@ async function sendCodexPing(connection, providerConfig, proxyOptions, deps) {
     },
   });
   if (!response.ok) {
-    try { await response.body?.cancel?.(); } catch { /* noop */ }
+    try { await response.body?.cancel?.(); } catch {}
     return false;
   }
 
-  // Codex only starts the 5h window after the streaming response completes.
   await drainResponseBody(response);
   return true;
 }
@@ -188,11 +185,9 @@ function shouldSkipAfterFailure(state, key, nowMs = Date.now()) {
 async function pingConnection(conn, provider, providerConfig, handler, deps, state = g) {
   const key = cacheKey(provider, conn.id);
 
-  // resetAt is stable for time-based windows; Codex polls every tick because inactive windows slide forward.
   const cachedReset = state.resetCache[key];
   if (!providerConfig.pingWhenResetAtSlides && cachedReset && Date.now() < new Date(cachedReset).getTime() - C.refreshAheadMs) return;
 
-  // Avoid hammering provider auth/quota endpoints if a ping failed recently.
   if (shouldSkipAfterFailure(state, key)) return;
 
   const proxyCfg = await deps.resolveConnectionProxyConfig(conn.providerSpecificData);
@@ -223,9 +218,6 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
   let resetKey = normalizeResetKey(resetAt);
   const lastPingedResetKey = connection.lastPingedResetKey || normalizeResetKey(connection.lastPingedResetAt);
 
-  // A tick may miss Claude's short lead window and observe the next reset.
-  // Catch up the unpinged cached deadline, without marking that next cycle
-  // as pinged. Keep the fresh reset in resetCache for subsequent ticks.
   if (!providerConfig.pingWhenResetAtSlides && cachedReset
     && lastPingedResetKey !== normalizeResetKey(cachedReset)
     && shouldPingForReset(providerConfig, cachedReset, cachedReset, now)) {
@@ -233,18 +225,14 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
     resetKey = normalizeResetKey(cachedReset);
   }
 
-  // Claude waits for reset. Codex pings only when resetAt slides, which means the 5h window is inactive.
   if (!shouldPingForReset(providerConfig, cachedReset, resetAt, now)) return;
   if (wasPingedRecently(connection, providerConfig.minPingIntervalMs, now)) return;
   if (lastPingedResetKey === resetKey) return;
 
-  // Retain a caught-up deadline on HTTP failures or thrown transport errors so
-  // the failure cooldown delays its retry rather than discarding the cycle.
   const catchingUpReset = resetAt !== quota?.resetAt;
   if (catchingUpReset) state.resetCache[key] = resetAt;
   const ok = await handler.sendPing(connection, providerConfig, proxyOptions, deps);
   if (!ok) {
-    // Do not mark reset as pinged unless upstream accepted the tiny request.
     state.failureCache[key] = Date.now();
     console.warn(`[AutoPing] ${provider}:${connection.id}: ping failed (reset ${resetAt})`);
     return;
