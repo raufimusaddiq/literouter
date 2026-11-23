@@ -92,6 +92,51 @@ describe("stopLegacyServer", () => {
     expect(res).toEqual({ stopped: true, launcherPid: undefined, serverPid: 100 });
   });
 
+  test("warns and reports respawned when the server comes back after an unrecognised parent", async () => {
+    const { deps, calls } = makeDeps({
+      infos: { 100: { ppid: 50, cmdline: LEGACY_SERVER }, 50: { ppid: 1, cmdline: "explorer.exe" } },
+    });
+    const logs = [];
+    deps.log = (line) => logs.push(line);
+    let polls = 0;
+    deps.getListenerPid = () => {
+      if (!calls.includes("server")) return 100;
+      return ++polls > 3 ? 300 : null;
+    };
+    const res = await stopLegacyServer(deps);
+    expect(res).toEqual({ stopped: false, respawned: true });
+    expect(logs.join("\n")).toMatch(/300/);
+    expect(logs.join("\n")).toMatch(/9router/);
+    expect(logs.join("\n")).toMatch(/still running/i);
+  });
+
+  test("also checks for a respawn when the parent lookup fails", async () => {
+    const { deps, calls } = makeDeps({ infos: { 100: { ppid: 50, cmdline: LEGACY_SERVER } } });
+    deps.getListenerPid = () => (calls.includes("server") ? 300 : 100);
+    deps.log = () => {};
+    expect(await stopLegacyServer(deps)).toEqual({ stopped: false, respawned: true });
+  });
+
+  test("reports stopped when nothing listens again after the server was killed", async () => {
+    const { deps, calls } = makeDeps({
+      infos: { 100: { ppid: 50, cmdline: LEGACY_SERVER }, 50: { ppid: 1, cmdline: "explorer.exe" } },
+    });
+    deps.getListenerPid = () => (calls.includes("server") ? null : 100);
+    expect(await stopLegacyServer(deps)).toEqual({ stopped: true, launcherPid: undefined, serverPid: 100 });
+  });
+
+  test("skips the process lookup when the pidfile names a launcher (a new CLI wrote it)", async () => {
+    const { deps, calls } = makeDeps({ record: { pid: 100, port: 20128, launcherPid: 50 } });
+    let lookups = 0;
+    deps.getProcessInfo = async () => {
+      lookups++;
+      return null;
+    };
+    expect(await stopLegacyServer(deps)).toEqual({ stopped: false });
+    expect(lookups).toBe(0);
+    expect(calls).toEqual([]);
+  });
+
   test("leaves a new-CLI server to the normal claimPort path", async () => {
     const { deps, calls } = makeDeps({ infos: { 100: { ppid: 50, cmdline: NEW_SERVER } } });
     expect(await stopLegacyServer(deps)).toEqual({ stopped: false });
@@ -131,5 +176,21 @@ describe("takeoverLegacy", () => {
     const res = await takeoverLegacy({ ...base, stop: async () => ({ stopped: true, serverPid: 100 }) });
     expect(enableCalls).toEqual([["/pkg/cli.js", { host: "0.0.0.0", port: 20128 }]]);
     expect(res.stopped).toBe(true);
+  });
+});
+
+describe("takeoverLegacy respawn", () => {
+  test("does not refresh autostart when the old server respawned", async () => {
+    const enableCalls = [];
+    const res = await takeoverLegacy({
+      cliPath: "/pkg/cli.js",
+      host: "0.0.0.0",
+      port: 20128,
+      isAutoStartEnabled: () => true,
+      enableAutoStart: (...args) => enableCalls.push(args),
+      stop: async () => ({ stopped: false, respawned: true }),
+    });
+    expect(enableCalls).toHaveLength(0);
+    expect(res.respawned).toBe(true);
   });
 });

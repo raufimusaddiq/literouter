@@ -102,6 +102,8 @@ const pkg = require("./package.json");
 const { buildInstallCmd } = require("./src/cli/utils/update");
 const { buildServerSpawn } = require("./src/cli/utils/spawn");
 const { takeoverLegacy, getProcessInfo } = require("./src/cli/utils/legacyCli");
+const { killLauncher } = require("./src/cli/utils/killProc");
+const { createCrashLog } = require("./src/cli/utils/crashLog");
 const { ensureRuntime } = require("./hooks/runtime");
 const {
   writeServerPid,
@@ -264,8 +266,13 @@ function getListenerPid(p) {
 }
 
 function killProcess(pid, kind) {
-  if (kind === "launcher" && process.platform !== "win32") {
-    try { process.kill(pid, "SIGTERM"); } catch (e) {}
+  if (kind === "launcher") {
+    killLauncher(pid, {
+      killPid,
+      signalPid: (target, signal) => {
+        try { process.kill(target, signal); } catch (e) {}
+      },
+    });
     return;
   }
   killPid(pid);
@@ -273,7 +280,7 @@ function killProcess(pid, kind) {
 
 async function claimPort() {
   const { isAutoStartEnabled, enableAutoStart } = require("./src/cli/tray/autostart");
-  await takeoverLegacy({
+  const legacy = await takeoverLegacy({
     cliPath: __filename,
     host,
     port,
@@ -287,6 +294,10 @@ async function claimPort() {
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     log: console.log,
   });
+  if (legacy && legacy.respawned) {
+    console.error(`\n❌ The old 9router launcher keeps restarting its server on port ${port}. Quit the old 9router CLI, then run ${APP_NAME} again.`);
+    process.exit(1);
+  }
   const record = readServerPid();
   const tracked = parseInt(process.env.NINEROUTER_REUSE_PID, 10) || (record && record.pid);
   const trackedPort = (record && record.port) || port;
@@ -441,27 +452,11 @@ function startServer(updatePromise) {
   let restartCount = 0;
   let serverStartTime = Date.now();
 
-  const CRASH_LOG_LINES = 50;
-  let crashLog = [];
-
-  async function collectCrashLog(stream) {
-    try {
-      const decoder = new TextDecoder();
-      let tail = "";
-      for await (const chunk of stream) {
-        tail += decoder.decode(chunk, { stream: true });
-        const lines = tail.split("\n");
-        tail = lines.pop();
-        crashLog.push(...lines.filter(Boolean));
-        if (crashLog.length > CRASH_LOG_LINES) crashLog = crashLog.slice(-CRASH_LOG_LINES);
-      }
-      if (tail) crashLog.push(tail);
-    } catch (e) {}
-  }
+  let crashLog = createCrashLog();
 
   function spawnServer() {
     serverStartTime = Date.now();
-    crashLog = [];
+    crashLog = createCrashLog();
     const [cmd, options] = buildServerSpawn({ runtime: RUNTIME, serverPath, appDir, port, host, showLog });
     let child;
     try {
@@ -470,7 +465,7 @@ function startServer(updatePromise) {
       console.error("Failed to start server:", err.message);
       return { pid: undefined, exited: Promise.resolve(1) };
     }
-    if (!showLog && child.stderr) collectCrashLog(child.stderr);
+    if (!showLog && child.stderr) crashLog.collect(child.stderr);
     if (child.pid) writeServerPid(child.pid, port, process.pid);
     return child;
   }
@@ -527,7 +522,7 @@ function startServer(updatePromise) {
     if (isShuttingDown) return;
     isShuttingDown = true;
     console.error(`\n❌ Server did not become ready on ${getProbeHost()}:${port}.`);
-    if (crashLog.length) crashLog.forEach((l) => console.error(l));
+    crashLog.lines().forEach((l) => console.error(l));
     cleanup();
     process.exit(1);
   }
@@ -653,6 +648,7 @@ function startServer(updatePromise) {
     proc.exited.then((code) => {
       if (proc !== server) return;
       if (isShuttingDown || code === 0) {
+        cleanup();
         process.exit(code || 0);
         return;
       }
@@ -667,7 +663,7 @@ function startServer(updatePromise) {
     restartCount++;
     if (restartCount > MAX_RESTARTS) {
       console.error(`\n❌ Server crashed ${restartCount} times in a row (code=${code ?? "unknown"}). Giving up.`);
-      if (crashLog.length) crashLog.forEach((l) => console.error(l));
+      crashLog.lines().forEach((l) => console.error(l));
       isShuttingDown = true;
       cleanup();
       process.exit(typeof code === "number" && code !== 0 ? code : 1);
@@ -675,9 +671,9 @@ function startServer(updatePromise) {
     }
     const delay = Math.min(1000 * 2 ** (restartCount - 1), 10000);
     console.error(`\n⚠️  Server exited (code=${code ?? "unknown"}). Restarting in ${delay / 1000}s... (${restartCount}/${MAX_RESTARTS})`);
-    if (crashLog.length) {
+    if (crashLog.lines().length) {
       console.error("\n--- Server crash log ---");
-      crashLog.forEach(l => console.error(l));
+      crashLog.lines().forEach(l => console.error(l));
       console.error("--- End crash log ---\n");
     }
 
