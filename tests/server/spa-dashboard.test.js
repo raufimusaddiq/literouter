@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  server.stop(true);
+  server?.stop(true);
   if (originalSpaDir === undefined) delete process.env.LITEROUTER_SPA_DIR;
   else process.env.LITEROUTER_SPA_DIR = originalSpaDir;
   if (originalGaId === undefined) delete process.env.NEXT_PUBLIC_GA_ID;

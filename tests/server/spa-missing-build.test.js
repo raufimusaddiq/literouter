@@ -28,7 +28,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  server.stop(true);
+  server?.stop(true);
   if (originalSpaDir === undefined) delete process.env.LITEROUTER_SPA_DIR;
   else process.env.LITEROUTER_SPA_DIR = originalSpaDir;
   fs.rmSync(spaDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });

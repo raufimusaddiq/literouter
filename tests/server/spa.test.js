@@ -1,7 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "bun:test";
+import fs from "node:fs";
 import net from "node:net";
+import os from "node:os";
+import path from "node:path";
 import { useTempDataDirAtLoad } from "../helpers/tempDataDir.js";
 import { mockBootCollaborators } from "../helpers/bootMocks.js";
+
+const spaDir = fs.mkdtempSync(path.join(os.tmpdir(), "lr-spa-fixture-"));
+fs.writeFileSync(
+  path.join(spaDir, "index.html"),
+  '<!doctype html><html><head><title>LiteRouter</title></head><body><div id="root"></div></body></html>',
+);
+const originalSpaDir = process.env.LITEROUTER_SPA_DIR;
+process.env.LITEROUTER_SPA_DIR = spaDir;
 
 useTempDataDirAtLoad("lr-spa-");
 mockBootCollaborators();
@@ -53,7 +64,10 @@ afterEach(async () => {
 });
 
 afterAll(() => {
-  server.stop(true);
+  server?.stop(true);
+  if (originalSpaDir === undefined) delete process.env.LITEROUTER_SPA_DIR;
+  else process.env.LITEROUTER_SPA_DIR = originalSpaDir;
+  fs.rmSync(spaDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 });
 
 describe("SPA placeholder", () => {
