@@ -5,7 +5,7 @@ describe("http helpers", () => {
   test("json matches NextResponse.json", async () => {
     const res = json({ a: 1 }, { status: 201, headers: { "x-test": "y" } });
     expect(res.status).toBe(201);
-    expect(res.headers.get("content-type")).toBe("application/json");
+    expect(res.headers.get("content-type")).toBe("application/json;charset=utf-8");
     expect(res.headers.get("x-test")).toBe("y");
     expect(await res.text()).toBe('{"a":1}');
   });

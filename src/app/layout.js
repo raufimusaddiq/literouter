@@ -3,12 +3,7 @@ import { IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
 import "material-symbols/outlined.css";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/components/ThemeProvider";
-import "@/lib/network/initOutboundProxy";
-import "@/shared/services/bootstrap";
-import { initConsoleLogCapture } from "@/lib/consoleLogBuffer";
 import { RuntimeI18nProvider } from "@/i18n/RuntimeI18nProvider";
-
-initConsoleLogCapture();
 
 const plex = IBM_Plex_Sans({
   subsets: ["latin"],

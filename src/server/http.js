@@ -8,7 +8,7 @@ export function json(body, init = {}) {
   const text = JSON.stringify(body);
   if (text === undefined) throw new TypeError("Value is not JSON serializable");
   const headers = new Headers(init.headers);
-  if (!headers.has("content-type")) headers.set("content-type", "application/json");
+  if (!headers.has("content-type")) headers.set("content-type", "application/json;charset=utf-8");
   const res = new Response(text, { ...init, headers });
   materialised.add(res);
   return res;
