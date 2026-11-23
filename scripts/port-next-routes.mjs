@@ -200,6 +200,79 @@ function applyEdits(code, edits) {
   return out;
 }
 
+function escapeRegex(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function closeParen(code, open) {
+  let depth = 0;
+  for (let i = open; i < code.length; i++) {
+    const ch = code[i];
+    if (ch === '"' || ch === "'" || ch === "`") {
+      i++;
+      while (i < code.length && code[i] !== ch) i += code[i] === "\\" ? 2 : 1;
+    } else if (ch === "(") depth++;
+    else if (ch === ")" && --depth === 0) return i;
+  }
+  return -1;
+}
+
+const VALUE_TAIL = /^\s*(\??)\.value\b/;
+
+function analyzeCookieValues(code, locals) {
+  const removals = [];
+  const unresolved = [];
+  const recv = locals.map(escapeRegex).join("|");
+  const jarCall = new RegExp(`(?<![.\\w$])(?:${recv})\\(`, "g");
+  const jarVar = new RegExp(`(?:const|let|var)\\s+(${ID})\\s*=\\s*(?:await\\s+)?\\(?\\s*(?:${recv})\\(\\s*[^()\\s]`, "g");
+  const jarNames = [...code.matchAll(jarVar)].map((m) => m[1]);
+  const receivers = [];
+  for (const m of code.matchAll(jarCall)) {
+    const open = m.index + m[0].length - 1;
+    const close = closeParen(code, open);
+    if (close === -1 || !code.slice(open + 1, close).trim()) continue;
+    let end = close + 1;
+    if (code[end] === ")" && /(?<![\w$.\])])\(\s*(?:await\s+)?$/.test(code.slice(0, m.index))) end++;
+    receivers.push({ start: m.index, end });
+  }
+  if (jarNames.length) {
+    const named = new RegExp(`(?<![.\\w$])(?:${jarNames.map(escapeRegex).join("|")})(?=\\s*\\.get\\()`, "g");
+    for (const m of code.matchAll(named)) receivers.push({ start: m.index, end: m.index + m[0].length });
+  }
+  const entryNames = new Set();
+  for (const { start, end } of receivers) {
+    const get = /^\s*\.get\(/.exec(code.slice(end));
+    if (!get) continue;
+    const close = closeParen(code, end + get[0].length - 1);
+    if (close === -1) continue;
+    const tail = VALUE_TAIL.exec(code.slice(close + 1));
+    if (tail) {
+      const optional = tail[1] === "?";
+      const next = code[close + 1 + tail[0].length];
+      removals.push({ start: close + 1, end: close + 1 + tail[0].length, text: optional && next === "." ? "?" : "" });
+      continue;
+    }
+    const declared = /(?:const|let|var)\s+([\w$]+)\s*=\s*(?:await\s+)?\(?\s*$/.exec(code.slice(Math.max(0, start - 80), start));
+    if (declared) entryNames.add(declared[1]);
+  }
+  for (const name of entryNames) {
+    for (const m of code.matchAll(new RegExp(`(?<![.\\w$])${escapeRegex(name)}\\s*\\??\\.value\\b`, "g"))) {
+      unresolved.push({ index: m.index, label: `.value on ${name}, a value from the cookie jar (it is a string now)` });
+    }
+  }
+  for (const m of code.matchAll(new RegExp(`(?<![\\w$])${ID}\\.cookies\\s*\\.get\\(`, "g"))) {
+    const close = closeParen(code, m.index + m[0].length - 1);
+    if (close !== -1 && VALUE_TAIL.test(code.slice(close + 1))) {
+      unresolved.push({ index: m.index, label: "request.cookies.get(...).value (a Web Request has no .cookies; use cookies(request).get(name))" });
+    }
+  }
+  return { removals, unresolved };
+}
+
+function cookieLocals(existingLocal, chosenLocal) {
+  return [...new Set(["cookies", ALIASES.cookies, existingLocal, chosenLocal].filter(Boolean))];
+}
+
 function stripRouteConfig(code) {
   const lines = code.split(/(?<=\n)/);
   const kept = [];
@@ -286,6 +359,14 @@ export function transformWithReport(source, filePath = "") {
   code = code.replaceAll(`${COOKIES_MARKER}(`, () => `${localFor("cookies")}(`);
   code = stripRouteConfig(code);
 
+  const locals = cookieLocals(existingLocals.get("cookies"), chosen.get("cookies"));
+  if (removedCookiesImport || existingLocals.has("cookies")) {
+    code = applyEdits(code, analyzeCookieValues(code, locals).removals);
+  }
+  for (const item of analyzeCookieValues(code, locals).unresolved) {
+    note(`line ${lineOf(code, item.index)}: ${item.label}; fix by hand`);
+  }
+
   if (/\bnextUrl\([^)]*\)\.(?:clone|basePath|locale|buildId)\b/.test(code)) {
     note("a NextURL-only member (clone/basePath/locale/buildId) is used on nextUrl(); a plain URL has none of them");
   }
@@ -354,7 +435,19 @@ export function findLeftovers(source) {
       if (pattern.test(line)) leftovers.push({ line: index + 1, label, text: line.trim() });
     }
   });
-  return leftovers;
+  const lines = source.split(/\r?\n/);
+  const imported = HTTP_IMPORT.exec(source);
+  const jarLocal = imported && parseSpecifiers(imported[2]).find((spec) => spec.imported === "cookies")?.local;
+  const analysis = analyzeCookieValues(source, cookieLocals(jarLocal));
+  for (const hit of analysis.removals) {
+    const line = lineOf(source, hit.start);
+    leftovers.push({ line, label: ".value on a cookie jar .get(...) result (it is a string now)", text: lines[line - 1].trim() });
+  }
+  for (const hit of analysis.unresolved) {
+    const line = lineOf(source, hit.index);
+    leftovers.push({ line, label: hit.label, text: lines[line - 1].trim() });
+  }
+  return leftovers.sort((a, b) => a.line - b.line);
 }
 
 function collectFiles(target, out) {

@@ -194,6 +194,120 @@ describe("port-next-routes transform", () => {
     expect(transformWithReport(once, "route.js").followUps).toEqual([]);
   });
 
+  it("drops .value from a direct cookies(...).get(...) result, optional or not", () => {
+    const { code, followUps } = transformWithReport(
+      [
+        'import { cookies } from "next/headers";',
+        "export async function GET(request) {",
+        '  const a = (await cookies()).get("a")?.value;',
+        '  const b = (await cookies()).get("b").value;',
+        '  const c = (await cookies()).get("c")?.value.trim();',
+        '  const d = (await cookies()).get(pick("x)", 1))?.value ?? "none";',
+        "  return new Response(a + b + c + d);",
+        "}",
+        "",
+      ].join("\n"),
+      "route.js",
+    );
+    expect(code).toContain('const a = (cookies(request)).get("a");');
+    expect(code).toContain('const b = (cookies(request)).get("b");');
+    expect(code).toContain('const c = (cookies(request)).get("c")?.trim();');
+    expect(code).toContain('const d = (cookies(request)).get(pick("x)", 1)) ?? "none";');
+    expect(code).not.toContain(".value");
+    expect(followUps).toEqual([]);
+    expect(findLeftovers(code)).toEqual([]);
+  });
+
+  it("drops .value from a variable assigned from cookies(...)", () => {
+    const { code, followUps } = transformWithReport(
+      [
+        'import { cookies } from "next/headers";',
+        "export async function GET(request) {",
+        "  const store = await cookies();",
+        '  const token = store.get("auth_token")?.value;',
+        '  const other = store.get("o").value;',
+        '  const unrelated = other.get("x")?.value;',
+        "  return new Response(token + other + unrelated);",
+        "}",
+        "",
+      ].join("\n"),
+      "route.js",
+    );
+    expect(code).toContain("const store = cookies(request);");
+    expect(code).toContain('const token = store.get("auth_token");');
+    expect(code).toContain('const other = store.get("o");');
+    expect(code).toContain('other.get("x")?.value');
+    expect(followUps).toEqual([]);
+  });
+
+  it("rewrites .value for an aliased http.js cookies import too", () => {
+    const out = transform(
+      [
+        'import { cookies as jarFor } from "@/server/http.js";',
+        "export async function GET(request) {",
+        '  return new Response(jarFor(request).get("a")?.value);',
+        "}",
+        "",
+      ].join("\n"),
+      "route.js",
+    );
+    expect(out).toContain('jarFor(request).get("a")');
+    expect(out).not.toContain(".value");
+  });
+
+  it("reports what it cannot rewrite: a held cookie entry and request.cookies.get", () => {
+    const { code, followUps } = transformWithReport(
+      [
+        'import { cookies } from "next/headers";',
+        "export async function GET(request) {",
+        "  const store = await cookies();",
+        '  const entry = store.get("a");',
+        "  const fromRequest = request.cookies.get('b')?.value;",
+        "  return new Response(entry?.value + fromRequest);",
+        "}",
+        "",
+      ].join("\n"),
+      "route.js",
+    );
+    expect(followUps.some((f) => /route\.js: line 6: .value on entry/.test(f))).toBe(true);
+    expect(followUps.some((f) => /route\.js: line 5: request\.cookies\.get/.test(f))).toBe(true);
+    expect(findLeftovers(code).map((l) => l.label)).toEqual([
+      expect.stringContaining("request.cookies.get"),
+      expect.stringContaining(".value on entry"),
+    ]);
+  });
+
+  it("cookie .value rewriting is idempotent", () => {
+    const source = [
+      'import { cookies } from "next/headers";',
+      "export async function GET(request) {",
+      "  const store = await cookies();",
+      '  return new Response(store.get("a")?.value + (await cookies()).get("b")?.value);',
+      "}",
+      "",
+    ].join("\n");
+    const once = transform(source, "route.js");
+    expect(once).not.toContain(".value");
+    expect(transform(once, "route.js")).toBe(once);
+    expect(transformWithReport(once, "route.js").followUps).toEqual([]);
+  });
+
+  it("findLeftovers flags a .value left on the cookie jar in an already ported file", () => {
+    const source = [
+      'import { cookies } from "@/server/http.js";',
+      "export async function GET(request) {",
+      '  const direct = cookies(request).get("a")?.value;',
+      "  const jar = cookies(request);",
+      '  const viaVar = jar.get("b").value;',
+      '  const fromRequest = request.cookies.get("c")?.value;',
+      "  return new Response(direct + viaVar + fromRequest);",
+      "}",
+      "",
+    ].join("\n");
+    expect(findLeftovers(source).map((l) => l.line)).toEqual([3, 5, 6]);
+    expect(findLeftovers(source.replaceAll("?.value", "").replaceAll(".value", ""))).toEqual([]);
+  });
+
   it("leaves a file with nothing to port byte-identical", () => {
     const source = 'export async function GET() {\n  return new Response("x");\n}\n';
     expect(transform(source, "route.js")).toBe(source);
@@ -239,6 +353,35 @@ describe("port-next-routes CLI", () => {
     const run = runCli([dir]);
     expect(run.stderr).toMatch(/lib\.js.*cookies\(\)/);
     expect(runCli(["--check", dir]).code).toBe(1);
+  });
+
+  it("--check exits 1 while a cookie .value is left, and the port clears it", () => {
+    const dir = tempDir();
+    const file = path.join(dir, "route.js");
+    fs.writeFileSync(
+      file,
+      'import { cookies } from "@/server/http.js";\nexport async function GET(request) {\n  return new Response(cookies(request).get("auth_token")?.value);\n}\n',
+    );
+    const before = runCli(["--check", dir]);
+    expect(before.code).toBe(1);
+    expect(before.stderr).toMatch(/route\.js:3: .*\.value/);
+
+    expect(runCli([dir]).code).toBe(0);
+    expect(fs.readFileSync(file, "utf8")).toContain('cookies(request).get("auth_token")');
+    expect(runCli(["--check", dir]).code).toBe(0);
+  });
+
+  it("--check keeps failing on a .value it cannot rewrite", () => {
+    const dir = tempDir();
+    fs.writeFileSync(
+      path.join(dir, "route.js"),
+      'export async function GET(request) {\n  return new Response(request.cookies.get("a")?.value);\n}\n',
+    );
+    const run = runCli([dir]);
+    expect(run.stderr).toMatch(/route\.js: line 2: request\.cookies\.get/);
+    const check = runCli(["--check", dir]);
+    expect(check.code).toBe(1);
+    expect(check.stderr).toMatch(/route\.js:2: request\.cookies\.get/);
   });
 
   it("running twice changes nothing the second time", () => {
