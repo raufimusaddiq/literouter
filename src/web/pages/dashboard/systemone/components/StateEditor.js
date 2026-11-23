@@ -2,6 +2,7 @@
 
 import { SegmentedControl } from "@/shared/components";
 import { makeId } from "../lib/requestBuilder";
+import { fieldClass, iconButtonClass, linkButtonClass } from "./fieldClass";
 
 const MODES = [
   { value: "text", label: "Text" },
@@ -19,7 +20,7 @@ export default function StateEditor({ form, onChange, error }) {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-medium text-text-main" id="systemone-state-label">State</span>
+        <span className="text-sm font-medium text-ink" id="systemone-state-label">State</span>
         <div role="group" aria-label="State input mode">
           <SegmentedControl options={MODES} value={form.stateMode} size="sm" onChange={(stateMode) => patch({ stateMode })} />
         </div>
@@ -34,9 +35,9 @@ export default function StateEditor({ form, onChange, error }) {
             onChange={(event) => patch({ stateText: event.target.value })}
             spellCheck="false"
             placeholder="Paste the conversation, email, or document to evaluate."
-            className="min-h-[140px] w-full resize-y rounded-xl bg-surface-2 p-3 text-sm leading-6 text-text-main ring-1 ring-transparent placeholder:text-text-muted/70 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+            className={fieldClass({ className: "min-h-[140px] resize-y p-3 text-sm leading-6" })}
           />
-          <p className="mt-1 text-xs text-text-muted">Sent as a plain string.</p>
+          <p className="mt-1 text-xs text-muted">Sent as a plain string.</p>
         </div>
       )}
 
@@ -50,7 +51,7 @@ export default function StateEditor({ form, onChange, error }) {
                 value={row.key}
                 onChange={(event) => updateField(row.id, { key: event.target.value })}
                 placeholder="name"
-                className="w-2/5 min-w-0 rounded-lg bg-surface-2 px-2.5 py-2 font-mono text-xs text-text-main ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                className={fieldClass({ className: "w-2/5 min-w-0 px-2.5 py-2 font-mono text-xs" })}
               />
               <label htmlFor={`state-value-${row.id}`} className="sr-only">Field {index + 1} value</label>
               <input
@@ -58,13 +59,13 @@ export default function StateEditor({ form, onChange, error }) {
                 value={row.value}
                 onChange={(event) => updateField(row.id, { value: event.target.value })}
                 placeholder="value"
-                className="min-w-0 flex-1 rounded-lg bg-surface-2 px-2.5 py-2 text-sm text-text-main ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                className={fieldClass({ className: "min-w-0 flex-1 px-2.5 py-2 text-sm" })}
               />
               <button
                 type="button"
                 aria-label={`Remove field ${index + 1}`}
                 onClick={() => patch({ stateFields: form.stateFields.filter((entry) => entry.id !== row.id) })}
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-surface-2 hover:text-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className={iconButtonClass}
               >
                 <span aria-hidden="true" className="material-symbols-outlined text-[18px]">delete</span>
               </button>
@@ -73,12 +74,12 @@ export default function StateEditor({ form, onChange, error }) {
           <button
             type="button"
             onClick={() => patch({ stateFields: [...form.stateFields, { id: makeId("f"), key: "", value: "" }] })}
-            className="inline-flex min-h-10 items-center gap-1.5 self-start rounded-lg px-3 text-xs font-semibold text-primary hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className={linkButtonClass}
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[16px]">add</span>
             Add field
           </button>
-          <p className="text-xs text-text-muted">Sent as a key/value object.</p>
+          <p className="text-xs text-muted">Sent as a key/value object.</p>
         </div>
       )}
 
@@ -90,12 +91,12 @@ export default function StateEditor({ form, onChange, error }) {
             value={form.stateJson}
             onChange={(event) => patch({ stateJson: event.target.value })}
             spellCheck="false"
-            className={`min-h-[140px] w-full resize-y rounded-xl bg-surface-2 p-3 font-mono text-xs leading-5 text-text-main ring-1 focus:outline-none focus:ring-2 ${error ? "ring-red-500/50 focus:ring-red-500/40" : "ring-transparent focus:ring-brand-500/30"}`}
+            className={fieldClass({ invalid: Boolean(error), className: "min-h-[140px] resize-y p-3 font-mono text-xs leading-5" })}
           />
           {error ? (
-            <p role="alert" className="mt-1 text-xs text-red-500">{error}</p>
+            <p role="alert" className="mt-1 text-xs text-danger">{error}</p>
           ) : (
-            <p className="mt-1 text-xs text-text-muted">Arrays and nested objects are allowed.</p>
+            <p className="mt-1 text-xs text-muted">Arrays and nested objects are allowed.</p>
           )}
         </div>
       )}

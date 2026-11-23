@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "@/web/router";
 import { APIKEY_PROVIDERS, supportsServiceKind } from "@/shared/constants/providers";
 import { getModelsByProviderId } from "@/shared/constants/models";
-import { Badge, Button, Card, Select, PageIntro, Toggle } from "@/shared/components";
+import { Badge, Button, Card, Select, Toggle } from "@/shared/components";
+import PageHeader from "@/shared/components/shell/PageHeader";
 import { useOrigin } from "@/shared/hooks/useOrigin";
 import StateEditor from "./components/StateEditor";
+import { fieldClass, linkButtonClass } from "./components/fieldClass";
 import QuestionBuilder from "./components/QuestionBuilder";
 import AnswerView from "./components/AnswerView";
 import {
@@ -237,16 +239,16 @@ export default function SystemOnePage() {
 
   return (
     <main className="flex min-w-0 flex-col gap-7 overflow-x-clip">
-      <PageIntro
+      <PageHeader
         title="System One"
         description="Typed decision requests: compose state and questions, run them against a provider, read the answers."
-        action={<Link href="/dashboard/providers" className="shrink-0"><Button variant="secondary" icon="settings">Configure providers</Button></Link>}
+        actions={<Link href="/dashboard/providers" className="shrink-0"><Button variant="secondary" icon="settings">Configure providers</Button></Link>}
       />
 
       {providers.length === 0 ? (
         <Card>
           <p className="font-medium">No System One providers are registered.</p>
-          <p className="mt-1 text-sm text-text-muted">Add a registry entry with a `systemone` service kind and a model list.</p>
+          <p className="mt-1 text-sm text-muted">Add a registry entry with a `systemone` service kind and a model list.</p>
         </Card>
       ) : (
         <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -267,8 +269,8 @@ export default function SystemOnePage() {
                 />
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-xs ring-1 ring-border-subtle">
-                <span className="min-w-0 truncate font-mono text-text-muted">POST {endpoint}</span>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-y border-line px-1 py-2 text-xs">
+                <span className="min-w-0 truncate font-mono text-muted">POST {endpoint}</span>
                 <Badge variant={connectionCount && clientApiKey ? "success" : "default"} size="sm" dot>
                   {connectionCount && clientApiKey
                     ? `${connectionCount} connection${connectionCount === 1 ? "" : "s"}`
@@ -282,12 +284,12 @@ export default function SystemOnePage() {
                 </div>
               )}
 
-              <div className="mt-5 border-t border-border-subtle pt-4">
+              <div className="mt-5 border-t border-line pt-4">
                 <StateEditor form={form} onChange={setForm} error={form.stateMode === "json" ? blockJsonError(form.stateJson) : ""} />
               </div>
 
-              <div className="mt-5 border-t border-border-subtle pt-4">
-                <h3 className="mb-3 text-sm font-semibold text-text-main">Questions</h3>
+              <div className="mt-5 border-t border-line pt-4">
+                <h3 className="mb-3 text-sm font-semibold text-ink">Questions</h3>
                 <QuestionBuilder
                   form={form}
                   onChange={setForm}
@@ -316,20 +318,20 @@ export default function SystemOnePage() {
                       id="systemone-paste-zone"
                       tabIndex={0}
                       onPaste={(event) => uploadImage(event.clipboardData?.files?.[0])}
-                      className="min-h-10 flex-1 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      className="min-h-10 flex-1 rounded-md border border-dashed border-line-strong px-3 py-2 text-xs text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line"
                     >
                       Or focus here and paste an image.
                     </div>
                   </div>
 
-                  {assetError && <p role="alert" className="mt-2 text-xs text-red-500">{assetError}</p>}
+                  {assetError && <p role="alert" className="mt-2 text-xs text-danger">{assetError}</p>}
 
                   {form.assets.length > 0 && (
                     <ul className="mt-3 flex flex-col gap-2">
                       {form.assets.map((asset) => (
-                        <li key={asset.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-2 p-2 ring-1 ring-border-subtle">
-                          <span className="min-w-0 truncate font-mono text-xs text-text-main">{asset.placeholder}</span>
-                          <span className="text-xs text-text-muted">{asset.name || asset.format}</span>
+                        <li key={asset.id} className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-raise p-2">
+                          <span className="min-w-0 truncate font-mono text-xs text-ink">{asset.placeholder}</span>
+                          <span className="text-xs text-muted">{asset.name || asset.format}</span>
                           <span className="flex flex-1 justify-end gap-1">
                             <Button
                               type="button"
@@ -344,7 +346,7 @@ export default function SystemOnePage() {
                               type="button"
                               aria-label={`Remove image ${asset.placeholder}`}
                               onClick={() => setForm((current) => ({ ...current, assets: current.assets.filter((entry) => entry.id !== asset.id) }))}
-                              className="flex size-9 items-center justify-center rounded-lg text-text-muted hover:bg-surface hover:text-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                              className="flex size-9 items-center justify-center rounded-md text-muted hover:bg-raise hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line"
                             >
                               <span aria-hidden="true" className="material-symbols-outlined text-[18px]">delete</span>
                             </button>
@@ -358,7 +360,7 @@ export default function SystemOnePage() {
                 <button
                   type="button"
                   onClick={() => setAssetsOpen(true)}
-                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-primary hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  className={linkButtonClass}
                 >
                   <span aria-hidden="true" className="material-symbols-outlined text-[16px]">add</span>
                   Add images
@@ -381,32 +383,32 @@ export default function SystemOnePage() {
               </div>
               {advancedOpen && (
                 <div className="mt-3">
-                  <label htmlFor="systemone-advanced-json" className="text-xs font-medium text-text-main">Request JSON</label>
+                  <label htmlFor="systemone-advanced-json" className="text-xs font-medium text-ink">Request JSON</label>
                   <textarea
                     id="systemone-advanced-json"
                     value={requestText}
                     onChange={(event) => applyAdvanced(event.target.value)}
                     spellCheck="false"
-                    className={`mt-1 min-h-[240px] w-full resize-y rounded-xl bg-surface-2 p-3 font-mono text-xs leading-5 text-text-main ring-1 focus:outline-none focus:ring-2 ${jsonError ? "ring-red-500/50 focus:ring-red-500/40" : "ring-transparent focus:ring-brand-500/30"}`}
+                    className={fieldClass({ invalid: Boolean(jsonError), className: "mt-1 min-h-[240px] resize-y p-3 font-mono text-xs leading-5" })}
                   />
-                  {jsonError && <p role="alert" className="mt-1 text-xs text-red-500">{jsonError}</p>}
+                  {jsonError && <p role="alert" className="mt-1 text-xs text-danger">{jsonError}</p>}
                 </div>
               )}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button type="button" size="sm" variant="secondary" icon="content_copy" onClick={copyCurl}>Copy as curl</Button>
-                <span aria-live="polite" className="text-xs text-text-muted">
+                <span aria-live="polite" className="text-xs text-muted">
                   {copyState === "copied" ? "Copied." : copyState === "failed" ? "Copy failed." : "Uses a placeholder key, never your real one."}
                 </span>
               </div>
-              <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-sidebar p-3 font-mono text-[11px] leading-5 text-text-muted">{JSON.stringify(preview.body, null, 2)}</pre>
+              <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border border-line bg-raise p-3 font-mono text-[11px] leading-5 text-muted">{JSON.stringify(preview.body, null, 2)}</pre>
             </Card>
           </div>
 
           <Card className="min-w-0" title="Answers" subtitle="Typed results, probability bars, and raw JSON." icon="data_object">
             <div className="sticky -top-4">
               <AnswerView result={result} form={{ questionsById }} />
-              <div className="mt-5 flex flex-col gap-2 border-t border-border-subtle pt-4">
-                {runDisabledReason && <p className="text-xs text-text-muted">{runDisabledReason}</p>}
+              <div className="mt-5 flex flex-col gap-2 border-t border-line pt-4">
+                {runDisabledReason && <p className="text-xs text-muted">{runDisabledReason}</p>}
                 <Button onClick={runRequest} loading={running} disabled={Boolean(runDisabledReason)} icon="play_arrow" fullWidth>
                   Run request
                 </Button>
@@ -416,10 +418,10 @@ export default function SystemOnePage() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
         <span>{provider?.description || "System One providers expose typed decision APIs."}</span>
         {provider?.docsUrl && (
-          <a href={provider.docsUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">Provider docs ↗</a>
+          <a href={provider.docsUrl} target="_blank" rel="noreferrer" className="text-ink underline underline-offset-[3px] hover:opacity-80">Provider docs ↗</a>
         )}
       </div>
     </main>
