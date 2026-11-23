@@ -279,9 +279,64 @@ on the dev box and in CI.
 
 ## Cutover
 
+### Runbook
+
+Host: `ssh ubuntu@43.129.53.222`. Rules: no builds or installs on the host. Never touch the other
+apps' containers. One writer on `9router-data` at a time (`deploy.sh` replaces the single
+`literouter` container through `compose up --wait`).
+
+**Order matters.** `scripts/deploy.sh` reads `/home/ubuntu/9router/compose.production.yml` from the
+host tree. The Node-era file (tree `30ceec8d`) has a `node -e` healthcheck, and the Bun image has
+no `node`. If `deploy.sh <bun sha>` ran on the old tree, the new container would never become
+healthy, and the old one would already be gone. So the host tree moves first, in both directions.
+
+1. **Pre-flight**, read-only:
+   - `df -h /`, `free -m`
+   - `docker ps`
+   - `git -C /home/ubuntu/9router status --short` (must be empty)
+   - `git -C /home/ubuntu/9router log --oneline -1`
+2. **Rollback anchors**, recorded below before anything changes:
+   - `OLD_TAG=$(docker container inspect literouter --format '{{.Config.Image}}')`. It must match `production-<40 hex>`.
+   - `docker tag "$OLD_TAG" ghcr.io/raufimusaddiq/literouter-production:rollback-node`, then verify it in `docker image ls`. `deploy.sh` removes only the tag it replaced, so this second tag keeps the Node image local.
+   - `OLD_SHA` is the 40 hex in `OLD_TAG`.
+   - A disaster-only copy, `/home/ubuntu/backups/pre-bun-<date>.sqlite`: `VACUUM INTO` from a read-only connection, the same method the rehearsal used, with `integrity_check` ok. Rollback never restores it.
+3. **Image check**, after the `staging → main` merge: `production-image.yml` publishes `production-<merge-sha>`.
+   - Check it is the Bun image: ≤ 150 MB (classic-store `.Size` on the dev box or in CI) and `command -v node` prints nothing.
+   - Run `bun scripts/cutover/gates/trust-gates.mjs ghcr.io/raufimusaddiq/literouter-production:production-<merge-sha>` on the dev box. All 13 must pass. This re-run is mandatory: it is the artifact production will run.
+4. **Host tree forward:**
+   - `git -C /home/ubuntu/9router fetch origin`
+   - `git -C /home/ubuntu/9router checkout <merge-sha>`
+   - `grep -q BUN_BE_BUN /home/ubuntu/9router/compose.production.yml` must succeed. Stop if it doesn't.
+   - `docker pull ghcr.io/raufimusaddiq/literouter-production:production-<merge-sha>`
+5. **Switch** [OWNER OK at that moment]: `bash /home/ubuntu/9router/scripts/deploy.sh <merge-sha>`.
+   - Measure the gap with `curl` probes of `https://ai.musaddiqr.com/api/health` at 1 s intervals from the dev box.
+   - Expect a few seconds of 502, as in the recorded Gate 10.
+6. **Within 15 minutes:**
+   - `/api/health` 200 and keyless `/v1/models` 401 through Cloudflare.
+   - One authenticated non-stream and one stream call with exactly one `[DONE]`.
+   - Dashboard login through Cloudflare.
+   - `docker stats literouter`.
+   - `[Redis]` connected in `docker logs literouter`.
+   - `integrity_check` ok (read-only sibling container).
+   - Usage counters increase.
+   - T2/T5-style probes against the public hostname stay remote (403 on a local-only path).
+   - Watch the logs for an hour.
+7. **Rollback**, only on a trigger: an unhealthy container, sustained `/v1` 5xx, any data-integrity failure, or the owner's call.
+   - `git -C /home/ubuntu/9router checkout <OLD_SHA>`, which restores the Node-era compose and `deploy.sh`.
+   - Then `bash /home/ubuntu/9router/scripts/deploy.sh <OLD_SHA>`. It uses the local image, or pulls it from GHCR if lost.
+   - Never restore the backup over the volume. The DB is compatible both ways (rehearsal above).
+
+### Record
+
 | Item | Result |
 | --- | --- |
-| pending | |
+| Drift check before the PR (`git diff --stat 90ac4b20… origin/main -- src open-sse cli package.json Dockerfile compose.production.yml`) | empty on 2026-11-23 (`main` = `90ac4b20`) |
+| Cutover PR / merge SHA | pending |
+| Merge tree equals tested `staging` tree | pending |
+| `OLD_TAG` / `OLD_SHA` / `rollback-node` / backup | pending |
+| Production image checks and trust gates on it | pending |
+| Switch time and measured gap | pending |
+| Post-switch checks | pending |
 
 ## Release
 
