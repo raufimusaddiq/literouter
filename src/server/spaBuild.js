@@ -1,7 +1,7 @@
 import { readdirSync, rmSync, watch } from "node:fs";
 import { join } from "node:path";
 import { buildWeb } from "../web/build.js";
-import { REPO_ROOT, SPA_DIR, SPA_DIR_OVERRIDE } from "./paths.js";
+import { REPO_ROOT, SPA_DIR, SPA_DIR_OVERRIDE, isBundled, isCompiled } from "./paths.js";
 
 const MISSING_CODE = "SPA_MISSING";
 const WATCHED = ["src", "open-sse"];
@@ -86,7 +86,7 @@ function devBuild() {
 
 function resolveSpa() {
   if (SPA_DIR_OVERRIDE) return readBuilt(SPA_DIR_OVERRIDE);
-  if (process.env.NODE_ENV === "production") return readBuilt(SPA_DIR);
+  if (process.env.NODE_ENV === "production" || isBundled || isCompiled) return readBuilt(SPA_DIR);
   return devBuild();
 }
 

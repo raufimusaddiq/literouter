@@ -7,9 +7,9 @@ export const APP_CONFIG = {
 };
 
 export const UPDATER_CONFIG = {
-  npmPackageName: "9router",
-  installCmd: "npm i -g 9router",
-  installCmdLatest: "npm i -g 9router@latest --prefer-online",
+  npmPackageName: "literouter",
+  installCmd: "bun add -g literouter",
+  installCmdLatest: "bun add -g literouter@latest",
   exitDelayMs: 500,
   statusPort: 20129,
   statusPollIntervalMs: 1000,
