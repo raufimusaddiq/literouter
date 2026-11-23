@@ -58,12 +58,14 @@ describe("findComments", () => {
       "// @ts-ignore",
       "// prettier-ignore",
       "import(/* webpackIgnore: true */ 'x');",
+      "fs.readFileSync(/* turbopackIgnore: true */ p);",
+      "import(/* turbopackChunkName: \"x\" */ 'y');",
       "const p = /*#__PURE__*/ f();",
       "/*! @license MIT */",
       "// plain words",
     ].join("\n");
     const flags = only(src).map((x) => x.isDirective);
-    expect(flags).toEqual([true, true, true, true, true, true, true, true, true, false]);
+    expect(flags).toEqual([true, true, true, true, true, true, true, true, true, true, true, false]);
   });
 
   it("does not treat strings or templates as comments", () => {

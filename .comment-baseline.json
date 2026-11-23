@@ -1,14 +1,5 @@
 {
-  "open-sse/executors/devin-cli.js": 9,
   "open-sse/providers/REGISTRY_TEMPLATE.js": 51,
   "open-sse/providers/registry/index.js": 1,
-  "open-sse/utils/requestLogger.js": 9,
-  "src/app/api/oauth/kiro/auto-import/route.js": 1,
-  "src/app/api/oauth/xiaomi-mimo/auto-import/route.js": 1,
-  "src/lib/db/backup.js": 13,
-  "src/lib/db/paths.js": 2,
-  "src/lib/headroom/detect.js": 2,
-  "src/lib/pxpipe/events.js": 7,
-  "src/lib/pxpipe/install.js": 12,
   "src/shared/constants/providerIconManifest.js": 1
 }

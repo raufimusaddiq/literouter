@@ -49,7 +49,7 @@ export function getInstallInfo() {
     if (!fs.existsSync(/* turbopackIgnore: true */ pkgJson) || !fs.existsSync(/* turbopackIgnore: true */ libraryEntry())) {
       return { installed: false, version: null, path: null };
     }
-    const pkg = JSON.parse(fs.readFileSync(pkgJson, "utf8"));
+    const pkg = JSON.parse(fs.readFileSync(/* turbopackIgnore: true */ pkgJson, "utf8"));
     return { installed: true, version: pkg.version || null, path: packageRoot() };
   } catch {
     return { installed: false, version: null, path: null };

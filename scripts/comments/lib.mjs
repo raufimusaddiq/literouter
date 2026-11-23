@@ -5,7 +5,7 @@ const SOURCE_EXT = /\.(js|jsx|mjs|cjs)$/;
 
 const DIRECTIVE_START =
   /^(eslint-disable|eslint-enable|eslint |global |globals |jshint|istanbul |c8 |@ts-|prettier-ignore|#__PURE__|@__PURE__|#__NO_SIDE_EFFECTS__)/;
-const DIRECTIVE_ANYWHERE = /webpackIgnore|webpackChunkName|webpackMode|@vite-ignore|@(license|preserve|jsx|jsxImportSource)\b/;
+const DIRECTIVE_ANYWHERE = /webpackIgnore|webpackChunkName|webpackMode|turbopack[A-Za-z]*|@vite-ignore|@(license|preserve|jsx|jsxImportSource)\b/;
 
 export function isDirectiveText(text) {
   const head = text.replace(/^[\s/*!]+/, "");
