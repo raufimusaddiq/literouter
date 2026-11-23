@@ -31,12 +31,22 @@ const CACHE_MODE_HEADERS = {
   "no-cache": { "cache-control": "max-age=0" },
 };
 
+function isPlainHeaders(headers) {
+  return headers === undefined || headers === null || (typeof headers === "object" && !Array.isArray(headers) && !(headers instanceof Headers));
+}
+
 function withNodeDefaults(url, options) {
+  const cache = options?.cache ?? (url instanceof Request ? url.cache : undefined);
+  const defaults = Object.entries({ ...NODE_FETCH_DEFAULT_HEADERS, ...CACHE_MODE_HEADERS[cache] });
+  if (!(url instanceof Request) && isPlainHeaders(options?.headers)) {
+    const headers = { ...options?.headers };
+    const present = new Set(Object.keys(headers).map((k) => k.toLowerCase()));
+    for (const [name, value] of defaults) if (!present.has(name)) headers[name] = value;
+    return { ...options, headers };
+  }
   const headers = new Headers(url instanceof Request ? url.headers : undefined);
   if (options?.headers) new Headers(options.headers).forEach((value, name) => headers.set(name, value));
-  const cache = options?.cache ?? (url instanceof Request ? url.cache : undefined);
-  const defaults = { ...NODE_FETCH_DEFAULT_HEADERS, ...CACHE_MODE_HEADERS[cache] };
-  for (const [name, value] of Object.entries(defaults)) if (!headers.has(name)) headers.set(name, value);
+  for (const [name, value] of defaults) if (!headers.has(name)) headers.set(name, value);
   return { ...options, headers };
 }
 
