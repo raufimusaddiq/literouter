@@ -103,6 +103,7 @@ const { buildInstallCmd } = require("./src/cli/utils/update");
 const { buildServerSpawn } = require("./src/cli/utils/spawn");
 const { takeoverLegacy, getProcessInfo } = require("./src/cli/utils/legacyCli");
 const { killLauncher } = require("./src/cli/utils/killProc");
+const { getListenerPid: listenerLookup } = require("./src/cli/utils/listener");
 const { createCrashLog } = require("./src/cli/utils/crashLog");
 const { ensureRuntime } = require("./hooks/runtime");
 const {
@@ -245,26 +246,29 @@ function killPid(pid) {
 }
 
 function getListenerPid(p) {
+  return listenerLookup(p);
+}
+
+function isPidAlive(pid) {
   try {
-    if (process.platform === "win32") {
-      const output = execSync("netstat -ano -p TCP", {
-        encoding: "utf8",
-        windowsHide: true,
-        timeout: 5000,
-        stdio: ["ignore", "pipe", "ignore"]
-      });
-      return findListenerPid(output, p);
-    }
-    const output = execSync(`lsof -tiTCP:${p} -sTCP:LISTEN`, {
-      encoding: "utf8",
-      timeout: 5000,
-      stdio: ["ignore", "pipe", "ignore"]
-    }).trim();
-    const pid = parseInt(output.split("\n")[0], 10);
-    return Number.isInteger(pid) ? pid : null;
+    process.kill(pid, 0);
+    return true;
   } catch (e) {
-    return null;
+    return e && e.code === "EPERM";
   }
+}
+
+function isPortOpen(p) {
+  return new Promise((resolve) => {
+    const socket = require("net").connect({ host: "127.0.0.1", port: p });
+    const done = (ok) => {
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.setTimeout(1500, () => done(false));
+    socket.once("connect", () => done(true));
+    socket.once("error", () => done(false));
+  });
 }
 
 function killProcess(pid, kind) {
@@ -296,6 +300,12 @@ async function claimPort() {
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     log: console.log,
   });
+  if (legacy && legacy.ambiguous) {
+    console.error(`
+❌ Port ${legacy.port} is held by pid ${legacy.pid}, which looks like an old 9router server but could not be positively identified. ${APP_NAME} will not start a second server on the same data directory.
+   Stop the old server yourself (npm rm -g 9router, or quit its tray icon / terminal), then run ${APP_NAME} again.`);
+    process.exit(1);
+  }
   if (legacy && legacy.respawned) {
     console.error(`\n❌ The old 9router launcher keeps restarting its server on port ${port}. Quit the old 9router CLI, then run ${APP_NAME} again.`);
     process.exit(1);

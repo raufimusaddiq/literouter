@@ -6,6 +6,9 @@ const {
   stopLegacyServer,
   takeoverLegacy,
   parseProcessInfo,
+  classifyListener,
+  parseProcCmdline,
+  parseProcStatPpid,
 } = require("../src/cli/utils/legacyCli");
 const { isTrackedServerAlive } = require("../src/cli/utils/serverProc");
 
@@ -192,5 +195,124 @@ describe("takeoverLegacy respawn", () => {
     });
     expect(enableCalls).toHaveLength(0);
     expect(res.respawned).toBe(true);
+  });
+});
+
+const TITLE = "next-server (v16.3.4)";
+const POSIX_LAUNCHER = "node /usr/lib/node_modules/9router/cli.js --port 20128 --no-browser";
+const FORK_LAUNCHER = "/usr/bin/node --dns-result-order=ipv4first /home/u/.nvm/versions/node/v22/lib/node_modules/9router/cli.js";
+
+describe("classifyListener", () => {
+  test("a node command line from the old package is legacy", () => {
+    expect(classifyListener({ ppid: 1, cmdline: LEGACY_SERVER }, null)).toBe("legacy");
+  });
+
+  test("a renamed next-server child of the old launcher is legacy", () => {
+    expect(classifyListener({ ppid: 50, cmdline: TITLE }, { ppid: 1, cmdline: POSIX_LAUNCHER })).toBe("legacy");
+    expect(classifyListener({ ppid: 50, cmdline: TITLE }, { ppid: 1, cmdline: FORK_LAUNCHER })).toBe("legacy");
+  });
+
+  test("a renamed server whose cwd is inside the 9router package is legacy even when orphaned", () => {
+    const info = { ppid: 1, cmdline: TITLE, exe: "/usr/bin/node", cwd: "/usr/lib/node_modules/9router/app" };
+    expect(classifyListener(info, { ppid: 0, cmdline: "/sbin/init" })).toBe("legacy");
+  });
+
+  test("a renamed server with no proof is only a suspect, never legacy", () => {
+    expect(classifyListener({ ppid: 1, cmdline: TITLE }, { ppid: 0, cmdline: "/sbin/init" })).toBe("suspect");
+    expect(classifyListener({ ppid: 1, cmdline: TITLE }, null)).toBe("suspect");
+  });
+
+  test("a parent launcher alone does not make a non-server child legacy", () => {
+    expect(classifyListener({ ppid: 50, cmdline: "python3 -m http.server" }, { ppid: 1, cmdline: POSIX_LAUNCHER })).toBe("other");
+  });
+
+  test("unrelated listeners and the new bun server are other", () => {
+    expect(classifyListener({ ppid: 1, cmdline: "nginx: master process" }, null)).toBe("other");
+    expect(classifyListener({ ppid: 1, cmdline: NEW_SERVER }, null)).toBe("other");
+    expect(classifyListener({ ppid: 1, cmdline: "/usr/bin/node /srv/app/server.js", cwd: "/srv/app" }, null)).toBe("other");
+    expect(classifyListener(null, null)).toBe("other");
+  });
+});
+
+describe("linux /proc parsing", () => {
+  test("splits NUL separated argv", () => {
+    expect(parseProcCmdline("node\0--flag\0/usr/lib/node_modules/9router/cli.js\0")).toBe("node --flag /usr/lib/node_modules/9router/cli.js");
+    expect(parseProcCmdline("")).toBe("");
+  });
+
+  test("reads the parent pid from /proc/<pid>/stat even when the title has spaces and parens", () => {
+    expect(parseProcStatPpid("8096 (next-server (v1) S 8037 8037 8037 0 -1 4194560")).toBe(8037);
+    expect(parseProcStatPpid("nonsense")).toBeNull();
+  });
+
+  test("parses macos ps output", () => {
+    expect(parseProcessInfo("  8037 node /opt/homebrew/lib/node_modules/9router/cli.js\n", "ps")).toEqual({
+      ppid: 8037,
+      cmdline: "node /opt/homebrew/lib/node_modules/9router/cli.js",
+    });
+  });
+});
+
+describe("stopLegacyServer without a pidfile or with a renamed title", () => {
+  const legacyInfos = {
+    100: { ppid: 50, cmdline: TITLE },
+    50: { ppid: 1, cmdline: POSIX_LAUNCHER },
+  };
+
+  test("stops the legacy server found on the requested port when there is no pidfile", async () => {
+    const { deps, calls } = makeDeps({ record: null, infos: legacyInfos });
+    deps.port = 20128;
+    deps.getListenerPid = () => (calls.includes("launcher") ? null : 100);
+    const res = await stopLegacyServer(deps);
+    expect(calls).toEqual(["launcher"]);
+    expect(res).toEqual({ stopped: true, launcherPid: 50, serverPid: 100 });
+  });
+
+  test("stops a renamed server named by the pidfile", async () => {
+    const { deps, calls } = makeDeps({ infos: legacyInfos });
+    deps.getListenerPid = () => (calls.includes("launcher") ? null : 100);
+    expect((await stopLegacyServer(deps)).stopped).toBe(true);
+    expect(calls).toEqual(["launcher"]);
+  });
+
+  test("refuses to kill an unidentifiable next-server and reports ambiguity", async () => {
+    const { deps, calls } = makeDeps({
+      record: null,
+      infos: { 100: { ppid: 1, cmdline: TITLE } },
+    });
+    deps.port = 20128;
+    const res = await stopLegacyServer(deps);
+    expect(calls).toEqual([]);
+    expect(res).toEqual({ stopped: false, ambiguous: true, pid: 100, port: 20128 });
+  });
+
+  test("leaves an unrelated listener alone so the port can move on", async () => {
+    const { deps, calls } = makeDeps({ record: null, infos: { 100: { ppid: 1, cmdline: "nginx: master process" } } });
+    deps.port = 20128;
+    expect(await stopLegacyServer(deps)).toEqual({ stopped: false });
+    expect(calls).toEqual([]);
+  });
+
+  test("also checks the requested port when the pidfile port is stale", async () => {
+    const { deps, calls } = makeDeps({ record: { pid: 7, port: 3000 }, infos: legacyInfos });
+    deps.port = 20128;
+    deps.getListenerPid = (p) => (p === 20128 && !calls.includes("launcher") ? 100 : null);
+    expect((await stopLegacyServer(deps)).stopped).toBe(true);
+  });
+
+  test("takeoverLegacy forwards the requested port to the stop step", async () => {
+    let seen;
+    await takeoverLegacy({
+      port: 20999,
+      cliPath: "x",
+      host: "h",
+      isAutoStartEnabled: () => false,
+      enableAutoStart() {},
+      stop: async (deps) => {
+        seen = deps.port;
+        return { stopped: false };
+      },
+    });
+    expect(seen).toBe(20999);
   });
 });
