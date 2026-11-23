@@ -1,3 +1,4 @@
+import path from "node:path";
 import { describe, it, expect, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
@@ -39,7 +40,8 @@ describe("headroom detect", () => {
   });
 
   it("prefers the interpreter that actually has headroom-ai installed", () => {
-    const binPython = "/opt/hr/bin/python3";
+    const headroomBin = "/opt/hr/bin/headroom";
+    const binPython = path.join(path.dirname(headroomBin), process.platform === "win32" ? "python.exe" : "python3");
     mocks.execSync.mockImplementation((cmd) => {
       if (String(cmd).includes("where") || String(cmd).includes("which")) return Buffer.from("/opt/hr/bin/headroom\n");
       if (String(cmd).includes("--version")) return Buffer.from("Python 3.13.0\n");
