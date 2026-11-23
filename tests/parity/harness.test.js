@@ -113,6 +113,19 @@ describe("normalize", () => {
     });
   });
 
+  test("normalize masks the request-detail latency object and nothing else under it", () => {
+    expect(normalizeBody({ details: [{ latency: { ttft: 52, total: 58, other: 7 }, status: "success" }] })).toEqual({
+      details: [{ latency: { ttft: "<MS>", total: "<MS>", other: 7 }, status: "success" }],
+    });
+  });
+
+  test("normalize masks the wall-clock created_at seconds a Responses stream frame carries", () => {
+    expect(normalizeBody({ data: '{"type":"response.created","response":{"created_at":1795431541,"status":"in_progress"}}' })).toEqual({
+      data: '{"type":"response.created","response":{"created_at":"<EPOCH_S>","status":"in_progress"}}',
+    });
+    expect(normalizeBody({ created_at: 1763800000 })).toEqual({ created_at: 1763800000 });
+  });
+
   test("normalize masks cooldown countdowns", () => {
     expect(normalizeBody({ error: "[x] [429]: slow (reset after 2s)" })).toEqual({ error: "[x] [429]: slow (reset after <N>s)" });
   });
@@ -262,12 +275,14 @@ describe("compare", () => {
     expect(validateKnownDiffs([{ path: "x", reason: "documented difference" }])).toEqual(["known-diffs[0]: file and path must be strings"]);
   });
 
-  test("the committed known-diffs cover only the local-trust fixtures and the login without a password", () => {
+  test("the committed known-diffs cover only the local-trust fixtures, the login without a password and the two engine exception texts", () => {
     const known = loadKnownDiffs();
     expect(known.length).toBeGreaterThan(0);
     const files = [...new Set(known.map((k) => k.file))].sort();
     expect(files).toEqual([
+      "api-auth-login-3-bad-json",
       "api-auth-login-noauth",
+      "api-settings-database-post-null",
       "api-v1-api-chat-noauth",
       "api-v1-chat-completions-noauth",
       "api-v1-messages-count-tokens-noauth",

@@ -3,7 +3,7 @@
   "headers": {
     "cache-control": "no-store",
     "content-encoding": "gzip",
-    "content-type": "application/json;charset=utf-8",
+    "content-type": "application/json",
     "set-cookie": [
       "auth_token=<MASKED>; Path=/; Expires=<DATE-FUTURE>; Max-Age=86400; HttpOnly; SameSite=lax"
     ]

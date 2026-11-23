@@ -1,10 +1,11 @@
+const SITE_TITLE = "LiteRouter — AI routing control plane";
 const TITLE = "404: This page could not be found.";
 
 const PAGE =
   '<!DOCTYPE html><html id="__next_error__"><head><meta charSet="utf-8"/>' +
   '<meta name="viewport" content="width=device-width, initial-scale=1"/>' +
   '<meta name="robots" content="noindex"/>' +
-  `<title>${TITLE}</title></head><body>` +
+  `<title>${SITE_TITLE}</title><title>${TITLE}</title></head><body>` +
   '<div style="font-family:system-ui,&quot;Segoe UI&quot;,Roboto,Helvetica,Arial,sans-serif,&quot;Apple Color Emoji&quot;,&quot;Segoe UI Emoji&quot;;height:100vh;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center">' +
   "<div><style>body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}" +
   "@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}</style>" +

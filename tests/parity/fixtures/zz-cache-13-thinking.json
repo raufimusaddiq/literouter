@@ -1,0 +1,100 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "zz-cache-13-thinking",
+  "method": "POST",
+  "path": "/v1/messages",
+  "json": {
+    "model": "pa/claude-sonnet-5-5",
+    "max_tokens": 4096,
+    "stream": false,
+    "thinking": {
+      "type": "enabled",
+      "budget_tokens": 2048
+    },
+    "system": [
+      {
+        "type": "text",
+        "text": "You are a careful coding assistant. Follow the repository conventions."
+      },
+      {
+        "type": "text",
+        "text": "Prefer small, reviewable changes."
+      }
+    ],
+    "tools": [
+      {
+        "name": "read_file",
+        "description": "read_file tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "q"
+          ]
+        }
+      },
+      {
+        "name": "grep_files",
+        "description": "grep_files tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "q"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Plan the change."
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "thinking",
+            "thinking": "Considering the layout.",
+            "signature": "sig-parity-1"
+          },
+          {
+            "type": "redacted_thinking",
+            "data": "ZGF0YQ=="
+          },
+          {
+            "type": "text",
+            "text": "Here is the plan."
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Proceed."
+          }
+        ]
+      }
+    ]
+  },
+  "headers": {
+    "anthropic-version": "2023-06-01",
+    "user-agent": "claude-cli/2.0.0 (external, cli)"
+  }
+}

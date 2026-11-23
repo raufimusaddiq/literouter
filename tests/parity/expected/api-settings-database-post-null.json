@@ -2,10 +2,10 @@
   "status": 400,
   "headers": {
     "content-encoding": "gzip",
-    "content-type": "application/json;charset=utf-8"
+    "content-type": "application/json"
   },
   "body": {
-    "error": "Cannot destructure property 'password' from null or undefined value"
+    "error": "Cannot destructure property 'password' of '(intermediate value)' as it is null."
   },
   "upstream": []
 }

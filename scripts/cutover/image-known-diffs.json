@@ -1,0 +1,32 @@
+[
+  {
+    "file": "api-auth-login-3-bad-json",
+    "path": "body.error",
+    "actual": "JSON Parse error: Expected '}'",
+    "reason": "engine-specific exception text from JSON.parse / destructuring (V8 on Node, JavaScriptCore on Bun) echoed in a 500 body; status and shape match; not a /v1 route"
+  },
+  {
+    "file": "api-auth-login-noauth",
+    "path": "status",
+    "actual": 401,
+    "reason": "accepted Plan 2 diff: bcryptjs threw on a missing password (Node answered 500 Illegal arguments); the Bun-native password check returns false, so login answers 401 Invalid password with the attempt counter; not a /v1 route"
+  },
+  {
+    "file": "api-auth-login-noauth",
+    "path": "body.error",
+    "actual": "Invalid password. 4 attempt(s) left before lockout.",
+    "reason": "accepted Plan 2 diff: bcryptjs threw on a missing password (Node answered 500 Illegal arguments); the Bun-native password check returns false, so login answers 401 Invalid password with the attempt counter; not a /v1 route"
+  },
+  {
+    "file": "api-auth-login-noauth",
+    "path": "body.remainingBeforeLock",
+    "actual": 4,
+    "reason": "accepted Plan 2 diff: bcryptjs threw on a missing password (Node answered 500 Illegal arguments); the Bun-native password check returns false, so login answers 401 Invalid password with the attempt counter; not a /v1 route"
+  },
+  {
+    "file": "api-settings-database-post-null",
+    "path": "body.error",
+    "actual": "Cannot destructure property 'password' from null or undefined value",
+    "reason": "engine-specific exception text from JSON.parse / destructuring (V8 on Node, JavaScriptCore on Bun) echoed in a 500 body; status and shape match; not a /v1 route"
+  }
+]

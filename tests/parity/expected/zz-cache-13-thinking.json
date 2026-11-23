@@ -1,0 +1,122 @@
+{
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "chatcmpl-<ID>",
+    "object": "chat.completion",
+    "created": 1763800000,
+    "model": "mock-model",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "parity ok"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {}
+  },
+  "upstream": [
+    {
+      "method": "POST",
+      "path": "/v1/messages",
+      "body": {
+        "model": "claude-sonnet-5-5",
+        "max_tokens": 4096,
+        "stream": false,
+        "thinking": {
+          "type": "enabled",
+          "budget_tokens": 2048
+        },
+        "system": [
+          {
+            "type": "text",
+            "text": "You are a careful coding assistant. Follow the repository conventions."
+          },
+          {
+            "type": "text",
+            "text": "Prefer small, reviewable changes.",
+            "cache_control": {
+              "type": "ephemeral",
+              "ttl": "1h"
+            }
+          }
+        ],
+        "tools": [
+          {
+            "name": "read_file",
+            "description": "read_file tool",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "q": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "q"
+              ]
+            }
+          },
+          {
+            "name": "grep_files",
+            "description": "grep_files tool",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "q": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "q"
+              ]
+            },
+            "cache_control": {
+              "type": "ephemeral",
+              "ttl": "1h"
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Plan the change."
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Here is the plan.",
+                "cache_control": {
+                  "type": "ephemeral"
+                }
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Proceed."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

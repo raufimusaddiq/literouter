@@ -1,0 +1,10 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "zz-cache-23-ponytail-off",
+  "method": "PATCH",
+  "path": "/api/settings",
+  "json": {
+    "ponytailEnabled": false
+  }
+}

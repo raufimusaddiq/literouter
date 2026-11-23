@@ -1,0 +1,126 @@
+{
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "chatcmpl-<ID>",
+    "object": "chat.completion",
+    "created": 1763800000,
+    "model": "mock-model",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "parity ok"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {}
+  },
+  "upstream": [
+    {
+      "method": "POST",
+      "path": "/v1/messages",
+      "body": {
+        "model": "claude-sonnet-5-5",
+        "max_tokens": 1024,
+        "stream": false,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are a careful coding assistant. Follow the repository conventions."
+          },
+          {
+            "type": "text",
+            "text": "Prefer small, reviewable changes.",
+            "cache_control": {
+              "type": "ephemeral",
+              "ttl": "1h"
+            }
+          }
+        ],
+        "tools": [
+          {
+            "name": "read_file",
+            "description": "read_file tool",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "q": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "q"
+              ]
+            }
+          },
+          {
+            "name": "grep_files",
+            "description": "grep_files tool",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "q": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "q"
+              ]
+            },
+            "cache_control": {
+              "type": "ephemeral",
+              "ttl": "1h"
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Check the repo state."
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_parity_2",
+                "name": "read_file",
+                "input": {
+                  "q": "git status"
+                },
+                "cache_control": {
+                  "type": "ephemeral"
+                }
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "toolu_parity_2",
+                "content": "* main\n~ Modified: 40 files\n   src/module0/handler0.js\n   src/module1/handler1.js\n   src/module2/handler2.js\n   src/module3/handler3.js\n   src/module4/handler4.js\n   src/module5/handler5.js\n   src/module6/handler6.js\n   src/module7/handler7.js\n   src/module8/handler8.js\n   src/module9/handler9.js\n   ... +30 more",
+                "cache_control": {
+                  "type": "ephemeral"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

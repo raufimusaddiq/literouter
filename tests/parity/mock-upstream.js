@@ -80,7 +80,7 @@ function scenario(model, stats) {
   }
 }
 
-export async function startMockUpstream({ port = 0, outDir } = {}) {
+export async function startMockUpstream({ port = 0, outDir, hostname = "127.0.0.1" } = {}) {
   const requests = [];
   const stats = { cancelled: 0 };
   let seq = 0;
@@ -92,7 +92,7 @@ export async function startMockUpstream({ port = 0, outDir } = {}) {
 
   const server = Bun.serve({
     port,
-    hostname: "127.0.0.1",
+    hostname,
     idleTimeout: 0,
     async fetch(req) {
       const url = new URL(req.url);
