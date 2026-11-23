@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LiteRouter · Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #111212;
+  --raise: #18191a;
+  --line: #25282a;
+  --line-strong: #3b3f42;
+  --ink: #ecedee;
+  --muted: #a1a6aa;
+  --faint: #868b90;
+  --bar: #50555a;
+  --bar-hi: #6a7075;
+  --mark: #ffd23f;
+  --mark-ink: #111212;
+  --mark-line: #ffd23f;
+  --ok: #5fd08a;
+  --wire: #3d4246;
+  --wire-live: #8a9095;
+  --grid: #2a2d30;
+  --top: rgba(17,18,18,.78);
+  --font: "Schibsted Grotesk", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #f3f4f4;
+  --raise: #ffffff;
+  --line: #dfe1e2;
+  --line-strong: #bfc3c6;
+  --ink: #121314;
+  --muted: #50555a;
+  --faint: #62676c;
+  --bar: #3a3e42;
+  --bar-hi: #23262a;
+  --mark: #ffd23f;
+  --mark-ink: #121314;
+  --mark-line: #a37a00;
+  --ok: #1d7a46;
+  --wire: #c9cdd0;
+  --wire-live: #6d7378;
+  --grid: #e1e3e5;
+  --top: rgba(243,244,244,.8);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 14px/20px var(--font);
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+.mono { font-family: var(--mono); font-size: 12.5px; letter-spacing: -0.01em; }
+:focus-visible { outline: 2px solid var(--mark-line); outline-offset: 2px; border-radius: 4px; }
+
+.top {
+  position: sticky; top: 0; z-index: 10;
+  height: 52px;
+  display: flex; align-items: center; gap: 28px;
+  padding: 0 32px;
+  background: var(--top);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 15px; letter-spacing: -0.01em; text-decoration: none; flex: none; }
+.brand svg { display: block; }
+.nav { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.nav a {
+  position: relative;
+  text-decoration: none; color: var(--muted);
+  padding: 0 9px; height: 52px; display: flex; align-items: center;
+  font-size: 13.5px; white-space: nowrap;
+}
+.nav a:hover { color: var(--ink); }
+.nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+.nav a[aria-current="page"]::after {
+  content: ""; position: absolute; left: 9px; right: 9px; bottom: -1px; height: 2px; background: var(--mark);
+}
+.nav .sep { width: 1px; height: 16px; background: var(--line-strong); margin: 0 8px; }
+.top-right { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: none; }
+.icon-btn {
+  height: 32px; min-width: 32px; padding: 0 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: 1px solid transparent; border-radius: 6px; cursor: pointer; color: var(--muted);
+  font-size: 12.5px; font-weight: 600;
+}
+.icon-btn:hover { color: var(--ink); border-color: var(--line); }
+.menu-btn { display: none; }
+
+main { max-width: 1376px; margin: 0 auto; padding: 28px 32px 48px; }
+
+.title-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+h1 { font-size: 30px; line-height: 36px; font-weight: 600; letter-spacing: -0.025em; margin: 0; }
+.endpoint {
+  display: inline-flex; align-items: center; height: 32px;
+  border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden;
+}
+.endpoint .url { padding: 0 12px; }
+.endpoint .prot { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; height: 100%; border-left: 1px solid var(--line); color: var(--ok); font-size: 12.5px; font-weight: 600; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
+.endpoint button { height: 100%; padding: 0 12px; border: 0; border-left: 1px solid var(--line); background: var(--raise); cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.endpoint button:hover { background: var(--line); }
+.fresh { margin-left: auto; display: flex; align-items: center; gap: 12px; color: var(--faint); font-size: 12.5px; }
+.btn {
+  height: 32px; padding: 0 14px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line-strong); background: transparent; font-weight: 600; font-size: 13px;
+}
+.btn:hover { background: var(--raise); }
+.btn:active { transform: translateY(1px); }
+
+.traffic { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--line); }
+.tally-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.tally { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 26px; margin: 0; }
+.tally div { display: flex; align-items: baseline; gap: 8px; }
+.tally b { font-variant-numeric: proportional-nums; font-size: 34px; line-height: 38px; font-weight: 600; letter-spacing: -0.03em; }
+.tally div:first-child b { font-size: 44px; line-height: 46px; }
+.tally span { color: var(--muted); font-size: 14px; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 6px; padding: 2px; flex: none; }
+.seg button { height: 26px; padding: 0 12px; border: 0; border-radius: 4px; background: none; cursor: pointer; color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+.chart-wrap { position: relative; margin-top: 18px; }
+.chart-wrap svg { display: block; width: 100%; height: 190px; overflow: visible; }
+.chart-foot { display: flex; justify-content: space-between; gap: 16px; margin-top: 10px; color: var(--faint); font-size: 12.5px; }
+.chart-foot .live { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+
+.routes { margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line); }
+.routes-grid { display: grid; grid-template-columns: minmax(0, 1fr) 200px minmax(0, 1fr); position: relative; }
+.col-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; height: 46px; }
+.col-head h2 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.col-head .meta { color: var(--muted); font-size: 12.5px; }
+.col-head a { font-size: 12.5px; font-weight: 600; text-underline-offset: 3px; }
+.head-l { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-strong); }
+.list li { height: 50px; display: grid; align-items: center; border-bottom: 1px solid var(--line); }
+.req li { grid-template-columns: 74px minmax(0, 1fr) auto; column-gap: 12px; padding-right: 14px; }
+.req .when { color: var(--faint); }
+.req .model { display: flex; flex-direction: column; line-height: 16px; min-width: 0; }
+.req .model small { color: var(--muted); font-family: var(--font); font-size: 12px; }
+.req .tok { text-align: right; white-space: nowrap; }
+.req .tok i { font-style: normal; color: var(--faint); padding: 0 4px; }
+.req li.now .when { color: var(--ink); }
+.req li.now .when::before { content: ""; display: inline-block; width: 6px; height: 6px; background: var(--mark); border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.prov li { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; column-gap: 12px; padding-left: 14px; }
+.prov .name { font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.prov .acct { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prov .state { display: inline-flex; align-items: center; gap: 7px; color: var(--ok); font-size: 12.5px; font-weight: 600; }
+.prov li.hot .name::after { content: attr(data-hits); font-family: var(--mono); font-size: 11.5px; font-weight: 400; color: var(--faint); }
+
+.switch { position: relative; }
+.switch .col-head { justify-content: center; }
+.switch svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.hub {
+  position: absolute; left: 50%; transform: translate(-50%, -50%);
+  padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg);
+  font-family: var(--mono); font-size: 12px; white-space: nowrap; z-index: 1;
+}
+.hub small { display: block; color: var(--faint); font-size: 10.5px; text-align: center; }
+
+@media (max-width: 1359px) {
+  .nav { display: none; }
+  .menu-btn { display: inline-flex; }
+}
+@media (max-width: 860px) {
+  .routes-grid { grid-template-columns: minmax(0, 1fr); row-gap: 28px; }
+  .switch { display: none; }
+  .tally-row { flex-direction: column; align-items: stretch; }
+  .seg { align-self: flex-start; }
+}
+@media (max-width: 560px) {
+  .top { padding: 0 16px; gap: 12px; }
+  .top-right .lang { display: none; }
+  main { padding: 20px 16px 40px; }
+  h1 { font-size: 24px; line-height: 30px; }
+  .title-row { gap: 12px; }
+  .endpoint { width: 100%; }
+  .endpoint .url { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; padding: 0 10px; }
+  .fresh { margin-left: 0; width: 100%; justify-content: space-between; }
+  .tally { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+  .tally div { flex-direction: column; gap: 0; }
+  .tally b, .tally div:first-child b { font-size: 28px; line-height: 32px; }
+  .chart-wrap svg { height: 170px; }
+  .chart-foot { flex-direction: column; gap: 4px; }
+  .req li { grid-template-columns: 58px minmax(0, 1fr) auto; }
+  .prov li { grid-template-columns: minmax(0, 1fr) auto; }
+  .prov .acct { display: none; }
+}
+.sheet { display: none; position: fixed; inset: 52px 0 0 0; background: var(--bg); z-index: 9; padding: 12px 16px; overflow: auto; }
+.sheet.open { display: block; }
+.sheet h3 { color: var(--faint); font-size: 12px; font-weight: 600; margin: 16px 0 4px; }
+.sheet a { display: flex; align-items: center; height: 44px; text-decoration: none; border-bottom: 1px solid var(--line); font-size: 15px; }
+.sheet a[aria-current="page"] { font-weight: 600; box-shadow: inset 3px 0 0 var(--mark); padding-left: 10px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#" aria-label="LiteRouter home">
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="4" cy="5" r="2.5" fill="currentColor"/><circle cx="4" cy="17" r="2.5" fill="currentColor"/><path d="M6.5 5 H10 C13 5 13 11 16 11 H19 M6.5 17 H10 C13 17 13 11 16 11" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="19" cy="11" r="2.5" fill="var(--mark)"/></svg>
+    LiteRouter
+  </a>
+  <nav class="nav" aria-label="Main">
+    <a href="#" aria-current="page">Overview</a>
+    <a href="#">Endpoint &amp; Key</a>
+    <a href="#">Providers</a>
+    <span class="sep" aria-hidden="true"></span>
+    <a href="#">Combo &amp; Vision Adapter</a>
+    <a href="#">System One</a>
+    <span class="sep" aria-hidden="true"></span>
+    <a href="#">Usage</a>
+    <a href="#">Quota Tracker</a>
+    <a href="#">Token Saver</a>
+    <span class="sep" aria-hidden="true"></span>
+    <a href="#">Console Log</a>
+    <a href="#">Settings</a>
+  </nav>
+  <div class="top-right">
+    <button class="icon-btn" id="theme" aria-label="Switch theme">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2 A6 6 0 0 1 8 14 Z" fill="currentColor"/></svg>
+    </button>
+    <button class="icon-btn lang" aria-label="Language: US English">US</button>
+    <button class="icon-btn" aria-label="Account menu">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3.5" r="1.4" fill="currentColor"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/><circle cx="8" cy="12.5" r="1.4" fill="currentColor"/></svg>
+    </button>
+    <button class="icon-btn menu-btn" id="menu" aria-expanded="false" aria-controls="sheet">Menu</button>
+  </div>
+</header>
+<div class="sheet" id="sheet">
+  <h3>Operate</h3><a href="#" aria-current="page">Overview</a><a href="#">Endpoint &amp; Key</a><a href="#">Providers</a>
+  <h3>Route</h3><a href="#">Combo &amp; Vision Adapter</a><a href="#">System One</a>
+  <h3>Observe</h3><a href="#">Usage</a><a href="#">Quota Tracker</a><a href="#">Token Saver</a>
+  <h3>System</h3><a href="#">Console Log</a><a href="#">Settings</a>
+</div>
+
+<main>
+  <div class="title-row">
+    <h1>Overview</h1>
+    <div class="endpoint">
+      <span class="url mono">https://ai.musaddiqr.com/v1</span>
+      <span class="prot"><span class="dot"></span>Protected</span>
+      <button type="button" id="copy">Copy</button>
+    </div>
+    <div class="fresh">
+      <span>Updated 15:02</span>
+      <button class="btn" type="button">Refresh</button>
+    </div>
+  </div>
+
+  <section class="traffic" aria-labelledby="t-h">
+    <h2 id="t-h" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Traffic, last 24 hours</h2>
+    <div class="tally-row">
+      <div class="tally">
+        <div><b>4,783</b><span>requests</span></div>
+        <div><b>469.5M</b><span>tokens in</span></div>
+        <div><b>3.2M</b><span>out</span></div>
+        <div><b>~$51.38</b><span>estimated cost</span></div>
+      </div>
+      <div class="seg" role="group" aria-label="Range">
+        <button type="button" aria-pressed="false">Today</button>
+        <button type="button" aria-pressed="true">24h</button>
+        <button type="button" aria-pressed="false">7D</button>
+      </div>
+    </div>
+    <div class="chart-wrap"><svg id="chart" role="img" aria-label="Requests per hour, last 24 hours. Peak 790 at 14:54, current hour 520."></svg></div>
+    <div class="chart-foot">
+      <span class="live"><span class="dot"></span>Route plane online · everything routes through <span class="mono">https://ai.musaddiqr.com/v1</span></span>
+      <span>Requests per hour · cost is an estimate, not billing</span>
+    </div>
+  </section>
+
+  <section class="routes" aria-label="Routes">
+    <div class="routes-grid" id="grid">
+      <div>
+        <div class="col-head">
+          <div class="head-l"><h2>Recent requests</h2><span class="meta">from 7 active keys</span></div>
+          <a href="#">View all</a>
+        </div>
+        <ul class="list req" id="req">
+          <li class="now" data-to="cc"><span class="when mono">now</span><span class="model mono">claude-opus-5-5<small>Claude Code</small></span><span class="tok mono">173.7K<i>→</i>3</span></li>
+          <li data-to="kn"><span class="when mono">now</span><span class="model mono">muse-ember-1-0<small>Kenari</small></span><span class="tok mono">79.9K<i>→</i>110</span></li>
+          <li data-to="cc"><span class="when mono">12s</span><span class="model mono">claude-opus-5-5<small>Claude Code</small></span><span class="tok mono">72.9K<i>→</i>513</span></li>
+          <li data-to="cc"><span class="when mono">31s</span><span class="model mono">claude-opus-5-5<small>Claude Code</small></span><span class="tok mono">71.0K<i>→</i>4,000</span></li>
+          <li data-to="kn"><span class="when mono">44s</span><span class="model mono">muse-ember-1-0<small>Kenari</small></span><span class="tok mono">170.8K<i>→</i>94</span></li>
+        </ul>
+      </div>
+      <div class="switch" id="switch" aria-hidden="true">
+        <div class="col-head"></div>
+        <svg id="wires"></svg>
+        <div class="hub" id="hub">/v1<small>route plane</small></div>
+      </div>
+      <div>
+        <div class="col-head">
+          <div class="head-l"><h2>Providers</h2><span class="meta">6 connections · 6 ready · 0 need attention</span></div>
+          <a href="#">View all</a>
+        </div>
+        <ul class="list prov" id="prov">
+          <li data-id="ts"><span class="name">TypeSafe AI</span><span class="acct mono">jevkey</span><span class="state"><span class="dot"></span>Ready</span></li>
+          <li data-id="sumo"><span class="name">Sumopod</span><span class="acct mono">default</span><span class="state"><span class="dot"></span>Ready</span></li>
+          <li data-id="kn" class="hot"><span class="name" data-hits="2 of last 5">Kenari</span><span class="acct mono">mus…@gmail.com</span><span class="state"><span class="dot"></span>Ready</span></li>
+          <li data-id="ocg"><span class="name">OpenCode Go</span><span class="acct mono">rau…@gmail.com</span><span class="state"><span class="dot"></span>Ready</span></li>
+          <li data-id="cc" class="hot"><span class="name" data-hits="3 of last 5">Claude Code</span><span class="acct mono">rau…@gmail.com</span><span class="state"><span class="dot"></span>Ready</span></li>
+          <li data-id="mimo"><span class="name">MiMo Code Free</span><span class="acct mono">default</span><span class="state"><span class="dot"></span>Ready</span></li>
+        </ul>
+        <p class="meta" style="color:var(--faint);font-size:12px;margin:10px 0 0">0 inactive · 0 untested</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const root = document.documentElement;
+if (location.hash === "#light") root.dataset.theme = "light";
+document.getElementById("theme").onclick = () => {
+  root.dataset.theme = root.dataset.theme === "light" ? "dark" : "light";
+  draw();
+};
+const menu = document.getElementById("menu");
+menu.onclick = () => {
+  const open = document.getElementById("sheet").classList.toggle("open");
+  menu.setAttribute("aria-expanded", String(open));
+};
+document.getElementById("copy").onclick = (e) => { e.target.textContent = "Copied"; setTimeout(() => (e.target.textContent = "Copy"), 1400); };
+document.querySelectorAll(".seg button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+});
+
+const data = [270,150,145,45,215,340,330,5,5,5,5,8,5,20,395,255,30,40,160,775,790,10,345,520];
+const labels = ["18:54","22:54","02:54","06:54","10:54","14:54"];
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); parent && parent.appendChild(n); return n; };
+const css = (v) => getComputedStyle(root).getPropertyValue(v).trim();
+
+function drawChart() {
+  const svg = document.getElementById("chart");
+  svg.innerHTML = "";
+  const W = svg.clientWidth, H = svg.clientHeight;
+  const left = 44, right = 4, top = 22, bottom = 24;
+  const pw = W - left - right, ph = H - top - bottom;
+  const max = 1000;
+  const narrow = W < 600;
+  [0, 250, 500, 750, 1000].forEach((t) => {
+    const y = top + ph - (t / max) * ph;
+    el("line", { x1: left, x2: W - right, y1: y, y2: y, stroke: t === 0 ? css("--line-strong") : css("--grid"), "stroke-dasharray": t === 0 ? "" : "3 4", "stroke-width": 1 }, svg);
+    const tx = el("text", { x: left - 10, y: y + 4, "text-anchor": "end", fill: css("--faint"), "font-family": "JetBrains Mono", "font-size": 11 }, svg);
+    tx.textContent = t.toLocaleString("en-US");
+  });
+  const slot = pw / data.length, bw = Math.max(3, slot * 0.62);
+  data.forEach((v, i) => {
+    const h = Math.max(1, (v / max) * ph);
+    const x = left + i * slot + (slot - bw) / 2;
+    const now = i === data.length - 1;
+    el("rect", { x, y: top + ph - h, width: bw, height: h, rx: 1.5, fill: now ? css("--mark") : css("--bar") }, svg);
+    if (now) {
+      const cx = x + bw / 2, cy = top + ph - h - 10;
+      const label = "now 520", w = 58;
+      el("rect", { x: Math.min(cx - w / 2, W - w), y: cy - 15, width: w, height: 18, rx: 3, fill: css("--mark") }, svg);
+      const t = el("text", { x: Math.min(cx, W - w / 2), y: cy - 2, "text-anchor": "middle", fill: css("--mark-ink"), "font-family": "JetBrains Mono", "font-size": 11, "font-weight": 500 }, svg);
+      t.textContent = label;
+    }
+  });
+  labels.forEach((l, k) => {
+    if (narrow && k % 2) return;
+    const i = k * 4;
+    const x = left + i * slot + slot / 2;
+    const t = el("text", { x, y: H - 4, "text-anchor": k === 0 ? "start" : "middle", fill: css("--faint"), "font-family": "JetBrains Mono", "font-size": 11 }, svg);
+    t.textContent = l;
+    if (k === 0) t.setAttribute("x", left + (slot - bw) / 2);
+  });
+}
+
+function drawWires() {
+  const sw = document.getElementById("switch");
+  if (getComputedStyle(sw).display === "none") return;
+  const svg = document.getElementById("wires");
+  svg.innerHTML = "";
+  const box = sw.getBoundingClientRect();
+  const W = box.width;
+  const mid = (li) => { const r = li.getBoundingClientRect(); return r.top + r.height / 2 - box.top; };
+  const reqs = [...document.querySelectorAll("#req li")];
+  const provs = [...document.querySelectorAll("#prov li")];
+  const ys = reqs.map(mid);
+  const pys = provs.map(mid);
+  const cy = (Math.min(...ys, ...pys) + Math.max(...ys, ...pys)) / 2;
+  const hub = document.getElementById("hub");
+  hub.style.top = cy + "px";
+  const hx = W / 2;
+  const hubW = hub.offsetWidth / 2 + 2;
+  const G = 6;
+  const curve = (x1, y1, x2, y2) => `M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}`;
+  provs.forEach((p, i) => {
+    const hot = p.classList.contains("hot");
+    el("path", { d: curve(hx + hubW, cy, W + G, pys[i]), fill: "none", stroke: hot ? css("--wire-live") : css("--wire"), "stroke-width": hot ? 1.5 : 1, "stroke-dasharray": hot ? "" : "2 4" }, svg);
+  });
+  reqs.forEach((r, i) => {
+    if (r.classList.contains("now")) return;
+    el("path", { d: curve(-G, ys[i], hx - hubW, cy), fill: "none", stroke: css("--wire-live"), "stroke-width": 1.25 }, svg);
+  });
+  const nowIdx = reqs.findIndex((r) => r.classList.contains("now"));
+  const target = provs.findIndex((p) => p.dataset.id === reqs[nowIdx].dataset.to);
+  el("path", { d: curve(-G, ys[nowIdx], hx - hubW, cy), fill: "none", stroke: css("--mark-line"), "stroke-width": 2 }, svg);
+  el("path", { d: curve(hx + hubW, cy, W + G, pys[target]), fill: "none", stroke: css("--mark-line"), "stroke-width": 2 }, svg);
+  el("circle", { cx: W + G, cy: pys[target], r: 3, fill: css("--mark-line") }, svg);
+}
+
+function draw() { drawChart(); drawWires(); }
+document.fonts.ready.then(draw);
+addEventListener("resize", draw);
+draw();
+</script>
+</body>
+</html>
