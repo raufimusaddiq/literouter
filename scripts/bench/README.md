@@ -1,6 +1,6 @@
 # Gateway benchmark
 
-Node built-ins only (no new dependencies). Results go to `bench-results/` (gitignored).
+Bun and its built-ins only (no new dependencies). Results go to `bench-results/` (gitignored).
 
 | file | purpose |
 |---|---|
@@ -15,13 +15,13 @@ Costs real tokens; defaults are cheap (tiny prompt, `--max-tokens 128`). The key
 environment and is never printed or written to the report.
 
 ```bash
-LITEROUTER_BENCH_KEY=... node scripts/bench/run.mjs --base-url https://ai.musaddiqr.com/v1 --model hy4-flash --mode stream --concurrency 1 --requests 20 --max-tokens 128 --label real-hy4flash-c1
+LITEROUTER_BENCH_KEY=... bun scripts/bench/run.mjs --base-url https://ai.musaddiqr.com/v1 --model hy4-flash --mode stream --concurrency 1 --requests 20 --max-tokens 128 --label real-hy4flash-c1
 ```
 
 Concurrency 5 variant:
 
 ```bash
-LITEROUTER_BENCH_KEY=... node scripts/bench/run.mjs --base-url https://ai.musaddiqr.com/v1 --model hy4-flash --mode stream --concurrency 5 --requests 30 --max-tokens 128 --label real-hy4flash-c5
+LITEROUTER_BENCH_KEY=... bun scripts/bench/run.mjs --base-url https://ai.musaddiqr.com/v1 --model hy4-flash --mode stream --concurrency 5 --requests 30 --max-tokens 128 --label real-hy4flash-c5
 ```
 
 Flags: `--base-url`, `--key` (or `LITEROUTER_BENCH_KEY`), `--model`, `--mode stream|nonstream`,
@@ -32,10 +32,10 @@ Exit code is 1 if any request failed, 2 if no key. Client-aborted requests (`--a
 ## MOCK mode (gateway's own overhead, free)
 
 ```bash
-npm run build
-node scripts/bench/mock-suite.mjs                       # ~15 min, includes a 10 min soak
-node scripts/bench/mock-suite.mjs --only a,b,d          # skip the soak
-node scripts/bench/mock-suite.mjs --soak-seconds 60     # shorter soak
+bun run build
+bun scripts/bench/mock-suite.mjs                       # ~15 min, includes a 10 min soak
+bun scripts/bench/mock-suite.mjs --only a,b,d          # skip the soak
+bun scripts/bench/mock-suite.mjs --soak-seconds 60     # shorter soak
 ```
 
 Sections: **a)** direct-to-mock vs through-gateway at c=1 (added latency); **b)** concurrency

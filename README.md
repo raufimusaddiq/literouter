@@ -1,26 +1,10 @@
 # LiteRouter
 
-Minimal AI router for coding tools. LiteRouter is a maintained [9Router](https://github.com/decolua/9router) fork: same provider and protocol core, fewer runtime surfaces.
-
-[![CI](https://github.com/raufimusaddiq/literouter/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/raufimusaddiq/literouter/actions/workflows/test.yml) [![License](https://img.shields.io/github/license/raufimusaddiq/literouter.svg)](LICENSE)
-
-## Why LiteRouter
-
-- One OpenAI-compatible endpoint for coding clients and providers.
-- Streaming, model routing, fallback, account rotation, quota tracking, dashboard, request logs, SQLite usage records.
-- RTK token saver remains available.
-- Minimal profile removes tunnel, Tailscale, and MITM runtime. No hidden compatibility process.
-- SQLite stays authoritative. Redis only invalidates connection cache between instances.
+An OpenAI-compatible routing gateway and dashboard for coding tools: one endpoint, many upstream providers, with fallback, account rotation and quota tracking. A maintained [9Router](https://github.com/decolua/9router) fork that runs on Bun.
 
 ## Docker
 
-[`docker-compose.yml`](docker-compose.yml) is a ready example. Copy `.env.example` to `.env`, set `INITIAL_PASSWORD` (the default is `123456`), then:
-
-```bash
-docker compose up -d
-```
-
-Or without compose:
+From the `v1.0.0` tag the image is `ghcr.io/raufimusaddiq/literouter:1.0.0` (amd64 and arm64). [`docker-compose.yml`](docker-compose.yml) is a ready example: copy `.env.example` to `.env`, set `INITIAL_PASSWORD`, then `docker compose up -d`. Or without compose:
 
 ```bash
 docker run -d --name literouter -p 20128:20128 \
@@ -28,33 +12,45 @@ docker run -d --name literouter -p 20128:20128 \
   --env-file .env ghcr.io/raufimusaddiq/literouter:1.0.0
 ```
 
-Open `http://localhost:20128`, configure providers in the dashboard, then point a compatible client at `http://localhost:20128/v1`.
+The `literouter-data` volume holds the SQLite database (`db/data.sqlite`) and backups; keep it across upgrades. To upgrade, set a newer version tag and recreate the container with the same volume. Tags are published per release (`v*`); there is no `latest` tag.
 
-The `literouter-data` volume holds the SQLite database (`db/data.sqlite`) and backups; keep it across upgrades. To upgrade, set a newer version tag in the image line, then `docker compose pull && docker compose up -d` (or pull the tag and recreate the container with the same volume). Tags are published per release (`v*`); there is no `latest` tag.
+## From source
 
-For the repository production deployment, use [`compose.production.yml`](compose.production.yml). Image builds run in GitHub Actions; the host pulls published images.
+Requires [Bun](https://bun.sh) 1.4.4 or newer.
 
-## LiteRouter vs 9Router
+```bash
+git clone https://github.com/raufimusaddiq/literouter.git
+cd literouter
+bun install
+bun run build
+bun run start
+```
 
-| Area | LiteRouter | 9Router |
-| --- | --- | --- |
-| Router, providers, OpenAI/Claude transports | Retained | Retained |
-| Dashboard, usage, request logs, SQLite | Retained | Retained |
-| Token saver | Retained | Retained |
-| Background model catalog sync | Off | On |
-| Background token refresh | Off | On |
-| Redis | Optional cache invalidation only | Varies by deployment |
-| Tunnel, Tailscale, MITM runtime | Deleted | Included |
-| Intended operation | Small, direct routing deployment | Full product surface |
+`bun run start` reads the environment of the shell, not `.env`: export your settings, or copy `.env.example` to `.env` and run `bun --env-file=.env dist/app/index.js` instead. The `literouter` CLI package isn't on npm yet.
 
-LiteRouter is not an upstream drop-in package release. Build from this repository, install the CLI with `bun add -g literouter` (requires Bun 1.4.4 or newer; run `npm rm -g 9router` first if you had the upstream package), or use the Docker image above; `npm install -g 9router` installs upstream 9Router.
+## Use
 
-## Operations
+Open `http://localhost:20128/dashboard`, add a provider, then point your client at `http://localhost:20128/v1`.
 
-Production topology, deploy, rollback and backup: [docs/ops.md](docs/ops.md). Release notes: [CHANGELOG.md](CHANGELOG.md).
+## Config
 
-## Upstream
+State is one SQLite file, `db/data.sqlite`, under `DATA_DIR`. Without it the data dir is `~/.literouter` (`%APPDATA%\literouter` on Windows); an existing `~/.9router` is used only when `~/.literouter` is absent, and `DATA_DIR` always wins. Set the variables in `.env.example` and **change `INITIAL_PASSWORD`**, `JWT_SECRET`, `API_KEY_SECRET` and `MACHINE_ID_SALT` before exposing it.
 
-LiteRouter tracks [9Router](https://github.com/decolua/9router). Upstream is still Next.js on Node, so fixes come over by reviewed cherry-picks, rewritten to Bun where they touch Next or Node-only code. The steps are in [AGENTS.md](AGENTS.md#upstream-intake).
+## Migrating from 9router
 
-Licensed under [MIT](LICENSE). Upstream 9Router attribution remains in [9Router](https://github.com/decolua/9router).
+Remove the old package with `npm rm -g 9router`, then use Docker or run from source. The same data is picked up through the `~/.9router` fallback (or point `DATA_DIR` at it), with no config or database changes. There is no `bun add -g literouter` yet.
+
+## Develop
+
+```bash
+bun install
+bun run dev
+bun run test
+bunx --bun eslint .
+```
+
+More: [operations](docs/ops.md), [changelog](CHANGELOG.md), [upstream intake](AGENTS.md#upstream-intake).
+
+## License
+
+MIT

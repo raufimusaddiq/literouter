@@ -1,5 +1,7 @@
 # LiteRouter - FREE AI Router & Token Saver
 
+> The `literouter` package is not published to npm yet.
+
 **Never stop coding. Save 20-40% tokens with RTK + auto-fallback to FREE & cheap AI models.**
 
 **Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to 40+ AI Providers & 100+ Models.**
@@ -22,7 +24,7 @@ bun add -g literouter
 literouter
 ```
 
-Run once without installing: `bunx literouter`. Auto-start on boot needs a global install (`bun add -g`), not `bunx`. Upgrade with `bun add -g literouter@latest`. If you installed the old `9router` package, remove it first with `npm rm -g 9router`.
+Run once without installing: `bunx literouter`. Auto-start on boot needs a global install (`bun add -g`), not `bunx`. Upgrade with `bun add -g literouter@latest`. Coming from the old `9router` package? Run `npm rm -g 9router`, then `bun add -g literouter`. Config, database and environment are unchanged.
 
 **Option 2 — Docker (server/VPS):**
 
