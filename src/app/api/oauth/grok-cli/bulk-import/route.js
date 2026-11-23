@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { createProviderConnection } from "@/models";
 import { decodeXaiIdTokenEmail, extractEmailFromAccessToken } from "@/lib/oauth/providerHelpers";
 
@@ -7,7 +7,7 @@ export async function POST(request) {
   try {
     body = await request.json();
   } catch (err) {
-    return NextResponse.json(
+    return json(
       { error: `Invalid JSON body: ${err.message}` },
       { status: 400 }
     );
@@ -25,7 +25,7 @@ export async function POST(request) {
   }
 
   if (!Array.isArray(accounts) || accounts.length === 0) {
-    return NextResponse.json(
+    return json(
       { error: "No accounts provided" },
       { status: 400 }
     );
@@ -91,7 +91,7 @@ export async function POST(request) {
     }
   }
 
-  return NextResponse.json({
+  return json({
     total: accounts.length,
     success,
     failed,

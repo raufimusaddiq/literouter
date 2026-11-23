@@ -1,8 +1,6 @@
 import { SSE_HEADERS } from "open-sse/utils/sseConstants.js";
 import { statsEmitter, getActiveRequests } from "@/lib/usageDb";
 
-export const dynamic = "force-dynamic";
-
 export async function GET(request) {
   const encoder = new TextEncoder();
   const state = { closed: false, keepalive: null, send: null, sendPending: null };
