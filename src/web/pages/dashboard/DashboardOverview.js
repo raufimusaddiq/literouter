@@ -5,6 +5,7 @@ import { Link } from "@/web/router";
 import { Button, SegmentedControl, Skeleton } from "@/shared/components";
 import { classifyConnection, getConnectionHealthStats, HEALTH } from "@/shared/utils/connectionHealth";
 import { useOrigin } from "@/shared/hooks/useOrigin";
+import { niceTicks } from "./overview/niceTicks";
 import RoutesBand from "./overview/RoutesBand";
 
 const PERIODS = [
@@ -34,13 +35,10 @@ const fmtUpdatedTime = (date) => {
 };
 
 function RequestsChart({ buckets }) {
-  const max = Math.max(1, ...buckets.map((b) => b.requests || 0));
-  const niceMax = (() => {
-    const pow = 10 ** Math.floor(Math.log10(max));
-    const n = max / pow;
-    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * pow;
-  })();
-  const ticks = [1, 0.75, 0.5, 0.25, 0].map((f) => Math.round(niceMax * f));
+  const max = Math.max(0, ...buckets.map((b) => b.requests || 0));
+  const ticksAsc = niceTicks(max, 4);
+  const topTick = ticksAsc[ticksAsc.length - 1] || 1;
+  const ticks = [...ticksAsc].reverse();
   const labelEvery = Math.max(1, Math.ceil(buckets.length / 6));
   const lastBucket = buckets[buckets.length - 1];
   const currentValue = lastBucket?.requests || 0;
@@ -71,7 +69,7 @@ function RequestsChart({ buckets }) {
             {buckets.map((b, i) => {
               const isCurrent = i === buckets.length - 1;
               const reqCount = b.requests || 0;
-              const pct = (reqCount / niceMax) * 100;
+              const pct = (reqCount / topTick) * 100;
               return (
                 <div
                   key={i}

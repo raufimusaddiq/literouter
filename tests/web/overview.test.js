@@ -359,4 +359,70 @@ describe("DashboardOverview (Route Sheet)", () => {
       host.remove();
     });
   });
+
+  it("RouteWires keeps row index alignment when a ref slot is null and skips null endpoints", async () => {
+    const { default: RouteWires } = await import("../../src/web/pages/dashboard/overview/RouteWires.js");
+
+    function SparseHarness() {
+      const containerRef = React.useRef(null);
+      const requestRefs = React.useRef([null, null]);
+      const providerRefs = React.useRef([null, null]);
+      return React.createElement(
+        "div",
+        null,
+        React.createElement(
+          "ul",
+          null,
+          React.createElement("li", { ref: (el) => { requestRefs.current[1] = el; } }, "r1"),
+        ),
+        React.createElement(
+          "div",
+          {
+            ref: containerRef,
+            style: { display: "block", width: "200px", height: "200px" },
+          },
+          React.createElement(RouteWires, {
+            containerRef,
+            requestRefs,
+            providerRefs,
+            links: [
+              { from: 0, to: 0 },
+              { from: 1, to: 1 },
+            ],
+            hot: new Set(["cc"]),
+            newest: 1,
+            requestCount: 2,
+            providerCount: 2,
+          }),
+        ),
+        React.createElement(
+          "ul",
+          null,
+          React.createElement("li", { "data-provider": "cc", ref: (el) => { providerRefs.current[1] = el; } }, "p1"),
+        ),
+      );
+    }
+
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
+    await act(async () => {
+      root.render(React.createElement(SparseHarness));
+    });
+    await flush();
+
+    const svg = host.querySelector('svg[aria-hidden="true"]');
+    expect(svg).not.toBeNull();
+    const livePaths = [...svg.querySelectorAll(".lr-wire-live")];
+    expect(livePaths.length).toBe(2);
+    expect(livePaths[0].getAttribute("d")).toContain("M-6,121");
+    expect(livePaths[1].getAttribute("d")).toContain("206,121");
+    expect(svg.querySelectorAll("path").length).toBe(2);
+
+    await act(async () => {
+      root.unmount();
+      host.remove();
+    });
+  });
 });

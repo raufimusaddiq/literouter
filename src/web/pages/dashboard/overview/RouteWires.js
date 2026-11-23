@@ -49,7 +49,10 @@ export default function RouteWires({
     const ys = [];
     for (let i = 0; i < rawReqs.length; i += 1) {
       const node = rawReqs[i];
-      if (!node) continue;
+      if (!node) {
+        ys.push(null);
+        continue;
+      }
       const r = node.getBoundingClientRect();
       ys.push(r.height > 0 ? r.top + r.height / 2 - box.top : HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2);
     }
@@ -61,7 +64,11 @@ export default function RouteWires({
     const provIds = [];
     for (let i = 0; i < rawProvs.length; i += 1) {
       const node = rawProvs[i];
-      if (!node) continue;
+      if (!node) {
+        pys.push(null);
+        provIds.push("");
+        continue;
+      }
       const r = node.getBoundingClientRect();
       pys.push(r.height > 0 ? r.top + r.height / 2 - box.top : HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2);
       provIds.push(node.dataset?.provider || node.dataset?.id || "");
@@ -70,20 +77,21 @@ export default function RouteWires({
     const hubEl = hubRef?.current || container.querySelector("[data-route-hub]");
     const hubW = (hubEl?.offsetWidth || 96) / 2 + 2;
 
-    if (pys.length === 0) {
+    const validPys = pys.filter((v) => v !== null);
+    if (validPys.length === 0) {
       const fallbackCy = HEADER_HEIGHT + 75;
       onHubTop?.(fallbackCy);
       setGeom({ width, cy: fallbackCy, hubW, ys: [], pys: [], hotIndices: new Set() });
       return;
     }
 
-    const allYs = [...ys, ...pys];
+    const allYs = [...ys, ...pys].filter((v) => v !== null);
     const cy = (Math.min(...allYs) + Math.max(...allYs)) / 2;
     onHubTop?.(cy);
 
     const hotIndices = new Set();
     for (const link of links) {
-      if (link && link.to !== null && link.to >= 0 && link.to < pys.length) {
+      if (link && link.to !== null && link.to >= 0 && link.to < pys.length && pys[link.to] !== null) {
         hotIndices.add(link.to);
       }
     }
@@ -91,7 +99,7 @@ export default function RouteWires({
       const seen = new Set();
       for (let i = 0; i < provIds.length; i += 1) {
         const pid = provIds[i];
-        if (pid && !seen.has(pid)) {
+        if (pys[i] !== null && pid && !seen.has(pid)) {
           seen.add(pid);
           if (hot.has(pid)) hotIndices.add(i);
         }
@@ -144,13 +152,18 @@ export default function RouteWires({
   const { width, cy, hubW, ys, pys, hotIndices } = geom;
   const hx = width / 2;
 
-  if (pys.length === 0) {
+  const hasProviders = pys.some((v) => v !== null);
+  if (!hasProviders) {
     return <svg aria-hidden="true" className="pointer-events-none absolute inset-0 size-full overflow-visible" />;
   }
 
   const newestLink = newest !== null && newest >= 0 && newest < links.length ? links[newest] : null;
-  const newestFrom = newestLink && newestLink.from >= 0 && newestLink.from < ys.length ? newestLink.from : null;
-  const newestTo = newestLink && newestLink.to !== null && newestLink.to >= 0 && newestLink.to < pys.length ? newestLink.to : null;
+  const newestFrom = newestLink && newestLink.from >= 0 && newestLink.from < ys.length && ys[newestLink.from] !== null
+    ? newestLink.from
+    : null;
+  const newestTo = newestLink && newestLink.to !== null && newestLink.to >= 0 && newestLink.to < pys.length && pys[newestLink.to] !== null
+    ? newestLink.to
+    : null;
 
   const leftNewestD = newestFrom !== null ? curve(-EDGE_GAP, ys[newestFrom], hx - hubW, cy) : null;
   const rightNewestD = newestFrom !== null && newestTo !== null ? curve(hx + hubW, cy, width + EDGE_GAP, pys[newestTo]) : null;
@@ -161,7 +174,7 @@ export default function RouteWires({
   return (
     <svg aria-hidden="true" className="pointer-events-none absolute inset-0 size-full overflow-visible">
       {pys.map((py, i) => {
-        if (i === newestTo) return null;
+        if (py === null || (rightNewestD && i === newestTo)) return null;
         const isHot = hotIndices.has(i);
         return (
           <path
@@ -175,7 +188,7 @@ export default function RouteWires({
         );
       })}
       {ys.map((y, i) => {
-        if (i === newestFrom) return null;
+        if (y === null || i === newestFrom) return null;
         return (
           <path
             key={`req-${i}`}
@@ -188,7 +201,7 @@ export default function RouteWires({
       })}
       {leftNewestD ? <path d={leftNewestD} fill="none" className="lr-wire-live" /> : null}
       {rightNewestD ? <path d={rightNewestD} fill="none" className="lr-wire-live" /> : null}
-      {newestTo !== null ? (
+      {rightNewestD && newestTo !== null ? (
         <circle cx={width + EDGE_GAP} cy={pys[newestTo]} r={3} fill="var(--color-mark-line)" />
       ) : null}
       {motionPath ? (
