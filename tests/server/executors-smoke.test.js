@@ -29,6 +29,7 @@ const {
   eventStreamFrame,
   startExecutorMock,
   startH2Mock,
+  TLS_DIR,
 } = await import("./helpers/executor-mock.js");
 const { anthropicCompatibleCase, cases, chatBody, cursorAgentFrames, cursorLegacyFrames } = await import("./helpers/executor-cases.js");
 const { PROVIDERS, PROVIDER_OAUTH } = await import("../../open-sse/config/providers.js");
@@ -47,7 +48,7 @@ const redirectSources = {
 let mock;
 let h2;
 let devin;
-const originalTlsSetting = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+let originalHttp2ConnectOptions;
 const originalDevinEnv = {
   CLI_DEVIN_BIN: process.env.CLI_DEVIN_BIN,
   DEVIN_STUB_LOG: process.env.DEVIN_STUB_LOG,
@@ -89,8 +90,10 @@ rl.on("line", (line) => {
 }
 
 beforeAll(async () => {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-  mock = await startExecutorMock();
+  const cursorExecutor = getExecutor("cursor");
+  originalHttp2ConnectOptions = cursorExecutor.http2ConnectOptions;
+  cursorExecutor.http2ConnectOptions = { ca: fs.readFileSync(path.join(TLS_DIR, "cert.pem")) };
+  mock =await startExecutorMock();
   h2 = await startH2Mock();
   mock.h2 = h2;
   devin = writeDevinStub();
@@ -103,8 +106,7 @@ afterAll(async () => {
   await mock.stop();
   await h2.stop();
   fs.rmSync(devin.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
-  if (originalTlsSetting === undefined) delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  else process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalTlsSetting;
+  getExecutor("cursor").http2ConnectOptions = originalHttp2ConnectOptions;
   for (const [key, value] of Object.entries(originalDevinEnv)) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
