@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 import { createProviderConnection } from "@/models";
+import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
+import { isLocalRequest } from "@/dashboardGuard";
+
+function trimTrailingSlashes(value) {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end--;
+  return value.slice(0, end);
+}
 
 /**
  * POST /api/oauth/xiaomi-mimo/api-key
@@ -27,20 +35,43 @@ export async function POST(request) {
       );
     }
 
-    const effectiveBaseUrl = (baseUrl || "https://api.xiaomimimo.com/v1").replace(/\/+$/, "");
+    const rawBaseUrl = typeof baseUrl === "string" && baseUrl.trim() ? baseUrl.trim() : "https://api.xiaomimimo.com/v1";
+    let parsedBase;
+    try {
+      parsedBase = new URL(rawBaseUrl);
+    } catch {
+      parsedBase = null;
+    }
+    if (!parsedBase || (parsedBase.protocol !== "http:" && parsedBase.protocol !== "https:")) {
+      return NextResponse.json({ error: "baseUrl not allowed" }, { status: 400 });
+    }
+    const effectiveBaseUrl = trimTrailingSlashes(rawBaseUrl);
+
+    const localOperator = isLocalRequest(request);
+    if (!localOperator) {
+      try {
+        await assertPublicUrlResolved(effectiveBaseUrl);
+      } catch {
+        return NextResponse.json({ error: "baseUrl not allowed" }, { status: 400 });
+      }
+    }
 
     // Validate the key against the models endpoint
     let validated = false;
     let modelCount = 0;
     try {
-      const resp = await fetch(`${effectiveBaseUrl}/models`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          "X-Mimo-Source": "mimocode-cli",
+      const resp = await fetchPublic(
+        `${effectiveBaseUrl}/models`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "X-Mimo-Source": "mimocode-cli",
+          },
+          signal: AbortSignal.timeout(10000),
         },
-        signal: AbortSignal.timeout(10000),
-      });
+        { allowPrivate: localOperator === true },
+      );
       if (resp.ok) {
         const data = await resp.json();
         modelCount = Array.isArray(data?.data) ? data.data.length : 0;
