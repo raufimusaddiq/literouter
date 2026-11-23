@@ -74,6 +74,7 @@ export async function fetchImageAsBase64(imageUrl, options = {}) {
 
   let url;
   try { url = new URL(imageUrl); } catch { return null; }
+  if (url.username || url.password) return null;
   const pinnedIps = await resolvePinnedIps(url.hostname);
   if (!pinnedIps) return null;
 

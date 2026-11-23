@@ -7,6 +7,7 @@ describe("proxy URL handling", () => {
   beforeEach(() => { vi.resetModules(); });
 
   it("adds http:// to a bare host:port and leaves full URLs unchanged", async () => {
+    for (const name of ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy"]) vi.stubEnv(name, "");
     const realFetch = globalThis.fetch;
     const seen = [];
     globalThis.fetch = vi.fn(async (_u, o) => { seen.push(o.proxy); return new Response("ok"); });
@@ -16,7 +17,7 @@ describe("proxy URL handling", () => {
       await proxyAwareFetch("https://example.invalid/x", {}, { enabled: true, url: "http://user:pw@127.0.0.1:9001" });
       await proxyAwareFetch("https://example.invalid/x", {}, null);
       expect(seen).toEqual(["http://127.0.0.1:9000", "http://user:pw@127.0.0.1:9001", undefined]);
-    } finally { globalThis.fetch = realFetch; }
+    } finally { globalThis.fetch = realFetch; vi.unstubAllEnvs(); }
   });
 });
 

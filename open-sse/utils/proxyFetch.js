@@ -30,19 +30,42 @@ function isBodyReplaySafe(body) {
   return body == null || typeof body === "string" || body instanceof URLSearchParams;
 }
 
-function backstopTimeoutError() {
-  return new DOMException(`Upstream produced no data for ${UNDICI_BACKSTOP_MS}ms`, "TimeoutError");
+const BACKSTOP_PHASES = {
+  headers: { name: "HeadersTimeoutError", code: "UND_ERR_HEADERS_TIMEOUT", message: "Headers Timeout Error" },
+  body: { name: "BodyTimeoutError", code: "UND_ERR_BODY_TIMEOUT", message: "Body Timeout Error" },
+};
+
+function backstopTimeoutError(phase) {
+  const { name, code, message } = BACKSTOP_PHASES[phase];
+  const cause = Object.assign(new Error(message), { name, code });
+  return Object.assign(new TypeError("fetch failed"), { cause });
 }
 
-function wrapBodyWithIdleBackstop(response, rearm, clear) {
+function wrapBodyWithIdleBackstop(response, arm, disarm) {
   if (!(response instanceof Response) || !response.body) {
-    clear();
+    disarm();
     return response;
   }
-  const body = response.body.pipeThrough(new TransformStream({
-    transform(chunk, controller) { rearm(); controller.enqueue(chunk); },
-    flush() { clear(); },
-  }));
+  disarm();
+  const reader = response.body.getReader();
+  const body = new ReadableStream({
+    async pull(controller) {
+      arm("body");
+      try {
+        const { done, value } = await reader.read();
+        disarm();
+        if (done) controller.close();
+        else controller.enqueue(value);
+      } catch (err) {
+        disarm();
+        try { controller.error(err); } catch {}
+      }
+    },
+    async cancel(reason) {
+      disarm();
+      try { await reader.cancel(reason); } catch {}
+    },
+  }, { highWaterMark: 0 });
   const wrapped = new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
   try { Object.defineProperty(wrapped, "url", { value: response.url }); } catch {}
   return wrapped;
@@ -51,16 +74,21 @@ function wrapBodyWithIdleBackstop(response, rearm, clear) {
 async function fetchWithBackstop(url, options) {
   const controller = new AbortController();
   let timer = null;
-  const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
-  const rearm = () => { clear(); timer = setTimeout(() => controller.abort(backstopTimeoutError()), UNDICI_BACKSTOP_MS); };
-  const signal = options?.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
-  rearm();
+  const callerSignal = options?.signal;
+  const disarm = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  const arm = (phase) => { disarm(); timer = setTimeout(() => controller.abort(backstopTimeoutError(phase)), UNDICI_BACKSTOP_MS); };
+  const onCallerAbort = () => disarm();
+  callerSignal?.addEventListener("abort", onCallerAbort, { once: true });
+  const signal = callerSignal ? AbortSignal.any([callerSignal, controller.signal]) : controller.signal;
+  arm("headers");
   try {
     const response = await originalFetch(url, { ...options, signal });
-    return wrapBodyWithIdleBackstop(response, rearm, clear);
+    return wrapBodyWithIdleBackstop(response, arm, disarm);
   } catch (err) {
-    clear();
+    disarm();
     throw err;
+  } finally {
+    callerSignal?.removeEventListener("abort", onCallerAbort);
   }
 }
 

@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { vi } from "#test/vi";
 
 const lookupMock = vi.fn();
@@ -8,7 +12,18 @@ import { fetchImageAsBase64 } from "../../open-sse/translator/concerns/image.js"
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
+for (const name of ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy"]) {
+  vi.stubEnv(name, "");
+}
+
+const certDir = mkdtempSync(join(tmpdir(), "ip-pin-"));
+const sh = (...a) => execFileSync("openssl", a, { stdio: "pipe" });
+sh("req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", join(certDir, "key.pem"), "-out", join(certDir, "cert.pem"),
+  "-days", "2", "-subj", "/CN=test.local", "-addext", "subjectAltName=DNS:test.local", "-addext", "basicConstraints=critical,CA:TRUE");
+const tlsMaterial = { key: readFileSync(join(certDir, "key.pem"), "utf8"), cert: readFileSync(join(certDir, "cert.pem"), "utf8") };
+
 let server;
+let tlsServer;
 let port;
 const seen = [];
 
@@ -24,9 +39,23 @@ beforeAll(() => {
     },
   });
   port = server.port;
+  tlsServer = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    tls: tlsMaterial,
+    fetch(req) {
+      seen.push({ host: req.headers.get("host"), path: new URL(req.url).pathname });
+      return new Response(PNG, { headers: { "content-type": "image/png" } });
+    },
+  });
 });
 
-afterAll(() => { server.stop(true); });
+afterAll(() => {
+  server.stop(true);
+  tlsServer.stop(true);
+  rmSync(certDir, { recursive: true, force: true });
+  vi.unstubAllEnvs();
+});
 
 beforeEach(() => {
   seen.length = 0;
@@ -79,6 +108,37 @@ describe("fetchImageAsBase64 IP pin", () => {
   it("rejects when the validated IP is private", async () => {
     lookupMock.mockResolvedValue([{ address: "127.0.0.1", family: 4 }]);
     expect(await fetchImageAsBase64(`http://pinned.example:${port}/a.png`)).toBeNull();
+    expect(seen).toHaveLength(0);
+  });
+
+  it("returns null for a URL carrying userinfo, without connecting", async () => {
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (u, o) => realFetch(String(u).replace("93.184.216.34", "127.0.0.1"), o);
+    try {
+      expect(await fetchImageAsBase64(`http://user:pw@pinned.example:${port}/a.png`)).toBeNull();
+      expect(await fetchImageAsBase64(`http://user@pinned.example:${port}/a.png`)).toBeNull();
+    } finally { globalThis.fetch = realFetch; }
+    expect(seen).toHaveLength(0);
+  });
+});
+
+describe("fetchImageAsBase64 TLS serverName", () => {
+  async function fetchViaLocalTls(hostname) {
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (u, o) => realFetch(String(u).replace("93.184.216.34", "127.0.0.1"), { ...o, tls: { ...o.tls, ca: tlsMaterial.cert } });
+    try { return await fetchImageAsBase64(`https://${hostname}:${tlsServer.port}/a.png`); } finally { globalThis.fetch = realFetch; }
+  }
+
+  it("verifies the certificate against the original hostname, not the pinned IP", async () => {
+    const r = await fetchViaLocalTls("test.local");
+    expect(r?.mimeType).toBe("image/png");
+    expect(seen.at(-1).host).toBe(`test.local:${tlsServer.port}`);
+  });
+
+  it("fails when the certificate does not match the original hostname", async () => {
+    expect(await fetchViaLocalTls("other.example")).toBeNull();
     expect(seen).toHaveLength(0);
   });
 });
