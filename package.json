@@ -7,6 +7,7 @@
     "bun": ">=1.4.4"
   },
   "scripts": {
+    "gen:routes": "bun scripts/gen-route-table.mjs",
     "test": "cd tests && bun test --parallel",
     "predev": "node scripts/gen-provider-icon-manifest.mjs",
     "dev": "next dev --port 20127",
