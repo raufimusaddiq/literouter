@@ -19,6 +19,8 @@ export const GUARDED_PATHS = [
   "src/web/pages/dashboard/usage/components/tokenDisplay.js",
   "src/shared/components/UsageStats.js",
   "src/shared/components/RequestLogger.js",
+  "src/web/pages/dashboard/endpoint",
+  "src/web/pages/dashboard/combos",
 ];
 
 const BACKDROP_BLUR_ALLOWED = new Set(["src/shared/components/shell/TopBar.js"]);
