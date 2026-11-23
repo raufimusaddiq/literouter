@@ -2,7 +2,10 @@ const BYTES_PER_MB = 1_000_000;
 const DEFAULT_MAX_MB = 150;
 
 export function assertImageSize(sizeBytes, maxMb) {
-  const size = typeof sizeBytes === "string" && sizeBytes.trim() !== "" ? Number(sizeBytes) : sizeBytes;
+  if (typeof maxMb !== "number" || !Number.isFinite(maxMb) || maxMb <= 0) {
+    throw new Error(`limit must be a positive number: ${String(maxMb)}`);
+  }
+  const size = typeof sizeBytes === "string" && /^\d+$/.test(sizeBytes) ? Number(sizeBytes) : sizeBytes;
   if (typeof size !== "number" || !Number.isFinite(size) || size < 0) {
     throw new Error(`image size is not a number: ${String(sizeBytes)}`);
   }
