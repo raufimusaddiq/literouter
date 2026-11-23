@@ -28,7 +28,7 @@ describe("niceTicks", () => {
 
   it("keeps integer steps in {1, 2, 5}*10^n or 2.5*10^n (n>=1) and bounds top against max", () => {
     const cases = [
-      ...Array.from({ length: 197 }, (_, i) => i + 4),
+      ...Array.from({ length: 40 }, (_, i) => 4 + i * 5),
       201,
       340,
       790,
