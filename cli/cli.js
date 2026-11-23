@@ -101,6 +101,7 @@ function createSpinner(text) {
 const pkg = require("./package.json");
 const { buildInstallCmd } = require("./src/cli/utils/update");
 const { buildServerSpawn } = require("./src/cli/utils/spawn");
+const { takeoverLegacy, getProcessInfo } = require("./src/cli/utils/legacyCli");
 const { ensureRuntime } = require("./hooks/runtime");
 const {
   writeServerPid,
@@ -123,7 +124,6 @@ if (args[0] === "xai" && args[1] === "video") {
   return;
 }
 
-ensureRuntime({ silent: true }).catch(() => {});
 
 const APP_NAME = pkg.name;
 const UPDATE_PACKAGE = (process.env.NINEROUTER_UPDATE_PACKAGE ?? pkg.name).trim();
@@ -241,7 +241,30 @@ function getListenerPid(p) {
   }
 }
 
+function killLegacy(pid, kind) {
+  if (kind === "launcher" && process.platform !== "win32") {
+    try { process.kill(pid, "SIGTERM"); } catch (e) {}
+    return;
+  }
+  killPid(pid);
+}
+
 async function claimPort() {
+  const { isAutoStartEnabled, enableAutoStart } = require("./src/cli/tray/autostart");
+  await takeoverLegacy({
+    cliPath: __filename,
+    host,
+    port,
+    isAutoStartEnabled,
+    enableAutoStart,
+    readServerPid,
+    getListenerPid,
+    isTrackedServerAlive,
+    getProcessInfo,
+    kill: killLegacy,
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    log: console.log,
+  });
   const record = readServerPid();
   const tracked = parseInt(process.env.NINEROUTER_REUSE_PID, 10) || (record && record.pid);
   const trackedPort = (record && record.port) || port;
@@ -339,6 +362,7 @@ if (!fs.existsSync(serverPath)) {
   process.exit(1);
 }
 
+ensureRuntime({ silent: true }).catch(() => {});
 const updatePromise = checkForUpdate();
 claimPort().then(() => startServer(updatePromise));
 
