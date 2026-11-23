@@ -1,5 +1,6 @@
 import { readdirSync, rmSync, watch } from "node:fs";
 import { join } from "node:path";
+import { extractEntry } from "@/shared/utils/buildEntry.js";
 import { REPO_ROOT, SPA_DIR, SPA_DIR_OVERRIDE, isBundled, isCompiled } from "./paths.js";
 
 const WEB_BUILD_MODULE = ["..", "web", "build.js"].join("/");
@@ -24,7 +25,8 @@ function missingError() {
 async function readBuilt(dir) {
   const file = Bun.file(join(dir, "index.html"));
   if (!(await file.exists())) throw missingError();
-  return { dir, indexHtml: await file.text() };
+  const indexHtml = await file.text();
+  return { dir, indexHtml, entry: extractEntry(indexHtml) };
 }
 
 export function isAlive(pid) {
@@ -85,9 +87,13 @@ function devBuild() {
   return run;
 }
 
+function isReadOnlySpa() {
+  return Boolean(SPA_DIR_OVERRIDE) || process.env.NODE_ENV === "production" || isBundled || isCompiled;
+}
+
 function resolveSpa() {
   if (SPA_DIR_OVERRIDE) return readBuilt(SPA_DIR_OVERRIDE);
-  if (process.env.NODE_ENV === "production" || isBundled || isCompiled) return readBuilt(SPA_DIR);
+  if (isReadOnlySpa()) return readBuilt(SPA_DIR);
   return devBuild();
 }
 
@@ -99,6 +105,15 @@ export function getSpa() {
     if (pending === attempt) pending = null;
   });
   return attempt;
+}
+
+export async function currentBuildEntry() {
+  if (!pending && !isReadOnlySpa()) return null;
+  try {
+    return (await getSpa()).entry;
+  } catch {
+    return null;
+  }
 }
 
 export function invalidateSpa() {
