@@ -7,42 +7,56 @@ export default function SegmentedControl({
   value,
   onChange,
   size = "md",
+  disabled = false,
   className,
 }) {
   const sizes = {
-    sm: "h-7 text-xs",
-    md: "h-9 text-sm",
-    lg: "h-11 text-base",
+    sm: "h-[26px] px-2.5 text-[12.5px]",
+    md: "h-7 px-3 text-[13px]",
+    lg: "h-8 px-3.5 text-sm",
   };
 
   return (
     <div
+      role="group"
+      aria-disabled={disabled || undefined}
       className={cn(
-        "inline-flex items-center p-1 rounded-[10px] overflow-x-auto",
-        "bg-surface-2",
+        "inline-flex items-center p-0.5 rounded-md border border-line-strong bg-transparent overflow-x-auto",
+        disabled && "opacity-50",
         className
       )}
     >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          onClick={() => onChange(option.value)}
-          className={cn(
-            "shrink-0 min-h-11 px-4 rounded-[8px] font-medium transition-[background-color,color,box-shadow]",
-            sizes[size],
-            value === option.value
-              ? "bg-surface text-text-main shadow-sm"
-              : "text-text-muted hover:text-text-main"
-          )}
-        >
-          {option.icon && (
-            <span aria-hidden="true" className="material-symbols-outlined text-[16px] mr-1.5">
-              {option.icon}
-            </span>
-          )}
-          {option.label}
-        </button>
-      ))}
+      {options.map((option) => {
+        const active = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            disabled={disabled}
+            aria-pressed={active}
+            onClick={() => {
+              if (!disabled) onChange(option.value);
+            }}
+            className={cn(
+              "shrink-0 inline-flex items-center justify-center max-sm:min-h-11 rounded-[4px] font-semibold transition-colors",
+              disabled ? "cursor-not-allowed" : "cursor-pointer",
+              sizes[size] || sizes.md,
+              active
+                ? "bg-ink text-bg"
+                : disabled
+                  ? "text-muted"
+                  : "text-muted hover:text-ink"
+            )}
+          >
+            {option.icon && (
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px] mr-1.5">
+                {option.icon}
+              </span>
+            )}
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

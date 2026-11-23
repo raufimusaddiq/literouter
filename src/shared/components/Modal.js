@@ -2,9 +2,9 @@
 
 import { useEffect, useId, useRef } from "react";
 import { getFocusable, nextTrapTarget } from "@/shared/utils/focusTrap";
+import { useEscapeLayer, useScrollLock } from "@/shared/hooks/useEscapeLayer";
 import { cn } from "@/shared/utils/cn";
 import Button from "./Button";
-import Tooltip from "./Tooltip";
 
 export default function Modal({
   isOpen,
@@ -14,7 +14,6 @@ export default function Modal({
   footer,
   size = "md",
   closeOnOverlay = true,
-  showTrafficLights = true,
   className,
 }) {
   const sizes = {
@@ -23,16 +22,11 @@ export default function Modal({
     lg: "max-w-lg",
     xl: "max-w-xl",
     full: "max-w-4xl",
+    xxl: "max-w-6xl",
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [isOpen]);
+  const isTopLayer = useEscapeLayer(isOpen, onClose);
+  useScrollLock(isOpen);
 
   const titleId = useId();
   const dialogRef = useRef(null);
@@ -52,23 +46,22 @@ export default function Modal({
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return undefined;
     const handleKey = (e) => {
-      if (!isOpen) return;
-      if (e.key === "Escape") { onClose(); return; }
-      if (e.key !== "Tab" || !dialogRef.current) return;
+      if (e.key !== "Tab" || !dialogRef.current || !isTopLayer()) return;
       const target = nextTrapTarget(getFocusable(dialogRef.current), document.activeElement, e.shiftKey);
       if (target) { e.preventDefault(); target.focus(); }
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, isTopLayer]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-[2px] fade-in"
+        className="absolute inset-0 bg-black/50 fade-in"
         onClick={closeOnOverlay ? onClose : undefined}
       />
 
@@ -80,51 +73,32 @@ export default function Modal({
         aria-label={title ? undefined : "Dialog"}
         tabIndex={-1}
         className={cn(
-          "relative w-full bg-surface outline-none",
-          "border border-border-subtle",
-          "rounded-[14px] shadow-[var(--shadow-elev)]",
+          "relative w-full bg-raise outline-none",
+          "border border-line-strong",
+          "rounded-[10px] shadow-[var(--shadow-float)]",
           "fade-in",
-          sizes[size],
+          sizes[size] || sizes.md,
           className
         )}
       >
-        {(title || showTrafficLights) && (
-          <div className="flex items-center justify-between p-2 border-b border-border-subtle">
-            <div className="flex items-center">
-              {showTrafficLights && (
-                <div className="hidden md:flex items-center gap-2 mr-4 ml-2">
-                  <Tooltip text="Close" position="top" color="#FF5F56">
-                    <button
-                      onClick={onClose}
-                      aria-label="Close"
-                      title="Close"
-                      className="size-4 rounded-full bg-[#FF5F56] hover:brightness-90 transition-[filter] cursor-pointer flex items-center justify-center group/dot"
-                    >
-                      <span className="text-[9px] font-bold text-white opacity-0 group-hover/dot:opacity-100 transition-opacity leading-none">✕</span>
-                    </button>
-                  </Tooltip>
-                  <div className="w-4 h-4 rounded-full bg-[#3a3a3a]/20 dark:bg-white/15 cursor-not-allowed" />
-                  <div className="w-4 h-4 rounded-full bg-[#3a3a3a]/20 dark:bg-white/15 cursor-not-allowed" />
-                </div>
-              )}
-              {title && (
-                <h2 id={titleId} className="text-lg font-semibold text-text-main">{title}</h2>
-              )}
-            </div>
+        {title && (
+          <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-line">
+            <h2 id={titleId} className="text-base font-semibold tracking-[-0.01em] text-ink">{title}</h2>
             <button
+              type="button"
               onClick={onClose}
               aria-label="Close"
-              className="md:hidden p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors"
+              className="inline-flex size-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-ink transition-colors"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">close</span>
             </button>
           </div>
         )}
 
-        <div data-modal-body className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">{children}</div>
+        <div data-modal-body className="p-5 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">{children}</div>
 
         {footer && (
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-border-subtle">
+          <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 border-t border-line">
             {footer}
           </div>
         )}
@@ -155,13 +129,13 @@ export function ConfirmModal({
           <Button variant="ghost" onClick={onClose} disabled={loading}>
             {cancelText}
           </Button>
-          <Button variant={variant} onClick={onConfirm} loading={loading}>
+          <Button variant={variant} filled={variant === "danger"} onClick={onConfirm} loading={loading}>
             {confirmText}
           </Button>
         </>
       }
     >
-      <p className="text-text-muted">{message}</p>
+      <p className="text-sm text-muted">{message}</p>
     </Modal>
   );
 }

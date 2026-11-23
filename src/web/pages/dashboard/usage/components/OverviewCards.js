@@ -1,7 +1,6 @@
 "use client";
 
 import PropTypes from "prop-types";
-import Card from "@/shared/components/Card";
 
 const fmt = (n) => new Intl.NumberFormat().format(n || 0);
 const fmtCost = (n) => `$${(n || 0).toFixed(2)}`;
@@ -13,34 +12,61 @@ const compactCost = (n) => {
 };
 
 export default function OverviewCards({ stats }) {
-  return (
-    <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] lg:items-stretch">
-      <Card className="flex h-full flex-col gap-2 bg-primary/[0.08] px-5 py-4 ring-primary/20">
-        <span className="text-xs font-semibold text-text-muted">Total requests</span>
-        <span className="metric-value block truncate text-3xl font-semibold text-text-main" title={fmt(stats.totalRequests)}>{fmt(stats.totalRequests)}</span>
-        <span className="text-xs text-text-muted">Across the selected period</span>
-      </Card>
-      <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
-        <Metric label="Input tokens" value={compact(stats.totalPromptTokens)} exact={fmt(stats.totalPromptTokens)} />
-        <Metric label="Cached tokens" value={compact(stats.totalCachedTokens)} exact={fmt(stats.totalCachedTokens)} />
-        <Metric label="Output tokens" value={compact(stats.totalCompletionTokens)} exact={fmt(stats.totalCompletionTokens)} />
-        <Metric label="Estimated cost" value={`~${compactCost(stats.totalCost)}`} exact={`~${fmtCost(stats.totalCost)}`} detail="Not actual billing" />
-      </div>
-    </div>
-  );
-}
+  const figures = [
+    {
+      label: "Total requests",
+      value: fmt(stats.totalRequests),
+      exact: fmt(stats.totalRequests),
+      lead: true,
+    },
+    {
+      label: "Input tokens",
+      value: compact(stats.totalPromptTokens),
+      exact: fmt(stats.totalPromptTokens),
+    },
+    {
+      label: "Cached tokens",
+      value: compact(stats.totalCachedTokens),
+      exact: fmt(stats.totalCachedTokens),
+    },
+    {
+      label: "Output tokens",
+      value: compact(stats.totalCompletionTokens),
+      exact: fmt(stats.totalCompletionTokens),
+    },
+    {
+      label: "Estimated cost",
+      value: `~${compactCost(stats.totalCost)}`,
+      exact: `~${fmtCost(stats.totalCost)}`,
+    },
+  ];
 
-function Metric({ label, value, exact, detail }) {
   return (
-    <Card className="flex h-full min-w-0 flex-col justify-between gap-3 px-4 py-3">
-      <span className="text-xs font-medium text-text-muted">{label}</span>
-      <div>
-        <span className="metric-value block truncate text-xl font-semibold text-text-main" title={exact}>
-          {value}
-        </span>
-        {detail ? <span className="mt-1 block text-[11px] text-text-muted">{detail}</span> : null}
+    <section className="flex min-w-0 flex-col gap-2.5" aria-label="Usage summary">
+      <div className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-3.5 sm:flex sm:flex-wrap sm:items-baseline sm:gap-x-7 sm:gap-y-2">
+        {figures.map((item) => (
+          <div
+            key={item.label}
+            className={`flex min-w-0 flex-col sm:flex-row sm:items-baseline sm:gap-2 ${item.lead ? "col-span-2 sm:col-span-1" : ""}`}
+          >
+            <strong
+              title={item.exact}
+              className={`truncate font-semibold tracking-[-0.03em] text-ink [font-variant-numeric:proportional-nums] ${
+                item.lead
+                  ? "text-[32px] leading-[36px] sm:text-[44px] sm:leading-[46px]"
+                  : "text-[26px] leading-[30px] sm:text-[34px] sm:leading-[38px]"
+              }`}
+            >
+              {item.value}
+            </strong>
+            <span className="text-sm text-muted">{item.label}</span>
+          </div>
+        ))}
       </div>
-    </Card>
+      <p className="text-[12.5px] text-faint">
+        Across the selected period · estimated cost is not actual billing
+      </p>
+    </section>
   );
 }
 

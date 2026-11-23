@@ -3,18 +3,20 @@
 import { cn } from "@/shared/utils/cn";
 
 const variants = {
-  primary: "bg-primary hover:bg-primary-hover text-primary-foreground shadow-[0_10px_20px_-14px_var(--color-primary)] disabled:bg-surface-3 disabled:text-text-muted",
-  secondary: "bg-surface-2 hover:bg-surface-3 text-text-main ring-1 ring-border disabled:opacity-50",
-  outline: "ring-1 ring-border text-text-main hover:bg-surface-2 hover:ring-brand-500/40",
-  ghost: "text-text-muted hover:bg-surface-2 hover:text-text-main",
-  danger: "bg-red-500 hover:bg-red-600 text-white shadow-sm disabled:bg-surface-3 disabled:text-text-muted",
-  success: "bg-green-600 hover:bg-green-700 text-white shadow-sm disabled:bg-surface-3 disabled:text-text-muted",
+  primary: "bg-ink text-bg border border-ink hover:opacity-90",
+  secondary: "bg-transparent text-ink border border-line-strong hover:bg-raise",
+  outline: "bg-transparent text-ink border border-line-strong hover:bg-raise",
+  ghost: "bg-transparent text-muted border border-transparent hover:bg-raise hover:text-ink",
+  danger: "bg-transparent text-danger border border-danger hover:bg-danger/10",
+  success: "bg-ink text-bg border border-ink hover:opacity-90",
 };
 
+const dangerFilled = "bg-danger text-white dark:text-bg border border-danger hover:opacity-90";
+
 const sizes = {
-  sm: "min-h-9 px-3 text-xs rounded-lg",
-  md: "min-h-10 px-4 text-sm rounded-xl",
-  lg: "h-11 px-5 text-sm rounded-xl",
+  sm: "h-7 px-2.5 text-xs rounded-md",
+  md: "h-8 px-3.5 text-[13px] rounded-md",
+  lg: "h-9 px-4 text-sm rounded-md",
 };
 
 export default function Button({
@@ -26,16 +28,20 @@ export default function Button({
   disabled = false,
   loading = false,
   fullWidth = false,
+  filled = false,
   className,
   ...props
 }) {
+  const variantClass = variant === "danger" && filled ? dangerFilled : variants[variant] || variants.primary;
+  const iconSize = size === "sm" ? "text-[16px]" : "text-[18px]";
+
   return (
     <button
       className={cn(
-        "inline-flex touch-manipulation items-center justify-center gap-2 font-semibold transition-[background-color,color,box-shadow,transform] duration-200 ease-out cursor-pointer active:scale-[.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-        "disabled:opacity-50 disabled:cursor-not-allowed",
-        variants[variant],
-        sizes[size],
+        "inline-flex touch-manipulation max-sm:min-h-11 items-center justify-center gap-1.5 font-semibold transition-[background-color,color,border-color,opacity,transform] duration-150 ease-out cursor-pointer active:translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line",
+        "disabled:opacity-50 disabled:cursor-not-allowed disabled:active:translate-y-0",
+        variantClass,
+        sizes[size] || sizes.md,
         fullWidth && "w-full",
         className
       )}
@@ -43,13 +49,13 @@ export default function Button({
       {...props}
     >
       {loading ? (
-        <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+        <span aria-hidden="true" className={cn("material-symbols-outlined animate-spin", iconSize)}>progress_activity</span>
       ) : icon ? (
-        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{icon}</span>
+        <span aria-hidden="true" className={cn("material-symbols-outlined", iconSize)}>{icon}</span>
       ) : null}
       {children}
       {iconRight && !loading && (
-        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{iconRight}</span>
+        <span aria-hidden="true" className={cn("material-symbols-outlined", iconSize)}>{iconRight}</span>
       )}
     </button>
   );

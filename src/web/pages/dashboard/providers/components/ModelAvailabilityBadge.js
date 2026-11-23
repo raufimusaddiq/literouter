@@ -6,10 +6,10 @@ import { Button } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 
 const STATUS_CONFIG = {
-  available: { icon: "check_circle", color: "#22c55e", label: "Available" },
-  cooldown: { icon: "schedule", color: "#f59e0b", label: "Cooldown" },
-  unavailable: { icon: "error", color: "#ef4444", label: "Unavailable" },
-  unknown: { icon: "help", color: "#6b7280", label: "Unknown" },
+  available: { dotClass: "bg-ok", textClass: "text-ok", label: "Available" },
+  cooldown: { dotClass: "bg-warning", textClass: "text-warning", label: "Cooldown" },
+  unavailable: { dotClass: "bg-danger", textClass: "text-danger", label: "Unavailable" },
+  unknown: { dotClass: "bg-faint", textClass: "text-faint", label: "Unknown" },
 };
 
 export default function ModelAvailabilityBadge() {
@@ -88,53 +88,52 @@ export default function ModelAvailabilityBadge() {
     <div className="relative" ref={ref}>
 
       {expanded && (
-        <div className="absolute top-full right-0 mt-2 w-80 bg-surface border border-border rounded-xl shadow-2xl z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg">
+        <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-lg border border-line-strong bg-raise shadow-[var(--shadow-float)]">
+          <div className="flex items-center justify-between border-b border-line bg-bg px-4 py-3">
             <div className="flex items-center gap-2">
-              <span aria-hidden="true"
-                className="material-symbols-outlined text-[16px]"
-                style={{ color: isHealthy ? "#22c55e" : "#f59e0b" }}
-              >
-                {isHealthy ? "verified" : "warning"}
-              </span>
-              <span className="text-sm font-semibold text-text-main">Model Status</span>
+              <span
+                aria-hidden="true"
+                className={`size-2 shrink-0 rounded-full ${isHealthy ? "bg-ok" : "bg-warning"}`}
+              />
+              <span className="text-sm font-semibold text-ink">Model Status</span>
             </div>
             <button
+              type="button"
               onClick={fetchStatus}
-              className="p-1 rounded-lg hover:bg-surface text-text-muted hover:text-text-main transition-colors"
+              className="rounded-md p-1 text-muted transition-colors hover:bg-surface-2 hover:text-ink"
               title="Refresh"
+              aria-label="Refresh model status"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">refresh</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">refresh</span>
             </button>
           </div>
 
-          <div className="px-4 py-3 max-h-60 overflow-y-auto">
+          <div className="max-h-60 overflow-y-auto px-4 py-3">
             {isHealthy ? (
-              <p className="text-sm text-text-muted text-center py-2">
+              <p className="py-2 text-center text-sm text-muted">
                 All models are responding normally.
               </p>
             ) : (
-              <div className="flex flex-col gap-2.5">
+              <div className="flex flex-col gap-3">
                 {Object.entries(byProvider).map(([provider, provModels]) => (
                   <div key={provider}>
-                    <p className="text-xs font-semibold text-text-main mb-1.5 capitalize">{provider}</p>
-                    <div className="flex flex-col gap-1">
+                    <p className="mb-1.5 text-xs font-semibold capitalize text-ink">{provider}</p>
+                    <div className="flex flex-col divide-y divide-line border-t border-line">
                       {provModels.map((m) => {
                         const status = STATUS_CONFIG[m.status] || STATUS_CONFIG.unknown;
                         const isClearing = clearing === `${m.provider}:${m.model}`;
                         return (
                           <div
                             key={`${m.provider}-${m.model}`}
-                            className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-surface/30"
+                            className="flex items-center justify-between gap-2 py-1.5"
                           >
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span aria-hidden="true"
-                                className="material-symbols-outlined text-[14px] shrink-0"
-                                style={{ color: status.color }}
-                              >
-                                {status.icon}
-                              </span>
-                              <span className="font-mono text-xs text-text-main truncate">{m.model}</span>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span
+                                aria-hidden="true"
+                                className={`size-1.5 shrink-0 rounded-full ${status.dotClass}`}
+                              />
+                              <span className="truncate font-mono text-xs text-ink">{m.model}</span>
+                              <span className={`shrink-0 text-xs ${status.textClass}`}>{status.label}</span>
                             </div>
                             {m.status === "cooldown" && (
                               <Button
@@ -142,7 +141,7 @@ export default function ModelAvailabilityBadge() {
                                 variant="ghost"
                                 onClick={() => handleClearCooldown(m.provider, m.model)}
                                 disabled={isClearing}
-                                className="text-[11px] px-1.5! py-0.5! ml-2"
+                                className="ml-2 h-6 px-2 text-[11px]"
                               >
                                 {isClearing ? "..." : "Clear"}
                               </Button>

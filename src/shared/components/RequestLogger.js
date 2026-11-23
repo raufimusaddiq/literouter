@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Card from "./Card";
+import Toggle from "./Toggle";
 
 export default function RequestLogger() {
   const [logs, setLogs] = useState([]);
@@ -39,45 +40,36 @@ export default function RequestLogger() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Request Logs</h2>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-text-muted flex items-center gap-2 cursor-pointer">
-            <span>Auto Refresh (3s)</span>
-            <div
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${autoRefresh ? "bg-primary" : "bg-bg-subtle border border-border"
-                }`}
-            >
-              <span
-                className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${autoRefresh ? "translate-x-5" : "translate-x-1"
-                  }`}
-              />
-            </div>
-          </label>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-base font-semibold tracking-[-0.01em] text-ink">Request logs</h2>
+        <Toggle
+          size="sm"
+          checked={autoRefresh}
+          onChange={setAutoRefresh}
+          label="Auto refresh (3s)"
+        />
       </div>
 
-      <Card className="overflow-hidden bg-black/5 dark:bg-black/20">
-        <div className="p-0 overflow-x-auto max-h-[600px] overflow-y-auto font-mono text-xs">
+      <Card variant="raised" padding="none" className="overflow-hidden">
+        <div className="max-h-[600px] overflow-auto font-mono text-xs">
           {loading && logs.length === 0 ? (
-            <div className="p-8 text-center text-text-muted">Loading logs...</div>
+            <div className="p-8 text-center font-sans text-sm text-muted">Loading logs...</div>
           ) : logs.length === 0 ? (
-            <div className="p-8 text-center text-text-muted">No logs recorded yet.</div>
+            <div className="p-8 text-center font-sans text-sm text-muted">No logs recorded yet.</div>
           ) : (
-            <table className="w-full text-left border-collapse whitespace-nowrap">
-              <thead className="sticky top-0 bg-bg-subtle border-b border-border z-10">
+            <table className="w-full border-collapse whitespace-nowrap text-left">
+              <thead className="sticky top-0 z-10 border-b border-line-strong bg-bg-alt text-muted">
                 <tr>
-                  <th className="px-3 py-2 border-r border-border">DateTime</th>
-                  <th className="px-3 py-2 border-r border-border">Model</th>
-                  <th className="px-3 py-2 border-r border-border">Provider</th>
-                  <th className="px-3 py-2 border-r border-border">Account</th>
-                  <th className="px-3 py-2 border-r border-border">In</th>
-                  <th className="px-3 py-2 border-r border-border">Out</th>
-                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2 font-medium">Date & time</th>
+                  <th className="px-3 py-2 font-medium">Model</th>
+                  <th className="px-3 py-2 font-medium">Provider</th>
+                  <th className="px-3 py-2 font-medium">Account</th>
+                  <th className="px-3 py-2 text-right font-medium">In</th>
+                  <th className="px-3 py-2 text-right font-medium">Out</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/50">
+              <tbody className="divide-y divide-line">
                 {logs.map((log, i) => {
                   const parts = log.split(" | ");
                   if (parts.length < 7) return null;
@@ -88,21 +80,26 @@ export default function RequestLogger() {
                   const isSuccess = status.includes("OK");
 
                   return (
-                    <tr key={i} className={`hover:bg-primary/5 transition-colors ${isPending ? 'bg-primary/5' : ''}`}>
-                      <td className="px-3 py-1.5 border-r border-border text-text-muted">{parts[0]}</td>
-                      <td className="px-3 py-1.5 border-r border-border font-medium">{parts[1]}</td>
-                      <td className="px-3 py-1.5 border-r border-border">
-                        <span className="px-1.5 py-0.5 rounded bg-bg-subtle border border-border text-[11px] uppercase font-bold">
+                    <tr key={i} className={`transition-colors hover:bg-bg-alt/60 ${isPending ? "bg-mark/10" : ""}`}>
+                      <td className="px-3 py-1.5 text-faint tabular-nums">{parts[0]}</td>
+                      <td className="px-3 py-1.5 font-medium text-ink">{parts[1]}</td>
+                      <td className="px-3 py-1.5">
+                        <span className="rounded border border-line bg-bg px-1.5 py-0.5 text-[11px] text-muted">
                           {parts[2]}
                         </span>
                       </td>
-                      <td className="px-3 py-1.5 border-r border-border truncate max-w-[150px]" title={parts[3]}>{parts[3]}</td>
-                      <td className="px-3 py-1.5 border-r border-border text-right text-primary">{parts[4]}</td>
-                      <td className="px-3 py-1.5 border-r border-border text-right text-success">{parts[5]}</td>
-                      <td className={`px-3 py-1.5 font-bold ${isSuccess ? 'text-success' :
-                          isFailed ? 'text-error' :
-                            'text-primary animate-pulse'
-                        }`}>
+                      <td className="max-w-[150px] truncate px-3 py-1.5 text-muted" title={parts[3]}>{parts[3]}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums text-ink">{parts[4]}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums text-ink">{parts[5]}</td>
+                      <td
+                        className={`px-3 py-1.5 font-semibold ${
+                          isSuccess
+                            ? "text-ok"
+                            : isFailed
+                              ? "text-danger"
+                              : "text-mark-line"
+                        }`}
+                      >
                         {status}
                       </td>
                     </tr>
@@ -113,9 +110,9 @@ export default function RequestLogger() {
           )}
         </div>
       </Card>
-      <div className="text-[11px] text-text-muted italic">
+      <p className="text-xs text-faint">
         Logs are loaded from the request history database.
-      </div>
+      </p>
     </div>
   );
 }

@@ -107,7 +107,7 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
           placeholder={isAnthropic ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"}
           hint={`Use the base URL (ending in /v1) for your ${isAnthropic ? "Anthropic" : "OpenAI"}-compatible API.`}
         />
-        <div className="flex gap-2">
+        <div className="flex items-end gap-2">
           <Input
             label="API Key (for Check)"
             type="password"
@@ -115,11 +115,9 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
             onChange={(e) => setCheckKey(e.target.value)}
             className="flex-1"
           />
-          <div className="pt-6">
-            <Button onClick={handleValidate} disabled={!checkKey || validating || !formData.baseUrl.trim()} variant="secondary">
-              {validating ? "Checking..." : "Check"}
-            </Button>
-          </div>
+          <Button onClick={handleValidate} disabled={!checkKey || validating || !formData.baseUrl.trim()} variant="secondary" size="lg" className="whitespace-nowrap">
+            {validating ? "Checking..." : "Check"}
+          </Button>
         </div>
         <Input
           label="Model ID (optional)"

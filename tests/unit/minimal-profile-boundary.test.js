@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "bun:test";
+import { NAV_ITEMS } from "../../src/shared/components/nav/navItems.js";
 
 const source = readFileSync(new URL("../../src/server/guard.js", import.meta.url), "utf8");
 const hiddenBlock = source.match(/MINIMAL_HIDDEN_PREFIXES = \[([\s\S]*?)\];/)?.[1] || "";
@@ -155,24 +156,17 @@ describe("minimal profile route boundary", () => {
     expect(hidden).not.toContain("/api/proxy-pools");
   });
 
-  it("deletes external promotional links from the sidebar", () => {
-    const sidebar = readFileSync(
-      new URL("../../src/shared/components/Sidebar.js", import.meta.url),
-      "utf8"
-    );
-    expect(sidebar).not.toContain("9English");
-    expect(sidebar).not.toContain("9Remote");
+  it("keeps external promotional links out of the nav", () => {
+    for (const item of NAV_ITEMS) {
+      expect(item.href.startsWith("/dashboard")).toBe(true);
+      expect(item.label).not.toMatch(/9English|9Remote/);
+    }
   });
 
   it("retains the Console Log page, its sidebar entry, and its API", () => {
     expect(hidden).not.toContain("/dashboard/console-log");
 
-    const sidebar = readFileSync(
-      new URL("../../src/shared/components/Sidebar.js", import.meta.url),
-      "utf8"
-    );
-    expect(sidebar).toContain('"/dashboard/console-log"');
-    expect(sidebar).not.toContain("nonMinimal");
+    expect(NAV_ITEMS.map((item) => item.href)).toContain("/dashboard/console-log");
 
     const shadowed = hidden.some(
       (h) => "/api/console-logs" === h || "/api/console-logs".startsWith(h)

@@ -25,12 +25,14 @@ export default function HeaderLanguage() {
   return (
     <>
       <button
+        type="button"
         onClick={() => setOpen(true)}
-        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+        className="flex size-8 items-center justify-center rounded-md border border-transparent text-muted transition-colors hover:border-line hover:text-ink"
+        aria-label="Language"
         title="Language"
         data-i18n-skip="true"
       >
-        <span className="text-lg leading-none">{LOCALE_FLAGS[locale] || "🌐"}</span>
+        <span className="text-base leading-none">{LOCALE_FLAGS[locale] || "🌐"}</span>
       </button>
 
       <LanguageSwitcher

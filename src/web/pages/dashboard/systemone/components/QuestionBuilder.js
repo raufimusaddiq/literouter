@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Badge, Button, Select } from "@/shared/components";
+import { fieldClass, iconButtonClass, linkButtonClass } from "./fieldClass";
 import {
   MAX_SCORE_LEVELS,
   QUESTION_TYPES,
@@ -19,7 +20,7 @@ function IconButton({ label, icon, onClick, disabled }) {
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className="flex size-9 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-surface-2 hover:text-text-main focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+      className={iconButtonClass}
     >
       <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{icon}</span>
     </button>
@@ -75,11 +76,11 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
   if (questions.length === 0) {
     return (
       <div className="flex flex-col items-start gap-3">
-        <p className="text-sm text-text-muted">No questions yet.</p>
+        <p className="text-sm text-muted">No questions yet.</p>
         <Button type="button" size="sm" icon="add" onClick={add}>Add question</Button>
         {emptyActions && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-text-muted">or start from:</span>
+            <span className="text-xs text-muted">or start from:</span>
             {emptyActions}
           </div>
         )}
@@ -110,12 +111,12 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
             <fieldset
               key={question.id}
               aria-labelledby={`question-${question.id}-title`}
-              className={`rounded-xl bg-surface-2 p-3 ring-1 sm:p-4 ${fieldError ? "ring-red-500/50" : "ring-border-subtle"}`}
+              className={`min-w-0 rounded-lg border bg-raise p-3 sm:p-4 ${fieldError ? "border-danger" : "border-line-strong"}`}
             >
               <legend className="sr-only">Question {index + 1}</legend>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
-                  <span id={`question-${question.id}-title`} className="text-sm font-semibold text-text-main">Question {index + 1}</span>
+                  <span id={`question-${question.id}-title`} className="text-sm font-semibold text-ink">Question {index + 1}</span>
                   <Badge size="sm" variant="primary">{questionTypeLabel(question.type)}</Badge>
                 </div>
                 <div className="flex items-center gap-1">
@@ -128,7 +129,7 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
 
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label htmlFor={`key-${question.id}`} className="text-xs font-medium text-text-main">Answer key</label>
+                  <label htmlFor={`key-${question.id}`} className="text-xs font-medium text-ink">Answer key</label>
                   <input
                     id={`key-${question.id}`}
                     value={question.key}
@@ -138,17 +139,17 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
                     spellCheck="false"
                     aria-invalid={fieldError ? "true" : undefined}
                     aria-describedby={fieldError ? `key-${question.id}-error` : undefined}
-                    className={`mt-1 w-full rounded-lg bg-surface px-2.5 py-2 font-mono text-xs text-text-main ring-1 focus:outline-none focus:ring-2 ${fieldError ? "ring-red-500/50 focus:ring-red-500/40" : "ring-border-subtle focus:ring-brand-500/30"}`}
+                    className={fieldClass({ invalid: Boolean(fieldError), panel: true, className: "mt-1 px-2.5 py-2 font-mono text-xs" })}
                   />
-                  {fieldError && <p id={`key-${question.id}-error`} role="alert" className="mt-1 text-xs text-red-500">{fieldError}</p>}
+                  {fieldError && <p id={`key-${question.id}-error`} role="alert" className="mt-1 text-xs text-danger">{fieldError}</p>}
                 </div>
                 <div className="min-w-0">
-                  <label htmlFor={`type-${question.id}`} className="text-xs font-medium text-text-main">Type</label>
+                  <label htmlFor={`type-${question.id}`} className="text-xs font-medium text-ink">Type</label>
                   <select
                     id={`type-${question.id}`}
                     value={question.type}
                     onChange={(event) => changeType(question.id, event.target.value)}
-                    className="mt-1 w-full appearance-none rounded-lg bg-surface px-2.5 py-2 text-sm text-text-main ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                    className={fieldClass({ panel: true, className: "mt-1 appearance-none px-2.5 py-2 text-sm" })}
                   >
                     {QUESTION_TYPES.map((entry) => (
                       <option key={entry.value} value={entry.value}>{entry.label}</option>
@@ -158,36 +159,36 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
               </div>
 
               <div className="mt-3">
-                <label htmlFor={`instructions-${question.id}`} className="text-xs font-medium text-text-main">Instructions (optional)</label>
+                <label htmlFor={`instructions-${question.id}`} className="text-xs font-medium text-ink">Instructions (optional)</label>
                 <textarea
                   id={`instructions-${question.id}`}
                   value={question.instructions}
                   onChange={(event) => update(question.id, { instructions: event.target.value })}
                   placeholder={question.type === "noul" ? "Does the customer request a refund?" : "What should the answer describe?"}
-                  className="mt-1 min-h-[60px] w-full resize-y rounded-lg bg-surface p-2.5 text-sm text-text-main ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                  className={fieldClass({ panel: true, className: "mt-1 min-h-[60px] resize-y p-2.5 text-sm" })}
                 />
               </div>
 
               {question.type === "noul" && (
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <div>
-                    <label htmlFor={`yes-${question.id}`} className="text-xs font-medium text-text-main">Counts as yes</label>
+                    <label htmlFor={`yes-${question.id}`} className="text-xs font-medium text-ink">Counts as yes</label>
                     <input
                       id={`yes-${question.id}`}
                       value={question.yes}
                       onChange={(event) => update(question.id, { yes: event.target.value })}
                       placeholder="Optional"
-                      className="mt-1 w-full rounded-lg bg-surface px-2.5 py-2 text-sm text-text-main ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                      className={fieldClass({ panel: true, className: "mt-1 px-2.5 py-2 text-sm" })}
                     />
                   </div>
                   <div>
-                    <label htmlFor={`no-${question.id}`} className="text-xs font-medium text-text-main">Counts as no</label>
+                    <label htmlFor={`no-${question.id}`} className="text-xs font-medium text-ink">Counts as no</label>
                     <input
                       id={`no-${question.id}`}
                       value={question.no}
                       onChange={(event) => update(question.id, { no: event.target.value })}
                       placeholder="Optional"
-                      className="mt-1 w-full rounded-lg bg-surface px-2.5 py-2 text-sm text-text-main ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                      className={fieldClass({ panel: true, className: "mt-1 px-2.5 py-2 text-sm" })}
                     />
                   </div>
                 </div>
@@ -207,7 +208,7 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
                               options: question.options.map((entry) => (entry.id === option.id ? { ...entry, name: event.target.value } : entry)),
                             })}
                             placeholder="Option name"
-                            className="w-full rounded-lg bg-surface px-2.5 py-2 text-sm text-text-main ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                            className={fieldClass({ panel: true, className: "px-2.5 py-2 text-sm" })}
                           />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -220,7 +221,7 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
                               options: question.options.map((entry) => (entry.id === option.id ? { ...entry, description: event.target.value } : entry)),
                             })}
                             placeholder="Short description"
-                            className="w-full rounded-lg bg-surface px-2.5 py-2 text-sm text-text-main ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                            className={fieldClass({ panel: true, className: "px-2.5 py-2 text-sm" })}
                           />
                         </div>
                       </div>
@@ -234,7 +235,7 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
                   <button
                     type="button"
                     onClick={() => update(question.id, { options: [...question.options, { id: makeId(), name: "", description: "" }] })}
-                    className="inline-flex min-h-9 items-center gap-1 self-start rounded-lg px-2 text-xs font-semibold text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    className={linkButtonClass}
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[16px]">add</span>
                     Add option
@@ -246,7 +247,7 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
                 <div className="mt-3 flex flex-col gap-2">
                   {question.levels.map((level, levelIndex) => (
                     <div key={`${question.id}-level-${levelIndex}`} className="flex items-center gap-2">
-                      <span className="w-6 shrink-0 text-center font-mono text-xs text-text-muted">{levelIndex}</span>
+                      <span className="w-6 shrink-0 text-center font-mono text-xs tabular-nums text-muted">{levelIndex}</span>
                       <label htmlFor={`level-${question.id}-${levelIndex}`} className="sr-only">Score level {levelIndex}</label>
                       <input
                         id={`level-${question.id}-${levelIndex}`}
@@ -255,7 +256,7 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
                           levels: question.levels.map((entry, i) => (i === levelIndex ? event.target.value : entry)),
                         })}
                         placeholder={`Level ${levelIndex} description`}
-                        className="min-w-0 flex-1 rounded-lg bg-surface px-2.5 py-2 text-sm text-text-main ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                        className={fieldClass({ panel: true, fill: false, className: "min-w-0 flex-1 px-2.5 py-2 text-sm" })}
                       />
                       <span className="flex shrink-0 items-center">
                         <IconButton
@@ -291,7 +292,7 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
                     type="button"
                     disabled={question.levels.length >= MAX_SCORE_LEVELS}
                     onClick={() => update(question.id, { levels: [...question.levels, ""] })}
-                    className="inline-flex min-h-9 items-center gap-1 self-start rounded-lg px-2 text-xs font-semibold text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+                    className={linkButtonClass}
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[16px]">add</span>
                     Add level ({question.levels.length}/{MAX_SCORE_LEVELS})
@@ -300,7 +301,7 @@ export default function QuestionBuilder({ form, onChange, errors = {}, emptyActi
               )}
 
               {question.type === "box" && (
-                <p className="mt-3 rounded-lg bg-surface px-3 py-2 text-xs text-text-muted">
+                <p className="mt-3 rounded-md border border-line bg-bg px-3 py-2 text-xs text-muted">
                   Box questions need an image. Upload one below and paste its placeholder into the state.
                 </p>
               )}

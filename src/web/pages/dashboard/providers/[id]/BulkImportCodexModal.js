@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { Button, Modal } from "@/shared/components";
+import { Badge, Button, Card, Modal } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
 
 const PLACEHOLDER = `[
@@ -86,14 +86,14 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }) {
   return (
     <Modal isOpen={isOpen} title={translate("Bulk Add Codex Accounts")} onClose={handleClose}>
       <div className="flex flex-col gap-4">
-        <p className="text-xs text-text-muted">
+        <p className="text-xs text-muted">
           {translate(
             "Paste an array of codex account JSON objects. Each must include accessToken (and ideally refreshToken, idToken)."
           )}
         </p>
 
         <textarea
-          className="w-full rounded border border-accent/30 bg-sidebar p-2 text-sm font-mono resize-y min-h-[240px] focus:outline-none focus:ring-1 focus:ring-primary"
+          className="min-h-[240px] w-full resize-y rounded-md border border-line-strong bg-bg p-2.5 font-mono text-sm text-ink placeholder:text-faint focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line"
           placeholder={PLACEHOLDER}
           value={jsonText}
           onChange={(e) => setJsonText(e.target.value)}
@@ -101,27 +101,27 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }) {
         />
 
         {parseError && (
-          <p className="text-xs text-red-500 break-words">{parseError}</p>
+          <p className="break-words text-xs text-danger">{parseError}</p>
         )}
 
         {result && (
           <div className="flex flex-col gap-2">
-            <div
-              className={`text-sm font-medium ${
-                result.failed > 0 ? "text-yellow-400" : "text-green-400"
-              }`}
-            >
-              ✓ {result.success} {translate("added")}
-              {result.failed > 0 ? `, ✗ ${result.failed} ${translate("failed")}` : ""}
+            <div>
+              <Badge variant={result.failed > 0 ? "warning" : "success"} size="md" dot>
+                {result.success} {translate("added")}
+                {result.failed > 0 ? `, ${result.failed} ${translate("failed")}` : ""}
+              </Badge>
             </div>
             {failedItems.length > 0 && (
-              <ul className="rounded border border-accent/20 bg-sidebar/50 p-2 text-xs font-mono max-h-40 overflow-y-auto">
-                {failedItems.map((item) => (
-                  <li key={item.index} className="text-red-400">
-                    [{item.index}] {item.error}
-                  </li>
-                ))}
-              </ul>
+              <Card variant="raised" padding="xs" className="max-h-40 overflow-y-auto">
+                <ul className="space-y-1 font-mono text-xs">
+                  {failedItems.map((item) => (
+                    <li key={item.index} className="text-danger">
+                      [{item.index}] {item.error}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
             )}
           </div>
         )}

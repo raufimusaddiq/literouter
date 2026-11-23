@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import PropTypes from "prop-types";
 import { formatZoneLabel } from "@/shared/utils/dateTime";
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -13,14 +14,57 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import Card from "@/shared/components/Card";
+import SegmentedControl from "@/shared/components/SegmentedControl";
+import { Skeleton } from "@/shared/components/Loading";
+import { niceTicks } from "@/web/pages/dashboard/overview/niceTicks";
+
+const VIEW_OPTIONS = [
+  { value: "tokens", label: "Tokens" },
+  { value: "cost", label: "Cost" },
+];
 
 const fmtTokens = (n) => {
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
-  return String(n || 0);
+  const v = Number(n) || 0;
+  if (v >= 1000000) {
+    const s = (v / 1000000).toFixed(1);
+    return `${s.endsWith(".0") ? s.slice(0, -2) : s}M`;
+  }
+  if (v >= 1000) {
+    const s = (v / 1000).toFixed(1);
+    return `${s.endsWith(".0") ? s.slice(0, -2) : s}K`;
+  }
+  return String(Math.round(v));
 };
 
-const fmtCost = (n) => `$${(n || 0).toFixed(4)}`;
+const fmtCost = (n) => `$${(Number(n) || 0).toFixed(4)}`;
+
+const fmtCostAxis = (n) => {
+  const v = Number(n) || 0;
+  if (v === 0) return "$0";
+  if (v >= 10) return `$${v.toFixed(0)}`;
+  if (v >= 0.1) return `$${v.toFixed(2)}`;
+  return `$${v.toFixed(4)}`;
+};
+
+function ChartTooltip({ active, payload, label, viewMode }) {
+  if (!active || !payload?.length) return null;
+  const val = payload[0]?.value ?? 0;
+  return (
+    <div className="rounded-md border border-line-strong bg-raise px-2.5 py-2 text-xs text-ink">
+      <div className="font-mono text-[11px] text-faint">{label}</div>
+      <div className="mt-0.5 font-mono font-medium text-ink tabular-nums">
+        {viewMode === "tokens" ? `${fmtTokens(val)} tokens` : fmtCost(val)}
+      </div>
+    </div>
+  );
+}
+
+ChartTooltip.propTypes = {
+  active: PropTypes.bool,
+  payload: PropTypes.array,
+  label: PropTypes.string,
+  viewMode: PropTypes.string.isRequired,
+};
 
 export default function UsageChart({ period = "7d" }) {
   const [data, setData] = useState([]);
@@ -33,7 +77,7 @@ export default function UsageChart({ period = "7d" }) {
       const res = await fetch(`/api/usage/chart?period=${period}`);
       if (res.ok) {
         const json = await res.json();
-        setData(json);
+        setData(Array.isArray(json) ? json : []);
       }
     } catch (e) {
       console.error("Failed to fetch chart data:", e);
@@ -48,92 +92,96 @@ export default function UsageChart({ period = "7d" }) {
   }, [fetchData]);
 
   const hasData = data.some((d) => d.tokens > 0 || d.cost > 0);
+  const dataKey = viewMode === "tokens" ? "tokens" : "cost";
+
+  const currentIndex = useMemo(() => {
+    if (!data.length) return -1;
+    if (period === "today") return Math.min(new Date().getHours(), data.length - 1);
+    return data.length - 1;
+  }, [data.length, period]);
+
+  const { yTicks, topTick } = useMemo(() => {
+    const maxVal = Math.max(0, ...data.map((d) => Number(d[dataKey]) || 0));
+    const ticks = viewMode === "tokens"
+      ? niceTicks(maxVal, 4)
+      : niceTicks(maxVal, 4, { integer: false });
+    return { yTicks: ticks, topTick: ticks[ticks.length - 1] || 1 };
+  }, [data, dataKey, viewMode]);
+
+  const currentValue = currentIndex >= 0 ? Number(data[currentIndex]?.[dataKey]) || 0 : 0;
 
   return (
-    <Card className="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
-      <div className="grid w-full grid-cols-2 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:w-auto sm:self-start">
-        <button
-          onClick={() => setViewMode("tokens")}
-          className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "tokens" ? "bg-primary text-primary-foreground shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
-        >
-          Tokens
-        </button>
-        <button
-          onClick={() => setViewMode("cost")}
-          className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "cost" ? "bg-primary text-primary-foreground shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
-        >
-          Cost
-        </button>
+    <Card padding="md" className="flex min-w-0 flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-baseline gap-2.5">
+          <h2 className="text-base font-semibold tracking-[-0.01em] text-ink">
+            {viewMode === "tokens" ? "Tokens over time" : "Estimated cost over time"}
+          </h2>
+          {!loading && hasData && currentIndex >= 0 ? (
+            <span className="rounded-[3px] bg-mark px-1.5 py-[3px] font-mono text-[11px] leading-none font-medium text-mark-ink tabular-nums">
+              now {viewMode === "tokens" ? fmtTokens(currentValue) : fmtCostAxis(currentValue)}
+            </span>
+          ) : null}
+        </div>
+        <SegmentedControl
+          options={VIEW_OPTIONS}
+          value={viewMode}
+          onChange={setViewMode}
+          size="sm"
+        />
       </div>
 
       {loading ? (
-        <div className="h-48 flex items-center justify-center text-text-muted text-sm">Loading...</div>
+        <Skeleton className="h-[220px] w-full rounded-md" />
       ) : !hasData ? (
-        <div className="h-48 flex items-center justify-center text-text-muted text-sm">No data for this period</div>
+        <div className="flex h-[220px] items-center justify-center text-sm text-muted">
+          No data for this period
+        </div>
       ) : (
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="gradTokens" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gradCost" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-warning)" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="var(--color-warning)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} />
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 11, fill: "currentColor", fillOpacity: 0.5 }}
-              tickLine={false}
-              axisLine={false}
-              interval="preserveStartEnd"
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: "currentColor", fillOpacity: 0.5 }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={viewMode === "tokens" ? fmtTokens : fmtCost}
-              width={50}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "var(--color-bg)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "8px",
-                fontSize: "12px",
-              }}
-              formatter={(value, name) =>
-                name === "tokens" ? [fmtTokens(value), "Tokens"] : [fmtCost(value), "Cost"]
-              }
-            />
-            {viewMode === "tokens" ? (
-              <Area
-                type="monotone"
-                dataKey="tokens"
-                stroke="var(--color-primary)"
-                strokeWidth={2}
-                fill="url(#gradTokens)"
-                dot={false}
-                activeDot={{ r: 4 }}
+        <div className="h-[220px] w-full min-w-0">
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 4" stroke="var(--color-grid)" vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 11, fill: "var(--color-faint)", fontFamily: "var(--font-mono)" }}
+                tickLine={false}
+                axisLine={false}
+                interval="preserveStartEnd"
               />
-            ) : (
-              <Area
-                type="monotone"
-                dataKey="cost"
-                stroke="var(--color-warning)"
-                strokeWidth={2}
-                fill="url(#gradCost)"
-                dot={false}
-                activeDot={{ r: 4 }}
+              <YAxis
+                ticks={yTicks}
+                domain={[0, topTick]}
+                tick={{ fontSize: 11, fill: "var(--color-faint)", fontFamily: "var(--font-mono)" }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={viewMode === "tokens" ? fmtTokens : fmtCostAxis}
+                width={54}
               />
-            )}
-          </AreaChart>
-        </ResponsiveContainer>
+              <Tooltip
+                cursor={{ fill: "var(--color-line)", fillOpacity: 0.45 }}
+                content={<ChartTooltip viewMode={viewMode} />}
+              />
+              <Bar
+                dataKey={dataKey}
+                maxBarSize={34}
+                radius={[2, 2, 0, 0]}
+                isAnimationActive={false}
+              >
+                {data.map((entry, idx) => (
+                  <Cell
+                    key={`${entry.label}-${idx}`}
+                    fill={idx === currentIndex ? "var(--color-mark)" : "var(--color-bar)"}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       )}
-      {(period === "today" || period === "24h") && (<p className="text-right text-xs text-text-muted">Times in {formatZoneLabel()}</p>)}
+      {(period === "today" || period === "24h") && (
+        <p className="text-right font-mono text-[11.5px] text-faint">Times in {formatZoneLabel()}</p>
+      )}
     </Card>
   );
 }

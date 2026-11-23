@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Modal, Button } from "@/shared/components";
+import { Badge, Button, Card, Modal } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
 
 const PLACEHOLDER = `[
@@ -180,7 +180,7 @@ export default function BulkImportGrokCliModal({ isOpen, onClose, onSuccess }) {
     <Modal isOpen={isOpen} title={translate("Bulk Add Grok CLI Accounts")} onClose={handleClose}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-text-muted">
+          <p className="text-xs text-muted">
             {translate("Upload multiple .json files or paste JSON array / object.")}
           </p>
           <input
@@ -198,6 +198,7 @@ export default function BulkImportGrokCliModal({ isOpen, onClose, onSuccess }) {
             icon="upload_file"
             onClick={() => fileInputRef.current?.click()}
             disabled={submitting}
+            className="whitespace-nowrap"
           >
             {translate("Upload JSON Files")}
           </Button>
@@ -207,14 +208,14 @@ export default function BulkImportGrokCliModal({ isOpen, onClose, onSuccess }) {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`relative rounded border transition-colors ${
+          className={`relative rounded-md border transition-colors ${
             isDragging
-              ? "border-primary bg-primary/10 ring-2 ring-primary/30"
-              : "border-accent/30 bg-sidebar"
+              ? "border-mark-line bg-bg ring-2 ring-mark-line/30"
+              : "border-line-strong bg-bg"
           }`}
         >
           <textarea
-            className="w-full rounded bg-transparent p-2.5 text-sm font-mono resize-y min-h-[240px] focus:outline-none focus:ring-1 focus:ring-primary"
+            className="min-h-[240px] w-full resize-y rounded-md bg-transparent p-2.5 font-mono text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-mark-line"
             placeholder={PLACEHOLDER}
             value={jsonText}
             onChange={(e) => {
@@ -225,9 +226,9 @@ export default function BulkImportGrokCliModal({ isOpen, onClose, onSuccess }) {
           />
 
           {isDragging && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-sidebar/90 rounded pointer-events-none backdrop-blur-xs">
-              <span aria-hidden="true" className="material-symbols-outlined text-3xl text-primary mb-1">upload_file</span>
-              <span className="text-sm font-medium text-primary">
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center rounded-md bg-raise/95">
+              <span aria-hidden="true" className="material-symbols-outlined mb-1 text-3xl text-ink">upload_file</span>
+              <span className="text-sm font-medium text-ink">
                 {translate("Drop .json files here")}
               </span>
             </div>
@@ -235,8 +236,8 @@ export default function BulkImportGrokCliModal({ isOpen, onClose, onSuccess }) {
         </div>
 
         {fileCountInfo && (
-          <div className="flex items-center gap-1.5 text-xs text-green-400 font-medium bg-green-500/10 border border-green-500/20 px-2.5 py-1.5 rounded">
-            <span aria-hidden="true" className="material-symbols-outlined text-sm">check_circle</span>
+          <div className="flex items-center gap-2 rounded-md border border-ok/30 bg-ok/10 px-3 py-2 text-xs font-medium text-ok">
+            <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-ok" />
             <span>
               {translate("Loaded")} {fileCountInfo.accountsCount} {translate("account(s) from")}{" "}
               {fileCountInfo.filesCount} {translate("file(s)")}
@@ -245,22 +246,26 @@ export default function BulkImportGrokCliModal({ isOpen, onClose, onSuccess }) {
         )}
 
         {parseError && (
-          <p className="text-xs text-red-500 break-words">{parseError}</p>
+          <p className="break-words text-xs text-danger">{parseError}</p>
         )}
 
         {result && result.failed > 0 && (
           <div className="flex flex-col gap-2">
-            <div className="text-sm font-medium text-yellow-400">
-              ✗ {result.failed} {translate("failed")}
+            <div>
+              <Badge variant="warning" size="md" dot>
+                {result.failed} {translate("failed")}
+              </Badge>
             </div>
             {failedItems.length > 0 && (
-              <ul className="rounded border border-accent/20 bg-sidebar/50 p-2 text-xs font-mono max-h-40 overflow-y-auto">
-                {failedItems.map((item) => (
-                  <li key={item.index} className="text-red-400">
-                    [{item.index}] {item.error}
-                  </li>
-                ))}
-              </ul>
+              <Card variant="raised" padding="xs" className="max-h-40 overflow-y-auto">
+                <ul className="space-y-1 font-mono text-xs">
+                  {failedItems.map((item) => (
+                    <li key={item.index} className="text-danger">
+                      [{item.index}] {item.error}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
             )}
           </div>
         )}

@@ -2,7 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "@/web/router";
-import { UsageStats, RequestLogger, CardSkeleton, SegmentedControl, PageIntro } from "@/shared/components";
+import { UsageStats, RequestLogger, CardSkeleton, SegmentedControl } from "@/shared/components";
+import PageHeader from "@/shared/components/shell/PageHeader";
 import RequestDetailsTab from "./components/RequestDetailsTab";
 
 const PERIODS = [
@@ -41,8 +42,11 @@ function UsageContent() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <PageIntro title="Usage" description="Requests, tokens, cost, and provider behavior across the selected window." />
-      <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
+      <PageHeader
+        title="Usage"
+        description="Requests, tokens, cost, and provider behavior across the selected window."
+      />
+      <div className="flex flex-col gap-3 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between">
         <SegmentedControl
           options={[
             { value: "overview", label: "Overview" },
@@ -50,7 +54,7 @@ function UsageContent() {
           ]}
           value={activeTab}
           onChange={handleTabChange}
-          className="w-full sm:w-auto"
+          className="self-start max-w-full"
         />
         {activeTab === "overview" && (
           <SegmentedControl
@@ -58,7 +62,7 @@ function UsageContent() {
             value={period}
             onChange={setPeriod}
             size="sm"
-            className="w-full sm:w-auto"
+            className="self-start max-w-full sm:self-auto"
           />
         )}
       </div>
