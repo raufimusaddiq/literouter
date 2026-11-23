@@ -12,14 +12,11 @@ function run(args) {
 }
 
 describe("scripts/build-web.mjs", () => {
-  it("rejects a flag token as the --outdir value", () => {
-    const result = run(["--outdir", "--dev"]);
-    expect(result.code).toBe(1);
-    expect(result.err).toContain("--outdir needs a directory");
-  });
-
-  it("rejects --outdir with no value", () => {
-    const result = run(["--outdir"]);
+  it.each([
+    ["a flag token as the --outdir value", ["--outdir", "--dev"]],
+    ["--outdir with no value", ["--outdir"]],
+  ])("rejects %s", (_label, args) => {
+    const result = run(args);
     expect(result.code).toBe(1);
     expect(result.err).toContain("--outdir needs a directory");
   });
