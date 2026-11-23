@@ -64,6 +64,12 @@ The Cursor executor bounds connect/headers time, idle time between chunks and (n
 
 **Where:** `open-sse/executors/cursor.js`: `timeoutFail`; `open-sse/utils/requestTimeouts.js`
 
+### Bun-only until Plan 4
+
+Proxy routing passes `proxy` to `fetch`, an option only Bun's `fetch` honors. The Dockerfile still runs Node until Plan 4, and staging is never deployed before cutover, so this is accepted on purpose. On Node the option is silently ignored, which would bypass every proxy and leave `strictProxy` unenforced. `guardProxyRuntime` in `open-sse/utils/proxyFetch.js` fails closed: when `process.versions.bun` is unset and a proxy would be used, it throws if `strictProxy` is on and otherwise logs one warning per process and sends direct. The proxy-pool test route reports OK on Node for the same reason, so a Node build must not ship before Plan 4.
+
+**Where:** `open-sse/utils/proxyFetch.js`: `guardProxyRuntime`; `tests/unit/proxyfetch-node-guard.test.js`
+
 ## Consequences
 
 - A strict pool that falls back to direct on inactive or empty pools leaks the host IP, the exact failure of issue #4333.

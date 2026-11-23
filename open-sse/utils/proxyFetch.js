@@ -172,6 +172,17 @@ function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
   return normalizeProxyUrl(proxyUrlRaw);
 }
 
+let nodeProxyWarned = false;
+
+function guardProxyRuntime(proxyOptions) {
+  if (process.versions.bun) return;
+  const message = "[ProxyFetch] Proxy routing requires the Bun runtime; fetch ignores the proxy option on Node";
+  if (proxyOptions?.strictProxy === true) throw new Error(`${message} (strictProxy=true)`);
+  if (nodeProxyWarned) return;
+  nodeProxyWarned = true;
+  console.warn(`${message}; sending direct`);
+}
+
 export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   if (options?.proxy) return originalFetch(url, options);
 
@@ -200,6 +211,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   const proxyUrl = connectionProxyUrl || envProxyUrl;
 
   if (proxyUrl) {
+    guardProxyRuntime(proxyOptions);
     try {
       return await fetchWithBackstop(url, { ...options, proxy: proxyUrl });
     } catch (proxyError) {

@@ -64,6 +64,12 @@ A GitLab PAT (`pt-...`) must be exchanged for a job token before it can sign any
 
 **Where:** `src/app/api/providers/validate/route.js`: the GitLab branch
 
+### Bun-only IP pin until Plan 4
+
+The image fetch pins the validated IP and passes `tls.serverName` so the certificate is verified against the original hostname. Only Bun's `fetch` honors `tls`. On Node the option is ignored, the pinned https request fails certificate verification, and `fetchImageAsBase64` returns null. That is fail-safe: no request reaches an unvalidated address, so no guard is added and the image is simply dropped. Plain http pins work on both runtimes. Because the Dockerfile still runs Node until Plan 4 and staging is never deployed before cutover, https image inlining requires Bun. The bracket-stripped IPv6 literal is used as `serverName`.
+
+**Where:** `open-sse/translator/concerns/image.js`: `fetchImageAsBase64`
+
 ## Consequences
 
 - Dropping the resolve step or the per-hop redirect check lets wildcard-DNS names and 30x redirects reach metadata and loopback.
