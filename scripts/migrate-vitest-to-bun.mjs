@@ -113,6 +113,71 @@ function prologueEnd(source) {
   return pos;
 }
 
+function matchClose(mask, open) {
+  const o = mask[open];
+  const c = o === "(" ? ")" : o === "[" ? "]" : "}";
+  let depth = 0;
+  for (let i = open; i < mask.length; i++) {
+    if (mask[i] === o) depth++;
+    else if (mask[i] === c && --depth === 0) return i;
+  }
+  return -1;
+}
+
+function literalEnd(source, start) {
+  const q = source[start];
+  let i = start + 1;
+  let braces = 0;
+  while (i < source.length) {
+    const c = source[i];
+    if (c === "\\") { i += 2; continue; }
+    if (q === "`" && c === "$" && source[i + 1] === "{") { braces++; i += 2; continue; }
+    if (braces) {
+      if (c === "{") braces++;
+      else if (c === "}") braces--;
+      i++;
+      continue;
+    }
+    if (c === q) return i;
+    if (c === "\n" && q !== "`") return -1;
+    i++;
+  }
+  return -1;
+}
+
+function eachTitleEdits(source, mask) {
+  const edits = [];
+  const ws = /\s/;
+  for (const m of mask.matchAll(/\.each(?=\s*\()/g)) {
+    let i = m.index + 5;
+    while (ws.test(mask[i])) i++;
+    const tableEnd = matchClose(mask, i);
+    if (tableEnd === -1) continue;
+    i = tableEnd + 1;
+    while (ws.test(mask[i])) i++;
+    if (mask[i] !== "(") continue;
+    i++;
+    for (;;) {
+      while (ws.test(source[i])) i++;
+      const q = source[i];
+      if (q !== '"' && q !== "'" && q !== "`") break;
+      const end = literalEnd(source, i);
+      if (end === -1) break;
+      const body = source.slice(i + 1, end);
+      const parts = q === "`" ? body.split(/(\$\{[^}]*\})/) : [body];
+      const next = parts
+        .map((p) => (p.startsWith("${") ? p : p.replace(/%%|%[so]/g, (x) => (x === "%%" ? x : "%p"))))
+        .join("");
+      if (next !== body) edits.push({ start: i + 1, end, text: next });
+      i = end + 1;
+      while (ws.test(source[i])) i++;
+      if (source[i] !== "+") break;
+      i++;
+    }
+  }
+  return edits;
+}
+
 export function analyze(source, filePath = "") {
   const eol = source.includes("\r\n") ? "\r\n" : "\n";
   const mask = maskSource(source);
@@ -193,6 +258,7 @@ export function analyze(source, filePath = "") {
   for (const m of mask.matchAll(/\b(expectTypeOf|assertType)\s*[(<]/g)) {
     report(m.index, `unsupported-type-helper:${m[1]}`);
   }
+  for (const e of eachTitleEdits(source, mask)) edits.push(e);
   manual.sort((a, b) => a.line - b.line);
 
   const usesVi = /(?<![\w$.])vi\.[A-Za-z_]/.test(mask);

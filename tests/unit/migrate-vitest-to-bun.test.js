@@ -168,6 +168,55 @@ describe("migrate-vitest-to-bun snapshot multi-line strings", () => {
   });
 });
 
+describe("migrate-vitest-to-bun each titles", () => {
+  it("rewrites %s and %o to %p in it.each titles", () => {
+    expect(T(`it.each([[false], [undefined]])("y when %s", (v) => {});\n`)).toBe(
+      `it.each([[false], [undefined]])("y when %p", (v) => {});\n`,
+    );
+    expect(T(`test.each([[1]])("a %s b %o", () => {});\n`)).toBe(
+      `test.each([[1]])("a %p b %p", () => {});\n`,
+    );
+  });
+
+  it("handles describe.each, chains, single quotes and templates", () => {
+    expect(T(`describe.each([[1]])('d %s', () => {});\n`)).toBe(
+      `describe.each([[1]])('d %p', () => {});\n`,
+    );
+    expect(T("it.skipIf(x).each([[1]])(`t %s ${n}`, () => {});\n")).toBe(
+      "it.skipIf(x).each([[1]])(`t %p ${n}`, () => {});\n",
+    );
+    expect(T(`it.concurrent.each([[1]])("t %s", () => {});\n`)).toBe(
+      `it.concurrent.each([[1]])("t %p", () => {});\n`,
+    );
+  });
+
+  it("handles tables containing parens, strings and nested calls", () => {
+    const src = `it.each([[f(1), ")"], [2, "("]])("t %s", () => {});\n`;
+    expect(T(src)).toBe(src.replace("%s", "%p"));
+  });
+
+  it("rewrites every literal of a concatenated title", () => {
+    expect(T(`it.each([[1]])("a %s " + "b %s", () => {});\n`)).toBe(
+      `it.each([[1]])("a %p " + "b %p", () => {});\n`,
+    );
+  });
+
+  it("leaves other placeholders, escaped percents and non-each calls alone", () => {
+    const src = `it.each([[1]])("n %d %i %j %# 100%% %%s $x", () => {});\nit("plain %s", () => {});\nconst s = "it.each([1])(%s)";\n`;
+    expect(T(src)).toBe(src);
+  });
+
+  it("does not touch %s inside the table or the test body", () => {
+    const src = `it.each([["%s"]])("t", (v) => { expect("%s").toBe(v); });\n`;
+    expect(T(src)).toBe(src);
+  });
+
+  it("is idempotent", () => {
+    const once = T(`it.each([[1]])("t %s", () => {});\n`);
+    expect(T(once)).toBe(once);
+  });
+});
+
 describe("migrate-vitest-to-bun comment hygiene", () => {
   it("never adds comment text to a converted test file", () => {
     const src = `import { describe, it, expect, vi } from "vitest";\nvi.doMock("./a.js", () => ({}));\nit.fails("x", () => {});\nconst a = await vi.importActual("./a.js");\n`;
