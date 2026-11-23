@@ -17,6 +17,38 @@ describe("workflows", () => {
     }
   });
 
+  it("no workflow pins a node version or uses a node image", () => {
+    for (const file of files) {
+      const text = read(file);
+      expect(text, file).not.toMatch(/node-version/);
+      expect(text, file).not.toMatch(/\bnode:\d/);
+    }
+  });
+
+  it("every workflow that builds linux/arm64 sets up QEMU", () => {
+    for (const file of files) {
+      const text = read(file);
+      if (text.includes("linux/arm64")) expect(text, file).toContain("docker/setup-qemu-action@v3");
+    }
+  });
+
+  it("every test.yml and staging.yml job has a timeout-minutes unless it calls a reusable workflow", () => {
+    for (const file of ["test.yml", "staging.yml"]) {
+      const text = read(file);
+      const jobs = text.split(/^jobs:\n/m)[1].split(/^  (?=[\w-]+:\n)/m).filter(Boolean);
+      expect(jobs.length, file).toBeGreaterThan(0);
+      for (const job of jobs) {
+        if (/^    uses:/m.test(job)) continue;
+        expect(job, `${file}: ${job.split("\n")[0]}`).toMatch(/^    timeout-minutes:\s*\d+/m);
+      }
+    }
+  });
+
+  it("test.yml image job declares read-only contents permission", () => {
+    const image = read("test.yml").split(/^  image:\n/m)[1];
+    expect(image).toMatch(/^    permissions:\n      contents: read\n/m);
+  });
+
   it("every workflow that installs Bun pins 1.4.4", () => {
     for (const file of files) {
       const text = read(file);

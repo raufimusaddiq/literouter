@@ -16,6 +16,7 @@ permissions:
 jobs:
   unit:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -78,6 +79,9 @@ jobs:
   image:
     needs: unit
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
     name: image (${{ matrix.platform }})
     strategy:
       fail-fast: false

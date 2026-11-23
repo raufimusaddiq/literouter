@@ -89,3 +89,17 @@ describe("smoke-image helpers", () => {
     expect(() => assertLiterouterUid("0")).toThrow("expected literouter");
   });
 });
+
+describe("smoke-image timeouts", () => {
+  it("passes a timeout to every docker spawn and reports a hung call clearly", async () => {
+    const { runDocker } = await import("../../scripts/smoke-image.mjs");
+    const seen = [];
+    const hung = (cmd, opts) => {
+      seen.push(opts.timeout);
+      return { exitCode: null, exitedDueToTimeout: true, stdout: Buffer.from(""), stderr: Buffer.from("") };
+    };
+    expect(() => runDocker(["exec", "c", "true"], { timeoutMs: 5000 }, hung)).toThrow(/timed out after 5s/);
+    expect(seen).toEqual([5000]);
+    expect(runDocker(["rm", "-f", "c"], { timeoutMs: 1000, allowFail: true }, hung).code).toBeNull();
+  });
+});

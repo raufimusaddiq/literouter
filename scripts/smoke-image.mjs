@@ -6,11 +6,19 @@ const DEFAULT_TIMEOUT_S = 120;
 const HEALTH_JS = `fetch('${BASE}/api/health').then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))`;
 const SMOKE_SCRIPT = resolve(import.meta.dir, "smoke-server.mjs");
 
-function docker(args, { allowFail = false } = {}) {
-  const run = Bun.spawnSync(["docker", ...args], { stdout: "pipe", stderr: "pipe" });
+const PROBE_TIMEOUT_MS = 15000;
+const CLEANUP_TIMEOUT_MS = 30000;
+
+export function runDocker(args, { allowFail = false, timeoutMs, label } = {}, spawn = Bun.spawnSync) {
+  const run = spawn(["docker", ...args], { stdout: "pipe", stderr: "pipe", timeout: timeoutMs });
+  const what = label ?? `docker ${args.slice(0, 2).join(" ")}`;
+  if (run.exitedDueToTimeout) {
+    if (allowFail) return { code: null, out: "", err: `${what} timed out`, timedOut: true };
+    throw new Error(`${what} timed out after ${timeoutMs / 1000}s`);
+  }
   const out = run.stdout.toString();
   if (run.exitCode !== 0 && !allowFail) {
-    throw new Error(`docker ${args.slice(0, 2).join(" ")} failed (${run.exitCode}): ${run.stderr.toString().trim() || out.trim()}`);
+    throw new Error(`${what} failed (${run.exitCode}): ${run.stderr.toString().trim() || out.trim()}`);
   }
   return { code: run.exitCode, out, err: run.stderr.toString() };
 }
@@ -31,25 +39,35 @@ export function assertLiterouterUid(uid) {
   return 1000;
 }
 
+function removeContainer(name) {
+  runDocker(["rm", "-f", name], { allowFail: true, timeoutMs: CLEANUP_TIMEOUT_MS });
+}
+
 async function waitForHealth(name, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const state = docker(["inspect", "-f", "{{.State.Running}}", name], { allowFail: true });
-    if (state.out.trim() !== "true") {
-      throw new Error(`container exited early:\n${docker(["logs", name], { allowFail: true }).out}`);
+    const state = runDocker(["inspect", "-f", "{{.State.Running}}", name], { allowFail: true, timeoutMs: PROBE_TIMEOUT_MS });
+    if (!state.timedOut && state.out.trim() !== "true") {
+      throw new Error(`container exited early:\n${runDocker(["logs", name], { allowFail: true, timeoutMs: PROBE_TIMEOUT_MS }).out}`);
     }
-    const probe = docker(["exec", "-e", "BUN_BE_BUN=1", name, "/app/literouter", "-e", HEALTH_JS], { allowFail: true });
+    const probe = runDocker(["exec", "-e", "BUN_BE_BUN=1", name, "/app/literouter", "-e", HEALTH_JS], { allowFail: true, timeoutMs: PROBE_TIMEOUT_MS });
     if (probe.code === 0) return;
     await Bun.sleep(1000);
   }
-  throw new Error(`container did not become healthy within ${timeoutMs / 1000}s:\n${docker(["logs", name], { allowFail: true }).out}`);
+  throw new Error(`container did not become healthy within ${timeoutMs / 1000}s:\n${runDocker(["logs", name], { allowFail: true, timeoutMs: PROBE_TIMEOUT_MS }).out}`);
 }
 
 export async function smokeImage({ image, platform, timeoutS = DEFAULT_TIMEOUT_S }) {
   const name = containerName();
   const timeoutMs = timeoutS * 1000;
+  const onSignal = (signal) => {
+    removeContainer(name);
+    process.exit(signal === "SIGINT" ? 130 : 143);
+  };
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
   try {
-    docker([
+    runDocker([
       "run", "-d", "--name", name,
       ...(platform ? ["--platform", platform] : []),
       "-e", "DATA_DIR=/app/data",
@@ -59,20 +77,22 @@ export async function smokeImage({ image, platform, timeoutS = DEFAULT_TIMEOUT_S
       "-e", `MACHINE_ID_SALT=${randomBytes(8).toString("hex")}`,
       "-e", "AUTH_COOKIE_SECURE=false",
       image,
-    ]);
+    ], { timeoutMs });
     await waitForHealth(name, timeoutMs);
-    const pid = serverPid(docker(["exec", name, "ps", "-o", "pid=,args="]).out);
-    const status = docker(["exec", name, "cat", `/proc/${pid}/status`]).out;
+    const pid = serverPid(runDocker(["exec", name, "ps", "-o", "pid=,args="], { timeoutMs }).out);
+    const status = runDocker(["exec", name, "cat", `/proc/${pid}/status`], { timeoutMs }).out;
     assertLiterouterUid(status.match(/^Uid:\s+(\d+)/m)?.[1]);
-    docker(["cp", SMOKE_SCRIPT, `${name}:/tmp/smoke-server.mjs`]);
-    const smoke = docker(
+    runDocker(["cp", SMOKE_SCRIPT, `${name}:/tmp/smoke-server.mjs`], { timeoutMs });
+    const smoke = runDocker(
       ["exec", "-e", "BUN_BE_BUN=1", name, "/app/literouter", "/tmp/smoke-server.mjs", "--base", BASE],
-      { allowFail: true },
+      { allowFail: true, timeoutMs, label: "in-container smoke" },
     );
     if (smoke.code !== 0) throw new Error(`smoke failed in container:\n${smoke.out}${smoke.err}`);
     return smoke.out.trim();
   } finally {
-    docker(["rm", "-f", name], { allowFail: true });
+    process.off("SIGINT", onSignal);
+    process.off("SIGTERM", onSignal);
+    removeContainer(name);
   }
 }
 
