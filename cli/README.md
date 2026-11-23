@@ -85,6 +85,14 @@ literouter --skip-update      # Skip auto-update check
 literouter --help             # Show all options
 ```
 
+### Stop the server
+
+```bash
+literouter stop            # Stop the running LiteRouter server
+```
+
+`literouter stop` stops the server (and the launcher or tray process that started it) recorded in the pid file under the data directory (`~/.9router/server.pid`). It only stops the server it started itself and never a foreign process. It exits 0 with a message when nothing is running, and exits 1 only when the server is still listening after being stopped.
+
 **Dashboard**: `http://localhost:20128/dashboard`
 
 ---

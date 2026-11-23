@@ -6,11 +6,11 @@ function getPidFile() {
   return path.join(path.dirname(getRuntimeDir()), "server.pid");
 }
 
-function writeServerPid(pid, port) {
+function writeServerPid(pid, port, launcherPid) {
   try {
     const file = getPidFile();
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify({ pid, port, startedAt: Date.now() }));
+    fs.writeFileSync(file, JSON.stringify({ pid, port, launcherPid, startedAt: Date.now() }));
   } catch (e) {}
 }
 
@@ -25,7 +25,10 @@ function readServerPid() {
     const pid = parseInt(rec && rec.pid, 10);
     if (!Number.isInteger(pid) || pid <= 0) return null;
     const port = parseInt(rec.port, 10);
-    return { pid, port: Number.isInteger(port) ? port : null };
+    const record = { pid, port: Number.isInteger(port) ? port : null };
+    const launcherPid = parseInt(rec.launcherPid, 10);
+    if (Number.isInteger(launcherPid) && launcherPid > 0) record.launcherPid = launcherPid;
+    return record;
   } catch (e) {
     return null;
   }

@@ -113,6 +113,27 @@ const {
 } = require("./src/cli/utils/serverProc");
 const args = process.argv.slice(2);
 
+if (args[0] === "stop") {
+  const { runStop } = require("./src/cli/commands/stop");
+  runStop({
+    cliPath: __filename,
+    readServerPid,
+    clearServerPid,
+    getListenerPid,
+    isTrackedServerAlive,
+    getProcessInfo: require("./src/cli/utils/legacyCli").getProcessInfo,
+    kill: killProcess,
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    log: console.log,
+  })
+    .then((code) => process.exit(code))
+    .catch((err) => {
+      console.error(`❌ ${err?.message || err}`);
+      process.exit(1);
+    });
+  return;
+}
+
 if (args[0] === "xai" && args[1] === "video") {
   const { run } = require("./src/cli/commands/xaiVideo");
   run(args.slice(2))
@@ -189,6 +210,7 @@ Options:
   -v, --version       Show version
 
 Commands:
+  ${APP_NAME} stop    Stop the running LiteRouter server (exit 0 when none is running)
   xai video --prompt "..." --output video.mp4
                       Generate a Grok Imagine video via the running gateway
                       (see: ${APP_NAME} xai video --help)
@@ -241,7 +263,7 @@ function getListenerPid(p) {
   }
 }
 
-function killLegacy(pid, kind) {
+function killProcess(pid, kind) {
   if (kind === "launcher" && process.platform !== "win32") {
     try { process.kill(pid, "SIGTERM"); } catch (e) {}
     return;
@@ -261,7 +283,7 @@ async function claimPort() {
     getListenerPid,
     isTrackedServerAlive,
     getProcessInfo,
-    kill: killLegacy,
+    kill: killProcess,
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     log: console.log,
   });
@@ -449,7 +471,7 @@ function startServer(updatePromise) {
       return { pid: undefined, exited: Promise.resolve(1) };
     }
     if (!showLog && child.stderr) collectCrashLog(child.stderr);
-    if (child.pid) writeServerPid(child.pid, port);
+    if (child.pid) writeServerPid(child.pid, port, process.pid);
     return child;
   }
 
