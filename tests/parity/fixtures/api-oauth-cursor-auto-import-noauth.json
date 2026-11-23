@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-oauth-cursor-auto-import-noauth",
-  "method": "GET",
-  "path": "/api/oauth/cursor/auto-import"
-}

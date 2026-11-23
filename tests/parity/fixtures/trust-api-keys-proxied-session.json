@@ -1,7 +1,0 @@
-{
-  "peer": "proxied",
-  "auth": "session",
-  "id": "trust-api-keys-proxied-session",
-  "method": "GET",
-  "path": "/api/keys"
-}

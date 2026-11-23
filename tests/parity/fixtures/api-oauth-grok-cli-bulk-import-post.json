@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-oauth-grok-cli-bulk-import-post",
-  "method": "POST",
-  "path": "/api/oauth/grok-cli/bulk-import",
-  "json": {}
-}

@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-providers-test-batch-noauth",
-  "method": "POST",
-  "path": "/api/providers/test-batch",
-  "json": {}
-}

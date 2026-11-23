@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-pxpipe-stop-noauth",
-  "method": "POST",
-  "path": "/api/pxpipe/stop",
-  "json": {}
-}

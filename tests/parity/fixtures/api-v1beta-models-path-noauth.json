@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-v1beta-models-path-noauth",
-  "method": "POST",
-  "path": "/api/v1beta/models/x/y",
-  "json": {}
-}

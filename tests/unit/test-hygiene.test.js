@@ -95,15 +95,6 @@ it("real mention", () => { expect(read(${mention})).toBe(1); });
     expect(findHygieneProblems(root, { allow })).toEqual([]);
   });
 
-  it("exempts the parity corpora by directory", () => {
-    const root = tree({
-      "tests/unit/a.test.js": GOOD_TEST,
-      "tests/parity/fixtures/case.json": "{}\n",
-      "tests/parity/expected/case.json": "{}\n",
-    });
-    expect(findHygieneProblems(root)).toEqual([]);
-  });
-
   it("flags a helper that no test imports", () => {
     const root = tree({
       "tests/unit/a.test.js": GOOD_TEST,

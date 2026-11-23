@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 
 export const TEST_ROOTS = ["tests", "cli/test"];
 export const CORPUS_EXTRA_ROOTS = ["scripts", ".github", "package.json"];
-export const EXEMPT_DIRS = ["tests/parity/fixtures", "tests/parity/expected"];
 
 export const DIR_LOADED_ALLOW = [];
 
@@ -85,16 +84,12 @@ function importsHelper(importer, text, helper) {
 export function findHygieneProblems(root, { allow = DIR_LOADED_ALLOW } = {}) {
   const files = [];
   for (const dir of TEST_ROOTS) walk(root, dir, files);
-  const inScope = files.filter((f) => !EXEMPT_DIRS.some((d) => under(f, d)));
   const extra = [];
   for (const dir of CORPUS_EXTRA_ROOTS) walk(root, dir, extra);
   const corpus = new Map();
-  for (const f of [...inScope, ...extra]) {
+  for (const f of [...files, ...extra]) {
     if (!isText(f) || CORPUS_EXCLUDE.has(f)) continue;
     corpus.set(f, read(root, f));
-  }
-  for (const f of files) {
-    if (EXEMPT_DIRS.some((d) => under(f, d)) && isText(f)) corpus.set(f, read(root, f));
   }
 
   const problems = [];
@@ -105,7 +100,7 @@ export function findHygieneProblems(root, { allow = DIR_LOADED_ALLOW } = {}) {
     return false;
   };
 
-  for (const f of inScope) {
+  for (const f of files) {
     const isFixture = /(^|\/)(fixtures|__fixtures__)\//.test(f);
     const isHelper = !isFixture && /(^|\/)helpers\//.test(f) && !TEST_FILE.test(f);
     if (isFixture && !TEST_FILE.test(f) && !/(^|\/)(AGENTS|README)\.md$/.test(f) && !allowed(f)) {

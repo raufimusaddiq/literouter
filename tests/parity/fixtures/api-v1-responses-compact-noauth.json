@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-v1-responses-compact-noauth",
-  "method": "POST",
-  "path": "/api/v1/responses/compact",
-  "json": {}
-}

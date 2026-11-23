@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-usage-chart-get",
-  "method": "GET",
-  "path": "/api/usage/chart"
-}

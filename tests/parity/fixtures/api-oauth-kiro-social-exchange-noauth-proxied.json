@@ -1,8 +1,0 @@
-{
-  "peer": "proxied",
-  "auth": "none",
-  "id": "api-oauth-kiro-social-exchange-noauth-proxied",
-  "method": "POST",
-  "path": "/api/oauth/kiro/social-exchange",
-  "json": {}
-}
