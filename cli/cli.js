@@ -39,7 +39,7 @@ if (typeof Bun === "undefined" || compareVersions(Bun.version, "1.4.4") < 0) {
   process.exit(1);
 }
 
-const { spawn, exec, execSync } = require("child_process");
+const { exec, execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const net = require("net");
@@ -100,6 +100,7 @@ function createSpinner(text) {
 
 const pkg = require("./package.json");
 const { buildInstallCmd } = require("./src/cli/utils/update");
+const { buildServerSpawn } = require("./src/cli/utils/spawn");
 const { ensureRuntime } = require("./hooks/runtime");
 const {
   writeServerPid,
@@ -330,15 +331,11 @@ function openBrowser(url) {
   });
 }
 
-const standaloneDir = path.join(__dirname, "app");
-const customServerPath = path.join(standaloneDir, "custom-server.js");
-const serverPath = fs.existsSync(customServerPath)
-  ? customServerPath
-  : path.join(standaloneDir, "server.js");
+const appDir = path.join(__dirname, "app");
+const serverPath = path.join(appDir, "index.js");
 
 if (!fs.existsSync(serverPath)) {
-  console.error("Error: Standalone build not found.");
-  console.error("Please run 'bun run build' in cli/ first.");
+  console.error("Error: app bundle not found. Run 'bun run build' in cli/ first.");
   process.exit(1);
 }
 
@@ -401,27 +398,33 @@ function startServer(updatePromise) {
   const CRASH_LOG_LINES = 50;
   let crashLog = [];
 
+  async function collectCrashLog(stream) {
+    try {
+      const decoder = new TextDecoder();
+      let tail = "";
+      for await (const chunk of stream) {
+        tail += decoder.decode(chunk, { stream: true });
+        const lines = tail.split("\n");
+        tail = lines.pop();
+        crashLog.push(...lines.filter(Boolean));
+        if (crashLog.length > CRASH_LOG_LINES) crashLog = crashLog.slice(-CRASH_LOG_LINES);
+      }
+      if (tail) crashLog.push(tail);
+    } catch (e) {}
+  }
+
   function spawnServer() {
     serverStartTime = Date.now();
     crashLog = [];
-    const child = spawn(RUNTIME, ["--dns-result-order=ipv4first", "--max-old-space-size=6144", serverPath], {
-      cwd: standaloneDir,
-      stdio: showLog ? "inherit" : ["ignore", "ignore", "pipe"],
-      detached: true,
-      windowsHide: true,
-      env: {
-        ...process.env,
-        PORT: port.toString(),
-        HOSTNAME: host
-      }
-    });
-    if (!showLog && child.stderr) {
-      child.stderr.on("data", (data) => {
-        const lines = data.toString().split("\n").filter(Boolean);
-        crashLog.push(...lines);
-        if (crashLog.length > CRASH_LOG_LINES) crashLog = crashLog.slice(-CRASH_LOG_LINES);
-      });
+    const [cmd, options] = buildServerSpawn({ runtime: RUNTIME, serverPath, appDir, port, host, showLog });
+    let child;
+    try {
+      child = Bun.spawn(cmd, options);
+    } catch (err) {
+      console.error("Failed to start server:", err.message);
+      return { pid: undefined, exited: Promise.resolve(1) };
     }
+    if (!showLog && child.stderr) collectCrashLog(child.stderr);
     if (child.pid) writeServerPid(child.pid, port);
     return child;
   }
@@ -563,9 +566,9 @@ function startServer(updatePromise) {
 
           console.log(`\n⏳ Starting background process... (tray icon will appear in ~3s)`);
 
-          const bgProcess = spawn(process.execPath, ["--dns-result-order=ipv4first", __filename, ...buildTrayArgs({ host, port })], {
+          const bgProcess = Bun.spawn([process.execPath, "--dns-result-order=ipv4first", __filename, ...buildTrayArgs({ host, port })], {
             detached: true,
-            stdio: "ignore",
+            stdio: ["ignore", "ignore", "ignore"],
             windowsHide: true,
             env: { ...process.env, NINEROUTER_REUSE_PID: server.pid ? String(server.pid) : "" }
           });
@@ -600,13 +603,9 @@ function startServer(updatePromise) {
   });
 
   function attachServerEvents() {
-    server.on("error", (err) => {
-      console.error("Failed to start server:", err.message);
-      if (!isShuttingDown) tryRestart();
-      else { cleanup(); process.exit(1); }
-    });
-
-    server.on("close", (code) => {
+    const proc = server;
+    proc.exited.then((code) => {
+      if (proc !== server) return;
       if (isShuttingDown || code === 0) {
         process.exit(code || 0);
         return;
