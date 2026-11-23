@@ -15,8 +15,6 @@ tests/unit/deploy-script.test.js :: refuses a missing, short or malformed SHA wi
 tests/unit/deploy-script.test.js :: removes exactly the replaced tag after health and the endpoint pass
 tests/unit/deploy-script.test.js :: removes nothing when the same tag is redeployed
 tests/unit/deploy-script.test.js :: waits for health before checking it
-tests/unit/force-stream-config.test.js :: forceStream provider config keeps forced-stream providers streaming for JSON clients when body.stream is false
-tests/unit/force-stream-config.test.js :: forceStream provider config keeps forced-stream providers streaming for JSON clients when body.stream is undefined
 tests/unit/headroom-detect.test.js :: headroom detect prefers the interpreter that actually has headroom-ai installed
 tests/unit/model-routing.test.js :: model routing keeps built-in provider aliases ahead of compatible node prefixes
 tests/unit/model-routing.test.js :: model routing still routes non-reserved compatible node prefixes
