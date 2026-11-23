@@ -41,7 +41,7 @@ function initTray(options) {
 
 function buildMenuItems(port, autostartEnabled) {
   return [
-    { title: `9Router (Port ${port})`, tooltip: "Server is running", enabled: false },
+    { title: `LiteRouter (Port ${port})`, tooltip: "Server is running", enabled: false },
     { title: "Open Dashboard", tooltip: "Open in browser", enabled: true },
     {
       title: autostartEnabled ? "✓ Auto-start Enabled" : "Enable Auto-start",
@@ -94,7 +94,7 @@ function initWindowsTray(options) {
 
     trayInstance = initWinTray({
       iconPath,
-      tooltip: `9Router - Port ${port}`,
+      tooltip: `LiteRouter - Port ${port}`,
       items,
       onClick: (index) => {
         handleClick(index, options, (newEnabled) => {
@@ -114,7 +114,7 @@ function initWindowsTray(options) {
 function resolveSystray() {
   let runtimeDir = null;
   try {
-    const { getRuntimeNodeModules } = require("../../../hooks/sqliteRuntime");
+    const { getRuntimeNodeModules } = require("../../../hooks/runtimeDir");
     runtimeDir = getRuntimeNodeModules();
   } catch (e) {}
 
@@ -131,7 +131,7 @@ function resolveSystray() {
 
 function chmodTrayBin(pkgName) {
   try {
-    const { getRuntimeNodeModules } = require("../../../hooks/sqliteRuntime");
+    const { getRuntimeNodeModules } = require("../../../hooks/runtimeDir");
     const binName = process.platform === "darwin" ? "tray_darwin_release" : "tray_linux_release";
     const candidates = [
       path.join(getRuntimeNodeModules(), pkgName, "traybin", binName),
@@ -159,7 +159,7 @@ function initUnixTray(options) {
       icon: getIconBase64(),
       isTemplateIcon: false,
       title: "",
-      tooltip: `9Router - Port ${port}`,
+      tooltip: `LiteRouter - Port ${port}`,
       items
     };
 
@@ -182,7 +182,7 @@ function initUnixTray(options) {
 
     if (isV2) {
       trayInstance.ready().catch((err) => {
-        process.stderr.write(`[9router] tray failed to start: ${err && err.message ? err.message : err}\n`);
+        process.stderr.write(`[literouter] tray failed to start: ${err && err.message ? err.message : err}\n`);
       });
     } else {
       trayInstance.onReady(() => {});
@@ -191,7 +191,7 @@ function initUnixTray(options) {
 
     return trayInstance;
   } catch (err) {
-    process.stderr.write(`[9router] tray init error: ${err.message}\n`);
+    process.stderr.write(`[literouter] tray init error: ${err.message}\n`);
     return null;
   }
 }

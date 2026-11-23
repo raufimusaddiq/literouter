@@ -210,8 +210,8 @@ function enableLinux(cliPath, opts = {}) {
   const execArgs = buildTrayArgs(opts).map((a) => `"${a}"`).join(" ");
   const desktopContent = `[Desktop Entry]
 Type=Application
-Name=9Router
-Comment=9Router API Proxy
+Name=LiteRouter
+Comment=LiteRouter API Proxy
 Exec="${nodePath}" "${routerScript}" ${execArgs}
 Hidden=false
 NoDisplay=false

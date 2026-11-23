@@ -1,9 +1,47 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
-const { spawn, exec, execSync } = require("child_process");
+function compareVersions(a, b) {
+  const parse = (v) => {
+    const [core, ...pre] = String(v).trim().replace(/^v/, "").split("+")[0].split("-");
+    const nums = core.split(".").map((n) => parseInt(n, 10) || 0);
+    while (nums.length < 3) nums.push(0);
+    return { nums, pre: pre.length ? pre.join("-").split(".") : [] };
+  };
+  const A = parse(a);
+  const B = parse(b);
+  for (let i = 0; i < 3; i++) {
+    if (A.nums[i] > B.nums[i]) return 1;
+    if (A.nums[i] < B.nums[i]) return -1;
+  }
+  if (!A.pre.length && !B.pre.length) return 0;
+  if (!A.pre.length) return 1;
+  if (!B.pre.length) return -1;
+  for (let i = 0; i < Math.max(A.pre.length, B.pre.length); i++) {
+    const x = A.pre[i];
+    const y = B.pre[i];
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    const xn = /^\d+$/.test(x);
+    const yn = /^\d+$/.test(y);
+    if (xn && yn) {
+      if (+x !== +y) return +x > +y ? 1 : -1;
+    } else if (xn !== yn) {
+      return xn ? -1 : 1;
+    } else if (x !== y) {
+      return x > y ? 1 : -1;
+    }
+  }
+  return 0;
+}
+
+if (typeof Bun === "undefined" || compareVersions(Bun.version, "1.4.4") < 0) {
+  console.error("literouter requires Bun >= 1.4.4 (https://bun.sh)");
+  process.exit(1);
+}
+
+const { exec, execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const https = require("https");
 const net = require("net");
 const os = require("os");
 
@@ -61,7 +99,9 @@ function createSpinner(text) {
 }
 
 const pkg = require("./package.json");
-const { buildEnvWithRuntime } = require("./hooks/sqliteRuntime");
+const { buildInstallCmd } = require("./src/cli/utils/update");
+const { buildServerSpawn } = require("./src/cli/utils/spawn");
+const { takeoverLegacy, getProcessInfo } = require("./src/cli/utils/legacyCli");
 const { ensureRuntime } = require("./hooks/runtime");
 const {
   writeServerPid,
@@ -72,6 +112,27 @@ const {
   buildTrayArgs,
 } = require("./src/cli/utils/serverProc");
 const args = process.argv.slice(2);
+
+if (args[0] === "stop") {
+  const { runStop } = require("./src/cli/commands/stop");
+  runStop({
+    cliPath: __filename,
+    readServerPid,
+    clearServerPid,
+    getListenerPid,
+    isTrackedServerAlive,
+    getProcessInfo: require("./src/cli/utils/legacyCli").getProcessInfo,
+    kill: killProcess,
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    log: console.log,
+  })
+    .then((code) => process.exit(code))
+    .catch((err) => {
+      console.error(`❌ ${err?.message || err}`);
+      process.exit(1);
+    });
+  return;
+}
 
 if (args[0] === "xai" && args[1] === "video") {
   const { run } = require("./src/cli/commands/xaiVideo");
@@ -84,11 +145,10 @@ if (args[0] === "xai" && args[1] === "video") {
   return;
 }
 
-ensureRuntime({ silent: true }).catch(() => {});
 
 const APP_NAME = pkg.name;
-const UPDATE_PACKAGE = (process.env.NINEROUTER_UPDATE_PACKAGE || "").trim();
-const INSTALL_CMD_LATEST = `npm i -g ${UPDATE_PACKAGE}@latest --prefer-online`;
+const UPDATE_PACKAGE = (process.env.NINEROUTER_UPDATE_PACKAGE ?? pkg.name).trim();
+const INSTALL_CMD_LATEST = buildInstallCmd(UPDATE_PACKAGE);
 
 const DEFAULT_PORT = 20128;
 const DEFAULT_HOST = "0.0.0.0";
@@ -145,11 +205,12 @@ Options:
   -l, --log           Show server logs (default: hidden)
   -t, --tray          Run in system tray mode (background)
   --skip-update       Skip auto-update check
-                      (update check is off unless NINEROUTER_UPDATE_PACKAGE is set)
+                      (set NINEROUTER_UPDATE_PACKAGE="" to disable the check)
   -h, --help          Show this help message
   -v, --version       Show version
 
 Commands:
+  ${APP_NAME} stop    Stop the running LiteRouter server (exit 0 when none is running)
   xai video --prompt "..." --output video.mp4
                       Generate a Grok Imagine video via the running gateway
                       (see: ${APP_NAME} xai video --help)
@@ -167,40 +228,6 @@ if (skipUpdate && !trayMode && !process.stdin.isTTY) {
 }
 
 const RUNTIME = process.execPath;
-
-function compareVersions(a, b) {
-  const parse = (v) => {
-    const [core, ...pre] = String(v).trim().replace(/^v/, "").split("+")[0].split("-");
-    const nums = core.split(".").map((n) => parseInt(n, 10) || 0);
-    while (nums.length < 3) nums.push(0);
-    return { nums, pre: pre.length ? pre.join("-").split(".") : [] };
-  };
-  const A = parse(a);
-  const B = parse(b);
-  for (let i = 0; i < 3; i++) {
-    if (A.nums[i] > B.nums[i]) return 1;
-    if (A.nums[i] < B.nums[i]) return -1;
-  }
-  if (!A.pre.length && !B.pre.length) return 0;
-  if (!A.pre.length) return 1;
-  if (!B.pre.length) return -1;
-  for (let i = 0; i < Math.max(A.pre.length, B.pre.length); i++) {
-    const x = A.pre[i];
-    const y = B.pre[i];
-    if (x === undefined) return -1;
-    if (y === undefined) return 1;
-    const xn = /^\d+$/.test(x);
-    const yn = /^\d+$/.test(y);
-    if (xn && yn) {
-      if (+x !== +y) return +x > +y ? 1 : -1;
-    } else if (xn !== yn) {
-      return xn ? -1 : 1;
-    } else if (x !== y) {
-      return x > y ? 1 : -1;
-    }
-  }
-  return 0;
-}
 
 function killPid(pid) {
   try {
@@ -236,7 +263,30 @@ function getListenerPid(p) {
   }
 }
 
+function killProcess(pid, kind) {
+  if (kind === "launcher" && process.platform !== "win32") {
+    try { process.kill(pid, "SIGTERM"); } catch (e) {}
+    return;
+  }
+  killPid(pid);
+}
+
 async function claimPort() {
+  const { isAutoStartEnabled, enableAutoStart } = require("./src/cli/tray/autostart");
+  await takeoverLegacy({
+    cliPath: __filename,
+    host,
+    port,
+    isAutoStartEnabled,
+    enableAutoStart,
+    readServerPid,
+    getListenerPid,
+    isTrackedServerAlive,
+    getProcessInfo,
+    kill: killProcess,
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    log: console.log,
+  });
   const record = readServerPid();
   const tracked = parseInt(process.env.NINEROUTER_REUSE_PID, 10) || (record && record.pid);
   const trackedPort = (record && record.port) || port;
@@ -297,25 +347,13 @@ function checkForUpdate() {
       resolve(version);
     };
 
-    const req = https.get(`https://registry.npmjs.org/${encodeURIComponent(UPDATE_PACKAGE)}/latest`, { timeout: 3000 }, (res) => {
-      let data = "";
-      res.on("data", chunk => data += chunk);
-      res.on("end", () => {
-        try {
-          const latest = JSON.parse(data);
-          if (latest.version && compareVersions(latest.version, pkg.version) > 0) {
-            done(latest.version);
-          } else {
-            done(null);
-          }
-        } catch (e) {
-          done(null);
-        }
-      });
-    });
-
-    req.on("error", () => done(null));
-    req.on("timeout", () => { req.destroy(); done(null); });
+    fetch(`https://registry.npmjs.org/${encodeURIComponent(UPDATE_PACKAGE)}/latest`, { signal: AbortSignal.timeout(3000) })
+      .then((res) => res.json())
+      .then((latest) => {
+        if (latest.version && compareVersions(latest.version, pkg.version) > 0) done(latest.version);
+        else done(null);
+      })
+      .catch(() => done(null));
   });
 }
 
@@ -338,18 +376,15 @@ function openBrowser(url) {
   });
 }
 
-const standaloneDir = path.join(__dirname, "app");
-const customServerPath = path.join(standaloneDir, "custom-server.js");
-const serverPath = fs.existsSync(customServerPath)
-  ? customServerPath
-  : path.join(standaloneDir, "server.js");
+const appDir = path.join(__dirname, "app");
+const serverPath = path.join(appDir, "index.js");
 
 if (!fs.existsSync(serverPath)) {
-  console.error("Error: Standalone build not found.");
-  console.error("Please run 'npm run build' in cli/ first.");
+  console.error("Error: app bundle not found. Run 'bun run build' in cli/ first.");
   process.exit(1);
 }
 
+ensureRuntime({ silent: true }).catch(() => {});
 const updatePromise = checkForUpdate();
 claimPort().then(() => startServer(updatePromise));
 
@@ -409,28 +444,34 @@ function startServer(updatePromise) {
   const CRASH_LOG_LINES = 50;
   let crashLog = [];
 
+  async function collectCrashLog(stream) {
+    try {
+      const decoder = new TextDecoder();
+      let tail = "";
+      for await (const chunk of stream) {
+        tail += decoder.decode(chunk, { stream: true });
+        const lines = tail.split("\n");
+        tail = lines.pop();
+        crashLog.push(...lines.filter(Boolean));
+        if (crashLog.length > CRASH_LOG_LINES) crashLog = crashLog.slice(-CRASH_LOG_LINES);
+      }
+      if (tail) crashLog.push(tail);
+    } catch (e) {}
+  }
+
   function spawnServer() {
     serverStartTime = Date.now();
     crashLog = [];
-    const child = spawn(RUNTIME, ["--dns-result-order=ipv4first", "--max-old-space-size=6144", serverPath], {
-      cwd: standaloneDir,
-      stdio: showLog ? "inherit" : ["ignore", "ignore", "pipe"],
-      detached: true,
-      windowsHide: true,
-      env: {
-        ...buildEnvWithRuntime(process.env),
-        PORT: port.toString(),
-        HOSTNAME: host
-      }
-    });
-    if (!showLog && child.stderr) {
-      child.stderr.on("data", (data) => {
-        const lines = data.toString().split("\n").filter(Boolean);
-        crashLog.push(...lines);
-        if (crashLog.length > CRASH_LOG_LINES) crashLog = crashLog.slice(-CRASH_LOG_LINES);
-      });
+    const [cmd, options] = buildServerSpawn({ runtime: RUNTIME, serverPath, appDir, port, host, showLog });
+    let child;
+    try {
+      child = Bun.spawn(cmd, options);
+    } catch (err) {
+      console.error("Failed to start server:", err.message);
+      return { pid: undefined, exited: Promise.resolve(1) };
     }
-    if (child.pid) writeServerPid(child.pid, port);
+    if (!showLog && child.stderr) collectCrashLog(child.stderr);
+    if (child.pid) writeServerPid(child.pid, port, process.pid);
     return child;
   }
 
@@ -562,7 +603,7 @@ function startServer(updatePromise) {
             process.on("SIGHUP", () => {});
 
             console.log(`\n⏳ Switching to tray mode... (icon already visible in menu bar)`);
-            console.log(`🔔 9Router is running in tray (PID: ${process.pid})`);
+            console.log(`🔔 LiteRouter is running in tray (PID: ${process.pid})`);
             console.log(`   Server: http://${displayHost}:${port}`);
             console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
 
@@ -571,15 +612,15 @@ function startServer(updatePromise) {
 
           console.log(`\n⏳ Starting background process... (tray icon will appear in ~3s)`);
 
-          const bgProcess = spawn(process.execPath, ["--dns-result-order=ipv4first", __filename, ...buildTrayArgs({ host, port })], {
+          const bgProcess = Bun.spawn([process.execPath, "--dns-result-order=ipv4first", __filename, ...buildTrayArgs({ host, port })], {
             detached: true,
-            stdio: "ignore",
+            stdio: ["ignore", "ignore", "ignore"],
             windowsHide: true,
             env: { ...process.env, NINEROUTER_REUSE_PID: server.pid ? String(server.pid) : "" }
           });
           bgProcess.unref();
 
-          console.log(`🔔 9Router is now running in background (PID: ${bgProcess.pid})`);
+          console.log(`🔔 LiteRouter is now running in background (PID: ${bgProcess.pid})`);
           console.log(`   Server: http://${displayHost}:${port}`);
           console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
 
@@ -608,13 +649,9 @@ function startServer(updatePromise) {
   });
 
   function attachServerEvents() {
-    server.on("error", (err) => {
-      console.error("Failed to start server:", err.message);
-      if (!isShuttingDown) tryRestart();
-      else { cleanup(); process.exit(1); }
-    });
-
-    server.on("close", (code) => {
+    const proc = server;
+    proc.exited.then((code) => {
+      if (proc !== server) return;
       if (isShuttingDown || code === 0) {
         process.exit(code || 0);
         return;

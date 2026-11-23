@@ -1,296 +1,103 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
 
-const cliDir = path.resolve(__dirname, "..");
-const appDir = path.resolve(cliDir, "..");
-const rootDir = path.resolve(appDir, "..");
-const cliAppDir = process.env.NINEROUTER_CLI_APP_DIR || path.join(cliDir, "app");
-const buildHomeDir = path.join(cliDir, ".build-home");
-const buildDistDirName = ".next-cli-build";
-const buildDistDir = path.join(appDir, buildDistDirName);
+const SKIP_PATTERNS = [/\.map$/, /^\.env(\..*)?$/, /\.log$/];
 
-const EXCLUDE_PATTERNS = [
-  "@img",
-  "sharp",
-  "detect-libc",
-  ".env",
-  ".env.local",
-  ".env.*.local",
-  "*.log",
-  "tmp",
-  ".DS_Store",
-];
+const REQUIRED_ARTIFACTS = ["index.js", path.join("web", "index.html"), path.join("public", "favicon.svg")];
 
-function shouldExclude(name) {
-  return EXCLUDE_PATTERNS.some(pattern => {
-    if (pattern.includes("*")) {
-      const regex = new RegExp("^" + pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$");
-      return regex.test(name);
-    }
-    return name === pattern;
-  });
+function shouldSkip(name) {
+  return SKIP_PATTERNS.some((pattern) => pattern.test(name));
 }
 
-function copyRecursive(src, dest) {
-  if (!fs.existsSync(src)) {
-    console.warn(`Warning: Source ${src} does not exist`);
+function copyAppBundle(distAppDir, cliAppDir) {
+  if (!fs.existsSync(distAppDir)) {
+    throw new Error(`App bundle not found: ${distAppDir}`);
+  }
+  fs.mkdirSync(cliAppDir, { recursive: true });
+  for (const entry of fs.readdirSync(distAppDir, { withFileTypes: true })) {
+    if (shouldSkip(entry.name)) continue;
+    const src = path.join(distAppDir, entry.name);
+    const dest = path.join(cliAppDir, entry.name);
+    if (entry.isDirectory()) copyAppBundle(src, dest);
+    else fs.copyFileSync(src, dest);
+  }
+}
+
+function assertRequiredArtifacts(cliAppDir) {
+  const missing = REQUIRED_ARTIFACTS
+    .map((artifact) => path.join(cliAppDir, artifact))
+    .filter((artifact) => !fs.existsSync(artifact));
+  if (missing.length > 0) {
+    throw new Error(`Required CLI app artifact(s) missing:\n${missing.join("\n")}`);
+  }
+}
+
+function syncVersion(cliDir, rootDir) {
+  const cliPkg = JSON.parse(fs.readFileSync(path.join(cliDir, "package.json"), "utf8"));
+  const rootPkgPath = path.join(rootDir, "package.json");
+  const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, "utf8"));
+  if (rootPkg.version === cliPkg.version) {
+    console.log(`Version already synced: ${cliPkg.version}`);
     return;
   }
-  
-  if (!fs.existsSync(dest)) {
-    fs.mkdirSync(dest, { recursive: true });
-  }
-
-  const entries = fs.readdirSync(src, { withFileTypes: true });
-  for (const entry of entries) {
-    if (shouldExclude(entry.name)) {
-      continue;
-    }
-
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
-
-    try {
-      fs.accessSync(srcPath);
-    } catch {
-      continue;
-    }
-
-    if (entry.isDirectory()) {
-      copyRecursive(srcPath, destPath);
-    } else if (entry.isSymbolicLink()) {
-      try {
-        const real = fs.realpathSync(srcPath);
-        if (fs.statSync(real).isDirectory()) {
-          copyRecursive(real, destPath);
-        } else {
-          fs.copyFileSync(real, destPath);
-        }
-      } catch {}
-    } else {
-      try {
-        fs.copyFileSync(srcPath, destPath);
-      } catch {}
-    }
-  }
+  rootPkg.version = cliPkg.version;
+  fs.writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2) + "\n");
+  console.log(`Version synced: ${cliPkg.version}`);
 }
 
-function resolveStandaloneBuild(appDir, buildDistDir) {
-  const legacyStandaloneRoot = path.join(appDir, ".next", "standalone");
-  const resolvedStandaloneRoot = path.join(buildDistDir, "standalone");
-  let standaloneRoot = fs.existsSync(resolvedStandaloneRoot)
-    ? resolvedStandaloneRoot
-    : legacyStandaloneRoot;
+async function buildCliPackage({ rootDir, cliAppDir }) {
+  console.log("Building LiteRouter CLI package...\n");
 
-  const pkgName = path.basename(appDir);
-  const nestedRoot = path.join(standaloneRoot, pkgName);
-  if (fs.existsSync(path.join(nestedRoot, "server.js")) && !fs.existsSync(path.join(standaloneRoot, "server.js"))) {
-    console.log(`ℹ️  Detected nested standalone output: ${pkgName}/`);
-    standaloneRoot = nestedRoot;
+  syncVersion(path.join(rootDir, "cli"), rootDir);
+
+  console.log("1. Building the app bundle (scripts/build.mjs)...");
+  const proc = Bun.spawn([process.execPath, "scripts/build.mjs"], {
+    cwd: rootDir,
+    stdio: ["inherit", "inherit", "inherit"],
+  });
+  const code = await proc.exited;
+  if (code !== 0) {
+    throw new Error(`scripts/build.mjs exited with code ${code}`);
   }
 
-  const standaloneApp = fs.existsSync(path.join(standaloneRoot, "server.js"))
-    ? standaloneRoot
-    : path.join(standaloneRoot, "app");
-  if (!fs.existsSync(standaloneApp)) {
-    throw new Error(
-      "Next.js standalone build not found under .next/standalone; " +
-      "expected either .next/standalone/server.js or .next/standalone/app/",
-    );
-  }
+  console.log("2. Cleaning old cli/app...");
+  fs.rmSync(cliAppDir, { recursive: true, force: true });
 
-  return { standaloneApp, standaloneRoot };
+  console.log("3. Copying dist/app to cli/app...");
+  copyAppBundle(path.join(rootDir, "dist", "app"), cliAppDir);
+
+  console.log("4. Checking required artifacts...");
+  assertRequiredArtifacts(cliAppDir);
+
+  console.log("\nCLI package build completed.");
+  console.log(`Output: ${cliAppDir}`);
+  console.log(`Package size: ${(dirSize(cliAppDir) / 1048576).toFixed(1)} MB`);
 }
 
-function copyStandaloneBuild(appDir, buildDistDir, cliAppDir) {
-  const { standaloneApp, standaloneRoot } = resolveStandaloneBuild(appDir, buildDistDir);
-  copyRecursive(standaloneApp, cliAppDir);
-
-  const standaloneNodeModules = path.join(standaloneRoot, "node_modules");
-  if (standaloneApp !== standaloneRoot && fs.existsSync(standaloneNodeModules)) {
-    copyRecursive(standaloneNodeModules, path.join(cliAppDir, "node_modules"));
+function dirSize(dir) {
+  let total = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    total += entry.isDirectory() ? dirSize(full) : fs.statSync(full).size;
   }
-}
-
-function mergeServerArtifacts(buildDistDir, cliAppDir) {
-  const serverSrc = path.join(buildDistDir, "server");
-  const serverDest = path.join(cliAppDir, buildDistDirName, "server");
-  if (!fs.existsSync(serverSrc)) {
-    throw new Error(`Complete Next.js server build not found: ${serverSrc}`);
-  }
-  copyRecursive(serverSrc, serverDest);
-}
-
-function assertRequiredApiArtifacts(cliAppDir) {
-  const requiredArtifacts = [
-    "app/api/v1/chat/completions/route.js",
-    "app/api/v1/messages/route.js",
-  ];
-  const serverDir = path.join(cliAppDir, buildDistDirName, "server");
-  const missingArtifacts = requiredArtifacts
-    .map((artifact) => path.join(serverDir, artifact))
-    .filter((artifact) => !fs.existsSync(artifact));
-
-  if (missingArtifacts.length > 0) {
-    throw new Error(
-      `Required CLI API route artifact${missingArtifacts.length === 1 ? " is" : "s are"} missing:\n` +
-      missingArtifacts.join("\n"),
-    );
-  }
-}
-
-function buildCliPackage() {
-  console.log("📦 Building 9Router CLI package with Next.js...\n");
-
-  fs.mkdirSync(buildHomeDir, { recursive: true });
-  fs.mkdirSync(path.join(buildHomeDir, "AppData", "Roaming"), { recursive: true });
-  fs.mkdirSync(path.join(buildHomeDir, "AppData", "Local"), { recursive: true });
-
-  console.log("0️⃣  Syncing version to app/package.json...");
-  const cliPkg = JSON.parse(fs.readFileSync(path.join(cliDir, "package.json"), "utf8"));
-  const appPkgPath = path.join(appDir, "package.json");
-  const appPkg = JSON.parse(fs.readFileSync(appPkgPath, "utf8"));
-  if (appPkg.version !== cliPkg.version) {
-    appPkg.version = cliPkg.version;
-    fs.writeFileSync(appPkgPath, JSON.stringify(appPkg, null, 2) + "\n");
-    console.log(`✅ Version synced: ${cliPkg.version}\n`);
-  } else {
-    console.log(`✅ Version already synced: ${cliPkg.version}\n`);
-  }
-
-  console.log("1️⃣  Building Next.js app...");
-  try {
-    execSync("npm run build", {
-      stdio: "inherit",
-      cwd: appDir,
-      env: {
-        ...process.env,
-        HOME: buildHomeDir,
-        USERPROFILE: buildHomeDir,
-        APPDATA: path.join(buildHomeDir, "AppData", "Roaming"),
-        LOCALAPPDATA: path.join(buildHomeDir, "AppData", "Local"),
-        NEXT_DIST_DIR: buildDistDirName,
-        NEXT_TRACING_ROOT_MODE: "workspace",
-      }
-    });
-    console.log("✅ Next.js build completed\n");
-  } catch (error) {
-    console.error("❌ Next.js build failed");
-    process.exit(1);
-  }
-
-  console.log("2️⃣  Cleaning old app/cli/app...");
-  if (fs.existsSync(cliAppDir)) {
-    fs.rmSync(cliAppDir, { recursive: true, force: true });
-  }
-  console.log("✅ Cleaned\n");
-
-  console.log("3️⃣  Copying Next.js standalone build to app/cli/app...");
-  try {
-    copyStandaloneBuild(appDir, buildDistDir, cliAppDir);
-  } catch (error) {
-    console.error("❌ Next.js standalone build not found under .next/standalone");
-    console.error("Expected either .next/standalone/server.js or .next/standalone/app/");
-    process.exit(1);
-  }
-  console.log("✅ Copied standalone build\n");
-
-  const customServerSrc = path.join(appDir, "custom-server.js");
-  if (fs.existsSync(customServerSrc)) {
-    fs.copyFileSync(customServerSrc, path.join(cliAppDir, "custom-server.js"));
-    console.log("✅ Copied custom-server.js\n");
-  } else {
-    console.error("❌ custom-server.js not found — without it no request can be proven local,");
-    console.error("   so the packaged CLI would demand an API key for its own dashboard and /v1.");
-    process.exit(1);
-  }
-
-  console.log("3️⃣ b Configuring SQLite drivers...");
-  function ensureModuleInBundle(pkg) {
-    const dest = path.join(cliAppDir, "node_modules", pkg);
-    if (fs.existsSync(dest)) {
-      console.log(`✅ ${pkg} already bundled`);
-      return;
-    }
-    const candidates = [
-      path.join(appDir, "node_modules", pkg),
-      path.join(rootDir, "node_modules", pkg),
-    ];
-    const src = candidates.find((p) => fs.existsSync(p));
-    if (!src) {
-      console.warn(`⚠️  ${pkg} not found locally — bundle will rely on node:sqlite or runtime install`);
-      return;
-    }
-    fs.mkdirSync(path.dirname(dest), { recursive: true });
-    copyRecursive(src, dest);
-    console.log(`✅ Bundled ${pkg}`);
-  }
-  ensureModuleInBundle("sql.js");
-  ensureModuleInBundle("open");
-  const betterDir = path.join(cliAppDir, "node_modules", "better-sqlite3");
-  if (fs.existsSync(betterDir)) {
-    fs.rmSync(betterDir, { recursive: true, force: true });
-    console.log("✅ Stripped better-sqlite3 (lives in ~/.9router/runtime)");
-  }
-  console.log("");
-
-  console.log("4️⃣  Copying static files...");
-  const staticSrc = path.join(appDir, ".next", "static");
-  const staticSrcResolved = path.join(buildDistDir, "static");
-  const staticDest = path.join(cliAppDir, buildDistDirName, "static");
-  if (fs.existsSync(staticSrcResolved) || fs.existsSync(staticSrc)) {
-    copyRecursive(fs.existsSync(staticSrcResolved) ? staticSrcResolved : staticSrc, staticDest);
-    console.log("✅ Copied static files\n");
-  } else {
-    console.log("⏭️  No static files found\n");
-  }
-
-  console.log("5️⃣  Copying public folder...");
-  const publicSrc = path.join(appDir, "public");
-  const publicDest = path.join(cliAppDir, "public");
-  if (fs.existsSync(publicSrc)) {
-    copyRecursive(publicSrc, publicDest);
-    console.log("✅ Copied public folder\n");
-  } else {
-    console.log("⏭️  No public folder found\n");
-  }
-
-  console.log("6️⃣  Copying vendor-chunks...");
-  const vendorChunksSrc = path.join(appDir, ".next", "server", "vendor-chunks");
-  const vendorChunksSrcResolved = path.join(buildDistDir, "server", "vendor-chunks");
-  const vendorChunksDest = path.join(cliAppDir, buildDistDirName, "server", "vendor-chunks");
-  if (fs.existsSync(vendorChunksSrcResolved) || fs.existsSync(vendorChunksSrc)) {
-    copyRecursive(fs.existsSync(vendorChunksSrcResolved) ? vendorChunksSrcResolved : vendorChunksSrc, vendorChunksDest);
-    console.log("✅ Copied vendor-chunks\n");
-  } else {
-    console.log("⏭️  No vendor-chunks found\n");
-  }
-
-  console.log("6️⃣ b Copying complete server artifacts...");
-  mergeServerArtifacts(buildDistDir, cliAppDir);
-  assertRequiredApiArtifacts(cliAppDir);
-  console.log("✅ Copied complete server artifacts\n");
-
-  console.log("✨ CLI package build completed!");
-  console.log(`📁 Output: ${cliAppDir}`);
-
-  try {
-    const { execSync: exec } = require("child_process");
-    const size = exec(`du -sh "${cliAppDir}"`, { encoding: "utf8" }).trim();
-    console.log(`📊 Package size: ${size.split("\t")[0]}`);
-  } catch (e) {
-  }
+  return total;
 }
 
 module.exports = {
-  assertRequiredApiArtifacts,
-  copyStandaloneBuild,
-  mergeServerArtifacts,
+  copyAppBundle,
+  assertRequiredArtifacts,
+  buildCliPackage,
 };
 
 if (require.main === module) {
-  buildCliPackage();
+  const cliDir = path.resolve(__dirname, "..");
+  buildCliPackage({
+    rootDir: path.resolve(cliDir, ".."),
+    cliAppDir: process.env.NINEROUTER_CLI_APP_DIR || path.join(cliDir, "app"),
+  }).catch((error) => {
+    console.error(`Build failed: ${error.message}`);
+    process.exit(1);
+  });
 }
