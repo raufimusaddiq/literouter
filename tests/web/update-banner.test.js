@@ -98,10 +98,10 @@ describe("update notice", () => {
     await view.unmount();
   });
 
-  it("Later hides it", async () => {
+  it("Dismiss hides it", async () => {
     const view = await start("/api/anything", { [BUILD_HEADER]: NEW_ENTRY });
     await callApi(view);
-    await click(buttonLabelled(view, "Later"));
+    await click(view.container.querySelector('button[aria-label="Dismiss"]'));
     expect(view.container.textContent).not.toContain("New version available");
     await view.unmount();
   });
