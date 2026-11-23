@@ -15,8 +15,8 @@ vi.mock("open-sse/services/projectId.js", () => ({
   getProjectIdForConnection: vi.fn(),
   invalidateProjectId: vi.fn(),
 }));
-vi.mock("open-sse/services/tokenRefresh.js", async (importOriginal) => ({
-  ...(await importOriginal()),
+vi.mock("open-sse/services/tokenRefresh.js", async () => ({
+  ...(await import("open-sse/services/tokenRefresh.js?actual")),
   refreshTokenByProvider: fx.refresh,
 }));
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({

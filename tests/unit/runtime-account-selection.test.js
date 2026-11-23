@@ -9,7 +9,8 @@ const mocks = vi.hoisted(() => ({
   resolveConnectionProxyConfig: vi.fn(),
 }));
 
-vi.mock("@/lib/db/index.js", () => ({
+vi.mock("@/lib/db/index.js", async () => ({
+  ...(await import("@/lib/db/index.js?actual")),
   getProviderConnections: mocks.getProviderConnections,
   getSettings: mocks.getSettings,
   getProxyPools: mocks.getProxyPools,

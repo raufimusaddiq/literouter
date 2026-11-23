@@ -23,12 +23,14 @@ vi.mock("../../open-sse/utils/requestLogger.js", () => ({
   }),
 }));
 
-vi.mock("../../open-sse/utils/stream.js", () => ({
+vi.mock("../../open-sse/utils/stream.js", async () => ({
+  ...(await import("../../open-sse/utils/stream.js?actual")),
   COLORS: { red: "", reset: "" },
   createPassthroughStreamWithLogger: vi.fn(() => new TransformStream()),
 }));
 
-vi.mock("@/lib/usageDb.js", () => ({
+vi.mock("@/lib/usageDb.js", async () => ({
+  ...(await import("@/lib/usageDb.js?actual")),
   trackPendingRequest: vi.fn(),
   appendRequestLog: vi.fn(async () => {}),
   saveRequestDetail: vi.fn(async () => {}),

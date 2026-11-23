@@ -13,7 +13,7 @@ const db = vi.hoisted(() => ({
   getModelAliases: vi.fn(async () => ({})),
 }));
 
-vi.mock("@/lib/localDb", () => db);
+vi.mock("@/lib/localDb", async () => ({ ...(await import("@/lib/localDb.js?actual")), ...db }));
 vi.mock("@/lib/disabledModelsDb", () => ({
   getDisabledModels: vi.fn(async () => ({})),
 }));

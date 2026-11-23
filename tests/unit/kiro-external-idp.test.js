@@ -19,9 +19,9 @@ describe("Kiro external_idp (CLIProxyAPI) import and refresh", () => {
   });
 
   afterEach(() => {
-    vi.doUnmock("next/server");
-    vi.doUnmock("@/models");
-    vi.doUnmock("../../open-sse/utils/proxyFetch.js");
+    vi.mock("next/server", async () => import("next/server?actual"));
+    vi.mock("@/models", async () => import("@/models?actual"));
+    vi.mock("../../open-sse/utils/proxyFetch.js", async () => import("../../open-sse/utils/proxyFetch.js?actual"));
     global.fetch = originalFetch;
   });
 

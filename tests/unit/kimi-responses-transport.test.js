@@ -23,7 +23,8 @@ vi.mock("../../open-sse/utils/requestLogger.js", () => ({
   }),
 }));
 
-vi.mock("../../open-sse/utils/stream.js", () => ({
+vi.mock("../../open-sse/utils/stream.js", async () => ({
+  ...(await import("../../open-sse/utils/stream.js?actual")),
   COLORS: { red: "", reset: "" },
   createPassthroughStreamWithLogger: vi.fn(() => new TransformStream()),
 }));
@@ -32,14 +33,16 @@ vi.mock("uuid", () => ({
   v4: () => "00000000-0000-4000-8000-000000000000",
 }));
 
-vi.mock("@/lib/usageDb.js", () => ({
+vi.mock("@/lib/usageDb.js", async () => ({
+  ...(await import("@/lib/usageDb.js?actual")),
   trackPendingRequest: vi.fn(),
   appendRequestLog: vi.fn(async () => {}),
   saveRequestDetail: vi.fn(async () => {}),
   saveRequestUsage: vi.fn(async () => {}),
 }));
 
-vi.mock("../../open-sse/translator/concerns/image.js", () => ({
+vi.mock("../../open-sse/translator/concerns/image.js", async () => ({
+  ...(await import("../../open-sse/translator/concerns/image.js?actual")),
   encodeDataUri: (mimeType, base64) => `data:${mimeType};base64,${base64}`,
   parseDataUri: (url) => {
     const m = /^data:([^;]+);base64,(.*)$/.exec(url);

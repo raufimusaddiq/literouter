@@ -55,7 +55,7 @@ describe("xai/token-refresh wrapper", () => {
     });
     expect(out).not.toHaveProperty("expiresAt");
 
-    vi.doUnmock("../../src/lib/oauth/services/xai.js");
+    vi.mock("../../src/lib/oauth/services/xai.js", async () => import("../../src/lib/oauth/services/xai.js?actual"));
     vi.resetModules();
   });
 });

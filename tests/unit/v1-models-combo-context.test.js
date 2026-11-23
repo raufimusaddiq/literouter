@@ -13,7 +13,7 @@ const disabled = vi.hoisted(() => ({
   getDisabledModels: vi.fn(async () => ({})),
 }));
 
-vi.mock("@/lib/localDb", () => db);
+vi.mock("@/lib/localDb", async () => ({ ...(await import("@/lib/localDb.js?actual")), ...db }));
 vi.mock("@/lib/disabledModelsDb", () => disabled);
 
 const { buildModelsList } = await import("../../src/app/api/v1/models/route.js");
