@@ -24,10 +24,6 @@ export const MEMORY_CONFIG = {
   sessionTtlMs: 2 * 60 * 60 * 1000,
   sessionCleanupIntervalMs: 30 * 60 * 1000,
   dnsCacheTtlMs: 5 * 60 * 1000,
-  proxyDispatchersMaxSize: (() => {
-    const n = parseInt(process.env.PROXY_DISPATCHERS_MAX_SIZE || "", 10);
-    return Number.isFinite(n) && n > 0 ? n : 256;
-  })(),
 };
 
 function envMs(name, def) {
@@ -57,15 +53,6 @@ export const UNDICI_BACKSTOP_MS = envMs(
   "UNDICI_BACKSTOP_MS",
   Math.max(NON_STREAM_TOTAL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS, FETCH_CONNECT_TIMEOUT_MS) + 30 * 1000,
 );
-
-export const DEFAULT_KEEPALIVE_TIMEOUT_MS = 4 * 1000;
-export const FRESH_RETRY_KEEPALIVE_TIMEOUT_MS = 1;
-export const FETCH_KEEPALIVE_TIMEOUT_MS = envMs("FETCH_KEEPALIVE_TIMEOUT_MS", DEFAULT_KEEPALIVE_TIMEOUT_MS);
-
-export function resolveKeepAliveTimeouts() {
-  const timeout = envMs("FETCH_KEEPALIVE_TIMEOUT_MS", DEFAULT_KEEPALIVE_TIMEOUT_MS);
-  return { keepAliveTimeout: timeout, keepAliveMaxTimeout: timeout };
-}
 
 export function isFreshSocketReplayEnabled() {
   const raw = String(process.env.FETCH_FRESH_RETRY ?? "").trim().toLowerCase();

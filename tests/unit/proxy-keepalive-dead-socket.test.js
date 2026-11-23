@@ -18,12 +18,12 @@ describe("stale socket classification", () => {
 });
 
 describe("keep-alive timeouts", () => {
-  afterEach(() => { delete process.env.FETCH_KEEPALIVE_TIMEOUT_MS; });
-  it("caps TTL and clamps max to it", async () => {
-    const { resolveKeepAliveTimeouts } = await import("../../open-sse/config/runtimeConfig.js");
-    expect(resolveKeepAliveTimeouts()).toEqual({ keepAliveTimeout: 4000, keepAliveMaxTimeout: 4000 });
-    process.env.FETCH_KEEPALIVE_TIMEOUT_MS = "2500";
-    expect(resolveKeepAliveTimeouts()).toEqual({ keepAliveTimeout: 2500, keepAliveMaxTimeout: 2500 });
+  it("are gone: Bun's fetch has no keep-alive TTL to cap", async () => {
+    const config = await import("../../open-sse/config/runtimeConfig.js");
+    expect(config.resolveKeepAliveTimeouts).toBeUndefined();
+    expect(config.FETCH_KEEPALIVE_TIMEOUT_MS).toBeUndefined();
+    expect(config.DEFAULT_KEEPALIVE_TIMEOUT_MS).toBeUndefined();
+    expect(config.FRESH_RETRY_KEEPALIVE_TIMEOUT_MS).toBeUndefined();
   });
 });
 
