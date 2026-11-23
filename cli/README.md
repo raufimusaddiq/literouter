@@ -1,5 +1,7 @@
 # LiteRouter - FREE AI Router & Token Saver
 
+> The `literouter` package is not published to npm yet.
+
 **Never stop coding. Save 20-40% tokens with RTK + auto-fallback to FREE & cheap AI models.**
 
 **Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to 40+ AI Providers & 100+ Models.**
