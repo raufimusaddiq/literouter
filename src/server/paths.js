@@ -2,7 +2,7 @@ import { join, resolve } from "node:path";
 
 export const REPO_ROOT = resolve(import.meta.dir, "..", "..");
 
-const EMBEDDED_PATH = /\$bunfs|~BUN/;
+const EMBEDDED_PATH = /^(?:\/\$bunfs\/|[A-Za-z]:[\\/]~BUN[\\/])/;
 
 export const isEmbeddedPath = (path) => EMBEDDED_PATH.test(path);
 

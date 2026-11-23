@@ -58,8 +58,11 @@ describe("compileApp embedded assets", () => {
 
   it("recognises embedded filesystem roots on Linux and Windows", () => {
     expect(isEmbeddedPath("/$bunfs/root/public")).toBe(true);
-    expect(isEmbeddedPath("B:\~BUN\root\web")).toBe(true);
+    expect(isEmbeddedPath("B:\\~BUN\\root\\web")).toBe(true);
     expect(isEmbeddedPath("/app/public")).toBe(false);
+    expect(isEmbeddedPath("/tmp/$bunfs/x")).toBe(false);
+    expect(isEmbeddedPath("/home/u/~BUN/pub")).toBe(false);
+    expect(isEmbeddedPath("C:\\work\\~BUN\\pub")).toBe(false);
   });
 
   dockerTest("embeds public and web under import.meta.dir", () => {
