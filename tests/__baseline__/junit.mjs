@@ -1,4 +1,3 @@
-
 const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
 export const decode = s =>
   s.replace(/&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z]+);/g, (m, e) => {

@@ -94,6 +94,12 @@ RESP replies on one socket are ordered, so the Redis client serializes only with
 
 **Where:** `src/lib/redis.js`
 
+### D15. The bun:sqlite adapter finalizes cached statements before close
+
+The adapter caches prepared statements and must finalize every one before `close(true)`. Otherwise Windows keeps the database file locked and removing it fails with EBUSY.
+
+**Where:** `src/lib/db/adapters/bunSqliteAdapter.js`
+
 ## Consequences
 
 - Removing the NUL sanitizer, or binding raw strings in a new code path, aborts flush workers on better-sqlite3 and silently truncates data on node:sqlite.

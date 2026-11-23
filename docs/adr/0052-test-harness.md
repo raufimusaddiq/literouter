@@ -61,6 +61,8 @@ Like vitest, advancing by 0 must fire timers due now (`setTimeout(fn)`, `setTime
 
 Bun does not report load-time failures ("Unhandled error between tests") in the junit: the broken file is simply absent and the root `errors` attribute is never set. Throws from timers and unhandled rejections are attributed to the running test as a failure. `verify-no-regression.mjs` therefore treats any root `errors` above 0 as a defensive, strict failure, and `verify-test-counts.mjs` catches load failures because a baseline file missing from the junit counts as 0 cases, below its recorded count. The count gate also reports a path mismatch when no junit path matches a baseline key, which happens when the run is not started from `tests/`; paths in the report may be absolute or backslashed and are normalised to `tests/<path>` to match the known-fails keys. `record-test-counts.mjs` freezes counts from a vitest JSON report, one per assertion of any status, and `*.live.test.js` files are absent because they are ignored (D2).
 
+Usage: `bun tests/__baseline__/verify-no-regression.mjs <junit.xml>` and `bun tests/__baseline__/verify-test-counts.mjs <junit.xml>`, run from the repo root after `bun test` from `tests/`. Exit codes: 0 ok, 1 regression or count drop, 2 bad usage (missing path).
+
 **Where:** `tests/__baseline__/junit.mjs`; `tests/__baseline__/verify-no-regression.mjs`; `tests/__baseline__/verify-test-counts.mjs`; `tests/__baseline__/record-test-counts.mjs`
 
 ### D9. system-ca-trust has a count override
@@ -71,9 +73,63 @@ Bun does not report load-time failures ("Unhandled error between tests") in the 
 
 ### D10. The codemod keeps vitest-specific shapes for manual review
 
-`scripts/migrate-vitest-to-bun.mjs` is re-run on every merge from staging, which keeps bringing vitest-style tests, until the cutover. It rewrites only shapes with an exact Bun equivalent: named vitest imports, `vi.doMock`, `.fails`, and a missing `vi` import. Shapes with no exact equivalent (`importActual`, `importOriginal`, `doUnmock`, `expectTypeOf`, `assertType`, other vitest import forms) are reported as manual-review items and left unchanged rather than guessed at, so a human decides each one. It works on a masked copy of the source with comments and string text blanked, so a vitest import mentioned in a comment or string is never rewritten. It never adds comments; its `--snapshots` mode converts `.snap` files by changing the header and replacing the ` > ` key separator with a space, and re-lays multi-line string values out the way Bun prints them. `--check` exits non-zero when any file would change.
+`scripts/migrate-vitest-to-bun.mjs` is re-run on every merge from staging, which keeps bringing vitest-style tests, until the cutover. It rewrites only shapes with an exact Bun equivalent: named vitest imports, `vi.doMock`, `.fails`, and a missing `vi` import. Shapes with no exact equivalent (`importActual`, `importOriginal`, `doUnmock`, `expectTypeOf`, `assertType`, other vitest import forms) are reported as manual-review items and left unchanged rather than guessed at, so a human decides each one. It works on a masked copy of the source with comments and string text blanked, so a vitest import mentioned in a comment or string is never rewritten. It never adds comments; its `--snapshots` mode converts `.snap` files by changing the header and replacing the ` > ` key separator with a space, and re-lays multi-line string values out the way Bun prints them. `--check` exits non-zero when any file would change. Usage: `bun scripts/migrate-vitest-to-bun.mjs [--check] [--snapshots] <dir>...`.
 
 **Where:** `scripts/migrate-vitest-to-bun.mjs`; `tests/unit/migrate-vitest-to-bun.test.js`
+
+### D11. Module mocks are not hoisted and cannot be undone within a file
+
+Bun does not hoist `vi.mock`, so a mock must be registered before the first import of any module that reads the mocked value at load time. Use dynamic imports after the `vi.mock` call; this matters most for data-dir mocks, where a static import opens the real database first (see D1). `vi.doUnmock` does not exist, and re-mocking with `?actual` does not restore live bindings, because modules that already imported the mocked module keep the mock. A test that needs the real module after a mock must therefore come last in its file: tests 4 and 5 of `kiro-external-idp.test.js` must stay last.
+
+**Where:** `tests/unit/kenari-provider.test.js`; `tests/unit/literouter-rr-cursor.test.js`; `tests/unit/kiro-external-idp.test.js`
+
+### D12. Bun links ESM strictly, so partial mock factories break the whole file
+
+A `vi.mock(spec, factory)` whose factory omits a named export that some importer uses fails at load with `SyntaxError: Export named 'X' not found`, and the file then shows 0 tests. Spread `await import(spec + "?actual")` into the factory, or add the missing exports as `vi.fn()`. Spreading the actual module can run its side effects, such as opening the database, so check that first.
+
+**Where:** `tests/unit/compatible-provider-connections.test.js`; `tests/unit/model-routing.test.js`
+
+### D13. An async `translator/index.js` factory that awaits `?actual` deadlocks
+
+Translators import `register` from the mocked index, so an async factory that awaits the actual index waits on modules that wait on the factory. Import the real index first and give `vi.mock` a synchronous factory.
+
+**Where:** `tests/unit/provider-thinking-on-off-override.test.js`; `tests/unit/minimax-transport-target-format.test.js`
+
+### D14. Fake timers: what Bun freezes and how to wait under them
+
+Bun's fake timers ignore `toFake`, and the helper maps a Date-only `toFake` to `setSystemTime`. They freeze `Date.now`, `performance.now`, `Bun.nanoseconds` and `process.hrtime`; `setImmediate` is not faked. `expect(p).rejects` deadlocks under fake timers when `p` settles from a fake timer, so capture the rejection with `p.then(() => null, e => e)` instead. Wait loops must be bounded by iteration count, never by a clock, because the clock does not move.
+
+**Where:** `tests/helpers/vi.js`; `tests/unit/usage-route-cache.test.js`
+
+### D15. `toMatchObject` with `expect.any` mutates the received object
+
+Bun's `toMatchObject` replaces received values with the `expect.any(...)` matcher, so later assertions on the same object see the matcher. Assert such fields separately or on a copy.
+
+**Where:** `tests/unit/provider-pricing-minimax-m3.test.js`
+
+### D16. `it.each` placeholders and duplicate names
+
+`%s` interpolates only strings, `%d`, `%i` and `%f` only numbers, and `%o` prints a literal `O`; `%p`, `%j`, `%#` and `$prop` work. The codemod rewrites `%s` and `%o` to `%p`, and `verify-no-regression.mjs` warns on duplicate `file :: name` keys. An `.each` title with no placeholder gives every row the same name; add `%#` so the names stay distinct (`codex-compact.test.js`, `kiro-terminal-integrity.test.js`).
+
+**Where:** `scripts/migrate-vitest-to-bun.mjs`; `tests/__baseline__/verify-no-regression.mjs`; `tests/unit/codex-compact.test.js`; `tests/unit/kiro-terminal-integrity.test.js`
+
+### D17. The CA trust test asserts Bun's behaviour, not the server wiring
+
+`system-ca-trust.test.js` asserts how Bun honours `NODE_EXTRA_CA_CERTS`. It no longer exercises `custom-server.js`'s `useSystemCaStore` wiring at startup, which is a known gap until Plan 2 or 4 replaces that mechanism. `tls.setDefaultCACertificates` does not affect Bun's `fetch`. The test also requires `undici` only for the Node-side comparison; it resolves to Bun's built-in module, so `undici` was dropped from the root dependencies.
+
+**Where:** `tests/unit/system-ca-trust.test.js`; `package.json`
+
+### D18. The suite must run with `--parallel`
+
+Per-file module isolation needs `--parallel` (see D4). A full run took about 11 s on one Windows machine for 3992 tests across 440 files; earlier estimates of about 6 min do not hold now. The Linux CI time is still to be recorded.
+
+**Where:** `tests/package.json`; `.github/workflows`
+
+### D19. Deleted tests are recorded in the count baseline
+
+`test-counts.json` has a `"deleted": { "<file> :: <full name>": "<reason>" }` map; a whole-file deletion uses `"<file> :: *"`. The per-file counts are lowered by exactly the deleted cases. `verify-test-counts.mjs` prints the list on every run and fails when a deleted case still runs, when its file has no baseline entry, or when a whole-file deletion still has a baseline key or junit cases.
+
+**Where:** `tests/__baseline__/test-counts.json`; `tests/__baseline__/verify-test-counts.mjs`; `tests/unit/baseline-junit.test.js`
 
 ## Consequences
 
