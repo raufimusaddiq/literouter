@@ -113,9 +113,11 @@ const {
   findListenerPid,
   buildTrayArgs,
 } = require("./src/cli/utils/serverProc");
+const { parseCommand, awaitTrayRuntime } = require("./src/cli/utils/launch");
 const args = process.argv.slice(2);
+const parsedCommand = parseCommand(args);
 
-if (args[0] === "stop") {
+if (parsedCommand.command === "stop") {
   const { runStop } = require("./src/cli/commands/stop");
   runStop({
     cliPath: __filename,
@@ -136,9 +138,9 @@ if (args[0] === "stop") {
   return;
 }
 
-if (args[0] === "xai" && args[1] === "video") {
+if (parsedCommand.command === "xai" && parsedCommand.rest[0] === "video") {
   const { run } = require("./src/cli/commands/xaiVideo");
-  run(args.slice(2))
+  run(parsedCommand.rest.slice(1))
     .then((code) => process.exit(code))
     .catch((err) => {
       console.error(`❌ ${err?.message || err}`);
@@ -395,9 +397,9 @@ if (!fs.existsSync(serverPath)) {
   process.exit(1);
 }
 
-ensureRuntime({ silent: true }).catch(() => {});
+const runtimePromise = ensureRuntime({ silent: true }).catch(() => ({ ok: false }));
 const updatePromise = checkForUpdate();
-claimPort().then(() => startServer(updatePromise));
+claimPort().then(() => startServer(updatePromise, runtimePromise));
 
 async function showInterfaceMenu(latestVersion) {
   const { selectMenu } = require("./src/cli/utils/input");
@@ -440,7 +442,7 @@ async function showInterfaceMenu(latestVersion) {
 const MAX_RESTARTS = 2;
 const RESTART_RESET_MS = 30000;
 
-function startServer(updatePromise) {
+function startServer(updatePromise, runtimePromise) {
   const latestVersionPromise = Promise.resolve(updatePromise);
   const displayHost = getDisplayHost();
   const url = `http://${displayHost}:${port}/dashboard`;
@@ -552,8 +554,10 @@ function startServer(updatePromise) {
     console.log(`\n🚀 ${pkg.name} v${pkg.version}`);
     console.log(`Server: http://${displayHost}:${port}`);
 
-    waitServerReady(port, { host: getProbeHost() }).then((ready) => {
+    waitServerReady(port, { host: getProbeHost() }).then(async (ready) => {
       if (!ready) return failNotReady();
+      await awaitTrayRuntime({ runtime: () => runtimePromise, appName: APP_NAME });
+      if (isShuttingDown) return;
       initTrayIcon();
       console.log("\n💡 Router is now running in system tray. Close this terminal if you want.");
       console.log("   Right-click tray icon to open dashboard or quit.\n");
