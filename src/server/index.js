@@ -6,18 +6,12 @@ import { buildRequestContext } from "./trust.js";
 import { guard } from "./guard.js";
 import { notFound } from "./notFound.js";
 import { runBootOnce } from "./boot.js";
+import { serveSpa } from "./spa.js";
+import { serveStatic } from "./static.js";
 
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
 const IDLE_TIMEOUT_SECONDS = 255;
 const STRIPPED_HEADERS = ["x-9r-real-ip", "x-9r-peer-token", "x-9r-via-proxy", "x-forwarded-for"];
-
-async function serveSpa(req) {
-  return notFound(req);
-}
-
-async function serveStatic() {
-  return null;
-}
 
 function isSpaPath(pathname) {
   return pathname === "/" || pathname === "/login" || pathname === "/callback" ||
