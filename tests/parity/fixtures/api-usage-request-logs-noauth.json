@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "none",
-  "id": "api-usage-request-logs-noauth",
-  "method": "GET",
-  "path": "/api/usage/request-logs"
-}

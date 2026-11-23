@@ -2,8 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PARITY, cliToken } from "../../parity/config.js";
-import { startMockUpstream } from "../../parity/mock-upstream.js";
+import { SERVER_ENV, cliToken } from "./server-config.js";
+import { startMockUpstream } from "./mock-upstream.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const strippedEnv = ["TRUST_LOOPBACK_AS_LOCAL", "TRUST_PROXY", "REQUIRE_API_KEY", "MINIMAL_PROFILE", "AUTH_COOKIE_SECURE", "API_KEY_FAIL_LIMIT"];
@@ -21,12 +21,12 @@ export async function startRealServer({ env = {} } = {}) {
   const home = path.join(work, "home");
   fs.mkdirSync(path.join(dataDir, "auth"), { recursive: true });
   fs.mkdirSync(home, { recursive: true });
-  fs.writeFileSync(path.join(dataDir, "machine-id"), PARITY.machineId);
-  fs.writeFileSync(path.join(dataDir, "auth", "cli-secret"), PARITY.cliSecret);
+  fs.writeFileSync(path.join(dataDir, "machine-id"), SERVER_ENV.machineId);
+  fs.writeFileSync(path.join(dataDir, "auth", "cli-secret"), SERVER_ENV.cliSecret);
 
   const mock = await startMockUpstream({ port: 0 });
   const baseEnv = { ...process.env, HOME: home, USERPROFILE: home };
-  const seed = Bun.spawnSync(["bun", path.join(repoRoot, "tests/parity/seed.mjs"), dataDir, "--upstream", mock.url, "--print-key"], { cwd: repoRoot, env: baseEnv });
+  const seed = Bun.spawnSync(["bun", fileURLToPath(new URL("./seed.mjs", import.meta.url)), dataDir, "--upstream", mock.url, "--print-key"], { cwd: repoRoot, env: baseEnv });
   if (seed.exitCode !== 0) throw new Error(`seed failed: ${seed.stderr.toString()}${seed.stdout.toString()}`);
 
   const port = freePort();
@@ -37,11 +37,11 @@ export async function startRealServer({ env = {} } = {}) {
     HOSTNAME: "127.0.0.1",
     NODE_ENV: "production",
     NEXT_TELEMETRY_DISABLED: "1",
-    JWT_SECRET: PARITY.jwtSecret,
-    API_KEY_SECRET: PARITY.apiKeySecret,
-    MACHINE_ID_SALT: PARITY.machineIdSalt,
-    INITIAL_PASSWORD: PARITY.initialPassword,
-    TZ: PARITY.tz,
+    JWT_SECRET: SERVER_ENV.jwtSecret,
+    API_KEY_SECRET: SERVER_ENV.apiKeySecret,
+    MACHINE_ID_SALT: SERVER_ENV.machineIdSalt,
+    INITIAL_PASSWORD: SERVER_ENV.initialPassword,
+    TZ: SERVER_ENV.tz,
     ...env,
   };
   for (const key of strippedEnv) delete childEnv[key];
@@ -76,13 +76,13 @@ export async function startRealServer({ env = {} } = {}) {
     mock,
     dataDir,
     log: () => log.join(""),
-    apiKey: PARITY.apiKey,
+    apiKey: SERVER_ENV.apiKey,
     cliHeaders: { "x-9r-cli-token": cliToken() },
     chat(model, init = {}) {
       return fetch(`${baseUrl}/v1/chat/completions`, {
         method: "POST",
         ...init,
-        headers: { "content-type": "application/json", authorization: `Bearer ${PARITY.apiKey}`, ...init.headers },
+        headers: { "content-type": "application/json", authorization: `Bearer ${SERVER_ENV.apiKey}`, ...init.headers },
         body: JSON.stringify({ model, messages: [{ role: "user", content: "hi" }], stream: init.stream ?? false }),
       });
     },

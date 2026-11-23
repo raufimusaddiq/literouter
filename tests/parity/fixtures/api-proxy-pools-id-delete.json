@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-proxy-pools-id-delete",
-  "method": "DELETE",
-  "path": "/api/proxy-pools/nope-id"
-}

@@ -5,7 +5,7 @@ import zlib from "node:zlib";
 
 const encoder = new TextEncoder();
 
-export const TLS_DIR = path.join(import.meta.dir, "..", "..", "parity", "fixtures", "tls");
+export const TLS_DIR = path.join(import.meta.dir, "tls");
 
 function record(req, bytes) {
   const url = new URL(req.url);

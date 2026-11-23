@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-combos-id-put",
-  "method": "PUT",
-  "path": "/api/combos/nope-id",
-  "json": {}
-}

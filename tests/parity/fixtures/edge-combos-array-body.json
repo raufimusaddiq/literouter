@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "edge-combos-array-body",
-  "method": "POST",
-  "path": "/api/combos",
-  "json": []
-}

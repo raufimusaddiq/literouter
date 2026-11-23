@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-models-disabled-post",
-  "method": "POST",
-  "path": "/api/models/disabled",
-  "json": {}
-}

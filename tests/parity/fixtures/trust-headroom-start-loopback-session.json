@@ -1,7 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "trust-headroom-start-loopback-session",
-  "method": "POST",
-  "path": "/api/headroom/start"
-}

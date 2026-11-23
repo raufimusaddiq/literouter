@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "api-oauth-kiro-api-key-post",
-  "method": "POST",
-  "path": "/api/oauth/kiro/api-key",
-  "json": {}
-}

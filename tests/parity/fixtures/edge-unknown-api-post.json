@@ -1,8 +1,0 @@
-{
-  "peer": "loopback",
-  "auth": "session",
-  "id": "edge-unknown-api-post",
-  "method": "POST",
-  "path": "/api/nope",
-  "json": {}
-}
