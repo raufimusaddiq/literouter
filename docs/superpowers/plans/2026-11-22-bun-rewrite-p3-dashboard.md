@@ -69,9 +69,9 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) takes precedence over 
 **Files:**
 - Modify: `package.json`, `tests/package.json`, `.gitignore`
 
-- [ ] **Step 1:** Confirm the preconditions. Expected: `bun test` from `tests/` exits 0; `src/server/{index,routes,spa,guard,http,boot}.js` exist; `rg -n "next/|NextResponse" src/app/api src/lib src/sse src/dashboardGuard.js` finds nothing (otherwise Plan 2 has a gap, so fix it there, not here). Read `src/server/spa.js` and the non-API fallback in `src/server/index.js`. Write in the PR description where `serveSpa` reads the placeholder `src/web/index.html`, and where a request that missed the route table ends up. Tasks 3 and 4 edit exactly those two places.
-- [ ] **Step 2:** Add dependencies: `bun add -d bun-plugin-tailwind @fontsource-variable/ibm-plex-sans @fontsource-variable/jetbrains-mono`, then `cd tests && bun add -d happy-dom @happy-dom/global-registrator`. They are dev dependencies because everything is bundled into `dist/web`. Add `/dist/` to `.gitignore`.
-- [ ] **Step 3:** Commit: `chore(web): add bun-plugin-tailwind, variable fonts and happy-dom for the SPA`.
+- [x] **Step 1:** Confirm the preconditions. Expected: `bun test` from `tests/` exits 0; `src/server/{index,routes,spa,guard,http,boot}.js` exist; `rg -n "next/|NextResponse" src/app/api src/lib src/sse src/dashboardGuard.js` finds nothing (otherwise Plan 2 has a gap, so fix it there, not here). Read `src/server/spa.js` and the non-API fallback in `src/server/index.js`. Write in the PR description where `serveSpa` reads the placeholder `src/web/index.html`, and where a request that missed the route table ends up. Tasks 3 and 4 edit exactly those two places.
+- [x] **Step 2:** Add dependencies: `bun add -d bun-plugin-tailwind @fontsource-variable/ibm-plex-sans @fontsource-variable/jetbrains-mono`, then `cd tests && bun add -d happy-dom @happy-dom/global-registrator`. They are dev dependencies because everything is bundled into `dist/web`. Add `/dist/` to `.gitignore`.
+- [x] **Step 3:** Commit: `chore(web): add bun-plugin-tailwind, variable fonts and happy-dom for the SPA`. — 31102392.
 
 ### Task 1: Router core, route table, boot reader and head tags (no pages yet)
 
@@ -97,7 +97,7 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) takes precedence over 
 - Produces, in `src/web/boot.js`: `getBoot() → { timeZone: string, gaId: string | null, requireLogin: boolean, locale: string }`. It reads `window.__LR_BOOT__` on each call and fills each missing or invalid field from the defaults `{ timeZone: server-resolved Intl zone or "UTC", gaId: null, requireLogin: true, locale: "en" }`. An invalid IANA zone is replaced by the default.
 - Produces, in `src/web/head.js`: `headExtras({ gaId }: { gaId: string | null }) → string`. HTML for the head: `<link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">`, `<link rel="shortcut icon" href="/favicon.svg?v=2">`, `<link rel="manifest" href="/manifest.webmanifest">`. If `gaId` matches `/^[A-Za-z0-9_-]{1,32}$/`, it also emits `<script async src="https://www.googletagmanager.com/gtag/js?id=<gaId>"></script>` and a `<script>` with the `dataLayer` / `gtag('js', new Date())` / `gtag('config', '<gaId>')` init. Any other `gaId` emits nothing for GA.
 
-- [ ] **Step 1: Write the failing tests.** Tests that touch the DOM call `GlobalRegistrator.register({ url: "http://localhost/dashboard/usage?tab=logs" })` in `beforeAll` and `unregister()` in `afterAll`, and render with `react-dom/client` inside `act`.
+- [x] **Step 1: Write the failing tests.** Tests that touch the DOM call `GlobalRegistrator.register({ url: "http://localhost/dashboard/usage?tab=logs" })` in `beforeAll` and `unregister()` in `afterAll`, and render with `react-dom/client` inside `act`.
   - `router.test.js`:
     - `"matchRoute binds params"`: `matchRoute("/dashboard/providers/:id", "/dashboard/providers/openai")` is `{ id: "openai" }`; `".../a%2Fb"` gives `{ id: "a/b" }`; `".../x/"` gives `{ id: "x" }`; `matchRoute("/dashboard", "/dashboard/")` is `{}`; `matchRoute("/dashboard", "/dashboard/x")` is `null`; `matchRoute("/dashboard/providers/:id", "/dashboard/providers/%E0%A4%A")` is `null` (no throw).
     - `"resolveHref"`: `("?tab=logs", "http://h/dashboard/usage?x=1#a")` is `"/dashboard/usage?tab=logs"`; `("/login", "http://h/dashboard")` is `"/login"`; `("https://evil.test/x", "http://h/")` and `("//evil.test/x", "http://h/")` are `null`.
@@ -119,13 +119,13 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) takes precedence over 
     - `headExtras({ gaId: null })` contains the icon (`/favicon.svg?v=2`) and manifest links and not `googletagmanager`;
     - `headExtras({ gaId: "G-ABC123" })` contains `https://www.googletagmanager.com/gtag/js?id=G-ABC123` and `gtag('config', 'G-ABC123')`;
     - `gaId: 'x"></script><script>alert(1)</script>'` produces no `alert(1)` and no `googletagmanager`.
-- [ ] **Step 2:** Run `cd tests && bun test web/`. Expected: FAIL (modules not found).
-- [ ] **Step 3:** Implement the four modules per the Interfaces above.
+- [x] **Step 2:** Run `cd tests && bun test web/`. Expected: FAIL (modules not found).
+- [x] **Step 3:** Implement the four modules per the Interfaces above.
   - `router.js`: a module-level listener set plus `useSyncExternalStore`. The snapshot is the string `pathname + search`, and `useSearchParams` is `useMemo` over the search part.
   - `Link` must also work for an `href` that is a template literal.
   - `routes.js` uses one `load: () => import("./pages/...")` per page. The file paths are the ones in Task 2's table. They do not exist until Task 2, so for this task `routes.js` is covered by `routes.test.js` only and is not imported by anything else.
-- [ ] **Step 4:** Run `cd tests && bun test web/`. Expected: PASS.
-- [ ] **Step 5:** Commit: `feat(web): in-house router, route table, boot reader and head tags`.
+- [x] **Step 4:** Run `cd tests && bun test web/`. Expected: PASS.
+- [x] **Step 5:** Commit: `feat(web): in-house router, route table, boot reader and head tags`. — 7bdad217.
 
 ### Task 2: Move the 16 pages and remove `next/*` from the client tree
 
@@ -157,9 +157,9 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) takes precedence over 
 | `.../usage/page.js` | `dashboard/usage/page.js` | `/dashboard/usage` | `useSearchParams`, `useRouter` |
 | `dashboard/settings/pricing/page.js` | `dashboard/settings/pricing/page.js` | `/dashboard/settings/pricing` | no shell; unused `useRouter` removed |
 
-- [ ] **Step 1: Write the failing test** `tests/web/no-next-in-client.test.js`. `"client tree has no next imports"` walks `src/web`, `src/shared`, `src/store`, `src/i18n` and `src/app/(dashboard)` / `src/app/login` / `src/app/callback` / `src/app/dashboard` (if they still exist), and for each `.js`/`.jsx` file asserts that `/(?:from\s*|import\s*\(\s*|require\s*\(\s*)["'](?:next(?:\/[^"']*)?|@next\/[^"']*)["']/` does not match. Also `"no dashboard source is left under src/app outside api"`: `src/app` contains only `api` (this assertion is expected to fail until Step 4 and is the move's check).
-- [ ] **Step 2:** Run `cd tests && bun test web/no-next-in-client.test.js`. Expected: FAIL, listing every offending file (the Next imports) and the leftover `src/app` entries.
-- [ ] **Step 3: Move the files** (quote the paths: they contain parentheses and brackets):
+- [x] **Step 1: Write the failing test** `tests/web/no-next-in-client.test.js`. `"client tree has no next imports"` walks `src/web`, `src/shared`, `src/store`, `src/i18n` and `src/app/(dashboard)` / `src/app/login` / `src/app/callback` / `src/app/dashboard` (if they still exist), and for each `.js`/`.jsx` file asserts that `/(?:from\s*|import\s*\(\s*|require\s*\(\s*)["'](?:next(?:\/[^"']*)?|@next\/[^"']*)["']/` does not match. Also `"no dashboard source is left under src/app outside api"`: `src/app` contains only `api` (this assertion is expected to fail until Step 4 and is the move's check). — done differently: the "src/app contains only api" assertion carried an allowlist of the 3 shell files until Task 3 deleted them, so the suite was never committed red.
+- [x] **Step 2:** Run `cd tests && bun test web/no-next-in-client.test.js`. Expected: FAIL, listing every offending file (the Next imports) and the leftover `src/app` entries.
+- [x] **Step 3: Move the files** (quote the paths: they contain parentheses and brackets):
   ```bash
   mkdir -p src/web/pages
   git mv "src/app/(dashboard)/dashboard" src/web/pages/dashboard
@@ -174,7 +174,7 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) takes precedence over 
     | xargs sed -i -E 's#src/app/\(dashboard\)/dashboard#src/web/pages/dashboard#g; s#@/app/\(dashboard\)/dashboard#@/web/pages/dashboard#g; s#src/app/dashboard/settings#src/web/pages/dashboard/settings#g; s#src/app/(login|callback)#src/web/pages/\1#g'
   ```
   Expected afterwards: `rg "src/app/\(dashboard\)|@/app/\(dashboard\)" tests src scripts` finds nothing. Tests such as `minimal-profile-boundary` that assert an old path does not exist keep their meaning because they now name the new directory.
-- [ ] **Step 4: Replace the Next APIs** (page bodies otherwise unchanged):
+- [x] **Step 4: Replace the Next APIs** (page bodies otherwise unchanged):
   - **`next/navigation`** (11 files: `providers/new`, `providers/[id]`, `usage` pages, `callback`, `settings/pricing`, `RuntimeI18nProvider`, `Header`, `DashboardLayout`, `Sidebar`, `UsageStats`, plus `page.js`, which is deleted): change the import source to `@/web/router`. In `settings/pricing/page.js` delete the unused `useRouter`.
   - **`next/link`** (7 files): `import { Link } from "@/web/router";`.
   - **`next/dynamic`** (`combos/page.js`: `ComboFormModal`; `UsageStats.js`: `ProviderTopology`, `UsageChart`): `const X = lazy(() => import("..."));` with `lazy` from `react`. Wrap each render site (`<ComboFormModal>` ×2, `<ProviderTopology>`, `<UsageChart>`) in `<Suspense fallback={null}>`. `next/dynamic` rendered nothing while loading, so this keeps the behaviour. The `UsageStats.js` imports now point at `@/web/pages/dashboard/usage/components/...`.
@@ -182,8 +182,8 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) takes precedence over 
   - **`endpoint/page.js`**: export `EndpointPageClient` directly (`export { default } from "./EndpointPageClient"`), and remove the `machineId` parameter and its PropTypes `isRequired` line from `EndpointPageClient.js`.
   - **`console-log/page.js`**: remove `export const dynamic = "force-dynamic"` and its comment.
   - Leave every `"use client"` directive as it is (a no-op string).
-- [ ] **Step 5:** Run `cd tests && bun test web/no-next-in-client.test.js`. Expected: the first test passes. The `src/app` assertion still fails because `src/app/layout.js`, `page.js`, `manifest.js` and `(dashboard)/layout.js` remain until Task 3. Then run `cd tests && CI=true bun test --parallel` plus the junit gates from Plan 1: `bun __baseline__/verify-no-regression.mjs ../test-results.xml` and `bun __baseline__/verify-test-counts.mjs ../test-results.xml`. Expected: no regression, and every file at or above its baseline count.
-- [ ] **Step 6:** Commit: `refactor(web): move dashboard pages to src/web/pages and drop next/* imports`.
+- [x] **Step 5:** Run `cd tests && bun test web/no-next-in-client.test.js`. Expected: the first test passes. The `src/app` assertion still fails because `src/app/layout.js`, `page.js`, `manifest.js` and `(dashboard)/layout.js` remain until Task 3. Then run `cd tests && CI=true bun test --parallel` plus the junit gates from Plan 1: `bun __baseline__/verify-no-regression.mjs ../test-results.xml` and `bun __baseline__/verify-test-counts.mjs ../test-results.xml`. Expected: no regression, and every file at or above its baseline count.
+- [x] **Step 6:** Commit: `refactor(web): move dashboard pages to src/web/pages and drop next/* imports`. — c4b4015c, 4c30a627.
 
 ### Task 3: App shell, HTML entry, styles, fonts, manifest and the build
 
@@ -203,7 +203,7 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) takes precedence over 
   - `scripts/build-web.mjs`: `bun scripts/build-web.mjs [--dev] [--outdir <dir>]`.
   - Output layout of `dist/web/`: `index.html` and `assets/*` with `publicPath` `/`.
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
   - `tests/web/app.test.js` (happy-dom registered with url `http://localhost/dashboard/nope`):
     - `"unknown route renders NotFound with a link to /dashboard"`;
     - `"/ redirects to /dashboard"`: after render, `location.pathname === "/dashboard"`;
@@ -219,17 +219,17 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) takes precedence over 
     - `"fonts and variables"`: the main CSS has `@font-face` for `IBM Plex Sans Variable` and `JetBrains Mono Variable`, and `--font-plex` and `--font-jetbrains` are defined;
     - `"material symbols font is emitted"`: some asset matches `material-symbols-outlined-*.woff2`;
     - `"bundle has no next/ module"`: no metafile input key contains `/node_modules/next/`.
-- [ ] **Step 2:** Run `cd tests && bun test web/app.test.js web/build.test.js`. Expected: FAIL (modules missing).
-- [ ] **Step 3: HTML, CSS, fonts, manifest.**
+- [x] **Step 2:** Run `cd tests && bun test web/app.test.js web/build.test.js`. Expected: FAIL (modules missing).
+- [x] **Step 3: HTML, CSS, fonts, manifest.**
   - `src/web/index.html`, ported from `src/app/layout.js`: `<html lang="en">`; charset; viewport; `<meta name="color-scheme" content="light dark">`; the two `theme-color` metas (`#f4f4f1` for light, `#121314` for dark, with `media`); `<title>LiteRouter — AI routing control plane</title>`; the description meta; the two inline scripts copied verbatim (persisted-theme class, `fonts-loaded`); `<link rel="stylesheet" href="./globals.css">`; `<body class="font-sans antialiased"><div id="root"></div><script type="module" src="./main.jsx"></script>`. **No `/...` URLs** (see the probe findings).
   - `src/web/main.jsx`: `createRoot(document.getElementById("root")).render(<App />)`.
   - `src/web/fonts.css`: `@import "material-symbols/outlined.css";`, then one `@font-face` per family (`font-weight: 100 700` for IBM Plex Sans Variable, `100 800` for JetBrains Mono Variable, `font-display: swap`, `format("woff2-variations")`) pointing at `@fontsource-variable/<pkg>/files/<name>-latin-wght-normal.woff2`, then `:root { --font-plex: "IBM Plex Sans Variable"; --font-jetbrains: "JetBrains Mono Variable"; }`. In `globals.css` add `@import "./fonts.css";` as the first line, before `@import "tailwindcss" source("../../")`. The source base stays the repo root, as today.
   - `public/manifest.webmanifest`: the object that `src/app/manifest.js` returns, as JSON, unchanged. Delete `src/app/manifest.js`.
   - Delete `public/next.svg`, `vercel.svg`, `file.svg`, `globe.svg` and `window.svg` after `rg "next\.svg|vercel\.svg|file\.svg|globe\.svg|window\.svg" src public` finds no reference.
-- [ ] **Step 4: Build config.** `webBuildOptions` returns: `entrypoints: [src/web/index.html]`, `splitting: true`, `publicPath: "/"`, `naming: { entry: "[dir]/[name].[ext]", chunk: "assets/[name]-[hash].[ext]", asset: "assets/[name]-[hash].[ext]" }`, `metafile: true`, `target: "browser"`, `plugins: [tailwind]`, and for production `minify: true` and `define: { "process.env.NODE_ENV": '"production"' }`; for dev `sourcemap: "linked"` and no `define`. Add `external: ["undici"]` only if `rg -n "undici" open-sse src` still finds a dynamic `import("undici")` (the probe needed it; Plan 1 may already have removed them). In that case add a code comment pointing at `open-sse/utils/proxyFetch.js`. Add the scripts `"build:web": "bun scripts/gen-provider-icon-manifest.mjs && bun scripts/build-web.mjs"`, and switch `predev` and `prebuild` from `node` to `bun`.
-- [ ] **Step 5:** Implement `App.jsx`, `build.js` and `build-web.mjs` per the Interfaces. Port `src/app/(dashboard)/layout.js` as the `shell` branch (`DashboardLayout`) and delete the four old layout/page files.
-- [ ] **Step 6:** Run `cd tests && bun test web/`. Expected: PASS. Then run `bun run build:web`. Expected: exit 0, `dist/web/index.html` present, and a table of chunk sizes with the largest being the `material-symbols` woff2.
-- [ ] **Step 7:** Commit: `feat(web): SPA shell, Bun.build pipeline, self-hosted fonts and static manifest`.
+- [x] **Step 4: Build config.** `webBuildOptions` returns: `entrypoints: [src/web/index.html]`, `splitting: true`, `publicPath: "/"`, `naming: { entry: "[dir]/[name].[ext]", chunk: "assets/[name]-[hash].[ext]", asset: "assets/[name]-[hash].[ext]" }`, `metafile: true`, `target: "browser"`, `plugins: [tailwind]`, and for production `minify: true` and `define: { "process.env.NODE_ENV": '"production"' }`; for dev `sourcemap: "linked"` and no `define`. Add `external: ["undici"]` only if `rg -n "undici" open-sse src` still finds a dynamic `import("undici")` (the probe needed it; Plan 1 may already have removed them). In that case add a code comment pointing at `open-sse/utils/proxyFetch.js`. Add the scripts `"build:web": "bun scripts/gen-provider-icon-manifest.mjs && bun scripts/build-web.mjs"`, and switch `predev` and `prebuild` from `node` to `bun`. — done differently: `define: { "process.env": "{}" }` is also set for browser output, matching Next's client polyfill. `open-sse/config/runtimeConfig.js` reads env at module load and reached the bundle, and the walk-through found every page blank (d6682e27); `open-sse` is untouched. Where this step asks for a code comment, the note went into ADR 0054 (no code comments).
+- [x] **Step 5:** Implement `App.jsx`, `build.js` and `build-web.mjs` per the Interfaces. Port `src/app/(dashboard)/layout.js` as the `shell` branch (`DashboardLayout`) and delete the four old layout/page files.
+- [x] **Step 6:** Run `cd tests && bun test web/`. Expected: PASS. Then run `bun run build:web`. Expected: exit 0, `dist/web/index.html` present, and a table of chunk sizes with the largest being the `material-symbols` woff2.
+- [x] **Step 7:** Commit: `feat(web): SPA shell, Bun.build pipeline, self-hosted fonts and static manifest`. — 0a2cb018. Done differently: the Next build and standalone size step in CI were replaced by `bun run build:web` here, not in Task 6, because the Next build broke once the pages moved.
 
 ### Task 4: Serve the SPA and static files from the Bun server
 
@@ -246,7 +246,7 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) takes precedence over 
   - `src/server/spa.js`: `serveSpa` takes `indexHtml` from `getSpa()` instead of the placeholder file. Its `HTMLRewriter` pass keeps the `__LR_BOOT__` script and now also `head` `append(headExtras({ gaId: boot.gaId }), { html: true })`. Responses carry `Cache-Control: no-store`. Boot JSON is serialised so that `<`, `>`, `&`, U+2028 and U+2029 are `\u`-escaped (check Plan 2's serialiser, and fix it there if it only uses `JSON.stringify`).
   - Fallback order in `index.js`: route table, then guard-approved SPA paths (`/login`, `/callback`, `/dashboard`, `/dashboard/*`) to `serveSpa`, then `serveStatic(req)`, then the existing 404. `/api/*` never reaches `serveStatic`.
 
-- [ ] **Step 1: Write the failing tests** in `tests/server/spa-dashboard.test.js`. `beforeAll`: `buildWeb({ production: true, outdir: tmp })`, `process.env.LITEROUTER_SPA_DIR = tmp`, a temp `DATA_DIR` with `updateSettings({ requireLogin: false })`, `server = await startServer({ port: 0, hostname: "127.0.0.1" })`. `afterAll`: `server.stop(true)`.
+- [x] **Step 1: Write the failing tests** in `tests/server/spa-dashboard.test.js`. `beforeAll`: `buildWeb({ production: true, outdir: tmp })`, `process.env.LITEROUTER_SPA_DIR = tmp`, a temp `DATA_DIR` with `updateSettings({ requireLogin: false })`, `server = await startServer({ port: 0, hostname: "127.0.0.1" })`. `afterAll`: `server.stop(true)`. — done differently: `/dashboard/providers/openai/` answers 308 (Plan 2's trailing-slash redirect, which matches Next) and then the SPA, not 200 at once.
   - `"every SPA route returns index.html with boot data"`: for every non-redirect path in `routes` (`:id` replaced by `openai`), plus `/dashboard/providers/a%2Fb` and `/dashboard/providers/openai/`: status 200, `content-type` starts with `text/html`, body contains `window.__LR_BOOT__`, `<link rel="manifest" href="/manifest.webmanifest">` and a `/assets/index-` script, and `cache-control` includes `no-store`.
   - `"/ redirects to /dashboard"`: `redirect: "manual"`, status 307, `location` ends with `/dashboard`.
   - `"unauthenticated dashboard request redirects to /login and carries no boot data"`: with `requireLogin: true` and no cookie, `/dashboard/providers` is a 307 to `/login`, and the body (if any) lacks `__LR_BOOT__`.
@@ -259,11 +259,11 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) takes precedence over 
   - `"traversal is refused"`: `/..%2f..%2fpackage.json`, `/%2e%2e/package.json`, `/icons/..%5c..%5cpackage.json` are 404 and the body does not contain `"dependencies"`.
   - `"unknown api path stays JSON 404"`: `/api/does-not-exist` gives a JSON body, not the SPA.
   - `"HEAD on an asset has no body"`.
-- [ ] **Step 2:** Run `cd tests && bun test server/spa-dashboard.test.js`. Expected: FAIL (the placeholder page is still served).
-- [ ] **Step 3:** Implement `spaBuild.js` and `static.js`, and make the `spa.js` and `index.js` edits described above.
-- [ ] **Step 4:** Run `cd tests && bun test server/spa-dashboard.test.js`. Expected: PASS.
-- [ ] **Step 5:** Dev loop check. Run `bun --hot src/server/index.js`, open `http://127.0.0.1:20128/dashboard`, change a string in `src/shared/components/Sidebar.js`, and reload. Expected: the first request builds (~1 s), and the reload shows the change without restarting the server. This is a full reload, not HMR.
-- [ ] **Step 6:** Commit: `feat(server): serve the SPA build and public assets with boot and head injection`.
+- [x] **Step 2:** Run `cd tests && bun test server/spa-dashboard.test.js`. Expected: FAIL (the placeholder page is still served).
+- [x] **Step 3:** Implement `spaBuild.js` and `static.js`, and make the `spa.js` and `index.js` edits described above. — done differently: `src/server/paths.js` also exports `SPA_DIR_OVERRIDE` and `REPO_ROOT`, `spaBuild.js` exports `spaUnavailableResponse`, and the dev build goes to `dist/web-dev/<pid>`; all recorded in the contract.
+- [x] **Step 4:** Run `cd tests && bun test server/spa-dashboard.test.js`. Expected: PASS.
+- [x] **Step 5:** Dev loop check. Run `bun --hot src/server/index.js`, open `http://127.0.0.1:20128/dashboard`, change a string in `src/shared/components/Sidebar.js`, and reload. Expected: the first request builds (~1 s), and the reload shows the change without restarting the server. This is a full reload, not HMR.
+- [x] **Step 6:** Commit: `feat(server): serve the SPA build and public assets with boot and head injection`. — cd89611e; review fixes 9e3cc9b9.
 
 ### Task 5: Browser walk-through of every page
 
@@ -271,13 +271,13 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) takes precedence over 
 
 The repo has no browser test dependency, and the Playwright plugin is available in the harness. Use its tools (`browser_navigate`, `browser_snapshot`, `browser_click`, `browser_evaluate`, `browser_console_messages` with level `error`, `browser_network_requests`). If it is not available, do the same by hand in a browser with DevTools open.
 
-- [ ] **Step 1: Start a production-like server.**
+- [x] **Step 1: Start a production-like server.**
   ```bash
   bun run build:web
   DATA_DIR="$(mktemp -d)" INITIAL_PASSWORD=walkthrough-pass-1 TZ=Asia/Jakarta NODE_ENV=production PORT=20128 bun src/server/index.js
   ```
   Optional parity run: check out `main` in a worktree, run it on port 20129 with the same env, and compare screenshots of overview, providers and usage at 1280 px and 390 px.
-- [ ] **Step 2:** For each row, open the URL fresh (hard reload) and then reach it by in-app navigation. Pass means: the page renders, it does the listed check, `browser_console_messages` has no errors, and `browser_network_requests` has no 4xx/5xx for `/assets`, `/providers`, `/icons` and `/i18n`.
+- [x] **Step 2:** For each row, open the URL fresh (hard reload) and then reach it by in-app navigation. Pass means: the page renders, it does the listed check, `browser_console_messages` has no errors, and `browser_network_requests` has no 4xx/5xx for `/assets`, `/providers`, `/icons` and `/i18n`.
 
 | Page | URL | Check |
 |---|---|---|
@@ -297,8 +297,8 @@ The repo has no browser test dependency, and the Playwright plugin is available 
 | Profile | `/dashboard/profile` | theme toggle persists across reload with no flash; switching language loads `/i18n/literals/<locale>.json` and translates; password change; logout goes to `/login` |
 | Pricing | `/dashboard/settings/pricing` | renders **without** sidebar and header (as today); the pricing modal saves |
 
-- [ ] **Step 3:** Also check: `/dashboard/nope` shows "Page not found" with a link back; offline-simulate one lazy chunk (block `/assets/Chart-*` in the network panel) and open Usage: the reload message appears; with `NEXT_PUBLIC_GA_ID=G-TEST123` set, the `gtag/js?id=G-TEST123` request is made, and without it no request goes to `googletagmanager.com`.
-- [ ] **Step 4:** Record the result table in the PR description. Fix findings with failing tests first where they are testable.
+- [x] **Step 3:** Also check: `/dashboard/nope` shows "Page not found" with a link back; offline-simulate one lazy chunk (block `/assets/Chart-*` in the network panel) and open Usage: the reload message appears; with `NEXT_PUBLIC_GA_ID=G-TEST123` set, the `gtag/js?id=G-TEST123` request is made, and without it no request goes to `googletagmanager.com`.
+- [x] **Step 4:** Record the result table in the PR description. Fix findings with failing tests first where they are testable. — the result table is in PR #251 (see the completion record). The walk-through found the blank-page `process.env` bug, fixed in d6682e27 (Task 3 Step 4).
 
 ### Task 6: Remove Next from the repo
 
@@ -307,22 +307,22 @@ The repo has no browser test dependency, and the Playwright plugin is available 
 - Modify: `package.json`, `bun.lock`, `.github/workflows/test.yml`, `CLAUDE.md`
 - Test: `tests/web/no-next-imports.test.js`
 
-- [ ] **Step 1: Write the failing test** `tests/web/no-next-imports.test.js`:
+- [x] **Step 1: Write the failing test** `tests/web/no-next-imports.test.js`:
   - `"no source file imports next"`: walks `src`, `open-sse`, `scripts` and `cli/src`, and asserts the regex from Task 2 matches nothing. (`cli/package.json` and `cli/scripts/build-cli.js` belong to Plan 4.)
   - `"root package.json has no next packages"`: no key in `dependencies`, `devDependencies` or `optionalDependencies` equals `next`, `@next/third-parties`, `@next/swc-linux-x64-musl`, `postcss` or `@tailwindcss/postcss`.
   - `"src/app contains only api"`.
-- [ ] **Step 2:** Run `cd tests && bun test web/no-next-imports.test.js`. Expected: FAIL, listing what remains.
-- [ ] **Step 3:** Delete the files above. In `package.json`, remove `next`, `@next/third-parties`, `@next/swc-linux-x64-musl`, `postcss` and `@tailwindcss/postcss`. Remove the scripts that call `next`: `dev:webpack`, `build:webpack`, `dev:bun`, `build:bun`, `start:bun`, `postbuild`, `postbuild:bun`. Point `build` at `bun run build:web` for now (Plan 4 replaces it with the compile pipeline). Run `bun install` to refresh `bun.lock`. Before removing anything else, run `for d in <each dependency>; do rg -l "from ['\"]$d" src open-sse scripts cli/src; done`; a dependency with no importer may go, except those listed in the next step.
-- [ ] **Step 4: Keep on purpose, and say why in the PR.**
+- [x] **Step 2:** Run `cd tests && bun test web/no-next-imports.test.js`. Expected: FAIL, listing what remains.
+- [x] **Step 3:** Delete the files above. In `package.json`, remove `next`, `@next/third-parties`, `@next/swc-linux-x64-musl`, `postcss` and `@tailwindcss/postcss`. Remove the scripts that call `next`: `dev:webpack`, `build:webpack`, `dev:bun`, `build:bun`, `start:bun`, `postbuild`, `postbuild:bun`. Point `build` at `bun run build:web` for now (Plan 4 replaces it with the compile pipeline). Run `bun install` to refresh `bun.lock`. Before removing anything else, run `for d in <each dependency>; do rg -l "from ['\"]$d" src open-sse scripts cli/src; done`; a dependency with no importer may go, except those listed in the next step.
+- [x] **Step 4: Keep on purpose, and say why in the PR.** — done differently: the ESLint migration off `eslint-config-next` was pulled from Plan 4 into this task, because eslint-config-next@16.4.6's parser requires `next/dist/compiled/babel/eslint-parser`. The flat config keeps the same non-Next rule set (`eslint-plugin-react`, `-react-hooks`, `-jsx-a11y`, `-import`, plus `local/no-comments`); warnings went 193 → 183 (the dropped `@next/next/*` rules), with 0 errors. The `.next/**` and `next-env.d.ts` ignores stay until Plan 4 (283d9687).
   - `react-is`: required peer of `recharts@3` (see the probe findings).
   - `eslint-config-next`, plus `eslint.config.mjs` as it stands: the config imports `eslint-config-next/core-web-vitals`. Removing the package breaks `bunx eslint .`, and Plan 4 owns the lint migration. `eslint-config-next` does not depend on the `next` package, so `bunx eslint .` must still pass after Step 3 (verify it).
   - `lightningcss-linux-x64-musl`, `@tailwindcss/oxide-linux-x64-musl`: needed on Alpine only if the SPA is built inside the image. Plan 4 decides (it can build `dist/web` outside Docker).
   - `package-lock.json`: not touched. Plan 4 deletes it with the Dockerfile's `npm ci`.
-- [ ] **Step 5: CI and docs.**
+- [x] **Step 5: CI and docs.** — done differently: `port-next-routes --check` is widened to `src`, in CI and in the contract.
   - `.github/workflows/test.yml`: replace the build step Plan 1 left (`bun run build:bun` and the `.next/standalone` size check) with `bun run build:web`. The size budget is the `build.test.js` assertion, so no separate check is needed.
   - `CLAUDE.md`: in Commands add `bun run build:web` (writes `dist/web`); in the file layout text, replace `src/app` with `src/web` for the dashboard and keep `src/app/api` for the handlers; delete the sentence that says `next dev` loads no `custom-server.js` only if Plan 2 has not already done so.
-- [ ] **Step 6:** Run `cd tests && CI=true bun test --parallel`, then the junit gates (`verify-no-regression.mjs`, `verify-test-counts.mjs`), then `bunx eslint .`, then `bun run build:web`. Expected: all green, and `rg -n "\"next\"|from ['\"]next" package.json src open-sse scripts` finds nothing.
-- [ ] **Step 7:** Commit: `chore: remove next and the Next config; the dashboard builds with bun only`.
+- [x] **Step 6:** Run `cd tests && CI=true bun test --parallel`, then the junit gates (`verify-no-regression.mjs`, `verify-test-counts.mjs`), then `bunx eslint .`, then `bun run build:web`. Expected: all green, and `rg -n "\"next\"|from ['\"]next" package.json src open-sse scripts` finds nothing. — test changes beyond path edits, none weakened: `no-next-server` asserts `next.config.mjs` is absent; `sse-no-compression` imports `compression@1.7.5`; `spa.test.js` uses a fixture SPA dir (setup only; 5.2 s → 0.5 s, cff25a95); `v1-routes` stubs host-tool lookups in its status-shape test, because `/api/headroom/status` runs ~36 sync `execSync` probes (2.6 s solo) that crossed the 5 s timeout under the new build-test load (2fec4f0d).
+- [x] **Step 7:** Commit: `chore: remove next and the Next config; the dashboard builds with bun only`. — 36f3c0e0, 32607ae5, 4b36aa22, 243fd7cd.
 
 ---
 
@@ -332,7 +332,49 @@ The repo has no browser test dependency, and the Playwright plugin is available 
 
 ## Done when
 
-- `cd tests && CI=true bun test --parallel` exits 0 and both junit gates pass. The test count is at least Plan 1's, plus the new `tests/web/*` and `tests/server/spa-dashboard.test.js`.
-- `bun run build:web` exits 0, and the initial JS is under the 650 KB test budget with recharts, `@xyflow/react` and `@dnd-kit/*` in lazy chunks only.
-- `rg -n "from ['\"]next|@next/|next/" src open-sse scripts` finds nothing; `src/app` contains only `api/`; `next.config.mjs` and `postcss.config.mjs` are gone.
-- The Task 5 table is complete in the PR with no console errors, and the 16 URLs behave as listed in Global Constraints.
+- [x] `cd tests && CI=true bun test --parallel` exits 0 and both junit gates pass. The test count is at least Plan 1's, plus the new `tests/web/*` and `tests/server/spa-dashboard.test.js`. Evidence: Windows 4391 pass, 60 skip, 1 todo, 0 fail, run twice. Linux CI on #251: `unit` green. Both junit gates pass.
+- [x] `bun run build:web` exits 0, and the initial JS is under the 650 KB test budget with recharts, `@xyflow/react` and `@dnd-kit/*` in lazy chunks only. Evidence: `build:web` exits 0. Entry `index-*.js` is 338.1 KB against the 650 KB budget (enforced by `tests/web/build.test.js`); main CSS 237.4 KB. Lazy chunks: `UsageChart` (recharts) 353.9 KB, `ProviderTopology` (`@xyflow`) 174.5 KB, `ComboFormModal` (`@dnd-kit`) 50.6 KB; the largest page chunk is 83.4 KB. The Material Symbols woff2 is 3,869.7 KB, the same file Next served.
+- [x] `rg -n "from ['\"]next|@next/|next/" src open-sse scripts` finds nothing; `src/app` contains only `api/`; `next.config.mjs` and `postcss.config.mjs` are gone. Evidence: the only `rg` matches are the detection patterns inside `scripts/port-next-routes.mjs`, and the CI gate `bun scripts/port-next-routes.mjs --check src` is clean. `src/app` contains only `api/`. `next.config.mjs` and `postcss.config.mjs` are gone, and `package.json` has no `next` keys.
+- [x] The Task 5 table is complete in the PR with no console errors, and the 16 URLs behave as listed in Global Constraints. Evidence: the table is in PR #251. No shims. 15 URLs plus `/dashboard/nope` at 1280 and 390 px: 0 console errors, 0 failed asset requests. It covers login/logout, `requireLogin=false`, password change, Usage tabs and history, lazy chunks, blocked-chunk reload, theme with no flash, i18n, pricing with no shell, provider create/add-key/delete, the OAuth modal, the `/callback` postMessage, GA on and off, combos drag-and-drop and scroll reset.
+
+## Open risks (resolved here, or handed on)
+
+- **`process.env` in the browser bundle** — resolved. `open-sse/config/runtimeConfig.js` reads env at module load and reached the bundle, which left every page blank in the walk-through. `define: { "process.env": "{}" }` for browser output matches Next's client polyfill (d6682e27). `open-sse` is untouched.
+- **ESLint on `eslint-config-next`** — resolved here, pulled forward from Plan 4 (Task 6). The flat config keeps the same non-Next rule set; warnings 193 → 183, 0 errors. The `.next/**` and `next-env.d.ts` ignores stay until Plan 4 (283d9687).
+- **Trailing-slash provider URL** — resolved. `/dashboard/providers/<id>/` answers 308 (Plan 2's redirect, which matches Next) and then the SPA. The plan text said 200.
+- **System One font rendering** — resolved by owner approval on #251 (2026-11-23). The self-hosted `@fontsource-variable` IBM Plex Sans renders ~2–7 px wider and 1 px higher than Next's Google-served copy, on every page.
+- **Plan 4** (already in its Reconciliation block):
+  - `spaBuild.js` statically imports `src/web/build.js`, whose `import("bun-plugin-tailwind")` a server bundle will trace.
+  - Bundled and compiled runs must count as production.
+  - Clean `<outdir>/web` before `buildWeb`.
+  - Probe `stat`/`realpath` on `/$bunfs` roots.
+  - Remove the `.next` ignores with the rest of `.next`.
+  - Decide on the musl optional deps.
+  - `package-lock.json`, `cli/` and the Dockerfile.
+- **Pre-existing, not Plan 3, for the owner:**
+  - `GET /api/headroom/status` blocks the event loop ~3 s on Windows when Python is present but headroom isn't (sync probes in `src/lib/headroom/detect.js`).
+  - With `requireLogin=false` and no session, `/api/keys` returns 401 (the guard's always-protected list).
+- **Deferred minors** (the final review judged all of them fine to defer): the `RouteErrorBoundary` message for any render error; no route announcer; an orphan 16 KB `ProviderTopology` CSS; `build-web.mjs` single-dash and dirty-outdir edge cases; test-hygiene nits.
+
+## Completion record (2026-11-23)
+
+- Implementation PR, into `staging` with `unit`, Hermes Review and CodeQL green on head `e0a73f43` and 0 open code-scanning alerts: #251 `[bun-rewrite p3] Dashboard SPA on Bun.build, every page ported, Next removed` (Tasks 0–6, the `process.env` fix and the final-review fix wave), merged as `ebe70eb0` with the merge method. personal-code-reviewer approved it.
+- Branch commits: 31102392 (deps); 7bdad217 (router, routes, boot, head); c4b4015c, 4c30a627 (page move); 0a2cb018 (shell, build, fonts); cd89611e (serve the SPA); 9e3cc9b9 (Task 4 review fixes); d6682e27 (`process.env` fix); 36f3c0e0, 32607ae5, 4b36aa22, 243fd7cd (Task 6); final-review fix wave 2fec4f0d, 283d9687, 5c0cc95b, cff25a95; e0a73f43 (docs handoff).
+- Suite: Windows 4391 pass / 60 skip / 1 todo / 0 fail, twice. Linux CI on #251: `unit` green; both junit gates pass.
+- Bundle: initial JS (entry `index-*.js`) 338.1 KB against the 650 KB budget; main CSS 237.4 KB; lazy chunks `UsageChart` (recharts) 353.9 KB, `ProviderTopology` (`@xyflow`) 174.5 KB, `ComboFormModal` (`@dnd-kit`) 50.6 KB; largest page chunk 83.4 KB; Material Symbols woff2 3,869.7 KB (the same file Next served).
+- Walk-through: the table is in PR #251. No shims; 15 URLs plus `/dashboard/nope` at 1280 and 390 px; 0 console errors; 0 failed asset requests (scope in "Done when").
+- Parity: `compare.mjs` 91 diffs, 0 unlisted, 0 stale; `compare-upstream.mjs` 3 diffs, 0 unlisted. No new known diffs.
+- Owner approvals on #251 (2026-11-23): the System One visual change, i.e. the self-hosted IBM Plex Sans renders ~2–7 px wider and 1 px higher than Next's Google-served copy, on every page.
+- Models: implementers on Sonnet 5.5; task reviewers on Gemini 4 Neon from Task 3 on (the owner left the choice to the controller); the final review in 3 areas (Gemini server, Sonnet web, Gemini tooling).
+- Deviations from the plan text, with commits:
+  - The ESLint migration off `eslint-config-next` moved from Plan 4 into Task 6 (283d9687 for the ignores and the ADR 0054 fix).
+  - `define: { "process.env": "{}" }` for browser output (d6682e27).
+  - `paths.js` also exports `SPA_DIR_OVERRIDE` and `REPO_ROOT`; `spaBuild.js` exports `spaUnavailableResponse`; the dev build goes to `dist/web-dev/<pid>` (Task 4, cd89611e; recorded in the contract).
+  - The CI build step became `bun run build:web` in Task 3 (0a2cb018), not Task 6.
+  - `port-next-routes --check` is widened to `src`, in CI and in the contract.
+  - `/dashboard/providers/<id>/` returns 308, then the SPA, not 200.
+  - No code comments: where the plan text asked for one, the note went into ADR 0054.
+  - Task 2's "src/app only api" assertion carried an allowlist of the 3 shell files until Task 3 deleted them.
+  - Test changes beyond path edits, none weakened: `no-next-server` asserts `next.config.mjs` is absent; `sse-no-compression` imports `compression@1.7.5`; `spa.test.js` uses a fixture SPA dir (cff25a95); `v1-routes` stubs host-tool lookups in its status-shape test (2fec4f0d).
+- Beyond the plan: scroll resets to the top on a pathname change, a same-URL push replaces, and a param change remounts the page (5c0cc95b).
+- Handed on: see "Open risks" (Plan 4 items from its Reconciliation block; the owner's two pre-existing findings; the deferred minors).
