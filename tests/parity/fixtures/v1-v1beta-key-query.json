@@ -1,0 +1,7 @@
+{
+  "peer": "proxied",
+  "auth": "none",
+  "id": "v1-v1beta-key-query",
+  "method": "GET",
+  "path": "/v1beta/models?key=sk-parity-valid"
+}

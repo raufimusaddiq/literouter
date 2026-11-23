@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-provider-nodes-routes-get",
+  "method": "GET",
+  "path": "/api/provider-nodes/routes"
+}

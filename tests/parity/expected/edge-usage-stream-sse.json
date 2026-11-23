@@ -1,0 +1,20 @@
+{
+  "status": 200,
+  "headers": {
+    "cache-control": "no-cache, no-transform",
+    "content-type": "text/event-stream",
+    "x-accel-buffering": "no"
+  },
+  "frames": [
+    {
+      "data": "{\"activeRequests\":[],\"recentRequests\":[],\"errorProvider\":\"\",\"pending\":{\"byModel\":{},\"byAccount\":{}},\"refresh\":false}"
+    },
+    {
+      "data": "{\"activeRequests\":[],\"recentRequests\":[{\"timestamp\":\"<ISO>\",\"model\":\"mock-slow-stream\",\"provider\":\"openai-compatible-chat-parity\",\"promptTokens\":22,\"completionTokens\":1,\"status\":\"ok\"}],\"errorProvider\":\"\",\"pending\":{\"byModel\":{},\"byAccount\":{}},\"refresh\":false}"
+    },
+    {
+      "data": "{\"activeRequests\":[],\"recentRequests\":[{\"timestamp\":\"<ISO>\",\"model\":\"mock-slow-stream\",\"provider\":\"openai-compatible-chat-parity\",\"promptTokens\":22,\"completionTokens\":1,\"status\":\"ok\"}],\"errorProvider\":\"\",\"pending\":{\"byModel\":{},\"byAccount\":{}},\"refresh\":true}"
+    }
+  ],
+  "upstream": []
+}

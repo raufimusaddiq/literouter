@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-models-custom-post",
+  "method": "POST",
+  "path": "/api/models/custom",
+  "json": {}
+}

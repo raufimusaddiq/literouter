@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-providers-id-delete",
+  "method": "DELETE",
+  "path": "/api/providers/nope-id"
+}

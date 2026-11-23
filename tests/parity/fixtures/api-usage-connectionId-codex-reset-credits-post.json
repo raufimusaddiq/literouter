@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-usage-connectionId-codex-reset-credits-post",
+  "method": "POST",
+  "path": "/api/usage/parity-conn-1/codex-reset-credits",
+  "json": {}
+}

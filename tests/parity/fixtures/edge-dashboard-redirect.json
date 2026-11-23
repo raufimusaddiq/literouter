@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "edge-dashboard-redirect",
+  "method": "GET",
+  "path": "/dashboard"
+}

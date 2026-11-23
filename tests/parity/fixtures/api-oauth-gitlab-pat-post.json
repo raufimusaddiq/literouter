@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-oauth-gitlab-pat-post",
+  "method": "POST",
+  "path": "/api/oauth/gitlab/pat",
+  "json": {}
+}

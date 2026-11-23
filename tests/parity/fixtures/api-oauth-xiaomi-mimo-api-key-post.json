@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-oauth-xiaomi-mimo-api-key-post",
+  "method": "POST",
+  "path": "/api/oauth/xiaomi-mimo/api-key",
+  "json": {}
+}

@@ -1,0 +1,17 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "zz-login-lockout",
+  "method": "POST",
+  "path": "/api/auth/login",
+  "headers": {
+    "x-real-ip": "198.51.100.78"
+  },
+  "json": {
+    "password": "wrong"
+  },
+  "repeat": {
+    "until": 429,
+    "max": 20
+  }
+}

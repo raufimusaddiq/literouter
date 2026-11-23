@@ -1,0 +1,31 @@
+{
+  "status": 503,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json",
+    "retry-after": "<N>"
+  },
+  "body": {
+    "error": {
+      "message": "[openai-compatible-chat-parity/mock-429] [429]: {\"error\":{\"message\":\"rate limited\",\"type\":\"rate_limit_error\"}} (reset after <N>s)",
+      "type": "server_error",
+      "code": "service_unavailable"
+    }
+  },
+  "upstream": [
+    {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "body": {
+        "model": "mock-429",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "stream": false
+      }
+    }
+  ]
+}

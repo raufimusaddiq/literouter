@@ -1,0 +1,10 @@
+{
+  "peer": "proxied",
+  "auth": "none",
+  "id": "api-auth-login-4-proxied-valid",
+  "method": "POST",
+  "path": "/api/auth/login",
+  "json": {
+    "password": "__PASSWORD__"
+  }
+}

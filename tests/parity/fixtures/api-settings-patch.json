@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-settings-patch",
+  "method": "PATCH",
+  "path": "/api/settings",
+  "json": {}
+}

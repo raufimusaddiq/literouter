@@ -1,0 +1,22 @@
+{
+  "status": 200,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json;charset=utf-8"
+  },
+  "body": {
+    "nodes": [
+      {
+        "prefix": "pm",
+        "apiType": "chat",
+        "baseUrl": "http://<UPSTREAM_HOST>/v1",
+        "id": "openai-compatible-chat-parity",
+        "type": "openai-compatible",
+        "name": "Parity Mock",
+        "createdAt": "<ISO>",
+        "updatedAt": "<ISO>"
+      }
+    ]
+  },
+  "upstream": []
+}

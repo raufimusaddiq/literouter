@@ -1,0 +1,17 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "v1-api-chat",
+  "method": "POST",
+  "path": "/v1/api/chat",
+  "json": {
+    "model": "pm/mock-ok",
+    "messages": [
+      {
+        "role": "user",
+        "content": "hi"
+      }
+    ],
+    "stream": false
+  }
+}

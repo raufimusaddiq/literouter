@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-proxy-pools-netlify-deploy-noauth",
+  "method": "POST",
+  "path": "/api/proxy-pools/netlify-deploy",
+  "json": {}
+}
