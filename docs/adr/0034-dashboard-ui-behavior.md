@@ -14,7 +14,7 @@ The dashboard is a Next.js app rendered on the server and hydrated on the client
 
 The server's effective zone (`TZ`) is handed to the client by the dashboard layout through `TimezoneProvider`, which sets the app timezone synchronously during render (before children) so the SSR pass and hydration format dates in the same zone and every viewer sees the deployment's zone. `useOrigin` renders an empty origin on the server and during the hydration pass so markup matches, then re-renders with the real origin right after. The persisted theme is applied before first paint by an inline script in the root layout, mirroring the zustand-persist `theme` key and the `dark` class `applyTheme()` sets, so a reload does not flash the default light theme before the client store hydrates.
 
-**Where:** `src/shared/utils/dateTime.js`; `src/shared/components/TimezoneProvider.js`; `src/shared/hooks/useOrigin.js`; `src/web/App.jsx`
+**Where:** `src/shared/utils/dateTime.js`; `src/shared/components/TimezoneProvider.js`; `src/shared/hooks/useOrigin.js`; `src/web/App.jsx`; `src/web/index.html` (the early-theme script)
 
 ### D2. Provider card counts use the same auth rules as the detail page
 

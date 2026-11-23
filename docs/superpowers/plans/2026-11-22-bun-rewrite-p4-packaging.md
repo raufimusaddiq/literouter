@@ -26,6 +26,13 @@ The index contract (`2026-11-22-bun-rewrite-00-index.md`) wins over this plan wh
 - **Task 3 (`ca.js`):** replace the mechanism that Plan 2's `useSystemCaStore()` uses, and keep the name. The new signature, `(tlsApi = tls, fetchHost = globalThis)`, stays call-compatible.
 - **Task 13:** add the new image jobs to the required checks on `staging`. **The owner applies that branch-protection change; prepare it, but don't apply it yourself.**
 - **ESLint migration already landed.** The ESLint migration off `eslint-config-next` landed in Plan 3 Task 6 (`eslint-config-next` needs the `next` package to load); Plan 4 verifies it rather than redoing it.
+  - `.next/**` and `next-env.d.ts` stay in the eslint ignores until Plan 4 removes `.next` everywhere.
+  - `eslint-plugin-jsx-a11y` and `eslint-plugin-import` are kept by the new flat config; don't describe them as dropped.
+- **Plan 3 handoffs for the bundled/compiled server.**
+  - `spaBuild.js` statically imports `src/web/build.js`, whose `import("bun-plugin-tailwind")` a server `Bun.build` will trace. Load `build.js` lazily or mark the plugin external.
+  - Bundled and compiled runs must count as production so they never reach `devBuild`/`fs.watch`. Today only `NODE_ENV=production` does that.
+  - `buildApp` must clean `<outdir>/web` before `buildWeb`, which doesn't empty its outdir.
+  - Probe `stat` and `realpath` on `/$bunfs` roots, which `static.js` containment relies on.
 
 ## Global Constraints
 

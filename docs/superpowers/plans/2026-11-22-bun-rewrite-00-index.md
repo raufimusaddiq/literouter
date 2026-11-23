@@ -70,7 +70,7 @@ A plan that needs to change a name here must update this file in the same PR.
 - **`src/server/boot.js`**
   - `export async function runBootOnce()` contains what `instrumentation.register()` did, plus `initOutboundProxy` and `initConsoleLogCapture`.
 - **`src/server/paths.js`**
-  - Plan 2 creates it with `PUBLIC_DIR`. Plan 3 adds `SPA_DIR` and `SPA_DIR_OVERRIDE` (the resolved `LITEROUTER_SPA_DIR`, or `null` when unset). Plan 4 adds `isBundled` and `assertBundleCwd`, and the bundled/compiled branches.
+  - Plan 2 creates it with `PUBLIC_DIR`. Plan 3 adds `SPA_DIR` and `SPA_DIR_OVERRIDE` (the resolved `LITEROUTER_SPA_DIR`, or `null` when unset). It also exports `REPO_ROOT`. Plan 4 adds `isBundled` and `assertBundleCwd`, and the bundled/compiled branches.
 
 | | Source run | Bundled or compiled | Env override |
 |---|---|---|---|
@@ -98,7 +98,7 @@ A plan that needs to change a name here must update this file in the same PR.
 - **`src/web/build.js`**
   - `export async function buildWeb({ production, outdir }) → Promise<…>`.
   - It writes `index.html` and `assets/*`, with `publicPath: "/"` and `bun-plugin-tailwind`.
-  - Production builds set `define: { "process.env.NODE_ENV": '"production"' }`.
+  - Every build sets `define: { "process.env": "{}" }` for the browser output, and production adds `"process.env.NODE_ENV": '"production"'`, which takes precedence over the generic one.
   - `scripts/build-web.mjs` is the CLI for it.
 - **Entry and shell:** `src/web/index.html` (no absolute URLs; icon, manifest and GA tags come from `head.js`), `src/web/main.jsx`, `src/web/App.jsx`.
 - **`src/web/routes.js`:** `routes`, `findRoute(pathname)`. `/dashboard/settings/pricing` has `shell: false`.
@@ -107,7 +107,7 @@ A plan that needs to change a name here must update this file in the same PR.
   - `src/web/head.js`: `headExtras({ gaId })`
   - `src/web/router.js`: `useRouter()` (`push`, `replace`, `back`, `refresh`), `usePathname()`, `useSearchParams()`, `useParams()`, `<Link href>`, `redirect(href)`
 - **`src/server/spaBuild.js`**
-  - `getSpa() → Promise<{ dir, indexHtml }>`, `invalidateSpa()`.
+  - `getSpa() → Promise<{ dir, indexHtml }>`, `invalidateSpa()`, `spaUnavailableResponse(error)`.
   - It resolves through `SPA_DIR`. In production, a missing build throws.
 - **Pages** live in `src/web/pages/**`. Shared components stay in `src/shared/components`.
 - **Test dependencies:** `tests/package.json` gains `happy-dom` and `@happy-dom/global-registrator`.
