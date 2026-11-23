@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
 const WAIT_DEADLINE_MS = 30_000;
+const HEALTH_POLL_MS = 250;
 const JSON_HEADERS = { "content-type": "application/json" };
 
 function startMockUpstream() {
@@ -85,17 +86,30 @@ function freePort() {
   return port;
 }
 
-async function waitForHealth(base, child) {
+export async function waitForHealth(base, child) {
   const deadline = Date.now() + WAIT_DEADLINE_MS;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error(`server exited early with code ${child.exitCode}`);
-    try {
-      if ((await fetch(`${base}/api/health`)).status === 200) return;
-    } catch {
-      await Bun.sleep(200);
-    }
+    const healthy = await fetch(`${base}/api/health`).then((res) => res.status === 200, () => false);
+    if (healthy) return;
+    await Bun.sleep(HEALTH_POLL_MS);
   }
   throw new Error(`server did not answer /api/health within ${WAIT_DEADLINE_MS / 1000}s`);
+}
+
+export function killOnSignal(child, exit = process.exit) {
+  const handler = (signal) => {
+    child.kill();
+    exit(signal === "SIGINT" ? 130 : 143);
+  };
+  const onInt = () => handler("SIGINT");
+  const onTerm = () => handler("SIGTERM");
+  process.on("SIGINT", onInt);
+  process.on("SIGTERM", onTerm);
+  return () => {
+    process.off("SIGINT", onInt);
+    process.off("SIGTERM", onTerm);
+  };
 }
 
 export function spawnCommandFor(target) {
@@ -105,30 +119,37 @@ export function spawnCommandFor(target) {
 }
 
 export async function spawnSmoke(target, password = "smoke-pass") {
-  const dataDir = mkdtempSync(join(tmpdir(), "lr-smoke-"));
-  const port = freePort();
-  const { cmd, cwd } = spawnCommandFor(target);
-  const env = {
-    ...process.env,
-    DATA_DIR: dataDir,
-    INITIAL_PASSWORD: password,
-    JWT_SECRET: "smoke-jwt-secret-smoke-jwt-secret",
-    API_KEY_SECRET: "smoke-api-secret",
-    MACHINE_ID_SALT: "smoke-salt",
-    AUTH_COOKIE_SECURE: "false",
-    PORT: String(port),
-    HOSTNAME: "127.0.0.1",
-  };
-  for (const key of ["NODE_ENV", "LITEROUTER_SPA_DIR", "LITEROUTER_PUBLIC_DIR", "LITEROUTER_BUNDLED", "BUN_BE_BUN"]) delete env[key];
-  const child = Bun.spawn(cmd, { cwd, env, stdout: "inherit", stderr: "inherit" });
+  let dataDir;
+  let child;
+  let disposeSignals = () => {};
   try {
+    dataDir = mkdtempSync(join(tmpdir(), "lr-smoke-"));
+    const port = freePort();
+    const { cmd, cwd } = spawnCommandFor(target);
+    const env = {
+      ...process.env,
+      DATA_DIR: dataDir,
+      INITIAL_PASSWORD: password,
+      JWT_SECRET: "smoke-jwt-secret-smoke-jwt-secret",
+      API_KEY_SECRET: "smoke-api-secret",
+      MACHINE_ID_SALT: "smoke-salt",
+      AUTH_COOKIE_SECURE: "false",
+      PORT: String(port),
+      HOSTNAME: "127.0.0.1",
+    };
+    for (const key of ["NODE_ENV", "LITEROUTER_SPA_DIR", "LITEROUTER_PUBLIC_DIR", "LITEROUTER_BUNDLED", "BUN_BE_BUN"]) delete env[key];
+    child = Bun.spawn(cmd, { cwd, env, stdout: "inherit", stderr: "inherit" });
+    disposeSignals = killOnSignal(child);
     const base = `http://127.0.0.1:${port}`;
     await waitForHealth(base, child);
     return await runSmoke({ base, password });
   } finally {
-    child.kill();
-    await child.exited;
-    rmSync(dataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    disposeSignals();
+    if (child) {
+      child.kill();
+      await child.exited;
+    }
+    if (dataDir) rmSync(dataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 }
 
