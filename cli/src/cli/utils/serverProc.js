@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { getRuntimeDir } = require("../../../hooks/sqliteRuntime");
+const { getRuntimeDir } = require("../../../hooks/runtimeDir");
 
 function getPidFile() {
   return path.join(path.dirname(getRuntimeDir()), "server.pid");

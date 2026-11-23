@@ -48,12 +48,12 @@ function getHeader(port) {
 async function startTerminalUI(port, host = "127.0.0.1") {
   api.configure({ host, port });
 
-  const basePath = ["9Router"];
+  const basePath = ["LiteRouter"];
 
   await refreshHeaderBg(port);
 
   await showMenuWithBack({
-    title: "📡 9Router Terminal UI",
+    title: "📡 LiteRouter Terminal UI",
     breadcrumb: basePath,
     headerContent: () => getHeader(port),
     items: [

@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { getRuntimeNodeModules } = require("./sqliteRuntime");
+const { getRuntimeNodeModules } = require("./runtimeDir");
 
 const SYSTRAY_PKG = "systray2";
 const SYSTRAY_VERSION = "2.1.4";
@@ -19,9 +19,9 @@ function cleanupLegacySystray({ silent = false } = {}) {
     if (fs.existsSync(dir)) {
       try {
         fs.rmSync(dir, { recursive: true, force: true });
-        if (!silent) console.log(`[9router][runtime] removed legacy systray: ${dir}`);
+        if (!silent) console.log(`[literouter][runtime] removed legacy systray: ${dir}`);
       } catch (e) {
-        if (!silent) console.warn(`[9router][runtime] failed to remove ${dir}: ${e.message}`);
+        if (!silent) console.warn(`[literouter][runtime] failed to remove ${dir}: ${e.message}`);
       }
     }
   }
@@ -35,7 +35,7 @@ function chmodSystrayBin({ silent = false } = {}) {
   try {
     fs.chmodSync(binPath, 0o755);
   } catch (e) {
-    if (!silent) console.warn(`[9router][runtime] chmod tray bin failed: ${e.message}`);
+    if (!silent) console.warn(`[literouter][runtime] chmod tray bin failed: ${e.message}`);
   }
 }
 

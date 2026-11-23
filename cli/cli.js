@@ -1,9 +1,47 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
+
+function compareVersions(a, b) {
+  const parse = (v) => {
+    const [core, ...pre] = String(v).trim().replace(/^v/, "").split("+")[0].split("-");
+    const nums = core.split(".").map((n) => parseInt(n, 10) || 0);
+    while (nums.length < 3) nums.push(0);
+    return { nums, pre: pre.length ? pre.join("-").split(".") : [] };
+  };
+  const A = parse(a);
+  const B = parse(b);
+  for (let i = 0; i < 3; i++) {
+    if (A.nums[i] > B.nums[i]) return 1;
+    if (A.nums[i] < B.nums[i]) return -1;
+  }
+  if (!A.pre.length && !B.pre.length) return 0;
+  if (!A.pre.length) return 1;
+  if (!B.pre.length) return -1;
+  for (let i = 0; i < Math.max(A.pre.length, B.pre.length); i++) {
+    const x = A.pre[i];
+    const y = B.pre[i];
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    const xn = /^\d+$/.test(x);
+    const yn = /^\d+$/.test(y);
+    if (xn && yn) {
+      if (+x !== +y) return +x > +y ? 1 : -1;
+    } else if (xn !== yn) {
+      return xn ? -1 : 1;
+    } else if (x !== y) {
+      return x > y ? 1 : -1;
+    }
+  }
+  return 0;
+}
+
+if (typeof Bun === "undefined" || compareVersions(Bun.version, "1.4.4") < 0) {
+  console.error("literouter requires Bun >= 1.4.4 (https://bun.sh)");
+  process.exit(1);
+}
 
 const { spawn, exec, execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const https = require("https");
 const net = require("net");
 const os = require("os");
 
@@ -61,7 +99,7 @@ function createSpinner(text) {
 }
 
 const pkg = require("./package.json");
-const { buildEnvWithRuntime } = require("./hooks/sqliteRuntime");
+const { buildInstallCmd } = require("./src/cli/utils/update");
 const { ensureRuntime } = require("./hooks/runtime");
 const {
   writeServerPid,
@@ -87,8 +125,8 @@ if (args[0] === "xai" && args[1] === "video") {
 ensureRuntime({ silent: true }).catch(() => {});
 
 const APP_NAME = pkg.name;
-const UPDATE_PACKAGE = (process.env.NINEROUTER_UPDATE_PACKAGE || "").trim();
-const INSTALL_CMD_LATEST = `npm i -g ${UPDATE_PACKAGE}@latest --prefer-online`;
+const UPDATE_PACKAGE = (process.env.NINEROUTER_UPDATE_PACKAGE ?? pkg.name).trim();
+const INSTALL_CMD_LATEST = buildInstallCmd(UPDATE_PACKAGE);
 
 const DEFAULT_PORT = 20128;
 const DEFAULT_HOST = "0.0.0.0";
@@ -145,7 +183,7 @@ Options:
   -l, --log           Show server logs (default: hidden)
   -t, --tray          Run in system tray mode (background)
   --skip-update       Skip auto-update check
-                      (update check is off unless NINEROUTER_UPDATE_PACKAGE is set)
+                      (set NINEROUTER_UPDATE_PACKAGE="" to disable the check)
   -h, --help          Show this help message
   -v, --version       Show version
 
@@ -167,40 +205,6 @@ if (skipUpdate && !trayMode && !process.stdin.isTTY) {
 }
 
 const RUNTIME = process.execPath;
-
-function compareVersions(a, b) {
-  const parse = (v) => {
-    const [core, ...pre] = String(v).trim().replace(/^v/, "").split("+")[0].split("-");
-    const nums = core.split(".").map((n) => parseInt(n, 10) || 0);
-    while (nums.length < 3) nums.push(0);
-    return { nums, pre: pre.length ? pre.join("-").split(".") : [] };
-  };
-  const A = parse(a);
-  const B = parse(b);
-  for (let i = 0; i < 3; i++) {
-    if (A.nums[i] > B.nums[i]) return 1;
-    if (A.nums[i] < B.nums[i]) return -1;
-  }
-  if (!A.pre.length && !B.pre.length) return 0;
-  if (!A.pre.length) return 1;
-  if (!B.pre.length) return -1;
-  for (let i = 0; i < Math.max(A.pre.length, B.pre.length); i++) {
-    const x = A.pre[i];
-    const y = B.pre[i];
-    if (x === undefined) return -1;
-    if (y === undefined) return 1;
-    const xn = /^\d+$/.test(x);
-    const yn = /^\d+$/.test(y);
-    if (xn && yn) {
-      if (+x !== +y) return +x > +y ? 1 : -1;
-    } else if (xn !== yn) {
-      return xn ? -1 : 1;
-    } else if (x !== y) {
-      return x > y ? 1 : -1;
-    }
-  }
-  return 0;
-}
 
 function killPid(pid) {
   try {
@@ -297,25 +301,13 @@ function checkForUpdate() {
       resolve(version);
     };
 
-    const req = https.get(`https://registry.npmjs.org/${encodeURIComponent(UPDATE_PACKAGE)}/latest`, { timeout: 3000 }, (res) => {
-      let data = "";
-      res.on("data", chunk => data += chunk);
-      res.on("end", () => {
-        try {
-          const latest = JSON.parse(data);
-          if (latest.version && compareVersions(latest.version, pkg.version) > 0) {
-            done(latest.version);
-          } else {
-            done(null);
-          }
-        } catch (e) {
-          done(null);
-        }
-      });
-    });
-
-    req.on("error", () => done(null));
-    req.on("timeout", () => { req.destroy(); done(null); });
+    fetch(`https://registry.npmjs.org/${encodeURIComponent(UPDATE_PACKAGE)}/latest`, { signal: AbortSignal.timeout(3000) })
+      .then((res) => res.json())
+      .then((latest) => {
+        if (latest.version && compareVersions(latest.version, pkg.version) > 0) done(latest.version);
+        else done(null);
+      })
+      .catch(() => done(null));
   });
 }
 
@@ -346,7 +338,7 @@ const serverPath = fs.existsSync(customServerPath)
 
 if (!fs.existsSync(serverPath)) {
   console.error("Error: Standalone build not found.");
-  console.error("Please run 'npm run build' in cli/ first.");
+  console.error("Please run 'bun run build' in cli/ first.");
   process.exit(1);
 }
 
@@ -418,7 +410,7 @@ function startServer(updatePromise) {
       detached: true,
       windowsHide: true,
       env: {
-        ...buildEnvWithRuntime(process.env),
+        ...process.env,
         PORT: port.toString(),
         HOSTNAME: host
       }
@@ -562,7 +554,7 @@ function startServer(updatePromise) {
             process.on("SIGHUP", () => {});
 
             console.log(`\n⏳ Switching to tray mode... (icon already visible in menu bar)`);
-            console.log(`🔔 9Router is running in tray (PID: ${process.pid})`);
+            console.log(`🔔 LiteRouter is running in tray (PID: ${process.pid})`);
             console.log(`   Server: http://${displayHost}:${port}`);
             console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
 
@@ -579,7 +571,7 @@ function startServer(updatePromise) {
           });
           bgProcess.unref();
 
-          console.log(`🔔 9Router is now running in background (PID: ${bgProcess.pid})`);
+          console.log(`🔔 LiteRouter is now running in background (PID: ${bgProcess.pid})`);
           console.log(`   Server: http://${displayHost}:${port}`);
           console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
 

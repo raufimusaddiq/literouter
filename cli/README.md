@@ -1,4 +1,4 @@
-# 9Router - FREE AI Router & Token Saver
+# LiteRouter - FREE AI Router & Token Saver
 
 **Never stop coding. Save 20-40% tokens with RTK + auto-fallback to FREE & cheap AI models.**
 
@@ -16,7 +16,7 @@
 
 ---
 
-## 🤔 Why 9Router?
+## 🤔 Why LiteRouter?
 
 **Stop wasting money, tokens and hitting limits:**
 
@@ -25,7 +25,7 @@
 - ❌ Tool outputs (git diff, grep, ls...) burn tokens fast
 - ❌ Expensive APIs ($20-50/month per provider)
 
-**9Router solves this:**
+**LiteRouter solves this:**
 
 - ✅ **RTK Token Saver** - Auto-compress tool_result, save 20-40% tokens
 - ✅ **Maximize subscriptions** - Track quota, use every bit before reset
@@ -37,14 +37,13 @@
 
 ## ⚡ Quick Start
 
-**Option 1 — npm (recommended for desktop):**
+**Option 1 — Bun (recommended for desktop):**
+
+Requires [Bun](https://bun.sh) 1.4.4 or newer.
 
 ```bash
-npm install -g 9router
-9router
-
-# Or run directly with npx
-npx 9router
+bun add -g literouter
+literouter
 ```
 
 **Option 2 — Docker (server/VPS):**
@@ -79,11 +78,11 @@ That's it! Start coding with FREE AI models.
 ## 🚀 CLI Options
 
 ```bash
-9router                    # Start with default settings
-9router --port 8080        # Custom port
-9router --no-browser       # Don't open browser
-9router --skip-update      # Skip auto-update check
-9router --help             # Show all options
+literouter                    # Start with default settings
+literouter --port 8080        # Custom port
+literouter --no-browser       # Don't open browser
+literouter --skip-update      # Skip auto-update check
+literouter --help             # Show all options
 ```
 
 **Dashboard**: `http://localhost:20128/dashboard`
