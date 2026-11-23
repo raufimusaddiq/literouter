@@ -1,0 +1,20 @@
+[
+  {
+    "file": "api-v1-models-model-noauth",
+    "path": "count",
+    "actual": 1,
+    "reason": "Local-trust change (spec 6.3): the loopback request now reaches the handler, which fetches GET /v1/models from the upstream; Next's remote guard answered 401 first"
+  },
+  {
+    "file": "api-v1-models-noauth",
+    "path": "count",
+    "actual": 1,
+    "reason": "Local-trust change (spec 6.3): the loopback request now reaches the handler, which fetches GET /v1/models from the upstream; Next's remote guard answered 401 first"
+  },
+  {
+    "file": "api-v1-noauth",
+    "path": "count",
+    "actual": 1,
+    "reason": "Local-trust change (spec 6.3): the loopback request now reaches the handler, which fetches GET /v1/models from the upstream; Next's remote guard answered 401 first"
+  }
+]

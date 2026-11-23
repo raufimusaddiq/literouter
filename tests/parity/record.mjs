@@ -3,6 +3,7 @@ import path from "node:path";
 import { SignJWT } from "jose";
 import { PARITY, cliToken, lanAddress } from "./config.js";
 import { startMockUpstream } from "./mock-upstream.js";
+import { UPSTREAM_INDEX } from "./compare-upstream.mjs";
 import { shapeFrame, summarizeBody, normalizeBody, normalizeHeaders, normalizeSse, maskRetryAfter, maskString } from "./normalize.js";
 
 const FIXTURE_DIR = new URL("./fixtures/", import.meta.url);
@@ -81,11 +82,12 @@ export async function record({ baseUrl, outDir, mock, only, dataDir, fixtures = 
     ...(lan ? [[lan, "<LAN>"]] : []),
     ...(dataDir ? [[JSON.stringify(dataDir).slice(1, -1), "<DATA_DIR>"], [dataDir, "<DATA_DIR>"]] : []),
   ];
-  const mask = (text) => replacements.reduce((s, [from, to]) => s.replaceAll(from, to), text);
+  const mask = (text) => replacements.reduce((s, [from, to]) => s.replaceAll(from, to), text).replace(/<DATA_DIR>[^"\s]*/g, (m) => m.replaceAll("\\\\", "/"));
   const subst = (s) => s.replaceAll("__UPSTREAM__", mock.url).replaceAll("__API_KEY__", PARITY.apiKey).replaceAll("__PASSWORD__", PARITY.password);
 
   const results = [];
   const unreachable = [];
+  const upstreamIndex = [];
   for (const fx of fixtures) {
     if (fx.peer === "lan" && !lan) {
       log(`skip ${fx.id}: no non-internal IPv4`);
@@ -162,6 +164,7 @@ export async function record({ baseUrl, outDir, mock, only, dataDir, fixtures = 
       }
       if (fx.repeat) out.attempts = attempt + 1;
     }
+    upstreamIndex.push({ id: fx.id, from: before, to: mock.requests.length });
     out.upstream = mock.requests.slice(before).map((r) => {
       let b = r.body;
       try {
@@ -176,6 +179,7 @@ export async function record({ baseUrl, outDir, mock, only, dataDir, fixtures = 
     fs.writeFileSync(path.join(outDir, `${fx.id}.json`), mask(JSON.stringify(final, null, 2)) + "\n");
     results.push(fx.id);
   }
+  fs.writeFileSync(path.join(outDir, UPSTREAM_INDEX), upstreamIndex.map((e) => `${JSON.stringify(e)}\n`).join(""));
   return { ids: results, unreachable };
 }
 
