@@ -28,7 +28,7 @@ export default function CapacityBadges({ caps, className = "", colorOverride, si
                 role="img"
                 tabIndex={0}
                 aria-label={meta.label}
-                className={`rounded-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-primary leading-none cursor-help ${colorOverride || meta.color}`}
+                className={`cursor-help rounded-sm leading-none focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-mark-line ${colorOverride || "text-muted"}`}
               >
                 {icon}
               </span>
@@ -36,7 +36,7 @@ export default function CapacityBadges({ caps, className = "", colorOverride, si
           );
         }
         return (
-          <span key={k} className={`leading-none ${colorOverride || meta.color}`}>
+          <span key={k} className={`leading-none ${colorOverride || "text-muted"}`}>
             <span aria-hidden="true" title={`${meta.label} — ${meta.desc}`} className="material-symbols-outlined leading-none" style={{ fontSize: `${size}px` }}>
               {meta.icon}
             </span>

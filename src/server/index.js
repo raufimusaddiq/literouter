@@ -7,10 +7,12 @@ import { guard } from "./guard.js";
 import { notFound } from "./notFound.js";
 import { runBootOnce } from "./boot.js";
 import { serveSpa } from "./spa.js";
+import { withBuildHeader } from "./buildHeader.js";
 import { serveStatic } from "./static.js";
 import { parseBodyLimit } from "./bodyLimit.js";
 import { useSystemCaStore } from "./ca.js";
 import { installShutdownHandlers } from "./shutdown.js";
+import { DATA_DIR_NOTICE } from "@/lib/dataDir.js";
 
 const IDLE_TIMEOUT_SECONDS = 255;
 const BODY_LIMIT_ERROR = "Request body exceeded maxRequestBodySize";
@@ -56,8 +58,8 @@ async function serve(req, server, inner) {
     setRequestContext(req, buildRequestContext(server.requestIP(req)?.address ?? "", req.headers));
     for (const name of STRIPPED_HEADERS) req.headers.delete(name);
     const blocked = await guard(req);
-    if (blocked) return await maybeCompress(req, blocked);
-    return await inner(req, server);
+    if (blocked) return await withBuildHeader(req, await maybeCompress(req, blocked));
+    return await withBuildHeader(req, await inner(req, server));
   } catch (err) {
     if (err?.message === BODY_LIMIT_ERROR) return new Response(null, { status: 413 });
     console.error("[server] request failed:", err);
@@ -122,6 +124,7 @@ if (import.meta.main) {
       process.exit(1);
     }
   }
+  console.log(DATA_DIR_NOTICE);
   const server = await startServer();
   console.log(`LiteRouter listening on http://${server.hostname}:${server.port}`);
 }

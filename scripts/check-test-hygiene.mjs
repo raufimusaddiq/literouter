@@ -140,7 +140,7 @@ function main() {
     console.error(`${p.rule}: ${p.file}${p.detail ? ` :: ${p.detail}` : ""}`);
   }
   if (problems.length) {
-    console.error(`${problems.length} test hygiene problem(s). See CLAUDE.md "Tests stay lean".`);
+    console.error(`${problems.length} test hygiene problem(s). See AGENTS.md "Tests stay lean".`);
     process.exit(1);
   }
   console.log("test hygiene ok");

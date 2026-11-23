@@ -4,6 +4,7 @@ import { formatDateTime } from "@/shared/utils/dateTime";
 import { useState, useEffect, useCallback } from "react";
 import Card from "@/shared/components/Card";
 import Button from "@/shared/components/Button";
+import Badge from "@/shared/components/Badge";
 import Drawer from "@/shared/components/Drawer";
 import Pagination from "@/shared/components/Pagination";
 import { cn } from "@/shared/utils/cn";
@@ -29,7 +30,7 @@ async function fetchProviderNames() {
 
   providerNameCache = {
     ...AI_PROVIDERS,
-    ...providerNodesCache
+    ...providerNodesCache,
   };
 
   return { providerNameCache, providerNodesCache };
@@ -41,7 +42,7 @@ function getProviderName(providerId, cache) {
 
   const cached = cache[providerId];
 
-  if (typeof cached === 'string') {
+  if (typeof cached === "string") {
     return cached;
   }
 
@@ -55,28 +56,31 @@ function getProviderName(providerId, cache) {
 
 function CollapsibleSection({ title, children, defaultOpen = false, icon = null }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  
+
   return (
-    <div className="border border-black/5 dark:border-white/5 rounded-lg overflow-hidden">
-      <button 
+    <div className="overflow-hidden rounded-md border border-line bg-raise">
+      <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
+        className="flex w-full items-center justify-between bg-bg-alt/60 p-3 transition-colors hover:bg-bg-alt"
       >
         <div className="flex items-center gap-2">
-          {icon && <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-text-muted">{icon}</span>}
-          <span className="font-semibold text-sm text-text-main">{title}</span>
+          {icon && <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-muted">{icon}</span>}
+          <span className="text-sm font-semibold text-ink">{title}</span>
         </div>
-        <span aria-hidden="true" className={cn(
-          "material-symbols-outlined text-[20px] text-text-muted transition-transform duration-200",
-          isOpen ? "rotate-90" : ""
-        )}>
+        <span
+          aria-hidden="true"
+          className={cn(
+            "material-symbols-outlined text-[18px] text-muted transition-transform duration-200",
+            isOpen ? "rotate-90" : ""
+          )}
+        >
           chevron_right
         </span>
       </button>
-      
+
       {isOpen && (
-        <div className="p-4 border-t border-black/5 dark:border-white/5">
+        <div className="border-t border-line p-4">
           {children}
         </div>
       )}
@@ -88,13 +92,22 @@ function isErrorStatus(status) {
   return !!status && status !== "success" && status !== "ok";
 }
 
+function statusVariant(status) {
+  if (status === "client_cancelled") return "warning";
+  if (isErrorStatus(status)) return "error";
+  return "success";
+}
+
+const INPUT_CLASS =
+  "h-9 w-full min-w-0 rounded-md border border-line-strong bg-raise px-3 text-sm text-ink focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line";
+
 export default function RequestDetailsTab() {
   const [details, setDetails] = useState([]);
   const [pagination, setPagination] = useState({
     page: 1,
     pageSize: 20,
     totalItems: 0,
-    totalPages: 0
+    totalPages: 0,
   });
   const [loading, setLoading] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
@@ -104,7 +117,7 @@ export default function RequestDetailsTab() {
   const [filters, setFilters] = useState({
     provider: "",
     startDate: "",
-    endDate: ""
+    endDate: "",
   });
 
   const fetchProviders = useCallback(async () => {
@@ -125,7 +138,7 @@ export default function RequestDetailsTab() {
     try {
       const params = new URLSearchParams({
         page: pagination.page.toString(),
-        pageSize: pagination.pageSize.toString()
+        pageSize: pagination.pageSize.toString(),
       });
       if (filters.provider) params.append("provider", filters.provider);
       if (filters.startDate) params.append("startDate", filters.startDate);
@@ -135,7 +148,7 @@ export default function RequestDetailsTab() {
       const data = await res.json();
 
       setDetails(data.details || []);
-      setPagination(prev => ({ ...prev, ...data.pagination }));
+      setPagination((prev) => ({ ...prev, ...data.pagination }));
     } catch (error) {
       console.error("Failed to fetch request details:", error);
     } finally {
@@ -157,11 +170,11 @@ export default function RequestDetailsTab() {
   };
 
   const handlePageChange = (newPage) => {
-    setPagination(prev => ({ ...prev, page: newPage }));
+    setPagination((prev) => ({ ...prev, page: newPage }));
   };
 
   const handlePageSizeChange = (newPageSize) => {
-    setPagination(prev => ({ ...prev, pageSize: newPageSize, page: 1 }));
+    setPagination((prev) => ({ ...prev, pageSize: newPageSize, page: 1 }));
   };
 
   const handleClearFilters = () => {
@@ -170,22 +183,17 @@ export default function RequestDetailsTab() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <Card padding="md">
+      <Card variant="raised" padding="sm">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex min-w-0 flex-col gap-2">
-            <label htmlFor="provider-filter" className="text-sm font-medium text-text-main">Provider</label>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="provider-filter" className="text-[13px] font-medium text-ink">Provider</label>
             <select
               id="provider-filter"
               value={filters.provider}
               onChange={(e) => setFilters({ ...filters, provider: e.target.value })}
-              className={cn(
-                "h-9 px-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20",
-                "w-full min-w-0 cursor-pointer"
-              )}
-              style={{ colorScheme: 'auto' }}
+              className={cn(INPUT_CLASS, "cursor-pointer")}
             >
-              <option value="">All Providers</option>
+              <option value="">All providers</option>
               {providers.map((provider) => (
                 <option key={provider.id} value={provider.id}>
                   {provider.name}
@@ -193,106 +201,93 @@ export default function RequestDetailsTab() {
               ))}
             </select>
           </div>
-          
-          <div className="flex min-w-0 flex-col gap-2">
-            <label htmlFor="start-date-filter" className="text-sm font-medium text-text-main">Start Date</label>
+
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="start-date-filter" className="text-[13px] font-medium text-ink">Start date</label>
             <input
               id="start-date-filter"
               type="datetime-local"
               value={filters.startDate}
               onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-              className={cn(
-                "h-9 px-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "w-full min-w-0 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20"
-              )}
+              className={INPUT_CLASS}
             />
           </div>
 
-          <div className="flex min-w-0 flex-col gap-2">
-            <label htmlFor="end-date-filter" className="text-sm font-medium text-text-main">End Date</label>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="end-date-filter" className="text-[13px] font-medium text-ink">End date</label>
             <input
               id="end-date-filter"
               type="datetime-local"
               value={filters.endDate}
               onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-              className={cn(
-                "h-9 px-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "w-full min-w-0 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20"
-              )}
+              className={INPUT_CLASS}
             />
           </div>
-          
-          <div className="flex min-w-0 flex-col gap-2 sm:col-span-2 lg:col-span-1">
-            <span className="hidden text-sm font-medium text-text-main opacity-0 lg:block" aria-hidden="true">Clear</span>
-            <Button 
-              variant="ghost" 
+
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2 lg:col-span-1">
+            <span className="hidden text-[13px] font-medium text-ink opacity-0 lg:block" aria-hidden="true">Clear</span>
+            <Button
+              variant="secondary"
               onClick={handleClearFilters}
               disabled={!filters.provider && !filters.startDate && !filters.endDate}
-              className="w-full"
+              className="h-9 w-full"
             >
-              Clear Filters
+              Clear filters
             </Button>
           </div>
         </div>
       </Card>
 
       <Card padding="none">
-        <ul className="divide-y divide-black/5 dark:divide-white/5 lg:hidden">
+        <ul className="divide-y divide-line lg:hidden">
           {loading ? (
-            <li className="flex items-center justify-center gap-2 p-8 text-sm text-text-muted">
-              <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+            <li className="flex items-center justify-center gap-2 p-8 text-sm text-muted">
+              <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
               Loading...
             </li>
           ) : details.length === 0 ? (
-            <li className="p-8 text-center text-sm text-text-muted">No request details found</li>
+            <li className="p-8 text-center text-sm text-muted">No request details found</li>
           ) : (
             details.map((detail, index) => (
-              <li key={`m-${detail.id}-${index}`} className="flex flex-col gap-3 p-4">
+              <li key={`m-${detail.id}-${index}`} className="flex flex-col gap-3 py-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate font-mono text-sm text-text-main">{detail.model}</p>
-                    <p className="mt-0.5 truncate text-xs text-text-muted">{getProviderName(detail.provider, providerNameCache)}</p>
+                    <p className="truncate font-mono text-[13px] text-ink">{detail.model}</p>
+                    <p className="mt-0.5 truncate text-xs text-muted">{getProviderName(detail.provider, providerNameCache)}</p>
                   </div>
-                  <span className={cn(
-                    "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
-                    detail.status === "client_cancelled"
-                      ? "bg-warning/15 text-warning"
-                      : isErrorStatus(detail.status)
-                        ? "bg-danger/15 text-danger"
-                        : "bg-success/15 text-success"
-                  )}>
+                  <Badge variant={statusVariant(detail.status)} size="sm" className="shrink-0">
                     {detail.status || "unknown"}
-                  </span>
+                  </Badge>
                 </div>
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
                   <div>
-                    <dt className="text-text-muted">Timestamp</dt>
-                    <dd className="mt-0.5 text-text-main">{formatDateTime(detail.timestamp)}</dd>
+                    <dt className="text-faint">Timestamp</dt>
+                    <dd className="mt-0.5 font-mono text-ink tabular-nums">{formatDateTime(detail.timestamp)}</dd>
                   </div>
                   <div>
-                    <dt className="text-text-muted">Latency</dt>
-                    <dd className="mt-0.5 font-mono text-text-main">
+                    <dt className="text-faint">Latency</dt>
+                    <dd className="mt-0.5 font-mono text-ink tabular-nums">
                       TTFT {detail.latency?.ttft || 0}ms / {detail.latency?.total || 0}ms
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-text-muted">Input</dt>
-                    <dd className="mt-0.5 font-mono text-text-main">{getInputTokens(detail.tokens).toLocaleString()}</dd>
+                    <dt className="text-faint">Input</dt>
+                    <dd className="mt-0.5 font-mono text-ink tabular-nums">{getInputTokens(detail.tokens).toLocaleString()}</dd>
                   </div>
                   <div>
-                    <dt className="text-text-muted">Output</dt>
-                    <dd className="mt-0.5 font-mono text-text-main">{getOutputTokens(detail.tokens).toLocaleString()}</dd>
+                    <dt className="text-faint">Output</dt>
+                    <dd className="mt-0.5 font-mono text-ink tabular-nums">{getOutputTokens(detail.tokens).toLocaleString()}</dd>
                   </div>
                   {getCachedTokens(detail.tokens) > 0 && (
                     <div>
-                      <dt className="text-text-muted">Cached</dt>
-                      <dd className="mt-0.5 font-mono text-text-main">{getCachedTokens(detail.tokens).toLocaleString()}</dd>
+                      <dt className="text-faint">Cached</dt>
+                      <dd className="mt-0.5 font-mono text-ink tabular-nums">{getCachedTokens(detail.tokens).toLocaleString()}</dd>
                     </div>
                   )}
                   {getCacheCreationTokens(detail.tokens) > 0 && (
                     <div>
-                      <dt className="text-text-muted">Cache creation</dt>
-                      <dd className="mt-0.5 font-mono text-text-main">{getCacheCreationTokens(detail.tokens).toLocaleString()}</dd>
+                      <dt className="text-faint">Cache creation</dt>
+                      <dd className="mt-0.5 font-mono text-ink tabular-nums">{getCacheCreationTokens(detail.tokens).toLocaleString()}</dd>
                     </div>
                   )}
                 </dl>
@@ -307,31 +302,31 @@ export default function RequestDetailsTab() {
         <div className="hidden overflow-x-auto lg:block">
           <table className="w-full min-w-[880px]">
             <thead>
-              <tr className="border-b border-black/5 dark:border-white/5">
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Timestamp</th>
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Model</th>
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Provider</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Input Tokens</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Cached</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Cache Creation</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Output Tokens</th>
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Latency</th>
-                <th className="text-center p-4 text-sm font-semibold text-text-main">Action</th>
+              <tr className="border-b border-line-strong text-xs font-medium text-muted">
+                <th className="px-3 py-2.5 text-left font-medium">Timestamp</th>
+                <th className="px-3 py-2.5 text-left font-medium">Model</th>
+                <th className="px-3 py-2.5 text-left font-medium">Provider</th>
+                <th className="px-3 py-2.5 text-right font-medium">Input tokens</th>
+                <th className="px-3 py-2.5 text-right font-medium">Cached</th>
+                <th className="px-3 py-2.5 text-right font-medium">Cache creation</th>
+                <th className="px-3 py-2.5 text-right font-medium">Output tokens</th>
+                <th className="px-3 py-2.5 text-right font-medium">Latency</th>
+                <th className="px-3 py-2.5 text-right font-medium">Action</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-line">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="p-8 text-center text-text-muted">
+                  <td colSpan={9} className="p-8 text-center text-sm text-muted">
                     <div className="flex items-center justify-center gap-2">
-                      <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+                      <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
                       Loading...
                     </div>
                   </td>
                 </tr>
               ) : details.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="p-8 text-center text-text-muted">
+                  <td colSpan={9} className="p-8 text-center text-sm text-muted">
                     No request details found
                   </td>
                 </tr>
@@ -339,38 +334,34 @@ export default function RequestDetailsTab() {
                 details.map((detail, index) => (
                   <tr
                     key={`${detail.id}-${index}`}
-                    className="border-b border-black/5 dark:border-white/5 last:border-b-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
+                    className="transition-colors hover:bg-raise/70"
                   >
-                    <td className="whitespace-nowrap p-4 text-sm text-text-main">
+                    <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-muted tabular-nums">
                       {formatDateTime(detail.timestamp)}
                     </td>
-                    <td className="max-w-[260px] truncate p-4 font-mono text-sm text-text-main">
+                    <td className="max-w-[260px] truncate px-3 py-2.5 font-mono text-[12.5px] text-ink" title={detail.model}>
                       {detail.model}
                     </td>
-                    <td className="max-w-[180px] truncate p-4 text-sm text-text-main">
-                       <span className="font-medium">
-                         {getProviderName(detail.provider, providerNameCache)}
-                       </span>
-                     </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    <td className="max-w-[180px] truncate px-3 py-2.5 text-[13px] text-ink">
+                      {getProviderName(detail.provider, providerNameCache)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-mono text-[12.5px] text-ink tabular-nums">
                       {getInputTokens(detail.tokens).toLocaleString()}
                     </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    <td className="px-3 py-2.5 text-right font-mono text-[12.5px] text-muted tabular-nums">
                       {getCachedTokens(detail.tokens) > 0 ? getCachedTokens(detail.tokens).toLocaleString() : "—"}
                     </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    <td className="px-3 py-2.5 text-right font-mono text-[12.5px] text-muted tabular-nums">
                       {getCacheCreationTokens(detail.tokens) > 0 ? getCacheCreationTokens(detail.tokens).toLocaleString() : "—"}
                     </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    <td className="px-3 py-2.5 text-right font-mono text-[12.5px] text-ink tabular-nums">
                       {getOutputTokens(detail.tokens).toLocaleString()}
                     </td>
-                    <td className="p-4 text-sm text-text-muted">
-                      <div className="flex flex-col gap-0.5">
-                        <div>TTFT: <span className="font-mono">{detail.latency?.ttft || 0}ms</span></div>
-                        <div>Total: <span className="font-mono">{detail.latency?.total || 0}ms</span></div>
-                      </div>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono text-xs text-muted tabular-nums">
+                      <div>TTFT {detail.latency?.ttft || 0}ms</div>
+                      <div className="text-faint">Total {detail.latency?.total || 0}ms</div>
                     </td>
-                    <td className="p-4 text-center">
+                    <td className="px-3 py-2.5 text-right">
                       <Button
                         variant="outline"
                         size="sm"
@@ -387,128 +378,114 @@ export default function RequestDetailsTab() {
         </div>
 
         {!loading && details.length > 0 && (
-          <div className="border-t border-black/5 dark:border-white/5">
-            <Pagination
-              currentPage={pagination.page}
-              pageSize={pagination.pageSize}
-              totalItems={pagination.totalItems}
-              onPageChange={handlePageChange}
-              onPageSizeChange={handlePageSizeChange}
-            />
-          </div>
+          <Pagination
+            currentPage={pagination.page}
+            pageSize={pagination.pageSize}
+            totalItems={pagination.totalItems}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+          />
         )}
       </Card>
 
       <Drawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
-        title="Request Details"
+        title="Request details"
         width="lg"
       >
         {selectedDetail && (
           <div className="space-y-6">
             <div className="grid min-w-0 grid-cols-1 gap-4 text-sm sm:grid-cols-2">
               <div>
-                <span className="text-text-muted">ID:</span>{" "}
-                <span className="break-all font-mono text-text-main">{selectedDetail.id}</span>
+                <span className="text-muted">ID:</span>{" "}
+                <span className="break-all font-mono text-ink">{selectedDetail.id}</span>
               </div>
               <div>
-                <span className="text-text-muted">Timestamp:</span>{" "}
-                <span className="text-text-main">{formatDateTime(selectedDetail.timestamp)}</span>
+                <span className="text-muted">Timestamp:</span>{" "}
+                <span className="font-mono text-ink tabular-nums">{formatDateTime(selectedDetail.timestamp)}</span>
               </div>
               <div>
-                 <span className="text-text-muted">Provider:</span>{" "}
-                 <span className="text-text-main font-medium">{getProviderName(selectedDetail.provider, providerNameCache)}</span>
-               </div>
-              <div>
-                <span className="text-text-muted">Model:</span>{" "}
-                <span className="text-text-main font-mono">{selectedDetail.model}</span>
+                <span className="text-muted">Provider:</span>{" "}
+                <span className="font-medium text-ink">{getProviderName(selectedDetail.provider, providerNameCache)}</span>
               </div>
               <div>
-                <span className="text-text-muted">Status:</span>{" "}
-                <span className={cn(
-                  "font-medium",
-                  selectedDetail.status === "success"
-                    ? "text-green-600"
-                    : selectedDetail.status === "client_cancelled"
-                      ? "text-warning"
-                      : "text-red-600"
-                )}>
-                  {selectedDetail.status}
-                </span>
+                <span className="text-muted">Model:</span>{" "}
+                <span className="font-mono text-ink">{selectedDetail.model}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted">Status:</span>
+                <Badge variant={statusVariant(selectedDetail.status)} size="sm">
+                  {selectedDetail.status || "unknown"}
+                </Badge>
               </div>
               <div>
-                <span className="text-text-muted">Latency:</span>{" "}
-                <span className="text-text-main font-mono">
+                <span className="text-muted">Latency:</span>{" "}
+                <span className="font-mono text-ink tabular-nums">
                   TTFT {selectedDetail.latency?.ttft || 0}ms / Total {selectedDetail.latency?.total || 0}ms
                 </span>
               </div>
               <div>
-                <span className="text-text-muted">Input Tokens:</span>{" "}
-                <span className="text-text-main font-mono">
+                <span className="text-muted">Input tokens:</span>{" "}
+                <span className="font-mono text-ink tabular-nums">
                   {getInputTokens(selectedDetail.tokens).toLocaleString()}
                 </span>
               </div>
               {getCachedTokens(selectedDetail.tokens) > 0 && (
                 <div>
-                  <span className="text-text-muted">Cached Tokens:</span>{" "}
-                  <span className="text-text-main font-mono">
+                  <span className="text-muted">Cached tokens:</span>{" "}
+                  <span className="font-mono text-ink tabular-nums">
                     {getCachedTokens(selectedDetail.tokens).toLocaleString()}
                   </span>
                 </div>
               )}
               {getCacheCreationTokens(selectedDetail.tokens) > 0 && (
                 <div>
-                  <span className="text-text-muted">Cache Creation:</span>{" "}
-                  <span className="text-text-main font-mono">
+                  <span className="text-muted">Cache creation:</span>{" "}
+                  <span className="font-mono text-ink tabular-nums">
                     {getCacheCreationTokens(selectedDetail.tokens).toLocaleString()}
                   </span>
                 </div>
               )}
               <div>
-                <span className="text-text-muted">Output Tokens:</span>{" "}
-                <span className="text-text-main font-mono">
+                <span className="text-muted">Output tokens:</span>{" "}
+                <span className="font-mono text-ink tabular-nums">
                   {getOutputTokens(selectedDetail.tokens).toLocaleString()}
                 </span>
               </div>
             </div>
 
             {selectedDetail.pxpipe && (
-              <div className="rounded-lg border border-black/5 dark:border-white/5 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-text-muted">image</span>
-                  <span className="font-semibold text-sm text-text-main">PXPIPE</span>
-                  <span className={cn(
-                    "text-xs px-2 py-0.5 rounded",
-                    selectedDetail.pxpipe.applied
-                      ? "bg-green-500/15 text-green-600"
-                      : "bg-warning/15 text-warning"
-                  )}>
+              <div className="rounded-md border border-line bg-raise p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-muted">image</span>
+                  <span className="text-sm font-semibold text-ink">PXPIPE</span>
+                  <Badge variant={selectedDetail.pxpipe.applied ? "success" : "warning"} size="sm">
                     {selectedDetail.pxpipe.applied ? "Activated" : "Skipped"}
-                  </span>
+                  </Badge>
                 </div>
                 {selectedDetail.pxpipe.applied ? (
                   <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
                     <div>
-                      <span className="text-text-muted block text-xs">Original (est.)</span>
-                      <span className="font-mono">{(selectedDetail.pxpipe.tokensBeforeEst || 0).toLocaleString()} tokens</span>
+                      <span className="block text-xs text-muted">Original (est.)</span>
+                      <span className="font-mono tabular-nums text-ink">{(selectedDetail.pxpipe.tokensBeforeEst || 0).toLocaleString()} tokens</span>
                     </div>
                     <div>
-                      <span className="text-text-muted block text-xs">Compressed (est.)</span>
-                      <span className="font-mono">{(selectedDetail.pxpipe.tokensAfterEst || 0).toLocaleString()} tokens</span>
+                      <span className="block text-xs text-muted">Compressed (est.)</span>
+                      <span className="font-mono tabular-nums text-ink">{(selectedDetail.pxpipe.tokensAfterEst || 0).toLocaleString()} tokens</span>
                     </div>
                     <div>
-                      <span className="text-text-muted block text-xs">Saved</span>
-                      <span className="font-mono text-green-600">{selectedDetail.pxpipe.savedPct || 0}%</span>
+                      <span className="block text-xs text-muted">Saved</span>
+                      <span className="font-mono tabular-nums text-ok">{selectedDetail.pxpipe.savedPct || 0}%</span>
                     </div>
                     <div>
-                      <span className="text-text-muted block text-xs">Images</span>
-                      <span className="font-mono">{selectedDetail.pxpipe.imageCount || 0} ({selectedDetail.pxpipe.durationMs || 0}ms)</span>
+                      <span className="block text-xs text-muted">Images</span>
+                      <span className="font-mono tabular-nums text-ink">{selectedDetail.pxpipe.imageCount || 0} ({selectedDetail.pxpipe.durationMs || 0}ms)</span>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-text-muted">
-                    Reason: <span className="font-mono">{selectedDetail.pxpipe.reason}</span>
+                  <p className="text-sm text-muted">
+                    Reason: <span className="font-mono text-ink">{selectedDetail.pxpipe.reason}</span>
                     {selectedDetail.pxpipe.detail ? ` — ${selectedDetail.pxpipe.detail}` : ""}
                   </p>
                 )}
@@ -516,48 +493,47 @@ export default function RequestDetailsTab() {
             )}
 
             <div className="space-y-4">
-              <CollapsibleSection title="1. Client Request (Input)" defaultOpen={true} icon="input">
-                <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
+              <CollapsibleSection title="1. Client request (input)" defaultOpen={true} icon="input">
+                <pre className="max-h-[300px] max-w-full overflow-auto rounded-md border border-line bg-bg p-3 font-mono text-xs text-ink sm:p-4">
                   {JSON.stringify(selectedDetail.request, null, 2)}
                 </pre>
               </CollapsibleSection>
 
               {selectedDetail.providerRequest && (
-                <CollapsibleSection title="2. Provider Request (Translated)" icon="translate">
-                  <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
+                <CollapsibleSection title="2. Provider request (translated)" icon="translate">
+                  <pre className="max-h-[300px] max-w-full overflow-auto rounded-md border border-line bg-bg p-3 font-mono text-xs text-ink sm:p-4">
                     {JSON.stringify(selectedDetail.providerRequest, null, 2)}
                   </pre>
                 </CollapsibleSection>
               )}
 
               {selectedDetail.providerResponse && (
-                <CollapsibleSection title="3. Provider Response (Raw)" icon="data_object">
-                  <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
-                    {typeof selectedDetail.providerResponse === 'object'
+                <CollapsibleSection title="3. Provider response (raw)" icon="data_object">
+                  <pre className="max-h-[300px] max-w-full overflow-auto rounded-md border border-line bg-bg p-3 font-mono text-xs text-ink sm:p-4">
+                    {typeof selectedDetail.providerResponse === "object"
                       ? JSON.stringify(selectedDetail.providerResponse, null, 2)
-                      : selectedDetail.providerResponse
-                    }
+                      : selectedDetail.providerResponse}
                   </pre>
                 </CollapsibleSection>
               )}
-              
-              <CollapsibleSection title="4. Client Response (Final)" defaultOpen={true} icon="output">
+
+              <CollapsibleSection title="4. Client response (final)" defaultOpen={true} icon="output">
                 {selectedDetail.response?.thinking && (
                   <div className="mb-4">
-                    <h4 className="font-semibold text-text-main mb-2 flex items-center gap-2 text-xs uppercase tracking-wide opacity-70">
+                    <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted">
                       <span aria-hidden="true" className="material-symbols-outlined text-[16px]">psychology</span>
-                      Thinking Process
+                      Thinking process
                     </h4>
-                    <pre className="max-h-[200px] max-w-full overflow-auto rounded-lg border border-warning/30 bg-warning/10 p-3 font-mono text-xs text-text-main sm:p-4">
+                    <pre className="max-h-[200px] max-w-full overflow-auto rounded-md border border-line-strong bg-bg p-3 font-mono text-xs text-ink sm:p-4">
                       {selectedDetail.response.thinking}
                     </pre>
                   </div>
                 )}
-                
-                <h4 className="font-semibold text-text-main mb-2 text-xs uppercase tracking-wide opacity-70">
+
+                <h4 className="mb-2 text-xs font-semibold text-muted">
                   Content
                 </h4>
-                <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
+                <pre className="max-h-[300px] max-w-full overflow-auto rounded-md border border-line bg-bg p-3 font-mono text-xs text-ink sm:p-4">
                   {selectedDetail.response?.content || "[No content]"}
                 </pre>
               </CollapsibleSection>

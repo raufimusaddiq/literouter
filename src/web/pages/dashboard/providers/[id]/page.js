@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter, Link } from "@/web/router";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { Card, Button, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, XiaomiMimoAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
+import PageHeader from "@/shared/components/shell/PageHeader";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
@@ -1015,7 +1016,7 @@ export default function ProviderDetailPage() {
   const isSelected = (connectionId) => selectedConnectionIds.includes(connectionId);
 
   const connectionsList = (
-    <div className="flex min-w-0 flex-col divide-y divide-black/[0.03] dark:divide-white/[0.03] max-h-[500px] overflow-y-auto pr-1">
+    <div className="flex max-h-[500px] min-w-0 flex-col divide-y divide-line overflow-y-auto border-b border-line pr-1">
       {connections
         .map((conn, index) => (
           <div key={conn.id} className="flex min-w-0 items-stretch">
@@ -1025,10 +1026,10 @@ export default function ProviderDetailPage() {
                 checked={isSelected(conn.id)}
                 aria-label={`Select ${conn.name || "connection"}`}
                 onChange={() => toggleSelectConnection(conn.id)}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                className="size-4 rounded border-line-strong"
               />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <ConnectionRow
                 connection={conn}
                 proxyPools={proxyPools}
@@ -1083,40 +1084,43 @@ export default function ProviderDetailPage() {
       title={`Apply Proxy (${connections.length} connections)`}
     >
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col">
+        <div className="flex flex-col divide-y divide-line border-y border-line">
           <button
+            type="button"
             onClick={handleApplyOneToOne}
             disabled={bulkUpdatingProxy || activePools.length === 0}
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2.5 px-2 py-2.5 text-left transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-text-muted text-[18px]">sync_alt</span>
-            <span className="text-sm text-text-main">One-to-one (rotate)</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-muted">sync_alt</span>
+            <span className="text-sm text-ink">One-to-one (rotate)</span>
           </button>
           <button
+            type="button"
             onClick={() => handleApplySinglePool(null)}
             disabled={bulkUpdatingProxy}
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2.5 px-2 py-2.5 text-left transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-text-muted text-[18px]">link_off</span>
-            <span className="text-sm text-text-main">None (unbind all)</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-muted">link_off</span>
+            <span className="text-sm text-ink">None (unbind all)</span>
           </button>
           {proxyPools.map((pool) => (
             <button
+              type="button"
               key={pool.id}
               onClick={() => handleApplySinglePool(pool.id)}
               disabled={bulkUpdatingProxy || pool.isActive !== true}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-2.5 px-2 py-2.5 text-left transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-text-muted text-[18px]">lan</span>
-              <span className="truncate text-sm text-text-main">{pool.name}</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-muted">lan</span>
+              <span className="truncate text-sm text-ink">{pool.name}</span>
               {pool.isActive !== true && (
-                <span className="text-[11px] text-text-muted">(inactive)</span>
+                <span className="text-[11px] text-faint">(inactive)</span>
               )}
             </button>
           ))}
         </div>
 
-        {bulkUpdatingProxy && <p className="text-xs text-text-muted">Applying...</p>}
+        {bulkUpdatingProxy && <p className="text-xs text-muted">Applying...</p>}
 
         <Button onClick={closeBulkProxyModal} variant="ghost" fullWidth disabled={bulkUpdatingProxy}>
           Cancel
@@ -1181,93 +1185,103 @@ export default function ProviderDetailPage() {
     });
 
     return (
-      <div className="flex flex-wrap gap-3">
-        {customModelRows.map((model) => (
-          <ModelRow
-            key={`${model.source}-${model.fullModel}`}
-            model={{ id: model.id, name: model.name }}
-            fullModel={`${providerDisplayAlias}/${model.id}`}
-            alias={model.alias}
-            copied={copied}
-            onCopy={copy}
-            onSetAlias={() => {}}
-            onDeleteAlias={() => {
-              if (model.source === "custom") {
-                handleDeleteCustomModel(model.id, "llm", providerStorageAlias);
-              } else {
-                handleDeleteAlias(model.alias);
-              }
-            }}
-            testResult={modelTestResults[model.id]}
-            onTest={!isSystemOne && (connections.length > 0 || isFreeNoAuth) ? () => handleTestModel(model.id) : undefined}
-            isTesting={testingModelIds.has(model.id)}
-            isCustom
-            isFree={false}
-            caps={getCaps(`${providerId}/${model.id}`)}
-            thinkingSuffix={resolveThinkingSuffix(model.id)}
-          />
-        ))}
+      <div className="flex flex-col gap-4">
+        {(customModelRows.length > 0 || displayModels.length > 0) && (
+          <div className="grid grid-cols-1 border-t border-line lg:grid-cols-2 lg:gap-x-6">
+            {customModelRows.map((model) => (
+              <ModelRow
+                key={`${model.source}-${model.fullModel}`}
+                model={{ id: model.id, name: model.name }}
+                fullModel={`${providerDisplayAlias}/${model.id}`}
+                alias={model.alias}
+                copied={copied}
+                onCopy={copy}
+                onSetAlias={() => {}}
+                onDeleteAlias={() => {
+                  if (model.source === "custom") {
+                    handleDeleteCustomModel(model.id, "llm", providerStorageAlias);
+                  } else {
+                    handleDeleteAlias(model.alias);
+                  }
+                }}
+                testResult={modelTestResults[model.id]}
+                onTest={!isSystemOne && (connections.length > 0 || isFreeNoAuth) ? () => handleTestModel(model.id) : undefined}
+                isTesting={testingModelIds.has(model.id)}
+                isCustom
+                isFree={false}
+                caps={getCaps(`${providerId}/${model.id}`)}
+                thinkingSuffix={resolveThinkingSuffix(model.id)}
+              />
+            ))}
 
-        {displayModels.map((model) => {
-          const fullModel = `${providerStorageAlias}/${model.id}`;
-          const oldFormatModel = `${providerId}/${model.id}`;
-          const existingAlias = Object.entries(modelAliases).find(
-            ([, m]) => m === fullModel || m === oldFormatModel
-          )?.[0];
-          return (
-            <ModelRow
-              key={model.id}
-              model={model}
-              fullModel={`${providerDisplayAlias}/${model.id}`}
-              alias={existingAlias}
-              copied={copied}
-              onCopy={copy}
-              onSetAlias={(alias) => handleSetAlias(model.id, alias, providerStorageAlias)}
-              onDeleteAlias={() => handleDeleteAlias(existingAlias)}
-              testResult={modelTestResults[model.id]}
-              onTest={!isSystemOne && (connections.length > 0 || isFreeNoAuth) ? () => handleTestModel(model.id) : undefined}
-              isTesting={testingModelIds.has(model.id)}
-              isFree={model.isFree}
-              onDisable={() => handleDisableModel(model.id)}
-              caps={getCaps(`${providerId}/${model.id}`)}
-              thinkingSuffix={resolveThinkingSuffix(model.id)}
-            />
-          );
-        })}
-
-        <button
-          onClick={() => setShowAddCustomModel(true)}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2 text-xs text-primary transition-colors hover:border-primary hover:bg-primary/5 sm:w-auto"
-        >
-          <span aria-hidden="true" className="material-symbols-outlined text-sm">add</span>
-          Add Model
-        </button>
-
-        {providerId === "qoder" && connections.some((conn) => conn.isActive !== false) && (
-          <button
-            onClick={handleImportQoderModels}
-            disabled={importingQoderModels}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-500/40 px-3 py-2 text-xs text-blue-600 dark:text-blue-400 transition-colors hover:border-blue-500 hover:bg-blue-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-sm" style={importingQoderModels ? { animation: "spin 1s linear infinite" } : undefined}>
-              {importingQoderModels ? "progress_activity" : "download"}
-            </span>
-            {importingQoderModels ? translate("Fetching...") : translate("Fetch Qoder Models")}
-          </button>
+            {displayModels.map((model) => {
+              const fullModel = `${providerStorageAlias}/${model.id}`;
+              const oldFormatModel = `${providerId}/${model.id}`;
+              const existingAlias = Object.entries(modelAliases).find(
+                ([, m]) => m === fullModel || m === oldFormatModel
+              )?.[0];
+              return (
+                <ModelRow
+                  key={model.id}
+                  model={model}
+                  fullModel={`${providerDisplayAlias}/${model.id}`}
+                  alias={existingAlias}
+                  copied={copied}
+                  onCopy={copy}
+                  onSetAlias={(alias) => handleSetAlias(model.id, alias, providerStorageAlias)}
+                  onDeleteAlias={() => handleDeleteAlias(existingAlias)}
+                  testResult={modelTestResults[model.id]}
+                  onTest={!isSystemOne && (connections.length > 0 || isFreeNoAuth) ? () => handleTestModel(model.id) : undefined}
+                  isTesting={testingModelIds.has(model.id)}
+                  isFree={model.isFree}
+                  onDisable={() => handleDisableModel(model.id)}
+                  caps={getCaps(`${providerId}/${model.id}`)}
+                  thinkingSuffix={resolveThinkingSuffix(model.id)}
+                />
+              );
+            })}
+          </div>
         )}
 
-        {(providerId === "cline" || providerId === "clinepass") && connections.some((conn) => conn.isActive !== false) && (
-          <button
-            onClick={handleImportClineModels}
-            disabled={importingClineModels}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-500/40 px-3 py-2 text-xs text-blue-600 dark:text-blue-400 transition-colors hover:border-blue-500 hover:bg-blue-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            icon="add"
+            onClick={() => setShowAddCustomModel(true)}
+            className="whitespace-nowrap"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-sm" style={importingClineModels ? { animation: "spin 1s linear infinite" } : undefined}>
-              {importingClineModels ? "progress_activity" : "download"}
-            </span>
-            {importingClineModels ? translate("Fetching...") : translate("Import from /models")}
-          </button>
-        )}
+            Add Model
+          </Button>
+
+          {providerId === "qoder" && connections.some((conn) => conn.isActive !== false) && (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="download"
+              loading={importingQoderModels}
+              disabled={importingQoderModels}
+              onClick={handleImportQoderModels}
+              className="whitespace-nowrap"
+            >
+              {importingQoderModels ? translate("Fetching...") : translate("Fetch Qoder Models")}
+            </Button>
+          )}
+
+          {(providerId === "cline" || providerId === "clinepass") && connections.some((conn) => conn.isActive !== false) && (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="download"
+              loading={importingClineModels}
+              disabled={importingClineModels}
+              onClick={handleImportClineModels}
+              className="whitespace-nowrap"
+            >
+              {importingClineModels ? translate("Fetching...") : translate("Import from /models")}
+            </Button>
+          )}
+        </div>
 
         {suggestedModels.length > 0 && (() => {
           const addedFullModels = new Set([
@@ -1280,16 +1294,17 @@ export default function ProviderDetailPage() {
           );
           if (notAdded.length === 0) return null;
           return (
-            <div className="w-full mt-2">
-              <p className="text-xs text-text-muted mb-2">Suggested free models (≥200k context):</p>
+            <div className="w-full pt-1">
+              <p className="mb-2 text-xs text-muted">Suggested free models (≥200k context):</p>
               <div className="flex flex-wrap gap-2">
                 {notAdded.map((m) => (
                   <button
+                    type="button"
                     key={m.id}
                     onClick={async () => {
                       await handleAddCustomModel(m.id, "llm", providerStorageAlias);
                     }}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-xs text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                    className="inline-flex items-center gap-1 rounded-md border border-line-strong bg-raise px-2.5 py-1 font-mono text-xs text-muted transition-colors hover:border-ink hover:text-ink"
                     title={`${m.name} · ${(m.contextLength / 1000).toFixed(0)}k ctx`}
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[13px]">add</span>
@@ -1302,14 +1317,15 @@ export default function ProviderDetailPage() {
         })()}
 
         {disabledDisplayModels.length > 0 && (
-          <div className="w-full mt-2">
-            <p className="text-xs text-text-muted mb-2">Disabled models ({disabledDisplayModels.length}):</p>
+          <div className="w-full pt-1">
+            <p className="mb-2 text-xs text-muted">Disabled models ({disabledDisplayModels.length}):</p>
             <div className="flex flex-wrap gap-2">
               {disabledDisplayModels.map((m) => (
                 <button
+                  type="button"
                   key={m.id}
                   onClick={() => handleEnableModel(m.id)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-black/10 dark:border-white/10 text-xs text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                  className="inline-flex items-center gap-1 rounded-md border border-dashed border-line-strong bg-raise px-2.5 py-1 font-mono text-xs text-muted transition-colors hover:border-ink hover:text-ink"
                   title="Restore model"
                 >
                   <span aria-hidden="true" className="material-symbols-outlined text-[13px]">add</span>
@@ -1334,9 +1350,9 @@ export default function ProviderDetailPage() {
 
   if (!providerInfo) {
     return (
-      <div className="text-center py-20">
-        <p className="text-text-muted">Provider not found</p>
-        <Link href="/dashboard/providers" className="text-primary mt-4 inline-block">
+      <div className="py-20 text-center">
+        <p className="text-muted">Provider not found</p>
+        <Link href="/dashboard/providers" className="mt-4 inline-block text-sm font-medium text-ink underline underline-offset-[3px]">
           Back to Providers
         </Link>
       </div>
@@ -1355,56 +1371,60 @@ export default function ProviderDetailPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <div className="min-w-0 border-b border-border-subtle pb-6">
+      <div className="flex min-w-0 flex-col gap-3">
+        <PageHeader
+          showTitle={false}
+          breadcrumbs={[
+            { label: "Providers", href: "/dashboard/providers" },
+            { label: providerInfo.name, image: getHeaderIconPath() },
+          ]}
+        />
         <Link
           href="/dashboard/providers"
-          className="mb-4 inline-flex items-center gap-1 text-sm text-text-muted transition-colors hover:text-primary focus-visible:text-primary"
+          className="inline-flex w-fit items-center gap-1 text-xs font-medium text-muted transition-colors hover:text-ink focus-visible:text-ink"
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-lg">arrow_back</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">arrow_back</span>
           Back to Providers
         </Link>
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <div
-            className="flex size-14 shrink-0 items-center justify-center rounded-2xl ring-1 ring-border-subtle"
-            style={{ backgroundColor: `${providerInfo.color}15` }}
-          >
+        <div className="flex min-w-0 items-center gap-3.5">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-line-strong bg-raise">
             {headerImgError || !getHeaderIconPath() ? (
-              <span className="text-sm font-bold" style={{ color: providerInfo.color }}>
+              <span className="font-mono text-sm font-bold text-ink" style={providerInfo.color ? { color: providerInfo.color } : undefined}>
                 {providerInfo.textIcon || providerInfo.id.slice(0, 2).toUpperCase()}
               </span>
             ) : (
               <img
                 src={getHeaderIconPath()}
                 alt={providerInfo.name}
-                width={48}
-                height={48}
-                className="max-h-12 max-w-12 rounded-lg object-contain"
-                sizes="48px"
+                width={36}
+                height={36}
+                className="max-h-9 max-w-9 rounded object-contain"
+                sizes="36px"
                 onError={() => {
                   markProviderIconMissing(providerInfo.id);
                   setHeaderImgError(true);
                 }}
-              loading="lazy"
-              decoding="async"
+                loading="lazy"
+                decoding="async"
               />
             )}
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="truncate text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">{providerInfo.name}</h1>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h1 className="truncate text-[24px] leading-[30px] font-semibold tracking-[-0.025em] text-ink sm:text-[30px] sm:leading-[36px]">{providerInfo.name}</h1>
               {(providerInfo.notice?.apiKeyUrl || providerInfo.notice?.signupUrl || providerInfo.website) && (
                 <a
                   href={providerInfo.notice?.apiKeyUrl || providerInfo.notice?.signupUrl || providerInfo.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-ink underline underline-offset-[3px] transition-opacity hover:opacity-80"
                 >
-                  <span aria-hidden="true" className="material-symbols-outlined text-sm">open_in_new</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">open_in_new</span>
                   {providerInfo.notice?.apiKeyUrl ? "Get API Key" : "Sign up / Learn more"}
                 </a>
               )}
             </div>
-            <p className="mt-1 text-sm text-text-muted">
+            <p className="mt-0.5 text-sm text-muted">
               {connections.length} connection{connections.length === 1 ? "" : "s"} · LiteRouter provider
             </p>
           </div>
@@ -1412,22 +1432,22 @@ export default function ProviderDetailPage() {
       </div>
 
       {providerInfo.deprecated && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-          <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-yellow-500 mt-0.5 shrink-0">warning</span>
-          <p className="text-xs text-red-600 dark:text-yellow-400 leading-relaxed">{providerInfo.deprecationNotice}</p>
+        <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3.5 py-2.5">
+          <span aria-hidden="true" className="material-symbols-outlined mt-0.5 shrink-0 text-[16px] text-warning">warning</span>
+          <p className="text-xs leading-relaxed text-warning">{providerInfo.deprecationNotice}</p>
         </div>
       )}
 
       {providerInfo.notice?.text && !providerInfo.deprecated && (
-        <div className="flex flex-col gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 sm:flex-row sm:items-center">
-          <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-blue-500 shrink-0">info</span>
-          <p className="min-w-0 flex-1 text-xs leading-relaxed text-blue-600 dark:text-blue-400">{providerInfo.notice.text}</p>
+        <div className="flex flex-col gap-2 rounded-md border border-line-strong bg-raise px-3.5 py-2.5 sm:flex-row sm:items-center">
+          <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[16px] text-muted">info</span>
+          <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted">{providerInfo.notice.text}</p>
           {providerInfo.notice.apiKeyUrl && (
             <a
               href={providerInfo.notice.apiKeyUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex justify-center rounded bg-blue-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-600 sm:py-0.5"
+              className="inline-flex shrink-0 items-center justify-center rounded-md border border-line-strong bg-bg px-2.5 py-1 text-xs font-semibold text-ink transition-colors hover:bg-surface-2"
             >
               Get API Key →
             </a>
@@ -1437,15 +1457,15 @@ export default function ProviderDetailPage() {
 
       {isSystemOne && (
         <Card>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold">System One endpoint</h2>
-              <p className="mt-1 text-sm text-text-muted">
+              <h2 className="text-base font-semibold tracking-[-0.01em] text-ink">System One endpoint</h2>
+              <p className="mt-1 text-sm text-muted">
                 This provider serves the typed System One format, not chat completions. Send requests to the System One endpoint and use the workspace to verify a connection.
               </p>
             </div>
             <Link href="/dashboard/systemone" className="shrink-0">
-              <Button size="sm" variant="secondary" icon="terminal">Open System One workspace</Button>
+              <Button size="sm" variant="secondary" icon="terminal" className="whitespace-nowrap">Open System One workspace</Button>
             </Link>
           </div>
         </Card>
@@ -1453,15 +1473,15 @@ export default function ProviderDetailPage() {
 
       {isCompatible && providerNode && (
         <Card>
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold">{isAnthropicCompatible ? "Anthropic Compatible Details" : "OpenAI Compatible Details"}</h2>
-              <p className="break-all text-sm text-text-muted">
+              <h2 className="text-base font-semibold tracking-[-0.01em] text-ink">{isAnthropicCompatible ? "Anthropic Compatible Details" : "OpenAI Compatible Details"}</h2>
+              <p className="mt-1 break-all font-mono text-xs text-muted">
                 {isAnthropicCompatible ? "Messages API" : (providerNode.apiType === "responses" ? "Responses API" : "Chat Completions")} · {(providerNode.baseUrl || "").replace(/\/$/, "")}/
                 {isAnthropicCompatible ? "messages" : (providerNode.apiType === "responses" ? "responses" : "chat/completions")}
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
                 icon="add"
@@ -1469,7 +1489,7 @@ export default function ProviderDetailPage() {
                   setAddConnectionError("");
                   setShowAddApiKeyModal(true);
                 }}
-                className="w-full sm:w-auto"
+                className="whitespace-nowrap"
               >
                 Add API Key
               </Button>
@@ -1478,13 +1498,13 @@ export default function ProviderDetailPage() {
                 variant="secondary"
                 icon="edit"
                 onClick={() => setShowEditNodeModal(true)}
-                className="w-full sm:w-auto"
+                className="whitespace-nowrap"
               >
                 Edit
               </Button>
               <Button
                 size="sm"
-                variant="secondary"
+                variant="danger"
                 icon="delete"
                 onClick={async () => {
                   setConfirmState({
@@ -1503,7 +1523,7 @@ export default function ProviderDetailPage() {
                     }
                   });
                 }}
-                className="w-full sm:w-auto"
+                className="whitespace-nowrap"
               >
                 Delete
               </Button>
@@ -1516,15 +1536,16 @@ export default function ProviderDetailPage() {
         <NoAuthProxyCard providerId={providerId} />
       ) : (
         <Card>
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-lg font-semibold">Connections</h2>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+            <h2 className="text-base font-semibold tracking-[-0.01em] text-ink">Connections</h2>
+            <div className="flex flex-wrap items-center gap-2.5">
               {connections.length > 0 && proxyPools.length > 0 && (
                 <Button
                   size="sm"
                   variant="secondary"
                   icon="lan"
                   onClick={() => setShowBulkProxyModal(true)}
+                  className="whitespace-nowrap"
                 >
                   Apply Proxy
                 </Button>
@@ -1537,6 +1558,7 @@ export default function ProviderDetailPage() {
                       variant="danger"
                       icon="delete"
                       onClick={handleBulkDelete}
+                      className="whitespace-nowrap"
                     >
                       Delete Selected ({selectedConnectionIds.length})
                     </Button>
@@ -1547,6 +1569,8 @@ export default function ProviderDetailPage() {
                     icon="sync"
                     onClick={handleRunOneByOneTest}
                     disabled={oneByOneRunning}
+                    loading={oneByOneRunning}
+                    className="whitespace-nowrap"
                   >
                     {oneByOneRunning ? "Testing Connection One-by-One..." : "Test Connection One-by-One"}
                   </Button>
@@ -1557,6 +1581,7 @@ export default function ProviderDetailPage() {
                       icon="stop"
                       onClick={handleStopOneByOneTest}
                       disabled={oneByOneStopping}
+                      className="whitespace-nowrap"
                     >
                       {oneByOneStopping ? "Stopping..." : "Stop"}
                     </Button>
@@ -1564,22 +1589,23 @@ export default function ProviderDetailPage() {
                 </>
               )}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-text-muted font-medium">Round Robin</span>
+                <span className="text-xs font-medium text-muted">Round Robin</span>
                 <Toggle
+                  size="sm"
                   checked={providerStrategy === "round-robin"}
                   onChange={handleRoundRobinToggle}
                   aria-label="Round Robin routing"
                 />
                 {providerStrategy === "round-robin" && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-text-muted">Sticky:</span>
+                    <span className="text-xs text-muted">Sticky:</span>
                     <input
                       type="number"
                       min={1}
                       value={providerStickyLimit}
                       onChange={(e) => handleStickyLimitChange(e.target.value)}
                       placeholder="1"
-                      className="w-14 px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:border-primary"
+                      className="h-7 w-14 rounded-md border border-line-strong bg-raise px-2 font-mono text-xs tabular-nums text-ink focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line"
                     />
                   </div>
                 )}
@@ -1588,44 +1614,44 @@ export default function ProviderDetailPage() {
           </div>
 
           {connections.length === 0 ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-y border-line py-4">
               <div className="flex items-center gap-3">
-                <div className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 text-primary shrink-0">
+                <div className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-line bg-raise text-muted">
                   <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{isOAuth ? "lock" : "key"}</span>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm text-text-muted">No connections yet</p>
+                  <p className="text-sm text-muted">No connections yet</p>
                   {hasDualAuthModes && (
-                    <p className="text-xs text-text-muted">
+                    <p className="text-xs text-faint">
                       Choose {oauthConnectionLabel} or {apiKeyConnectionLabel}.
                     </p>
                   )}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {hasDualAuthModes ? (
                   <>
-                    <Button size="sm" icon="lock" variant="secondary" onClick={triggerOAuthConnection}>
+                    <Button size="sm" icon="lock" variant="secondary" onClick={triggerOAuthConnection} className="whitespace-nowrap">
                       {oauthConnectionLabel}
                     </Button>
-                    <Button size="sm" icon="key" onClick={triggerApiKeyConnection}>
+                    <Button size="sm" icon="key" onClick={triggerApiKeyConnection} className="whitespace-nowrap">
                       {apiKeyConnectionLabel}
                     </Button>
                   </>
                 ) : (
                   <>
                     {!isCompatible && providerId === "iflow" && (
-                      <Button size="sm" icon="cookie" variant="secondary" onClick={() => setShowIFlowCookieModal(true)}>
+                      <Button size="sm" icon="cookie" variant="secondary" onClick={() => setShowIFlowCookieModal(true)} className="whitespace-nowrap">
                         Cookie
                       </Button>
                     )}
                     {providerId === "codex" && (
-                      <Button size="sm" icon="playlist_add" variant="secondary" onClick={() => setShowBulkImportCodex(true)}>
+                      <Button size="sm" icon="playlist_add" variant="secondary" onClick={() => setShowBulkImportCodex(true)} className="whitespace-nowrap">
                         {translate("Bulk Add")}
                       </Button>
                     )}
                     {providerId === "grok-cli" && (
-                      <Button size="sm" icon="playlist_add" variant="secondary" onClick={() => setShowBulkImportGrokCli(true)}>
+                      <Button size="sm" icon="playlist_add" variant="secondary" onClick={() => setShowBulkImportGrokCli(true)} className="whitespace-nowrap">
                         {translate("Bulk Add")}
                       </Button>
                     )}
@@ -1633,6 +1659,7 @@ export default function ProviderDetailPage() {
                       size="sm"
                       icon="add"
                       onClick={triggerAddConnection}
+                      className="whitespace-nowrap"
                     >
                       {isCompatible ? "Add API Key" : (providerId === "iflow" ? "OAuth" : "Add Connection")}
                     </Button>
@@ -1643,29 +1670,29 @@ export default function ProviderDetailPage() {
           ) : (
             <>
               {oneByOneSummary && (
-                <div className="mb-4 rounded-lg border border-black/10 bg-black/[0.02] px-3 py-2 text-xs text-text-muted dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="mb-3 rounded-md border border-line bg-raise px-3 py-2 font-mono text-xs tabular-nums text-muted">
                   <div className="flex flex-wrap items-center gap-3">
                     <span>Total: {oneByOneSummary.total}</span>
                     <span>Completed: {oneByOneSummary.completed}</span>
-                    <span>Passed: {oneByOneSummary.passed}</span>
-                    <span>Failed: {oneByOneSummary.failed}</span>
+                    <span className="text-ok">Passed: {oneByOneSummary.passed}</span>
+                    <span className={oneByOneSummary.failed > 0 ? "text-danger" : ""}>Failed: {oneByOneSummary.failed}</span>
                     {oneByOneSummary.stopped && (
                       <span className="text-warning">Stopped</span>
                     )}
                     {oneByOneRunning && oneByOneCurrentConnectionId && (
-                      <span>Running: {connections.find((conn) => conn.id === oneByOneCurrentConnectionId)?.name || oneByOneCurrentConnectionId}</span>
+                      <span className="text-ink">Running: {connections.find((conn) => conn.id === oneByOneCurrentConnectionId)?.name || oneByOneCurrentConnectionId}</span>
                     )}
                   </div>
                 </div>
               )}
               {connections.length > 0 && (
-                <div className="mb-3 flex items-center gap-2 border-b border-black/[0.03] pb-2 dark:border-white/[0.03]">
-                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted hover:text-primary">
+                <div className="flex items-center gap-2 border-y border-line px-1 py-2 sm:px-2">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted transition-colors hover:text-ink">
                     <input
                       type="checkbox"
                       checked={allSelected}
                       onChange={toggleSelectAllConnections}
-                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                      className="size-3.5 rounded border-line-strong"
                     />
                     Select All
                   </label>
@@ -1673,7 +1700,7 @@ export default function ProviderDetailPage() {
               )}
               {connectionsList}
               {!isCompatible && (
-                <div className="mt-4 grid grid-cols-1 gap-2 sm:flex">
+                <div className="mt-4 flex flex-wrap gap-2">
                   {providerId === "iflow" && (
                     <Button
                       size="sm"
@@ -1681,7 +1708,7 @@ export default function ProviderDetailPage() {
                       variant="secondary"
                       onClick={() => setShowIFlowCookieModal(true)}
                       title="Add connection using browser cookie"
-                      className="w-full sm:w-auto"
+                      className="whitespace-nowrap"
                     >
                       Cookie
                     </Button>
@@ -1693,7 +1720,7 @@ export default function ProviderDetailPage() {
                       variant="secondary"
                       onClick={() => setShowBulkImportCodex(true)}
                       title={translate("Bulk import codex accounts from JSON")}
-                      className="w-full sm:w-auto"
+                      className="whitespace-nowrap"
                     >
                       {translate("Bulk Add")}
                     </Button>
@@ -1705,7 +1732,7 @@ export default function ProviderDetailPage() {
                       variant="secondary"
                       onClick={() => setShowBulkImportGrokCli(true)}
                       title={translate("Bulk import Grok CLI accounts from JSON")}
-                      className="w-full sm:w-auto"
+                      className="whitespace-nowrap"
                     >
                       {translate("Bulk Add")}
                     </Button>
@@ -1717,7 +1744,7 @@ export default function ProviderDetailPage() {
                         icon="lock"
                         variant="secondary"
                         onClick={triggerOAuthConnection}
-                        className="w-full sm:w-auto"
+                        className="whitespace-nowrap"
                       >
                         {oauthConnectionLabel}
                       </Button>
@@ -1725,7 +1752,7 @@ export default function ProviderDetailPage() {
                         size="sm"
                         icon="key"
                         onClick={triggerApiKeyConnection}
-                        className="w-full sm:w-auto"
+                        className="whitespace-nowrap"
                       >
                         {apiKeyConnectionLabel}
                       </Button>
@@ -1735,7 +1762,7 @@ export default function ProviderDetailPage() {
                       size="sm"
                       icon="add"
                       onClick={triggerAddConnection}
-                      className="w-full sm:w-auto"
+                      className="whitespace-nowrap"
                     >
                       Add
                     </Button>
@@ -1748,9 +1775,9 @@ export default function ProviderDetailPage() {
       )}
 
       <Card>
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-base font-semibold tracking-[-0.01em] text-ink">
               {"Available Models"}
             </h2>
             {providerThinkingLevels && (
@@ -1758,7 +1785,7 @@ export default function ProviderDetailPage() {
                 value={thinkingMode}
                 onChange={(e) => handleThinkingModeChange(e.target.value)}
                 title="Appends (level) suffix to copied model names"
-                className="rounded-md border border-border bg-background px-2 py-1 text-xs focus:border-primary focus:outline-none"
+                className="h-7 rounded-md border border-line-strong bg-raise px-2 text-xs text-ink focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line"
               >
                 {providerThinkingLevels.map((opt) => (
                   <option key={opt} value={opt}>{`Thinking: ${opt.charAt(0).toUpperCase() + opt.slice(1)}`}</option>
@@ -1773,14 +1800,14 @@ export default function ProviderDetailPage() {
             ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; }).map((m) => m.id);
             const activeIds = allIds.filter((id) => !disabledModelIds.includes(id));
             return (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {disabledModelIds.length > 0 && (
-                  <Button size="sm" variant="secondary" icon="restart_alt" onClick={handleEnableAll}>
+                  <Button size="sm" variant="secondary" icon="restart_alt" onClick={handleEnableAll} className="whitespace-nowrap">
                     Active All
                   </Button>
                 )}
                 {activeIds.length > 0 && (
-                  <Button size="sm" variant="secondary" icon="block" onClick={() => handleDisableAll(activeIds)}>
+                  <Button size="sm" variant="secondary" icon="block" onClick={() => handleDisableAll(activeIds)} className="whitespace-nowrap">
                     Disable All
                   </Button>
                 )}
@@ -1789,7 +1816,7 @@ export default function ProviderDetailPage() {
           })()}
         </div>
         {providerId === "zed" && !!liveModelsError && (
-          <p className="text-xs text-red-500 mb-3 break-words">{liveModelsError}</p>
+          <p className="mb-3 break-words text-xs text-danger">{liveModelsError}</p>
         )}
         {renderModelsSection()}
       </Card>

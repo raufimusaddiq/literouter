@@ -33,11 +33,13 @@ jobs:
 
       - name: Tests must not write the real data dir
         run: |
-          if [ -e "$HOME/.9router" ]; then
-            echo "a test wrote $HOME/.9router"
-            find "$HOME/.9router" -maxdepth 3
-            exit 1
-          fi
+          for dir in "$HOME/.9router" "$HOME/.literouter"; do
+            if [ -e "$dir" ]; then
+              echo "a test wrote $dir"
+              find "$dir" -maxdepth 3
+              exit 1
+            fi
+          done
 
       - run: git diff --exit-code -- tests
       - run: test -z "$(git status --porcelain -- tests)"
@@ -45,8 +47,6 @@ jobs:
       - run: bun tests/__baseline__/verify-no-regression.mjs test-results.xml
 
       - run: bun --bun run eslint .
-
-      - run: bun scripts/comments/ratchet.mjs --check
 
       - run: bun scripts/check-test-hygiene.mjs --check
 

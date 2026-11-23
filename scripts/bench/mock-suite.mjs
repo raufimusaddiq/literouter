@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { startMock } from "./mock-upstream.mjs";
 import { runBench } from "./run.mjs";
+import dataDirModule from "../../cli/hooks/dataDir.js";
 import { fmt, slope } from "./stats.mjs";
 import { slimRun, writeReports } from "./report-io.mjs";
 
@@ -137,7 +138,7 @@ async function main() {
       const samples = [];
       const t0 = Date.now();
       const dbFile = () => { try { const d = path.join(dataDir, "db"); return fs.readdirSync(d).filter((f) => /^data.sqlite/.test(f)).map((f) => [f, fs.statSync(path.join(d, f)).size]); } catch { return []; } };
-      const usageOf = () => { const d = path.join(os.homedir(), ".9router"); try { return fs.readdirSync(d).map((f) => [f, fs.statSync(path.join(d, f)).size]); } catch { return []; } };
+      const usageOf = () => { const d = dataDirModule.resolveDataDir().dir; try { return fs.readdirSync(d).map((f) => [f, fs.statSync(path.join(d, f)).size]); } catch { return []; } };
       const usageBefore = Object.fromEntries(usageOf());
       const sampler = setInterval(() => {
         samples.push({ t: (Date.now() - t0) / 1000, rssMb: rssMb(gw.pid), files: Object.fromEntries(dbFile()) });
@@ -159,7 +160,7 @@ async function main() {
         `- RSS: start ${fmt(growth.startMb)} MB, end ${fmt(growth.endMb)} MB, peak ${fmt(growth.peakMb)} MB, 5s after load stopped ${fmt(growth.settledAfter5sMb)} MB`,
         `- RSS trend: ${fmt(growth.slopeMbPerMin, 2)} MB/min (least squares); first-third avg ${fmt(growth.firstThirdAvg)} MB vs last-third avg ${fmt(growth.lastThirdAvg)} MB`,
         `- gateway DATA_DIR files at end (bytes): ${JSON.stringify(samples.at(-1).files)}; at start: ${JSON.stringify(samples[0].files)}`,
-        `- ~/.9router usage files before -> after (bytes): ${JSON.stringify(usageBefore)} -> ${JSON.stringify(usageAfter)}`,
+        `- data dir usage files before -> after (bytes): ${JSON.stringify(usageBefore)} -> ${JSON.stringify(usageAfter)}`,
         "", "<details><summary>RSS samples</summary>", "", "| t (s) | RSS MB |", "|---|---|", ...samples.map((s) => `| ${fmt(s.t, 0)} | ${fmt(s.rssMb)} |`), "", "</details>", "");
       console.log("c) done");
       checkpoint();

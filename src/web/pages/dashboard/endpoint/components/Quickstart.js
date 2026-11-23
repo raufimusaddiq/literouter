@@ -28,13 +28,13 @@ export default function Quickstart({ baseUrl, copied, onCopy }) {
   const copyId = `quickstart_${active.id}`;
 
   return (
-    <div className="border-t border-border pt-3">
+    <div className="border-t border-line pt-3">
       <button
         type="button"
         onClick={toggle}
         aria-expanded={open}
         aria-controls="endpoint-quickstart"
-        className="flex min-h-11 items-center gap-1 text-sm font-medium text-text-main hover:text-primary"
+        className="flex min-h-11 items-center gap-1 text-sm font-semibold text-ink transition-colors hover:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line"
       >
         <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{open ? "expand_more" : "chevron_right"}</span>
         Quickstart
@@ -50,7 +50,7 @@ export default function Quickstart({ baseUrl, copied, onCopy }) {
                   role="tab"
                   aria-selected={tab === s.id}
                   onClick={() => setTab(s.id)}
-                  className={`min-h-11 rounded-md px-3 text-sm font-medium transition-colors ${tab === s.id ? "bg-primary/10 text-primary" : "text-text-muted hover:text-text-main"}`}
+                  className={`min-h-11 border-b-2 px-3 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line ${tab === s.id ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink"}`}
                 >
                   {s.label}
                 </button>
@@ -59,14 +59,14 @@ export default function Quickstart({ baseUrl, copied, onCopy }) {
             <button
               type="button"
               onClick={() => onCopy(active.code, copyId)}
-              className="inline-flex min-h-11 items-center gap-1 rounded px-2 text-sm text-text-muted hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
+              className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-[13px] text-muted transition-colors hover:bg-raise hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line"
               aria-label={`Copy ${active.label} snippet`}
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">{copied === copyId ? "check" : "content_copy"}</span>
               {copied === copyId ? "Copied" : "Copy"}
             </button>
           </div>
-          <pre role="tabpanel" tabIndex={0} className="mt-1 max-w-full overflow-x-auto rounded-lg border border-border bg-surface-2 p-3 font-mono text-xs leading-relaxed text-text-main">
+          <pre role="tabpanel" tabIndex={0} className="mt-1 max-w-full overflow-x-auto rounded-lg border border-line-strong bg-raise p-4 font-mono text-xs leading-relaxed text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line">
             <code>{active.code}</code>
           </pre>
         </div>

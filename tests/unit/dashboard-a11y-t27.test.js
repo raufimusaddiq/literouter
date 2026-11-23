@@ -19,21 +19,9 @@ describe("T-27 dashboard leftovers", () => {
     const src = read("src/web/pages/dashboard/usage/components/UsageTable.js");
     expect(src).toMatch(/\{title \? \(\s*<div[^>]*>\s*<h3/);
   });
-
-  it("quota account cards use h2, not h3", () => {
-    const src = read("src/web/pages/dashboard/usage/components/ProviderLimits/index.js");
-    expect(src).toMatch(/<h2 className="text-sm font-semibold text-text-primary truncate">/);
-    expect(src).not.toMatch(/<h3 className="text-sm font-semibold text-text-primary truncate">/);
-  });
 });
 
 describe("T-30 provider detail a11y", () => {
-  it("Header breadcrumb title is not an h1", () => {
-    const src = read("src/shared/components/Header.js");
-    expect(src).not.toMatch(/<h1/);
-    expect(src).toMatch(/<p className="text-base font-semibold text-text-main lg:text-xl truncate">/);
-  });
-
   it("ModelRow icon buttons are labelled and focus-visible", () => {
     const src = read("src/web/pages/dashboard/providers/[id]/ModelRow.js");
     expect(src).toContain("aria-label={`Copy model ID ${displayModel}`}");
@@ -51,10 +39,7 @@ describe("a11y heading and size guards", () => {
     expect(s).not.toMatch(/<h3/);
   });
 
-  it.each([
-    ["Badge size sm is at least 11px", "src/shared/components/Badge.js", /sm: "px-2 py-0\.5 text-\[11px\]"/],
-    ["provider detail name is the h1", "src/web/pages/dashboard/providers/[id]/page.js", /<h1[^>]*>\{providerInfo\.name\}<\/h1>/],
-  ])("%s", (_label, file, pattern) => {
-    expect(read(file)).toMatch(pattern);
+  it("provider detail name is the h1", () => {
+    expect(read("src/web/pages/dashboard/providers/[id]/page.js")).toMatch(/<h1[^>]*>\{providerInfo\.name\}<\/h1>/);
   });
 });

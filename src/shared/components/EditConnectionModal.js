@@ -6,6 +6,7 @@ import Modal from "@/shared/components/Modal";
 import Input from "@/shared/components/Input";
 import Button from "@/shared/components/Button";
 import Badge from "@/shared/components/Badge";
+import Card from "@/shared/components/Card";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import Select from "@/shared/components/Select";
 
@@ -185,10 +186,10 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
           placeholder={isOAuth ? "Account name" : "Production Key"}
         />
         {isOAuth && connection.email && (
-          <div className="bg-sidebar/50 p-3 rounded-lg">
-            <p className="text-sm text-text-muted mb-1">Email</p>
-            <p className="font-medium">{connection.email}</p>
-          </div>
+          <Card variant="raised" padding="xs">
+            <p className="mb-0.5 text-xs text-muted">Email</p>
+            <p className="truncate font-mono text-sm font-medium text-ink">{connection.email}</p>
+          </Card>
         )}
         <Input
           label="Priority"
@@ -199,7 +200,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
 
         {!isOAuth && (
           <>
-            <div className="flex gap-2">
+            <div className="flex items-start gap-2">
               <Input
                 label="API Key"
                 type="password"
@@ -209,8 +210,8 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
                 hint="Leave blank to keep the current API key."
                 className="flex-1"
               />
-              <div className="pt-6">
-                <Button onClick={handleValidate} disabled={!formData.apiKey || validating || saving} variant="secondary">
+              <div className="pt-[26px]">
+                <Button onClick={handleValidate} disabled={!formData.apiKey || validating || saving} variant="secondary" size="lg" className="whitespace-nowrap">
                   {validating ? "Checking..." : "Check"}
                 </Button>
               </div>
@@ -224,8 +225,8 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
         )}
 
         {isAzure && (
-          <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
-            <h3 className="font-semibold mb-3 text-sm">Azure OpenAI Configuration</h3>
+          <Card variant="raised" padding="sm">
+            <h3 className="mb-3 text-sm font-semibold text-ink">Azure OpenAI Configuration</h3>
             <div className="flex flex-col gap-3">
               <Input
                 label="Azure Endpoint"
@@ -256,7 +257,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
                 hint="Required for billing"
               />
             </div>
-          </div>
+          </Card>
         )}
 
         {providerRegions && (
@@ -270,7 +271,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
 
         {!isCompatible && !isAzure && !isCloudflareAi && (
           <div className="flex items-center gap-3">
-            <Button onClick={handleTest} variant="secondary" disabled={testing}>
+            <Button onClick={handleTest} variant="secondary" disabled={testing} className="whitespace-nowrap">
               {testing ? "Testing..." : "Test Connection"}
             </Button>
             {testResult && (

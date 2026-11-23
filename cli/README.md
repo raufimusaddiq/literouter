@@ -7,7 +7,7 @@
 [![npm](https://img.shields.io/npm/v/literouter.svg)](https://www.npmjs.com/package/literouter)
 [![License](https://img.shields.io/github/license/raufimusaddiq/literouter.svg)](https://github.com/raufimusaddiq/literouter/blob/main/LICENSE)
 
-[Repository](https://github.com/raufimusaddiq/literouter) • [Docker guide](https://github.com/raufimusaddiq/literouter/blob/main/DOCKER.md)
+[Repository](https://github.com/raufimusaddiq/literouter) • [Docker guide](https://github.com/raufimusaddiq/literouter/blob/main/README.md#docker)
 
 ---
 
@@ -26,7 +26,7 @@ Run once without installing: `bunx literouter`. Auto-start on boot needs a globa
 
 **Option 2 — Docker (server/VPS):**
 
-See the [Docker guide](https://github.com/raufimusaddiq/literouter/blob/main/DOCKER.md) for the image, volume and update instructions.
+See the [Docker guide](https://github.com/raufimusaddiq/literouter/blob/main/README.md#docker) for the image, volume and update instructions.
 
 🎉 Dashboard opens at `http://localhost:20128`
 
@@ -75,9 +75,10 @@ literouter stop            # Stop the running LiteRouter server
 
 ## 💾 Data Location
 
-- **macOS/Linux**: `~/.9router/db/data.sqlite`
-- **Windows**: `%APPDATA%/9router/db/data.sqlite`
-- **Docker**: `/app/data/db/data.sqlite` (mount `$HOME/.9router` to persist)
+- **macOS/Linux**: `~/.literouter/db/data.sqlite`
+- **Windows**: `%APPDATA%\literouter\db\data.sqlite`
+- **Docker**: `/app/data/db/data.sqlite` (mount `$HOME/.literouter` to persist)
+- **Legacy**: if only `~/.9router` (`%APPDATA%\9router`) exists it is used as it is; rename it to `~/.literouter` once no old 9router is running. `DATA_DIR` overrides all of this.
 
 ---
 

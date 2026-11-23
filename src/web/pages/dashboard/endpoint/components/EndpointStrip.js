@@ -13,31 +13,40 @@ export default function EndpointStrip({
     <Card id="require-api-key">
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="shrink-0 text-[13px] font-medium text-text-muted">Base URL</span>
-            <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-surface-2 px-3 py-2 font-mono text-sm text-text-main" title={baseUrl}>{baseUrl}</code>
-            <button
-              type="button"
-              onClick={() => onCopy(baseUrl, "local_url")}
-              className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded px-2 text-sm text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
-              aria-label="Copy endpoint URL"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{copied === "local_url" ? "check" : "content_copy"}</span>
-              {copied === "local_url" ? "Copied" : "Copy"}
-            </button>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <div className="flex items-center gap-2" role="status">
-              <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${secure ? "bg-success" : "bg-warning"}`} />
-              <span className="text-sm font-semibold text-text-main">{secure ? "Protected" : "Review security"}</span>
+          <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3 lg:flex-1">
+            <span className="shrink-0 text-[12.5px] font-medium text-muted">Base URL</span>
+            <div className="inline-flex h-8 min-w-0 max-w-full items-center overflow-hidden rounded-md border border-line-strong">
+              <code
+                className="min-w-0 flex-1 truncate px-2.5 font-mono text-[11.5px] tracking-[-0.01em] text-ink sm:flex-initial sm:px-3 sm:text-[12.5px]"
+                title={baseUrl}
+              >
+                {baseUrl}
+              </code>
+              <span
+                role="status"
+                className={`inline-flex h-full shrink-0 items-center gap-1.5 border-l border-line px-3 text-[12.5px] font-semibold ${
+                  secure ? "text-ok" : "text-warning"
+                }`}
+              >
+                <span aria-hidden="true" className={`size-[7px] shrink-0 rounded-full ${secure ? "bg-ok" : "bg-warning"}`} />
+                {secure ? "Protected" : "Open"}
+              </span>
+              <button
+                type="button"
+                onClick={() => onCopy(baseUrl, "local_url")}
+                className="h-full shrink-0 cursor-pointer border-l border-line bg-raise px-3 text-[12.5px] font-semibold text-ink transition-colors hover:bg-line focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-mark-line"
+                aria-label="Copy endpoint URL"
+              >
+                {copied === "local_url" ? "Copied" : "Copy"}
+              </button>
             </div>
-            <Toggle
-              checked={requireApiKey}
-              onChange={() => onRequireApiKey(!requireApiKey)}
-              label="Require API key"
-              aria-label="Require API key"
-            />
           </div>
+          <Toggle
+            checked={requireApiKey}
+            onChange={() => onRequireApiKey(!requireApiKey)}
+            label="Require API key"
+            aria-label="Require API key"
+          />
         </div>
 
         {(isLoginUnsafe || (isRemoteHost && !requireApiKey)) && (
@@ -64,7 +73,7 @@ export default function EndpointStrip({
             {isRemoteHost && !requireApiKey && <SecurityWarning message="Endpoint is exposed without an API key." />}
           </div>
         )}
-        <p className="text-xs text-text-muted">
+        <p className="text-[12.5px] text-muted">
           {requireApiKey ? "Requests without a valid key will be rejected." : "Requests without a key are accepted while this is off."}
         </p>
 

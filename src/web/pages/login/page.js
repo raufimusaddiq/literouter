@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, Button, Input } from "@/shared/components";
+import LogoMark from "@/shared/components/shell/LogoMark";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
@@ -105,116 +106,111 @@ export default function LoginPage() {
 
   if (hasPassword === null) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-bg p-4">
+      <div className="flex min-h-dvh items-center justify-center bg-bg p-4">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="text-text-muted mt-4">Loading...</p>
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-b-2 border-ink"></div>
+          <p className="mt-4 text-muted">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="dashboard-backdrop flex min-h-dvh items-center justify-center overflow-hidden p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
-      <div className="grid w-full max-w-6xl overflow-hidden border-y border-border-subtle bg-surface lg:grid-cols-[1.05fr_0.95fr] lg:border-x">
-        <section className="relative hidden min-h-[34rem] overflow-hidden bg-surface-2 p-10 lg:flex lg:flex-col lg:justify-between">
-          <div className="relative z-10">
-            <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-[10px] bg-primary text-primary-foreground shadow-[0_14px_30px_-16px_var(--color-primary)]">
-                <span aria-hidden="true" className="material-symbols-outlined">route</span>
-              </div>
-              <div>
-                <p className="text-base font-semibold tracking-[-0.04em] text-text-main">LiteRouter</p>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">Control plane</p>
-              </div>
+    <div className="flex min-h-dvh items-center justify-center bg-bg p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
+      <div className="grid w-full max-w-5xl overflow-hidden rounded-lg border border-line-strong bg-raise lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="hidden min-h-[34rem] border-r border-line-strong p-10 lg:flex lg:flex-col lg:justify-between">
+          <div>
+            <div className="flex items-center gap-3 text-ink">
+              <LogoMark size={28} />
+              <p className="text-base font-semibold tracking-[-0.02em]">LiteRouter</p>
             </div>
-            <p className="page-kicker mt-20">Local routing control plane</p>
-            <h1 className="mt-3 max-w-md text-4xl font-semibold leading-[1.05] tracking-[-0.06em] text-text-main">One endpoint. Clear operational state.</h1>
-            <p className="mt-5 max-w-sm text-sm leading-6 text-text-muted">Manage keys, providers, usage, and quota without changing the client contract.</p>
+            <p className="mt-20 text-[12.5px] font-medium text-muted">Local routing control plane</p>
+            <h1 className="mt-3 max-w-md text-4xl font-semibold leading-[1.1] tracking-[-0.03em] text-ink">One endpoint. Clear operational state.</h1>
+            <p className="mt-5 max-w-sm text-sm leading-6 text-muted">Manage keys, providers, usage, and quota without changing the client contract.</p>
           </div>
-          <div className="relative z-10 grid grid-cols-3 gap-2 text-xs text-text-muted">
-            <div className="rounded-[8px] bg-surface p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-success" />Provider health</div>
-            <div className="rounded-[8px] bg-surface p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-primary" />Fallback routes</div>
-            <div className="rounded-[8px] bg-surface p-3 ring-1 ring-border-subtle"><span className="mb-2 block size-2 rounded-full bg-warning" />Quota signals</div>
-          </div>
-          <div className="landing-grid absolute inset-0 opacity-10" aria-hidden="true" />
+          <ul className="m-0 grid list-none grid-cols-3 gap-4 border-t border-line p-0 pt-4 text-[12.5px] text-muted">
+            <li className="flex items-center gap-2"><span aria-hidden="true" className="size-1.5 rounded-full bg-ok" />Provider health</li>
+            <li className="flex items-center gap-2"><span aria-hidden="true" className="size-1.5 rounded-full bg-faint" />Fallback routes</li>
+            <li className="flex items-center gap-2"><span aria-hidden="true" className="size-1.5 rounded-full bg-faint" />Quota signals</li>
+          </ul>
         </section>
 
         <section className="flex items-center p-6 sm:p-10">
           <div className="w-full max-w-md">
             <div className="mb-8 lg:hidden">
-              <p className="page-kicker">Routing control plane</p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-text-main">LiteRouter</h1>
+              <div className="flex items-center gap-2.5 text-ink">
+                <LogoMark size={26} />
+                <h1 className="text-2xl font-semibold tracking-[-0.03em] text-ink">LiteRouter</h1>
+              </div>
+              <p className="mt-2 text-[12.5px] font-medium text-muted">Routing control plane</p>
             </div>
             <div className="mb-7">
-              <h2 className="text-2xl font-semibold tracking-[-0.04em] text-text-main">Welcome back</h2>
-              <p className="mt-2 text-sm text-text-muted">Enter your password to access the dashboard.</p>
+              <h2 className="text-2xl font-semibold tracking-[-0.03em] text-ink">Welcome back</h2>
+              <p className="mt-2 text-sm text-muted">Enter your password to access the dashboard.</p>
             </div>
 
-        <Card className="shadow-none">
-          {mustChange ? (
-            <form onSubmit={handleSetNewPassword} className="flex flex-col gap-4">
-              <p className="text-sm text-warning text-center">
-                Set a new password before accessing the dashboard remotely.
-              </p>
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">New password</label>
-                <Input
-                  type="password"
-                  placeholder="Enter new password"
-                  autoComplete="new-password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  autoFocus
-                />
-                {error && <p className="text-xs text-red-500">{error}</p>}
-              </div>
-              <Button type="submit" variant="primary" className="w-full" loading={loading} disabled={!newPassword}>
-                Set password
-              </Button>
-            </form>
-          ) : (
-            <form onSubmit={handleLogin} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">Password</label>
-                <Input
-                  type="password"
-                  placeholder="Enter password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoFocus
-                />
-                {error && <p className="text-xs text-red-500">{error}</p>}
-                {retryAfter > 0 && (
-                  <p className="text-xs text-warning">
-                    Locked. Retry in <span className="font-mono">{retryAfter}s</span>.
+            <Card>
+              {mustChange ? (
+                <form onSubmit={handleSetNewPassword} className="flex flex-col gap-4">
+                  <p className="text-center text-sm text-warning">
+                    Set a new password before accessing the dashboard remotely.
                   </p>
-                )}
-                {resetHint && (
-                  <p className="text-xs text-text-muted">
-                    Forgot password? Open <code className="bg-sidebar px-1 rounded">9router</code> CLI on the host → <b>Settings</b> → <b>Reset Password to Default</b>.
+                  <Input
+                    label="New password"
+                    type="password"
+                    placeholder="Enter new password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    error={error || undefined}
+                    required
+                    autoFocus
+                  />
+                  <Button type="submit" variant="primary" className="w-full" loading={loading} disabled={!newPassword}>
+                    Set password
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleLogin} className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Input
+                      label="Password"
+                      type="password"
+                      placeholder="Enter password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      error={error || undefined}
+                      required
+                      autoFocus
+                    />
+                    {retryAfter > 0 && (
+                      <p className="text-xs text-warning">
+                        Locked. Retry in <span className="font-mono">{retryAfter}s</span>.
+                      </p>
+                    )}
+                    {resetHint && (
+                      <p className="text-xs text-muted">
+                        Forgot password? Open <code className="rounded bg-surface-2 px-1 font-mono">literouter</code> CLI on the host → <b>Settings</b> → <b>Reset Password to Default</b>.
+                      </p>
+                    )}
+                  </div>
+
+                  <Button type="submit" variant="primary" className="w-full" loading={loading} disabled={retryAfter > 0}>
+                    {retryAfter > 0 ? `Wait ${retryAfter}s` : "Login"}
+                  </Button>
+
+                  <p className="mt-2 text-center text-xs text-muted">
+                    Default password is <code className="rounded bg-surface-2 px-1 font-mono">123456</code>
                   </p>
-                )}
-              </div>
-
-              <Button type="submit" variant="primary" className="w-full" loading={loading} disabled={retryAfter > 0}>
-                {retryAfter > 0 ? `Wait ${retryAfter}s` : "Login"}
-              </Button>
-
-              <p className="text-xs text-center text-text-muted mt-2">
-                Default password is <code className="bg-sidebar px-1 rounded">123456</code>
-              </p>
-              {hasPassword === false && (
-                <p className="text-xs text-center text-warning">
-                  Security risk: no password set. You will be asked to set one when logging in remotely.
-                </p>
+                  {hasPassword === false && (
+                    <p className="text-center text-xs text-warning">
+                      Security risk: no password set. You will be asked to set one when logging in remotely.
+                    </p>
+                  )}
+                </form>
               )}
-            </form>
-          )}
-        </Card>
+            </Card>
           </div>
         </section>
       </div>

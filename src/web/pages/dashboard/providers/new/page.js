@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { useRouter, Link } from "@/web/router";
-import { Card, Button, Input, Select, Toggle, PageIntro } from "@/shared/components";
+import { Card, Button, Input, Select, Toggle } from "@/shared/components";
+import PageHeader from "@/shared/components/shell/PageHeader";
+import ProviderIcon from "@/shared/components/ProviderIcon";
+import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { AI_PROVIDERS, AUTH_METHODS } from "@/shared/constants/config";
 import { getFormAuthMethods } from "@/shared/constants/providers";
 
@@ -75,23 +78,27 @@ export default function NewProviderPage() {
   const selectedProvider = AI_PROVIDERS[formData.provider];
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="mb-8">
-        <Link
-          href="/dashboard/providers"
-          className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary transition-colors mb-4"
-        >
-          <span aria-hidden="true" className="material-symbols-outlined text-lg">arrow_back</span>
-          Back to Providers
-        </Link>
-        <PageIntro
+    <div className="mx-auto flex max-w-2xl min-w-0 flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <PageHeader
           title="Add provider"
           description="Store credentials once; LiteRouter handles routing and fallback."
+          breadcrumbs={[
+            { label: "Providers", href: "/dashboard/providers" },
+            { label: "Add provider" },
+          ]}
         />
+        <Link
+          href="/dashboard/providers"
+          className="inline-flex w-fit items-center gap-1 text-xs font-medium text-muted transition-colors hover:text-ink"
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">arrow_back</span>
+          Back to Providers
+        </Link>
       </div>
 
-      <Card>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <Card variant="raised">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <Select
             label="Provider"
             options={providerOptions}
@@ -103,31 +110,31 @@ export default function NewProviderPage() {
           />
 
           {selectedProvider && (
-            <Card.Section className="flex items-center gap-3">
-              <div
-                className="size-10 rounded-lg flex items-center justify-center bg-bg border border-border"
-              >
-                <span aria-hidden="true"
-                  className="material-symbols-outlined text-xl"
-                  style={{ color: selectedProvider.color }}
-                >
-                  {selectedProvider.icon}
-                </span>
+            <div className="flex items-center gap-3 rounded-md border border-line bg-bg px-3.5 py-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-line bg-raise">
+                <ProviderIcon
+                  src={getProviderIconSrc(selectedProvider.id)}
+                  alt={selectedProvider.name}
+                  size={24}
+                  className="max-h-6 max-w-6 rounded object-contain"
+                  fallbackText={selectedProvider.textIcon || selectedProvider.id.slice(0, 2).toUpperCase()}
+                  fallbackColor={selectedProvider.color}
+                />
               </div>
-              <div>
-                <p className="font-medium">{selectedProvider.name}</p>
-                <p className="text-sm text-text-muted">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-ink">{selectedProvider.name}</p>
+                <p className="text-xs text-muted">
                   Selected provider
                 </p>
               </div>
-            </Card.Section>
+            </div>
           )}
 
-          <div className="flex flex-col gap-3">
-            <span id="auth-method-label" className="text-sm font-medium">
-              Authentication Method <span className="text-red-500">*</span>
+          <div className="flex flex-col gap-2">
+            <span id="auth-method-label" className="text-[13px] font-medium text-ink">
+              Authentication Method <span className="text-danger">*</span>
             </span>
-            <div role="radiogroup" aria-labelledby="auth-method-label" className="flex gap-3">
+            <div role="radiogroup" aria-labelledby="auth-method-label" className="flex gap-2.5">
               {authMethods.map((method) => {
                 const selected = formData.authMethod === method.id;
                 return (
@@ -137,16 +144,16 @@ export default function NewProviderPage() {
                     role="radio"
                     aria-checked={selected}
                     onClick={() => handleChange("authMethod", method.id)}
-                    className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border transition-colors ${
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-medium transition-colors ${
                       selected
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-border hover:border-primary/50"
+                        ? "border-ink bg-ink text-bg"
+                        : "border-line-strong bg-bg text-muted hover:border-ink/40 hover:text-ink"
                     }`}
                   >
-                    <span aria-hidden="true" className="material-symbols-outlined">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
                       {method.icon}
                     </span>
-                    <span className="font-medium">{method.label}</span>
+                    <span>{method.label}</span>
                   </button>
                 );
               })}
@@ -180,12 +187,12 @@ export default function NewProviderPage() {
           />
 
           {errors.submit && (
-            <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
+            <div className="rounded-md border border-danger/30 bg-danger/10 p-3 text-sm text-danger" role="alert">
               {errors.submit}
             </div>
           )}
 
-          <div className="flex gap-3 pt-4 border-t border-border">
+          <div className="flex gap-3 border-t border-line pt-4">
             <Link href="/dashboard/providers" className="flex-1">
               <Button type="button" variant="ghost" fullWidth>
                 Cancel

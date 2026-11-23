@@ -178,7 +178,6 @@
   "Antigravity/Copilot IDE request → DNS redirect to localhost:443 → MITM proxy intercepts → LiteRouter → response to Antigravity/Copilot": "Запит Antigravity/Copilot IDE → Перенаправлення DNS на localhost:443 → MITM проксі перехопити → LiteRouter → відповідь на Antigravity/Copilot",
   "No API keys — create one in Keys page": "Немає ключів API — створіть один на сторінці ключів",
   "e.g. a warm, gentle voice, speaking slowly with a British accent": "напр.: теплий м'який голос, що повільно говорить з британським акцентом",
-  "sk_9router (default)": "sk_9router (за замовчуванням)",
   "Server started": "Сервер запущено",
   "Failed to start server": "Не вдалося запустити сервер",
   "Server stopped — all DNS cleared": "Сервер зупинено — усі DNS очищено",

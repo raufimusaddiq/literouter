@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import { Modal, Button } from "@/shared/components";
+import { Modal, Button, Card } from "@/shared/components";
 
 export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
   const [phase, setPhase] = useState("detecting");
@@ -128,14 +128,14 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
     <Modal isOpen={isOpen} title="Connect Xiaomi MiMo" onClose={onClose}>
       <div className="flex flex-col gap-4">
         {phase === "detecting" && (
-          <div className="text-center py-6">
-            <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <span aria-hidden="true" className="material-symbols-outlined text-3xl text-primary animate-spin">
+          <div className="py-6 text-center">
+            <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-lg border border-line-strong bg-bg">
+              <span aria-hidden="true" className="material-symbols-outlined animate-spin text-2xl text-ink">
                 progress_activity
               </span>
             </div>
-            <h3 className="text-lg font-semibold mb-2">Reading local credentials...</h3>
-            <p className="text-sm text-text-muted">
+            <h3 className="mb-1.5 text-base font-semibold text-ink">Reading local credentials...</h3>
+            <p className="font-mono text-xs text-muted">
               Checking ~/.local/share/mimocode/auth.json
             </p>
           </div>
@@ -143,12 +143,12 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
 
         {phase === "found" && detectResult && (
           <>
-            <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
+            <div className="rounded-md border border-ok/30 bg-ok/10 p-3">
               <div className="flex gap-2">
-                <span aria-hidden="true" className="material-symbols-outlined text-green-600 dark:text-green-400">check_circle</span>
-                <div className="text-sm text-green-800 dark:text-green-200">
+                <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-ok">check_circle</span>
+                <div className="text-sm text-ok">
                   <p className="font-medium">Xiaomi MiMo Desktop credentials found!</p>
-                  <p className="mt-1 opacity-80">
+                  <p className="mt-1 font-mono text-xs opacity-90">
                     UID: {detectResult.uid || "—"} · Source: {detectResult.source?.split(/[\\/]/).pop()}
                   </p>
                 </div>
@@ -156,8 +156,8 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
             </div>
 
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <div className="rounded-md border border-danger/30 bg-danger/10 p-3">
+                <p className="text-sm text-danger">{error}</p>
               </div>
             )}
 
@@ -173,25 +173,25 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
         )}
 
         {phase === "importing" && (
-          <div className="text-center py-6">
-            <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <span aria-hidden="true" className="material-symbols-outlined text-3xl text-primary animate-spin">
+          <div className="py-6 text-center">
+            <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-lg border border-line-strong bg-bg">
+              <span aria-hidden="true" className="material-symbols-outlined animate-spin text-2xl text-ink">
                 progress_activity
               </span>
             </div>
-            <h3 className="text-lg font-semibold mb-2">Connecting...</h3>
+            <h3 className="text-base font-semibold text-ink">Connecting...</h3>
           </div>
         )}
 
         {phase === "not-found" && (
           <>
-            <div className="bg-warning/10 p-3 rounded-lg border border-warning/30">
-              <div className="flex gap-2 items-start">
-                <span aria-hidden="true" className="material-symbols-outlined text-warning">info</span>
-                <div className="text-sm text-text-muted">
-                  <p className="font-medium">Local credentials not found</p>
-                  <p className="mt-1 opacity-80">{error}</p>
-                  <p className="mt-2 opacity-80">
+            <div className="rounded-md border border-warning/40 bg-warning/10 p-3">
+              <div className="flex items-start gap-2">
+                <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-warning">info</span>
+                <div className="text-sm text-muted">
+                  <p className="font-medium text-ink">Local credentials not found</p>
+                  <p className="mt-1">{error}</p>
+                  <p className="mt-2 text-xs">
                     Make sure Xiaomi MiMo Desktop is installed and you are signed in, then retry.
                     Or sign in via browser below.
                   </p>
@@ -228,12 +228,12 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
               </div>
             ) : (
               <div className="flex flex-col gap-2">
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                <Card variant="raised" padding="xs">
+                  <p className="text-sm text-muted">
                     Browser opened. Complete the Xiaomi sign-in, then click{" "}
-                    <strong>Check Again</strong>.
+                    <strong className="text-ink">Check Again</strong>.
                   </p>
-                </div>
+                </Card>
                 <div className="flex gap-2">
                   <Button onClick={handlePollOAuth} fullWidth>
                     Check Again

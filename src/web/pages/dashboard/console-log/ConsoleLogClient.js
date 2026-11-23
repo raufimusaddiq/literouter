@@ -1,21 +1,22 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, PageIntro } from "@/shared/components";
+import { Card, Button } from "@/shared/components";
+import PageHeader from "@/shared/components/shell/PageHeader";
 import { CONSOLE_LOG_CONFIG } from "@/shared/constants/config";
 
 const LOG_LEVEL_COLORS = {
-  LOG: "text-green-400",
-  INFO: "text-blue-400",
-  WARN: "text-yellow-400",
-  ERROR: "text-red-400",
-  DEBUG: "text-purple-400",
+  LOG: "text-ink",
+  INFO: "text-ink",
+  WARN: "text-warning",
+  ERROR: "text-danger",
+  DEBUG: "text-muted",
 };
 
 function colorLine(line) {
   const match = line.match(/\[(\w+)\]/g);
   const levelTag = match ? match[1]?.replace(/\[|\]/g, "") : null;
-  const color = LOG_LEVEL_COLORS[levelTag] || "text-green-400";
+  const color = LOG_LEVEL_COLORS[levelTag] || "text-ink";
   return <span className={color}>{line}</span>;
 }
 
@@ -68,26 +69,29 @@ export default function ConsoleLogClient() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageIntro title="Console log" description="Live server events and route diagnostics from the local process." action={<Button size="sm" variant="outline" icon="delete" onClick={handleClear}>Clear log</Button>} />
-      <Card padding="none" className="overflow-hidden">
-        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
+      <PageHeader title="Console log" description="Live server events and route diagnostics from the local process." actions={<Button size="sm" variant="outline" icon="delete" onClick={handleClear}>Clear log</Button>} />
+      <Card variant="raised" padding="none" className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <div>
-            <p className="text-xs font-medium text-text-muted">Live output</p>
-            <p className="mt-1 text-sm text-text-main">Server events and route diagnostics.</p>
+            <p className="text-xs font-medium text-muted">Live output</p>
+            <p className="mt-1 text-sm text-ink">Server events and route diagnostics.</p>
           </div>
-          <span className={`text-xs font-medium ${connected ? "text-success" : "text-warning"}`}>{connected ? "Streaming" : "Disconnected"}</span>
+          <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${connected ? "text-ok" : "text-warning"}`}>
+            <span aria-hidden="true" className={`size-1.5 rounded-full ${connected ? "bg-ok" : "bg-warning"}`} />
+            {connected ? "Streaming" : "Disconnected"}
+          </span>
         </div>
         <div
           ref={logRef}
-          className="h-[calc(100dvh-260px)] overflow-y-auto bg-[#111214] p-5 font-mono text-xs"
+          className="h-[calc(100dvh-260px)] overflow-y-auto p-5 font-mono text-xs text-ink"
         >
           <div aria-live="polite" aria-atomic="false" role="status">
           {logs.length === 0 ? (
-            <span className="text-text-muted">No console logs yet.</span>
+            <span className="text-muted">No console logs yet.</span>
           ) : (
             <div className="space-y-0.5">
               {logs.map((line, i) => (
-                <div key={i}>{colorLine(line)}</div>
+                <div key={i} className="[overflow-wrap:anywhere]">{colorLine(line)}</div>
               ))}
             </div>
           )}

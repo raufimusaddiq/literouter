@@ -2,6 +2,16 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "@/web/router";
+import LogoMark from "@/shared/components/shell/LogoMark";
+import { cn } from "@/shared/utils/cn";
+
+function StatusIcon({ name, className }) {
+  return (
+    <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full border border-line-strong">
+      <span aria-hidden="true" className={cn("material-symbols-outlined text-[28px]", className)}>{name}</span>
+    </div>
+  );
+}
 
 function CallbackContent() {
   const searchParams = useSearchParams();
@@ -70,25 +80,22 @@ function CallbackContent() {
   }, [searchParams]);
 
   return (
-    <div className="min-h-dvh flex items-center justify-center bg-bg">
-      <div className="text-center p-8 max-w-md">
+    <div className="flex min-h-dvh items-center justify-center bg-bg p-4">
+      <div className="w-full max-w-md text-center">
+        <LogoMark size={28} className="mx-auto mb-8 text-ink" />
         {status === "processing" && (
           <>
-            <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <span aria-hidden="true" className="material-symbols-outlined text-3xl text-primary animate-spin">progress_activity</span>
-            </div>
-            <h1 className="text-xl font-semibold mb-2">Processing...</h1>
-            <p className="text-text-muted">Please wait while we complete the authorization.</p>
+            <StatusIcon name="progress_activity" className="animate-spin text-ink" />
+            <h1 className="mb-2 text-xl font-semibold tracking-[-0.02em] text-ink">Processing...</h1>
+            <p className="text-muted">Please wait while we complete the authorization.</p>
           </>
         )}
 
         {(status === "success" || status === "done") && (
           <>
-            <div className="size-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <span aria-hidden="true" className="material-symbols-outlined text-3xl text-green-600">check_circle</span>
-            </div>
-            <h1 className="text-xl font-semibold mb-2">Authorization Successful!</h1>
-            <p className="text-text-muted">
+            <StatusIcon name="check_circle" className="text-ok" />
+            <h1 className="mb-2 text-xl font-semibold tracking-[-0.02em] text-ink">Authorization Successful!</h1>
+            <p className="text-muted">
               {status === "success" ? "This window will close automatically..." : "You can close this tab now."}
             </p>
           </>
@@ -96,15 +103,13 @@ function CallbackContent() {
 
         {status === "manual" && (
           <>
-            <div className="size-16 mx-auto mb-4 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
-              <span aria-hidden="true" className="material-symbols-outlined text-3xl text-yellow-600">info</span>
-            </div>
-            <h1 className="text-xl font-semibold mb-2">Copy This URL</h1>
-            <p className="text-text-muted mb-4">
+            <StatusIcon name="info" className="text-warning" />
+            <h1 className="mb-2 text-xl font-semibold tracking-[-0.02em] text-ink">Copy This URL</h1>
+            <p className="mb-4 text-muted">
               Please copy the URL from the address bar and paste it in the application.
             </p>
-            <div className="bg-surface border border-border rounded-lg p-3 text-left">
-              <code className="text-xs break-all">{typeof window !== "undefined" ? window.location.href : ""}</code>
+            <div className="rounded-lg border border-line-strong bg-raise p-3 text-left">
+              <code className="break-all font-mono text-xs text-ink">{typeof window !== "undefined" ? window.location.href : ""}</code>
             </div>
           </>
         )}
@@ -116,12 +121,11 @@ function CallbackContent() {
 export default function CallbackPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-dvh flex items-center justify-center bg-bg">
-        <div className="text-center p-8">
-          <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-            <span aria-hidden="true" className="material-symbols-outlined text-3xl text-primary animate-spin">progress_activity</span>
-          </div>
-          <p className="text-text-muted">Loading...</p>
+      <div className="flex min-h-dvh items-center justify-center bg-bg">
+        <div className="p-8 text-center">
+          <LogoMark size={28} className="mx-auto mb-6 text-ink" />
+          <StatusIcon name="progress_activity" className="animate-spin text-ink" />
+          <p className="text-muted">Loading...</p>
         </div>
       </div>
     }>

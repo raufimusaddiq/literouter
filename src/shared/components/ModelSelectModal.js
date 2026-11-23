@@ -431,17 +431,16 @@ export default function ModelSelectModal({
       }}
       title={title}
       size="md"
-      className="p-4!"
       footer={null}
     >
-      <div className="flex items-center gap-2 mb-3 px-2.5 py-2 bg-primary/8 border border-primary/20 rounded-lg text-xs text-text-muted">
-        <span aria-hidden="true" className="material-symbols-outlined text-primary shrink-0" style={{ fontSize: "14px" }}>info</span>
+      <div className="mb-3 flex items-center gap-2 rounded-md border border-line bg-bg px-3 py-2 text-xs text-muted">
+        <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[15px] text-muted">info</span>
         <span>Click to add, click again to remove. Changes are saved automatically.</span>
       </div>
 
       <div className="mb-3">
         <div className="relative">
-          <span aria-hidden="true" className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[16px]">
+          <span aria-hidden="true" className="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-muted">
             search
           </span>
           <input
@@ -449,38 +448,35 @@ export default function ModelSelectModal({
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-surface border border-border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="h-9 w-full rounded-md border border-line-strong bg-bg pl-8 pr-3 text-sm text-ink placeholder:text-faint focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line"
           />
         </div>
       </div>
 
-      <div className="max-h-[400px] overflow-y-auto space-y-3">
+      <div className="max-h-[400px] space-y-4 overflow-y-auto pr-1">
         {filteredCombos.length > 0 && (
           <div>
-            <div className="flex items-center gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5">
-              <span aria-hidden="true" className="material-symbols-outlined text-primary text-[14px]">layers</span>
-              <span className="text-xs font-medium text-primary">Combos</span>
-              <span className="text-[11px] text-text-muted">({filteredCombos.length})</span>
+            <div className="sticky top-0 z-10 mb-2 flex items-center gap-1.5 border-b border-line bg-raise py-1">
+              <span aria-hidden="true" className="material-symbols-outlined text-[15px] text-muted">layers</span>
+              <span className="text-xs font-semibold text-ink">Combos</span>
+              <span className="font-mono text-[11px] text-faint">({filteredCombos.length})</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {filteredCombos.map((combo) => {
                 const isSelected = selectedModel === combo.name;
                 return (
                   <button
+                    type="button"
                     key={combo.id}
                     onClick={() => handleSelect({ id: combo.name, name: combo.name, value: combo.name })}
-                    className={`
-                      min-h-11 px-2 rounded-xl text-xs font-medium transition-colors border hover:cursor-pointer flex items-center gap-1
-                      ${isSelected
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : addedModelValues.includes(combo.name)
-                          ? "bg-primary border-primary text-primary-foreground hover:bg-primary-hover"
-                          : "bg-surface border-border text-text-main hover:border-primary/50 hover:bg-primary/5"
-                      }
-                    `}
+                    className={`flex min-h-11 items-center gap-1 rounded-md border px-2.5 text-xs font-medium transition-colors hover:cursor-pointer ${
+                      isSelected || addedModelValues.includes(combo.name)
+                        ? "border-ink bg-ink text-bg"
+                        : "border-line-strong bg-bg text-ink hover:border-ink/50 hover:bg-surface-2"
+                    }`}
                   >
                     {addedModelValues.includes(combo.name) && (
-                      <span aria-hidden="true" className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
+                      <span aria-hidden="true" className="material-symbols-outlined leading-none" style={{ fontSize: "12px" }}>check</span>
                     )}
                     {combo.name}
                   </button>
@@ -492,7 +488,7 @@ export default function ModelSelectModal({
 
         {Object.entries(filteredGroups).map(([providerId, group]) => (
           <div key={providerId}>
-            <div className="flex items-center gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5">
+            <div className="sticky top-0 z-10 mb-2 flex items-center gap-1.5 border-b border-line bg-raise py-1">
               <ProviderIcon
                 src={`/providers/${providerId}.png`}
                 alt={group.name}
@@ -500,10 +496,10 @@ export default function ModelSelectModal({
                 fallbackText={(group.name || providerId).slice(0, 2).toUpperCase()}
                 fallbackColor={group.color}
               />
-              <span className="text-xs font-medium text-primary">
+              <span className="text-xs font-semibold text-ink">
                 {group.name}
               </span>
-              <span className="text-[11px] text-text-muted">
+              <span className="font-mono text-[11px] text-faint">
                 ({group.models.length})
               </span>
             </div>
@@ -514,39 +510,36 @@ export default function ModelSelectModal({
                 const isPlaceholder = model.isPlaceholder;
                 return (
                   <button
+                    type="button"
                     key={model.value}
                     onClick={() => handleSelect(model)}
                     title={isPlaceholder ? "Select to pre-fill, then edit model ID in the input" : undefined}
-                    className={`
-                      min-h-11 px-2 rounded-xl text-xs font-medium transition-colors border hover:cursor-pointer
-                      ${isPlaceholder
-                        ? "border-dashed border-border text-text-muted hover:border-primary/50 hover:text-primary bg-surface italic"
-                        : isSelected
-                        ? "bg-primary text-primary-foreground border-primary"
-                          : addedModelValues.includes(model.value)
-                          ? "bg-primary border-primary text-primary-foreground hover:bg-primary-hover"
-                            : "bg-surface border-border text-text-main hover:border-primary/50 hover:bg-primary/5"
-                      }
-                    `}
+                    className={`min-h-11 rounded-md border px-2.5 text-xs font-medium transition-colors hover:cursor-pointer ${
+                      isPlaceholder
+                        ? "border-dashed border-line-strong bg-bg text-muted hover:border-ink/50 hover:text-ink"
+                        : isSelected || addedModelValues.includes(model.value)
+                          ? "border-ink bg-ink text-bg"
+                          : "border-line-strong bg-bg text-ink hover:border-ink/50 hover:bg-surface-2"
+                    }`}
                   >
                     <span className="flex items-center gap-1">
                       {addedModelValues.includes(model.value) && !isPlaceholder && (
-                        <span aria-hidden="true" className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
+                        <span aria-hidden="true" className="material-symbols-outlined leading-none" style={{ fontSize: "12px" }}>check</span>
                       )}
                       {isPlaceholder ? (
                         <>
-                          <span aria-hidden="true" className="material-symbols-outlined text-[11px]">edit</span>
-                          {model.name}
+                          <span aria-hidden="true" className="material-symbols-outlined text-[12px]">edit</span>
+                          <span className="font-mono">{model.name}</span>
                         </>
                       ) : model.isCustom ? (
                         <>
-                          {model.name}
-                          <span className="text-[11px] opacity-60 font-normal">custom</span>
+                          <span>{model.name}</span>
+                          <span className="text-[11px] font-normal opacity-60">custom</span>
                           <CapacityBadges caps={getCaps(model.value)} />
                         </>
                       ) : (
                         <>
-                          {model.name}
+                          <span>{model.name}</span>
                           <CapacityBadges caps={getCaps(model.value)} />
                         </>
                       )}
@@ -559,8 +552,8 @@ export default function ModelSelectModal({
         ))}
 
         {Object.keys(filteredGroups).length === 0 && filteredCombos.length === 0 && (
-          <div className="text-center py-4 text-text-muted">
-            <span aria-hidden="true" className="material-symbols-outlined text-2xl mb-1 block">
+          <div className="py-6 text-center text-muted">
+            <span aria-hidden="true" className="material-symbols-outlined mb-1 block text-2xl text-faint">
               search_off
             </span>
             <p className="text-xs">No models found</p>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { Button, Badge, Input, Modal, Select } from "@/shared/components";
+import { Button, Badge, Card, Input, Modal, SegmentedControl, Select } from "@/shared/components";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { planBulkAdd } from "@/shared/utils/bulkAdd";
 
@@ -183,30 +183,38 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   return (
     <Modal isOpen={isOpen} title={`Add ${providerName || provider} ${credentialLabel}`} onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <div className="flex gap-2">
-          <Button size="sm" variant={mode === "single" ? "primary" : "ghost"} onClick={() => { setMode("single"); setBulkResult(null); }}>Single</Button>
-          <Button size="sm" variant={mode === "bulk" ? "primary" : "ghost"} onClick={() => { setMode("bulk"); setBulkResult(null); }}>Bulk Add</Button>
-        </div>
+        <SegmentedControl
+          size="sm"
+          options={[
+            { value: "single", label: "Single" },
+            { value: "bulk", label: "Bulk Add" },
+          ]}
+          value={mode}
+          onChange={(nextMode) => { setMode(nextMode); setBulkResult(null); }}
+          className="self-start"
+        />
 
         {mode === "bulk" && (
           <div className="flex flex-col gap-3">
-            <p className="text-xs text-text-muted">
+            <p className="text-xs text-muted">
               {isCloudflareAi
-                ? <>One key per line. Format: <code>name|apiKey|accountId</code> or just <code>apiKey</code> (auto-named by index).</>
+                ? <>One key per line. Format: <code className="font-mono text-ink">name|apiKey|accountId</code> or just <code className="font-mono text-ink">apiKey</code> (auto-named by index).</>
                 : provider === "qoder"
-                  ? <>One PAT per line. Format: <code>name|pt-...</code> or just <code>pt-...</code> (auto-named by index).</>
-                  : <>One key per line. Format: <code>name|apiKey</code> or just <code>apiKey</code> (auto-named by index).</>
+                  ? <>One PAT per line. Format: <code className="font-mono text-ink">name|pt-...</code> or just <code className="font-mono text-ink">pt-...</code> (auto-named by index).</>
+                  : <>One key per line. Format: <code className="font-mono text-ink">name|apiKey</code> or just <code className="font-mono text-ink">apiKey</code> (auto-named by index).</>
               }
             </p>
             <textarea
-              className="w-full rounded border border-accent/30 bg-sidebar p-2 text-sm font-mono resize-y min-h-[140px] focus:outline-none focus:ring-1 focus:ring-primary"
+              className="min-h-[140px] w-full resize-y rounded-md border border-line-strong bg-bg p-2.5 font-mono text-sm text-ink placeholder:text-faint focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line"
               placeholder={bulkPlaceholder}
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
             />
             {bulkResult && (
-              <div className={`text-sm font-medium ${bulkResult.failed > 0 ? "text-yellow-400" : "text-green-400"}`}>
-                ✓ {bulkResult.success} added{bulkResult.failed > 0 ? `, ✗ ${bulkResult.failed} failed` : ""}
+              <div className="flex items-center gap-2">
+                <Badge variant={bulkResult.failed > 0 ? "warning" : "success"} size="md" dot>
+                  {bulkResult.success} added{bulkResult.failed > 0 ? `, ${bulkResult.failed} failed` : ""}
+                </Badge>
               </div>
             )}
             <div className="flex gap-2">
@@ -226,7 +234,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
           placeholder={isOllamaLocal ? "Ollama Local" : "Production Key"}
         />
         {isOllamaLocal && (
-          <div className="flex gap-2">
+          <div className="flex items-end gap-2">
             <Input
               label="Ollama Host URL"
               value={formData.ollamaHostUrl}
@@ -234,15 +242,13 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
               placeholder="http://localhost:11434"
               className="flex-1"
             />
-            <div className="pt-6">
-              <Button onClick={handleValidate} disabled={validating || saving} variant="secondary">
-                {validating ? "Checking..." : "Check"}
-              </Button>
-            </div>
+            <Button onClick={handleValidate} disabled={validating || saving} variant="secondary" size="lg" className="whitespace-nowrap">
+              {validating ? "Checking..." : "Check"}
+            </Button>
           </div>
         )}
         {!isOllamaLocal && (
-          <div className="flex gap-2">
+          <div className="flex items-end gap-2">
             <Input
               label={credentialLabel}
               type={isCookie ? "text" : "password"}
@@ -251,25 +257,23 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
               placeholder={credentialPlaceholder}
               className="flex-1"
             />
-            <div className="pt-6">
-              <Button onClick={handleValidate} disabled={!formData.apiKey || validating || saving} variant="secondary">
-                {validating ? "Checking..." : "Check"}
-              </Button>
-            </div>
+            <Button onClick={handleValidate} disabled={!formData.apiKey || validating || saving} variant="secondary" size="lg" className="whitespace-nowrap">
+              {validating ? "Checking..." : "Check"}
+            </Button>
           </div>
         )}
         {isXaiApiKey && (
-          <p className="text-xs text-text-muted">
+          <p className="text-xs text-muted">
             Use a direct xAI API key from console.x.ai. This is separate from Grok Build OAuth.
           </p>
         )}
         {isCookie && authHint && (
-          <p className="text-xs text-text-muted">
+          <p className="text-xs text-muted">
             {authHint}
             {website && (
               <>
                 {" "}
-                <a href={website} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                <a href={website} target="_blank" rel="noopener noreferrer" className="font-medium text-ink underline underline-offset-[3px]">
                   Open {website.replace(/^https?:\/\//, "")}
                 </a>
               </>
@@ -293,8 +297,8 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
           />
         )}
         {isOllamaLocal && (
-          <p className="text-xs text-text-muted">
-            Leave blank to use <code>http://localhost:11434</code>. For remote Ollama, enter the full host URL (e.g. <code>http://192.168.1.10:11434</code>).
+          <p className="text-xs text-muted">
+            Leave blank to use <code className="font-mono text-ink">http://localhost:11434</code>. For remote Ollama, enter the full host URL (e.g. <code className="font-mono text-ink">http://192.168.1.10:11434</code>).
           </p>
         )}
         {validationResult && (
@@ -303,30 +307,30 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
           </Badge>
         )}
         {error && (
-          <p className="text-xs text-red-500 break-words">{error}</p>
+          <p className="break-words text-xs text-danger">{error}</p>
         )}
         {isCompatible && (
-          <p className="text-xs text-text-muted">
+          <p className="text-xs text-muted">
             Enter the model ID exactly as your compatible endpoint expects it. This model will be saved as the connection default.
           </p>
         )}
         {isCloudflareAi && (
-          <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
-            <h3 className="font-semibold mb-3 text-sm">Cloudflare Workers AI</h3>
+          <Card variant="raised" padding="sm">
+            <h3 className="mb-3 text-sm font-semibold text-ink">Cloudflare Workers AI</h3>
             <Input
               label="Account ID"
               value={cloudflareData.accountId}
               onChange={(e) => setCloudflareData({ ...cloudflareData, accountId: e.target.value })}
               placeholder="abc123def456..."
             />
-            <p className="text-xs text-text-muted mt-2">
-              Find your Account ID in the right sidebar of <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">dash.cloudflare.com</a>
+            <p className="mt-2 text-xs text-muted">
+              Find your Account ID in the right sidebar of <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="font-medium text-ink underline underline-offset-[3px]">dash.cloudflare.com</a>
             </p>
-          </div>
+          </Card>
         )}
         {isAzure && (
-          <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
-            <h3 className="font-semibold mb-3 text-sm">Azure OpenAI Configuration</h3>
+          <Card variant="raised" padding="sm">
+            <h3 className="mb-3 text-sm font-semibold text-ink">Azure OpenAI Configuration</h3>
             <div className="flex flex-col gap-3">
               <Input
                 label="Azure Endpoint"
@@ -353,7 +357,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
                 placeholder="Organization ID"
               />
             </div>
-          </div>
+          </Card>
         )}
 
         <Input
@@ -375,12 +379,12 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         />
 
         {(proxyPools || []).length === 0 && (
-          <p className="text-xs text-text-muted">
-            No active proxy pools available. Add one via the `POST /api/proxy-pools` API.
+          <p className="text-xs text-muted">
+            No active proxy pools available. Add one via the <code className="font-mono text-ink">POST /api/proxy-pools</code> API.
           </p>
         )}
 
-        <p className="text-xs text-text-muted">
+        <p className="text-xs text-faint">
           Legacy manual proxy fields are still accepted by API for backward compatibility.
         </p>
 

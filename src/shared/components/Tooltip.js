@@ -15,7 +15,9 @@ export default function Tooltip({ text, children, position = "top", color }) {
   }[position];
 
   const bgStyle = color ? { backgroundColor: color } : {};
-  const bgClass = color ? "" : "bg-gray-900";
+  const toneClass = color
+    ? "text-white border-transparent"
+    : "bg-raise text-ink border-line-strong";
 
   const only = Children.count(children) === 1 ? Children.only(children) : null;
   const trigger =
@@ -43,7 +45,7 @@ export default function Tooltip({ text, children, position = "top", color }) {
       <div
         id={id}
         role="tooltip"
-        className={`pointer-events-none absolute ${posClass} z-50 w-max max-w-56 rounded px-2 py-1 text-[11px] leading-snug ${bgClass} text-white ${dismissed ? "opacity-0" : "opacity-0 group-hover/tt:opacity-100 group-focus-within/tt:opacity-100"} transition-opacity duration-150 whitespace-normal`}
+        className={`pointer-events-none absolute ${posClass} z-[70] w-max max-w-56 rounded-md border px-2 py-1 text-[11px] leading-snug shadow-[var(--shadow-float)] ${toneClass} ${dismissed ? "opacity-0" : "opacity-0 group-hover/tt:opacity-100 group-focus-within/tt:opacity-100"} transition-opacity duration-150 whitespace-normal`}
         style={bgStyle}
       >
         {text}

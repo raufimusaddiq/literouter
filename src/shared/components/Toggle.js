@@ -41,28 +41,29 @@ export default function Toggle({
           "relative inline-flex shrink-0 cursor-pointer items-center rounded-full",
           "after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']",
           "transition-colors duration-200 ease-in-out",
-          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-          checked ? "bg-brand-500" : "bg-surface-3",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line",
+          checked ? "bg-ink" : "bg-line-strong",
           sizes[size].track,
           disabled && "cursor-not-allowed"
         )}
       >
-      <span
-        className={cn(
-          "pointer-events-none relative inline-block rounded-full bg-white shadow-sm",
-          "transform transition duration-200 ease-in-out",
-          checked ? sizes[size].translate : "translate-x-0.5",
-          sizes[size].thumb
-        )}
-      />
+        <span
+          className={cn(
+            "pointer-events-none relative inline-block rounded-full",
+            checked ? "bg-bg" : "bg-raise dark:bg-ink",
+            "transform transition duration-200 ease-in-out",
+            checked ? sizes[size].translate : "translate-x-0.5",
+            sizes[size].thumb
+          )}
+        />
       </button>
       {(label || description) && (
         <div className="flex flex-col">
           {label && (
-            <span className="text-sm font-medium text-text-main">{label}</span>
+            <span className="text-sm font-medium text-ink">{label}</span>
           )}
           {description && (
-            <span className="text-xs text-text-muted">{description}</span>
+            <span className="text-xs text-muted">{description}</span>
           )}
         </div>
       )}

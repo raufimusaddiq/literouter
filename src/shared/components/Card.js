@@ -4,49 +4,62 @@ import { cn } from "@/shared/utils/cn";
 
 export default function Card({
   children,
+  variant = "section",
   title,
   subtitle,
   icon,
   action,
   padding = "md",
   hover = false,
-  elev = false,
   className,
   ...props
 }) {
-  const paddings = {
-    none: "",
-    xs: "p-3",
-    sm: "p-4",
-    md: "p-6",
-    lg: "p-8",
-  };
+  const isRaised = variant === "raised";
+  const paddings = isRaised
+    ? {
+        none: "",
+        xs: "p-3",
+        sm: "p-4",
+        md: "p-5",
+        lg: "p-6",
+      }
+    : {
+        none: "",
+        xs: "pt-3",
+        sm: "pt-4",
+        md: "pt-5",
+        lg: "pt-6",
+      };
 
   return (
     <div
       className={cn(
-        "relative rounded-[10px] bg-surface ring-1 ring-border-subtle",
-        elev ? "shadow-[var(--shadow-elev)]" : "shadow-[var(--shadow-soft)]",
-        hover && "cursor-pointer transition-[box-shadow,ring-color,transform] duration-200 hover:-translate-y-px hover:ring-brand-500/30",
-        paddings[padding],
+        "relative",
+        isRaised
+          ? "rounded-lg border border-line-strong bg-raise"
+          : "border-t border-line-strong",
+        hover && (isRaised
+          ? "cursor-pointer transition-colors duration-150 hover:border-ink/40"
+          : "cursor-pointer transition-colors duration-150 hover:bg-raise/50"),
+        paddings[padding] ?? paddings.md,
         className
       )}
       {...props}
     >
       {(title || action) && (
-        <div className="mb-5 flex items-center justify-between border-b border-border-subtle pb-4">
-          <div className="flex items-center gap-3">
+        <div className="mb-4 flex items-center justify-between gap-4 border-b border-line pb-3">
+          <div className="flex items-center gap-2.5 min-w-0">
             {icon && (
-              <div className="p-2 rounded-[10px] bg-bg text-text-muted">
-                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">{icon}</span>
-              </div>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-muted shrink-0">
+                {icon}
+              </span>
             )}
-            <div>
+            <div className="min-w-0">
               {title && (
-                <h2 className="font-semibold tracking-[-0.02em] text-text-main">{title}</h2>
+                <h2 className="text-base font-semibold tracking-[-0.01em] text-ink">{title}</h2>
               )}
               {subtitle && (
-                <p className="text-sm text-text-muted">{subtitle}</p>
+                <p className="text-[12.5px] text-muted">{subtitle}</p>
               )}
             </div>
           </div>
@@ -62,7 +75,7 @@ Card.Section = function CardSection({ children, className, ...props }) {
   return (
     <div
       className={cn(
-        "rounded-xl bg-surface-2 p-4 ring-1 ring-border-subtle",
+        "rounded-lg border border-line bg-raise p-4",
         className
       )}
       {...props}
@@ -76,8 +89,8 @@ Card.Row = function CardRow({ children, className, ...props }) {
   return (
     <div
       className={cn(
-        "-mx-3 border-b border-border-subtle px-3 py-3 transition-colors last:border-b-0",
-        "hover:bg-surface-2/70",
+        "border-b border-line py-3 transition-colors last:border-b-0",
+        "hover:bg-raise/60",
         className
       )}
       {...props}
@@ -96,15 +109,15 @@ Card.ListItem = function CardListItem({
   return (
     <div
       className={cn(
-        "group -mx-3 flex items-center justify-between border-b border-border-subtle px-3 py-3 last:border-b-0",
-        "hover:bg-surface-2/70 transition-colors",
+        "group flex items-center justify-between gap-3 border-b border-line py-3 last:border-b-0",
+        "hover:bg-raise/60 transition-colors",
         className
       )}
       {...props}
     >
       <div className="flex-1 min-w-0">{children}</div>
       {actions && (
-        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100">
           {actions}
         </div>
       )}
