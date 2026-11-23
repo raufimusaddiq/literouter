@@ -1,0 +1,48 @@
+services:
+  app:
+    image: ${GATE_IMAGE:?image ref}
+    environment:
+      JWT_SECRET: gate-jwt-secret-gate-jwt-secret-0001
+      INITIAL_PASSWORD: gate-password
+      API_KEY_SECRET: gate-api-key-secret
+      MACHINE_ID_SALT: gate-machine-salt
+      PORT: "20128"
+      HOSTNAME: "0.0.0.0"
+      TRUST_LOOPBACK_AS_LOCAL: ${TRUST_LOOPBACK_AS_LOCAL:-true}
+
+  caddy-a:
+    image: caddy:2-alpine
+    environment:
+      UPSTREAM: app:20128
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - app
+
+  caddy-b:
+    image: caddy:2-alpine
+    network_mode: "service:app"
+    environment:
+      UPSTREAM: 127.0.0.1:20128
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - app
+
+  client-remote:
+    image: curlimages/curl:latest
+    entrypoint: ["sleep", "3600"]
+
+  client-loopback:
+    image: curlimages/curl:latest
+    entrypoint: ["sleep", "3600"]
+    network_mode: "service:app"
+    depends_on:
+      - app
+
+  mock:
+    image: oven/bun:1.4.4
+    command:
+      - bun
+      - -e
+      - "let hits=0;const png=new Uint8Array([137,80,78,71,13,10,26,10]);Bun.serve({port:9000,fetch(r){const u=new URL(r.url);if(u.pathname==='/__hits')return new Response(String(hits));if(u.pathname==='/__reset'){hits=0;return new Response('ok')}hits++;if(u.pathname==='/redir')return new Response(null,{status:302,headers:{location:'http://mock:9000/target.png'}});return new Response(png,{headers:{'content-type':'image/png'}})}})"
