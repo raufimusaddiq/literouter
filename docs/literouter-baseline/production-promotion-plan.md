@@ -187,8 +187,9 @@ Cutover procedure — one writer at a time, no overlap:
    Chat/Responses, and one streaming request with exactly one `[DONE]`.
 4. Point the Caddy upstream at LiteRouter and run the public `200` sweep until
    it is clean. Keep the prior image and the verified backup retained.
-5. Staging is sunset and was removed during cutover: no `literouter-staging`
-   container and no `ai-staging.musaddiqr.com` block exist. Production is the
+5. There is no staging deployment: no `literouter-staging` container and no
+   `ai-staging.musaddiqr.com` block exist. The `staging` branch stays as the
+   pre-main integration branch. Production is the
    only LiteRouter deployment.
 
 Rollback: stop LiteRouter, restore the verified backup if the new schema was
