@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { Link } from "@/web/router";
 import { APIKEY_PROVIDERS, supportsServiceKind } from "@/shared/constants/providers";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { Badge, Button, Card, Select, PageIntro, Toggle } from "@/shared/components";

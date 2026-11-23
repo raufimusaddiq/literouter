@@ -1,8 +1,7 @@
 "use client";
 
 import PropTypes from "prop-types";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, Link } from "@/web/router";
 import { cn } from "@/shared/utils/cn";
 import { APP_CONFIG } from "@/shared/constants/config";
 

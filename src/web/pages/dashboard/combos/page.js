@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import dynamic from "next/dynamic";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { Card, Button, CardSkeleton, ModelSelectModal, ConfirmModal, CapacityBadges, Select, Toggle, PageIntro } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 
-const ComboFormModal = dynamic(() => import("./ComboFormModal"), { ssr: false });
+const ComboFormModal = lazy(() => import("./ComboFormModal"));
 
 const CAPACITY_ADAPTER_CAPS = [
   { key: "vision", label: "Vision", icon: "visibility", desc: "Images" },
@@ -243,24 +242,28 @@ export default function CombosPage() {
       />
 
       {showCreateModal && (
-        <ComboFormModal
-          key="create"
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          onSave={handleCreate}
-          activeProviders={activeProviders}
-        />
+        <Suspense fallback={null}>
+          <ComboFormModal
+            key="create"
+            isOpen={showCreateModal}
+            onClose={() => setShowCreateModal(false)}
+            onSave={handleCreate}
+            activeProviders={activeProviders}
+          />
+        </Suspense>
       )}
 
       {editingCombo && (
-        <ComboFormModal
-          key={editingCombo.id}
-          isOpen={!!editingCombo}
-          combo={editingCombo}
-          onClose={() => setEditingCombo(null)}
-          onSave={(data) => handleUpdate(editingCombo.id, data)}
-          activeProviders={activeProviders}
-        />
+        <Suspense fallback={null}>
+          <ComboFormModal
+            key={editingCombo.id}
+            isOpen={!!editingCombo}
+            combo={editingCombo}
+            onClose={() => setEditingCombo(null)}
+            onSave={(data) => handleUpdate(editingCombo.id, data)}
+            activeProviders={activeProviders}
+          />
+        </Suspense>
       )}
 
       <ConfirmModal

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useRouter, Link } from "@/web/router";
 import { Card, Button, Input, Select, Toggle, PageIntro } from "@/shared/components";
 import { AI_PROVIDERS, AUTH_METHODS } from "@/shared/constants/config";
 import { getFormAuthMethods } from "@/shared/constants/providers";

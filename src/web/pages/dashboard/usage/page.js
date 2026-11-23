@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "@/web/router";
 import { UsageStats, RequestLogger, CardSkeleton, SegmentedControl, PageIntro } from "@/shared/components";
 import RequestDetailsTab from "./components/RequestDetailsTab";
 

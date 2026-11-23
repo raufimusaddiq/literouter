@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import PropTypes from "prop-types";
 import { Button, Input, Modal, CardSkeleton, ConfirmModal, PageIntro } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import EndpointStrip from "./components/EndpointStrip";
 import KeysTable from "./components/KeysTable";
-export default function APIPageClient({ machineId }) {
+export default function APIPageClient() {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -351,7 +350,3 @@ It will only be able to call the combos and models you add. Until you add one, i
   );
 }
 
-
-APIPageClient.propTypes = {
-  machineId: PropTypes.string.isRequired,
-};

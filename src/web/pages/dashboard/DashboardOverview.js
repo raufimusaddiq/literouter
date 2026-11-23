@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { Link } from "@/web/router";
 import { Badge, Button, Card, PageIntro, Skeleton } from "@/shared/components";
 import { classifyConnection, getConnectionHealthStats, HEALTH, HEALTH_LABELS } from "@/shared/utils/connectionHealth";
 import { getRelativeTime } from "@/shared/utils";

@@ -21,7 +21,7 @@ import {
   ANTHROPIC_COMPATIBLE_PREFIX,
   supportsServiceKind,
 } from "@/shared/constants/providers";
-import Link from "next/link";
+import { Link } from "@/web/router";
 import { getErrorCode, getRelativeTime } from "@/shared/utils";
 import { getConnectionHealthStats, HEALTH_LABELS } from "@/shared/utils/connectionHealth";
 import { useNotificationStore } from "@/store/notificationStore";
