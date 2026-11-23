@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { CursorService } from "@/lib/oauth/services/cursor";
 import { createProviderConnection } from "@/models";
 
@@ -7,14 +7,14 @@ export async function POST(request) {
     const { accessToken, machineId } = await request.json();
 
     if (!accessToken || typeof accessToken !== "string") {
-      return NextResponse.json(
+      return json(
         { error: "Access token is required" },
         { status: 400 }
       );
     }
 
     if (!machineId || typeof machineId !== "string") {
-      return NextResponse.json(
+      return json(
         { error: "Machine ID is required" },
         { status: 400 }
       );
@@ -45,7 +45,7 @@ export async function POST(request) {
       testStatus: "active",
     });
 
-    return NextResponse.json({
+    return json({
       success: true,
       connection: {
         id: connection.id,
@@ -55,7 +55,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.log("Cursor import token error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return json({ error: error.message }, { status: 500 });
   }
 }
 
@@ -63,7 +63,7 @@ export async function GET() {
   const cursorService = new CursorService();
   const instructions = cursorService.getTokenStorageInstructions();
 
-  return NextResponse.json({
+  return json({
     provider: "cursor",
     method: "import_token",
     instructions,

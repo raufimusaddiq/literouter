@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { createProviderConnection } from "@/models";
 import { parseGitLabBaseUrl } from "@/shared/utils/gitlabBaseUrl";
 
@@ -8,17 +8,17 @@ export async function POST(request) {
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+      return json({ error: "Invalid request body" }, { status: 400 });
     }
 
     const { token, baseUrl } = body;
     if (!token?.trim()) {
-      return NextResponse.json({ error: "Personal Access Token is required" }, { status: 400 });
+      return json({ error: "Personal Access Token is required" }, { status: 400 });
     }
 
     const base = parseGitLabBaseUrl(baseUrl);
     if (!base) {
-      return NextResponse.json({ error: "GitLab base URL must be an http(s) URL" }, { status: 400 });
+      return json({ error: "GitLab base URL must be an http(s) URL" }, { status: 400 });
     }
 
     const userRes = await fetch(`${base}/api/v4/user`, {
@@ -27,7 +27,7 @@ export async function POST(request) {
 
     if (!userRes.ok) {
       const err = await userRes.text();
-      return NextResponse.json({ error: `GitLab token verification failed: ${err}` }, { status: 401 });
+      return json({ error: `GitLab token verification failed: ${err}` }, { status: 401 });
     }
 
     const user = await userRes.json();
@@ -51,9 +51,9 @@ export async function POST(request) {
       },
     });
 
-    return NextResponse.json({ success: true });
+    return json({ success: true });
   } catch (error) {
     console.error("GitLab PAT auth error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return json({ error: error.message }, { status: 500 });
   }
 }

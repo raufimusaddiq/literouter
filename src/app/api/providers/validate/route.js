@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { ACCEPT_ENCODING } from "open-sse/utils/zstdCompat.js";
 import { getProviderNodeById } from "@/models";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isSystemOneProvider, AI_PROVIDERS } from "@/shared/constants/providers";
@@ -28,13 +28,13 @@ export async function POST(request) {
           if (typeof candidate === "string" && candidate.trim()) await assertPublicUrlResolved(candidate.trim());
         }
       } catch {
-        return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+        return json({ error: "URL not allowed" }, { status: 400 });
       }
     }
 
     const isNoAuth = AI_PROVIDERS[provider]?.noAuth === true;
     if (!provider || (!apiKey && provider !== "ollama-local" && !isNoAuth)) {
-      return NextResponse.json({ error: "Provider and API key required" }, { status: 400 });
+      return json({ error: "Provider and API key required" }, { status: 400 });
     }
 
     let isValid = false;
@@ -44,18 +44,18 @@ export async function POST(request) {
       if (isOpenAICompatibleProvider(provider)) {
         const node = await getProviderNodeById(provider);
         if (!node) {
-          return NextResponse.json({ error: "OpenAI Compatible node not found" }, { status: 404 });
+          return json({ error: "OpenAI Compatible node not found" }, { status: 404 });
         }
         if (remote) {
           try { await assertPublicUrlResolved(node.baseUrl?.trim() || ""); }
-          catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
+          catch { return json({ error: "URL not allowed" }, { status: 400 }); }
         }
         const modelsUrl = `${node.baseUrl?.replace(/\/$/, "")}/models`;
         const res = await validateFetch(modelsUrl, {
           headers: { "Authorization": `Bearer ${apiKey}` },
         });
         isValid = res.ok;
-        return NextResponse.json({
+        return json({
           valid: isValid,
           error: isValid ? null : "Invalid API key",
         });
@@ -64,12 +64,12 @@ export async function POST(request) {
       if (isAnthropicCompatibleProvider(provider)) {
         const node = await getProviderNodeById(provider);
         if (!node) {
-          return NextResponse.json({ error: "Anthropic Compatible node not found" }, { status: 404 });
+          return json({ error: "Anthropic Compatible node not found" }, { status: 404 });
         }
 
         if (remote) {
           try { await assertPublicUrlResolved(node.baseUrl?.trim() || ""); }
-          catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
+          catch { return json({ error: "URL not allowed" }, { status: 400 }); }
         }
         let normalizedBase = node.baseUrl?.trim().replace(/\/$/, "") || "";
         if (normalizedBase.endsWith("/messages")) {
@@ -95,7 +95,7 @@ export async function POST(request) {
         });
 
         isValid = res.status !== 401 && res.status !== 403;
-        return NextResponse.json({
+        return json({
           valid: isValid,
           error: isValid ? null : "Invalid API key",
         });
@@ -105,7 +105,7 @@ export async function POST(request) {
         const { providerSpecificData } = body;
         const accountId = providerSpecificData?.accountId;
         if (!accountId) {
-          return NextResponse.json({ valid: false, error: "Missing Account ID" });
+          return json({ valid: false, error: "Missing Account ID" });
         }
         const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
         const cfRes = await fetchPublic(url, {
@@ -118,7 +118,7 @@ export async function POST(request) {
           }),
         });
         isValid = cfRes.status !== 401 && cfRes.status !== 403 && cfRes.status !== 404;
-        return NextResponse.json({
+        return json({
           valid: isValid,
           error: isValid ? null : "Invalid API token or Account ID",
         });
@@ -127,11 +127,11 @@ export async function POST(request) {
       if (isSystemOneProvider(provider)) {
         const node = await getProviderNodeById(provider);
         if (!node) {
-          return NextResponse.json({ valid: false, error: "System One node not found" }, { status: 404 });
+          return json({ valid: false, error: "System One node not found" }, { status: 404 });
         }
         if (remote) {
           try { await assertPublicUrlResolved(node.baseUrl?.trim() || ""); }
-          catch { return NextResponse.json({ error: "URL not allowed" }, { status: 400 }); }
+          catch { return json({ error: "URL not allowed" }, { status: 400 }); }
         }
         const res = await validateFetch(node.baseUrl.replace(/\/$/, ""), {
           method: "POST",
@@ -139,7 +139,7 @@ export async function POST(request) {
           body: JSON.stringify({ model: "ping", state: "ping", questions: {} }),
         });
         const isValid = res.status !== 401 && res.status !== 403;
-        return NextResponse.json({ valid: isValid, error: isValid ? null : "Invalid API key" });
+        return json({ valid: isValid, error: isValid ? null : "Invalid API key" });
       }
 
       if (provider === "azure") {
@@ -164,7 +164,7 @@ export async function POST(request) {
           }),
         });
         isValid = azureRes.status !== 401 && azureRes.status !== 403;
-        return NextResponse.json({
+        return json({
           valid: isValid,
           error: isValid ? null : "Invalid API key or Azure configuration",
         });
@@ -504,7 +504,7 @@ export async function POST(request) {
         default: {
           const cfg = PROVIDERS[provider];
           if (!cfg || cfg.format !== "openai" || !cfg.baseUrl) {
-            return NextResponse.json({ error: "Provider validation not supported" }, { status: 400 });
+            return json({ error: "Provider validation not supported" }, { status: 400 });
           }
           if (cfg.noAuth) {
             isValid = true;
@@ -540,12 +540,12 @@ export async function POST(request) {
       isValid = false;
     }
 
-    return NextResponse.json({
+    return json({
       valid: isValid,
       error: isValid ? null : (error || "Invalid API key"),
     });
   } catch (error) {
     console.log("Error validating API key:", error);
-    return NextResponse.json({ error: "Validation failed" }, { status: 500 });
+    return json({ error: "Validation failed" }, { status: 500 });
   }
 }

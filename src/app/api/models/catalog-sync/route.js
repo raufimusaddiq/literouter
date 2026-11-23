@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import fs from "node:fs";
 import { getSyncState, syncModelCatalog } from "@/lib/modelCatalog/sync.js";
 import { CATALOG_FILE } from "open-sse/providers/catalogOverride.js";
@@ -17,13 +17,13 @@ export async function GET() {
   } catch {
     catalog = null;
   }
-  return NextResponse.json({ ...state, catalog });
+  return json({ ...state, catalog });
 }
 
 export async function POST() {
   const result = await syncModelCatalog();
   if (!result) {
-    return NextResponse.json({ error: getSyncState().lastError || "sync in progress" }, { status: 503 });
+    return json({ error: getSyncState().lastError || "sync in progress" }, { status: 503 });
   }
-  return NextResponse.json({ success: true, result });
+  return json({ success: true, result });
 }

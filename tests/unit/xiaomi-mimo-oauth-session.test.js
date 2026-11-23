@@ -1,14 +1,12 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { vi } from "#test/vi";
 
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body, init) => ({
-      status: init?.status || 200,
-      body,
-      json: async () => body,
-    }),
-  },
+vi.mock("@/server/http.js", () => ({
+  json: (body, init) => ({
+    status: init?.status || 200,
+    body,
+    json: async () => body,
+  }),
 }));
 
 vi.mock("@/lib/oauth/providers", () => ({

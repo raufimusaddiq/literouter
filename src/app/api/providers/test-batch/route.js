@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { getProviderConnections } from "@/models";
 import {
   FREE_PROVIDERS,
@@ -43,7 +43,7 @@ export async function POST(request) {
     const { mode, providerId } = body;
 
     if (!mode) {
-      return NextResponse.json({ error: "mode is required" }, { status: 400 });
+      return json({ error: "mode is required" }, { status: 400 });
     }
 
     const allConnections = await getProviderConnections({ isActive: true });
@@ -68,14 +68,14 @@ export async function POST(request) {
     } else if (mode === "all") {
       connectionsToTest = allConnections;
     } else {
-      return NextResponse.json(
+      return json(
         { error: "Invalid mode. Use: provider, oauth, free, apikey, systemone, compatible, all" },
         { status: 400 }
       );
     }
 
     if (connectionsToTest.length === 0) {
-      return NextResponse.json({
+      return json({
         mode,
         providerId: providerId || null,
         results: [],
@@ -116,7 +116,7 @@ export async function POST(request) {
       }
     }
 
-    return NextResponse.json({
+    return json({
       mode,
       providerId: providerId || null,
       results,
@@ -129,6 +129,6 @@ export async function POST(request) {
     });
   } catch (error) {
     console.log("Error in batch test:", error);
-    return NextResponse.json({ error: "Batch test failed" }, { status: 500 });
+    return json({ error: "Batch test failed" }, { status: 500 });
   }
 }

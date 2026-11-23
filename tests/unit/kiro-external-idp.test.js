@@ -141,14 +141,12 @@ describe("Kiro external_idp (CLIProxyAPI) import and refresh", () => {
 
   it("imports CLIProxyAPI external_idp JSON as a Kiro OAuth connection", async () => {
     const createdConnections = [];
-    vi.mock("next/server", () => ({
-      NextResponse: {
-        json(body, init = {}) {
-          return new Response(JSON.stringify(body), {
-            status: init.status || 200,
-            headers: { "Content-Type": "application/json" },
-          });
-        },
+    vi.mock("@/server/http.js", () => ({
+      json(body, init = {}) {
+        return new Response(JSON.stringify(body), {
+          status: init.status || 200,
+          headers: { "Content-Type": "application/json" },
+        });
       },
     }));
     vi.mock("@/models", () => ({
