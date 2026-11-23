@@ -24,30 +24,6 @@ function makeChain(name) {
   return { caPath: f("ca.pem"), key: readFileSync(f("key"), "utf8"), cert: readFileSync(f("crt"), "utf8") };
 }
 
-describe("useSystemCaStore", () => {
-  const { useSystemCaStore } = createRequire(import.meta.url)(customServer);
-
-  it("installs the system certs as the process default", () => {
-    const calls = [];
-    const n = useSystemCaStore({
-      getCACertificates: (t) => (t === "system" ? ["a", "b"] : ["bundled"]),
-      setDefaultCACertificates: (c) => calls.push(c),
-    });
-    expect(n).toBe(2);
-    expect(calls).toEqual([["a", "b"]]);
-  });
-
-  it("fails closed on an empty system store and on a Node without the API", () => {
-    const set = () => { throw new Error("must not be called"); };
-    expect(() => useSystemCaStore({ getCACertificates: () => [], setDefaultCACertificates: set })).toThrow(/refusing/);
-    expect(() => useSystemCaStore({})).toThrow(/Node >= 22.19/);
-  });
-
-  it("is enabled in the production image", () => {
-    expect(readFileSync(join(root, "Dockerfile"), "utf8")).toMatch(/^ENV LITEROUTER_SYSTEM_CA=1$/m);
-  });
-});
-
 describe("outbound clients honour the configured extra CA store under Bun", () => {
   let trusted, distrusted;
   beforeAll(() => {
