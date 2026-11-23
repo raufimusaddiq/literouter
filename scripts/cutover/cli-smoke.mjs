@@ -1,0 +1,545 @@
+import { Database } from "bun:sqlite";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
+
+const SCENARIOS = ["start-stop", "update-while-running", "replace-old-node-server"];
+const BASE_PORT = 20190;
+const PASSWORD = "p5t6-pass";
+const HEALTH_DEADLINE_MS = 90_000;
+const IS_WIN = process.platform === "win32";
+const REPO_ROOT = resolve(import.meta.dir, "..", "..");
+const LEGACY_VERSION = "0.5.81";
+
+const failures = [];
+
+function report(ok, step, detail = "") {
+  const line = `${ok ? "PASS" : "FAIL"} ${step}${detail ? ` - ${detail}` : ""}`;
+  console.log(line);
+  if (!ok) failures.push(line);
+  return ok;
+}
+
+function info(step, detail) {
+  console.log(`INFO ${step} - ${detail}`);
+}
+
+function sleep(ms) {
+  return new Promise((done) => setTimeout(done, ms));
+}
+
+function parseArgs(argv) {
+  const opts = { method: "add-g", keep: false };
+  const rest = [];
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--spec") opts.spec = argv[++i];
+    else if (arg === "--spec-b") opts.specB = argv[++i];
+    else if (arg === "--method") opts.method = argv[++i];
+    else if (arg === "--port") opts.port = parseInt(argv[++i], 10);
+    else if (arg === "--legacy-modules") opts.legacyModules = argv[++i];
+    else if (arg === "--legacy-runtime") opts.legacyRuntime = argv[++i];
+    else if (arg === "--keep") opts.keep = true;
+    else if (arg === "--legacy-pidfile") opts.legacyPidfile = true;
+    else rest.push(arg);
+  }
+  opts.scenario = rest[0];
+  return opts;
+}
+
+function buildEnv(ctx, extra = {}) {
+  const env = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (key.toUpperCase() !== "PATH") env[key] = value;
+  }
+  const basePath = process.env.PATH ?? process.env.Path ?? "";
+  const sep = IS_WIN ? ";" : ":";
+  env.PATH = [join(ctx.root, "bun", "bin"), basePath].join(sep);
+  env.BUN_INSTALL = join(ctx.root, "bun");
+  env.BUN_INSTALL_BIN = join(ctx.root, "bun", "bin");
+  env.BUN_INSTALL_GLOBAL_DIR = join(ctx.root, "bun", "install", "global");
+  env.BUN_INSTALL_CACHE_DIR = join(ctx.root, "bun", "install", "cache");
+  env.DATA_DIR = ctx.dataDir;
+  env.INITIAL_PASSWORD = PASSWORD;
+  env.APPDATA = join(ctx.root, "appdata");
+  env.HOME = join(ctx.root, "home");
+  env.P5ROOT = ctx.root;
+  env.TEMP = join(ctx.root, "tmp");
+  env.TMP = env.TEMP;
+  env.TMPDIR = env.TEMP;
+  delete env.NINEROUTER_REUSE_PID;
+  return { ...env, ...extra };
+}
+
+async function run(cmd, ctx, { cwd, env, timeoutMs = 300_000 } = {}) {
+  const proc = Bun.spawn(cmd, {
+    cwd,
+    env: env ?? buildEnv(ctx),
+    stdin: "ignore",
+    stdout: "pipe",
+    stderr: "pipe",
+    windowsHide: true,
+  });
+  const timer = setTimeout(() => proc.kill(), timeoutMs);
+  const [out, err] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
+  const code = await proc.exited;
+  clearTimeout(timer);
+  return { code, out: `${out}${err}` };
+}
+
+function tail(text, lines = 12) {
+  return text.trim().split(/\r?\n/).slice(-lines).join(" | ");
+}
+
+async function listOwned(ctx) {
+  if (IS_WIN) {
+    const script =
+      "$r=$env:P5ROOT; Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.ProcessId -ne $PID -and $_.CommandLine.IndexOf($r,[StringComparison]::OrdinalIgnoreCase) -ge 0 } | ForEach-Object { \"$($_.ProcessId)|$($_.ParentProcessId)|$($_.Name)|$($_.CommandLine)\" }";
+    const res = await run(["powershell", "-NoProfile", "-Command", script], ctx, { timeoutMs: 60_000 });
+    return res.out
+      .split(/\r?\n/)
+      .map((line) => line.match(/^(\d+)\|(\d+)\|([^|]*)\|(.*)$/))
+      .filter(Boolean)
+      .map((m) => ({ pid: +m[1], ppid: +m[2], name: m[3], cmd: m[4] }));
+  }
+  const res = await run(["ps", "-eo", "pid=,ppid=,args="], ctx, { timeoutMs: 30_000 });
+  const all = res.out
+    .split(/\r?\n/)
+    .map((line) => line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/))
+    .filter((m) => m && +m[1] !== process.pid)
+    .map((m) => ({ pid: +m[1], ppid: +m[2], name: "", cmd: m[3] }));
+  const owned = new Map(all.filter((p) => p.cmd.includes(ctx.root) && !/^ps /.test(p.cmd)).map((p) => [p.pid, p]));
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const proc of all) {
+      if (!owned.has(proc.pid) && owned.has(proc.ppid) && !/^ps /.test(proc.cmd)) {
+        owned.set(proc.pid, proc);
+        grew = true;
+      }
+    }
+  }
+  return [...owned.values()];
+}
+
+async function trayProcs(ctx) {
+  const owned = await listOwned(ctx);
+  return owned.filter((p) => /tray\.ps1|systray/i.test(p.cmd));
+}
+
+async function killOwned(ctx) {
+  for (let round = 0; round < 3; round++) {
+    const owned = await listOwned(ctx);
+    if (owned.length === 0) return 0;
+    for (const proc of owned) {
+      try {
+        process.kill(proc.pid);
+      } catch {}
+    }
+    await sleep(500);
+  }
+  return (await listOwned(ctx)).length;
+}
+
+async function portOpen(port) {
+  try {
+    const socket = await Bun.connect({ hostname: "127.0.0.1", port, socket: { data() {}, open() {}, close() {}, error() {} } });
+    socket.end();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function listenerPid(ctx, port) {
+  if (IS_WIN) {
+    const res = await run(["netstat", "-ano", "-p", "TCP"], ctx, { timeoutMs: 30_000 });
+    for (const line of res.out.split(/\r?\n/)) {
+      if (!/LISTENING/i.test(line)) continue;
+      const cols = line.trim().split(/\s+/);
+      const local = cols[1] ?? "";
+      if (parseInt(local.slice(local.lastIndexOf(":") + 1), 10) === port) return parseInt(cols[cols.length - 1], 10);
+    }
+    return null;
+  }
+  const res = await run(["lsof", "-tiTCP:" + port, "-sTCP:LISTEN"], ctx, { timeoutMs: 15_000 });
+  const line = res.out.split(/\r?\n/).find((l) => /^\d+$/.test(l.trim()));
+  return line ? parseInt(line, 10) : null;
+}
+
+async function waitHealth(base, launcher, deadlineMs = HEALTH_DEADLINE_MS) {
+  const end = Date.now() + deadlineMs;
+  while (Date.now() < end) {
+    try {
+      const res = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(2000) });
+      if (res.status === 200) return 200;
+    } catch {}
+    if (launcher && launcher.exitCode !== null && launcher.exitCode !== undefined) return `launcher-exited-${launcher.exitCode}`;
+    await sleep(500);
+  }
+  return "timeout";
+}
+
+function pidfilePath(ctx) {
+  return join(ctx.dataDir, "server.pid");
+}
+
+function readPidfile(ctx) {
+  try {
+    return JSON.parse(readFileSync(pidfilePath(ctx), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function dbVersion(ctx) {
+  const file = join(ctx.dataDir, "db", "data.sqlite");
+  if (!existsSync(file)) return null;
+  const db = new Database(file, { readonly: true });
+  try {
+    return db.query("SELECT value FROM _meta WHERE key = 'appVersion'").get()?.value ?? null;
+  } finally {
+    db.close();
+  }
+}
+
+function packageVersion(file) {
+  return JSON.parse(readFileSync(file, "utf8")).version;
+}
+
+async function packTarball(ctx, cliDir, label) {
+  const out = join(ctx.root, "tarballs", label);
+  mkdirSync(out, { recursive: true });
+  const built = await run([process.execPath, "run", "build"], ctx, { cwd: cliDir });
+  if (built.code !== 0) throw new Error(`cli build failed: ${tail(built.out)}`);
+  const packed = await run([process.execPath, "pm", "pack", "--destination", out], ctx, { cwd: cliDir });
+  if (packed.code !== 0) throw new Error(`bun pm pack failed: ${tail(packed.out)}`);
+  const file = readdirSync(out).find((name) => name.endsWith(".tgz"));
+  if (!file) throw new Error(`no tarball produced in ${out}`);
+  return join(out, file);
+}
+
+async function packBumped(ctx) {
+  const copy = join(ctx.root, "tree-b");
+  const skip = new Set(["node_modules", ".git", "dist", ".superpowers"]);
+  cpSync(REPO_ROOT, copy, {
+    recursive: true,
+    filter: (src) => !skip.has(basename(src)) && !src.replace(/\\/g, "/").endsWith("/cli/app"),
+  });
+  const cliPkgPath = join(copy, "cli", "package.json");
+  const cliPkg = JSON.parse(readFileSync(cliPkgPath, "utf8"));
+  const parts = cliPkg.version.split(".").map(Number);
+  parts[2] += 1;
+  cliPkg.version = parts.join(".");
+  writeFileSync(cliPkgPath, `${JSON.stringify(cliPkg, null, 2)}\n`);
+  for (const dir of [copy, join(copy, "cli")]) {
+    const res = await run([process.execPath, "install", "--frozen-lockfile"], ctx, { cwd: dir });
+    if (res.code !== 0) throw new Error(`bun install in ${dir} failed: ${tail(res.out)}`);
+  }
+  const tarball = await packTarball(ctx, join(copy, "cli"), "b");
+  return { tarball, version: cliPkg.version };
+}
+
+function specVersion(spec) {
+  return String(spec).match(/(?:@|literouter-)(\d+\.\d+\.\d+)(?:\.tgz)?$/)?.[1] ?? null;
+}
+
+function cliCommand(ctx, spec) {
+  if (ctx.method === "bunx") return [process.execPath, "x", "--package", spec, "literouter"];
+  const bin = Bun.which("literouter", { PATH: buildEnv(ctx).PATH });
+  if (!bin) throw new Error("literouter is not on the throwaway PATH");
+  return [bin];
+}
+
+async function install(ctx, spec) {
+  if (ctx.method === "bunx") {
+    const res = await run([...cliCommand(ctx, spec), "--version"], ctx);
+    return { code: res.code, out: res.out };
+  }
+  return run([process.execPath, "add", "-g", spec], ctx);
+}
+
+function startCli(ctx, spec, name) {
+  const cmd = [...cliCommand(ctx, spec), "--port", String(ctx.port), "--host", "127.0.0.1", "--no-browser", "--skip-update"];
+  const logFile = join(ctx.root, "logs", `${name}.log`);
+  mkdirSync(dirname(logFile), { recursive: true });
+  const proc = Bun.spawn(cmd, {
+    env: buildEnv(ctx),
+    stdin: "ignore",
+    stdout: Bun.file(logFile),
+    stderr: Bun.file(logFile),
+    windowsHide: true,
+  });
+  return { proc, logFile };
+}
+
+function readLog(file) {
+  try {
+    return readFileSync(file, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+async function stopCli(ctx, spec) {
+  const res = await run([...cliCommand(ctx, spec), "stop"], ctx, { timeoutMs: 60_000 });
+  return res;
+}
+
+async function checkStop(ctx, spec, label, launcher, serverPidBefore) {
+  const res = await stopCli(ctx, spec);
+  report(res.code === 0, `${label}: stop exits 0`, `exit=${res.code} ${tail(res.out, 3)}`);
+  await sleep(1500);
+  report(!(await portOpen(ctx.port)), `${label}: port ${ctx.port} closed after stop`);
+  report(!existsSync(pidfilePath(ctx)), `${label}: pidfile removed`);
+  if (launcher) {
+    const gone = await waitExit(launcher.proc, 10_000);
+    report(gone, `${label}: launcher process exited`);
+  }
+  if (serverPidBefore) {
+    report(!pidAlive(serverPidBefore), `${label}: server pid ${serverPidBefore} gone`);
+  }
+}
+
+function pidAlive(pid) {
+  try {
+    if (process.platform === "linux") {
+      const state = readFileSync(`/proc/${pid}/stat`, "utf8").replace(/^.*\) /, "")[0];
+      return state !== "Z";
+    }
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function waitExit(proc, ms) {
+  const timer = sleep(ms).then(() => false);
+  return Promise.race([proc.exited.then(() => true), timer]);
+}
+
+async function startAndCheck(ctx, spec, label, name) {
+  const launcher = startCli(ctx, spec, name);
+  const health = await waitHealth(`http://127.0.0.1:${ctx.port}`, launcher.proc);
+  const ok = report(health === 200, `${label}: /api/health 200`, health === 200 ? "" : `${health}; log: ${tail(readLog(launcher.logFile))}`);
+  return { launcher, ok };
+}
+
+async function checkPidfile(ctx, label) {
+  const record = readPidfile(ctx);
+  report(!!record && Number.isInteger(record.pid) && Number.isInteger(record.launcherPid), `${label}: pidfile has pid and launcherPid`, JSON.stringify(record));
+  const listener = await listenerPid(ctx, ctx.port);
+  report(!!record && listener === record.pid, `${label}: pidfile pid owns the listening port`, `listener=${listener} record=${record?.pid}`);
+  return record;
+}
+
+async function reportTray(ctx, label) {
+  let procs = [];
+  for (let i = 0; i < 20 && procs.length === 0; i++) {
+    procs = await trayProcs(ctx);
+    if (procs.length === 0) await sleep(500);
+  }
+  info(`${label}: tray helper started`, procs.length > 0 ? `yes (pid ${procs.map((p) => p.pid).join(",")})` : "no");
+  return procs.length > 0;
+}
+
+async function scenarioStartStop(ctx, spec) {
+  const inst = await install(ctx, spec);
+  if (!report(inst.code === 0, "start-stop: install", `${ctx.method} exit=${inst.code} ${tail(inst.out, 4)}`)) return;
+  const { launcher, ok } = await startAndCheck(ctx, spec, "start-stop", "start");
+  if (!ok) return;
+  const record = await checkPidfile(ctx, "start-stop");
+  await reportTray(ctx, "start-stop");
+  await checkStop(ctx, spec, "start-stop", launcher, record?.pid);
+  const trayLeft = (await trayProcs(ctx)).length;
+  info("start-stop: tray helper stopped", trayLeft === 0 ? "yes" : `no (${trayLeft} left)`);
+}
+
+async function scenarioUpdate(ctx, specA, specB, versionA, versionB) {
+  const inst = await install(ctx, specA);
+  if (!report(inst.code === 0, "update-while-running: install A", `${ctx.method} exit=${inst.code} ${tail(inst.out, 4)}`)) return;
+  const { launcher, ok } = await startAndCheck(ctx, specA, "update-while-running", "start-a");
+  if (!ok) return;
+  const record = await checkPidfile(ctx, "update-while-running");
+  const seenA = dbVersion(ctx);
+  report(seenA === versionA, "update-while-running: server A reports its version", `db appVersion=${seenA} expected=${versionA}`);
+
+  const upd = await install(ctx, specB);
+  const busy = /EBUSY|EPERM/i.test(upd.out);
+  report(upd.code === 0 && !busy, "update-while-running: install B while A runs", `exit=${upd.code} busyOrPerm=${busy} ${tail(upd.out, 4)}`);
+  if (ctx.method === "add-g") {
+    const installed = packageVersion(join(ctx.root, "bun", "install", "global", "node_modules", "literouter", "package.json"));
+    report(installed === versionB, "update-while-running: installed package is version B", `installed=${installed}`);
+  }
+  const stillUp = await waitHealth(`http://127.0.0.1:${ctx.port}`, null, 10_000);
+  info("update-while-running: server A still answers after update", String(stillUp === 200));
+
+  await checkStop(ctx, specB, "update-while-running", launcher, record?.pid);
+  const second = await startAndCheck(ctx, specB, "update-while-running: restart on B", "start-b");
+  if (!second.ok) return;
+  const seenB = dbVersion(ctx);
+  report(seenB === versionB, "update-while-running: restart serves version B", `db appVersion=${seenB} expected=${versionB}`);
+  const record2 = readPidfile(ctx);
+  await checkStop(ctx, specB, "update-while-running: final", second.launcher, record2?.pid);
+}
+
+async function apiLogin(base) {
+  const res = await fetch(`${base}/api/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ password: PASSWORD }),
+  });
+  if (res.status !== 200) throw new Error(`login -> ${res.status} ${(await res.text()).slice(0, 200)}`);
+  return res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+}
+
+async function seedKey(base) {
+  const cookie = await apiLogin(base);
+  const res = await fetch(`${base}/api/keys`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify({ name: "p5t6-seed" }),
+  });
+  if (res.status >= 300) throw new Error(`create key -> ${res.status} ${(await res.text()).slice(0, 200)}`);
+  return (await res.json()).key;
+}
+
+async function keySurvives(base, key) {
+  const cookie = await apiLogin(base);
+  const res = await fetch(`${base}/api/keys`, { headers: { cookie } });
+  if (res.status !== 200) throw new Error(`list keys -> ${res.status}`);
+  const keys = (await res.json()).keys ?? [];
+  return keys.some((k) => k.key === key);
+}
+
+async function scenarioReplace(ctx, spec, opts) {
+  if (!opts.legacyModules || !opts.legacyRuntime) {
+    report(false, "replace-old-node-server: prerequisites", "needs --legacy-modules <dir holding 9router> and --legacy-runtime <old runtime>");
+    return;
+  }
+  const modules = join(ctx.root, "legacy", "node_modules");
+  cpSync(opts.legacyModules, modules, { recursive: true });
+  const legacyCli = join(modules, "9router", "cli.js");
+  const legacyVersion = packageVersion(join(modules, "9router", "package.json"));
+  if (!report(legacyVersion === LEGACY_VERSION, "replace-old-node-server: old package present", `version=${legacyVersion}`)) return;
+
+  const logFile = join(ctx.root, "logs", "legacy.log");
+  mkdirSync(dirname(logFile), { recursive: true });
+  const old = Bun.spawn([opts.legacyRuntime, legacyCli, "--port", String(ctx.port), "--no-browser", "--skip-update"], {
+    env: buildEnv(ctx),
+    stdin: "ignore",
+    stdout: Bun.file(logFile),
+    stderr: Bun.file(logFile),
+    windowsHide: true,
+  });
+  const base = `http://127.0.0.1:${ctx.port}`;
+  const health = await waitHealth(base, old);
+  if (!report(health === 200, "replace-old-node-server: old server /api/health 200", health === 200 ? "" : `${health}; log: ${tail(readLog(logFile))}`)) return;
+  let oldListener = await listenerPid(ctx, ctx.port);
+  if (oldListener === null) {
+    const child = (await listOwned(ctx)).find((p) => p.ppid === old.pid);
+    oldListener = child?.pid ?? null;
+    info("replace-old-node-server: port owner not found by the listener query, using the launcher's child", `${oldListener} (${child?.cmd ?? "none"})`);
+  }
+  if (!report(oldListener !== null, "replace-old-node-server: old server pid identified", String(oldListener))) return;
+  info("replace-old-node-server: pidfile written by old CLI", String(existsSync(pidfilePath(ctx))));
+  if (opts.legacyPidfile && oldListener !== null) {
+    writeFileSync(pidfilePath(ctx), JSON.stringify({ pid: oldListener, port: ctx.port, startedAt: Date.now() }));
+    info("replace-old-node-server: wrote the pidfile the fork's old CLI wrote", pidfilePath(ctx));
+  }
+
+  let key;
+  try {
+    key = await seedKey(base);
+    report(!!key, "replace-old-node-server: seeded an API key on the old server");
+  } catch (err) {
+    report(false, "replace-old-node-server: seeded an API key on the old server", String(err.message));
+    return;
+  }
+
+  const inst = await install(ctx, spec);
+  if (!report(inst.code === 0, "replace-old-node-server: install new CLI", `${ctx.method} exit=${inst.code} ${tail(inst.out, 4)}`)) return;
+  const launcher = startCli(ctx, spec, "new");
+  for (let i = 0; i < 120 && !readPidfile(ctx)?.launcherPid && launcher.proc.exitCode === null; i++) await sleep(500);
+  const newPort = readPidfile(ctx)?.port ?? ctx.port;
+  const ready = await waitHealth(`http://127.0.0.1:${newPort}`, launcher.proc, 60_000);
+  info("replace-old-node-server: new server port", `${newPort} (requested ${ctx.port})`);
+  const oldAlive = oldListener !== null && pidAlive(oldListener);
+  const listener = await listenerPid(ctx, ctx.port);
+  report(!oldAlive, "replace-old-node-server: old server stopped first", `old pid ${oldListener} alive=${oldAlive}; listener now=${listener}; new log: ${tail(readLog(launcher.logFile), 6)}`);
+  report(ready === 200 && newPort === ctx.port && listener !== oldListener, "replace-old-node-server: new server answers /api/health on the same port", `health=${ready} listener=${listener} port=${newPort}`);
+  const record = readPidfile(ctx);
+  info("replace-old-node-server: new pidfile", JSON.stringify(record));
+
+  let probeBase = base;
+  if (record && record.port && record.port !== ctx.port) probeBase = `http://127.0.0.1:${record.port}`;
+  try {
+    report(await keySurvives(probeBase, key), "replace-old-node-server: seeded API key survived", probeBase);
+  } catch (err) {
+    report(false, "replace-old-node-server: seeded API key survived", String(err.message));
+  }
+
+  if (record && record.port && record.port !== ctx.port) ctx.port = record.port;
+  await stopCli(ctx, spec);
+}
+
+async function main() {
+  const opts = parseArgs(process.argv.slice(2));
+  if (!SCENARIOS.includes(opts.scenario) || !["add-g", "bunx"].includes(opts.method)) {
+    console.error(`usage: bun scripts/cutover/cli-smoke.mjs <${SCENARIOS.join("|")}> [--spec <spec>] [--spec-b <spec>] [--method add-g|bunx] [--port <n>] [--legacy-modules <dir>] [--legacy-runtime <cmd>] [--legacy-pidfile] [--keep]`);
+    process.exit(2);
+  }
+  const root = mkdtempSync(join(tmpdir(), "p5t6-"));
+  const ctx = {
+    root,
+    dataDir: join(root, "data"),
+    port: opts.port ?? BASE_PORT + SCENARIOS.indexOf(opts.scenario),
+    method: opts.method,
+  };
+  for (const dir of [ctx.dataDir, join(root, "appdata"), join(root, "home"), join(root, "bun"), join(root, "tmp")]) mkdirSync(dir, { recursive: true });
+  if (ctx.port === 20128) throw new Error("refusing the default port 20128");
+  info("runner", `${process.platform} bun ${Bun.version} root=${root} port=${ctx.port} method=${ctx.method}`);
+
+  try {
+    const cliDir = join(REPO_ROOT, "cli");
+    const specA = opts.spec ?? (await packTarball(ctx, cliDir, "a"));
+    const versionA = specVersion(specA) ?? (opts.spec ? null : packageVersion(join(cliDir, "package.json")));
+    info("spec A", `${specA} version=${versionA}`);
+
+    if (opts.scenario === "start-stop") await scenarioStartStop(ctx, specA);
+    else if (opts.scenario === "replace-old-node-server") await scenarioReplace(ctx, specA, opts);
+    else {
+      let specB = opts.specB;
+      let versionB = null;
+      if (!specB) {
+        const bumped = await packBumped(ctx);
+        specB = bumped.tarball;
+        versionB = bumped.version;
+      } else {
+        versionB = specVersion(specB);
+      }
+      info("spec B", `${specB} version=${versionB}`);
+      await scenarioUpdate(ctx, specA, specB, versionA, versionB);
+    }
+  } catch (err) {
+    report(false, `${opts.scenario}: runner error`, String(err?.stack ?? err));
+  } finally {
+    const leftover = await killOwned(ctx);
+    report(leftover === 0, `${opts.scenario}: no processes left from the throwaway run`, `left=${leftover}`);
+    report(!(await portOpen(ctx.port)), `${opts.scenario}: port ${ctx.port} free at exit`);
+    if (!opts.keep) {
+      for (let i = 0; i < 5; i++) {
+        try {
+          rmSync(root, { recursive: true, force: true });
+          break;
+        } catch {
+          await sleep(500);
+        }
+      }
+    }
+  }
+  console.log(failures.length === 0 ? `RESULT PASS ${opts.scenario} (${ctx.method})` : `RESULT FAIL ${opts.scenario} (${ctx.method}): ${failures.length} failed step(s)`);
+  process.exit(failures.length === 0 ? 0 : 1);
+}
+
+await main();
