@@ -24,13 +24,15 @@ vi.mock("../../open-sse/utils/requestLogger.js", () => ({
   }),
 }));
 
-vi.mock("@/lib/usageDb.js", () => ({
+vi.mock("@/lib/usageDb.js", async () => ({
+  ...(await import("@/lib/usageDb.js?actual")),
   trackPendingRequest: vi.fn(),
   appendRequestLog: vi.fn(async () => {}),
   saveRequestDetail: vi.fn(async () => {}),
 }));
 
-vi.mock("../../open-sse/handlers/chatCore/sseToJsonHandler.js", () => ({
+vi.mock("../../open-sse/handlers/chatCore/sseToJsonHandler.js", async () => ({
+  ...(await import("../../open-sse/handlers/chatCore/sseToJsonHandler.js?actual")),
   handleForcedSSEToJson: forcedSSEToJsonMock,
 }));
 

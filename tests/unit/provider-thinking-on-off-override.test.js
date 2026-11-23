@@ -33,7 +33,8 @@ vi.mock("../../open-sse/utils/bypassHandler.js", () => ({
   handleBypassRequest: vi.fn(() => null),
 }));
 
-vi.mock("../../open-sse/utils/streamHandler.js", () => ({
+vi.mock("../../open-sse/utils/streamHandler.js", async () => ({
+  ...(await import("../../open-sse/utils/streamHandler.js?actual")),
   createStreamController: vi.fn(() => ({
     signal: undefined,
     handleComplete: vi.fn(),
@@ -41,10 +42,14 @@ vi.mock("../../open-sse/utils/streamHandler.js", () => ({
   })),
 }));
 
-vi.mock("../../open-sse/services/tokenRefresh.js", () => ({ refreshWithRetry: vi.fn(async (fn) => fn()) }));
+vi.mock("../../open-sse/services/tokenRefresh.js", async () => ({
+  ...(await import("../../open-sse/services/tokenRefresh.js?actual")),
+  refreshWithRetry: vi.fn(async (fn) => fn()),
+}));
 
-vi.mock("../../open-sse/translator/index.js", async (importOriginal) => ({
-  ...(await importOriginal()),
+const actualTranslator = await import("../../open-sse/translator/index.js");
+vi.mock("../../open-sse/translator/index.js", () => ({
+  ...actualTranslator,
   translateRequest: vi.fn((_s, _t, _m, body) => body),
 }));
 
@@ -53,8 +58,8 @@ vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
   proxyAwareFetch: vi.fn(),
 }));
 
-vi.mock("../../open-sse/translator/formats/claude.js", async (importOriginal) => ({
-  ...(await importOriginal()),
+vi.mock("../../open-sse/translator/formats/claude.js", async () => ({
+  ...(await import("../../open-sse/translator/formats/claude.js?actual")),
   normalizeClaudePassthrough: vi.fn(),
   anchorClaudeCache: vi.fn(),
   prepareClaudeRequest: vi.fn((body) => body),
@@ -70,7 +75,8 @@ vi.mock("../../open-sse/rtk/index.js", () => ({
   compressMessages: vi.fn(() => null),
   formatRtkLog: vi.fn(() => ""),
 }));
-vi.mock("../../open-sse/rtk/headroom.js", () => ({
+vi.mock("../../open-sse/rtk/headroom.js", async () => ({
+  ...(await import("../../open-sse/rtk/headroom.js?actual")),
   compressWithHeadroom: vi.fn(async () => null),
   formatHeadroomLog: vi.fn(() => ""),
   formatHeadroomSizeLog: vi.fn(() => ""),
@@ -84,7 +90,8 @@ vi.mock("../../open-sse/translator/concerns/modality.js", () => ({
 vi.mock("../../open-sse/translator/concerns/prefetch.js", () => ({
   prefetchRemoteImages: vi.fn(async () => 0),
 }));
-vi.mock("../../open-sse/handlers/chatCore/requestDetail.js", () => ({
+vi.mock("../../open-sse/handlers/chatCore/requestDetail.js", async () => ({
+  ...(await import("../../open-sse/handlers/chatCore/requestDetail.js?actual")),
   buildRequestDetail: vi.fn((detail) => detail),
   extractRequestConfig: vi.fn((body, stream) => ({ body, stream })),
 }));
@@ -93,7 +100,8 @@ vi.mock("../../open-sse/utils/error.js", () => ({
   formatProviderError: vi.fn((error) => error.message),
   parseUpstreamError: parseUpstreamErrorMock,
 }));
-vi.mock("@/lib/usageDb.js", () => ({
+vi.mock("@/lib/usageDb.js", async () => ({
+  ...(await import("@/lib/usageDb.js?actual")),
   trackPendingRequest: vi.fn(),
   appendRequestLog: vi.fn(() => Promise.resolve()),
   saveRequestDetail: vi.fn(() => Promise.resolve()),

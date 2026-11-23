@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
-vi.mock("../../open-sse/services/cursorModels.js", async (importOriginal) => {
-  const actual = await importOriginal();
+vi.mock("../../open-sse/services/cursorModels.js", async () => {
+  const actual = await import("../../open-sse/services/cursorModels.js?actual");
   return {
     ...actual,
     resolveCursorModels: vi.fn(),

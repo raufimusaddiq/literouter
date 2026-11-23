@@ -14,7 +14,10 @@ const dbMocks = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock("@/lib/db/index.js", () => dbMocks);
+vi.mock("@/lib/db/index.js", async () => ({
+  ...(await import("@/lib/db/index.js?actual")),
+  ...dbMocks,
+}));
 vi.mock("@/lib/network/connectionProxy", () => ({
   pickProxyPoolId: vi.fn(),
   resolveConnectionProxyConfig: vi.fn(),

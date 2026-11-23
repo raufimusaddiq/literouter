@@ -8,7 +8,8 @@ const fx = vi.hoisted(() => ({
   patches: [],
 }));
 
-vi.mock("@/lib/db/index.js", () => ({
+vi.mock("@/lib/db/index.js", async () => ({
+  ...(await import("@/lib/db/index.js?actual")),
   getSettings: async () => ({ requireApiKey: false, comboStrategy: "fallback" }),
   getModelAliases: async () => ({}),
   getComboByName: async () => null,
@@ -36,9 +37,12 @@ vi.mock("@/lib/db/index.js", () => ({
   },
 }));
 vi.mock("@/lib/disabledModelsDb", () => ({ getDisabledModels: async () => ({}) }));
-vi.mock("@/lib/db/repos/combosRepo.js", () => ({ getCombos: async () => [] }));
-vi.mock("@/lib/db/repos/apiKeysRepo.js", () => ({ getApiKeyByKey: async () => null }));
-vi.mock("@/lib/usageDb.js", () => ({
+vi.mock("@/lib/db/repos/combosRepo.js", async () => ({
+  ...(await import("@/lib/db/repos/combosRepo.js?actual")), getCombos: async () => [] }));
+vi.mock("@/lib/db/repos/apiKeysRepo.js", async () => ({
+  ...(await import("@/lib/db/repos/apiKeysRepo.js?actual")), getApiKeyByKey: async () => null }));
+vi.mock("@/lib/usageDb.js", async () => ({
+  ...(await import("@/lib/usageDb.js?actual")),
   saveRequestUsage: vi.fn(),
   trackPendingRequest: vi.fn(),
   appendRequestLog: vi.fn(async () => {}),
@@ -50,8 +54,8 @@ vi.mock("@/sse/services/tokenRefresh.js", () => ({
 }));
 vi.mock("open-sse/handlers/chatCore.js", () => ({ handleChatCore: fx.chatCore }));
 vi.mock("@/lib/network/connectionProxy", () => ({ pickProxyPoolId: vi.fn(), resolveConnectionProxyConfig: vi.fn() }));
-vi.mock("../../src/sse/services/auth.js", async (importOriginal) => ({
-  ...(await importOriginal()),
+vi.mock("../../src/sse/services/auth.js", async () => ({
+  ...(await import("../../src/sse/services/auth.js?actual")),
   getProviderCredentials: fx.getCreds,
 }));
 vi.mock("../../src/sse/services/model.js", () => ({

@@ -12,13 +12,14 @@ vi.mock("../../open-sse/utils/requestLogger.js", () => ({
     logProviderResponse() {}, logConvertedResponse() {}, logError() {},
   }),
 }));
-vi.mock("@/lib/usageDb.js", () => ({
+vi.mock("@/lib/usageDb.js", async () => ({
+  ...(await import("@/lib/usageDb.js?actual")),
   trackPendingRequest() {},
   appendRequestLog: vi.fn(async () => {}),
   saveRequestDetail: saveDetail,
 }));
-vi.mock("../../open-sse/handlers/chatCore/requestDetail.js", async (importOriginal) => ({
-  ...await importOriginal(),
+vi.mock("../../open-sse/handlers/chatCore/requestDetail.js", async () => ({
+  ...(await import("../../open-sse/handlers/chatCore/requestDetail.js?actual")),
   saveUsageStats: vi.fn(),
 }));
 

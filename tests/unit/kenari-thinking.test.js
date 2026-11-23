@@ -10,7 +10,8 @@ import { translateRequest } from "../../open-sse/translator/index.js";
 import { normalizeKenariModels } from "../../src/lib/modelCatalog/kenariSync.js";
 
 const mocks = vi.hoisted(() => ({ getProviderConnectionById: vi.fn() }));
-vi.mock("@/models", () => ({ getProviderConnectionById: mocks.getProviderConnectionById }));
+vi.mock("@/models", async () => ({
+  ...(await import("@/models?actual")), getProviderConnectionById: mocks.getProviderConnectionById }));
 
 const { GET } = await import("../../src/app/api/providers/[id]/models/route.js");
 

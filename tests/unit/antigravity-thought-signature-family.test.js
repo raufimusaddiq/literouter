@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { vi } from "#test/vi";
 
-vi.mock("@/lib/db/helpers/kvStore.js", () => ({
+vi.mock("@/lib/db/helpers/kvStore.js", async () => ({
+  ...(await import("@/lib/db/helpers/kvStore.js?actual")),
   makeKv: () => ({
     get: async () => null,
     set: async () => {},

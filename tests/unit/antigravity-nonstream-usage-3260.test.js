@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
-vi.mock("@/lib/usageDb.js", () => ({
+vi.mock("@/lib/usageDb.js", async () => ({
+  ...(await import("@/lib/usageDb.js?actual")),
   appendRequestLog: vi.fn(async () => {}),
   saveRequestDetail: vi.fn(async () => {}),
   saveRequestUsage: vi.fn(async () => {})
