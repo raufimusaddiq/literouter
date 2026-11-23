@@ -2,9 +2,16 @@ import fs from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
-import { setCatalogSource } from "../../open-sse/providers/capabilities.js";
-import { KENARI_CATALOG_FILE, getKenariProviderLive, invalidateKenariCatalog } from "../../open-sse/providers/kenariCatalog.js";
-import { normalizeKenariModels } from "../../src/lib/modelCatalog/kenariSync.js";
+vi.mock("@/lib/dataDir.js", async () => {
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  return { DATA_DIR: mkdtempSync(join(tmpdir(), "kenari-test-")) };
+});
+
+const { setCatalogSource } = await import("../../open-sse/providers/capabilities.js");
+const { KENARI_CATALOG_FILE, getKenariProviderLive, invalidateKenariCatalog } = await import("../../open-sse/providers/kenariCatalog.js");
+const { normalizeKenariModels } = await import("../../src/lib/modelCatalog/kenariSync.js");
 
 const db = vi.hoisted(() => ({
   getProviderConnections: vi.fn(),
@@ -23,13 +30,6 @@ const { buildModelsList } = await import("../../src/app/api/v1/models/route.js")
 const fixture = JSON.parse(
   fs.readFileSync(new URL("../fixtures/kenari-models.json", import.meta.url), "utf8"),
 );
-
-vi.mock("@/lib/dataDir.js", async () => {
-  const { mkdtempSync } = await import("node:fs");
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
-  return { DATA_DIR: mkdtempSync(join(tmpdir(), "kenari-test-")) };
-});
 
 function writeCatalog() {
   fs.writeFileSync(KENARI_CATALOG_FILE, JSON.stringify({ v: 1, models: normalizeKenariModels(fixture) }));

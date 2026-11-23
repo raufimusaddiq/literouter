@@ -2,25 +2,25 @@ import fs from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
-import { getCapabilitiesForModel, setCatalogSource } from "../../open-sse/providers/capabilities.js";
-import {
-  KENARI_CATALOG_FILE,
-  getKenariProviderLive,
-  invalidateKenariCatalog,
-  listKenariModels,
-} from "../../open-sse/providers/kenariCatalog.js";
-import { normalizeKenariModels } from "../../src/lib/modelCatalog/kenariSync.js";
-
-const fixture = JSON.parse(
-  fs.readFileSync(new URL("../fixtures/kenari-models.json", import.meta.url), "utf8"),
-);
-
 vi.mock("@/lib/dataDir.js", async () => {
   const { mkdtempSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
   return { DATA_DIR: mkdtempSync(join(tmpdir(), "kenari-test-")) };
 });
+
+const { getCapabilitiesForModel, setCatalogSource } = await import("../../open-sse/providers/capabilities.js");
+const {
+  KENARI_CATALOG_FILE,
+  getKenariProviderLive,
+  invalidateKenariCatalog,
+  listKenariModels,
+} = await import("../../open-sse/providers/kenariCatalog.js");
+const { normalizeKenariModels } = await import("../../src/lib/modelCatalog/kenariSync.js");
+
+const fixture = JSON.parse(
+  fs.readFileSync(new URL("../fixtures/kenari-models.json", import.meta.url), "utf8"),
+);
 
 function install({ overlay } = {}) {
   setCatalogSource({
