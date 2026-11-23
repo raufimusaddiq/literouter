@@ -1,9 +1,8 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { json, cookies } from "@/server/http.js";
 import { clearDashboardAuthCookie } from "@/lib/auth/dashboardSession";
 
-export async function POST() {
-  const cookieStore = await cookies();
+export async function POST(request) {
+  const cookieStore = cookies(request);
   clearDashboardAuthCookie(cookieStore);
-  return NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store" } });
+  return json({ success: true }, { headers: { "Cache-Control": "no-store" } });
 }

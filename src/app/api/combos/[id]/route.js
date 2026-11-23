@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { getComboById, updateCombo, deleteCombo, getComboByName } from "@/lib/localDb";
 import { resetComboRotation } from "open-sse/services/combo.js";
 import { validateCombo } from "../validate.js";
@@ -11,13 +11,13 @@ export async function GET(request, { params }) {
     const combo = await getComboById(id);
     
     if (!combo) {
-      return NextResponse.json({ error: "Combo not found" }, { status: 404 });
+      return json({ error: "Combo not found" }, { status: 404 });
     }
     
-    return NextResponse.json(combo);
+    return json(combo);
   } catch (error) {
     console.log("Error fetching combo:", error);
-    return NextResponse.json({ error: "Failed to fetch combo" }, { status: 500 });
+    return json({ error: "Failed to fetch combo" }, { status: 500 });
   }
 }
 
@@ -28,12 +28,12 @@ export async function PUT(request, { params }) {
     
     if (body.name) {
       if (!VALID_NAME_REGEX.test(body.name)) {
-        return NextResponse.json({ error: "Name can only contain letters, numbers, -, _ and ." }, { status: 400 });
+        return json({ error: "Name can only contain letters, numbers, -, _ and ." }, { status: 400 });
       }
       
       const existing = await getComboByName(body.name);
       if (existing && existing.id !== id) {
-        return NextResponse.json({ error: "Combo name already exists" }, { status: 400 });
+        return json({ error: "Combo name already exists" }, { status: 400 });
       }
     }
     
@@ -46,23 +46,23 @@ export async function PUT(request, { params }) {
         models: body.models ?? prev?.models ?? [],
       });
       if (invalid) {
-        return NextResponse.json({ error: invalid }, { status: 400 });
+        return json({ error: invalid }, { status: 400 });
       }
     }
 
     const combo = await updateCombo(id, body);
     
     if (!combo) {
-      return NextResponse.json({ error: "Combo not found" }, { status: 404 });
+      return json({ error: "Combo not found" }, { status: 404 });
     }
 
     if (prev?.name) resetComboRotation(prev.name);
     if (combo.name && combo.name !== prev?.name) resetComboRotation(combo.name);
 
-    return NextResponse.json(combo);
+    return json(combo);
   } catch (error) {
     console.log("Error updating combo:", error);
-    return NextResponse.json({ error: "Failed to update combo" }, { status: 500 });
+    return json({ error: "Failed to update combo" }, { status: 500 });
   }
 }
 
@@ -73,14 +73,14 @@ export async function DELETE(request, { params }) {
     const success = await deleteCombo(id);
     
     if (!success) {
-      return NextResponse.json({ error: "Combo not found" }, { status: 404 });
+      return json({ error: "Combo not found" }, { status: 404 });
     }
 
     if (prev?.name) resetComboRotation(prev.name);
     
-    return NextResponse.json({ success: true });
+    return json({ success: true });
   } catch (error) {
     console.log("Error deleting combo:", error);
-    return NextResponse.json({ error: "Failed to delete combo" }, { status: 500 });
+    return json({ error: "Failed to delete combo" }, { status: 500 });
   }
 }

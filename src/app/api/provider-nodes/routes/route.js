@@ -1,18 +1,16 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { getProviderNodeById } from "@/models";
 import { nodeRoutes } from "@/shared/constants/compatibleNodeRoutes";
-
-export const dynamic = "force-dynamic";
 
 export async function GET(request) {
   try {
     const id = new URL(request.url).searchParams.get("id");
-    if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+    if (!id) return json({ error: "id is required" }, { status: 400 });
     const node = await getProviderNodeById(id);
-    if (!node) return NextResponse.json({ error: "Node not found" }, { status: 404 });
-    return NextResponse.json({ id, routes: nodeRoutes(node) });
+    if (!node) return json({ error: "Node not found" }, { status: 404 });
+    return json({ id, routes: nodeRoutes(node) });
   } catch (error) {
     console.log("Error resolving node routes:", error);
-    return NextResponse.json({ error: "Failed to resolve node routes" }, { status: 500 });
+    return json({ error: "Failed to resolve node routes" }, { status: 500 });
   }
 }

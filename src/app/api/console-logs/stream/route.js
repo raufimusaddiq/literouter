@@ -1,8 +1,6 @@
 import { SSE_HEADERS } from "open-sse/utils/sseConstants.js";
 import { getConsoleLogs, getConsoleEmitter, initConsoleLogCapture } from "@/lib/consoleLogBuffer";
 
-export const dynamic = "force-dynamic";
-
 initConsoleLogCapture();
 
 export async function GET(request) {

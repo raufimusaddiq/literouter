@@ -1,4 +1,5 @@
 import { maybeCompress } from "./compress.js";
+import { applyCookies } from "./http.js";
 
 const LONG_LIVED_PREFIXES = ["/v1", "/v1beta", "/codex", "/api/v1", "/api/v1beta"];
 const LONG_LIVED_EXACT = new Set([
@@ -67,8 +68,9 @@ export function toBunHandler(load, route = {}) {
       return new Response(null, { status: 405, headers: { Allow: allowed.join(", ") } });
     }
     const params = buildParams(req, route, pathname);
-    const res = await handler(req, { params: Promise.resolve(params) });
-    if (!(res instanceof Response)) throw new TypeError(`route handler ${method} ${pathname} did not return a Response`);
+    const handled = await handler(req, { params: Promise.resolve(params) });
+    if (!(handled instanceof Response)) throw new TypeError(`route handler ${method} ${pathname} did not return a Response`);
+    const res = applyCookies(req, handled);
     if (dropBody) return new Response(null, { status: res.status, statusText: res.statusText, headers: res.headers });
     return res;
   }
