@@ -1,12 +1,11 @@
-import { NextResponse } from "next/server";
 import { getSettings, validateApiKey } from "@/lib/db/index.js";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { verifyDashboardAuthToken } from "@/lib/auth/dashboardSession";
-import { hasTrustedPeerHeaders } from "@/lib/auth/trustedPeer";
 import { buildErrorBody, resolveErrorFormat } from "open-sse/utils/error.js";
-import { hasProxyMarker, trustLoopbackAsLocal } from "@/lib/auth/proxyMarkers";
 import { checkApiKeyThrottle, recordApiKeyFailure } from "@/lib/auth/apiKeyThrottle";
 import { safeEqual } from "@/shared/utils/safeEqual";
+import { json, nextUrl, cookies } from "@/server/http.js";
+import { getRequestContext } from "@/server/context.js";
 
 const CLI_TOKEN_HEADER = "x-9r-cli-token";
 const CLI_TOKEN_SALT = "9r-cli-auth";
@@ -71,44 +70,12 @@ const LOCAL_ONLY_PATHS = [
 
 const LOCAL_ONLY_MUTATING_PATHS = ["/api/headroom/extras"];
 
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
-
 const MINIMAL_HIDDEN_PREFIXES = [
   "/api/headroom",
 ];
 
-function isLoopbackHostname(h) {
-  if (!h) return false;
-  let name = String(h).trim().toLowerCase();
-  if (name.startsWith("[")) {
-    const end = name.indexOf("]");
-    if (end === -1) return false;
-    name = name.slice(1, end);
-  } else if (name.indexOf(":") !== -1 && name.indexOf(":") === name.lastIndexOf(":")) {
-    name = name.slice(0, name.indexOf(":"));
-  }
-  if (name.startsWith("::ffff:")) name = name.slice(7);
-  return LOOPBACK_HOSTS.has(name);
-}
-
-function isLoopbackPeer(request) {
-  if (hasTrustedPeerHeaders(request)) {
-    return isLoopbackHostname(request.headers.get("x-9r-real-ip"));
-  }
-  return false;
-}
-
 export function isLocalRequest(request) {
-  if (request.headers.get("x-9r-via-proxy")) return false;
-  if (!trustLoopbackAsLocal() || hasProxyMarker(request.headers)) return false;
-  if (!isLoopbackPeer(request)) return false;
-  const origin = request.headers.get("origin");
-  if (origin) {
-    try {
-      if (!isLoopbackHostname(new URL(origin).hostname)) return false;
-    } catch { return false; }
-  }
-  return true;
+  return getRequestContext(request).isLocal;
 }
 
 function isPublicLlmApi(pathname) {
@@ -116,7 +83,7 @@ function isPublicLlmApi(pathname) {
 }
 
 function isLocalOnlyRoute(request) {
-  const { pathname } = request.nextUrl;
+  const { pathname } = nextUrl(request);
   if (LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p))) return true;
   const method = (request.method || "GET").toUpperCase();
   return method !== "GET" && method !== "HEAD" &&
@@ -130,7 +97,7 @@ function extractApiKey(request) {
   if (apiKeyHeader) return apiKeyHeader;
   const googleApiKeyHeader = request.headers.get("x-goog-api-key");
   if (googleApiKeyHeader) return googleApiKeyHeader;
-  return request.nextUrl.searchParams?.get("key") || null;
+  return nextUrl(request).searchParams.get("key") || null;
 }
 
 async function hasValidApiKey(request) {
@@ -140,8 +107,7 @@ async function hasValidApiKey(request) {
 }
 
 function throttleKey(request) {
-  if (hasTrustedPeerHeaders(request)) return request.headers.get("x-9r-real-ip") || null;
-  return null;
+  return getRequestContext(request).clientIp || null;
 }
 
 async function canAccessPublicLlmApi(request) {
@@ -160,7 +126,7 @@ async function canAccessLocalOnlyRoute(request) {
 }
 
 async function hasValidToken(request) {
-  const token = request.cookies.get("auth_token")?.value;
+  const token = cookies(request).get("auth_token");
   return await verifyDashboardAuthToken(token);
 }
 
@@ -184,6 +150,16 @@ function isPublicApi(pathname) {
   return PUBLIC_API_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+function redirectTo(target) {
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(target));
+      controller.close();
+    },
+  });
+  return new Response(body, { status: 307, headers: { Location: target } });
+}
+
 export const __test__ = {
   isLocalRequest,
   isPublicLlmApi,
@@ -192,47 +168,47 @@ export const __test__ = {
   canAccessLocalOnlyRoute,
 };
 
-export async function proxy(request) {
-  const { pathname } = request.nextUrl;
+export async function guard(request) {
+  const { pathname } = nextUrl(request);
 
   if (process.env.MINIMAL_PROFILE === "true" && MINIMAL_HIDDEN_PREFIXES.some((p) => pathname.startsWith(p))) {
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Not available in minimal profile" }, { status: 404 });
+      return json({ error: "Not available in minimal profile" }, { status: 404 });
     }
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return redirectTo("/dashboard");
   }
 
   if (isLocalOnlyRoute(request)) {
     if (!(await canAccessLocalOnlyRoute(request))) {
-      return NextResponse.json({ error: "Local only: CLI token required" }, { status: 403 });
+      return json({ error: "Local only: CLI token required" }, { status: 403 });
     }
   }
 
   if (ALWAYS_PROTECTED.some((p) => pathname.startsWith(p))) {
     if (await hasValidCliToken(request) || await hasValidToken(request))
-      return NextResponse.next();
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return null;
+    return json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (isPublicLlmApi(pathname)) {
-    if (await canAccessPublicLlmApi(request)) return NextResponse.next();
+    if (await canAccessPublicLlmApi(request)) return null;
     const format = resolveErrorFormat(pathname);
     const ip = throttleKey(request);
     const gate = ip ? checkApiKeyThrottle(ip) : { blocked: false };
     if (gate.blocked) {
-      return NextResponse.json(
+      return json(
         buildErrorBody(429, "Too many failed authentication attempts", format),
         { status: 429, headers: { "Retry-After": String(gate.retryAfter) } },
       );
     }
-    return NextResponse.json(buildErrorBody(401, "API key required for remote API access", format), { status: 401 });
+    return json(buildErrorBody(401, "API key required for remote API access", format), { status: 401 });
   }
 
   if (pathname.startsWith("/api/")) {
-    if (isPublicApi(pathname)) return NextResponse.next();
+    if (isPublicApi(pathname)) return null;
     if (await hasValidCliToken(request) || await isAuthenticated(request))
-      return NextResponse.next();
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return null;
+    return json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (pathname.startsWith("/dashboard")) {
@@ -246,23 +222,23 @@ export async function proxy(request) {
     } catch {
     }
 
-    if (!requireLogin) return NextResponse.next();
+    if (!requireLogin) return null;
 
-    const token = request.cookies.get("auth_token")?.value;
+    const token = cookies(request).get("auth_token");
     if (token) {
       if (await verifyDashboardAuthToken(token)) {
-        return NextResponse.next();
+        return null;
       } else {
-        return NextResponse.redirect(new URL("/login", request.url));
+        return redirectTo("/login");
       }
     }
 
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirectTo("/login");
   }
 
   if (pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return redirectTo("/dashboard");
   }
 
-  return NextResponse.next();
+  return null;
 }

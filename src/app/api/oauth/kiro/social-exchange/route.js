@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { KiroService } from "@/lib/oauth/services/kiro";
 import { createProviderConnection } from "@/models";
 
@@ -7,14 +7,14 @@ export async function POST(request) {
     const { code, codeVerifier, provider } = await request.json();
 
     if (!code || !codeVerifier) {
-      return NextResponse.json(
+      return json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
     if (!provider || !["google", "github"].includes(provider)) {
-      return NextResponse.json(
+      return json(
         { error: "Invalid provider" },
         { status: 400 }
       );
@@ -44,7 +44,7 @@ export async function POST(request) {
       testStatus: "active",
     });
 
-    return NextResponse.json({
+    return json({
       success: true,
       connection: {
         id: connection.id,
@@ -54,6 +54,6 @@ export async function POST(request) {
     });
   } catch (error) {
     console.log("Kiro social exchange error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return json({ error: error.message }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { readFile, access, constants } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
@@ -40,7 +40,7 @@ export async function GET() {
     }
 
     if (!authPath) {
-      return NextResponse.json({
+      return json({
         found: false,
         error: `Xiaomi MiMo Desktop auth file not found. Checked:\n${candidates.join("\n")}\n\nMake sure Xiaomi MiMo Desktop is installed and you are signed in.`,
       });
@@ -51,7 +51,7 @@ export async function GET() {
     try {
       auth = JSON.parse(raw);
     } catch {
-      return NextResponse.json({
+      return json({
         found: false,
         error: "auth.json is not valid JSON. Please sign in to Xiaomi MiMo Desktop again.",
       });
@@ -59,7 +59,7 @@ export async function GET() {
 
     const xiaomi = auth?.xiaomi;
     if (!xiaomi || !xiaomi.key) {
-      return NextResponse.json({
+      return json({
         found: false,
         error: "No Xiaomi credentials found in auth.json. Please sign in to Xiaomi MiMo Desktop.",
       });
@@ -67,7 +67,7 @@ export async function GET() {
 
     const key = String(xiaomi.key).trim();
     if (!key.startsWith("sk-")) {
-      return NextResponse.json({
+      return json({
         found: false,
         error: "Xiaomi key does not appear to be a valid API key (expected sk- prefix).",
       });
@@ -91,7 +91,7 @@ export async function GET() {
       console.log("[xiaomi-mimo] passToken read failed (non-fatal):", e.message);
     }
 
-    return NextResponse.json({
+    return json({
       found: true,
       apiKey: key,
       uid,
@@ -103,7 +103,7 @@ export async function GET() {
     });
   } catch (error) {
     console.log("Xiaomi MiMo auto-import error:", error);
-    return NextResponse.json(
+    return json(
       { found: false, error: error.message },
       { status: 500 },
     );

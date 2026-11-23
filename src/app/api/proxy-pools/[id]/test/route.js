@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { getProxyPoolById, updateProxyPool } from "@/models";
 import { testProxyUrl } from "@/lib/network/proxyTest";
 
@@ -38,7 +38,7 @@ export async function POST(request, { params }) {
     const proxyPool = await getProxyPoolById(id);
 
     if (!proxyPool) {
-      return NextResponse.json({ error: "Proxy pool not found" }, { status: 404 });
+      return json({ error: "Proxy pool not found" }, { status: 404 });
     }
 
     const result = proxyPool.type === "vercel" || proxyPool.type === "cloudflare" || proxyPool.type === "deno" || proxyPool.type === "netlify"
@@ -53,7 +53,7 @@ export async function POST(request, { params }) {
       isActive: result.ok,
     });
 
-    return NextResponse.json({
+    return json({
       ok: result.ok,
       status: result.status,
       statusText: result.statusText || null,
@@ -63,6 +63,6 @@ export async function POST(request, { params }) {
     });
   } catch (error) {
     console.log("Error testing proxy pool:", error);
-    return NextResponse.json({ error: "Failed to test proxy pool" }, { status: 500 });
+    return json({ error: "Failed to test proxy pool" }, { status: 500 });
   }
 }

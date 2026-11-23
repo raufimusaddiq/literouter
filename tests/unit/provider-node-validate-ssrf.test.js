@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { describe, it, expect, beforeEach } from "bun:test";
 import { vi } from "#test/vi";
 import { useTempDataDirAtLoad } from "#test/tempDataDir";
 
@@ -12,23 +12,26 @@ vi.mock("node:dns", () => ({
 vi.stubGlobal("fetch", fetchMock);
 
 const { POST } = await import("../../src/app/api/provider-nodes/validate/route.js");
+const { setRequestContext } = await import("../../src/server/context.js");
+const { buildRequestContext } = await import("../../src/server/trust.js");
+
+function withPeer(req, peerIp) {
+  setRequestContext(req, buildRequestContext(peerIp, req.headers));
+  return req;
+}
 
 function request(baseUrl) {
-  return new Request("http://localhost/api/provider-nodes/validate", {
+  return withPeer(new Request("http://localhost/api/provider-nodes/validate", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.9" },
     body: JSON.stringify({ baseUrl, apiKey: "k", type: "openai-compatible" }),
-  });
+  }), "127.0.0.1");
 }
 
 describe("POST /api/provider-nodes/validate SSRF guard", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     lookupMock.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
-  });
-
-  afterEach(() => {
-    delete process.env.NINEROUTER_PEER_TOKEN;
   });
 
   it("does not fetch a private provider node", async () => {
@@ -48,18 +51,13 @@ describe("POST /api/provider-nodes/validate SSRF guard", () => {
   });
 
   it("keeps allowing a LAN node for the local operator", async () => {
-    process.env.NINEROUTER_PEER_TOKEN = "test-peer";
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: [] }) });
 
-    const local = new Request("http://localhost/api/provider-nodes/validate", {
+    const local = withPeer(new Request("http://localhost/api/provider-nodes/validate", {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-9r-peer-token": "test-peer",
-        "x-9r-real-ip": "127.0.0.1",
-      },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({ baseUrl: "http://192.168.1.50:1234/v1", apiKey: "k", type: "openai-compatible" }),
-    });
+    }), "127.0.0.1");
 
     const res = await POST(local);
 
@@ -83,7 +81,6 @@ describe("POST /api/provider-nodes/validate SSRF guard", () => {
   });
 
   it("lets the local operator follow a redirect between LAN hosts", async () => {
-    process.env.NINEROUTER_PEER_TOKEN = "test-peer";
     fetchMock
       .mockResolvedValueOnce({
         ok: false,
@@ -94,19 +91,15 @@ describe("POST /api/provider-nodes/validate SSRF guard", () => {
       .mockResolvedValueOnce({ ok: true, status: 200, headers: new Headers(), json: async () => ({ data: [] }) });
 
     const res = await POST(
-      new Request("http://localhost/api/provider-nodes/validate", {
+      withPeer(new Request("http://localhost/api/provider-nodes/validate", {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-9r-peer-token": "test-peer",
-          "x-9r-real-ip": "127.0.0.1",
-        },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           baseUrl: "http://192.168.1.50:1234/v1",
           apiKey: "k",
           type: "openai-compatible",
         }),
-      })
+      }), "127.0.0.1")
     );
 
     expect(res.status).toBe(200);

@@ -2,21 +2,25 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
 
 let limiter;
+let setRequestContext;
+let buildRequestContext;
 
-function request(headers = {}) {
-  return { headers: new Headers(headers) };
+function request(headers = {}, peerIp = null) {
+  const req = { headers: new Headers(headers) };
+  if (peerIp !== null) setRequestContext(req, buildRequestContext(peerIp, req.headers));
+  return req;
 }
 
 beforeEach(async () => {
   vi.resetModules();
   limiter = await import("../../src/lib/auth/loginLimiter.js");
+  ({ setRequestContext } = await import("../../src/server/context.js"));
+  ({ buildRequestContext } = await import("../../src/server/trust.js"));
   delete process.env.TRUST_PROXY;
-  delete process.env.NINEROUTER_PEER_TOKEN;
 });
 
 afterEach(() => {
   delete process.env.TRUST_PROXY;
-  delete process.env.NINEROUTER_PEER_TOKEN;
 });
 
 describe("login limiter reservations", () => {
@@ -40,9 +44,8 @@ describe("login limiter reservations", () => {
 });
 
 describe("login limiter client IP", () => {
-  it("keys on the wrapper-stamped peer IP", () => {
-    process.env.NINEROUTER_PEER_TOKEN = "tok";
-    const ip = limiter.getClientIp(request({ "x-9r-real-ip": "203.0.113.6", "x-9r-peer-token": "tok" }));
+  it("keys on the client IP the server derived from the socket", () => {
+    const ip = limiter.getClientIp(request({}, "203.0.113.6"));
     expect(ip).toBe("203.0.113.6");
   });
 

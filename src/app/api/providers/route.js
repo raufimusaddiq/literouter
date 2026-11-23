@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import {
   getProviderConnections,
   createProviderConnection,
@@ -9,8 +9,6 @@ import {
 import { APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { AI_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isSystemOneProvider } from "@/shared/constants/providers";
 import { normalizeProviderId, normalizeProviderSpecificData } from "@/lib/providerNormalization";
-
-export const dynamic = "force-dynamic";
 
 function normalizeProxyConfig(body = {}) {
   const enabled = body?.connectionProxyEnabled === true;
@@ -73,10 +71,10 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ connections: safeConnections });
+    return json({ connections: safeConnections });
   } catch (error) {
     console.log("Error fetching providers:", error);
-    return NextResponse.json({ error: "Failed to fetch providers" }, { status: 500 });
+    return json({ error: "Failed to fetch providers" }, { status: 500 });
   }
 }
 
@@ -87,12 +85,12 @@ export async function POST(request) {
     const { apiKey, name, displayName, priority, globalPriority, defaultModel, testStatus } = body;
     const proxyConfig = normalizeProxyConfig(body);
     if (proxyConfig.error) {
-      return NextResponse.json({ error: proxyConfig.error }, { status: 400 });
+      return json({ error: proxyConfig.error }, { status: 400 });
     }
 
     const proxyPoolResult = await normalizeProxyPoolId(body.proxyPoolId);
     if (proxyPoolResult.error) {
-      return NextResponse.json({ error: proxyPoolResult.error }, { status: 400 });
+      return json({ error: proxyPoolResult.error }, { status: 400 });
     }
     const proxyPoolId = proxyPoolResult.proxyPoolId;
 
@@ -107,14 +105,14 @@ export async function POST(request) {
       isSystemOneProvider(provider);
 
     if (!provider || !isValidProvider) {
-      return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
+      return json({ error: "Invalid provider" }, { status: 400 });
     }
     if (!apiKey && provider !== "ollama-local") {
-      return NextResponse.json({ error: `${isWebCookieProvider ? "Cookie value" : "API Key"} is required` }, { status: 400 });
+      return json({ error: `${isWebCookieProvider ? "Cookie value" : "API Key"} is required` }, { status: 400 });
     }
     const connectionName = name || displayName || AI_PROVIDERS[provider]?.name;
     if (!connectionName) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+      return json({ error: "Name is required" }, { status: 400 });
     }
 
     let providerSpecificData = normalizeProviderSpecificData(provider, body, body.providerSpecificData);
@@ -122,7 +120,7 @@ export async function POST(request) {
     if (isOpenAICompatibleProvider(provider)) {
       const node = await getProviderNodeById(provider);
       if (!node) {
-        return NextResponse.json({ error: "OpenAI Compatible node not found" }, { status: 404 });
+        return json({ error: "OpenAI Compatible node not found" }, { status: 404 });
       }
       providerSpecificData = {
         prefix: node.prefix,
@@ -134,7 +132,7 @@ export async function POST(request) {
     } else if (isAnthropicCompatibleProvider(provider)) {
       const node = await getProviderNodeById(provider);
       if (!node) {
-        return NextResponse.json({ error: "Anthropic Compatible node not found" }, { status: 404 });
+        return json({ error: "Anthropic Compatible node not found" }, { status: 404 });
       }
       providerSpecificData = {
         prefix: node.prefix,
@@ -144,7 +142,7 @@ export async function POST(request) {
     } else if (isSystemOneProvider(provider)) {
       const node = await getProviderNodeById(provider);
       if (!node) {
-        return NextResponse.json({ error: "System One node not found" }, { status: 404 });
+        return json({ error: "System One node not found" }, { status: 404 });
       }
       providerSpecificData = {
         prefix: node.prefix,
@@ -182,15 +180,15 @@ export async function POST(request) {
     const result = { ...newConnection };
     delete result.apiKey;
 
-    return NextResponse.json({ connection: result }, { status: 201 });
+    return json({ connection: result }, { status: 201 });
   } catch (error) {
     if (error?.code === "PROVIDER_NAME_CONFLICT") {
-      return NextResponse.json(
+      return json(
         { error: error.message, code: error.code, existingId: error.existingId, existingName: error.existingName },
         { status: 409 }
       );
     }
     console.log("Error creating provider:", error);
-    return NextResponse.json({ error: "Failed to create provider" }, { status: 500 });
+    return json({ error: "Failed to create provider" }, { status: 500 });
   }
 }

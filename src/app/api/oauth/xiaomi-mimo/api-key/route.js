@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { createProviderConnection } from "@/models";
 import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
-import { isLocalRequest } from "@/dashboardGuard";
+import { isLocalRequest } from "@/server/guard.js";
 
 function trimTrailingSlashes(value) {
   let end = value.length;
@@ -14,7 +14,7 @@ export async function POST(request) {
     const { apiKey, uid, baseUrl, mimoPassToken, mimoUserId, mimoCUserId } = await request.json();
 
     if (!apiKey || typeof apiKey !== "string" || !apiKey.trim()) {
-      return NextResponse.json(
+      return json(
         { error: "API key is required" },
         { status: 400 },
       );
@@ -22,7 +22,7 @@ export async function POST(request) {
 
     const key = apiKey.trim();
     if (!key.startsWith("sk-")) {
-      return NextResponse.json(
+      return json(
         { error: "Invalid key format — expected sk- prefix" },
         { status: 400 },
       );
@@ -36,7 +36,7 @@ export async function POST(request) {
       parsedBase = null;
     }
     if (!parsedBase || (parsedBase.protocol !== "http:" && parsedBase.protocol !== "https:")) {
-      return NextResponse.json({ error: "baseUrl not allowed" }, { status: 400 });
+      return json({ error: "baseUrl not allowed" }, { status: 400 });
     }
     const effectiveBaseUrl = trimTrailingSlashes(rawBaseUrl);
 
@@ -45,7 +45,7 @@ export async function POST(request) {
       try {
         await assertPublicUrlResolved(effectiveBaseUrl);
       } catch {
-        return NextResponse.json({ error: "baseUrl not allowed" }, { status: 400 });
+        return json({ error: "baseUrl not allowed" }, { status: 400 });
       }
     }
 
@@ -97,7 +97,7 @@ export async function POST(request) {
         },
         testStatus: validated ? "active" : existing.testStatus,
       });
-      return NextResponse.json({
+      return json({
         success: true,
         validated,
         modelCount,
@@ -132,7 +132,7 @@ export async function POST(request) {
       testStatus: validated ? "active" : "untested",
     });
 
-    return NextResponse.json({
+    return json({
       success: true,
       validated,
       modelCount,
@@ -145,7 +145,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.log("Xiaomi MiMo API key import error:", error);
-    return NextResponse.json(
+    return json(
       { error: "API key import failed" },
       { status: 500 },
     );

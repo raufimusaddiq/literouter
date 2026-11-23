@@ -115,7 +115,7 @@ Bun's `toMatchObject` replaces received values with the `expect.any(...)` matche
 
 ### D17. The CA trust test asserts Bun's behaviour, not the server wiring
 
-`system-ca-trust.test.js` asserts how Bun honours `NODE_EXTRA_CA_CERTS`. It no longer exercises `custom-server.js`'s `useSystemCaStore` wiring at startup, which is a known gap until Plan 2 or 4 replaces that mechanism. `tls.setDefaultCACertificates` does not affect Bun's `fetch`. The test still calls `require("undici")` for a comparison; because the probe runs under Bun, that resolves to Bun's built-in module, so `undici` was dropped from the root dependencies and the test passes without it in `node_modules`.
+`system-ca-trust.test.js` asserts how Bun honours `NODE_EXTRA_CA_CERTS`. The `useSystemCaStore` wiring that `custom-server.js` had is now `src/server/ca.js`, covered at startup by `tests/server/ca.test.js` (the file is waived to it in `test-counts.json`). `tls.setDefaultCACertificates` does not affect Bun's `fetch`. The test still calls `require("undici")` for a comparison; because the probe runs under Bun, that resolves to Bun's built-in module, so `undici` was dropped from the root dependencies and the test passes without it in `node_modules`.
 
 **Where:** `tests/unit/system-ca-trust.test.js`; `package.json`
 

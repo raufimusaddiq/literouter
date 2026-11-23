@@ -6,39 +6,41 @@
 
 ## Context
 
-LiteRouter makes several security decisions from the client's IP address: login lockout buckets, failed-API-key throttling, "local operator" exemptions (SSRF guard bypass, localhost-only routes such as auto-import and password reset) and the default-password login rule. Forwarding headers (`X-Forwarded-For`, `X-Real-IP`, `Host`) are fully client-controlled unless something trusted rewrites them. The production deployment sits behind a reverse proxy (Caddy, optionally Cloudflare), so loopback peers are often proxy hops rather than local operators. `custom-server.js` wraps the Next server to establish what can be trusted; everything else must consume its output rather than re-deriving it. Several of these rules came from security advisories (GHSA-pjm4-8fpg-f9p6, #3294; CVE-2026-56679 class).
+LiteRouter makes several security decisions from the client's IP address: login lockout buckets, failed-API-key throttling, "local operator" exemptions (SSRF guard bypass, localhost-only routes such as auto-import and password reset) and the default-password login rule. Forwarding headers (`X-Forwarded-For`, `X-Real-IP`, `Host`) are fully client-controlled unless something trusted rewrites them. The production deployment sits behind a reverse proxy (Caddy, optionally Cloudflare), so loopback peers are often proxy hops rather than local operators. `src/server/index.js` (the `Bun.serve` entry) establishes what can be trusted through `src/server/trust.js`; everything else must consume that output rather than re-deriving it. Several of these rules came from security advisories (GHSA-pjm4-8fpg-f9p6, #3294; CVE-2026-56679 class).
 
 ## Decisions
 
-### D1. Only custom-server.js may assert the peer address, proven by a per-process token
+### D1. Only the Bun server asserts the peer address, from the socket, through a request context
 
-`custom-server.js` derives the client IP from the TCP socket, strips every client-supplied forwarding header, and overwrites `x-9r-real-ip`. It then stamps `x-9r-peer-token`, a random secret generated at process boot, on every request it handles (not only proxied ones). Downstream code trusts `x-9r-real-ip` only when the request carries a matching token. A bare `next dev` / `next start` never loads the wrapper, so it cannot produce the token even though the env var is inherited by child processes. Without the token, local-operator exemptions are denied, because Host and `x-9r-real-ip` are attacker-controlled and cannot prove loopback. The header is named like `x-9r-cli-token` so the request-detail header sanitizer redacts it, and access-granting headers must never be snapshotted into request details (which the dashboard renders and cloud sync uploads).
+`src/server/index.js` reads the peer address from the TCP socket (`server.requestIP(req)`), builds `{ peerIp, clientIp, isLocal }` with `buildRequestContext` in `src/server/trust.js`, and stores it in a WeakMap keyed by the `Request` (`setRequestContext` in `src/server/context.js`). Guard, rate limiters and handlers read it with `getRequestContext`; nothing re-derives locality from `Host` or forwarding headers. The context never travels as a header, so a client cannot forge it. Before the guard runs, the server deletes `x-9r-real-ip`, `x-9r-peer-token`, `x-9r-via-proxy` and `x-forwarded-for` from the request (`STRIPPED_HEADERS`). Those names belonged to the retired Next wrapper, which proved it had run by stamping a per-process `x-9r-peer-token`; with one server and no unwrapped path that proof has nothing left to prove, so the token, `NINEROUTER_PEER_TOKEN` and `src/lib/auth/trustedPeer.js` are gone, and a guard test fails if any source reads them again. Access-granting headers must still never be snapshotted into request details (which the dashboard renders and cloud sync uploads).
 
-**Where:** `custom-server.js`: request wrapper that stamps `x-9r-real-ip` and `x-9r-peer-token` (`PEER_TOKEN`); `src/lib/auth/trustedPeer.js`: peer-token check; `src/dashboardGuard.js`: local-request and client-IP resolution; `src/lib/auth/loginLimiter.js`: `getClientIp`; `tests/unit/custom-server-peer-headers.test.js`; `tests/unit/local-request-peer-trust-3294.test.js`
+Under Next, a direct loopback request was never local: Next 16's base server added `x-forwarded-*` to every request, so every request carried a proxy marker (D3). Under Bun a direct loopback request with no proxy marker and no non-loopback `Origin` is local. This is a deliberate change, recorded as the "Local-trust change" entries in `tests/parity/known-diffs.json`. Cloudflare to Caddy to loopback stays remote because Caddy sends `X-Forwarded-*`.
 
-### D2. The CLI and repo-checkout paths must also go through the wrapper
+**Where:** `src/server/index.js`: `serve`, `STRIPPED_HEADERS`; `src/server/trust.js`: `buildRequestContext`; `src/server/context.js`: `setRequestContext`, `getRequestContext`; `src/server/guard.js`: `isLocalRequest`; `src/lib/auth/loginLimiter.js`: `getClientIp`; `tests/server/peer-headers.test.js`; `tests/server/trust.test.js`; `tests/server/no-next-server.test.js`; `tests/unit/local-request-peer-trust-3294.test.js`
 
-The published CLI prefers `custom-server.js` (the build copies it into the bundle) over the bare standalone `server.js`, because only the wrapper injects the real socket IP. In a repo checkout with no standalone build, the wrapper runs `next start` in-process so every request is still sanitized. A standalone layout without the wrapper beside `server.js` has nothing that can prove a request is local.
+### D2. There is one entry point, and it is the Bun server
 
-**Where:** `cli/cli.js`: server entry selection; `custom-server.js`: repo-checkout fallback; `tests/unit/standalone-assets.test.js`
+`bun src/server/index.js` (`bun --hot` in development) is the only way to serve the app, so there is no bare `server.js` or `next start` path that skips the context. `npm run dev` under Next treated every request as remote because the wrapper never loaded; `bun --hot` sees real peer addresses. The published CLI and the Dockerfile still describe the Next standalone build until Plan 4 rebuilds them; `scripts/copy-standalone-assets.mjs` no longer copies a wrapper into the standalone output.
+
+**Where:** `src/server/index.js`: `startServer`; `package.json`: `dev`, `start`; `scripts/copy-standalone-assets.mjs`; `tests/unit/standalone-assets.test.js`
 
 ### D3. A loopback peer carrying proxy markers is a proxy hop, not a local operator
 
-Any of `x-forwarded-for`, `x-real-ip`, `forwarded`, `x-forwarded-proto`, `x-forwarded-host`, `via`, `cf-connecting-ip` or `true-client-ip` on a loopback peer means a reverse proxy or CDN hop, so the request is not local. Caddy sends `X-Forwarded-*`, but a bare nginx `proxy_pass` sends none, hence the operator opt-out `TRUST_LOOPBACK_AS_LOCAL=false`, which treats every loopback peer as a proxy hop. The marker list lives in `src/lib/auth/proxyMarkers.js` and is duplicated inline in `custom-server.js` because the wrapper cannot import from `src/`; the two copies must be kept in sync.
+Any of `x-forwarded-for`, `x-real-ip`, `forwarded`, `x-forwarded-proto`, `x-forwarded-host`, `via`, `cf-connecting-ip` or `true-client-ip` on a loopback peer means a reverse proxy or CDN hop, so the request is not local. Caddy sends `X-Forwarded-*`, but a bare nginx `proxy_pass` sends none, hence the operator opt-out `TRUST_LOOPBACK_AS_LOCAL=false`, which treats every loopback peer as a proxy hop. The marker list now lives only in `src/lib/auth/proxyMarkers.js`, imported by `src/server/trust.js`; the inline copy the wrapper needed is gone.
 
-**Where:** `custom-server.js`: `PROXY_MARKERS` / `trustLoopback`; `src/lib/auth/proxyMarkers.js`; `src/dashboardGuard.js`: loopback-as-local check
+**Where:** `src/lib/auth/proxyMarkers.js`: `PROXY_MARKER_HEADERS`, `hasProxyMarker`; `src/server/trust.js`: `buildRequestContext`; `src/server/guard.js`: `isLocalRequest`; `tests/unit/key-hardening.test.js`
 
 ### D4. Trust forwarding headers only from a loopback proxy, and use the rightmost XFF hop
 
-Forwarding headers are honored only when the TCP peer is a local reverse proxy; direct or public sockets stay keyed by the unspoofable peer address. A proxy appends the hop it accepted to the right of `X-Forwarded-For`, so the rightmost entry is the one the trusted proxy observed, while the leftmost is whatever the client sent and must never key a rate-limit or lockout bucket. The assumption is exactly one trusted loopback proxy hop; with a longer chain the rightmost entry is an inner proxy rather than the client. `loginLimiter` applies the same rule (`X-Real-IP`, else rightmost XFF) and, when exposed directly without the wrapper, collapses to a single bucket so rotating a spoofed XFF cannot escape lockout.
+Forwarding headers are honored only when the TCP peer is a local reverse proxy; direct or public sockets stay keyed by the unspoofable peer address. A proxy appends the hop it accepted to the right of `X-Forwarded-For`, so the rightmost entry is the one the trusted proxy observed, while the leftmost is whatever the client sent and must never key a rate-limit or lockout bucket. The assumption is exactly one trusted loopback proxy hop; with a longer chain the rightmost entry is an inner proxy rather than the client. `deriveClientIp` in `src/server/trust.js` applies the rule once (`X-Real-IP`, else rightmost XFF, only from a loopback peer) and `loginLimiter` reads the result from the request context.
 
-**Where:** `custom-server.js`: client IP derivation; `src/lib/auth/loginLimiter.js`: `getClientIp`; `tests/unit/custom-server-peer-headers.test.js`
+**Where:** `src/server/trust.js`: `deriveClientIp`; `src/lib/auth/loginLimiter.js`: `getClientIp`; `tests/server/trust.test.js`; `tests/server/peer-headers.test.js`
 
 ### D5. Host and address parsing must be IPv6-aware
 
 Host headers, URL hostnames and raw socket addresses are parsed with IPv6-aware splitting. Splitting on the first colon works only for IPv4 and reduced every IPv6 form to an empty string, so a dual-stack listener reporting loopback as `::ffff:127.0.0.1` did not read as loopback.
 
-**Where:** `src/dashboardGuard.js`: host/address normalization; `tests/unit/local-request-peer-trust-3294.test.js`
+**Where:** `src/server/trust.js`: `isLoopbackAddress`; `src/server/guard.js`; `tests/server/trust.test.js`; `tests/unit/local-request-peer-trust-3294.test.js`
 
 ### D6. Login attempts are counted before the slow password compare
 
@@ -56,24 +58,26 @@ When the default password (`123456`) is still in use and the request is not loca
 
 The public gateway's failed-auth throttle counts only failed key validations per client IP, in memory and bounded. Valid keys and the CLI token always pass, because behind Cloudflare without Caddy `trusted_proxies` many users share one edge IP and must not be locked out together. Only requests that failed validation get a 429 (body shaped for the Anthropic, Gemini or OpenAI route) while the IP is blocked.
 
-**Where:** `src/lib/auth/apiKeyThrottle.js`; `src/dashboardGuard.js`: API-key gate
+**Where:** `src/lib/auth/apiKeyThrottle.js`; `src/server/guard.js`: API-key gate
 
 ### D9. The system CA store is opt-in and fails closed
 
-Node verifies TLS against its bundled Mozilla roots, not the OS bundle, so patching `ca-certificates` in an image does not remove a distrusted root. When `LITEROUTER_SYSTEM_CA=1` (set in the Dockerfile) the wrapper replaces the process-wide default CA list once, before any outbound connection, so every client that does not pass its own `ca` (global fetch, undici, https.get) uses the OS bundle. This needs Node >= 22.19 (`tls.setDefaultCACertificates`) and refuses to start if no usable system store exists, never silently keeping the bundled roots. It is opt-in so CLI installs on older Node keep working.
+Bun verifies TLS against its bundled roots, not the OS bundle, so patching `ca-certificates` in an image does not remove a distrusted root. When `LITEROUTER_SYSTEM_CA=1` (set in the Dockerfile) the entry block of `src/server/index.js` (`import.meta.main`, not `startServer`, so a caller that only imports `startServer` gets no CA check) calls `useSystemCaStore` in `src/server/ca.js` once, before the server starts, replacing the process-wide default CA list that `node:tls`, `node:https` and `node:http2` use with the OS bundle. It throws, so the server refuses to start, if `tls.setDefaultCACertificates` is unavailable or the system store is empty, never silently keeping the bundled roots. It is opt-in so installs without a usable system store keep working. Under `bun --hot` the call is guarded by `globalThis.__lrSystemCaInstalled` and runs once per process.
 
-**Where:** `custom-server.js`: system CA setup guarded by `LITEROUTER_SYSTEM_CA`
+**Limit on Bun 1.4.4:** `fetch` does not honour `tls.setDefaultCACertificates`; it keeps using Bun's bundled roots (probed with a self-signed TLS server: `fetch` still fails, `node:https` succeeds; `NODE_EXTRA_CA_CERTS` is additive only, and `bun --use-system-ca` made no difference). Today the flag therefore protects the `node:*` TLS clients (for example the cursor executor) and the startup log line says so, but not the gateway's `fetch` upstream calls. Making `fetch` use the system store (wrapping it to pass `tls: { ca }`, which is what the unused `fetchHost` parameter is reserved for) belongs to Plan 4 Task 3, and `staging` is not deployable before then. Until it lands, do not rely on the flag to distrust a root for upstream traffic.
 
-### D10. The h2c downgrade path mirrors normal limits and rejects chunked upgrades
+**Where:** `src/server/ca.js`: `useSystemCaStore`; `src/server/index.js`: the `import.meta.main` block; `tests/server/ca.test.js`
 
-JBR 25 sends h2c upgrades that the HTTP/1.1 server would otherwise close, so the wrapper handles them. Its body ceiling equals Next's `proxyClientMaxBodySize` (`NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE`, default 128mb), so the downgrade path cannot buffer more than the normal request path. Chunked framing inside an upgrade is not replayable as HTTP/1.1 and used to reach the parser as a bodyless POST, so it is rejected explicitly.
+### D10. h2c upgrade requests are served as HTTP/1.1 and the body cap is explicit
 
-**Where:** `custom-server.js`: `MAX_H2C_BODY_BYTES` and the h2c upgrade handler
+JBR 25 sends h2c upgrades that an HTTP/1.1 server would otherwise close. `Bun.serve` serves them itself as ordinary HTTP/1.1 requests, so the Node downgrade shim is gone. The body ceiling is `maxRequestBodySize`, parsed by `parseBodyLimit` from `NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE` (default 128mb), so an h2c request cannot buffer more than any other request and an oversized one is answered 413. A chunked h2c request now arrives with its body intact instead of being rejected with 411.
+
+**Where:** `src/server/bodyLimit.js`: `parseBodyLimit`; `src/server/index.js`: `startServer`; `tests/server/h2c.test.js`; `tests/server/body-limit.test.js`
 
 ## Consequences
 
 - Reading `x-forwarded-for` / `x-real-ip` / `Host` directly for IP or locality decisions re-opens client IP spoofing, lockout evasion and remote access to localhost-only routes.
-- Running `next dev` / `next start` without the wrapper, or a proxy chain longer than one hop, silently changes who counts as local or which IP keys a bucket.
-- Adding a proxy-marker header to only one of the two lists makes proxied requests look local on one code path.
+- Putting back an entry point that does not build the request context, or a proxy chain longer than one hop, silently changes who counts as local or which IP keys a bucket.
+- Re-introducing a second copy of the proxy-marker list lets the copies drift so proxied requests look local on one code path.
 - Issuing a session for the default password remotely, or counting login attempts after the bcrypt compare, restores the remote takeover and parallel-guess bypass.
 - Throttling by IP without exempting valid keys locks out unrelated users behind a shared CDN edge.

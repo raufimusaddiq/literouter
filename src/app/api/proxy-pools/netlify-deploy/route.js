@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { createProxyPool } from "@/models";
 import {
   NETLIFY_API,
@@ -29,7 +29,7 @@ export async function POST(request) {
     const siteName = sanitizeSiteName(body.projectName ?? body.siteName);
 
     if (!netlifyToken) {
-      return NextResponse.json({ error: "Netlify API token is required" }, { status: 400 });
+      return json({ error: "Netlify API token is required" }, { status: 400 });
     }
 
     const headers = {
@@ -50,14 +50,14 @@ export async function POST(request) {
         siteRes.status === 422
           ? ` Site name "${siteName}" is taken — choose a different name.`
           : "";
-      return NextResponse.json({ error: `${message}.${hint}` }, { status });
+      return json({ error: `${message}.${hint}` }, { status });
     }
 
     const site = await siteRes.json();
     const siteId = site.id || site.site_id;
     const siteUrl = site.ssl_url || site.url;
     if (!siteId || !siteUrl) {
-      return NextResponse.json({ error: "Netlify site created but no site URL returned" }, { status: 502 });
+      return json({ error: "Netlify site created but no site URL returned" }, { status: 502 });
     }
 
     const { zip, sha256 } = buildRelayFunctionZip();
@@ -73,7 +73,7 @@ export async function POST(request) {
     });
 
     if (!deployRes.ok) {
-      return NextResponse.json(
+      return json(
         { error: await readError(deployRes, "Failed to create Netlify deploy") },
         { status: deployRes.status }
       );
@@ -82,7 +82,7 @@ export async function POST(request) {
     const deploy = await deployRes.json();
     const deployId = deploy.id;
     if (!deployId) {
-      return NextResponse.json({ error: "Netlify deploy created but no deploy ID returned" }, { status: 502 });
+      return json({ error: "Netlify deploy created but no deploy ID returned" }, { status: 502 });
     }
 
     const requiredFiles = new Set(deploy.required || []);
@@ -95,7 +95,7 @@ export async function POST(request) {
         body: Buffer.from(indexContent),
       });
       if (!fileRes.ok) {
-        return NextResponse.json(
+        return json(
           { error: await readError(fileRes, "Failed to upload site file to Netlify") },
           { status: fileRes.status }
         );
@@ -112,7 +112,7 @@ export async function POST(request) {
         }
       );
       if (!fnRes.ok) {
-        return NextResponse.json(
+        return json(
           { error: await readError(fnRes, "Failed to upload relay function to Netlify") },
           { status: fnRes.status }
         );
@@ -131,9 +131,9 @@ export async function POST(request) {
       strictProxy: false,
     });
 
-    return NextResponse.json({ proxyPool, deployUrl: relayUrl }, { status: 201 });
+    return json({ proxyPool, deployUrl: relayUrl }, { status: 201 });
   } catch (error) {
     console.log("Error deploying Netlify relay:", error);
-    return NextResponse.json({ error: error.message || "Deploy failed" }, { status: 500 });
+    return json({ error: error.message || "Deploy failed" }, { status: 500 });
   }
 }

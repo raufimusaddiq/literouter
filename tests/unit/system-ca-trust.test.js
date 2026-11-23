@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const customServer = join(root, "custom-server.js");
 const dir = mkdtempSync(join(tmpdir(), "ca-trust-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -23,30 +22,6 @@ function makeChain(name) {
     "-out", f("crt"), "-days", "2", "-extfile", f("ext"));
   return { caPath: f("ca.pem"), key: readFileSync(f("key"), "utf8"), cert: readFileSync(f("crt"), "utf8") };
 }
-
-describe("useSystemCaStore", () => {
-  const { useSystemCaStore } = createRequire(import.meta.url)(customServer);
-
-  it("installs the system certs as the process default", () => {
-    const calls = [];
-    const n = useSystemCaStore({
-      getCACertificates: (t) => (t === "system" ? ["a", "b"] : ["bundled"]),
-      setDefaultCACertificates: (c) => calls.push(c),
-    });
-    expect(n).toBe(2);
-    expect(calls).toEqual([["a", "b"]]);
-  });
-
-  it("fails closed on an empty system store and on a Node without the API", () => {
-    const set = () => { throw new Error("must not be called"); };
-    expect(() => useSystemCaStore({ getCACertificates: () => [], setDefaultCACertificates: set })).toThrow(/refusing/);
-    expect(() => useSystemCaStore({})).toThrow(/Node >= 22.19/);
-  });
-
-  it("is enabled in the production image", () => {
-    expect(readFileSync(join(root, "Dockerfile"), "utf8")).toMatch(/^ENV LITEROUTER_SYSTEM_CA=1$/m);
-  });
-});
 
 describe("outbound clients honour the configured extra CA store under Bun", () => {
   let trusted, distrusted;

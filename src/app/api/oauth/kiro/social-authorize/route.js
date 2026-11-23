@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { generatePKCE } from "@/lib/oauth/utils/pkce";
 import { KiroService } from "@/lib/oauth/services/kiro";
 
@@ -8,7 +8,7 @@ export async function GET(request) {
     const provider = searchParams.get("provider");
 
     if (!provider || !["google", "github"].includes(provider)) {
-      return NextResponse.json(
+      return json(
         { error: "Invalid provider. Use 'google' or 'github'" },
         { status: 400 }
       );
@@ -23,7 +23,7 @@ export async function GET(request) {
       state
     );
 
-    return NextResponse.json({
+    return json({
       authUrl,
       state,
       codeVerifier,
@@ -32,6 +32,6 @@ export async function GET(request) {
     });
   } catch (error) {
     console.log("Kiro social authorize error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return json({ error: error.message }, { status: 500 });
   }
 }

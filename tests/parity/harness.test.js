@@ -7,7 +7,7 @@ import { startMockUpstream } from "./mock-upstream.js";
 import { normalizeBody, normalizeHeaders, normalizeSse, maskRetryAfter } from "./normalize.js";
 import { compareDirs, diffValues, loadKnownDiffs, validateKnownDiffs } from "./compare.mjs";
 import { fixtureFileNames, loadFixtures, record } from "./record.mjs";
-import { compareUpstream } from "./compare-upstream.mjs";
+import { compareUpstream, compareUpstreamDirs, loadKnownUpstreamDiffs, requestsByFixture } from "./compare-upstream.mjs";
 
 const repoRoot = path.resolve(import.meta.dir, "../..");
 const fixtureDir = path.join(import.meta.dir, "fixtures");
@@ -208,11 +208,87 @@ describe("compare", () => {
     expect(worse.stale.length).toBe(1);
   });
 
+  test("a known-diff marked absent matches only a value that is missing from the actual output", () => {
+    const expected = tmp("parity-exp-");
+    const actual = tmp("parity-act-");
+    write(expected, "a", { headers: { "content-encoding": "gzip" } });
+    write(actual, "a", { headers: {} });
+    const absent = [{ file: "a", path: "headers.content-encoding", absent: true, reason: "the header is no longer sent" }];
+    expect(compareDirs(expected, actual, absent)).toMatchObject({ unlisted: [], stale: [] });
+    const present = tmp("parity-act-");
+    write(present, "a", { headers: { "content-encoding": "br" } });
+    const changed = compareDirs(expected, present, absent);
+    expect(changed.unlisted.map((d) => d.path)).toEqual(["headers.content-encoding"]);
+    expect(changed.stale.length).toBe(1);
+  });
+
+  test("a known-diff marked any matches whatever value is present and goes stale when the value is missing", () => {
+    const expected = tmp("parity-exp-");
+    const actual = tmp("parity-act-");
+    write(expected, "a", { body: { sha256: "one" } });
+    write(actual, "a", { body: { sha256: "two" } });
+    const any = [{ file: "a", path: "body.sha256", any: true, reason: "the value follows the catalog" }];
+    expect(compareDirs(expected, actual, any)).toMatchObject({ unlisted: [], stale: [] });
+    const other = tmp("parity-act-");
+    write(other, "a", { body: { sha256: "three" } });
+    expect(compareDirs(expected, other, any)).toMatchObject({ unlisted: [], stale: [] });
+    const missing = tmp("parity-act-");
+    write(missing, "a", { body: {} });
+    const gone = compareDirs(expected, missing, any);
+    expect(gone.unlisted.map((d) => d.path)).toEqual(["body.sha256"]);
+    expect(gone.stale.length).toBe(1);
+    expect(validateKnownDiffs([{ ...any[0], actual: "x" }])).toEqual(["known-diffs[0]: any cannot be combined with actual or absent"]);
+  });
+
+  test("every committed known-diff pins its actual value, marks it absent, or is marked any", () => {
+    const unpinned = loadKnownDiffs().filter((k) => !("actual" in k) && k.absent !== true && k.any !== true);
+    expect(unpinned).toEqual([]);
+  });
+
+  test("only the catalog-coupled known-diffs are marked any", () => {
+    const anyPaths = loadKnownDiffs().filter((k) => k.any === true).map((k) => `${k.file}:${k.path}`).sort();
+    expect(anyPaths).toEqual([
+      "api-v1-models-noauth:body.data",
+      "api-v1-noauth:body.data",
+      "api-v1beta-models-noauth:body.bytes",
+      "api-v1beta-models-noauth:body.sha256",
+      "api-v1beta-models-noauth:body.shape",
+    ]);
+  });
+
   test("known-diffs entries need a file, a path and a reason", () => {
     expect(validateKnownDiffs([{ file: "a", path: "status", reason: "documented difference" }])).toEqual([]);
     expect(validateKnownDiffs([{ file: "a", path: "status" }])).toEqual(["known-diffs[0]: reason of at least 10 characters is required"]);
     expect(validateKnownDiffs([{ path: "x", reason: "documented difference" }])).toEqual(["known-diffs[0]: file and path must be strings"]);
-    expect(loadKnownDiffs()).toEqual([]);
+  });
+
+  test("the committed known-diffs cover only the local-trust fixtures and the login without a password", () => {
+    const known = loadKnownDiffs();
+    expect(known.length).toBeGreaterThan(0);
+    const files = [...new Set(known.map((k) => k.file))].sort();
+    expect(files).toEqual([
+      "api-auth-login-noauth",
+      "api-v1-api-chat-noauth",
+      "api-v1-chat-completions-noauth",
+      "api-v1-messages-count-tokens-noauth",
+      "api-v1-messages-noauth",
+      "api-v1-models-info-noauth",
+      "api-v1-models-kind-noauth",
+      "api-v1-models-model-noauth",
+      "api-v1-models-noauth",
+      "api-v1-noauth",
+      "api-v1-responses-compact-noauth",
+      "api-v1-responses-noauth",
+      "api-v1-systemone-noauth",
+      "api-v1beta-models-noauth",
+      "api-v1beta-models-path-noauth",
+      "trust-headroom-start-loopback-session",
+      "trust-kiro-auto-import-loopback-session",
+      "trust-reset-password-loopback-session",
+      "v1-auth-loopback-nokey",
+      "v1-auth-loopback-wrongkey",
+    ]);
+    for (const file of files) expect(fs.existsSync(path.join(import.meta.dir, "expected", `${file}.json`))).toBe(true);
   });
 
   test("compare fails on a stale known-diff", () => {
@@ -234,10 +310,12 @@ describe("compare", () => {
     write(actual, "a", { status: 500 });
     write(same, "a", { status: 200 });
     const script = path.join(import.meta.dir, "compare.mjs");
-    const bad = Bun.spawnSync([process.execPath, script, expected, actual]);
+    const none = path.join(tmp("parity-known-"), "none.json");
+    fs.writeFileSync(none, "[]");
+    const bad = Bun.spawnSync([process.execPath, script, expected, actual, "--known", none]);
     expect(bad.exitCode).toBe(1);
     expect(bad.stderr.toString()).toContain("DIFF a status");
-    expect(Bun.spawnSync([process.execPath, script, expected, same]).exitCode).toBe(0);
+    expect(Bun.spawnSync([process.execPath, script, expected, same, "--known", none]).exitCode).toBe(0);
   });
 
   test("diffValues treats equal values as no diff", () => {
@@ -458,6 +536,119 @@ describe("mock slow stream", () => {
   });
 });
 
+describe("compare-upstream by fixture", () => {
+  const entry = (p, body = "x") => ({ method: "POST", path: p, headers: [["a", "1"]], bodyBase64: Buffer.from(body).toString("base64") });
+  const writeRun = (dir, fixtures, { index = false } = {}) => {
+    const all = [];
+    const lines = [];
+    for (const [id, reqs] of Object.entries(fixtures)) {
+      lines.push({ id, from: all.length, to: all.length + reqs.length });
+      all.push(...reqs);
+      fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify({ status: 200, upstream: reqs.map((r) => ({ method: r.method, path: r.path })) }));
+    }
+    fs.writeFileSync(path.join(dir, "upstream-requests.jsonl"), all.map((r, seq) => `${JSON.stringify({ seq, ...r })}\n`).join(""));
+    if (index) fs.writeFileSync(path.join(dir, "upstream-fixtures.jsonl"), lines.map((l) => `${JSON.stringify(l)}\n`).join(""));
+  };
+  const base = () => ({ a: [entry("/1")], b: [], c: [entry("/3")], d: [entry("/4"), entry("/5")] });
+
+  test("requests are grouped per fixture from the fixture outputs when no index exists", () => {
+    const dir = tmp("parity-up-");
+    writeRun(dir, base());
+    const map = requestsByFixture(dir);
+    expect([...map.keys()]).toEqual(["a", "b", "c", "d"]);
+    expect(map.get("d").map((r) => r.path)).toEqual(["/4", "/5"]);
+    expect(map.get("b")).toEqual([]);
+  });
+
+  test("requests are grouped per fixture from the index when one exists", () => {
+    const dir = tmp("parity-up-");
+    writeRun(dir, base(), { index: true });
+    fs.rmSync(path.join(dir, "a.json"));
+    expect(requestsByFixture(dir).get("c").map((r) => r.path)).toEqual(["/3"]);
+  });
+
+  test("an output whose upstream counts do not add up to the log is an error", () => {
+    const dir = tmp("parity-up-");
+    writeRun(dir, base());
+    fs.appendFileSync(path.join(dir, "upstream-requests.jsonl"), `${JSON.stringify({ seq: 9, ...entry("/stray") })}\n`);
+    expect(() => requestsByFixture(dir)).toThrow("account for");
+  });
+
+  test("one fixture making an extra request is one diff, not a shift of every later request", () => {
+    const expected = tmp("parity-up-e-");
+    const actual = tmp("parity-up-a-");
+    writeRun(expected, base());
+    writeRun(actual, { a: [entry("/1")], b: [entry("/extra")], c: [entry("/3")], d: [entry("/4"), entry("/5")] }, { index: true });
+    const { diffs, unlisted } = compareUpstreamDirs(expected, actual);
+    expect(diffs).toEqual([{ file: "b", path: "count", expected: 0, actual: 1, message: "request count: expected 0, actual 1" }]);
+    expect(unlisted).toEqual(diffs);
+  });
+
+  test("a changed request is attributed to its fixture and position", () => {
+    const expected = tmp("parity-up-e-");
+    const actual = tmp("parity-up-a-");
+    writeRun(expected, base());
+    writeRun(actual, { ...base(), d: [entry("/4"), entry("/5", "changed")] });
+    const { diffs } = compareUpstreamDirs(expected, actual);
+    expect(diffs.map((d) => [d.file, d.path])).toEqual([["d", "[1].body"]]);
+  });
+
+  test("a known upstream diff is accepted while it matches, pinned values included, and reported stale once it stops occurring", () => {
+    const expected = tmp("parity-up-e-");
+    const actual = tmp("parity-up-a-");
+    writeRun(expected, base());
+    writeRun(actual, { ...base(), b: [entry("/extra")] });
+    const known = [{ file: "b", path: "count", actual: 1, reason: "the loopback request now reaches the handler" }];
+    expect(compareUpstreamDirs(expected, actual, [], known)).toMatchObject({ unlisted: [], stale: [] });
+    const pinnedElsewhere = [{ ...known[0], actual: 2 }];
+    const wrong = compareUpstreamDirs(expected, actual, [], pinnedElsewhere);
+    expect(wrong.unlisted.map((d) => d.file)).toEqual(["b"]);
+    expect(wrong.stale).toEqual(pinnedElsewhere);
+    writeRun(actual, base());
+    expect(compareUpstreamDirs(expected, actual, [], known).stale).toEqual(known);
+  });
+
+  test("the cli exits 0 when every diff is known and 1 for an unlisted one", () => {
+    const script = path.join(import.meta.dir, "compare-upstream.mjs");
+    const expected = tmp("parity-up-e-");
+    const same = tmp("parity-up-s-");
+    const actual = tmp("parity-up-a-");
+    writeRun(expected, base());
+    writeRun(same, base());
+    writeRun(actual, { ...base(), a: [entry("/1"), entry("/more")] });
+    const none = path.join(tmp("parity-known-"), "none.json");
+    fs.writeFileSync(none, "[]");
+    const known = path.join(tmp("parity-known-"), "known.json");
+    fs.writeFileSync(known, JSON.stringify([{ file: "a", path: "count", actual: 2, reason: "the fixture makes one more request" }]));
+    expect(Bun.spawnSync([process.execPath, script, expected, same, "--known", none]).exitCode).toBe(0);
+    const bad = Bun.spawnSync([process.execPath, script, expected, actual, "--known", none]);
+    expect(bad.exitCode).toBe(1);
+    expect(bad.stderr.toString()).toContain("a request count: expected 1, actual 2");
+    expect(Bun.spawnSync([process.execPath, script, expected, actual, "--known", known]).exitCode).toBe(0);
+    expect(Bun.spawnSync([process.execPath, script, expected, same, "--known", known]).exitCode).toBe(1);
+  });
+
+  test("the committed expected goldens split into one request list per fixture", () => {
+    const map = requestsByFixture(path.join(import.meta.dir, "expected"));
+    expect(map.size).toBeGreaterThan(300);
+    expect(map.get("v1-chat-combo-fallback").length).toBe(2);
+  });
+
+  test("known-upstream-diffs entries are valid", () => {
+    const upstream = loadKnownUpstreamDiffs();
+    expect([...new Set(upstream.map((k) => k.file))].sort()).toEqual([
+      "api-v1-models-model-noauth",
+      "api-v1-models-noauth",
+      "api-v1-noauth",
+    ]);
+    expect(upstream.length).toBe(3);
+    for (const k of upstream) {
+      expect(fs.existsSync(path.join(import.meta.dir, "expected", `${k.file}.json`))).toBe(true);
+      expect(k.path).toBe("count");
+    }
+  });
+});
+
 describe("record", () => {
   const encoder = new TextEncoder();
   const cutServer = () => {
@@ -482,6 +673,48 @@ describe("record", () => {
     return server;
   };
   const fixture = (id, path, extra = {}) => ({ id, peer: "loopback", auth: "none", method: "GET", path, ...extra });
+
+  test("record writes which upstream requests each fixture caused", async () => {
+    const server = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      async fetch(req) {
+        const { pathname } = new URL(req.url);
+        if (pathname === "/hit") await fetch(`${mock.url}/v1/models`);
+        if (pathname === "/hit2") {
+          await fetch(`${mock.url}/v1/models`);
+          await fetch(`${mock.url}/v1/models`);
+        }
+        return new Response("ok");
+      },
+    });
+    cleanup.push(() => server.stop(true));
+    const outDir = tmp("parity-idx-");
+    const mock = await mockUp({ outDir });
+    const fixtures = [fixture("idx-none", "/none"), fixture("idx-one", "/hit"), fixture("idx-two", "/hit2"), fixture("idx-after", "/none")];
+    await record({ baseUrl: `http://127.0.0.1:${server.port}`, outDir, mock, fixtures });
+    const index = fs.readFileSync(path.join(outDir, "upstream-fixtures.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    expect(index).toEqual([
+      { id: "idx-none", from: 0, to: 0 },
+      { id: "idx-one", from: 0, to: 1 },
+      { id: "idx-two", from: 1, to: 3 },
+      { id: "idx-after", from: 3, to: 3 },
+    ]);
+    const map = requestsByFixture(outDir);
+    expect([...map.entries()].map(([id, reqs]) => [id, reqs.length])).toEqual([["idx-none", 0], ["idx-one", 1], ["idx-two", 2], ["idx-after", 0]]);
+  });
+
+  test("record masks the data dir and normalises its path separators so Windows and Linux outputs match", async () => {
+    const dataDir = path.join(tmp("parity-data-"), "d");
+    const windowsPath = `${dataDir}\\nested\\model-catalog.json`;
+    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => Response.json({ file: windowsPath }) });
+    cleanup.push(() => server.stop(true));
+    const outDir = tmp("parity-mask-");
+    const mock = await mockUp({ outDir });
+    await record({ baseUrl: `http://127.0.0.1:${server.port}`, outDir, mock, dataDir, fixtures: [fixture("masked", "/x")] });
+    const out = JSON.parse(fs.readFileSync(path.join(outDir, "masked.json"), "utf8"));
+    expect(out.body.file).toBe("<DATA_DIR>/nested/model-catalog.json");
+  });
 
   test("a connection cut while reading the body is recorded, not thrown", async () => {
     const server = cutServer();

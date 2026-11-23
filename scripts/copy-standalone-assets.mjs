@@ -29,13 +29,6 @@ export function copyStandaloneAssets({ projectRoot = process.cwd(), distDir = pr
     cpSync(publicSource, publicDestination, { recursive: true, force: true });
     console.log(`[standalone-assets] Copied public assets to ${publicDestination}`);
   }
-
-  const serverWrapperSource = resolve(projectRoot, "custom-server.js");
-  const serverWrapperDestination = resolve(standaloneDir, "custom-server.js");
-  if (existsSync(serverWrapperSource)) {
-    cpSync(serverWrapperSource, serverWrapperDestination, { force: true });
-    console.log(`[standalone-assets] Copied custom-server.js to ${serverWrapperDestination}`);
-  }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(dirname(fileURLToPath(import.meta.url)), "copy-standalone-assets.mjs")) {

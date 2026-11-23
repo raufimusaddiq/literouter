@@ -6,15 +6,15 @@
 
 ## Context
 
-Usage history, request details and the dashboard stats are written and read while live SSE streams are running. Writes are buffered off the request path, reads must stay cheap as history grows, and the SQLite adapters close the database on SIGTERM/SIGINT. These decisions keep the event loop free, keep stats cost independent of request volume, and make sure buffered rows survive shutdown.
+Usage history, request details and the dashboard stats are written and read while live SSE streams are running. Writes are buffered off the request path, reads must stay cheap as history grows, and the SQLite adapter closes the database on SIGTERM/SIGINT. These decisions keep the event loop free, keep stats cost independent of request volume, and make sure buffered rows survive shutdown.
 
 ## Decisions
 
 ### D1. Buffers are drained synchronously and first on shutdown
 
-Usage and request-detail writes are buffered off the request path, so every DB adapter must flush those accepted events before closing or persisting the database; otherwise fallback runtimes lose the tail of usage history. The drain is synchronous (better-sqlite3 is sync, so no await and no race with a closing connection). Next.js also listens on SIGTERM/SIGINT and closes the DB ("connection is not open") without exiting immediately, so the signal handler is registered first and must not be async. The adapter calls the drain before `db.close()`. The handler is exported, not just called inline, because bundlers tree-shake unreferenced module-level side effects out of the route.
+Usage and request-detail writes are buffered off the request path, so every DB adapter must flush those accepted events before closing or persisting the database; otherwise fallback runtimes lose the tail of usage history. The drain is synchronous (bun:sqlite is sync, so no await and no race with a closing connection). The boot code (`initializeApp`) also listens on SIGTERM/SIGINT and exits immediately, so the Bun server registers its own handler first (`src/server/shutdown.js`, ADR 0053 D1), which closes the adapter and exits 0, and every signal handler must be synchronous. The adapter calls the drain before `db.close()`. The handler is exported, not just called inline, because bundlers tree-shake unreferenced module-level side effects out of the route.
 
-**Where:** `src/lib/db/shutdown.js`; `src/lib/db/repos/requestDetailsRepo.js`: the drain function and the signal handler registration; `tests/unit/usage-detail-signal-drain.test.js`, `tests/unit/usage-detail-buffer-bound.test.js`
+**Where:** `src/lib/db/shutdown.js`; `src/server/shutdown.js`; `src/lib/db/repos/requestDetailsRepo.js`: the drain function and the signal handler registration; `tests/unit/usage-detail-signal-drain.test.js`, `tests/unit/usage-detail-buffer-bound.test.js`
 
 ### D2. Stats read a 10-minute rollup, with a hard recompute floor
 

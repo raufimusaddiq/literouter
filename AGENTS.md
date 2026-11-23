@@ -20,9 +20,9 @@ isolated development machines, not this instance.
 
 ```bash
 cp .env.example .env
-npm install
-npm run dev                         # Next.js development server
-npm run build && npm run start      # production-style local server
+bun install
+bun run dev                         # Bun.serve development server (bun --hot)
+bun run start                       # production-style local server (no build needed)
 bunx --bun eslint .                        # lint
 cd tests && bun test --parallel
 ```

@@ -448,11 +448,21 @@
     "tests/unit/rtk.e2e.test.js": 4,
     "tests/unit/rtk.multi-provider.e2e.test.js": 9
   },
-  "skipWaivers": {},
+  "skipWaivers": {
+    "tests/server/shutdown.test.js": "SIGTERM is not delivered to a bun child on Windows, so the two cases skip there and run on Linux CI"
+  },
   "deleted": {
     "tests/translator/kiro-tool-name-roundtrip.test.js :: Kiro tool name normalization and roundtrip restores original tool name in kiroToClaudeNonStreaming when toolNameMap is present": "dead export: kiroToClaudeNonStreaming has no non-test importer",
     "tests/unit/kiro-usage-and-tool-integrity.test.js :: D: cache tokens survive the kiro -> claude translation preserves cache on the non-streaming path too": "dead export: kiroToClaudeNonStreaming has no non-test importer",
     "tests/unit/pxpipe.test.js :: compressWithPxpipe gates does not log skipped requests as savings": "dead export: formatPxpipeLog has no non-test importer",
-    "tests/unit/settings-cache.test.js :: *": "vacuous, returns early if the import fails; duplicates db-sqlite-vs-lowdb getSettings defaults (1 case)"
+    "tests/unit/settings-cache.test.js :: *": "vacuous, returns early if the import fails; duplicates db-sqlite-vs-lowdb getSettings defaults (1 case)",
+    "tests/unit/system-ca-trust.test.js :: useSystemCaStore installs the system certs as the process default": "moved to tests/server/ca.test.js (returns the number of system certificates and installs them as the process default); custom-server.js is deleted",
+    "tests/unit/system-ca-trust.test.js :: useSystemCaStore fails closed on an empty system store and on a Node without the API": "moved to tests/server/ca.test.js (throws when the store is empty; throws when the runtime has no system CA API)",
+    "tests/unit/system-ca-trust.test.js :: useSystemCaStore is enabled in the production image": "moved to tests/server/ca.test.js (is enabled in the production image)"
+  },
+  "waived": {
+    "tests/unit/custom-server-peer-headers.test.js": "tests/server/peer-headers.test.js — custom-server.js is deleted; the peer-header cases now run against the Bun server's trust and strip logic, with the same seven cases",
+    "tests/unit/custom-server-h2c.test.js": "tests/server/h2c.test.js — Bun serves h2c upgrade requests as HTTP/1.1 itself, so the Node downgrade shim and its tests go away; the chunked case now asserts the body is served instead of 411",
+    "tests/unit/instrumentation-bootstrap.test.js": "tests/server/boot.test.js — src/instrumentation.js is deleted; runBootOnce in src/server/boot.js runs the same startup steps (including the bootstrap services) once, and the NEXT_RUNTIME=edge case has no Bun counterpart because there is one runtime"
   }
 }

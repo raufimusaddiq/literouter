@@ -20,7 +20,7 @@ if (!["next", "bun"].includes(target) || !outArg) {
 const outDir = path.resolve(outArg);
 
 const MAX_UNREACHABLE = 3;
-const stale = fs.existsSync(outDir) ? fs.readdirSync(outDir).filter((f) => f !== "upstream-requests.jsonl" && !f.endsWith(".json")) : [];
+const stale = fs.existsSync(outDir) ? fs.readdirSync(outDir).filter((f) => f !== "upstream-requests.jsonl" && f !== "upstream-fixtures.jsonl" && !f.endsWith(".json")) : [];
 if (stale.length) {
   console.error(`refusing to clear ${outDir}: it holds files that are not parity output (${stale.slice(0, 3).join(", ")})`);
   process.exit(2);

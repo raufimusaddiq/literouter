@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/server/http.js";
 import { getRequestDetails } from "@/lib/usageDb";
 
 export async function GET(request) {
@@ -17,14 +17,14 @@ export async function GET(request) {
     const endDate = searchParams.get("endDate");
     
     if (page < 1) {
-      return NextResponse.json(
+      return json(
         { error: "Page must be >= 1" },
         { status: 400 }
       );
     }
     
     if (pageSize < 1 || pageSize > 100) {
-      return NextResponse.json(
+      return json(
         { error: "PageSize must be between 1 and 100" },
         { status: 400 }
       );
@@ -54,10 +54,10 @@ export async function GET(request) {
       return redacted;
     });
 
-    return NextResponse.json({ ...result, details: redactedDetails });
+    return json({ ...result, details: redactedDetails });
   } catch (error) {
     console.error("[API] Failed to get request details:", error);
-    return NextResponse.json(
+    return json(
       { error: "Failed to fetch request details" },
       { status: 500 }
     );
