@@ -11,6 +11,14 @@ export const GUARDED_PATHS = [
   "src/web/pages/dashboard/overview",
   "src/web/pages/dashboard/DashboardOverview.js",
   "src/web/pages/dashboard/usage/components/ProviderTopology.js",
+  "src/web/pages/dashboard/usage/page.js",
+  "src/web/pages/dashboard/usage/components/OverviewCards.js",
+  "src/web/pages/dashboard/usage/components/UsageChart.js",
+  "src/web/pages/dashboard/usage/components/UsageTable.js",
+  "src/web/pages/dashboard/usage/components/RequestDetailsTab.js",
+  "src/web/pages/dashboard/usage/components/tokenDisplay.js",
+  "src/shared/components/UsageStats.js",
+  "src/shared/components/RequestLogger.js",
 ];
 
 const BACKDROP_BLUR_ALLOWED = new Set(["src/shared/components/shell/TopBar.js"]);
@@ -134,5 +142,30 @@ describe("Route Sheet guards", () => {
     expect(reduced).toContain(".topology-edge-halo");
     expect(reduced).toContain(".topology-edge-plasma");
     expect(reduced).toContain(".lr-packet");
+  });
+
+  it("usage components follow Route Sheet chart, card, and token rules", () => {
+    const read = (rel) => fs.readFileSync(path.join(ROOT, rel), "utf8");
+    const chart = read("src/web/pages/dashboard/usage/components/UsageChart.js");
+    const overviewCards = read("src/web/pages/dashboard/usage/components/OverviewCards.js");
+    const table = read("src/web/pages/dashboard/usage/components/UsageTable.js");
+    const details = read("src/web/pages/dashboard/usage/components/RequestDetailsTab.js");
+    const logger = read("src/shared/components/RequestLogger.js");
+
+    expect(chart).not.toContain("linearGradient");
+    expect(chart).toContain('strokeDasharray="3 4"');
+    expect(chart).toContain("var(--color-grid)");
+    expect(chart).toContain("var(--color-bar)");
+    expect(chart).toContain("var(--color-mark)");
+    expect(chart).toContain("niceTicks");
+
+    expect(overviewCards).not.toMatch(/<Card\b/);
+    expect(table).not.toContain("uppercase");
+
+    for (const forbidden of ["text-green-600", "text-red-600", "bg-green-500"]) {
+      expect(details).not.toContain(forbidden);
+    }
+    expect(logger).not.toContain("text-error");
+    expect(logger).not.toContain("bg-black/5");
   });
 });

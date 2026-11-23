@@ -3,20 +3,23 @@
 import { lazy, Suspense, useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "@/web/router";
 import { FREE_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers";
+import Badge from "./Badge";
+import Card from "./Card";
+import SegmentedControl from "./SegmentedControl";
+import { Skeleton } from "./Loading";
+import OverviewCards from "@/web/pages/dashboard/usage/components/OverviewCards";
+import UsageTable, { fmt, fmtTime } from "@/web/pages/dashboard/usage/components/UsageTable";
+
+const ProviderTopology = lazy(() => import("@/web/pages/dashboard/usage/components/ProviderTopology"));
+const UsageChart = lazy(() => import("@/web/pages/dashboard/usage/components/UsageChart"));
+
+const STATS_REFETCH_DEBOUNCE_MS = 2000;
 
 function isUsageTopologyProvider(id) {
   const p = AI_PROVIDERS[id];
   if (!p?.serviceKinds) return true;
   return p.serviceKinds.includes("llm") || p.serviceKinds.includes("systemone");
 }
-import Badge from "./Badge";
-import Card from "./Card";
-import OverviewCards from "@/web/pages/dashboard/usage/components/OverviewCards";
-import UsageTable, { fmt, fmtTime } from "@/web/pages/dashboard/usage/components/UsageTable";
-const ProviderTopology = lazy(() => import("@/web/pages/dashboard/usage/components/ProviderTopology"));
-const UsageChart = lazy(() => import("@/web/pages/dashboard/usage/components/UsageChart"));
-
-const STATS_REFETCH_DEBOUNCE_MS = 2000;
 
 function timeAgo(timestamp) {
   const diff = Math.floor((Date.now() - new Date(timestamp)) / 1000);
@@ -28,25 +31,25 @@ function timeAgo(timestamp) {
 
 function TimeAgo({ timestamp }) {
   const [, setTick] = useState(0);
-  
+
   useEffect(() => {
-    const timer = setInterval(() => setTick(t => t + 1), 1000);
+    const timer = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(timer);
   }, []);
-  
+
   return <>{timeAgo(timestamp)}</>;
 }
 
 function RecentRequests({ requests = [], onOpenDetails }) {
   return (
-    <Card className="flex min-w-0 flex-col overflow-hidden" padding="sm">
-      <div className="flex items-center justify-between gap-3 border-b border-border px-1 py-2 shrink-0">
-        <span className="text-xs font-medium text-text-muted">Recent requests</span>
+    <Card padding="none" className="flex min-w-0 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line py-2.5">
+        <h2 className="text-sm font-semibold text-ink">Recent requests</h2>
         {onOpenDetails ? (
           <button
             type="button"
             onClick={onOpenDetails}
-            className="text-xs font-medium text-primary hover:underline"
+            className="text-[12.5px] font-semibold text-ink underline underline-offset-[3px] transition-opacity hover:opacity-80"
           >
             View details
           </button>
@@ -54,33 +57,35 @@ function RecentRequests({ requests = [], onOpenDetails }) {
       </div>
 
       {!requests.length ? (
-        <div className="flex-1 flex items-center justify-center text-text-muted text-sm">No requests yet.</div>
+        <div className="flex flex-1 items-center justify-center py-10 text-sm text-muted">No requests yet.</div>
       ) : (
         <div className="flex-1 overflow-y-auto">
-          <table className="w-full min-w-[300px] border-collapse text-xs">
-            <thead className="sticky top-0 bg-bg z-10">
-              <tr className="border-b border-border">
-                <th className="py-1.5 text-left font-semibold text-text-muted w-2"></th>
-                <th className="py-1.5 text-left font-semibold text-text-muted">Model</th>
-                <th className="py-1.5 text-right font-semibold text-text-muted whitespace-nowrap">In / Out</th>
-                <th className="py-1.5 text-right font-semibold text-text-muted">When</th>
+          <table className="w-full min-w-[280px] border-collapse text-xs">
+            <thead className="sticky top-0 z-10 bg-bg">
+              <tr className="border-b border-line text-muted">
+                <th className="w-3 py-2 text-left font-medium" aria-label="Status" />
+                <th className="py-2 text-left font-medium">Model</th>
+                <th className="py-2 text-right font-medium whitespace-nowrap">In / out</th>
+                <th className="py-2 text-right font-medium">When</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/50">
+            <tbody className="divide-y divide-line">
               {requests.map((r, i) => {
                 const ok = !r.status || r.status === "ok" || r.status === "success";
                 return (
-                  <tr key={i} className="hover:bg-bg-subtle transition-colors">
-                    <td className="py-1.5">
-                      <span className={`block w-1.5 h-1.5 rounded-full ${ok ? "bg-success" : "bg-error"}`} />
+                  <tr key={i} className="transition-colors hover:bg-raise/70">
+                    <td className="py-2">
+                      <span className={`block size-1.5 rounded-full ${ok ? "bg-ok" : "bg-danger"}`} />
                     </td>
-                    <td className="py-1.5 font-mono truncate max-w-[120px]" title={r.model}>{r.model}</td>
-                    <td className="py-1.5 text-right whitespace-nowrap">
-                      <span className="text-primary">{fmt(r.promptTokens)}↑</span>
-                      {" "}
-                      <span className="text-success">{fmt(r.completionTokens)}↓</span>
+                    <td className="max-w-[140px] truncate py-2 pr-2 font-mono text-ink" title={r.model}>{r.model}</td>
+                    <td className="whitespace-nowrap py-2 text-right font-mono tabular-nums text-ink">
+                      {fmt(r.promptTokens)}
+                      <span aria-hidden="true" className="px-1 text-faint">→</span>
+                      {fmt(r.completionTokens)}
                     </td>
-                    <td className="py-1.5 text-right text-text-muted whitespace-nowrap"><TimeAgo timestamp={r.timestamp} /></td>
+                    <td className="whitespace-nowrap py-2 pl-2 text-right font-mono tabular-nums text-faint">
+                      <TimeAgo timestamp={r.timestamp} />
+                    </td>
                   </tr>
                 );
               })}
@@ -160,7 +165,7 @@ const MODEL_COLUMNS = [
   { field: "rawModel", label: "Model" },
   { field: "provider", label: "Provider" },
   { field: "requests", label: "Requests", align: "right" },
-  { field: "lastUsed", label: "Last Used", align: "right" },
+  { field: "lastUsed", label: "Last used", align: "right" },
 ];
 
 const ACCOUNT_COLUMNS = [
@@ -168,15 +173,15 @@ const ACCOUNT_COLUMNS = [
   { field: "provider", label: "Provider" },
   { field: "accountName", label: "Account" },
   { field: "requests", label: "Requests", align: "right" },
-  { field: "lastUsed", label: "Last Used", align: "right" },
+  { field: "lastUsed", label: "Last used", align: "right" },
 ];
 
 const API_KEY_COLUMNS = [
-  { field: "keyName", label: "API Key Name" },
+  { field: "keyName", label: "API key name" },
   { field: "rawModel", label: "Model" },
   { field: "provider", label: "Provider" },
   { field: "requests", label: "Requests", align: "right" },
-  { field: "lastUsed", label: "Last Used", align: "right" },
+  { field: "lastUsed", label: "Last used", align: "right" },
 ];
 
 const ENDPOINT_COLUMNS = [
@@ -184,7 +189,7 @@ const ENDPOINT_COLUMNS = [
   { field: "rawModel", label: "Model" },
   { field: "provider", label: "Provider" },
   { field: "requests", label: "Requests", align: "right" },
-  { field: "lastUsed", label: "Last Used", align: "right" },
+  { field: "lastUsed", label: "Last used", align: "right" },
 ];
 
 const TABLE_OPTIONS = [
@@ -200,6 +205,11 @@ const PERIODS = [
   { value: "7d", label: "7D" },
   { value: "30d", label: "30D" },
   { value: "60d", label: "60D" },
+];
+
+const VIEW_MODE_OPTIONS = [
+  { value: "costs", label: "Costs" },
+  { value: "tokens", label: "Tokens" },
 ];
 
 export default function UsageStats({ period: periodProp, setPeriod: setPeriodProp, hidePeriodSelector = false, onOpenDetails } = {}) {
@@ -225,8 +235,8 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/providers").then((r) => r.ok ? r.json() : null),
-      fetch("/api/provider-nodes").then((r) => r.ok ? r.json() : null),
+      fetch("/api/providers").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/provider-nodes").then((r) => (r.ok ? r.json() : null)),
     ])
       .then(([d, nodesData]) => {
         const nodeNameMap = {};
@@ -261,7 +271,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
     }
 
     fetch(`/api/usage/stats?period=${period}`)
-      .then((r) => r.ok ? r.json() : null)
+      .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data) {
           hasLoadedStats.current = true;
@@ -283,7 +293,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       refetchTimer = setTimeout(() => {
         refetchTimer = null;
         fetch(`/api/usage/stats?period=${periodRef.current}`)
-          .then((r) => r.ok ? r.json() : null)
+          .then((r) => (r.ok ? r.json() : null))
           .then((data) => { if (data) setStats((prev) => ({ ...prev, ...data })); })
           .catch(() => {});
       }, STATS_REFETCH_DEBOUNCE_MS);
@@ -343,17 +353,24 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No usage recorded yet.",
           renderSummaryCells: (group) => (
             <>
-              <td className="px-3 py-3 sm:px-6 text-text-muted">—</td>
-              <td className="px-3 py-3 sm:px-6 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-3 py-3 sm:px-6 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              <td className="px-3 py-2.5 sm:px-4 text-faint">—</td>
+              <td className="px-3 py-2.5 sm:px-4 text-right font-mono text-[12.5px] tabular-nums text-ink">{fmt(group.summary.requests)}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 sm:px-4 text-right font-mono text-xs tabular-nums text-faint">{fmtTime(group.summary.lastUsed)}</td>
             </>
           ),
           renderDetailCells: (item) => (
             <>
-              <td className={`px-3 py-3 sm:px-6 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</td>
-              <td className="px-3 py-3 sm:px-6"><Badge variant={item.pending > 0 ? "primary" : "neutral"} size="sm">{item.provider}</Badge></td>
-              <td className="px-3 py-3 sm:px-6 text-right">{fmt(item.requests)}</td>
-              <td className="px-3 py-3 sm:px-6 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              <td className="max-w-[260px] truncate px-3 py-2.5 sm:px-4 font-mono text-[12.5px] text-ink" title={item.rawModel}>
+                {item.pending > 0 ? <span aria-hidden="true" className="mr-1.5 inline-block size-1.5 rounded-full bg-mark" /> : null}
+                {item.rawModel}
+              </td>
+              <td className="px-3 py-2.5 sm:px-4">
+                <Badge variant={item.pending > 0 ? "primary" : "neutral"} size="sm" dot={false} pill>
+                  {item.provider}
+                </Badge>
+              </td>
+              <td className="px-3 py-2.5 sm:px-4 text-right font-mono text-[12.5px] tabular-nums text-ink">{fmt(item.requests)}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 sm:px-4 text-right font-mono text-xs tabular-nums text-faint">{fmtTime(item.lastUsed)}</td>
             </>
           ),
         };
@@ -376,19 +393,26 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No account-specific usage recorded yet.",
           renderSummaryCells: (group) => (
             <>
-              <td className="px-3 py-3 sm:px-6 text-text-muted">—</td>
-              <td className="px-3 py-3 sm:px-6 text-text-muted">—</td>
-              <td className="px-3 py-3 sm:px-6 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-3 py-3 sm:px-6 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              <td className="px-3 py-2.5 sm:px-4 text-faint">—</td>
+              <td className="px-3 py-2.5 sm:px-4 text-faint">—</td>
+              <td className="px-3 py-2.5 sm:px-4 text-right font-mono text-[12.5px] tabular-nums text-ink">{fmt(group.summary.requests)}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 sm:px-4 text-right font-mono text-xs tabular-nums text-faint">{fmtTime(group.summary.lastUsed)}</td>
             </>
           ),
           renderDetailCells: (item) => (
             <>
-              <td className={`px-3 py-3 sm:px-6 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.accountName || `Account ${item.connectionId?.slice(0, 8)}...`}</td>
-              <td className={`px-3 py-3 sm:px-6 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</td>
-              <td className="px-3 py-3 sm:px-6"><Badge variant={item.pending > 0 ? "primary" : "neutral"} size="sm">{item.provider}</Badge></td>
-              <td className="px-3 py-3 sm:px-6 text-right">{fmt(item.requests)}</td>
-              <td className="px-3 py-3 sm:px-6 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              <td className="max-w-[220px] truncate px-3 py-2.5 sm:px-4 font-mono text-[12.5px] text-ink">
+                {item.pending > 0 ? <span aria-hidden="true" className="mr-1.5 inline-block size-1.5 rounded-full bg-mark" /> : null}
+                {item.accountName || `Account ${item.connectionId?.slice(0, 8)}...`}
+              </td>
+              <td className="max-w-[220px] truncate px-3 py-2.5 sm:px-4 font-mono text-[12.5px] text-ink">{item.rawModel}</td>
+              <td className="px-3 py-2.5 sm:px-4">
+                <Badge variant={item.pending > 0 ? "primary" : "neutral"} size="sm" dot={false} pill>
+                  {item.provider}
+                </Badge>
+              </td>
+              <td className="px-3 py-2.5 sm:px-4 text-right font-mono text-[12.5px] tabular-nums text-ink">{fmt(item.requests)}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 sm:px-4 text-right font-mono text-xs tabular-nums text-faint">{fmtTime(item.lastUsed)}</td>
             </>
           ),
         };
@@ -401,19 +425,21 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No API key usage recorded yet.",
           renderSummaryCells: (group) => (
             <>
-              <td className="px-3 py-3 sm:px-6 text-text-muted">—</td>
-              <td className="px-3 py-3 sm:px-6 text-text-muted">—</td>
-              <td className="px-3 py-3 sm:px-6 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-3 py-3 sm:px-6 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              <td className="px-3 py-2.5 sm:px-4 text-faint">—</td>
+              <td className="px-3 py-2.5 sm:px-4 text-faint">—</td>
+              <td className="px-3 py-2.5 sm:px-4 text-right font-mono text-[12.5px] tabular-nums text-ink">{fmt(group.summary.requests)}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 sm:px-4 text-right font-mono text-xs tabular-nums text-faint">{fmtTime(group.summary.lastUsed)}</td>
             </>
           ),
           renderDetailCells: (item) => (
             <>
-              <td className="px-3 py-3 sm:px-6 font-medium">{item.keyName}</td>
-              <td className="px-3 py-3 sm:px-6">{item.rawModel}</td>
-              <td className="px-3 py-3 sm:px-6"><Badge variant="neutral" size="sm">{item.provider}</Badge></td>
-              <td className="px-3 py-3 sm:px-6 text-right">{fmt(item.requests)}</td>
-              <td className="px-3 py-3 sm:px-6 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              <td className="max-w-[220px] truncate px-3 py-2.5 sm:px-4 font-mono text-[12.5px] text-ink">{item.keyName}</td>
+              <td className="max-w-[220px] truncate px-3 py-2.5 sm:px-4 font-mono text-[12.5px] text-muted">{item.rawModel}</td>
+              <td className="px-3 py-2.5 sm:px-4">
+                <Badge variant="neutral" size="sm" dot={false} pill>{item.provider}</Badge>
+              </td>
+              <td className="px-3 py-2.5 sm:px-4 text-right font-mono text-[12.5px] tabular-nums text-ink">{fmt(item.requests)}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 sm:px-4 text-right font-mono text-xs tabular-nums text-faint">{fmtTime(item.lastUsed)}</td>
             </>
           ),
         };
@@ -427,19 +453,21 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No endpoint usage recorded yet.",
           renderSummaryCells: (group) => (
             <>
-              <td className="px-3 py-3 sm:px-6 text-text-muted">—</td>
-              <td className="px-3 py-3 sm:px-6 text-text-muted">—</td>
-              <td className="px-3 py-3 sm:px-6 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-3 py-3 sm:px-6 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              <td className="px-3 py-2.5 sm:px-4 text-faint">—</td>
+              <td className="px-3 py-2.5 sm:px-4 text-faint">—</td>
+              <td className="px-3 py-2.5 sm:px-4 text-right font-mono text-[12.5px] tabular-nums text-ink">{fmt(group.summary.requests)}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 sm:px-4 text-right font-mono text-xs tabular-nums text-faint">{fmtTime(group.summary.lastUsed)}</td>
             </>
           ),
           renderDetailCells: (item) => (
             <>
-              <td className="px-3 py-3 sm:px-6 font-medium font-mono text-sm">{item.endpoint}</td>
-              <td className="px-3 py-3 sm:px-6">{item.rawModel}</td>
-              <td className="px-3 py-3 sm:px-6"><Badge variant="neutral" size="sm">{item.provider}</Badge></td>
-              <td className="px-3 py-3 sm:px-6 text-right">{fmt(item.requests)}</td>
-              <td className="px-3 py-3 sm:px-6 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              <td className="max-w-[220px] truncate px-3 py-2.5 sm:px-4 font-mono text-[12.5px] text-ink">{item.endpoint}</td>
+              <td className="max-w-[220px] truncate px-3 py-2.5 sm:px-4 font-mono text-[12.5px] text-muted">{item.rawModel}</td>
+              <td className="px-3 py-2.5 sm:px-4">
+                <Badge variant="neutral" size="sm" dot={false} pill>{item.provider}</Badge>
+              </td>
+              <td className="px-3 py-2.5 sm:px-4 text-right font-mono text-[12.5px] tabular-nums text-ink">{fmt(item.requests)}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 sm:px-4 text-right font-mono text-xs tabular-nums text-faint">{fmtTime(item.lastUsed)}</td>
             </>
           ),
         };
@@ -447,41 +475,34 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
     }
   }, [hasStats, byModel, byAccount, byApiKey, byEndpoint, pending, tableView, sortBy, sortOrder]);
 
-  if (!stats && !loading) return <div className="text-text-muted">Failed to load usage statistics.</div>;
-
-  const spinner = (
-    <div className="flex items-center justify-center py-12 text-text-muted">
-      <span aria-hidden="true" className="material-symbols-outlined text-[32px] animate-spin">progress_activity</span>
-    </div>
-  );
+  if (!stats && !loading) return <div className="text-sm text-muted">Failed to load usage statistics.</div>;
 
   return (
-    <div className="flex min-w-0 flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-7">
       {!hidePeriodSelector && (
         <div className="flex w-full items-center gap-2 sm:w-auto sm:self-end">
-          <div className="grid flex-1 grid-cols-5 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:flex sm:flex-none">
-            {PERIODS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPeriod(p.value)}
-                disabled={fetching}
-                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${period === p.value ? "bg-primary text-primary-foreground shadow-sm" : "text-text-muted hover:bg-bg-hover hover:text-text"}`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            options={PERIODS}
+            value={period}
+            onChange={(val) => {
+              if (!fetching) setPeriod(val);
+            }}
+            size="sm"
+            className="max-w-full"
+          />
           {fetching && (
-            <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-text-muted animate-spin">progress_activity</span>
+            <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[16px] text-muted">progress_activity</span>
           )}
         </div>
       )}
 
-      {loading ? spinner : <OverviewCards stats={stats} />}
+      {loading ? <Skeleton className="h-[72px] w-full rounded-md" /> : <OverviewCards stats={stats} />}
 
-      {loading ? spinner : (
-        <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:h-[480px] lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-          <Suspense fallback={null}>
+      {loading ? (
+        <Skeleton className="h-[320px] w-full rounded-md sm:h-[480px]" />
+      ) : (
+        <div className="grid min-w-0 grid-cols-1 items-stretch gap-5 lg:h-[480px] lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+          <Suspense fallback={<Skeleton className="h-[320px] w-full rounded-md sm:h-[480px]" />}>
             <ProviderTopology
               providers={providers}
               activeRequests={stats.activeRequests || []}
@@ -493,36 +514,37 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         </div>
       )}
 
-      {loading ? spinner : <Suspense fallback={null}><UsageChart period={period} /></Suspense>}
+      {loading ? (
+        <Skeleton className="h-[260px] w-full rounded-md" />
+      ) : (
+        <Suspense fallback={<Skeleton className="h-[260px] w-full rounded-md" />}>
+          <UsageChart period={period} />
+        </Suspense>
+      )}
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <select
+            aria-label="Breakdown view"
             value={tableView}
             onChange={(e) => setTableView(e.target.value)}
-            className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text-main focus:outline-none focus:ring-2 focus:ring-primary/50 sm:w-auto"
-            style={{ colorScheme: 'auto' }}
+            className="h-9 w-full rounded-md border border-line-strong bg-raise px-3 text-sm font-medium text-ink focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line sm:w-auto"
           >
             {TABLE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          <div className="grid grid-cols-2 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:flex">
-            <button
-              onClick={() => setViewMode("costs")}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "costs" ? "bg-primary text-primary-foreground shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
-            >
-              Costs
-            </button>
-            <button
-              onClick={() => setViewMode("tokens")}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "tokens" ? "bg-primary text-primary-foreground shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
-            >
-              Tokens
-            </button>
-          </div>
+          <SegmentedControl
+            options={VIEW_MODE_OPTIONS}
+            value={viewMode}
+            onChange={setViewMode}
+            size="sm"
+            className="self-start sm:self-auto"
+          />
         </div>
-        {loading ? spinner : activeTableConfig && (
+        {loading ? (
+          <Skeleton className="h-[200px] w-full rounded-md" />
+        ) : activeTableConfig && (
           <UsageTable
             title=""
             columns={activeTableConfig.columns}
