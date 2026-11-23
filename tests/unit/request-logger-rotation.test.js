@@ -54,6 +54,33 @@ test("session cap is enforced immediately after back-to-back requests", async ()
   }
 });
 
+test("the session just created survives pruning even when it sorts oldest", async () => {
+  process.env.ENABLE_REQUEST_LOGS = "true";
+  process.env.REQUEST_LOG_MAX_SIZE_MB = "1024";
+  process.env.REQUEST_LOG_MAX_SESSIONS = "2";
+  process.env.REQUEST_LOG_PRUNE_INTERVAL_MS = "300000";
+  const originalCwd = process.cwd();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-request-logs-tie-"));
+  process.chdir(tempDir);
+
+  try {
+    const future = new Date(Date.now() + 3_600_000);
+    for (const name of ["old-1", "old-2"]) {
+      fs.mkdirSync(path.join(tempDir, "logs", name), { recursive: true });
+      fs.utimesSync(path.join(tempDir, "logs", name), future, future);
+    }
+
+    const { createRequestLogger } = await import("../../open-sse/utils/requestLogger.js?case=tie");
+    const logger = await createRequestLogger("openai", "openai", "fresh");
+
+    expect(fs.existsSync(logger.sessionPath)).toBe(true);
+    expect(fs.readdirSync(path.join(tempDir, "logs"))).toHaveLength(2);
+  } finally {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("chunk appends are async stream writes and land in the session files", async () => {
   process.env.ENABLE_REQUEST_LOGS = "true";
   process.env.REQUEST_LOG_MAX_SESSIONS = "50";
