@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
+import { stubReload } from "#test/dom";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/dashboard/nope" });
@@ -52,6 +53,8 @@ describe("App shell", () => {
 
   it("a failing lazy page shows the reload message instead of a blank page", async () => {
     window.history.replaceState(null, "", "/boom");
+    window.sessionStorage.setItem("lr:chunk-reload", String(Date.now()));
+    const reload = stubReload();
     const originalError = console.error;
     console.error = () => {};
     try {
@@ -67,6 +70,37 @@ describe("App shell", () => {
       });
       expect(view.container.textContent).toContain("This page failed to load");
       expect(view.container.querySelector("button")?.textContent).toBe("Reload");
+      expect(reload).not.toHaveBeenCalled();
+      await view.unmount();
+    } finally {
+      console.error = originalError;
+    }
+  });
+
+  it.each([
+    ["has no earlier reload", null],
+    ["last reloaded over 30s ago", String(Date.now() - 31_000)],
+  ])("a failing lazy page reloads once when it %s", async (_name, stored) => {
+    window.history.replaceState(null, "", "/boom");
+    window.sessionStorage.removeItem("lr:chunk-reload");
+    if (stored) window.sessionStorage.setItem("lr:chunk-reload", stored);
+    const reload = stubReload();
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+      const view = await mount(
+        <Routes
+          routesOverride={[
+            { path: "/boom", load: () => Promise.reject(new Error("chunk gone")), shell: false },
+          ]}
+        />,
+      );
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(Date.now() - Number(window.sessionStorage.getItem("lr:chunk-reload"))).toBeLessThan(5_000);
+      expect(view.container.textContent).not.toContain("This page failed to load");
       await view.unmount();
     } finally {
       console.error = originalError;
