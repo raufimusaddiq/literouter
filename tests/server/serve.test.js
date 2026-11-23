@@ -140,7 +140,9 @@ describe("startServer", () => {
     expect(res.status).toBe(404);
     expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(res.headers.get("cache-control")).toBe("private, no-cache, no-store, max-age=0, must-revalidate");
-    expect(await res.text()).toContain("<title>404: This page could not be found.</title>");
+    const html = await res.text();
+    expect(/<title>([^<]*)<\/title>/.exec(html)[1]).toBe("LiteRouter — AI routing control plane");
+    expect(html).toContain("<title>404: This page could not be found.</title>");
   });
 
   it("unknown /api path without credentials is 401, like the recorded response", async () => {
