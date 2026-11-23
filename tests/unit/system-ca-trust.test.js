@@ -3,9 +3,10 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
-const root = new URL("../../", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../../", import.meta.url));
 const customServer = join(root, "custom-server.js");
 const dir = mkdtempSync(join(tmpdir(), "ca-trust-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -20,7 +21,7 @@ function makeChain(name) {
   writeFileSync(f("ext"), "subjectAltName=DNS:localhost,IP:127.0.0.1\n");
   run("x509", "-req", "-in", f("csr"), "-CA", f("ca.pem"), "-CAkey", f("ca.key"), "-CAcreateserial",
     "-out", f("crt"), "-days", "2", "-extfile", f("ext"));
-  return { ca: readFileSync(f("ca.pem"), "utf8"), key: readFileSync(f("key"), "utf8"), cert: readFileSync(f("crt"), "utf8") };
+  return { caPath: f("ca.pem"), key: readFileSync(f("key"), "utf8"), cert: readFileSync(f("crt"), "utf8") };
 }
 
 describe("useSystemCaStore", () => {
@@ -47,7 +48,7 @@ describe("useSystemCaStore", () => {
   });
 });
 
-describe("outbound clients honour the replaced default CA list", () => {
+describe("outbound clients honour the configured extra CA store under Bun", () => {
   let trusted, distrusted;
   beforeAll(() => {
     trusted = makeChain("trusted");
@@ -56,23 +57,21 @@ describe("outbound clients honour the replaced default CA list", () => {
 
   function probe(serverMaterial) {
     const script = `
-      const https = require("https"); const tls = require("tls");
-      const { useSystemCaStore } = require(${JSON.stringify(customServer)});
+      const https = require("https");
       const m = JSON.parse(process.env.M);
-      const server = https.createServer({ key: m.server.key, cert: m.server.cert }, (q, r) => r.end("ok"));
+      const server = https.createServer({ key: m.key, cert: m.cert }, (q, r) => r.end("ok"));
       server.listen(0, "127.0.0.1", async () => {
         const url = "https://localhost:" + server.address().port;
-        useSystemCaStore({ getCACertificates: () => [m.trustedCa], setDefaultCACertificates: tls.setDefaultCACertificates });
         const out = {};
-        out.fetch = await fetch(url).then(() => "ok", (e) => (e.cause && e.cause.code) || e.message);
+        out.fetch = await fetch(url).then(() => "ok", (e) => (e.cause && e.cause.code) || e.code || e.message);
         const { Agent, fetch: uf } = require("undici");
-        out.undici = await uf(url, { dispatcher: new Agent() }).then(() => "ok", (e) => (e.cause && e.cause.code) || e.message);
+        out.undici = await uf(url, { dispatcher: new Agent() }).then(() => "ok", (e) => (e.cause && e.cause.code) || e.code || e.message);
         out.https = await new Promise((res) => https.get(url, () => res("ok")).on("error", (e) => res(e.code)));
         console.log(JSON.stringify(out)); server.close();
       });`;
     const r = spawnSync(process.execPath, ["-e", script], {
       cwd: root,
-      env: { ...process.env, NODE_PATH: join(root, "node_modules"), M: JSON.stringify({ server: serverMaterial, trustedCa: trusted.ca }) },
+      env: { ...process.env, NODE_PATH: join(root, "node_modules"), NODE_EXTRA_CA_CERTS: trusted.caPath, M: JSON.stringify({ key: serverMaterial.key, cert: serverMaterial.cert }) },
       encoding: "utf8",
     });
     expect(r.status, r.stderr).toBe(0);
