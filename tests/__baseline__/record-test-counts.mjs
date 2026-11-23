@@ -21,10 +21,14 @@ const overrides = existsSync(overridesPath) ? JSON.parse(readFileSync(overridesP
 
 const r = JSON.parse(readFileSync(resultsPath, "utf8"));
 const files = {};
+const skipped = {};
 const loadFailed = new Set();
 for (const f of r.testResults) {
   const k = relative(f.name);
   files[k] = (files[k] || 0) + f.assertionResults.length;
+  for (const a of f.assertionResults) {
+    if (["pending", "skipped", "todo"].includes(a.status)) skipped[k] = (skipped[k] || 0) + 1;
+  }
   if (f.assertionResults.length === 0 && f.status === "failed") loadFailed.add(k);
 }
 for (const k of Object.keys(files)) {
@@ -38,6 +42,7 @@ for (const k of Object.keys(files)) {
   }
 }
 const sorted = Object.fromEntries(Object.keys(files).sort().map(k => [k, files[k]]));
+const sortedSkipped = Object.fromEntries(Object.keys(skipped).sort().map(k => [k, skipped[k]]));
 const recordedFrom = sha || execSync("git rev-parse HEAD").toString().trim();
-const out = JSON.stringify({ recordedFrom, files: sorted }, null, 2) + "\n";
+const out = JSON.stringify({ recordedFrom, files: sorted, skipped: sortedSkipped }, null, 2) + "\n";
 if (outPath) writeFileSync(outPath, out); else process.stdout.write(out);

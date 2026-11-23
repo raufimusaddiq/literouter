@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { parseJunit } from "../__baseline__/junit.mjs";
-import { checkCounts, checkDeleted, pathsMismatch } from "../__baseline__/verify-test-counts.mjs";
+import { checkCounts, checkDeleted, checkSkips, pathsMismatch } from "../__baseline__/verify-test-counts.mjs";
 import { findRegressions, findDuplicateKeys } from "../__baseline__/verify-no-regression.mjs";
 
 const XML = String.raw`<?xml version="1.0" encoding="UTF-8"?>
@@ -139,5 +139,38 @@ describe("deleted records against the frozen baseline", () => {
   });
   test("rejects a malformed key", () => {
     expect(checkDeleted({}, { "no separator": "r" }, cases)).toEqual([{ key: "no separator", problem: "key must be '<file> :: <name>'" }]);
+  });
+});
+
+describe("skip gate", () => {
+  const sk = (file, n, name = "s") => Array.from({ length: n }, (_, i) => ({ file, fullName: `${name} ${i}`, status: "skipped" }));
+  const ok = file => ({ file, fullName: "p", status: "passed" });
+
+  test("fails when a file skips more than its frozen baseline", () => {
+    const cases = [ok("tests/a.test.js"), ...sk("tests/a.test.js", 3)];
+    expect(checkSkips({ "tests/a.test.js": 2 }, cases)).toEqual([{ file: "tests/a.test.js", allowed: 2, actual: 3 }]);
+  });
+  test("passes at or below the baseline", () => {
+    const cases = [ok("tests/a.test.js"), ...sk("tests/a.test.js", 2)];
+    expect(checkSkips({ "tests/a.test.js": 2 }, cases)).toEqual([]);
+    expect(checkSkips({ "tests/a.test.js": 5 }, cases)).toEqual([]);
+  });
+  test("a file absent from the baseline map may not skip at all", () => {
+    expect(checkSkips({}, [...sk("tests/new.test.js", 1)])).toEqual([{ file: "tests/new.test.js", allowed: 0, actual: 1 }]);
+    expect(checkSkips({}, [ok("tests/new.test.js")])).toEqual([]);
+  });
+  test("a waiver lets a file exceed its baseline", () => {
+    const cases = sk("tests/a.test.js", 3);
+    expect(checkSkips({ "tests/a.test.js": 1 }, cases, { "tests/a.test.js": "needs live credentials" })).toEqual([]);
+  });
+  test("a waiver for another file does not hide the offender", () => {
+    expect(checkSkips({}, sk("tests/a.test.js", 1), { "tests/b.test.js": "r" })).toEqual([{ file: "tests/a.test.js", allowed: 0, actual: 1 }]);
+  });
+  test("ignores Bun's unnamed placeholder for a skipped describe", () => {
+    const cases = [{ file: "tests/a.test.js", fullName: "REAL (unnamed)", status: "skipped" }, ...sk("tests/a.test.js", 1)];
+    expect(checkSkips({ "tests/a.test.js": 1 }, cases)).toEqual([]);
+  });
+  test("failed and passed cases never count as skips", () => {
+    expect(checkSkips({}, [ok("tests/a.test.js"), { file: "tests/a.test.js", fullName: "f", status: "failed" }])).toEqual([]);
   });
 });

@@ -23,6 +23,18 @@ export function checkCounts(baselineFiles, cases, deleted = {}) {
     .filter(r => r.actual < r.expected);
 }
 
+const UNNAMED = /(^| )\(unnamed\)$/;
+
+export function checkSkips(baselineSkipped, cases, waivers = {}) {
+  const actual = {};
+  for (const c of cases) {
+    if (c.status === "skipped" && !UNNAMED.test(c.fullName)) actual[c.file] = (actual[c.file] ?? 0) + 1;
+  }
+  return Object.entries(actual)
+    .filter(([file, n]) => !(file in waivers) && n > (baselineSkipped[file] ?? 0))
+    .map(([file, n]) => ({ file, allowed: baselineSkipped[file] ?? 0, actual: n }));
+}
+
 export function pathsMismatch(baselineFiles, cases) {
   return cases.length > 0 && !cases.some(c => c.file in baselineFiles);
 }
@@ -71,6 +83,20 @@ if (import.meta.main) {
   if (offenders.length) {
     console.error(`\n❌ TEST COUNT DROP: ${offenders.length} file(s) below baseline (expected/actual):\n`);
     offenders.forEach(o => console.error(`  - ${o.file}  ${o.expected}/${o.actual}`));
+    process.exit(1);
+  }
+  const waivers = baseline.skipWaivers ?? {};
+  const waiverKeys = Object.keys(waivers);
+  if (waiverKeys.length) {
+    console.log(`Skip waivers (${waiverKeys.length}), allowed to skip beyond the frozen baseline:`);
+    waiverKeys.forEach(k => console.log(`  - ${k} -- ${waivers[k]}`));
+  }
+  const skipOffenders = checkSkips(baseline.skipped ?? {}, cases, waivers);
+  if (skipOffenders.length) {
+    console.error(`
+❌ SKIP GROWTH: ${skipOffenders.length} file(s) skip more than the frozen vitest baseline (allowed/actual):
+`);
+    skipOffenders.forEach(o => console.error(`  - ${o.file}  ${o.allowed}/${o.actual}`));
     process.exit(1);
   }
   console.log(`✅ Test counts OK (${Object.keys(baseline.files).length} files at or above baseline ${baseline.recordedFrom}).`);
