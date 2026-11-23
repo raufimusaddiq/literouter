@@ -1,4 +1,4 @@
-const test = require("node:test");
+const { test } = require("bun:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -86,6 +86,19 @@ test("pidfile round-trips the port and tolerates the legacy bare-pid format", ()
 
     clearServerPid();
     assert.strictEqual(readServerPid(), null);
+  } finally {
+    if (prev === undefined) delete process.env.DATA_DIR;
+    else process.env.DATA_DIR = prev;
+  }
+});
+
+test("pidfile records the launcher pid when given", () => {
+  const prev = process.env.DATA_DIR;
+  process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "literouter-pid-"));
+  try {
+    writeServerPid(4321, 20128, 555);
+    assert.deepStrictEqual(readServerPid(), { pid: 4321, port: 20128, launcherPid: 555 });
+    clearServerPid();
   } finally {
     if (prev === undefined) delete process.env.DATA_DIR;
     else process.env.DATA_DIR = prev;

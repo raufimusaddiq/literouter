@@ -8,9 +8,9 @@ LiteRouter (`9router-app`) — a local AI routing gateway + dashboard. A single 
 
 Two published artifacts live in this one repo:
 - The **dashboard + gateway** (root `package.json`, `9router-app`) — the `Bun.serve` server (`src/server/index.js`) that does the actual routing and serves the dashboard.
-- The **CLI launcher** (`cli/`, published to npm as `9router`) — a separate package that installs/starts the server and manages the tray. It has its own `package.json`, version, and build.
+- The **CLI launcher** (`cli/`, published to npm as `literouter`) — a separate package that installs/starts the server and manages the tray. It has its own `package.json`, version, and build.
 
-The code lives in `src/` (`Bun.serve` server in `src/server/`, route handlers under `src/app/api/`, and the dashboard SPA under `src/web/`: its in-house router, pages and entry, with the shared components in `src/shared/components`), `open-sse/` (the provider-agnostic routing/translation engine), `cli/` (the launcher package; still the Next-era launcher that bundles the Next standalone build until Plan 4 rebuilds it for Bun), and `tests/`.
+The code lives in `src/` (`Bun.serve` server in `src/server/`, route handlers under `src/app/api/`, and the dashboard SPA under `src/web/`: its in-house router, pages and entry, with the shared components in `src/shared/components`), `open-sse/` (the provider-agnostic routing/translation engine), `cli/` (the Bun launcher package, which ships the server bundle in `cli/app`), and `tests/`.
 
 ## Commands
 
@@ -22,15 +22,16 @@ PORT=20128 bun --hot src/server/index.js     # dev (same as `bun run dev`), hot-
 PORT=20128 HOSTNAME=0.0.0.0 bun src/server/index.js   # production (same as `bun run start`)
 ```
 
-The server is `Bun.serve` (`src/server/index.js`); the root package no longer depends on Next (only `cli/` still bundles it, until Plan 4). `bun --hot` sees the real peer address of every connection, so development behaves like production: `/` redirects to `/dashboard`, the localhost-only routes (`/api/oauth/cursor/auto-import`, `/api/oauth/kiro/auto-import`, `/api/auth/reset-password`, `/api/headroom/*`) work from the machine itself, and LAN/self-hosted provider nodes validate. A direct loopback request with no proxy marker is local; Cloudflare to Caddy to loopback is remote (`src/server/trust.js`).
-- Build: `bun run build:web` regenerates the provider icon manifest and writes the dashboard SPA to `dist/web` (`bun scripts/build-web.mjs`; `bun run build` calls it for now). The server reads `LITEROUTER_SPA_DIR` or `dist/web` when `NODE_ENV=production` (a missing build answers 500); otherwise it builds per process into `dist/web-dev/<pid>` and rebuilds when `src/` or `open-sse/` change (`src/server/spaBuild.js`). `tests/web/build.test.js` holds the initial-JS size budget. Root `bun.lock` sits beside `package-lock.json`, which stays until Plan 4 because the Dockerfile and `cli/` still describe the Next standalone build.
+The server is `Bun.serve` (`src/server/index.js`); there is no Next.js, Node or npm anywhere in the repo, with one exception: the READMEs tell users migrating from the upstream package to run `npm rm -g 9router` to remove it. `bun --hot` sees the real peer address of every connection, so development behaves like production: `/` redirects to `/dashboard`, the localhost-only routes (`/api/oauth/cursor/auto-import`, `/api/oauth/kiro/auto-import`, `/api/auth/reset-password`, `/api/headroom/*`) work from the machine itself, and LAN/self-hosted provider nodes validate. A direct loopback request with no proxy marker is local; Cloudflare to Caddy to loopback is remote (`src/server/trust.js`).
+- Build: `bun run build` bundles the server and the dashboard SPA into `dist/app` (`bun scripts/build.mjs`; run it with `bun run start`, which is `cd dist/app && bun index.js`). `bun run compile` / `bun run compile:arm64` produce one musl executable in `dist/bin` (that is what the Docker image ships). `bun run build:web` only rebuilds the SPA. A bundled or compiled run reads its assets next to itself; unbundled production reads `LITEROUTER_SPA_DIR` or `dist/web` (a missing build answers 500); otherwise the SPA builds per process into `dist/web-dev/<pid>` and rebuilds when `src/` or `open-sse/` change (`src/server/spaBuild.js`). `tests/web/build.test.js` holds the initial-JS size budget. `bun.lock` is the only lockfile (`cli/bun.lock` for the launcher).
 - Default runtime port is **20128** (dashboard at `/dashboard`, API at `/v1`).
-- Lint: `bunx --bun eslint .` (flat config `eslint.config.mjs`: `eslint-plugin-react`, `eslint-plugin-react-hooks`, `eslint-plugin-jsx-a11y` and `eslint-plugin-import` used directly, plus `local/no-comments`; no `eslint-config-next`, see `docs/adr/0054-dashboard-spa.md`).
+- Lint: `bun --bun run eslint .` (flat config `eslint.config.mjs`: `eslint-plugin-react`, `eslint-plugin-react-hooks`, `eslint-plugin-jsx-a11y` and `eslint-plugin-import` used directly, plus `local/no-comments`; no `eslint-config-next`, see `docs/adr/0054-dashboard-spa.md`).
 
 CLI package (`cli/`):
 ```bash
-npm run cli:pack       # build + npm pack from root
-cd cli && npm run dev  # nodemon watch
+bun run cli:pack       # build the CLI and pack it from root
+cd cli && bun run dev  # bun --watch cli.js
+cd cli && bun test
 ```
 
 **Always run the suite with `--parallel`** (`cd tests && bun test --parallel`, or the `test` script). Plain `bun test` over the whole tree shares one module registry across files and can hang. Running a single file without it is fine.

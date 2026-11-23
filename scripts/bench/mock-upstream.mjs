@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import http from "node:http";
 import { pathToFileURL } from "node:url";
 

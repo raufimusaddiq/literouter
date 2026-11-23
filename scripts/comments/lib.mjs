@@ -41,19 +41,19 @@ function collectEmptyJsxContainers(ast) {
   const found = [];
   const stack = [ast];
   while (stack.length) {
-    const node = stack.pop();
-    if (!node || typeof node !== "object") continue;
-    if (Array.isArray(node)) {
-      for (const item of node) stack.push(item);
+    const current = stack.pop();
+    if (!current || typeof current !== "object") continue;
+    if (Array.isArray(current)) {
+      for (const item of current) stack.push(item);
       continue;
     }
-    if (node.type === "JSXExpressionContainer" && node.expression?.type === "JSXEmptyExpression") {
-      found.push({ range: node.range, loc: node.loc });
+    if (current.type === "JSXExpressionContainer" && current.expression?.type === "JSXEmptyExpression") {
+      found.push({ range: current.range, loc: current.loc });
       continue;
     }
-    for (const key of Object.keys(node)) {
+    for (const key of Object.keys(current)) {
       if (key === "tokens" || key === "comments" || key === "loc" || key === "range") continue;
-      const value = node[key];
+      const value = current[key];
       if (value && typeof value === "object") stack.push(value);
     }
   }

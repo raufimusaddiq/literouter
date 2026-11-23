@@ -584,9 +584,9 @@ async function showCustomProvidersMenu(breadcrumb = []) {
       if (!res.success) return { items: [] };
       return { items: res.data.nodes || res.data || [] };
     },
-    formatItem: (node) => `[${node.prefix}] ${node.name} (${node.type})`,
-    onSelect: async (node) => {
-      await showCustomNodeDetail(node, [...breadcrumb, node.name]);
+    formatItem: (providerNode) => `[${providerNode.prefix}] ${providerNode.name} (${providerNode.type})`,
+    onSelect: async (providerNode) => {
+      await showCustomNodeDetail(providerNode, [...breadcrumb, providerNode.name]);
     },
     createAction: {
       label: "➕ Add Custom Provider",
@@ -597,36 +597,36 @@ async function showCustomProvidersMenu(breadcrumb = []) {
   });
 }
 
-async function showCustomNodeDetail(node, breadcrumb = []) {
+async function showCustomNodeDetail(providerNode, breadcrumb = []) {
   await showMenuWithBack({
-    title: `🔧 ${node.name}`,
+    title: `🔧 ${providerNode.name}`,
     breadcrumb,
     headerContent: [
-      `Type: ${node.type}`,
-      `Prefix: ${COLORS.cyan}${node.prefix}${COLORS.reset}`,
-      `Base URL: ${COLORS.dim}${node.baseUrl}${COLORS.reset}`,
+      `Type: ${providerNode.type}`,
+      `Prefix: ${COLORS.cyan}${providerNode.prefix}${COLORS.reset}`,
+      `Base URL: ${COLORS.dim}${providerNode.baseUrl}${COLORS.reset}`,
     ].join("\n"),
     items: [
       {
         label: "Connections",
         action: async () => {
-          await showCustomNodeConnections(node, breadcrumb);
+          await showCustomNodeConnections(providerNode, breadcrumb);
           return true;
         }
       },
       {
         label: "Edit Node",
         action: async () => {
-          await handleEditCustomNode(node);
+          await handleEditCustomNode(providerNode);
           return true;
         }
       },
       {
         label: "Delete Node",
         action: async () => {
-          const confirmed = await confirm(`Delete "${node.name}" and all its connections?`);
+          const confirmed = await confirm(`Delete "${providerNode.name}" and all its connections?`);
           if (confirmed) {
-            const res = await api.deleteProviderNode(node.id);
+            const res = await api.deleteProviderNode(providerNode.id);
             if (res.success) {
               showStatus("Node deleted!", "success");
             } else {
@@ -642,18 +642,18 @@ async function showCustomNodeDetail(node, breadcrumb = []) {
   });
 }
 
-async function showCustomNodeConnections(node, breadcrumb = []) {
+async function showCustomNodeConnections(providerNode, breadcrumb = []) {
   const { showListMenu } = require("../utils/menuHelper");
 
   await showListMenu({
-    title: `🔌 ${node.name} – Connections`,
+    title: `🔌 ${providerNode.name} – Connections`,
     breadcrumb,
     backLabel: "← Back",
     fetchItems: async () => {
       const res = await api.getProviders();
       if (!res.success) return { items: [] };
       const all = res.data.connections || [];
-      const items = all.filter(c => c.provider === node.id);
+      const items = all.filter(c => c.provider === providerNode.id);
       return { items };
     },
     formatItem: (conn) => {
@@ -661,20 +661,20 @@ async function showCustomNodeConnections(node, breadcrumb = []) {
       return `${conn.name || "Unnamed"} (${status})`;
     },
     onSelect: async (conn) => {
-      await showConnectionActions(conn, node.id, breadcrumb);
+      await showConnectionActions(conn, providerNode.id, breadcrumb);
     },
     createAction: {
       label: "Add API Key Connection",
       action: async () => {
-        await handleAddCustomNodeConnection(node);
+        await handleAddCustomNodeConnection(providerNode);
       }
     }
   });
 }
 
-async function handleAddCustomNodeConnection(node) {
+async function handleAddCustomNodeConnection(providerNode) {
   clearScreen();
-  console.log(`\n➕ Add Connection to ${node.name}\n`);
+  console.log(`\n➕ Add Connection to ${providerNode.name}\n`);
 
   const name = await prompt("Connection Name: ");
   if (!name) { showStatus("Cancelled", "warning"); await pause(); return; }
@@ -683,7 +683,7 @@ async function handleAddCustomNodeConnection(node) {
   if (!apiKey) { showStatus("Cancelled", "warning"); await pause(); return; }
 
   showStatus("Creating connection...", "info");
-  const res = await api.createApiKeyProvider({ provider: node.id, name, apiKey });
+  const res = await api.createApiKeyProvider({ provider: providerNode.id, name, apiKey });
 
   showStatus(res.success ? "✓ Connection created!" : `✗ Failed: ${res.error}`, res.success ? "success" : "error");
   await pause();
@@ -728,14 +728,14 @@ async function handleAddCustomNode() {
   await pause();
 }
 
-async function handleEditCustomNode(node) {
+async function handleEditCustomNode(providerNode) {
   clearScreen();
-  console.log(`\n✏️  Edit ${node.name}\n`);
+  console.log(`\n✏️  Edit ${providerNode.name}\n`);
   console.log(`${COLORS.dim}Leave blank to keep current value${COLORS.reset}\n`);
 
-  const name = await prompt(`Name (${node.name}): `);
-  const baseUrl = await prompt(`Base URL (${node.baseUrl}): `);
-  const prefix = await prompt(`Prefix (${node.prefix}): `);
+  const name = await prompt(`Name (${providerNode.name}): `);
+  const baseUrl = await prompt(`Base URL (${providerNode.baseUrl}): `);
+  const prefix = await prompt(`Prefix (${providerNode.prefix}): `);
 
   const updates = {};
   if (name && name.trim()) updates.name = name.trim();
@@ -747,9 +747,9 @@ async function handleEditCustomNode(node) {
   }
 
   showStatus("Updating...", "info");
-  const res = await api.updateProviderNode(node.id, updates);
+  const res = await api.updateProviderNode(providerNode.id, updates);
   if (res.success) {
-    Object.assign(node, updates);
+    Object.assign(providerNode, updates);
     showStatus("✓ Updated!", "success");
   } else {
     showStatus(`✗ Failed: ${res.error}`, "error");

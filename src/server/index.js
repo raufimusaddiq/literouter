@@ -116,7 +116,7 @@ if (import.meta.main) {
     try {
       const count = useSystemCaStore();
       globalThis.__lrSystemCaInstalled = true;
-      console.log(`[CA trust] node:tls, node:https and node:http2 now use ${count} system CA certificates; fetch still uses Bun's bundled roots until Plan 4 wraps it (ADR 0001 D9)`);
+      console.log(`[CA trust] the system store (${count} certificates) now applies to fetch and to node:tls, node:https and node:http2 (ADR 0001 D9)`);
     } catch (e) {
       console.error(e.message);
       process.exit(1);

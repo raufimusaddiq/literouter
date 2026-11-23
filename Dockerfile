@@ -1,60 +1,48 @@
 # syntax=docker/dockerfile:1.7
-# Pinned to the October 2026 Node security release. The floating node:22-alpine
-# tag would also work today, but pinning means a rebuild cannot silently drift
-# back to an older base when the tag moves or a cache is reused.
-ARG NODE_IMAGE=node:22.23.4-alpine
-FROM ${NODE_IMAGE} AS base
+ARG BUN_IMAGE=oven/bun:1.4.4-alpine
+ARG ALPINE_IMAGE=alpine:3.22
+
+# Runs on the build host and cross-compiles the musl target, so arm64 needs no emulation here.
+FROM --platform=$BUILDPLATFORM ${BUN_IMAGE} AS builder
+ARG TARGETARCH
 WORKDIR /app
-# CN mirror for apk (used by builder and runner stages)
-RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories
+ENV BUN_CONFIG_REGISTRY=https://registry.npmmirror.com
 
-FROM base AS builder
-
-RUN apk --no-cache upgrade && apk --no-cache add python3 make g++ linux-headers
-
-COPY package.json package-lock.json ./
-RUN npm ci --registry=https://registry.npmmirror.com
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
 COPY . ./
-ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN case "$TARGETARCH" in \
+      amd64) target=bun-linux-x64-musl ;; \
+      arm64) target=bun-linux-arm64-musl ;; \
+      *) echo "unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+    esac && \
+  bun scripts/build.mjs --compile "$target" --outfile /out/literouter
 
-FROM ${NODE_IMAGE} AS runner
+FROM ${ALPINE_IMAGE} AS runner
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="LiteRouter"
 
+RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories && \
+  apk --no-cache upgrade && apk --no-cache add libstdc++ libgcc ca-certificates su-exec && \
+  addgroup -g 1000 -S literouter && adduser -S -u 1000 -G literouter -h /home/literouter literouter
+
 ENV NODE_ENV=production
 ENV PORT=20128
 ENV HOSTNAME=0.0.0.0
-ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATA_DIR=/app/data
-# Make custom-server.js replace Node's bundled CA roots with the OS bundle (see useSystemCaStore).
 ENV LITEROUTER_SYSTEM_CA=1
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/custom-server.js ./custom-server.js
-COPY --from=builder /app/open-sse ./open-sse
-# Ensure `next` is available at runtime in case tracing did not include it.
-COPY --from=builder /app/node_modules/next ./node_modules/next
-# sql.js loads dist/sql-wasm.wasm by path at runtime; tracing only follows JS imports,
-# so the last-resort DB driver would abort with ENOENT on the missing binary.
-COPY --from=builder /app/node_modules/sql.js ./node_modules/sql.js
-# node-machine-id is createRequire-loaded at runtime; tracing omits it.
-COPY --from=builder /app/node_modules/node-machine-id ./node_modules/node-machine-id
+COPY --from=builder /out/literouter /app/literouter
 
-RUN mkdir -p /app/data && chown -R node:node /app && \
-  mkdir -p /app/data-home && chown node:node /app/data-home && \
+RUN mkdir -p /app/data /app/data-home && chown -R literouter:literouter /app && \
   ln -sf /app/data-home /root/.9router 2>/dev/null || true
 
-# Fix permissions at runtime (handles mounted volumes)
-RUN apk --no-cache upgrade && apk --no-cache add su-exec ca-certificates && \
-  printf '#!/bin/sh\nchown -R node:node /app/data /app/data-home 2>/dev/null\nexec su-exec node "$@"\n' > /entrypoint.sh && \
+RUN printf '#!/bin/sh\nchown -R literouter:literouter /app/data /app/data-home 2>/dev/null\nexec su-exec literouter "$@"\n' > /entrypoint.sh && \
   chmod +x /entrypoint.sh
 
 EXPOSE 20128
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["node", "custom-server.js"]
+CMD ["/app/literouter"]
