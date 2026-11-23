@@ -397,12 +397,35 @@ Raw probes: `C:\Users\KOMPUTER\AppData\Local\Temp\claude\680b3c0368b65e0c\3e4ce1
 
 ## Done when
 
-- `bun run build` writes `dist/app`; `bun scripts/build.mjs --compile bun-linux-x64-musl` and `... bun-linux-arm64-musl` write `dist/bin/literouter-<target>`.
-- CI is green on a PR to `staging`: `unit` (tests, count and regression gates, eslint, cli tests, build, bundle smoke) and both `image` legs (`size_mb ≤ 150`, smoke passes, server runs as `literouter`).
-- A push to `staging` publishes only `ghcr.io/<repo>-staging:staging-<sha>`; `deploy.sh` refuses it (tested).
-- The `NODE_GATE` command prints nothing; no `next`, `better-sqlite3`, `sql.js` in `package.json`; `package-lock.json`, `next.config.mjs`, `postcss.config.mjs` are gone.
-- `literouter` CLI: `bun add -g literouter` package builds and dry-runs, the launcher starts `dist/app` with Bun, the old-CLI takeover tests pass, and the Windows update-while-running check shows no `EBUSY`.
-- Nothing was published or deprecated.
+- [x] `bun run build` writes `dist/app`; `bun scripts/build.mjs --compile bun-linux-x64-musl` and `... bun-linux-arm64-musl` write `dist/bin/literouter-<target>`. Evidence: `bun run build` writes `dist/app` (10 MB, server `index.js` 1.47 MB); the two compile targets write `dist/bin/literouter-<target>` (112.0 MB x64, 110.9 MB arm64).
+- [x] CI is green on a PR to `staging`: `unit` (tests, count and regression gates, eslint, cli tests, build, bundle smoke) and both `image` legs (`size_mb ≤ 150`, smoke passes, server runs as `literouter`). Evidence: green on #253 (head 70260cd0): `unit` (tests, count and regression gates, eslint, cli tests, build, bundle smoke `smoke ok: health=200 dashboard=200 chat=200`); `image (linux/amd64)` size_mb=116.3 + smoke ok; `image (linux/arm64)` (QEMU) size_mb=117.8 + smoke ok; the server runs as uid 1000 (asserted from /proc).
+- [x] A push to `staging` publishes only `ghcr.io/<repo>-staging:staging-<sha>`; `deploy.sh` refuses it (tested). Evidence: push to staging (e5ab4b25, run 45154897177): `test / unit`, both `test / image` legs and `image` green; pushed only `ghcr.io/raufimusaddiq/literouter-staging:staging-e5ab4b253d29cebe9814fa77a2dd338390d4e4c5`. `deploy.sh` refuses a staging image (tests/unit/deploy-script.test.js case 11); `production-image.yml` is byte-identical.
+- [x] The `NODE_GATE` command prints nothing; no `next`, `better-sqlite3`, `sql.js` in `package.json`; `package-lock.json`, `next.config.mjs`, `postcss.config.mjs` are gone. Evidence: NODE_GATE prints nothing (pinned by tests/unit/no-node-anywhere.test.js); no next/better-sqlite3/sql.js in package.json; package-lock.json, next.config.mjs and postcss.config.mjs are gone; the musl optionalDependencies are removed.
+- [x] `literouter` CLI: `bun add -g literouter` package builds and dry-runs, the launcher starts `dist/app` with Bun, the old-CLI takeover tests pass, and the Windows update-while-running check shows no `EBUSY`. Evidence: `cd cli && bun publish --dry-run` lists cli.js, src/, hooks/, app/, README.md, LICENSE (247 files, 6.19 MB packed / 9.44 MB unpacked, no .map/.env/node_modules) and stops at "missing authentication". The launcher starts `cli/app/index.js` with Bun (Windows: health 200, smoke ok, dashboard renders in a browser with 0 console errors, tray helper runs). `literouter stop` stops launcher, server and tray and removes the pidfile. Old-CLI takeover tests pass (cli/test/legacyCli.test.js). Windows update-while-running: `bun add -g` 0.5.81 to 0.5.82 with the installed `literouter.exe` server running exited 0, no EBUSY/EPERM, and the server kept answering.
+- [x] Nothing was published or deprecated. Evidence: `bun publish --dry-run` stopped at "missing authentication"; no `npm deprecate` or publish was run.
+
+## Open risks (handed on)
+
+- **Branch protection:** the owner adds `image (linux/amd64)` and `image (linux/arm64)` to the required checks on `staging` (command in PR #253's description). The controller did not apply it.
+- **`DOCKER.md`** still points pulls at upstream `decolua/9router` (pre-existing, inherited from upstream). Plan 5 decides the public image.
+- **Not verified here (Plan 5 CLI matrix):** macOS/Linux `systray2` rendering and the first-run tray wait; a real old Node `9router` CLI takeover; Windows tray icon rendering by eye.
+- **Pre-existing owner items from Plan 3, unchanged:** the headroom status event-loop block on Windows; `/api/keys` returns 401 with requireLogin=false.
+
+## Completion record (2026-11-23)
+
+- Implementation PR #253 `[bun-rewrite p4] Packaging: dist/app bundle, compiled musl image, literouter Bun CLI, CI and staging image`, merged into staging as e5ab4b25 (merge method) with `unit`, `image` x2, Hermes Review and CodeQL green; personal-code-reviewer approved.
+- Suite on Windows: 4501 pass / 60 skip / 1 todo / 0 fail; both junit gates pass; `cd cli && bun test` 71 pass.
+- Test replacements: `tests/unit/standalone-assets.test.js` (4) became `tests/unit/build-assets.test.js` (12); `tests/unit/cli-build-artifacts.test.js` (4) became `tests/unit/cli-build.test.js` (4); `tests/unit/system-ca-trust.test.js` was rewritten in place (5 to 12; undici client replaced by fetch + node:https + proxyAwareFetch).
+- Deviations (summary; full list in PR #253 and ADR 0055):
+  - No cwd guard; `assertBundleCwd` dropped (contract updated).
+  - `open` was already replaced in Plan 2 (no openUrl.js).
+  - Runtime-built lazy specifier for `src/web/build.js`.
+  - `compile.assets` basename mapping to a staged `web/`.
+  - `$bunfs` realpath fix in static.js.
+  - Pidfile `launcherPid` and a new `literouter stop` command (contract requirement).
+  - docker-publish.yml gains only setup-qemu-action.
+  - The ESLint migration had landed in Plan 3 (verified by tests/unit/eslint-config.test.js, `.next` ignores removed).
+- Models: implementers and reviewers on Sonnet 5.5 (per owner rule, the controller wrote no code); per-task reviews, then a three-area final review.
 
 ## Self-review notes (spec coverage)
 
