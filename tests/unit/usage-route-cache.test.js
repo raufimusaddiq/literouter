@@ -41,7 +41,11 @@ describe("/api/usage/[connectionId] cache", () => {
     vi.useFakeTimers();
     getUsage.mockImplementation(() => new Promise(() => {}));
     const p = call("c1");
-    while (getUsage.mock.calls.length === 0) await new Promise((r) => setImmediate(r));
+    const startedAt = process.hrtime.bigint();
+    while (getUsage.mock.calls.length === 0 && process.hrtime.bigint() - startedAt < 3_000_000_000n) {
+      await new Promise((r) => setImmediate(r));
+    }
+    expect(getUsage).toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(13_000);
     const r = await p;
     vi.useRealTimers();
