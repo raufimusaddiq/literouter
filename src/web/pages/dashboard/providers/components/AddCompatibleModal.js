@@ -145,7 +145,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
     return (
       <div className="flex flex-col gap-1">
         <Badge variant="error">Invalid</Badge>
-        {error && <span className="text-sm text-red-500">{error}</span>}
+        {error && <span className="text-sm text-danger">{error}</span>}
       </div>
     );
   };
@@ -176,14 +176,14 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
           />
         )}
         {config.hasApiType && (
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-text-primary">Native transports</span>
+          <div className="flex flex-col gap-2 rounded-md border border-line bg-bg p-3">
+            <span className="text-[13px] font-medium text-ink">Native transports</span>
             {[
               ["chat_completions", "OpenAI Chat Completions", "/chat/completions"],
               ["responses", "OpenAI Responses", "/responses"],
               ["messages", "Anthropic Messages", "/messages"],
             ].map(([value, label, path]) => (
-              <label key={value} className="flex items-center gap-2 text-sm text-text-muted">
+              <label key={value} className="flex items-center gap-2 text-sm text-muted">
                 <input
                   type="checkbox"
                   checked={formData.transports.includes(value)}
@@ -193,8 +193,10 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
                       ? [...new Set([...prev.transports, value])]
                       : prev.transports.filter((transport) => transport !== value),
                   }))}
+                  className="size-4 rounded border-line-strong"
                 />
-                {label} <code className="text-xs">{path}</code>
+                <span>{label}</span>
+                <code className="font-mono text-xs text-faint">{path}</code>
               </label>
             ))}
           </div>
@@ -262,7 +264,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
 }
 
 AddCompatibleModal.propTypes = {
-  variant: PropTypes.oneOf(["openai", "anthropic"]).isRequired,
+  variant: PropTypes.oneOf(["openai", "anthropic", "systemone"]).isRequired,
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onCreated: PropTypes.func.isRequired,

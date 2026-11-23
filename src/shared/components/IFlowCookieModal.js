@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { Modal, Button } from "@/shared/components";
+import { Modal, Button, Card } from "@/shared/components";
 
 export default function IFlowCookieModal({ isOpen, onSuccess, onClose }) {
   const [cookie, setCookie] = useState("");
@@ -55,59 +55,61 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }) {
     <Modal isOpen={isOpen} onClose={handleClose} title="iFlow Cookie Authentication">
       <div className="space-y-4">
         {success ? (
-          <div className="text-center py-8">
-            <div className="text-6xl mb-4">✅</div>
-            <p className="text-lg font-medium text-text-primary">Authentication Successful!</p>
-            <p className="text-sm text-text-muted mt-2">Fresh API key obtained</p>
+          <div className="py-8 text-center">
+            <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-lg border border-ok/30 bg-ok/10">
+              <span aria-hidden="true" className="material-symbols-outlined text-2xl text-ok">check_circle</span>
+            </div>
+            <p className="text-base font-semibold text-ink">Authentication Successful!</p>
+            <p className="mt-1.5 text-sm text-muted">Fresh API key obtained</p>
           </div>
         ) : (
           <>
-            <div className="space-y-2">
-              <p className="text-sm text-text-muted">
+            <div className="space-y-3">
+              <p className="text-sm text-muted">
                 To get a fresh API key, paste your browser cookie from{" "}
                 <a
                   href="https://platform.iflow.cn"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
+                  className="font-medium text-ink underline underline-offset-[3px]"
                 >
                   platform.iflow.cn
                 </a>
               </p>
-              <div className="bg-surface-secondary p-3 rounded-lg text-xs space-y-2">
-                <p className="font-medium text-text-primary">How to get cookie:</p>
-                <ol className="list-decimal list-inside space-y-1 text-text-muted">
+              <Card variant="raised" padding="xs" className="space-y-2 text-xs">
+                <p className="font-medium text-ink">How to get cookie:</p>
+                <ol className="list-inside list-decimal space-y-1 text-muted">
                   <li>Open platform.iflow.cn in your browser</li>
                   <li>Login to your account</li>
                   <li>Open DevTools (F12) → Application/Storage → Cookies</li>
                   <li>Copy the entire cookie string (must include BXAuth)</li>
                   <li>Paste it below</li>
                 </ol>
-              </div>
+              </Card>
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-text-primary">
+            <div className="space-y-1.5">
+              <label className="block text-[13px] font-medium text-ink">
                 Cookie String
               </label>
               <textarea
                 value={cookie}
                 onChange={(e) => setCookie(e.target.value)}
                 placeholder="BXAuth=xxx; ..."
-                className="w-full px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                className="w-full resize-none rounded-md border border-line-strong bg-bg px-3 py-2 font-mono text-sm text-ink placeholder:text-faint focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line"
                 rows={4}
                 disabled={loading}
               />
             </div>
 
             {error && (
-              <div className="p-3 bg-error/10 border border-error/20 rounded-lg">
-                <p className="text-sm text-error">{error}</p>
+              <div className="rounded-md border border-danger/30 bg-danger/10 p-3">
+                <p className="text-sm text-danger">{error}</p>
               </div>
             )}
 
-            <div className="flex gap-3 pt-2">
-              <Button variant="secondary" onClick={handleClose} disabled={loading} fullWidth>
+            <div className="flex gap-2 pt-2">
+              <Button variant="ghost" onClick={handleClose} disabled={loading} fullWidth>
                 Cancel
               </Button>
               <Button onClick={handleSubmit} loading={loading} fullWidth>

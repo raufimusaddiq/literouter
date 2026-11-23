@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { getDefaultPricing } from "open-sse/providers/pricing.js";
+import Modal from "./Modal";
+import Button from "./Button";
+import Card from "./Card";
 
 export default function PricingModal({ isOpen, onClose, onSave }) {
   const [pricingData, setPricingData] = useState({});
@@ -92,110 +95,103 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
   const pricingFields = ["input", "output", "cached", "reasoning", "cache_creation"];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-bg-base border border-border rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Pricing Configuration</h2>
-          <button
-            onClick={onClose}
-            className="text-text-muted hover:text-text text-2xl leading-none"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-auto p-4">
-          {loading ? (
-            <div className="text-center py-8 text-text-muted">Loading pricing data...</div>
-          ) : (
-            <div className="space-y-6">
-              <div className="bg-bg-subtle border border-border rounded-lg p-3 text-sm">
-                <p className="font-medium mb-1">Pricing Rates Format</p>
-                <p className="text-text-muted">
-                  All rates are in <strong>dollars per million tokens</strong> ($/1M tokens).
-                  Example: Input rate of 2.50 means $2.50 per 1,000,000 input tokens.
-                </p>
-              </div>
-
-              {allProviders.map(provider => {
-                const models = Object.keys(pricingData[provider]).sort();
-                return (
-                  <div key={provider} className="border border-border rounded-lg overflow-hidden">
-                    <div className="bg-bg-subtle px-4 py-2 font-semibold text-sm">
-                      {provider.toUpperCase()}
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-bg-hover text-text-muted uppercase text-xs">
-                          <tr>
-                            <th className="px-3 py-2 text-left">Model</th>
-                            <th className="px-3 py-2 text-right">Input</th>
-                            <th className="px-3 py-2 text-right">Output</th>
-                            <th className="px-3 py-2 text-right">Cached</th>
-                            <th className="px-3 py-2 text-right">Reasoning</th>
-                            <th className="px-3 py-2 text-right">Cache Creation</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {models.map(model => (
-                            <tr key={model} className="hover:bg-bg-subtle/50">
-                              <td className="px-3 py-2 font-medium">{model}</td>
-                              {pricingFields.map(field => (
-                                <td key={field} className="px-3 py-2">
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={pricingData[provider][model][field] || 0}
-                                    onChange={(e) => handlePricingChange(provider, model, field, e.target.value)}
-                                    className="w-20 px-2 py-1 text-right bg-bg-base border border-border rounded focus:outline-none focus:border-primary"
-                                  />
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {allProviders.length === 0 && (
-                <div className="text-center py-8 text-text-muted">
-                  No pricing data available
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="p-4 border-t border-border flex items-center justify-between gap-2">
-          <button
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Pricing Configuration"
+      size="full"
+      footer={
+        <div className="flex w-full flex-wrap items-center justify-between gap-2">
+          <Button
+            variant="danger"
             onClick={handleReset}
-            className="px-4 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded border border-red-500/20 transition-colors"
             disabled={saving}
+            className="whitespace-nowrap"
           >
             Reset to Defaults
-          </button>
-          <div className="flex gap-2">
-            <button
+          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-text-muted hover:text-text border border-border rounded transition-colors"
               disabled={saving}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleSave}
-              className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+              loading={saving}
               disabled={saving}
             >
               {saving ? "Saving..." : "Save Changes"}
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+      }
+    >
+      {loading ? (
+        <div className="py-8 text-center text-sm text-muted">Loading pricing data...</div>
+      ) : (
+        <div className="space-y-6">
+          <Card variant="raised" padding="xs" className="text-sm">
+            <p className="mb-1 font-medium text-ink">Pricing Rates Format</p>
+            <p className="text-xs text-muted">
+              All rates are in <strong className="text-ink">dollars per million tokens</strong> ($/1M tokens).
+              Example: Input rate of 2.50 means $2.50 per 1,000,000 input tokens.
+            </p>
+          </Card>
+
+          {allProviders.map(provider => {
+            const models = Object.keys(pricingData[provider]).sort();
+            return (
+              <div key={provider} className="border-t border-line-strong pt-4">
+                <h3 className="mb-3 font-mono text-sm font-semibold text-ink">
+                  {provider}
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="border-b border-line-strong text-xs font-medium text-muted">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Model</th>
+                        <th className="px-3 py-2 text-right">Input</th>
+                        <th className="px-3 py-2 text-right">Output</th>
+                        <th className="px-3 py-2 text-right">Cached</th>
+                        <th className="px-3 py-2 text-right">Reasoning</th>
+                        <th className="px-3 py-2 text-right">Cache creation</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {models.map(model => (
+                        <tr key={model} className="transition-colors hover:bg-bg/60">
+                          <td className="px-3 py-2 font-mono text-xs text-ink">{model}</td>
+                          {pricingFields.map(field => (
+                            <td key={field} className="px-3 py-2 text-right">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={pricingData[provider][model][field] || 0}
+                                onChange={(e) => handlePricingChange(provider, model, field, e.target.value)}
+                                className="w-20 rounded-md border border-line-strong bg-bg px-2 py-1 text-right font-mono text-xs tabular-nums text-ink focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+
+          {allProviders.length === 0 && (
+            <div className="py-8 text-center text-sm text-muted">
+              No pricing data available
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }

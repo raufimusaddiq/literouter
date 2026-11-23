@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import { Button, Modal, Toggle } from "@/shared/components";
+import { Button, Card, Input, Modal, Toggle } from "@/shared/components";
 import { CAPACITY_META } from "@/shared/constants/models";
 
 const defaultCaps = () => Object.fromEntries(Object.keys(CAPACITY_META).map((key) => [key, false]));
@@ -62,34 +62,37 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
     <Modal isOpen={isOpen} onClose={onClose} title="Add Custom Model">
       <div className="flex flex-col gap-4">
         <div>
-          <label className="text-sm font-medium mb-1.5 block">Model ID</label>
-          <div className="flex gap-2">
-            <input
+          <div className="flex items-end gap-2">
+            <Input
+              label="Model ID"
               type="text"
               value={modelId}
               onChange={(e) => { setModelId(e.target.value); setTestStatus(null); setTestError(""); }}
               onKeyDown={handleKeyDown}
               placeholder="e.g. claude-opus-4-5"
-              className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="flex-1"
+              inputClassName="font-mono"
               autoFocus
             />
             <Button
               variant="secondary"
+              size="lg"
               icon="science"
               loading={testStatus === "testing"}
               onClick={handleTest}
               disabled={!modelId.trim() || testStatus === "testing"}
+              className="whitespace-nowrap"
             >
               {testStatus === "testing" ? "Testing..." : "Test"}
             </Button>
           </div>
-          <p className="text-xs text-text-muted mt-1">
-            Sent to provider as: <code className="font-mono bg-sidebar px-1 rounded">{stripAlias(modelId.trim()) || "model-id"}</code>
+          <p className="mt-1.5 text-xs text-muted">
+            Sent to provider as: <code className="rounded border border-line bg-bg px-1.5 py-0.5 font-mono text-ink">{stripAlias(modelId.trim()) || "model-id"}</code>
           </p>
         </div>
 
-        <div>
-          <label className="text-sm font-medium mb-1.5 block">Capabilities</label>
+        <Card variant="raised" padding="sm">
+          <p className="mb-3 text-[13px] font-medium text-ink">Capabilities</p>
           <div className="flex flex-wrap gap-4">
             {Object.entries(CAPACITY_META).map(([key, meta]) => (
               <Toggle
@@ -102,17 +105,17 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
               />
             ))}
           </div>
-        </div>
+        </Card>
 
         {testStatus === "ok" && (
-          <div className="flex items-center gap-2 text-sm text-green-600">
-            <span aria-hidden="true" className="material-symbols-outlined text-base">check_circle</span>
+          <div className="flex items-center gap-2 text-sm text-ok">
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-ok" />
             Model is reachable
           </div>
         )}
         {testStatus === "error" && (
-          <div className="flex items-start gap-2 text-sm text-red-500">
-            <span aria-hidden="true" className="material-symbols-outlined text-base shrink-0">cancel</span>
+          <div className="flex items-start gap-2 text-sm text-danger">
+            <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-danger" />
             <span>{testError || "Model not reachable"}</span>
           </div>
         )}
