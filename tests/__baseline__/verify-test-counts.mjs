@@ -6,7 +6,7 @@ const splitKey = key => {
   return sep < 0 ? null : { file: key.slice(0, sep), name: key.slice(sep + 4) };
 };
 
-export function checkCounts(baselineFiles, cases, deleted = {}) {
+export function checkCounts(baselineFiles, cases, deleted = {}, waived = {}) {
   const actual = {};
   for (const c of cases) actual[c.file] = (actual[c.file] ?? 0) + 1;
   const dropped = {};
@@ -18,7 +18,7 @@ export function checkCounts(baselineFiles, cases, deleted = {}) {
     else dropped[k.file] = (dropped[k.file] ?? 0) + 1;
   }
   return Object.entries(baselineFiles)
-    .filter(([file]) => !wholeFile.has(file))
+    .filter(([file]) => !wholeFile.has(file) && !(file in waived))
     .map(([file, frozen]) => ({ file, expected: frozen - (dropped[file] ?? 0), actual: actual[file] ?? 0 }))
     .filter(r => r.actual < r.expected);
 }
@@ -31,6 +31,24 @@ export function checkSkips(baselineSkipped, cases, waivers = {}) {
   return Object.entries(actual)
     .filter(([file, n]) => !(file in waivers) && n > (baselineSkipped[file] ?? 0))
     .map(([file, n]) => ({ file, allowed: baselineSkipped[file] ?? 0, actual: n }));
+}
+
+const WAIVER_SEPARATOR = " — ";
+
+export function checkWaived(baselineFiles, waived, cases) {
+  const problems = [];
+  for (const [key, value] of Object.entries(waived)) {
+    const sep = String(value).indexOf(WAIVER_SEPARATOR);
+    const replacement = sep < 0 ? "" : String(value).slice(0, sep).trim();
+    const reason = sep < 0 ? "" : String(value).slice(sep + WAIVER_SEPARATOR.length).trim();
+    if (!replacement || !reason) { problems.push({ key, problem: "value must be '<replacement file> — <reason>'" }); continue; }
+    if (!(key in baselineFiles)) { problems.push({ key, problem: "file is not in the baseline files map" }); continue; }
+    if (replacement === key) { problems.push({ key, problem: "replacement must be a different file" }); continue; }
+    const have = cases.filter(c => c.file === replacement).length;
+    if (have === 0) problems.push({ key, problem: `replacement ${replacement} is not in junit` });
+    else if (have < baselineFiles[key]) problems.push({ key, problem: `replacement ${replacement} has ${have} cases, baseline has ${baselineFiles[key]}` });
+  }
+  return problems;
 }
 
 export function pathsMismatch(baselineFiles, cases) {
@@ -77,7 +95,21 @@ if (import.meta.main) {
     badDeleted.forEach(b => console.error(`  - ${b.key}: ${b.problem}`));
     process.exit(1);
   }
-  const offenders = checkCounts(baseline.files, cases, deleted);
+  const waived = baseline.waived ?? {};
+  const waivedKeys = Object.keys(waived);
+  if (waivedKeys.length) {
+    console.log(`Waived files (${waivedKeys.length}), covered by a replacement file with at least as many cases:`);
+    waivedKeys.forEach(k => console.log(`  - ${k} -- ${waived[k]}`));
+  }
+  const badWaived = checkWaived(baseline.files, waived, cases);
+  if (badWaived.length) {
+    console.error(`
+❌ INVALID waived entries: ${badWaived.length}
+`);
+    badWaived.forEach(b => console.error(`  - ${b.key}: ${b.problem}`));
+    process.exit(1);
+  }
+  const offenders = checkCounts(baseline.files, cases, deleted, waived);
   if (offenders.length) {
     console.error(`\n❌ TEST COUNT DROP: ${offenders.length} file(s) below baseline (expected/actual):\n`);
     offenders.forEach(o => console.error(`  - ${o.file}  ${o.expected}/${o.actual}`));

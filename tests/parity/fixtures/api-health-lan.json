@@ -1,0 +1,7 @@
+{
+  "peer": "lan",
+  "auth": "none",
+  "id": "api-health-lan",
+  "method": "GET",
+  "path": "/api/health"
+}

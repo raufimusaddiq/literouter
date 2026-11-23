@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "edge-keys-encoded-id",
+  "method": "GET",
+  "path": "/api/keys/a%20b"
+}

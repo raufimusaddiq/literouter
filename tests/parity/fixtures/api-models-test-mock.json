@@ -1,0 +1,10 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-models-test-mock",
+  "method": "POST",
+  "path": "/api/models/test",
+  "json": {
+    "model": "pm/mock-ok"
+  }
+}

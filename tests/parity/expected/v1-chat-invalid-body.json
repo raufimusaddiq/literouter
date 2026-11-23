@@ -1,0 +1,16 @@
+{
+  "status": 400,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "error": {
+      "message": "Invalid JSON body",
+      "type": "invalid_request_error",
+      "code": "bad_request"
+    }
+  },
+  "upstream": []
+}

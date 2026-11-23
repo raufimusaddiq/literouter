@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-pxpipe-install-noauth",
+  "method": "POST",
+  "path": "/api/pxpipe/install",
+  "json": {}
+}

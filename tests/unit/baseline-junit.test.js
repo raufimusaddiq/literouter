@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { parseJunit } from "../__baseline__/junit.mjs";
-import { checkCounts, checkDeleted, checkSkips, pathsMismatch } from "../__baseline__/verify-test-counts.mjs";
+import { checkCounts, checkDeleted, checkSkips, checkWaived, pathsMismatch } from "../__baseline__/verify-test-counts.mjs";
 import { findRegressions, findDuplicateKeys } from "../__baseline__/verify-no-regression.mjs";
 
 const XML = String.raw`<?xml version="1.0" encoding="UTF-8"?>
@@ -196,5 +196,55 @@ describe("skip gate", () => {
   });
   test("failed and passed cases never count as skips", () => {
     expect(checkSkips({}, [ok("tests/a.test.js"), { file: "tests/a.test.js", fullName: "f", status: "failed" }])).toEqual([]);
+  });
+});
+
+describe("waived files against the frozen baseline", () => {
+  const caseFor = (file, n) => Array.from({ length: n }, (_, i) => ({ file, fullName: `case ${i}`, status: "passed" }));
+  const waived = { "tests/old.test.js": "tests/server/new.test.js — replaced by the Bun.serve harness" };
+  const base = { "tests/old.test.js": 3, "tests/keep.test.js": 1 };
+
+  test("a waived file passes when its replacement runs at least as many cases", () => {
+    const cases = [...caseFor("tests/keep.test.js", 1), ...caseFor("tests/server/new.test.js", 3)];
+    expect(checkWaived(base, waived, cases)).toEqual([]);
+    expect(checkCounts(base, cases, {}, waived)).toEqual([]);
+    expect(checkWaived(base, waived, [...cases, ...caseFor("tests/server/new.test.js", 2)])).toEqual([]);
+  });
+
+  test("a waived file fails when the replacement is missing from junit", () => {
+    const cases = caseFor("tests/keep.test.js", 1);
+    expect(checkWaived(base, waived, cases)).toEqual([
+      { key: "tests/old.test.js", problem: "replacement tests/server/new.test.js is not in junit" },
+    ]);
+  });
+
+  test("a waived file fails when the replacement has fewer cases than the baseline", () => {
+    const cases = [...caseFor("tests/keep.test.js", 1), ...caseFor("tests/server/new.test.js", 2)];
+    expect(checkWaived(base, waived, cases)).toEqual([
+      { key: "tests/old.test.js", problem: "replacement tests/server/new.test.js has 2 cases, baseline has 3" },
+    ]);
+  });
+
+  test("a waiver does not hide a drop in a different file", () => {
+    const cases = caseFor("tests/server/new.test.js", 3);
+    expect(checkCounts(base, cases, {}, waived)).toEqual([{ file: "tests/keep.test.js", expected: 1, actual: 0 }]);
+  });
+
+  test("without a waiver the old file still fails the count gate", () => {
+    const cases = [...caseFor("tests/keep.test.js", 1), ...caseFor("tests/server/new.test.js", 3)];
+    expect(checkCounts(base, cases, {}, {})).toEqual([{ file: "tests/old.test.js", expected: 3, actual: 0 }]);
+  });
+
+  test("rejects a malformed value, an unknown file, and a replacement that is itself waived", () => {
+    const cases = caseFor("tests/server/new.test.js", 3);
+    expect(checkWaived(base, { "tests/old.test.js": "no separator" }, cases)).toEqual([
+      { key: "tests/old.test.js", problem: "value must be '<replacement file> — <reason>'" },
+    ]);
+    expect(checkWaived(base, { "tests/ghost.test.js": "tests/server/new.test.js — r" }, cases)).toEqual([
+      { key: "tests/ghost.test.js", problem: "file is not in the baseline files map" },
+    ]);
+    expect(checkWaived(base, { "tests/old.test.js": "tests/old.test.js — self" }, cases)).toEqual([
+      { key: "tests/old.test.js", problem: "replacement must be a different file" },
+    ]);
   });
 });

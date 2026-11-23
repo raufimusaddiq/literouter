@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-models-test-noauth",
+  "method": "POST",
+  "path": "/api/models/test",
+  "json": {}
+}

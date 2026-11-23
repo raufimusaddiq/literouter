@@ -1,0 +1,10 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "edge-gzip-accept",
+  "method": "GET",
+  "path": "/api/health",
+  "headers": {
+    "accept-encoding": "gzip"
+  }
+}

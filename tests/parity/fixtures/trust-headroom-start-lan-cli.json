@@ -1,0 +1,7 @@
+{
+  "peer": "lan",
+  "auth": "cli",
+  "id": "trust-headroom-start-lan-cli",
+  "method": "POST",
+  "path": "/api/headroom/start"
+}

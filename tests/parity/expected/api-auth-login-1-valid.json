@@ -1,0 +1,16 @@
+{
+  "status": 200,
+  "headers": {
+    "cache-control": "no-store",
+    "content-encoding": "gzip",
+    "content-type": "application/json;charset=utf-8",
+    "set-cookie": [
+      "auth_token=<MASKED>; Path=/; Expires=<DATE>; Max-Age=86400; HttpOnly; SameSite=lax"
+    ]
+  },
+  "body": {
+    "success": true,
+    "mustChangePassword": false
+  },
+  "upstream": []
+}

@@ -1,0 +1,45 @@
+{
+  "status": 200,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json;charset=utf-8"
+  },
+  "body": {
+    "provider": "cursor",
+    "method": "import_token",
+    "instructions": {
+      "title": "How to get your Cursor token",
+      "steps": [
+        "1. Open Cursor IDE and make sure you're logged in",
+        "2. Find the state.vscdb file:",
+        "   - Linux: ~/.config/Cursor/User/globalStorage/state.vscdb",
+        "   - macOS: /Users/<user>/Library/Application Support/Cursor/User/globalStorage/state.vscdb",
+        "   - Windows: %APPDATA%\\Cursor\\User\\globalStorage\\state.vscdb",
+        "3. Open the database with SQLite browser or CLI:",
+        "   sqlite3 state.vscdb \"SELECT value FROM itemTable WHERE key='cursorAuth/accessToken'\"",
+        "4. Also get the machine ID:",
+        "   sqlite3 state.vscdb \"SELECT value FROM itemTable WHERE key='storage.serviceMachineId'\"",
+        "5. Paste both values in the form below"
+      ],
+      "alternativeMethod": [
+        "Or use this one-liner to get both values:",
+        "sqlite3 state.vscdb \"SELECT key, value FROM itemTable WHERE key IN ('cursorAuth/accessToken', 'storage.serviceMachineId')\""
+      ]
+    },
+    "requiredFields": [
+      {
+        "name": "accessToken",
+        "label": "Access Token",
+        "description": "From cursorAuth/accessToken in state.vscdb",
+        "type": "textarea"
+      },
+      {
+        "name": "machineId",
+        "label": "Machine ID",
+        "description": "From storage.serviceMachineId in state.vscdb",
+        "type": "text"
+      }
+    ]
+  },
+  "upstream": []
+}

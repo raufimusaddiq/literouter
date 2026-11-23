@@ -1,0 +1,20 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "v1-auth-loopback-wrongkey",
+  "headers": {
+    "authorization": "Bearer sk-wrong"
+  },
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "json": {
+    "model": "pm/mock-ok",
+    "messages": [
+      {
+        "role": "user",
+        "content": "hi"
+      }
+    ],
+    "stream": false
+  }
+}

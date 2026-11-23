@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-auth-status-noauth",
+  "method": "GET",
+  "path": "/api/auth/status"
+}

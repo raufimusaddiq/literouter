@@ -1,0 +1,68 @@
+{
+  "status": 200,
+  "headers": {
+    "cache-control": "no-store",
+    "content-encoding": "gzip",
+    "content-type": "application/json;charset=utf-8"
+  },
+  "body": {
+    "cloudEnabled": false,
+    "stickyRoundRobinLimit": 3,
+    "providerStrategies": {},
+    "quotaVisibility": {},
+    "comboStrategy": "fallback",
+    "comboStickyRoundRobinLimit": 1,
+    "comboStrategies": {},
+    "capacityAdapter": {
+      "vision": {
+        "enabled": false,
+        "roundRobin": false,
+        "models": []
+      },
+      "pdf": {
+        "enabled": false,
+        "roundRobin": false,
+        "models": []
+      },
+      "audioInput": {
+        "enabled": false,
+        "roundRobin": false,
+        "models": []
+      },
+      "videoInput": {
+        "enabled": false,
+        "roundRobin": false,
+        "models": []
+      }
+    },
+    "requireLogin": true,
+    "requireApiKey": true,
+    "enableObservability": false,
+    "observabilityMaxRecords": 15000,
+    "observabilityBatchSize": 20,
+    "observabilityFlushIntervalMs": 5000,
+    "observabilityMaxJsonSize": 5,
+    "outboundProxyEnabled": false,
+    "outboundProxyUrl": "",
+    "outboundNoProxy": "",
+    "dnsToolEnabled": {},
+    "rtkEnabled": true,
+    "headroomEnabled": false,
+    "headroomUrl": "http://localhost:8787",
+    "headroomCompressUserMessages": false,
+    "headroomTimeoutMs": 3000,
+    "cavemanEnabled": false,
+    "cavemanLevel": "full",
+    "ponytailEnabled": false,
+    "ponytailLevel": "full",
+    "pxpipeEnabled": false,
+    "pxpipeAutoInstall": true,
+    "pxpipeMinChars": 25000,
+    "pxpipeTimeoutMs": 15000,
+    "usageHistoryRetentionDays": 90,
+    "enableRequestLogs": false,
+    "minimalProfile": false,
+    "hasPassword": true
+  },
+  "upstream": []
+}

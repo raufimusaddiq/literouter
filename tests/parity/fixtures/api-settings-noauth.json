@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-settings-noauth",
+  "method": "GET",
+  "path": "/api/settings"
+}

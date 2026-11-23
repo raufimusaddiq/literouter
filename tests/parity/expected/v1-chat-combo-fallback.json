@@ -1,0 +1,59 @@
+{
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-encoding": "gzip",
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "chatcmpl-<ID>",
+    "object": "chat.completion",
+    "created": 1763800000,
+    "model": "mock-model",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "parity ok"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 3,
+      "completion_tokens": 2,
+      "total_tokens": 5
+    }
+  },
+  "upstream": [
+    {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "body": {
+        "model": "mock-429",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "stream": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "body": {
+        "model": "mock-ok",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "stream": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "status": 200,
+  "headers": {
+    "content-encoding": "gzip",
+    "content-type": "application/json;charset=utf-8"
+  },
+  "body": {
+    "running": false,
+    "lastSync": null,
+    "lastError": null,
+    "lastResult": null,
+    "etag": null,
+    "fileVersion": null,
+    "file": "<DATA_DIR>/model-catalog.json",
+    "url": "https://models.dev/api.json",
+    "intervalMs": 86400000,
+    "catalog": null
+  },
+  "upstream": []
+}

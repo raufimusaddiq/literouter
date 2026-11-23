@@ -1,0 +1,21 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "edge-slow-stream-cut",
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "json": {
+    "model": "pm/mock-slow-stream",
+    "messages": [
+      {
+        "role": "user",
+        "content": "hi"
+      }
+    ],
+    "stream": true
+  },
+  "sse": {
+    "maxFrames": 10,
+    "maxMs": 1500
+  }
+}

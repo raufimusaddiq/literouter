@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-provider-nodes-noauth",
+  "method": "GET",
+  "path": "/api/provider-nodes"
+}

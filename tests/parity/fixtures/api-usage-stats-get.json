@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "session",
+  "id": "api-usage-stats-get",
+  "method": "GET",
+  "path": "/api/usage/stats"
+}

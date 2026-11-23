@@ -1,0 +1,22 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "v1-chat-combo-stream",
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "waitMs": 3000,
+  "json": {
+    "model": "parity-combo",
+    "messages": [
+      {
+        "role": "user",
+        "content": "hi"
+      }
+    ],
+    "stream": true
+  },
+  "sse": {
+    "maxFrames": 50,
+    "maxMs": 5000
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "apikey",
+  "id": "v1-root",
+  "method": "GET",
+  "path": "/v1"
+}

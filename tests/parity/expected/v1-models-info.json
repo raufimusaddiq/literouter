@@ -1,0 +1,15 @@
+{
+  "status": 400,
+  "headers": {
+    "access-control-allow-origin": "*",
+    "content-encoding": "gzip",
+    "content-type": "application/json;charset=utf-8"
+  },
+  "body": {
+    "error": {
+      "message": "Missing required query param: id (e.g. ?id=openai/dall-e-3)",
+      "type": "invalid_request_error"
+    }
+  },
+  "upstream": []
+}

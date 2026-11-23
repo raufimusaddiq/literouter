@@ -1,0 +1,7 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-models-custom-noauth",
+  "method": "GET",
+  "path": "/api/models/custom"
+}

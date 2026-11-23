@@ -1,0 +1,8 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "api-v1-systemone-noauth",
+  "method": "POST",
+  "path": "/api/v1/systemone",
+  "json": {}
+}
