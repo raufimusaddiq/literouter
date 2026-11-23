@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { compileApp } from "../../scripts/build.mjs";
@@ -71,6 +71,10 @@ describe("compileApp embedded assets", () => {
     expect(report.publicDir).toBe("/$bunfs/root/public");
     expect(report.spaDir).toBe("/$bunfs/root/web");
     expect(report.hasIndex).toBe(true);
+  });
+
+  dockerTest("removes the compile stage directory after a successful compile", () => {
+    expect(existsSync(join(import.meta.dir, "..", "..", "dist", "compile-stage"))).toBe(false);
   });
 
   dockerTest("serves a public file from the embedded filesystem", () => {

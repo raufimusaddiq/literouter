@@ -68,6 +68,10 @@ export async function buildApp({ root = repoRoot, outdir = "dist/app", entry = "
   return { outdir: out, files: listFiles(out) };
 }
 
+export function compileOptions({ target, outfile, assets }) {
+  return { target, outfile, assets, autoloadBunfig: false, autoloadDotenv: false };
+}
+
 export async function compileApp({
   target,
   root = repoRoot,
@@ -83,17 +87,24 @@ export async function compileApp({
   mkdirSync(dirname(out), { recursive: true });
   await runBuild({
     ...serverBuildOptions({ root, entry }),
-    compile: {
-      target,
-      outfile: out,
-      assets: [join(root, "public"), join(stage, "web")],
-      autoloadBunfig: false,
-    },
+    compile: compileOptions({ target, outfile: out, assets: [join(root, "public"), join(stage, "web")] }),
   });
+  rmSync(stage, { recursive: true, force: true });
   return out;
 }
 
-function parseArgs(argv) {
+export const USAGE = [
+  "usage: bun scripts/build.mjs [--outdir <dir>]",
+  "       bun scripts/build.mjs --compile <target> [--outfile <file>]",
+  "",
+  "  --outdir <dir>     server bundle directory (default dist/app)",
+  "  --compile <target> compile a standalone executable instead; targets: " + COMPILE_TARGETS.join(", "),
+  "  --outfile <file>   executable path for --compile (default dist/bin/literouter-<target>)",
+  "",
+  "A relative --outdir or --outfile is resolved against the current working directory.",
+].join("\n");
+
+export function parseArgs(argv, cwd = process.cwd()) {
   const value = (flag) => {
     const index = argv.indexOf(flag);
     if (index === -1) return undefined;
@@ -101,21 +112,33 @@ function parseArgs(argv) {
     if (!next || next.startsWith("--")) throw new Error(`${flag} needs a value`);
     return next;
   };
-  return { compile: value("--compile"), outdir: value("--outdir") };
+  const compile = value("--compile");
+  const outdir = value("--outdir");
+  const outfile = value("--outfile");
+  if (compile && outdir) throw new Error("--outdir does not apply to --compile; use --outfile for the executable path");
+  if (outfile && !compile) throw new Error("--outfile needs --compile");
+  return {
+    help: argv.includes("--help") || argv.includes("-h"),
+    compile,
+    outdir: outdir ? absolute(cwd, outdir) : undefined,
+    outfile: outfile ? absolute(cwd, outfile) : undefined,
+  };
 }
 
 if (import.meta.main) {
   try {
-    const { compile, outdir } = parseArgs(process.argv.slice(2));
-    if (compile) {
-      const file = await compileApp({ target: compile, ...(outdir ? { outfile: outdir } : {}) });
+    const { help, compile, outdir, outfile } = parseArgs(process.argv.slice(2));
+    if (help) {
+      console.log(USAGE);
+    } else if (compile) {
+      const file = await compileApp({ target: compile, ...(outfile ? { outfile } : {}) });
       console.log(`compiled ${file}`);
     } else {
       const result = await buildApp(outdir ? { outdir } : {});
       console.log(`built ${result.files.length} files into ${result.outdir}`);
     }
   } catch (error) {
-    console.error(error.message);
+    console.error(`${error.message}\n\n${USAGE}`);
     process.exit(1);
   }
 }
