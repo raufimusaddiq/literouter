@@ -2,7 +2,7 @@ services:
   literouter:
     # Required full-SHA tag, published only by .github/workflows/production-image.yml.
     # One writer at a time: stop the 9router container before starting this one,
-    # so both never mount 9router-data. See docs/literouter-baseline/production-promotion-plan.md.
+    # so both never mount 9router-data. See docs/ops.md.
     image: ghcr.io/raufimusaddiq/literouter-production:${LITEROUTER_PRODUCTION_TAG:?set production-<full-main-sha>}
     pull_policy: missing
     container_name: literouter

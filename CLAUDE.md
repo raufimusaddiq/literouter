@@ -46,9 +46,8 @@ cd tests && CI=true bun test --parallel --reporter=junit --reporter-outfile=../t
 ```
 > Test files import the mock helper as `import { vi } from "#test/vi"` (`tests/helpers/vi.js`, design notes in `docs/adr/testing.md`). `tests/bunfig.toml` holds the runner config.
 >
-> **Linux CI is green: expected red is 0** and the Windows `tests/__baseline__/known-fails.txt` list is now empty. CI runs `bun test --parallel` with the junit reporter, then `git diff --exit-code -- tests` (fails if Bun wrote or changed a snapshot), then `bun tests/__baseline__/verify-no-regression.mjs test-results.xml`, then `bunx --bun eslint .` (blocking; the React Compiler react-hooks rules are downgraded to warnings in `eslint.config.mjs` until that debt is cleared), `bun scripts/comments/ratchet.mjs --check`, `bun scripts/check-test-hygiene.mjs --check`, `bun scripts/gen-route-table.mjs --check`, and `bun run build:web`. Judge regressions with the verify scripts.
+> CI runs the workflow in `.github/workflows/test.yml`; expected red is 0. Judge regressions with `bun tests/__baseline__/verify-no-regression.mjs test-results.xml`.
 > - `tests/server/*.test.js` start the real server (`startServer({ port: 0, hostname: "127.0.0.1" })`) and cover trust, h2c, body limit, timeouts, disconnect, SIGTERM and the route table; `tests/server/no-next-server.test.js` guards that Next's server pieces stay deleted.
-> - `real/*.real.test.js` make live provider calls — need credentials, skip otherwise.
 - `*.real.test.js` under `tests/translator/real/` make live provider calls — skip unless credentials are set.
 - Regression baselines: `tests/__baseline__/verify-*.mjs` compare against committed snapshots (providers, aliases, OAuth URLs). Run these after touching provider registry / alias logic.
 
