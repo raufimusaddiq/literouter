@@ -362,6 +362,28 @@ button:disabled,
 .slide-in-top { animation: slideInFromTop 0.18s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 .sheet-slide-up { animation: sheetSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
 
+@keyframes lr-wire-march {
+  to { stroke-dashoffset: -20; }
+}
+.lr-wire-live {
+  stroke: var(--color-mark-line);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  animation: lr-wire-march 0.9s linear infinite;
+}
+.lr-packet {
+  fill: var(--color-mark);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lr-wire-live {
+    stroke-dasharray: none;
+    animation: none;
+  }
+  .lr-packet {
+    display: none;
+  }
+}
+
 @keyframes topology-router-pulse {
   0%, 100% {
     transform: scale(1);

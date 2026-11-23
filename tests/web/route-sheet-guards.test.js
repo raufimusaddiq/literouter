@@ -8,6 +8,8 @@ export const GUARDED_PATHS = [
   "src/shared/components",
   "src/shared/components/shell",
   "src/shared/components/layouts",
+  "src/web/pages/dashboard/overview",
+  "src/web/pages/dashboard/DashboardOverview.js",
 ];
 
 const BACKDROP_BLUR_ALLOWED = new Set(["src/shared/components/shell/TopBar.js"]);
