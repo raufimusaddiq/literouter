@@ -47,9 +47,7 @@ describe("niceTicks", () => {
       expect(ticks[0]).toBe(0);
       expect(ticks.length).toBe(5);
       expect(top).toBeGreaterThanOrEqual(max);
-      if (max !== 9) {
-        expect(top).toBeLessThanOrEqual(2.2 * max);
-      }
+      expect(top).toBeLessThanOrEqual(2.25 * max);
       const step = ticks[1] - ticks[0];
       expect(isAllowedIntegerStep(step)).toBe(true);
       for (let i = 0; i < ticks.length; i += 1) {

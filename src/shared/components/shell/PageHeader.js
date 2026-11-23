@@ -12,12 +12,13 @@ export default function PageHeader({
   meta,
   description,
   actions,
+  breadcrumbs: breadcrumbsProp,
   showTitle = true,
   className = "",
 }) {
   const pathname = usePathname();
   const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
-  const breadcrumbs = pageInfo.breadcrumbs || [];
+  const breadcrumbs = breadcrumbsProp ?? pageInfo.breadcrumbs ?? [];
   const resolvedTitle = title ?? pageInfo.title;
 
   return (

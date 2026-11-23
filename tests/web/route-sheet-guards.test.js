@@ -19,6 +19,21 @@ export const GUARDED_PATHS = [
   "src/web/pages/dashboard/usage/components/tokenDisplay.js",
   "src/shared/components/UsageStats.js",
   "src/shared/components/RequestLogger.js",
+  "src/web/pages/dashboard/providers",
+  "src/shared/components/ProviderIcon.js",
+  "src/shared/components/CapacityBadges.js",
+  "src/shared/components/EditConnectionModal.js",
+  "src/shared/components/OAuthModal.js",
+  "src/shared/components/KiroAuthModal.js",
+  "src/shared/components/KiroOAuthWrapper.js",
+  "src/shared/components/KiroSocialOAuthModal.js",
+  "src/shared/components/CursorAuthModal.js",
+  "src/shared/components/GitLabAuthModal.js",
+  "src/shared/components/IFlowCookieModal.js",
+  "src/shared/components/XiaomiMimoAuthModal.js",
+  "src/shared/components/ModelSelectModal.js",
+  "src/shared/components/NoAuthProxyCard.js",
+  "src/shared/components/PricingModal.js",
 ];
 
 const BACKDROP_BLUR_ALLOWED = new Set(["src/shared/components/shell/TopBar.js"]);

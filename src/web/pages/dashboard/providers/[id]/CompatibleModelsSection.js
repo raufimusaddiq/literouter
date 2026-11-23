@@ -5,70 +5,67 @@ import PropTypes from "prop-types";
 import { Button } from "@/shared/components";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias, onTest, testStatus, isTesting }) {
-  const borderColor = testStatus === "ok"
-    ? "border-green-500/40"
+  const iconTone = testStatus === "ok"
+    ? "text-ok"
     : testStatus === "error"
-    ? "border-red-500/40"
-    : "border-border";
-
-  const iconColor = testStatus === "ok"
-    ? "#22c55e"
-    : testStatus === "error"
-    ? "#ef4444"
-    : undefined;
+      ? "text-danger"
+      : "text-faint";
 
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-lg border ${borderColor} hover:bg-sidebar/50`}>
-      <span aria-hidden="true"
-        className="material-symbols-outlined text-base text-text-muted"
-        style={iconColor ? { color: iconColor } : undefined}
-      >
+    <div className="group flex items-center gap-3 px-2 py-2.5 transition-colors hover:bg-raise/60">
+      <span aria-hidden="true" className={`material-symbols-outlined text-[16px] ${iconTone}`}>
         {testStatus === "ok" ? "check_circle" : testStatus === "error" ? "cancel" : "smart_toy"}
       </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{modelId}</p>
-        <div className="flex items-center gap-1 mt-1">
-          <code className="text-xs text-text-muted font-mono bg-sidebar px-1.5 py-0.5 rounded">{fullModel}</code>
-          <div className="relative group/btn">
-            <button
-              onClick={() => onCopy(fullModel, `model-${modelId}`)}
-              aria-label={`Copy model ID ${fullModel}`}
-              className="p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-sm">
-                {copied === `model-${modelId}` ? "check" : "content_copy"}
-              </span>
-            </button>
-            <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[11px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-              {copied === `model-${modelId}` ? "Copied!" : "Copy"}
-            </span>
-          </div>
-          {onTest && (
-            <div className="relative group/btn">
-              <button
-                onClick={onTest}
-                aria-label={`Test model ${modelId}`}
-                disabled={isTesting}
-                className="p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary transition-colors"
-              >
-                <span aria-hidden="true" className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
-                  {isTesting ? "progress_activity" : "science"}
-                </span>
-              </button>
-              <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[11px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-                {isTesting ? "Testing..." : "Test"}
-              </span>
-            </div>
-          )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-ink">{modelId}</p>
+        <div className="mt-0.5 flex items-center gap-1.5">
+          <code className="truncate font-mono text-xs text-muted">{fullModel}</code>
         </div>
       </div>
-      <button
-        onClick={onDeleteAlias}
-        className="p-1 hover:bg-red-50 rounded text-red-500"
-        title="Remove model"
-      >
-        <span aria-hidden="true" className="material-symbols-outlined text-sm">delete</span>
-      </button>
+      <div className="flex shrink-0 items-center gap-1">
+        {onTest && (
+          <div className="group/btn relative">
+            <button
+              type="button"
+              onClick={onTest}
+              aria-label={`Test model ${modelId}`}
+              disabled={isTesting}
+              className={`rounded-md p-1 text-muted transition-opacity hover:bg-surface-2 hover:text-ink ${isTesting ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"}`}
+            >
+              <span aria-hidden="true" className={`material-symbols-outlined text-[16px] ${isTesting ? "animate-spin" : ""}`}>
+                {isTesting ? "progress_activity" : "science"}
+              </span>
+            </button>
+            <span className="pointer-events-none absolute left-1/2 top-6 -translate-x-1/2 whitespace-nowrap text-[11px] text-muted opacity-0 transition-opacity group-hover/btn:opacity-100">
+              {isTesting ? "Testing..." : "Test"}
+            </span>
+          </div>
+        )}
+        <div className="group/btn relative">
+          <button
+            type="button"
+            onClick={() => onCopy(fullModel, `model-${modelId}`)}
+            aria-label={`Copy model ID ${fullModel}`}
+            className="rounded-md p-1 text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
+              {copied === `model-${modelId}` ? "check" : "content_copy"}
+            </span>
+          </button>
+          <span className="pointer-events-none absolute left-1/2 top-6 -translate-x-1/2 whitespace-nowrap text-[11px] text-muted opacity-0 transition-opacity group-hover/btn:opacity-100">
+            {copied === `model-${modelId}` ? "Copied!" : "Copy"}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onDeleteAlias}
+          aria-label={`Remove model ${modelId}`}
+          className="rounded-md p-1 text-danger opacity-100 transition-opacity hover:bg-danger/10 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
+          title="Remove model"
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">delete</span>
+        </button>
+      </div>
     </div>
   );
 }
@@ -164,13 +161,13 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-text-muted">
+      <p className="text-sm text-muted">
         Add {isAnthropic ? "Anthropic" : "OpenAI"}-compatible models manually or import them from the /models endpoint.
       </p>
 
-      <div className="flex items-end gap-2 flex-wrap">
-        <div className="flex-1 min-w-[240px]">
-          <label htmlFor="new-compatible-model-input" className="text-xs text-text-muted mb-1 block">Model ID</label>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-[240px] flex-1">
+          <label htmlFor="new-compatible-model-input" className="mb-1 block text-xs font-medium text-muted">Model ID</label>
           <input
             id="new-compatible-model-input"
             type="text"
@@ -178,25 +175,25 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
             onChange={(e) => setNewModel(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder={isAnthropic ? "claude-3-opus-20240229" : "gpt-4o"}
-            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+            className="h-9 w-full rounded-md border border-line-strong bg-raise px-3 font-mono text-sm text-ink placeholder:text-faint focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line"
           />
         </div>
-        <Button size="sm" icon="add" onClick={handleAdd} disabled={!newModel.trim() || adding}>
+        <Button size="md" icon="add" onClick={handleAdd} disabled={!newModel.trim() || adding} className="whitespace-nowrap">
           {adding ? "Adding..." : "Add"}
         </Button>
-        <Button size="sm" variant="secondary" icon="download" onClick={handleImport} disabled={!canImport || importing}>
+        <Button size="md" variant="secondary" icon="download" onClick={handleImport} disabled={!canImport || importing} className="whitespace-nowrap">
           {importing ? "Importing..." : "Import from /models"}
         </Button>
       </div>
 
       {!canImport && (
-        <p className="text-xs text-text-muted">
+        <p className="text-xs text-muted">
           Add a connection to enable importing models.
         </p>
       )}
 
       {allModels.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col divide-y divide-line border-y border-line">
           {allModels.map(({ id, alias, source }) => (
             <CompatibleModelRow
               key={`${source}-${providerStorageAlias}/${id}`}
