@@ -63,19 +63,25 @@ const KEPT_HEADERS = new Set([
   "x-accel-buffering",
 ]);
 
-function maskSetCookie(raw) {
+function maskExpires(value, now) {
+  const at = Date.parse(value);
+  if (Number.isNaN(at)) return "<DATE-INVALID>";
+  return at <= now ? "<DATE-PAST>" : "<DATE-FUTURE>";
+}
+
+function maskSetCookie(raw, now) {
   const [pair, ...attrs] = raw.split(/;\s*/);
   const name = pair.split("=")[0];
   const kept = attrs.map((a) => {
     const [k, ...rest] = a.split("=");
-    if (/^expires$/i.test(k)) return `${k}=<DATE>`;
+    if (/^expires$/i.test(k)) return `${k}=${maskExpires(rest.join("="), now)}`;
     if (/^max-age$/i.test(k)) return a;
     return rest.length ? `${k}=${rest.join("=")}` : k;
   });
   return [`${name}=<MASKED>`, ...kept].join("; ");
 }
 
-export function normalizeHeaders(headers) {
+export function normalizeHeaders(headers, now = Date.now()) {
   const entries = headers instanceof Headers ? [...headers] : Object.entries(headers);
   const out = {};
   const cookies = typeof headers.getSetCookie === "function" ? headers.getSetCookie() : [];
@@ -83,7 +89,7 @@ export function normalizeHeaders(headers) {
     const key = k.toLowerCase();
     if (key.startsWith("access-control-") || KEPT_HEADERS.has(key)) out[key] = String(v);
   }
-  if (cookies.length) out["set-cookie"] = cookies.map(maskSetCookie);
+  if (cookies.length) out["set-cookie"] = cookies.map((c) => maskSetCookie(c, now));
   return Object.fromEntries(Object.entries(out).sort(([a], [b]) => (a < b ? -1 : 1)));
 }
 

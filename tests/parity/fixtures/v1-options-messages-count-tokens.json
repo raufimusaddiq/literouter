@@ -1,0 +1,11 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "v1-options-messages-count-tokens",
+  "method": "OPTIONS",
+  "path": "/v1/messages/count_tokens",
+  "headers": {
+    "origin": "https://example.com",
+    "access-control-request-method": "POST"
+  }
+}

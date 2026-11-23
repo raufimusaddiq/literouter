@@ -1,0 +1,8 @@
+{
+  "peer": "proxied",
+  "auth": "none",
+  "id": "api-oauth-codex-import-token-noauth-proxied",
+  "method": "POST",
+  "path": "/api/oauth/codex/import-token",
+  "json": {}
+}

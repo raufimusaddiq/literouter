@@ -1,0 +1,11 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "v1-options-v1beta-models-path",
+  "method": "OPTIONS",
+  "path": "/v1beta/models/gemini:generateContent",
+  "headers": {
+    "origin": "https://example.com",
+    "access-control-request-method": "POST"
+  }
+}

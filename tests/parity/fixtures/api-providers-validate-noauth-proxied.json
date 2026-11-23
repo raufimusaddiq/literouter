@@ -1,0 +1,8 @@
+{
+  "peer": "proxied",
+  "auth": "none",
+  "id": "api-providers-validate-noauth-proxied",
+  "method": "POST",
+  "path": "/api/providers/validate",
+  "json": {}
+}

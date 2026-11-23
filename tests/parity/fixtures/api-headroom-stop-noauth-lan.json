@@ -1,0 +1,8 @@
+{
+  "peer": "lan",
+  "auth": "none",
+  "id": "api-headroom-stop-noauth-lan",
+  "method": "POST",
+  "path": "/api/headroom/stop",
+  "json": {}
+}

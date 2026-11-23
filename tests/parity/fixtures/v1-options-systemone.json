@@ -1,0 +1,11 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "v1-options-systemone",
+  "method": "OPTIONS",
+  "path": "/v1/systemone",
+  "headers": {
+    "origin": "https://example.com",
+    "access-control-request-method": "POST"
+  }
+}
