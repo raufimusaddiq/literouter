@@ -1,0 +1,127 @@
+{
+  "settings": {
+    "requireLogin": true,
+    "fallbackStrategy": "fill-first",
+    "stickyRoundRobinLimit": 3,
+    "outboundProxyEnabled": false,
+    "comboStrategy": "fallback"
+  },
+  "providerConnections": [
+    {
+      "apiKey": "sk-fixture-openai-1",
+      "id": "conn-openai-1",
+      "provider": "openai",
+      "authType": "apikey",
+      "name": "OpenAI primary",
+      "email": null,
+      "priority": 1,
+      "isActive": true,
+      "createdAt": "2026-10-01T10:00:00.000Z",
+      "updatedAt": "2026-10-01T10:00:00.000Z"
+    },
+    {
+      "accessToken": "at-fixture",
+      "refreshToken": "rt-fixture",
+      "expiresAt": "2026-12-01T00:00:00.000Z",
+      "providerSpecificData": {
+        "workspaceId": "ws-1"
+      },
+      "id": "conn-codex-2",
+      "provider": "codex",
+      "authType": "oauth",
+      "name": "Codex OAuth",
+      "email": "fixture@example.com",
+      "priority": 2,
+      "isActive": false,
+      "createdAt": "2026-10-02T10:00:00.000Z",
+      "updatedAt": "2026-10-02T11:00:00.000Z"
+    }
+  ],
+  "providerNodes": [
+    {
+      "prefix": "vllm",
+      "apiType": "chat",
+      "baseUrl": "http://localhost:8000/v1",
+      "id": "node-custom-1",
+      "type": "openai-compatible",
+      "name": "Local vLLM",
+      "createdAt": "2026-10-03T10:00:00.000Z",
+      "updatedAt": "2026-10-03T10:00:00.000Z"
+    }
+  ],
+  "proxyPools": [
+    {
+      "name": "Office proxy",
+      "proxyUrl": "http://proxy.internal:3128",
+      "noProxy": "localhost",
+      "type": "http",
+      "strictProxy": false,
+      "id": "pool-1",
+      "isActive": true,
+      "testStatus": "success",
+      "createdAt": "2026-10-04T10:00:00.000Z",
+      "updatedAt": "2026-10-04T10:00:00.000Z"
+    }
+  ],
+  "apiKeys": [
+    {
+      "id": "key-open-1",
+      "key": "sk-fixture-aaaaaaaa-open",
+      "name": "Default Key",
+      "machineId": "machine-fixture",
+      "isActive": true,
+      "createdAt": "2026-10-05T10:00:00.000Z",
+      "access": {
+        "restricted": false,
+        "allow": []
+      }
+    },
+    {
+      "id": "key-restricted-2",
+      "key": "sk-fixture-bbbbbbbb-restricted",
+      "name": "Restricted Key",
+      "machineId": "machine-fixture",
+      "isActive": true,
+      "createdAt": "2026-10-06T10:00:00.000Z",
+      "access": {
+        "restricted": true,
+        "allow": [
+          "Main",
+          "openai/gpt-4o"
+        ]
+      }
+    }
+  ],
+  "combos": [
+    {
+      "id": "combo-main-1",
+      "name": "Main",
+      "kind": null,
+      "models": [
+        "openai/gpt-4o",
+        "codex/gpt-5"
+      ],
+      "createdAt": "2026-10-07T10:00:00.000Z",
+      "updatedAt": "2026-10-07T10:00:00.000Z"
+    }
+  ],
+  "modelAliases": {
+    "fast": "openai/gpt-4o-mini"
+  },
+  "customModels": [
+    {
+      "providerAlias": "vllm",
+      "id": "llama-3-70b",
+      "type": "llm",
+      "name": "Llama 3 70B"
+    }
+  ],
+  "pricing": {
+    "openai": {
+      "gpt-4o": {
+        "input": 2.5,
+        "output": 10
+      }
+    }
+  }
+}

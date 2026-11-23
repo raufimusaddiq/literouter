@@ -49,12 +49,14 @@ describe("Driver chain under Bun", () => {
     fs.mkdirSync(tempDir, { recursive: true });
   });
 
-  it("falls back to sql.js when bun:sqlite fails to load", async () => {
-    vi.mock("@/lib/db/adapters/bunSqliteAdapter.js", () => {
-      throw new Error("simulated unavailable");
-    });
-    const { getAdapter } = await import("@/lib/db/driver.js");
-    const db = await getAdapter();
-    expect(db.driver).toBe("sql.js");
+  it("refuses to start outside the Bun runtime", async () => {
+    const original = Object.getOwnPropertyDescriptor(process.versions, "bun");
+    Object.defineProperty(process.versions, "bun", { value: undefined, configurable: true });
+    try {
+      const { getAdapter } = await import("@/lib/db/driver.js");
+      await expect(getAdapter()).rejects.toThrow("LiteRouter requires the Bun runtime (bun:sqlite)");
+    } finally {
+      Object.defineProperty(process.versions, "bun", original);
+    }
   });
 });

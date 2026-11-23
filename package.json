@@ -43,17 +43,14 @@
     "react-dom": "19.2.4",
     "react-is": "^16.13.1",
     "recharts": "^3.7.0",
-    "sql.js": "^1.14.1",
     "uuid": "^13.0.0",
     "zustand": "^5.0.10"
   },
   "optionalDependencies": {
     "@next/swc-linux-x64-musl": "16.4.6",
     "@tailwindcss/oxide-linux-x64-musl": "4.3.3",
-    "better-sqlite3": "^12.6.2",
     "lightningcss-linux-x64-musl": "1.32.0"
   },
-  "comment_better_sqlite3": "kept in optionalDependencies so npm install doesn't fail on systems without build tools — sql.js is used as fallback at runtime",
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
     "eslint": "^9",
