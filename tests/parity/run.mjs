@@ -13,8 +13,8 @@ const flag = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : und
 const target = flag("--target");
 const outArg = flag("--out");
 const only = flag("--only");
-if (!["next", "bun"].includes(target) || !outArg) {
-  console.error("usage: bun tests/parity/run.mjs --target next|bun --out <dir> [--only <fixture-id-prefix>]");
+if (target !== "bun" || !outArg) {
+  console.error("usage: bun tests/parity/run.mjs --target bun --out <dir> [--only <fixture-id-prefix>]");
   process.exit(2);
 }
 const outDir = path.resolve(outArg);
@@ -69,7 +69,7 @@ try {
 
   const port = freePort();
   const baseUrl = `http://127.0.0.1:${port}`;
-  const command = target === "next" ? ["bun", path.join(repoRoot, ".next/standalone/custom-server.js")] : ["bun", path.join(repoRoot, "src/server/index.js")];
+  const command = ["bun", path.join(repoRoot, "src/server/index.js")];
   const env = {
     ...process.env,
     HOME: home,
@@ -88,7 +88,7 @@ try {
     MOCK_STREAM_PAUSE_MS: String(PARITY.slowStreamPauseMs),
   };
   for (const k of ["TRUST_LOOPBACK_AS_LOCAL", "TRUST_PROXY", "REQUIRE_API_KEY", "MINIMAL_PROFILE", "AUTH_COOKIE_SECURE", "API_KEY_FAIL_LIMIT"]) delete env[k];
-  child = Bun.spawn(command, { cwd: target === "next" ? path.join(repoRoot, ".next/standalone") : repoRoot, env, stdout: "pipe", stderr: "pipe" });
+  child = Bun.spawn(command, { cwd: repoRoot, env, stdout: "pipe", stderr: "pipe" });
   const serverLog = [];
   for (const stream of [child.stdout, child.stderr]) {
     (async () => {

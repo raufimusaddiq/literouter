@@ -1,31 +1,30 @@
 #!/usr/bin/env bun
 import fs from "node:fs";
 const USAGE = `Cutover perf measurement.
-Step 6 command sequence (run on a quiet host; alternate Node, Bun, Node, Bun, Node, Bun):
-  NODE_IMG=ghcr.io/raufimusaddiq/literouter-production:production-90ac4b20952622cc42186e3f316d0e093ed425cf
-  BUN_IMG=ghcr.io/raufimusaddiq/literouter-staging:staging-92d1aa5ed090f04e497fc18c871cd25b2f6eb3bc
+Pre-release perf measurement (run on a quiet host; alternate the baseline and candidate images, 3 rounds each).
+The baseline is the image of the current release and the candidate is the image to ship; both are Bun images.
+  BASE_IMG=ghcr.io/raufimusaddiq/literouter-production:<current-release-tag>
+  CAND_IMG=ghcr.io/raufimusaddiq/literouter-staging:<candidate-tag>
   1. Seed one data dir once (peer is never loopback in a container, so no dashboard API):
        KEY=$(bun tests/parity/seed.mjs <seedDir> --upstream http://<host>:9101 --print-key | tail -1)
      <host> is host.docker.internal where Docker maps it to the machine. On the dev box smoke it
      resolved to the bridge and refused, so use an address a container can reach (e.g. 172.24.0.1).
      Do not pass --add-host host.docker.internal:host-gateway: it overrides Docker's own mapping.
      Per round copy the seed fresh (cp -r <seedDir> <roundDir>): the gateway writes account lock state into it.
-  2. Node round: scripts/cutover/node-baseline.sh <full-main-sha> <port> <roundDir>
-     (container for the production image; or docker run it by hand with the flags below).
-     Bun round:
-       docker run -d --name p5-bun --memory 768m --cpus 2 \\
-         -p <port>:20128 -v <roundDir>:/app/data $BUN_IMG
+  2. Per round, for each image:
+       docker run -d --name p5-round --memory 768m --cpus 2 \
+         -p <port>:20128 -v <roundDir>:/app/data <image>
      Both images use --memory 768m --cpus 2, the same seed copy and the same host mock.
-  3. bun scripts/cutover/measure.mjs <container> http://127.0.0.1:<port>/v1 "$KEY" <model> round-N-node.json
+  3. bun scripts/cutover/measure.mjs <container> http://127.0.0.1:<port>/v1 "$KEY" <model> round-N-base.json
      The script starts the host mock itself on 0.0.0.0:9101 (chunks 200); do not start another.
      Remove the container, then repeat for the other image. Take the median per metric over 3 rounds.
   4. Median per metric over the rounds:
-       bun scripts/cutover/perf-gate.mjs --median round-1-node.json round-2-node.json round-3-node.json > node.json
-       bun scripts/cutover/perf-gate.mjs --median round-1-bun.json round-2-bun.json round-3-bun.json > bun.json
+       bun scripts/cutover/perf-gate.mjs --median round-1-base.json round-2-base.json round-3-base.json > base.json
+       bun scripts/cutover/perf-gate.mjs --median round-1-cand.json round-2-cand.json round-3-cand.json > cand.json
   5. Image size, ONLY AFTER all measurement rounds: it pulls both arches under the same tag (arm64 first, amd64 last,
      so the local tag ends on amd64; arm64 is never run) and writes imageBytes into the JSON:
-       bun scripts/cutover/measure.mjs --image $BUN_IMG bun.json
-  6. bun scripts/cutover/perf-gate.mjs node.json bun.json
+       bun scripts/cutover/measure.mjs --image $CAND_IMG cand.json
+  6. bun scripts/cutover/perf-gate.mjs base.json cand.json
 The key is only used for requests and is never written to the output file.
 
 usage: bun scripts/cutover/measure.mjs <container> <baseUrl> <key> <model> <out.json>
