@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import PropTypes from "prop-types";
 import { useTheme } from "@/shared/hooks/useTheme";
+import { useMenuKeys } from "@/shared/hooks/useMenuKeys";
 
 function MenuItem({ icon, label, onClick, trailing, danger }) {
   return (
     <button
+      type="button"
+      role="menuitem"
+      tabIndex={-1}
       onClick={onClick}
       className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors ${
         danger
@@ -34,54 +38,51 @@ MenuItem.propTypes = {
 export default function HeaderMenu({ onLogout }) {
   const [isOpen, setIsOpen] = useState(false);
   const { toggleTheme, isDark } = useTheme();
+  const triggerRef = useRef(null);
   const menuRef = useRef(null);
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isOpen]);
+  useMenuKeys({ open: isOpen, setOpen: setIsOpen, triggerRef, menuRef });
 
-  const close = () => setIsOpen(false);
+  const close = (restore) => {
+    setIsOpen(false);
+    if (restore) triggerRef.current?.focus();
+  };
 
   return (
-    <>
-      <div className="relative" ref={menuRef}>
-        <button
-          onClick={() => setIsOpen((v) => !v)}
-          aria-label="Open menu"
-          aria-expanded={isOpen}
-          aria-haspopup="menu"
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-          title="Menu"
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        aria-label="Open menu"
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+        title="Menu"
+      >
+        <span aria-hidden="true" className="material-symbols-outlined">grid_view</span>
+      </button>
+
+      {isOpen && (
+        <div
+          ref={menuRef}
+          role="menu"
+          className="absolute right-0 top-full mt-2 w-60 bg-surface border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 overflow-hidden py-1"
         >
-          <span aria-hidden="true" className="material-symbols-outlined">grid_view</span>
-        </button>
-
-        {isOpen && (
-          <div className="absolute right-0 top-full mt-2 w-60 bg-surface border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 overflow-hidden py-1">
-            <MenuItem
-              icon={isDark ? "light_mode" : "dark_mode"}
-              label="Theme"
-              onClick={() => { toggleTheme(); close(); }}
-            />
-            <MenuItem
-              icon="logout"
-              label="Logout"
-              danger
-              onClick={() => { close(); onLogout(); }}
-            />
-          </div>
-        )}
-      </div>
-
-    </>
+          <MenuItem
+            icon={isDark ? "light_mode" : "dark_mode"}
+            label="Theme"
+            onClick={() => { toggleTheme(); close(true); }}
+          />
+          <MenuItem
+            icon="logout"
+            label="Logout"
+            danger
+            onClick={() => { close(false); onLogout(); }}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 

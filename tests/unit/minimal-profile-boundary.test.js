@@ -156,23 +156,23 @@ describe("minimal profile route boundary", () => {
   });
 
   it("deletes external promotional links from the sidebar", () => {
-    const sidebar = readFileSync(
-      new URL("../../src/shared/components/Sidebar.js", import.meta.url),
+    const navItems = readFileSync(
+      new URL("../../src/shared/components/nav/navItems.js", import.meta.url),
       "utf8"
     );
-    expect(sidebar).not.toContain("9English");
-    expect(sidebar).not.toContain("9Remote");
+    expect(navItems).not.toContain("9English");
+    expect(navItems).not.toContain("9Remote");
   });
 
   it("retains the Console Log page, its sidebar entry, and its API", () => {
     expect(hidden).not.toContain("/dashboard/console-log");
 
-    const sidebar = readFileSync(
-      new URL("../../src/shared/components/Sidebar.js", import.meta.url),
+    const navItems = readFileSync(
+      new URL("../../src/shared/components/nav/navItems.js", import.meta.url),
       "utf8"
     );
-    expect(sidebar).toContain('"/dashboard/console-log"');
-    expect(sidebar).not.toContain("nonMinimal");
+    expect(navItems).toContain('"/dashboard/console-log"');
+    expect(navItems).not.toContain("nonMinimal");
 
     const shadowed = hidden.some(
       (h) => "/api/console-logs" === h || "/api/console-logs".startsWith(h)

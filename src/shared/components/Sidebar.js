@@ -1,37 +1,15 @@
 "use client";
 
+import { Fragment } from "react";
 import PropTypes from "prop-types";
 import { usePathname, Link } from "@/web/router";
 import { cn } from "@/shared/utils/cn";
 import { APP_CONFIG } from "@/shared/constants/config";
-
-const operateItems = [
-  { href: "/dashboard", label: "Overview", icon: "dashboard" },
-  { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "api" },
-  { href: "/dashboard/providers", label: "Providers", icon: "dns" },
-];
-
-const routeItems = [
-  { href: "/dashboard/combos", label: "Combo & Vision Adapter", icon: "layers" },
-  { href: "/dashboard/systemone", label: "System One", icon: "account_tree" },
-];
-
-const observeItems = [
-  { href: "/dashboard/usage", label: "Usage", icon: "bar_chart" },
-  { href: "/dashboard/quota", label: "Quota Tracker", icon: "data_usage" },
-  { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
-];
-
-const systemItems = [
-  { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
-  { href: "/dashboard/profile", label: "Settings", icon: "settings" },
-];
+import { NAV_GROUPS, NAV_ITEMS, isNavActive } from "@/shared/components/nav/navItems";
 
 export default function Sidebar({ onClose }) {
   const pathname = usePathname();
-  const isActive = (href) => href === "/dashboard"
-    ? pathname === "/dashboard"
-    : pathname.startsWith(href);
+  const isActive = (href) => isNavActive(href, pathname);
   const link = (item) => (
     <Link
       key={item.href}
@@ -70,20 +48,23 @@ export default function Sidebar({ onClose }) {
       </div>
       <div className="mx-3 h-px bg-border-subtle" />
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-1 py-5 custom-scrollbar">
-        <p className="px-3 pb-2 text-xs font-medium text-text-muted">Operate</p>
-        {operateItems.map(link)}
-        <div className="mt-5 space-y-0.5">
-          <p className="px-3 mb-2 text-xs font-medium text-text-muted">Route</p>
-          {routeItems.map(link)}
-        </div>
-        <div className="mt-5 space-y-0.5">
-          <p className="px-3 mb-2 text-xs font-medium text-text-muted">Observe</p>
-          {observeItems.map(link)}
-        </div>
-        <div className="mt-5 space-y-0.5">
-          <p className="px-3 mb-2 text-xs font-medium text-text-muted">System</p>
-          {systemItems.map(link)}
-        </div>
+        {NAV_GROUPS.map((group, index) => {
+          const items = NAV_ITEMS.filter((item) => item.group === group.id);
+          if (index === 0) {
+            return (
+              <Fragment key={group.id}>
+                <p className="px-3 pb-2 text-xs font-medium text-text-muted">{group.label}</p>
+                {items.map(link)}
+              </Fragment>
+            );
+          }
+          return (
+            <div key={group.id} className="mt-5 space-y-0.5">
+              <p className="px-3 mb-2 text-xs font-medium text-text-muted">{group.label}</p>
+              {items.map(link)}
+            </div>
+          );
+        })}
       </nav>
       <div className="m-1 rounded-[10px] bg-bg-alt p-3 ring-1 ring-border-subtle" role="status" aria-label="Workspace status">
         <div className="flex items-center gap-2 text-xs font-medium text-text-main">

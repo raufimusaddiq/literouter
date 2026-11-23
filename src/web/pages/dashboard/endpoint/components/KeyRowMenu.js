@@ -1,45 +1,22 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import PropTypes from "prop-types";
+import { useMenuKeys } from "@/shared/hooks/useMenuKeys";
 
 export default function KeyRowMenu({ keyName, onCopy, onDelete }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
 
-  const items = () => Array.from(menuRef.current?.querySelectorAll("[role=menuitem]") || []);
+  useMenuKeys({ open, setOpen, triggerRef, menuRef });
+
   const close = (restore) => { setOpen(false); if (restore) triggerRef.current?.focus(); };
-
-  useEffect(() => { if (open) items()[0]?.focus(); }, [open]);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    const onKey = (e) => {
-      if (e.key === "Escape") { close(true); return; }
-      if (e.key === "Tab") { setOpen(false); return; }
-      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-      e.preventDefault();
-      const list = items();
-      if (!list.length) return;
-      const i = list.indexOf(document.activeElement);
-      const next = e.key === "ArrowDown" ? (i + 1) % list.length : (i <= 0 ? list.length - 1 : i - 1);
-      list[next].focus();
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
 
   const item = "flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5";
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
         ref={triggerRef}
         type="button"
