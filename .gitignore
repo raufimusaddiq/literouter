@@ -48,9 +48,7 @@ source/*
 docs/*
 !docs/adr/
 !docs/ARCHITECTURE.md
-!docs/systemone-prd.md
-!docs/literouter-baseline/
-!docs/literouter-baseline/**
+!docs/ops.md
 test/*
 open-sse/test/*
 RM.vn.md
