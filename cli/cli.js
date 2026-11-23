@@ -303,7 +303,7 @@ async function claimPort() {
   if (legacy && legacy.ambiguous) {
     console.error(`
 ❌ Port ${legacy.port} is held by pid ${legacy.pid}, which looks like an old 9router server but could not be positively identified. ${APP_NAME} will not start a second server on the same data directory.
-   Stop the old server yourself (npm rm -g 9router, or quit its tray icon / terminal), then run ${APP_NAME} again.`);
+   Stop the old server yourself (quit its tray icon or terminal, then remove the old global 9router package with the package manager you installed it with), then run ${APP_NAME} again.`);
     process.exit(1);
   }
   if (legacy && legacy.respawned) {

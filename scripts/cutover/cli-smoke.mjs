@@ -38,7 +38,9 @@ function parseArgs(argv) {
     else if (arg === "--method") opts.method = argv[++i];
     else if (arg === "--port") opts.port = parseInt(argv[++i], 10);
     else if (arg === "--legacy-modules") opts.legacyModules = argv[++i];
+    else if (arg === "--skip-seed") opts.skipSeed = true;
     else if (arg === "--expect") opts.expect = argv[++i];
+    else if (arg === "--legacy-runtime-seed") opts.legacyRuntimeSeed = argv[++i];
     else if (arg === "--legacy-src") opts.legacySrc = argv[++i];
     else if (arg === "--legacy-version") opts.legacyVersion = argv[++i];
     else if (arg === "--legacy-runtime") opts.legacyRuntime = argv[++i];
@@ -475,6 +477,18 @@ async function seedKey(base) {
   return (await res.json()).key;
 }
 
+async function seedKeyWhenReady(base, deadlineMs = 240_000) {
+  const end = Date.now() + deadlineMs;
+  for (;;) {
+    try {
+      return await seedKey(base);
+    } catch (err) {
+      if (Date.now() > end) throw err;
+      await sleep(3000);
+    }
+  }
+}
+
 async function keySurvives(base, key) {
   const cookie = await apiLogin(base);
   const res = await fetch(`${base}/api/keys`, { headers: { cookie } });
@@ -498,6 +512,9 @@ async function scenarioReplace(ctx, spec, opts) {
   const versionOk = legacyVersion !== null && (!opts.legacyVersion || legacyVersion === opts.legacyVersion);
   if (!report(versionOk, `${label}: old package present`, `version=${legacyVersion} expected=${opts.legacyVersion ?? "any"} source=${source ?? opts.legacyModules}`)) return;
 
+  if (opts.legacyRuntimeSeed) cpSync(opts.legacyRuntimeSeed, join(ctx.dataDir, "runtime"), { recursive: true });
+  const warm = await run([opts.legacyRuntime, join(modules, "9router", "hooks", "postinstall.js")], ctx, { timeoutMs: 180_000 });
+  info(`${label}: old package runtime warm-up (its own postinstall, throwaway DATA_DIR)`, `exit=${warm.code} ${tail(warm.out, 2)}`);
   const logFile = join(ctx.root, "logs", "legacy.log");
   mkdirSync(dirname(logFile), { recursive: true });
   const old = Bun.spawn([opts.legacyRuntime, legacyCli, "--port", String(ctx.port), "--no-browser", "--skip-update"], {
@@ -525,8 +542,9 @@ async function scenarioReplace(ctx, spec, opts) {
   }
 
   let key;
-  try {
-    key = await seedKey(base);
+  if (opts.skipSeed) info(`${label}: key seeding skipped`, "--skip-seed");
+  else try {
+    key = await seedKeyWhenReady(base);
     report(!!key, `${label}: seeded an API key on the old server`);
   } catch (err) {
     report(false, `${label}: seeded an API key on the old server`, String(err.message));
@@ -547,7 +565,7 @@ async function scenarioReplace(ctx, spec, opts) {
     const secondServer = readPidfile(ctx)?.launcherPid !== undefined;
     report(expect !== "takeover", `${label}: outcome is a refusal`, `expected=${expect}; exit=${launcher.proc.exitCode}; log: ${tail(newLog, 4)}`);
     report(oldAlive && !secondServer, `${label}: refusal left only the old server on the data dir`, `old alive=${oldAlive} newPidfile=${secondServer}`);
-    report(/npm rm -g 9router|stop the old server/i.test(newLog), `${label}: refusal message tells the user how to stop the old server`);
+    report(/stop the old server yourself/i.test(newLog), `${label}: refusal message tells the user how to stop the old server`);
     report((await listenerPid(ctx, ctx.port)) === oldListener, `${label}: old server still owns the port`);
     const left = await killOwned(ctx);
     info(`${label}: stopped the old server the runner started`, `left=${left}`);
@@ -569,7 +587,8 @@ async function scenarioReplace(ctx, spec, opts) {
   const probePort = record?.port ?? newPort;
   const probeListener = await listenerPid(ctx, probePort);
   const probeIsNew = ready === 200 && !!record && probeListener !== null && probeListener !== oldListener && !oldAlive;
-  if (report(probeIsNew, `${label}: probe target is the new server`, `port=${probePort} listener=${probeListener} oldListener=${oldListener}`)) {
+  if (opts.skipSeed) info(`${label}: key survival skipped`, `new server up in place of the old one=${probeIsNew}`);
+  else if (report(probeIsNew, `${label}: probe target is the new server`, `port=${probePort} listener=${probeListener} oldListener=${oldListener}`)) {
     try {
       report(await keySurvives(`http://127.0.0.1:${probePort}`, key), `${label}: seeded API key survived`, `port ${probePort}`);
     } catch (err) {
@@ -618,7 +637,7 @@ async function removeRoot(ctx, opts) {
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (!SCENARIOS.includes(opts.scenario) || !["add-g", "bunx"].includes(opts.method) || !["takeover", "refuse", "either", undefined].includes(opts.expect)) {
-    console.error(`usage: bun scripts/cutover/cli-smoke.mjs <${SCENARIOS.join("|")}> [--spec <spec>] [--spec-b <spec>] [--method add-g|bunx] [--port <n>] [--legacy-src <package dir> | --legacy-modules <dir>] [--legacy-runtime <cmd>] [--legacy-version <v>] [--legacy-pidfile] [--expect takeover|refuse|either] [--keep]`);
+    console.error(`usage: bun scripts/cutover/cli-smoke.mjs <${SCENARIOS.join("|")}> [--spec <spec>] [--spec-b <spec>] [--method add-g|bunx] [--port <n>] [--legacy-src <package dir> | --legacy-modules <dir>] [--legacy-runtime <cmd>] [--legacy-version <v>] [--legacy-runtime-seed <dir>] [--legacy-pidfile] [--skip-seed] [--expect takeover|refuse|either] [--keep]`);
     process.exit(2);
   }
   const port = opts.port ?? BASE_PORT + SCENARIOS.indexOf(opts.scenario);
