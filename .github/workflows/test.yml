@@ -60,10 +60,4 @@ jobs:
 
       - run: bun tests/parity/compare-upstream.mjs tests/parity/expected parity-actual
 
-      - run: bun run build:bun
-
-      - name: Runtime bundle budget
-        run: |
-          size_mb="$(du -sm .next/standalone | cut -f1)"
-          echo "standalone runtime: ${size_mb} MiB"
-          test "${size_mb}" -le 140
+      - run: bun run build:web

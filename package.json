@@ -19,6 +19,7 @@
     "start": "bun src/server/index.js",
     "prebuild:bun": "bun scripts/gen-provider-icon-manifest.mjs",
     "build:bun": "bun --bun next build",
+    "build:web": "bun scripts/gen-provider-icon-manifest.mjs && bun scripts/build-web.mjs",
     "cli:pack": "npm --prefix cli run pack:cli",
     "cli:publish": "npm --prefix cli run publish:cli"
   },

@@ -16,12 +16,6 @@ const CLIENT_TREES = [
   "src/app/dashboard",
 ];
 
-const SHELL_FILES_DELETED_IN_TASK_3 = new Set([
-  "src/app/layout.js",
-  "src/app/page.js",
-  "src/app/(dashboard)/layout.js",
-]);
-
 function walk(dir) {
   if (!fs.existsSync(dir)) return [];
   const out = [];
@@ -52,8 +46,7 @@ describe("dashboard client tree", () => {
   it("no dashboard source is left under src/app outside api", () => {
     const leftovers = walk(path.join(ROOT, "src/app"))
       .map(rel)
-      .filter((file) => !file.startsWith("src/app/api/"))
-      .filter((file) => !SHELL_FILES_DELETED_IN_TASK_3.has(file));
+      .filter((file) => !file.startsWith("src/app/api/"));
     expect(leftovers).toEqual([]);
   });
 });
