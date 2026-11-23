@@ -390,13 +390,20 @@ describe("openaiToKiroRequest", () => {
       expect(systemPromptOf(result)).toContain("<max_thinking_length>");
     });
 
-    it("does not send additionalModelRequestFields for legacy Kiro model ids", () => {
+    it.each([
+      ["legacy Kiro model ids", "claude-sonnet-4.5"],
+      ["date-suffixed Claude 4 model ids", "claude-sonnet-4-20250514"],
+      ["pre-4 legacy Kiro model ids", "claude-sonnet-3.7"],
+      ["prefixed pre-4 legacy Kiro model ids", "kiro/claude-3-7-sonnet-20250219"],
+      ["prefixed non-Claude aliases", "kiro/gpt-4o"],
+      ["non-Claude aliases", "gpt-4o"],
+    ])("does not send additionalModelRequestFields for %s", (_label, model) => {
       const body = {
         reasoning_effort: "high",
-        messages: [{ role: "user", content: "Legacy model id should not get adaptive fields" }]
+        messages: [{ role: "user", content: "Legacy or non-Claude model should not get adaptive fields" }]
       };
 
-      const result = openaiToKiroRequest("claude-sonnet-4.5", body, true, {});
+      const result = openaiToKiroRequest(model, body, true, {});
 
       expect(systemPromptOf(result)).toContain("<max_thinking_length>24576</max_thinking_length>");
       expect(result.additionalModelRequestFields).toBeUndefined();
@@ -425,66 +432,6 @@ describe("openaiToKiroRequest", () => {
         thinking: { type: "adaptive", display: "summarized" },
         output_config: { effort: "high" },
       });
-    });
-
-    it("does not send additionalModelRequestFields for date-suffixed Claude 4 model ids", () => {
-      const body = {
-        reasoning_effort: "high",
-        messages: [{ role: "user", content: "Date-suffixed Claude 4 should stay legacy" }]
-      };
-
-      const result = openaiToKiroRequest("claude-sonnet-4-20250514", body, true, {});
-
-      expect(systemPromptOf(result)).toContain("<max_thinking_length>24576</max_thinking_length>");
-      expect(result.additionalModelRequestFields).toBeUndefined();
-    });
-
-    it("does not send additionalModelRequestFields for pre-4 legacy Kiro model ids", () => {
-      const body = {
-        reasoning_effort: "high",
-        messages: [{ role: "user", content: "Older model id should not get adaptive fields" }]
-      };
-
-      const result = openaiToKiroRequest("claude-sonnet-3.7", body, true, {});
-
-      expect(systemPromptOf(result)).toContain("<max_thinking_length>24576</max_thinking_length>");
-      expect(result.additionalModelRequestFields).toBeUndefined();
-    });
-
-    it("does not send additionalModelRequestFields for prefixed pre-4 legacy Kiro model ids", () => {
-      const body = {
-        reasoning_effort: "high",
-        messages: [{ role: "user", content: "Prefixed older model id should not get adaptive fields" }]
-      };
-
-      const result = openaiToKiroRequest("kiro/claude-3-7-sonnet-20250219", body, true, {});
-
-      expect(systemPromptOf(result)).toContain("<max_thinking_length>24576</max_thinking_length>");
-      expect(result.additionalModelRequestFields).toBeUndefined();
-    });
-
-    it("does not send Claude-specific additionalModelRequestFields for prefixed non-Claude aliases", () => {
-      const body = {
-        reasoning_effort: "high",
-        messages: [{ role: "user", content: "Prefixed non-Claude alias should not get adaptive fields" }]
-      };
-
-      const result = openaiToKiroRequest("kiro/gpt-4o", body, true, {});
-
-      expect(systemPromptOf(result)).toContain("<max_thinking_length>24576</max_thinking_length>");
-      expect(result.additionalModelRequestFields).toBeUndefined();
-    });
-
-    it("does not send Claude-specific additionalModelRequestFields for non-Claude aliases", () => {
-      const body = {
-        reasoning_effort: "high",
-        messages: [{ role: "user", content: "Non-Claude aliases should not get Claude adaptive fields" }]
-      };
-
-      const result = openaiToKiroRequest("gpt-4o", body, true, {});
-
-      expect(systemPromptOf(result)).toContain("<max_thinking_length>24576</max_thinking_length>");
-      expect(result.additionalModelRequestFields).toBeUndefined();
     });
 
     it("defaults future Kiro model ids to additionalModelRequestFields support", () => {
