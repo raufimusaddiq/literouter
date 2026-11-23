@@ -162,7 +162,6 @@ describe("dashboard guard public LLM API access", () => {
 
     expect(response).toBeNull();
   });
-
 });
 
 describe("dashboard guard local-only routes", () => {
