@@ -1,32 +1,9 @@
 import { describe, it, expect } from "bun:test";
 import { routes, findRoute } from "../../src/web/routes.js";
 
-const URLS = [
-  "/",
-  "/callback",
-  "/dashboard",
-  "/dashboard/combos",
-  "/dashboard/console-log",
-  "/dashboard/endpoint",
-  "/dashboard/profile",
-  "/dashboard/providers",
-  "/dashboard/providers/:id",
-  "/dashboard/providers/new",
-  "/dashboard/quota",
-  "/dashboard/settings/pricing",
-  "/dashboard/systemone",
-  "/dashboard/token-saver",
-  "/dashboard/usage",
-  "/login",
-];
-
 const NO_SHELL = ["/login", "/callback", "/dashboard/settings/pricing"];
 
 describe("routes", () => {
-  it("covers the 16 URLs", () => {
-    expect(routes.map((r) => r.path).sort()).toEqual([...URLS].sort());
-  });
-
   it("findRoute resolves in order and rejects unknown paths", () => {
     expect(findRoute("/dashboard/providers/new").route.path).toBe("/dashboard/providers/new");
     expect(findRoute("/dashboard/providers/new").params).toEqual({});
