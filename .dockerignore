@@ -35,7 +35,6 @@ yarn-error.log*
 # Not needed to build the image
 tests
 docs
-images
 bench-results
 .claude
 .rig

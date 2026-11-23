@@ -34,6 +34,6 @@ Provider-agnostic SSE engine: one OpenAI-style request → any configured LLM pr
 ## Pitfalls
 
 - OpenAI bridge is lossy (thinking, non-base64 images, tool ids, is_error) — prefer a direct route for fragile pairs.
-- `registry/index.js` is an auto-generated static import list; regenerate it (don't hand-edit) after adding a `registry/{id}.js`. REGISTRY_TEMPLATE is excluded by design.
+- `registry/index.js` is a static import list; add an import and array entry there after adding a `registry/{id}.js`. REGISTRY_TEMPLATE is excluded by design.
 - Special binary/protobuf formats (kiro EventStream, cursor protobuf, commandcode NDJSON) don't round-trip through OpenAI — handle in their executor.
 - `rtk/` + `headroom.js` mutate the request body in-place and are **fail-open**: any error returns null and leaves the body untouched — never throw out of them. RTK skips `is_error`/`status:"error"` tool results to preserve traces.

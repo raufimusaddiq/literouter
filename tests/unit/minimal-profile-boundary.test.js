@@ -139,7 +139,7 @@ describe("minimal profile route boundary", () => {
     ]) {
       expect(() => readFileSync(new URL(path, import.meta.url)), path).toThrow();
     }
-    const claude = readFileSync(new URL("../../CLAUDE.md", import.meta.url), "utf8");
+    const claude = readFileSync(new URL("../../AGENTS.md", import.meta.url), "utf8");
     expect(claude).not.toMatch(/optional cloud sync/);
     expect(claude).not.toContain("docs/ARCHITECTURE.md");
   });

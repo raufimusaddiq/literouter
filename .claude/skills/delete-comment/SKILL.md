@@ -1,19 +1,19 @@
 ---
 name: delete-comment
-description: Audit and delete code comments in LiteRouter. Classify each comment as tautology, stale, excuse or decision record. Delete tautologies and stale comments, file a GitHub issue for each excuse, move the decisions that matter into the short topic files in docs/adr/, then tighten the no-comments ratchet. Use when the user says /delete-comment, asks to clean up comments, or the no-comments lint or ratchet check fails because comments crept back in.
+description: Audit and delete code comments in LiteRouter. Classify each comment as tautology, stale, excuse or decision record. Delete tautologies and stale comments, file a GitHub issue for each excuse, move the decisions that matter into the short topic files in docs/adr/. Use when the user says /delete-comment, asks to clean up comments, or the no-comments lint fails because comments crept back in.
 ---
 
 # /delete-comment
 
-Comments are banned in this repo. The `local/no-comments` ESLint rule enforces the ban against `.comment-baseline.json`, a per-file count that can only go down. This skill repeats the audit that created that baseline, either across the whole repo or for a given path.
+Comments are banned in this repo. The `local/no-comments` ESLint rule is strict: zero comments, apart from directives. The only exempt files are the three listed in `eslint.config.mjs` (the provider template and two generated banners). Any comment `bun --bun run eslint .` reports is one to delete; this skill audits and clears them, across the whole repo or for a given path.
 
-**Arguments:** optional paths, for example `/delete-comment open-sse/executors`. With no argument, audit every file listed in `.comment-baseline.json`.
+**Arguments:** optional paths, for example `/delete-comment open-sse/executors`. With no argument, audit every file ESLint reports.
 
 ## Rules
 
 - **Delegate the coding.** Classification, decision writing and code changes go to Sonnet subagents (`model: "sonnet"`). The orchestrating session plans, verifies and handles git, PRs and issues.
-- **Directives are never comments for this purpose.** That covers `eslint-*`, `@ts-*`, `istanbul`/`c8`, webpack and turbopack magic comments, `@vite-ignore`, `#__PURE__`, `@license` and `@preserve`. `scripts/comments/lib.mjs` (`isDirective`) already skips them.
-- **Keep is rare.** A comment stays only when it must physically stay in the file: a template whose comments are its documentation (`open-sse/providers/REGISTRY_TEMPLATE.js`), a banner in a generated file, or text that a tool parses. Kept comments remain in the baseline.
+- **Directives are never comments for this purpose.** That covers `eslint-*`, `@ts-*`, `istanbul`/`c8`, webpack and turbopack magic comments, `@vite-ignore`, `#__PURE__`, `@license` and `@preserve`. `scripts/comments/lib.mjs` (`isDirectiveText`) already skips them.
+- **Keep is rare.** A comment stays only when it must physically stay in the file: a template whose comments are its documentation (`open-sse/providers/REGISTRY_TEMPLATE.js`), a banner in a generated file, or text that a tool parses.
 - **Issues go to `raufimusaddiq/literouter`, never to the upstream fork.** Always pass `--repo raufimusaddiq/literouter`. Use the labels `comment-audit`, `tech-debt` and `status:backlog`.
 - Work on a branch off `origin/main` and land it through a PR with auto-merge, following the repo's rig flow. Then bring the result into `staging` through a `main → staging` PR.
 
@@ -58,18 +58,11 @@ Comments are banned in this repo. The `local/no-comments` ESLint rule enforces t
    - `npm run build` passes (or `bun run build` once Plan 4 lands).
    - The diff removes comments only, apart from blank-line cleanup. Spot-check it with `git diff --stat` and a sample of files.
 
-8. **Tighten the ratchet.**
-   ```bash
-   bun scripts/comments/ratchet.mjs --write
-   bun scripts/comments/ratchet.mjs --check
-   ```
-   Commit `.comment-baseline.json` together with the deletions. The baseline must only shrink.
-
-9. **Land it.**
+8. **Land it.**
    - Open a PR to `main` with auto-merge. Its description lists the counts per category, the lines removed, the issue numbers and the topic files updated.
    - Open a PR from `main` to `staging`.
-   - If `staging` has diverged (the Bun rewrite), resolve conflicts by keeping both the deletion and the staging change, then re-run `ratchet --write` on `staging`.
+   - If `staging` has diverged (the Bun rewrite), resolve conflicts by keeping both the deletion and the staging change.
 
 ## Estimating savings
 
-`bun scripts/comments/extract.mjs --out <dir>` reports `totalComments`. The ratchet baseline sums the per-file counts. Lines shed are roughly the comment-only lines: on the 2026-11-23 audit that was 14,205 of 166,213 JS lines (8.5%) across 11,384 comments.
+`bun scripts/comments/extract.mjs --out <dir>` reports `totalComments`. Lines shed are roughly the comment-only lines: on the 2026-11-23 audit that was 14,205 of 166,213 JS lines (8.5%) across 11,384 comments.

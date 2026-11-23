@@ -4,8 +4,41 @@ const os = require("os");
 const { execSync } = require("child_process");
 const { buildTrayArgs } = require("../utils/serverProc");
 
-const APP_NAME = "9router";
-const APP_LABEL = "com.9router.autostart";
+const APP_NAME = "literouter";
+const APP_LABEL = "com.literouter.autostart";
+const LEGACY_APP_NAME = "9router";
+const LEGACY_APP_LABEL = "com.9router.autostart";
+
+function homeDir() {
+  const { HOME, USERPROFILE } = process.env;
+  const preferred = process.platform === "win32" ? USERPROFILE || HOME : HOME || USERPROFILE;
+  return preferred || os.homedir();
+}
+
+function startupDirWindows(appData = process.env.APPDATA) {
+  return path.join(appData || "", "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
+}
+
+function legacyEntryPath(platform, { home = homeDir(), appData } = {}) {
+  if (platform === "darwin") return path.join(home, "Library", "LaunchAgents", `${LEGACY_APP_LABEL}.plist`);
+  if (platform === "win32") return path.join(startupDirWindows(appData), `${LEGACY_APP_NAME}.vbs`);
+  if (platform === "linux") return path.join(home, ".config", "autostart", `${LEGACY_APP_NAME}.desktop`);
+  return null;
+}
+
+function removeLegacyAutoStart(platform = process.platform, locations) {
+  const legacyPath = legacyEntryPath(platform, locations);
+  if (!legacyPath || !fs.existsSync(legacyPath)) return false;
+  try {
+    if (platform === "darwin") execSync(`launchctl unload "${legacyPath}"`, { stdio: "ignore" });
+  } catch (e) {}
+  try {
+    fs.unlinkSync(legacyPath);
+  } catch (e) {
+    return false;
+  }
+  return true;
+}
 
 function getCliJsPath(cliPath) {
   if (cliPath) {
@@ -30,6 +63,7 @@ function enableAutoStart(cliPath, opts = {}) {
   if (platform === "linux" && !process.env.DISPLAY) return false;
 
   try {
+    removeLegacyAutoStart(platform);
     if (platform === "darwin") return enableMacOS(cliPath, opts);
     if (platform === "win32") return enableWindows(cliPath, opts);
     if (platform === "linux") return enableLinux(cliPath, opts);
@@ -41,6 +75,7 @@ function enableAutoStart(cliPath, opts = {}) {
 function disableAutoStart() {
   const platform = process.platform;
   try {
+    removeLegacyAutoStart(platform);
     if (platform === "darwin") return disableMacOS();
     if (platform === "win32") return disableWindows();
     if (platform === "linux") return disableLinux();
@@ -53,7 +88,7 @@ function isAutoStartEnabled() {
 
   try {
     if (platform === "darwin") {
-      const plistPath = path.join(os.homedir(), "Library", "LaunchAgents", `${APP_LABEL}.plist`);
+      const plistPath = path.join(homeDir(), "Library", "LaunchAgents", `${APP_LABEL}.plist`);
       if (!fs.existsSync(plistPath)) return false;
       try {
         execSync(`launchctl list ${APP_LABEL}`, {
@@ -65,10 +100,10 @@ function isAutoStartEnabled() {
         return false;
       }
     } else if (platform === "win32") {
-      const startupPath = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", "Startup", `${APP_NAME}.vbs`);
+      const startupPath = path.join(startupDirWindows(), `${APP_NAME}.vbs`);
       return fs.existsSync(startupPath);
     } else if (platform === "linux") {
-      const desktopPath = path.join(os.homedir(), ".config", "autostart", `${APP_NAME}.desktop`);
+      const desktopPath = path.join(homeDir(), ".config", "autostart", `${APP_NAME}.desktop`);
       return fs.existsSync(desktopPath);
     }
   } catch (e) {}
@@ -91,7 +126,7 @@ function isAgentSelfMacOS() {
 }
 
 function enableMacOS(cliPath, opts = {}) {
-  const launchAgentsDir = path.join(os.homedir(), "Library", "LaunchAgents");
+  const launchAgentsDir = path.join(homeDir(), "Library", "LaunchAgents");
   const plistPath = path.join(launchAgentsDir, `${APP_LABEL}.plist`);
 
   if (!fs.existsSync(launchAgentsDir)) {
@@ -129,9 +164,9 @@ ${argLines}
     <key>KeepAlive</key>
     <false/>
     <key>StandardOutPath</key>
-    <string>/tmp/9router.log</string>
+    <string>/tmp/literouter.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/9router.error.log</string>
+    <string>/tmp/literouter.error.log</string>
 </dict>
 </plist>`;
 
@@ -152,7 +187,7 @@ ${argLines}
 }
 
 function disableMacOS() {
-  const plistPath = path.join(os.homedir(), "Library", "LaunchAgents", `${APP_LABEL}.plist`);
+  const plistPath = path.join(homeDir(), "Library", "LaunchAgents", `${APP_LABEL}.plist`);
 
   if (!isAgentSelfMacOS()) {
     try {
@@ -168,7 +203,7 @@ function disableMacOS() {
 
 
 function enableWindows(cliPath, opts = {}) {
-  const startupDir = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
+  const startupDir = startupDirWindows();
   const vbsPath = path.join(startupDir, `${APP_NAME}.vbs`);
 
   if (!fs.existsSync(startupDir)) return false;
@@ -186,7 +221,7 @@ WshShell.Run """${nodePath}"" ""${routerScript}"" ${vbsArgs}", 0, False
 }
 
 function disableWindows() {
-  const vbsPath = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", "Startup", `${APP_NAME}.vbs`);
+  const vbsPath = path.join(startupDirWindows(), `${APP_NAME}.vbs`);
   if (fs.existsSync(vbsPath)) {
     fs.unlinkSync(vbsPath);
   }
@@ -195,7 +230,7 @@ function disableWindows() {
 
 
 function enableLinux(cliPath, opts = {}) {
-  const autostartDir = path.join(os.homedir(), ".config", "autostart");
+  const autostartDir = path.join(homeDir(), ".config", "autostart");
   const desktopPath = path.join(autostartDir, `${APP_NAME}.desktop`);
 
   if (!fs.existsSync(autostartDir)) {
@@ -222,7 +257,7 @@ X-GNOME-Autostart-enabled=true
 }
 
 function disableLinux() {
-  const desktopPath = path.join(os.homedir(), ".config", "autostart", `${APP_NAME}.desktop`);
+  const desktopPath = path.join(homeDir(), ".config", "autostart", `${APP_NAME}.desktop`);
   if (fs.existsSync(desktopPath)) {
     fs.unlinkSync(desktopPath);
   }
@@ -232,5 +267,6 @@ function disableLinux() {
 module.exports = {
   enableAutoStart,
   disableAutoStart,
-  isAutoStartEnabled
+  isAutoStartEnabled,
+  removeLegacyAutoStart
 };

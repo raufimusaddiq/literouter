@@ -11,6 +11,7 @@ import { serveStatic } from "./static.js";
 import { parseBodyLimit } from "./bodyLimit.js";
 import { useSystemCaStore } from "./ca.js";
 import { installShutdownHandlers } from "./shutdown.js";
+import { DATA_DIR_NOTICE } from "@/lib/dataDir.js";
 
 const IDLE_TIMEOUT_SECONDS = 255;
 const BODY_LIMIT_ERROR = "Request body exceeded maxRequestBodySize";
@@ -122,6 +123,7 @@ if (import.meta.main) {
       process.exit(1);
     }
   }
+  console.log(DATA_DIR_NOTICE);
   const server = await startServer();
   console.log(`LiteRouter listening on http://${server.hostname}:${server.port}`);
 }
