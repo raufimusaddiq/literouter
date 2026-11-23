@@ -30,7 +30,7 @@ nodes fail validation with `400`, the localhost-only routes
 `/api/auth/reset-password`, `/api/headroom/*`) return `403`, and keyless `/v1`
 calls return `401`. Use `npm run start` against a built app if you need the local
 operator view; it loads the wrapper and grants it over loopback.
-- Bun variants: `npm run dev:bun` / `build:bun` / `start:bun`.
+- Bun variants: `npm run dev:bun` / `build:bun` / `start:bun` (`prebuild:bun` regenerates the provider icon manifest; CI builds with `bun run build:bun`). Root `bun.lock` sits beside `package-lock.json`, which stays until Plan 4 because the Dockerfile uses `npm ci`.
 - Default runtime port is **20128** (dashboard at `/dashboard`, API at `/v1`).
 - Lint: `npx eslint .` (config `eslint.config.mjs`, extends `eslint-config-next`).
 
@@ -40,16 +40,18 @@ npm run cli:pack       # build + npm pack from root
 cd cli && npm run dev  # nodemon watch
 ```
 
-Tests (vitest, in `tests/`, an **independent** ESM package — not wired into root `npm test`):
+Tests (`bun test`, in `tests/`, an **independent** ESM package; the root `npm test` script just calls `cd tests && bun test --parallel`):
 ```bash
-npm install                             # ROOT deps first — tests import from src/ which needs `open`, `undici`, etc.
-cd tests && npm install                 # then tests' own deps (vitest) → tests/node_modules (allowed by tests/.gitignore)
-npx vitest run                          # all tests; auto-discovers tests/vitest.config.js
-npx vitest run unit/capabilities.test.js   # single file (path relative to tests/)
+bun install                             # ROOT deps first: tests import from src/ which needs `open`, `sql.js`, etc.
+cd tests && bun install                 # tests' own install (no dependencies today)
+cd tests && bun test --parallel         # all tests
+cd tests && bun test unit/capabilities.test.js   # single file (path relative to tests/)
+cd tests && CI=true bun test --parallel --reporter=junit --reporter-outfile=../test-results.xml   # what CI runs
 ```
-> `tests/package.json`'s `test` script is plain `vitest run --reporter=verbose` (no `NODE_PATH` hack); `vitest.config.js` resolves the `open-sse`/`@/` aliases from the repo root.
+> Test files import the mock helper as `import { vi } from "#test/vi"` (`tests/helpers/vi.js`, design notes in `docs/adr/0052-test-harness.md`). `tests/bunfig.toml` holds the runner config.
 >
-> **Linux CI is green: expected red is 0** (3255 pass on a recent run). CI runs `vitest`, then `tests/__baseline__/verify-no-regression.mjs test-results.json`, then `node --test tests/unit/*.test.cjs` (custom-server-h2c), then `npx eslint .` (blocking; the React Compiler react-hooks rules are downgraded to warnings in `eslint.config.mjs` until that debt is cleared). On a Windows checkout ~25 tests are red (bash deploy scripts, sockets, `golden-url-header` cline/clinepass); they are catalogued in `tests/__baseline__/known-fails.txt`. Judge regressions with the verify script, not a raw run.
+> **Linux CI is green: expected red is 0** (3992 tests pass, 0 fail) and the Windows `tests/__baseline__/known-fails.txt` list is now empty. CI runs `bun test --parallel` with the junit reporter, then `git diff --exit-code -- tests` (fails if Bun wrote or changed a snapshot), then `bun tests/__baseline__/verify-no-regression.mjs test-results.xml` and `bun tests/__baseline__/verify-test-counts.mjs test-results.xml` (every baseline file keeps at least its recorded count), then `bun scripts/migrate-vitest-to-bun.mjs --check tests` (and `--snapshots --check`), `bunx --bun eslint .` (blocking; the React Compiler react-hooks rules are downgraded to warnings in `eslint.config.mjs` until that debt is cleared), `bun scripts/comments/ratchet.mjs --check`, and `bun run build:bun` with the standalone size budget. Judge regressions with the verify scripts.
+> - **After merging `main`, run `bun scripts/migrate-vitest-to-bun.mjs tests` (and `bun scripts/migrate-vitest-to-bun.mjs tests --snapshots`)**, then run the suite and fix what fails. `main` still writes vitest-style tests.
 > - `real/*.real.test.js` make live provider calls — need credentials, skip otherwise.
 - `*.real.test.js` under `tests/translator/real/` make live provider calls — skip unless credentials are set.
 - Regression baselines: `tests/__baseline__/verify-*.mjs` compare against committed snapshots (providers, aliases, OAuth URLs). Run these after touching provider registry / alias logic.

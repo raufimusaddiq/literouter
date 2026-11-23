@@ -24,10 +24,10 @@ npm install
 npm run dev                         # Next.js development server
 npm run build && npm run start      # production-style local server
 npx eslint .                        # lint
-cd tests && npm install && npx vitest run
+cd tests && bun test --parallel
 ```
 
-Use `npm run cli:pack` to package the CLI. The test suite is independent from the root package. Some known failures and live-provider tests are expected; use the baseline scripts under `tests/__baseline__/` to detect regressions.
+Use `npm run cli:pack` to package the CLI. The test suite is an independent package run with `bun test`. Live-provider tests skip without credentials; use the baseline scripts under `tests/__baseline__/` to detect regressions.
 
 ## Coding Style
 
