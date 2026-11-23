@@ -3,7 +3,7 @@
   "headers": {
     "cache-control": "no-store",
     "content-encoding": "gzip",
-    "content-type": "application/json;charset=utf-8"
+    "content-type": "application/json"
   },
   "body": {
     "cloudEnabled": false,
