@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { parseJunit } from "../__baseline__/junit.mjs";
 import { checkCounts, pathsMismatch } from "../__baseline__/verify-test-counts.mjs";
-import { findRegressions } from "../__baseline__/verify-no-regression.mjs";
+import { findRegressions, findDuplicateKeys } from "../__baseline__/verify-no-regression.mjs";
 
 const XML = String.raw`<?xml version="1.0" encoding="UTF-8"?>
 <testsuites name="bun test" tests="4" failures="1" skipped="2" errors="2">
@@ -76,5 +76,19 @@ describe("load failure (real Bun shape: file absent, no root errors)", () => {
     const { cases } = parseJunit(xml);
     expect(pathsMismatch({ "tests/unit/a.test.js": 1 }, cases)).toBe(false);
     expect(pathsMismatch({ "tests/unit/other.test.js": 1 }, cases)).toBe(true);
+  });
+});
+
+describe("findDuplicateKeys", () => {
+  test("lists file :: fullName keys that occur more than once with their counts", () => {
+    const cases = [
+      { file: "tests/a.test.js", fullName: "x when %s", status: "passed" },
+      { file: "tests/a.test.js", fullName: "x when %s", status: "failed" },
+      { file: "tests/a.test.js", fullName: "x when %s", status: "passed" },
+      { file: "tests/a.test.js", fullName: "unique", status: "passed" },
+      { file: "tests/b.test.js", fullName: "x when %s", status: "passed" },
+    ];
+    expect(findDuplicateKeys(cases)).toEqual([{ key: "tests/a.test.js :: x when %s", count: 3 }]);
+    expect(findDuplicateKeys([])).toEqual([]);
   });
 });

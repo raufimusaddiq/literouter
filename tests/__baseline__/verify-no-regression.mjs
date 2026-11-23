@@ -7,6 +7,15 @@ export function findRegressions({ cases, errors }, knownFails) {
   return { nowFails, regressions, unattributedErrors: errors > 0 ? errors : 0 };
 }
 
+export function findDuplicateKeys(cases) {
+  const counts = new Map();
+  for (const c of cases) {
+    const key = c.file + " :: " + c.fullName;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts].filter(([, count]) => count > 1).map(([key, count]) => ({ key, count }));
+}
+
 if (import.meta.main) {
   const knownFails = new Set(
     readFileSync(new URL("./known-fails.txt", import.meta.url), "utf8")
@@ -17,6 +26,14 @@ if (import.meta.main) {
 
   const parsed = parseJunit(readFileSync(resultsPath, "utf8"));
   const { nowFails, regressions, unattributedErrors } = findRegressions(parsed, knownFails);
+
+  const duplicates = findDuplicateKeys(parsed.cases);
+  if (duplicates.length) {
+    console.warn(`
+⚠️  WARNING: ${duplicates.length} duplicate test key(s); a failure in one cannot be told from its twins:
+`);
+    duplicates.forEach(d => console.warn(`  - ${d.key} (x${d.count})`));
+  }
 
   if (regressions.length || unattributedErrors) {
     if (regressions.length) {
