@@ -1,5 +1,5 @@
-import { resolve, sep } from "node:path";
-import { stat } from "node:fs/promises";
+import { isAbsolute, relative, resolve, sep } from "node:path";
+import { realpath, stat } from "node:fs/promises";
 import { PUBLIC_DIR } from "./paths.js";
 
 const CACHE_CONTROL = "public, max-age=0";
@@ -19,6 +19,15 @@ function resolveRequestPath(req) {
   return target.startsWith(PUBLIC_DIR + sep) ? target : null;
 }
 
+async function staysInsideRoot(target) {
+  try {
+    const rel = relative(await realpath(PUBLIC_DIR), await realpath(target));
+    return rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+  } catch {
+    return false;
+  }
+}
+
 function contentTypeOf(target, file) {
   const dot = target.lastIndexOf(".");
   return (dot >= 0 && CONTENT_TYPES[target.slice(dot).toLowerCase()]) || file.type;
@@ -35,6 +44,7 @@ export async function serveStatic(req) {
     return null;
   }
   if (!info.isFile()) return null;
+  if (!(await staysInsideRoot(target))) return null;
   const file = Bun.file(target);
   const headers = {
     "content-type": contentTypeOf(target, file),

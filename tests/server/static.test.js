@@ -109,3 +109,23 @@ describe("serveStatic", () => {
     expect(await head.text()).toBe("");
   });
 });
+
+describe("symlink containment", () => {
+  const outsideDir = path.join(root, "outside");
+  fs.mkdirSync(outsideDir);
+  fs.writeFileSync(path.join(outsideDir, "leak.txt"), "LEAKED");
+  fs.mkdirSync(path.join(publicDir, "inside-target"));
+  fs.writeFileSync(path.join(publicDir, "inside-target", "fine.txt"), "fine");
+  fs.symlinkSync(outsideDir, path.join(publicDir, "escape-link"), "junction");
+  fs.symlinkSync(path.join(publicDir, "inside-target"), path.join(publicDir, "inside-link"), "junction");
+
+  it("a link inside public/ that points outside does not serve the target", async () => {
+    expect(await call("/escape-link/leak.txt")).toBeNull();
+  });
+
+  it("a link inside public/ that stays inside is still served", async () => {
+    const res = await call("/inside-link/fine.txt");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("fine");
+  });
+});
