@@ -24,8 +24,8 @@ const mockDbInstance = {
   __throwOnConstruct: false,
 };
 
-vi.mock("better-sqlite3", () => ({
-  default: class MockDatabase {
+vi.mock("bun:sqlite", () => ({
+  Database: class MockDatabase {
     constructor() {
       if (mockDbInstance.__throwOnConstruct) throw new Error("SQLITE_CANTOPEN");
       return mockDbInstance;

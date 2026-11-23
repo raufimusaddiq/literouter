@@ -1,0 +1,8 @@
+{
+  "peer": "proxied",
+  "auth": "none",
+  "id": "api-pxpipe-health-noauth-proxied",
+  "method": "POST",
+  "path": "/api/pxpipe/health",
+  "json": {}
+}

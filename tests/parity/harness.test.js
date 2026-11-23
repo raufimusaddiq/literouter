@@ -5,7 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { startMockUpstream } from "./mock-upstream.js";
 import { normalizeBody, normalizeHeaders, normalizeSse, maskRetryAfter } from "./normalize.js";
-import { compareDirs, diffValues } from "./compare.mjs";
+import { compareDirs, diffValues, loadKnownDiffs, validateKnownDiffs } from "./compare.mjs";
+import { fixtureFileNames, loadFixtures, record } from "./record.mjs";
 import { compareUpstream } from "./compare-upstream.mjs";
 
 const repoRoot = path.resolve(import.meta.dir, "../..");
@@ -130,13 +131,28 @@ describe("normalize", () => {
       "retry-after": "7",
     });
     headers.append("set-cookie", "auth_token=eyJabc.def.ghi; Path=/; Expires=Mon, 23 Nov 2026 10:00:00 GMT; Max-Age=86400; HttpOnly; SameSite=lax");
-    expect(normalizeHeaders(headers)).toEqual({
+    expect(normalizeHeaders(headers, Date.parse("2026-11-22T10:00:00Z"))).toEqual({
       "access-control-allow-origin": "*",
       "cache-control": "no-store",
       "content-type": "application/json",
       "retry-after": "7",
-      "set-cookie": ["auth_token=<MASKED>; Path=/; Expires=<DATE>; Max-Age=86400; HttpOnly; SameSite=lax"],
+      "set-cookie": ["auth_token=<MASKED>; Path=/; Expires=<DATE-FUTURE>; Max-Age=86400; HttpOnly; SameSite=lax"],
     });
+  });
+
+  test("set-cookie Expires keeps whether the cookie is expired, so a logout that stops expiring is a diff", () => {
+    const now = Date.parse("2026-11-22T10:00:00Z");
+    const cookie = (expires) => normalizeHeaders(new Headers([["set-cookie", `auth_token=; Path=/; Expires=${expires}`]]), now)["set-cookie"][0];
+    expect(cookie("Thu, 01 Jan 1970 00:00:00 GMT")).toBe("auth_token=<MASKED>; Path=/; Expires=<DATE-PAST>");
+    expect(cookie("Tue, 24 Nov 2026 10:00:00 GMT")).toBe("auth_token=<MASKED>; Path=/; Expires=<DATE-FUTURE>");
+    expect(cookie("Sun, 22 Nov 2026 10:00:00 GMT")).toBe("auth_token=<MASKED>; Path=/; Expires=<DATE-PAST>");
+    expect(cookie("garbage")).toBe("auth_token=<MASKED>; Path=/; Expires=<DATE-INVALID>");
+    expect(cookie("Thu, 01 Jan 1970 00:00:00 GMT")).not.toBe(cookie("Tue, 24 Nov 2026 10:00:00 GMT"));
+  });
+
+  test("set-cookie keeps Max-Age, attribute names and flags", () => {
+    const headers = new Headers([["set-cookie", "auth_token=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Strict"]]);
+    expect(normalizeHeaders(headers)["set-cookie"]).toEqual(["auth_token=<MASKED>; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Strict"]);
   });
 
   test("maskRetryAfter hides countdown values", () => {
@@ -180,6 +196,25 @@ describe("compare", () => {
     expect(stale).toEqual([]);
   });
 
+  test("a known-diff that pins the actual value stops matching when the value changes", () => {
+    const expected = tmp("parity-exp-");
+    const actual = tmp("parity-act-");
+    write(expected, "a", { status: 200 });
+    write(actual, "a", { status: 500 });
+    const pinned = (value) => [{ file: "a", path: "status", actual: value, reason: "pinned to one value" }];
+    expect(compareDirs(expected, actual, pinned(500))).toMatchObject({ unlisted: [], stale: [] });
+    const worse = compareDirs(expected, actual, pinned(201));
+    expect(worse.unlisted.map((d) => d.path)).toEqual(["status"]);
+    expect(worse.stale.length).toBe(1);
+  });
+
+  test("known-diffs entries need a file, a path and a reason", () => {
+    expect(validateKnownDiffs([{ file: "a", path: "status", reason: "documented difference" }])).toEqual([]);
+    expect(validateKnownDiffs([{ file: "a", path: "status" }])).toEqual(["known-diffs[0]: reason of at least 10 characters is required"]);
+    expect(validateKnownDiffs([{ path: "x", reason: "documented difference" }])).toEqual(["known-diffs[0]: file and path must be strings"]);
+    expect(loadKnownDiffs()).toEqual([]);
+  });
+
   test("compare fails on a stale known-diff", () => {
     const expected = tmp("parity-exp-");
     const actual = tmp("parity-act-");
@@ -199,10 +234,10 @@ describe("compare", () => {
     write(actual, "a", { status: 500 });
     write(same, "a", { status: 200 });
     const script = path.join(import.meta.dir, "compare.mjs");
-    const bad = Bun.spawnSync(["bun", script, expected, actual]);
+    const bad = Bun.spawnSync([process.execPath, script, expected, actual]);
     expect(bad.exitCode).toBe(1);
     expect(bad.stderr.toString()).toContain("DIFF a status");
-    expect(Bun.spawnSync(["bun", script, expected, same]).exitCode).toBe(0);
+    expect(Bun.spawnSync([process.execPath, script, expected, same]).exitCode).toBe(0);
   });
 
   test("diffValues treats equal values as no diff", () => {
@@ -241,7 +276,7 @@ describe("compare-upstream", () => {
 describe("seed", () => {
   test("seed loads the payload through importDb and prints the key", () => {
     const dir = tmp("parity-seed-");
-    const run = Bun.spawnSync(["bun", path.join(import.meta.dir, "seed.mjs"), dir, "--upstream", "http://127.0.0.1:1234", "--print-key"], { cwd: repoRoot });
+    const run = Bun.spawnSync([process.execPath, path.join(import.meta.dir, "seed.mjs"), dir, "--upstream", "http://127.0.0.1:1234", "--print-key"], { cwd: repoRoot });
     expect(run.exitCode).toBe(0);
     expect(run.stdout.toString().trim().split("\n").pop()).toBe("sk-parity-valid");
     const db = new Database(path.join(dir, "db", "data.sqlite"), { readonly: true });
@@ -307,8 +342,6 @@ function routeFor(rawPath, routes) {
   return candidates[0];
 }
 
-const fixtureFiles = () => fs.readdirSync(fixtureDir).filter((f) => f.endsWith(".json") && f !== "seed.json" && f !== "coverage.json");
-const loadFixtures = () => fixtureFiles().map((f) => JSON.parse(fs.readFileSync(path.join(fixtureDir, f), "utf8")));
 
 describe("fixtures", () => {
   test("fixture coverage", () => {
@@ -328,7 +361,7 @@ describe("fixtures", () => {
 
   test("fixture ids are unique, match their file name and follow the schema", () => {
     const seen = new Set();
-    for (const name of fixtureFiles()) {
+    for (const name of fixtureFileNames()) {
       const fx = JSON.parse(fs.readFileSync(path.join(fixtureDir, name), "utf8"));
       expect(`${fx.id}.json`).toBe(name);
       expect(seen.has(fx.id)).toBe(false);
@@ -366,5 +399,138 @@ describe("fixtures", () => {
     const ids = loadFixtures().map((fx) => fx.id).sort();
     const outputs = fs.readdirSync(expectedDir).filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, "")).sort();
     expect(outputs).toEqual(ids);
+  });
+});
+
+describe("guard fixtures for skipped routes", () => {
+  test("every allowed skip route keeps an unauthenticated guard fixture for loopback, proxied and lan", () => {
+    const routes = listRoutes();
+    const coverage = JSON.parse(fs.readFileSync(path.join(fixtureDir, "coverage.json"), "utf8"));
+    const fixtures = loadFixtures();
+    for (const route of Object.keys(coverage.skip)) {
+      const peers = new Set(fixtures.filter((fx) => fx.auth === "none" && routeFor(fx.path, routes) === route).map((fx) => fx.peer));
+      expect({ route, peers: [...peers].sort() }).toEqual({ route, peers: ["lan", "loopback", "proxied"] });
+    }
+  });
+
+  test("the recorded guard for every remote peer on a skipped route is 401 or 403", () => {
+    const routes = listRoutes();
+    const coverage = JSON.parse(fs.readFileSync(path.join(fixtureDir, "coverage.json"), "utf8"));
+    const guards = loadFixtures().filter((fx) => fx.auth === "none" && fx.peer !== "loopback" && coverage.skip[routeFor(fx.path, routes)]);
+    expect(guards.length).toBeGreaterThanOrEqual(Object.keys(coverage.skip).length * 2);
+    for (const fx of guards) {
+      const out = JSON.parse(fs.readFileSync(path.join(import.meta.dir, "expected", `${fx.id}.json`), "utf8"));
+      expect({ id: fx.id, status: [401, 403].includes(out.status) ? "guarded" : out.status }).toEqual({ id: fx.id, status: "guarded" });
+      expect(out.upstream).toEqual([]);
+    }
+  });
+
+  test("only zz fixtures use the slow stream scenario, so no earlier fixture's output depends on it finishing", () => {
+    const users = loadFixtures().filter((fx) => JSON.stringify(fx).includes("mock-slow-stream"));
+    expect(users.length).toBeGreaterThan(0);
+    for (const fx of users) expect(fx.id.startsWith("zz-")).toBe(true);
+  });
+});
+
+describe("mock slow stream", () => {
+  test("mock-slow-stream pauses after the first chunk for MOCK_STREAM_PAUSE_MS and then finishes", async () => {
+    const previous = process.env.MOCK_STREAM_PAUSE_MS;
+    process.env.MOCK_STREAM_PAUSE_MS = "250";
+    cleanup.push(() => {
+      if (previous === undefined) delete process.env.MOCK_STREAM_PAUSE_MS;
+      else process.env.MOCK_STREAM_PAUSE_MS = previous;
+    });
+    const mock = await mockUp();
+    const res = await post(mock.url, chat("mock-slow-stream", { stream: true }));
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    const first = decoder.decode((await reader.read()).value);
+    const firstAt = Date.now();
+    expect(first).toContain("data: {");
+    let rest = "";
+    for (;;) {
+      const next = await reader.read();
+      if (next.done) break;
+      rest += decoder.decode(next.value);
+    }
+    expect(Date.now() - firstAt).toBeGreaterThanOrEqual(200);
+    expect(rest).toContain("[DONE]");
+  });
+});
+
+describe("record", () => {
+  const encoder = new TextEncoder();
+  const cutServer = () => {
+    const server = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      fetch(req) {
+        const { pathname } = new URL(req.url);
+        const type = pathname === "/sse" ? "text/event-stream" : "application/json";
+        const first = pathname === "/sse" ? 'data: {"a":1}\n\n' : '{"partial":';
+        const body = new ReadableStream({
+          async start(controller) {
+            controller.enqueue(encoder.encode(first));
+            await Bun.sleep(30);
+            controller.error(new Error("cut"));
+          },
+        });
+        return new Response(body, { headers: { "content-type": type } });
+      },
+    });
+    cleanup.push(() => server.stop(true));
+    return server;
+  };
+  const fixture = (id, path, extra = {}) => ({ id, peer: "loopback", auth: "none", method: "GET", path, ...extra });
+
+  test("a connection cut while reading the body is recorded, not thrown", async () => {
+    const server = cutServer();
+    const outDir = tmp("parity-cut-");
+    const mock = await mockUp({ outDir });
+    const fixtures = [fixture("cut-sse", "/sse", { sse: { maxFrames: 5, maxMs: 2000 } }), fixture("cut-json", "/json")];
+    const { ids, unreachable } = await record({ baseUrl: `http://127.0.0.1:${server.port}`, outDir, mock, fixtures });
+    expect(ids).toEqual(["cut-sse", "cut-json"]);
+    expect(unreachable).toEqual([]);
+
+    const sse = JSON.parse(fs.readFileSync(path.join(outDir, "cut-sse.json"), "utf8"));
+    expect(sse).toEqual({ status: 200, headers: { "content-type": "text/event-stream" }, error: sse.error, framesSoFar: [{ data: '{"a":1}' }], upstream: [] });
+    expect(["connection-reset", "body-read-failed"]).toContain(sse.error);
+
+    const json = JSON.parse(fs.readFileSync(path.join(outDir, "cut-json.json"), "utf8"));
+    expect(json).toEqual({ status: 200, headers: { "content-type": "application/json" }, error: json.error, framesSoFar: null, upstream: [] });
+    expect(["connection-reset", "body-read-failed"]).toContain(json.error);
+  });
+
+  test("a cut recording differs from a clean one, so compare reports it", async () => {
+    const server = cutServer();
+    const outDir = tmp("parity-cut-");
+    const mock = await mockUp({ outDir });
+    await record({ baseUrl: `http://127.0.0.1:${server.port}`, outDir, mock, fixtures: [fixture("cut-json", "/json")] });
+    const clean = tmp("parity-clean-");
+    fs.writeFileSync(path.join(clean, "cut-json.json"), JSON.stringify({ status: 200, headers: { "content-type": "application/json" }, body: { partial: true }, upstream: [] }));
+    expect(compareDirs(clean, outDir, []).unlisted.length).toBeGreaterThan(0);
+  });
+
+  test("a target that does not answer is recorded as status 0 and reported as unreachable", async () => {
+    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response("") });
+    const baseUrl = `http://127.0.0.1:${server.port}`;
+    await server.stop(true);
+    const outDir = tmp("parity-down-");
+    const mock = await mockUp({ outDir });
+    const { ids, unreachable } = await record({ baseUrl, outDir, mock, fixtures: [fixture("down", "/x")] });
+    expect(ids).toEqual(["down"]);
+    expect(unreachable).toEqual(["down"]);
+    expect(JSON.parse(fs.readFileSync(path.join(outDir, "down.json"), "utf8")).status).toBe(0);
+  });
+});
+
+describe("run", () => {
+  test("run refuses to clear an output directory that holds other files", () => {
+    const dir = tmp("parity-out-");
+    fs.writeFileSync(path.join(dir, "notes.txt"), "keep me");
+    const run = Bun.spawnSync([process.execPath, path.join(import.meta.dir, "run.mjs"), "--target", "next", "--out", dir], { cwd: repoRoot });
+    expect(run.exitCode).toBe(2);
+    expect(run.stderr.toString()).toContain("refusing to clear");
+    expect(fs.readFileSync(path.join(dir, "notes.txt"), "utf8")).toBe("keep me");
   });
 });

@@ -1,0 +1,11 @@
+{
+  "peer": "loopback",
+  "auth": "none",
+  "id": "v1-options-models-path",
+  "method": "OPTIONS",
+  "path": "/v1/models/a/b",
+  "headers": {
+    "origin": "https://example.com",
+    "access-control-request-method": "POST"
+  }
+}

@@ -1,7 +1,7 @@
 {
   "peer": "loopback",
   "auth": "apikey",
-  "id": "edge-slow-stream-cut",
+  "id": "zz-slow-stream-cut",
   "method": "POST",
   "path": "/v1/chat/completions",
   "json": {

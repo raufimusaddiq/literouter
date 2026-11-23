@@ -1,6 +1,5 @@
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
-import { v4 as uuidv4 } from "uuid";
 import { applyKiroSessionReplay } from "../../utils/kiroSessionReplay.js";
 import { resolveContinuationId, resolveSessionIdentity } from "../../utils/sessionManager.js";
 import {
@@ -175,13 +174,13 @@ function convertMessages(messages, model) {
           lastMsg.assistantResponseMessage.toolUses = toolUses.map(tc => {
             if (tc.function) {
               return {
-                toolUseId: tc.id || uuidv4(),
+                toolUseId: tc.id || crypto.randomUUID(),
                 name: tc.function.name,
                 input: safeJSONParse(tc.function.arguments, {})
               };
             } else {
               return {
-                toolUseId: tc.id || uuidv4(),
+                toolUseId: tc.id || crypto.randomUUID(),
                 name: tc.name,
                 input: tc.input || {}
               };

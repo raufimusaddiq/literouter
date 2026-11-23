@@ -1,0 +1,8 @@
+{
+  "peer": "lan",
+  "auth": "none",
+  "id": "api-pxpipe-health-noauth-lan",
+  "method": "POST",
+  "path": "/api/pxpipe/health",
+  "json": {}
+}

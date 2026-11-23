@@ -32,14 +32,26 @@ export function compareDirs(expectedDir, actualDir, known = []) {
     };
     for (const d of diffValues(read(expectedDir), read(actualDir))) diffs.push({ file: file.replace(/\.json$/, ""), ...d });
   }
-  const isKnown = (d) => known.some((k) => k.file === d.file && k.path === d.path);
-  const unlisted = diffs.filter((d) => !isKnown(d));
-  const stale = known.filter((k) => !diffs.some((d) => d.file === k.file && d.path === k.path));
+  const matches = (k, d) => k.file === d.file && k.path === d.path && (!("actual" in k) || same(k.actual, d.actual));
+  const unlisted = diffs.filter((d) => !known.some((k) => matches(k, d)));
+  const stale = known.filter((k) => !diffs.some((d) => matches(k, d)));
   return { diffs, unlisted, stale };
 }
 
+export function validateKnownDiffs(known) {
+  return known.flatMap((k, i) => {
+    const problems = [];
+    if (typeof k.file !== "string" || typeof k.path !== "string") problems.push("file and path must be strings");
+    if (typeof k.reason !== "string" || k.reason.length < 10) problems.push("reason of at least 10 characters is required");
+    return problems.map((problem) => `known-diffs[${i}]: ${problem}`);
+  });
+}
+
 export function loadKnownDiffs(file = new URL("./known-diffs.json", import.meta.url)) {
-  return JSON.parse(fs.readFileSync(file, "utf8"));
+  const known = JSON.parse(fs.readFileSync(file, "utf8"));
+  const problems = validateKnownDiffs(known);
+  if (problems.length) throw new Error(problems.join(String.fromCharCode(10)));
+  return known;
 }
 
 if (import.meta.main) {

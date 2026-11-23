@@ -5,7 +5,7 @@
     "content-encoding": "gzip",
     "content-type": "application/json;charset=utf-8",
     "set-cookie": [
-      "auth_token=<MASKED>; Path=/; Expires=<DATE>"
+      "auth_token=<MASKED>; Path=/; Expires=<DATE-PAST>"
     ]
   },
   "body": {

@@ -1,0 +1,8 @@
+{
+  "peer": "lan",
+  "auth": "none",
+  "id": "api-providers-validate-noauth-lan",
+  "method": "POST",
+  "path": "/api/providers/validate",
+  "json": {}
+}

@@ -1,0 +1,7 @@
+{
+  "peer": "proxied",
+  "auth": "none",
+  "id": "api-headroom-proxy-path-noauth-proxied",
+  "method": "GET",
+  "path": "/api/headroom/proxy/x/y"
+}

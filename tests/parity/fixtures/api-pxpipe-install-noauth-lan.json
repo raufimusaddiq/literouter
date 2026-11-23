@@ -1,0 +1,8 @@
+{
+  "peer": "lan",
+  "auth": "none",
+  "id": "api-pxpipe-install-noauth-lan",
+  "method": "POST",
+  "path": "/api/pxpipe/install",
+  "json": {}
+}

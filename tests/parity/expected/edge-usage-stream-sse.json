@@ -8,12 +8,6 @@
   "frames": [
     {
       "data": "{\"activeRequests\":[],\"recentRequests\":[],\"errorProvider\":\"\",\"pending\":{\"byModel\":{},\"byAccount\":{}},\"refresh\":false}"
-    },
-    {
-      "data": "{\"activeRequests\":[],\"recentRequests\":[{\"timestamp\":\"<ISO>\",\"model\":\"mock-slow-stream\",\"provider\":\"openai-compatible-chat-parity\",\"promptTokens\":22,\"completionTokens\":1,\"status\":\"ok\"}],\"errorProvider\":\"\",\"pending\":{\"byModel\":{},\"byAccount\":{}},\"refresh\":false}"
-    },
-    {
-      "data": "{\"activeRequests\":[],\"recentRequests\":[{\"timestamp\":\"<ISO>\",\"model\":\"mock-slow-stream\",\"provider\":\"openai-compatible-chat-parity\",\"promptTokens\":22,\"completionTokens\":1,\"status\":\"ok\"}],\"errorProvider\":\"\",\"pending\":{\"byModel\":{},\"byAccount\":{}},\"refresh\":true}"
     }
   ],
   "upstream": []

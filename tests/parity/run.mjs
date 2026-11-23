@@ -19,6 +19,14 @@ if (!["next", "bun"].includes(target) || !outArg) {
 }
 const outDir = path.resolve(outArg);
 
+const MAX_UNREACHABLE = 3;
+const stale = fs.existsSync(outDir) ? fs.readdirSync(outDir).filter((f) => f !== "upstream-requests.jsonl" && !f.endsWith(".json")) : [];
+if (stale.length) {
+  console.error(`refusing to clear ${outDir}: it holds files that are not parity output (${stale.slice(0, 3).join(", ")})`);
+  process.exit(2);
+}
+if (fs.existsSync(outDir)) for (const f of fs.readdirSync(outDir)) fs.rmSync(path.join(outDir, f), { force: true });
+
 const freePort = () => {
   const s = Bun.serve({ port: 0, fetch: () => new Response("") });
   const p = s.port;
@@ -34,12 +42,25 @@ fs.mkdirSync(home, { recursive: true });
 fs.writeFileSync(path.join(dataDir, "machine-id"), PARITY.machineId);
 fs.writeFileSync(path.join(dataDir, "auth", "cli-secret"), PARITY.cliSecret);
 
-fs.rmSync(outDir, { recursive: true, force: true });
 process.env.MOCK_STREAM_PAUSE_MS = String(PARITY.slowStreamPauseMs);
 const mock = await startMockUpstream({ port: PARITY.mockPort, outDir });
 
 let child;
 let code = 1;
+const stopChild = async () => {
+  if (!child || child.exitCode !== null) return;
+  child.kill();
+  await Promise.race([child.exited, Bun.sleep(5000)]);
+  if (child.exitCode === null) child.kill("SIGKILL");
+};
+for (const sig of ["SIGINT", "SIGTERM"]) {
+  process.on(sig, async () => {
+    await stopChild();
+    await mock.stop();
+    fs.rmSync(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    process.exit(130);
+  });
+}
 try {
   const seed = Bun.spawnSync(["bun", path.join(repoRoot, "tests/parity/seed.mjs"), dataDir, "--upstream", mock.url, "--print-key"], { cwd: repoRoot, env: { ...process.env, HOME: home, USERPROFILE: home } });
   if (seed.exitCode !== 0) throw new Error(`seed failed: ${seed.stderr.toString()}${seed.stdout.toString()}`);
@@ -86,16 +107,16 @@ try {
   }
   if (!ready) throw new Error(`target did not become healthy:\n${serverLog.join("")}`);
 
-  const ids = await record({ baseUrl, outDir, mock, only, dataDir, log: console.error });
+  const { ids, unreachable } = await record({ baseUrl, outDir, mock, only, dataDir, log: console.error });
   console.log(`recorded ${ids.length} fixtures into ${outDir}`);
+  if (child.exitCode !== null) throw new Error(`target exited during recording (code ${child.exitCode}):
+${serverLog.join("")}`);
+  if (unreachable.length > MAX_UNREACHABLE) throw new Error(`${unreachable.length} fixtures got no response (limit ${MAX_UNREACHABLE}): ${unreachable.join(", ")}`);
   code = 0;
 } catch (e) {
   console.error(e.message ?? e);
 } finally {
-  if (child && child.exitCode === null) {
-    child.kill();
-    await child.exited;
-  }
+  await stopChild();
   await mock.stop();
   fs.rmSync(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

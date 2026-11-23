@@ -36,8 +36,8 @@ async function readDesktopAccountCookies() {
     return null;
   }
   try {
-    const { DatabaseSync } = await import("node:sqlite");
-    const db = new DatabaseSync(tmp, { readOnly: true });
+    const { Database } = await import("bun:sqlite");
+    const db = new Database(tmp, { readonly: true });
     const rows = db.prepare("SELECT name, value FROM cookies WHERE host_key = ?").all("." + ACCOUNT_HOST);
     db.close();
     const jar = Object.fromEntries(rows.map((r) => [r.name, r.value]));

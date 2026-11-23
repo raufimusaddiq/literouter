@@ -4,53 +4,6 @@ import { stripNullBytes } from "./helpers/nullBytes.js";
 if (!global._dbAdapter) global._dbAdapter = { instance: null, initPromise: null, logged: false };
 const state = global._dbAdapter;
 
-async function tryBunSqlite() {
-  if (!process.versions.bun) return null;
-  try {
-    const { createBunSqliteAdapter } = await import("./adapters/bunSqliteAdapter.js");
-    return await createBunSqliteAdapter(DATA_FILE);
-  } catch (e) {
-    console.warn(`[DB] bun:sqlite unavailable: ${e.message}`);
-    return null;
-  }
-}
-
-async function tryBetterSqlite() {
-  if (process.versions.bun) return null;
-  const [nodeMajor] = process.versions.node.split(".").map(Number);
-  if (nodeMajor >= 24) return null;
-  try {
-    const { createBetterSqliteAdapter } = await import("./adapters/betterSqliteAdapter.js");
-    return createBetterSqliteAdapter(DATA_FILE);
-  } catch (e) {
-    console.warn(`[DB] better-sqlite3 unavailable: ${e.message}`);
-    return null;
-  }
-}
-
-async function tryNodeSqlite() {
-  if (process.versions.bun) return null;
-  const [maj, min] = process.versions.node.split(".").map(Number);
-  if (maj < 22 || (maj === 22 && min < 5)) return null;
-  try {
-    const { createNodeSqliteAdapter } = await import("./adapters/nodeSqliteAdapter.js");
-    return await createNodeSqliteAdapter(DATA_FILE);
-  } catch (e) {
-    console.warn(`[DB] node:sqlite unavailable: ${e.message}`);
-    return null;
-  }
-}
-
-async function trySqlJs() {
-  try {
-    const { createSqlJsAdapter } = await import("./adapters/sqljsAdapter.js");
-    return await createSqlJsAdapter(DATA_FILE);
-  } catch (e) {
-    console.warn(`[DB] sql.js unavailable: ${e.message}`);
-    return null;
-  }
-}
-
 function withNullByteSafeParams(adapter) {
   const clean = (params) => (Array.isArray(params) ? params.map(stripNullBytes) : params);
   return {
@@ -63,13 +16,9 @@ function withNullByteSafeParams(adapter) {
 
 async function initAdapter() {
   ensureDirs();
-  let adapter = await tryBunSqlite();
-  if (!adapter) adapter = await tryBetterSqlite();
-  if (!adapter) adapter = await tryNodeSqlite();
-  if (!adapter) adapter = await trySqlJs();
-  if (!adapter) throw new Error("[DB] No SQLite driver available (bun/better/node/sql.js all failed)");
-
-  adapter = withNullByteSafeParams(adapter);
+  if (!process.versions.bun) throw new Error("LiteRouter requires the Bun runtime (bun:sqlite)");
+  const { createBunSqliteAdapter } = await import("./adapters/bunSqliteAdapter.js");
+  const adapter = withNullByteSafeParams(await createBunSqliteAdapter(DATA_FILE));
 
   if (!state.logged) {
     console.log(`[DB] Driver: ${adapter.driver} | file: ${DATA_FILE}`);

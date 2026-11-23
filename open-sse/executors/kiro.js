@@ -5,7 +5,6 @@ import {
   KIRO_ENDPOINT_FALLBACK_STATUSES,
   resolveKiroModel,
 } from "../config/kiroConstants.js";
-import { v4 as uuidv4 } from "uuid";
 import { refreshKiroToken } from "../services/tokenRefresh.js";
 import { SSE_DONE, SSE_HEADERS } from "../utils/sseConstants.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
@@ -229,7 +228,7 @@ export class KiroExecutor extends BaseExecutor {
     const headers = {
       ...this.config.headers,
       "Amz-Sdk-Request": "attempt=1; max=3",
-      "Amz-Sdk-Invocation-Id": uuidv4()
+      "Amz-Sdk-Invocation-Id": crypto.randomUUID()
     };
     if (url.includes("://codewhisperer.")) {
       headers["X-Amz-Target"] = KIRO_CODEWHISPERER_TARGET;
