@@ -38,7 +38,7 @@ cd cli && npm run dev  # nodemon watch
 Tests (`bun test`, in `tests/`, an **independent** ESM package; the root `test` script (`bun run test`) just calls `cd tests && bun test --parallel`):
 ```bash
 bun install                             # ROOT deps first: tests import from src/, which resolves the app's own dependencies from the root node_modules
-cd tests && bun install                 # tests' own install (one devDependency, bcryptjs, for the password-bcrypt-compat test)
+cd tests && bun install                 # tests' own install (devDependencies: bcryptjs for the password-bcrypt-compat test, `compression` 1.7.5 for the sse-no-compression test, and happy-dom plus its global registrator for the web tests)
 cd tests && bun test --parallel         # all tests
 cd tests && bun test unit/capabilities.test.js   # single file (path relative to tests/)
 cd tests && CI=true bun test --parallel --reporter=junit --reporter-outfile=../test-results.xml   # what CI runs

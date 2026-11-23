@@ -60,6 +60,8 @@ const eslintConfig = defineConfig([
     rules: { "local/no-comments": "error" },
   },
   globalIgnores([
+    ".next/**",
+    "next-env.d.ts",
     "dist/**",
     "out/**",
     "build/**",
