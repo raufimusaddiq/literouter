@@ -6,6 +6,12 @@ import { mockBootCollaborators } from "../helpers/bootMocks.js";
 useTempDataDirAtLoad("lr-v1-routes-");
 mockBootCollaborators();
 
+const realChildProcess = await import("node:child_process");
+const hostToolMissing = () => {
+  throw new Error("host tool lookup stubbed");
+};
+vi.mock("child_process", () => ({ ...realChildProcess, execSync: hostToolMissing, execFileSync: hostToolMissing }));
+
 const chatCalls = [];
 vi.mock("@/sse/handlers/chat.js", () => ({
   handleChat: async (request) => {
