@@ -461,6 +461,7 @@
     "tests/unit/system-ca-trust.test.js :: useSystemCaStore is enabled in the production image": "moved to tests/server/ca.test.js (is enabled in the production image)"
   },
   "waived": {
+    "tests/unit/standalone-assets.test.js": "tests/unit/build-assets.test.js — Next standalone asset copying is replaced by Bun.build app-bundle assets; same behaviours (public assets copied next to the bundle, custom output dir, no server wrapper copied, root package.json untouched) plus stale-web cleanup, icon manifest regeneration and the compile-target guard",
     "tests/unit/cli-build-artifacts.test.js": "tests/unit/cli-build.test.js — the Next standalone merge is replaced by the Bun app-bundle copy; same four cases (copy, idempotent, missing-artifact report, plus skipping maps and env files)",
     "tests/unit/custom-server-peer-headers.test.js": "tests/server/peer-headers.test.js — custom-server.js is deleted; the peer-header cases now run against the Bun server's trust and strip logic, with the same seven cases",
     "tests/unit/custom-server-h2c.test.js": "tests/server/h2c.test.js — Bun serves h2c upgrade requests as HTTP/1.1 itself, so the Node downgrade shim and its tests go away; the chunked case now asserts the body is served instead of 411",

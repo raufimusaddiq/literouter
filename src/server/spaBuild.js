@@ -1,8 +1,8 @@
 import { readdirSync, rmSync, watch } from "node:fs";
 import { join } from "node:path";
-import { buildWeb } from "../web/build.js";
 import { REPO_ROOT, SPA_DIR, SPA_DIR_OVERRIDE, isBundled, isCompiled } from "./paths.js";
 
+const WEB_BUILD_MODULE = ["..", "web", "build.js"].join("/");
 const MISSING_CODE = "SPA_MISSING";
 const WATCHED = ["src", "open-sse"];
 const DEV_ROOT = join(REPO_ROOT, "dist", "web-dev");
@@ -77,6 +77,7 @@ export function startWatchers() {
 function devBuild() {
   startWatchers();
   const run = buildTail.then(async () => {
+    const { buildWeb } = await import(WEB_BUILD_MODULE);
     const { outdir } = await buildWeb({ production: false, outdir: DEV_OUTDIR });
     return readBuilt(outdir);
   });
