@@ -113,6 +113,19 @@ describe("normalize", () => {
     });
   });
 
+  test("normalize masks the request-detail latency object and nothing else under it", () => {
+    expect(normalizeBody({ details: [{ latency: { ttft: 52, total: 58, other: 7 }, status: "success" }] })).toEqual({
+      details: [{ latency: { ttft: "<MS>", total: "<MS>", other: 7 }, status: "success" }],
+    });
+  });
+
+  test("normalize masks the wall-clock created_at seconds a Responses stream frame carries", () => {
+    expect(normalizeBody({ data: '{"type":"response.created","response":{"created_at":1795431541,"status":"in_progress"}}' })).toEqual({
+      data: '{"type":"response.created","response":{"created_at":"<EPOCH_S>","status":"in_progress"}}',
+    });
+    expect(normalizeBody({ created_at: 1763800000 })).toEqual({ created_at: 1763800000 });
+  });
+
   test("normalize masks cooldown countdowns", () => {
     expect(normalizeBody({ error: "[x] [429]: slow (reset after 2s)" })).toEqual({ error: "[x] [429]: slow (reset after <N>s)" });
   });

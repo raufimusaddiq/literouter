@@ -108,5 +108,6 @@ test-results.xml
 
 # parity run output
 /parity-actual/
+/parity-out/
 /dist/
 cli/app/

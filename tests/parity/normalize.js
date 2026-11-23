@@ -5,6 +5,7 @@ const CHATCMPL = /\bchatcmpl-[\w-]+/g;
 const MSG = /\bmsg_[\w-]+/g;
 const EPOCH_MS = /\b1[5-9]\d{11}\b/g;
 const RESET_AFTER = /reset after \d+s/g;
+const CREATED_AT_SECONDS = /("created_at":)1[5-9]\d{8}\b/g;
 const RETRY_TEXT = /\bin \d+s\b/g;
 
 export const MASK = {
@@ -24,10 +25,18 @@ export function maskString(s) {
     .replace(CHATCMPL, MASK.chatcmpl)
     .replace(MSG, MASK.msg)
     .replace(RESET_AFTER, "reset after <N>s")
-    .replace(EPOCH_MS, MASK.epoch);
+    .replace(EPOCH_MS, MASK.epoch)
+    .replace(CREATED_AT_SECONDS, '$1"<EPOCH_S>"');
 }
 
 const TIMING_KEY = /^(latencyMs|durationMs|elapsedMs|ttftMs)$/;
+const LATENCY_FIELD = /^(ttft|total)$/;
+
+function maskLatency(latency) {
+  const out = {};
+  for (const [k, v] of Object.entries(latency)) out[k] = typeof v === "number" && LATENCY_FIELD.test(k) ? "<MS>" : normalizeBody(v);
+  return out;
+}
 
 export function normalizeBody(value) {
   if (typeof value === "string") return maskString(value);
@@ -35,7 +44,7 @@ export function normalizeBody(value) {
   if (Array.isArray(value)) return value.map(normalizeBody);
   if (value && typeof value === "object") {
     const out = {};
-    for (const [k, v] of Object.entries(value)) out[k] = typeof v === "number" && TIMING_KEY.test(k) ? "<MS>" : normalizeBody(v);
+    for (const [k, v] of Object.entries(value)) out[k] = typeof v === "number" && TIMING_KEY.test(k) ? "<MS>" : k === "latency" && v && typeof v === "object" ? maskLatency(v) : normalizeBody(v);
     return out;
   }
   return value;
