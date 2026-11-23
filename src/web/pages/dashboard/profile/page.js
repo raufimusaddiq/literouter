@@ -643,7 +643,7 @@ export default function ProfilePage() {
 
           <Section title="Data">
             <SettingRow title="Database Location">
-              <span className="break-all text-right font-mono text-[12.5px] text-muted">~/.9router/db/data.sqlite</span>
+              <span className="text-right text-[12.5px] text-muted">the data dir (<span className="font-mono">DATA_DIR</span>)</span>
             </SettingRow>
             <div className="flex flex-col gap-3 pt-4">
               <div className="flex flex-col gap-2 sm:flex-row">
