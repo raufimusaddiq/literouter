@@ -34,6 +34,15 @@ export const GUARDED_PATHS = [
   "src/shared/components/ModelSelectModal.js",
   "src/shared/components/NoAuthProxyCard.js",
   "src/shared/components/PricingModal.js",
+  "src/web/pages/dashboard/console-log",
+  "src/web/pages/dashboard/profile",
+  "src/web/pages/dashboard/settings/pricing/page.js",
+  "src/web/pages/login/page.js",
+  "src/web/pages/callback/page.js",
+  "src/web/App.jsx",
+  "src/shared/components/LanguageSwitcher.js",
+  "src/shared/components/HeaderLanguage.js",
+  "src/shared/components/ThemeToggle.js",
 ];
 
 const BACKDROP_BLUR_ALLOWED = new Set(["src/shared/components/shell/TopBar.js"]);
