@@ -32,8 +32,8 @@ For each input batch, write `classified/<same batch name>.jsonl` under the audit
 
 Extra fields:
 
-- **decision** adds `"adr":{"topic":"<kebab-case area, e.g. trusted-proxy-ip, ssrf-image-fetch, provider-kiro-eventstream, sqlite-driver, translator-openai-pivot, rtk-fail-open>","title":"<short decision title>","decision":"<1–3 sentences: the decision and why, rewritten as a standalone statement, naming the code location>"}`
-  - Reuse broad topics so related decisions group into a single ADR. Prefer roughly 30–60 topics repo-wide over one per comment.
+- **decision** adds `"adr":{"topic":"<one of the docs/adr topic file names>","title":"<short decision title>","decision":"<1–3 sentences: the decision and why, rewritten as a standalone statement, naming the code location>"}`
+  - Reuse broad topics so related decisions group into a single topic file. Use the topic files in `docs/adr/` (security, server-runtime, outbound, streaming, routing, translator, models-usage, providers, storage, dashboard, cli, testing).
 - **excuse** adds `"issue":{"title":"<imperative, ≤ 70 chars>","body":"<what is hacky, where (file:line), and what the proper fix would be, 2–5 sentences>","dedupeKey":"<kebab-case root cause>"}`
   - Give comments that share a root cause the same `dedupeKey`.
 - **keep** adds nothing, but its reason must name what requires it to stay.
