@@ -1,7 +1,7 @@
-import pkg from "../../../package.json" with { type: "json" };
+import { version } from "../../../package.json" with { type: "json" };
 
 export function getAppVersion() {
-  return pkg.version || "0.0.0";
+  return version || "0.0.0";
 }
 
 export function timestampSlug(date = new Date()) {
