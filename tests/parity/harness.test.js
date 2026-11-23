@@ -208,6 +208,25 @@ describe("compare", () => {
     expect(worse.stale.length).toBe(1);
   });
 
+  test("a known-diff marked absent matches only a value that is missing from the actual output", () => {
+    const expected = tmp("parity-exp-");
+    const actual = tmp("parity-act-");
+    write(expected, "a", { headers: { "content-encoding": "gzip" } });
+    write(actual, "a", { headers: {} });
+    const absent = [{ file: "a", path: "headers.content-encoding", absent: true, reason: "the header is no longer sent" }];
+    expect(compareDirs(expected, actual, absent)).toMatchObject({ unlisted: [], stale: [] });
+    const present = tmp("parity-act-");
+    write(present, "a", { headers: { "content-encoding": "br" } });
+    const changed = compareDirs(expected, present, absent);
+    expect(changed.unlisted.map((d) => d.path)).toEqual(["headers.content-encoding"]);
+    expect(changed.stale.length).toBe(1);
+  });
+
+  test("every committed known-diff pins its actual value or marks it absent", () => {
+    const unpinned = loadKnownDiffs().filter((k) => !("actual" in k) && k.absent !== true);
+    expect(unpinned).toEqual([]);
+  });
+
   test("known-diffs entries need a file, a path and a reason", () => {
     expect(validateKnownDiffs([{ file: "a", path: "status", reason: "documented difference" }])).toEqual([]);
     expect(validateKnownDiffs([{ file: "a", path: "status" }])).toEqual(["known-diffs[0]: reason of at least 10 characters is required"]);

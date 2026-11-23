@@ -32,7 +32,8 @@ export function compareDirs(expectedDir, actualDir, known = []) {
     };
     for (const d of diffValues(read(expectedDir), read(actualDir))) diffs.push({ file: file.replace(/\.json$/, ""), ...d });
   }
-  const matches = (k, d) => k.file === d.file && k.path === d.path && (!("actual" in k) || same(k.actual, d.actual));
+  const pinnedValue = (k, d) => (k.absent ? d.actual === undefined : !("actual" in k) || same(k.actual, d.actual));
+  const matches = (k, d) => k.file === d.file && k.path === d.path && pinnedValue(k, d);
   const unlisted = diffs.filter((d) => !known.some((k) => matches(k, d)));
   const stale = known.filter((k) => !diffs.some((d) => matches(k, d)));
   return { diffs, unlisted, stale };

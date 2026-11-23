@@ -26,6 +26,7 @@
   {
     "file": "api-v1-api-chat-noauth",
     "path": "headers.content-encoding",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): a direct loopback request with no proxy markers is local, so the real /v1 handler runs instead of the guard's remote 401; Next 16 base-server added x-forwarded-* to every request and never saw a local peer"
   },
   {
@@ -43,6 +44,7 @@
   {
     "file": "api-v1-api-chat-noauth",
     "path": "body.error",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): a direct loopback request with no proxy markers is local, so the real /v1 handler runs instead of the guard's remote 401; Next 16 base-server added x-forwarded-* to every request and never saw a local peer"
   },
   {
@@ -117,11 +119,13 @@
   {
     "file": "api-v1-messages-count-tokens-noauth",
     "path": "body.type",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): a direct loopback request with no proxy markers is local, so the real /v1 handler runs instead of the guard's remote 401; Next 16 base-server added x-forwarded-* to every request and never saw a local peer"
   },
   {
     "file": "api-v1-messages-count-tokens-noauth",
     "path": "body.error",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): a direct loopback request with no proxy markers is local, so the real /v1 handler runs instead of the guard's remote 401; Next 16 base-server added x-forwarded-* to every request and never saw a local peer"
   },
   {
@@ -175,6 +179,7 @@
   {
     "file": "api-v1-models-info-noauth",
     "path": "body.error.code",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): a direct loopback request with no proxy markers is local, so the real /v1 handler runs instead of the guard's remote 401; Next 16 base-server added x-forwarded-* to every request and never saw a local peer"
   },
   {
@@ -192,6 +197,7 @@
   {
     "file": "api-v1-models-kind-noauth",
     "path": "body.error",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): a direct loopback request with no proxy markers is local, so the real /v1 handler runs instead of the guard's remote 401; Next 16 base-server added x-forwarded-* to every request and never saw a local peer"
   },
   {
@@ -221,6 +227,7 @@
   {
     "file": "api-v1-models-model-noauth",
     "path": "body.error",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): a direct loopback request with no proxy markers is local, so the real /v1 handler runs instead of the guard's remote 401; Next 16 base-server added x-forwarded-* to every request and never saw a local peer"
   },
   {
@@ -300,6 +307,7 @@
   {
     "file": "api-v1-models-noauth",
     "path": "body.error",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): a direct loopback request with no proxy markers is local, so the real /v1 handler runs instead of the guard's remote 401; Next 16 base-server added x-forwarded-* to every request and never saw a local peer"
   },
   {
@@ -523,6 +531,7 @@
   {
     "file": "api-v1-noauth",
     "path": "body.error",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): a direct loopback request with no proxy markers is local, so the real /v1 handler runs instead of the guard's remote 401; Next 16 base-server added x-forwarded-* to every request and never saw a local peer"
   },
   {
@@ -788,11 +797,13 @@
   {
     "file": "api-v1-systemone-noauth",
     "path": "body.error.type",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): a direct loopback request with no proxy markers is local, so the real /v1 handler runs instead of the guard's remote 401; Next 16 base-server added x-forwarded-* to every request and never saw a local peer"
   },
   {
     "file": "api-v1-systemone-noauth",
     "path": "body.error.code",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): a direct loopback request with no proxy markers is local, so the real /v1 handler runs instead of the guard's remote 401; Next 16 base-server added x-forwarded-* to every request and never saw a local peer"
   },
   {
@@ -804,6 +815,7 @@
   {
     "file": "api-v1beta-models-noauth",
     "path": "body.error",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): a direct loopback request with no proxy markers is local, so the real /v1 handler runs instead of the guard's remote 401; Next 16 base-server added x-forwarded-* to every request and never saw a local peer"
   },
   {
@@ -889,6 +901,7 @@
   {
     "file": "trust-reset-password-loopback-session",
     "path": "body.error",
+    "absent": true,
     "reason": "Local-trust change (spec 6.3): direct loopback is local, so reset-password is allowed (200) instead of the remote 403"
   },
   {
