@@ -1,5 +1,7 @@
 import http from "node:http";
 import net from "node:net";
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
 import { createRequire } from "node:module";
 import { expect, test } from "bun:test";
 
@@ -108,4 +110,54 @@ test("rejects a chunked h2c request with 411 instead of dropping the body", asyn
     expect(response).toMatch(/^HTTP\/1\.1 411 Length Required\r\n/);
     expect(seen.url).toBeUndefined();
   });
+});
+
+function fakeUpgrade(contentLength) {
+  const req = new EventEmitter();
+  req.method = "POST";
+  req.url = "/v1/chat/completions";
+  req.headers = { upgrade: "h2c", "content-length": String(contentLength), host: "127.0.0.1" };
+  const socket = new PassThrough();
+  socket.setTimeout = () => socket;
+  socket.remoteAddress = "127.0.0.1";
+  const written = [];
+  socket.on("data", (c) => written.push(c));
+  return { req, socket, output: () => Buffer.concat(written).toString("utf8") };
+}
+
+async function driveBothPaths(chunks, contentLength) {
+  delete require.cache[require.resolve("../../custom-server.js")];
+  require("../../custom-server.js");
+  const originalCreateServer = http.createServer;
+  let handled;
+  const seen = new Promise((resolve) => { handled = resolve; });
+  const server = http.createServer(async (req, res) => {
+    const body = [];
+    for await (const chunk of req) body.push(chunk);
+    handled(Buffer.concat(body).toString("utf8"));
+    res.end("ok");
+  });
+  http.createServer = originalCreateServer;
+  const { req, socket, output } = fakeUpgrade(contentLength);
+  server.emit("upgrade", req, socket, Buffer.alloc(0));
+  for (const chunk of chunks) {
+    const buf = Buffer.from(chunk);
+    socket.emit("data", buf);
+    req.emit("data", buf);
+  }
+  const outcome = await Promise.race([seen, new Promise((resolve) => setTimeout(() => resolve(null), 1_000))]);
+  return { outcome, output: output() };
+}
+
+test("counts a chunk once when socket and req both emit it", async () => {
+  const { outcome } = await driveBothPaths(["01234", "56789"], 10);
+  expect(outcome).toBe("0123456789");
+});
+
+test("does not answer 413 when both sources echo a body under the cap", async () => {
+  const first = "a".repeat(600);
+  const second = "b".repeat(400);
+  const { outcome, output } = await driveBothPaths([first, second], 1000);
+  expect(output).not.toMatch(/413 Payload Too Large/);
+  expect(outcome).toBe(first + second);
 });
