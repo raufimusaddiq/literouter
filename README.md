@@ -38,7 +38,7 @@ docker compose up -d
 
 Open `http://localhost:20128`. Configure providers in the dashboard, then point a compatible client at `http://localhost:20128/v1`.
 
-For the repository production deployment, use [`compose.production.yml`](compose.production.yml). Image builds run in GitHub Actions; the host pulls published images. Staging is sunset: no staging deployment and no `staging-latest` tag.
+For the repository production deployment, use [`compose.production.yml`](compose.production.yml). Image builds run in GitHub Actions; the host pulls published images. `staging` is the pre-main integration branch: it builds CI and a `-staging` image only, with no staging deployment and no `staging-latest` tag.
 
 ## LiteRouter vs 9Router
 

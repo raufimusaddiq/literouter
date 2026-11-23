@@ -59,6 +59,8 @@ Like vitest, advancing by 0 must fire timers due now (`setTimeout(fn)`, `setTime
 
 ### D8. The junit gates catch load failures through counts, not errors
 
+_Superseded in part: `verify-test-counts.mjs` and `record-test-counts.mjs` were removed after the production cutover. `verify-no-regression.mjs` and `junit.mjs` remain._
+
 Bun does not report load-time failures ("Unhandled error between tests") in the junit: the broken file is simply absent and the root `errors` attribute is never set. Throws from timers and unhandled rejections are attributed to the running test as a failure. `verify-no-regression.mjs` therefore treats any root `errors` above 0 as a defensive, strict failure, and `verify-test-counts.mjs` catches load failures because a baseline file missing from the junit counts as 0 cases, below its recorded count. The count gate also reports a path mismatch when no junit path matches a baseline key, which happens when the run is not started from `tests/`; paths in the report may be absolute or backslashed and are normalised to `tests/<path>` to match the known-fails keys. `record-test-counts.mjs` freezes counts from a vitest JSON report, one per assertion of any status, and `*.live.test.js` files are absent because they are ignored (D2).
 
 Usage: `bun tests/__baseline__/verify-no-regression.mjs <junit.xml>` and `bun tests/__baseline__/verify-test-counts.mjs <junit.xml>`, run from the repo root after `bun test` from `tests/`. Exit codes: 0 ok, 1 regression or count drop, 2 bad usage (missing path).
@@ -67,15 +69,19 @@ Usage: `bun tests/__baseline__/verify-no-regression.mjs <junit.xml>` and `bun te
 
 ### D9. system-ca-trust has a count override
 
+_Superseded: the count baseline and its overrides were removed after the production cutover. Kept for history._
+
 `tests/unit/system-ca-trust.test.js` failed to load under vitest on Windows (it cannot find `custom-server.js`), so the vitest report held no assertions for it and the frozen baseline would have recorded 0. `test-counts-overrides.json` records the 5 `it()` calls counted statically, with no each, loops or conditionals, and `record-test-counts.mjs` warns on stderr about any zero-assertion file without an override.
 
 **Where:** `tests/__baseline__/test-counts-overrides.json`; `tests/__baseline__/record-test-counts.mjs`
 
 ### D10. The codemod keeps vitest-specific shapes for manual review
 
-`scripts/migrate-vitest-to-bun.mjs` is re-run on every merge from staging, which keeps bringing vitest-style tests, until the cutover. It rewrites only shapes with an exact Bun equivalent: named vitest imports, `vi.doMock`, `.fails`, and a missing `vi` import. Shapes with no exact equivalent (`importActual`, `importOriginal`, `doUnmock`, `expectTypeOf`, `assertType`, other vitest import forms) are reported as manual-review items and left unchanged rather than guessed at, so a human decides each one. It works on a masked copy of the source with comments and string text blanked, so a vitest import mentioned in a comment or string is never rewritten. It never adds comments; its `--snapshots` mode converts `.snap` files by changing the header and replacing the ` > ` key separator with a space, and re-lays multi-line string values out the way Bun prints them. `--check` exits non-zero when any file would change. Usage: `bun scripts/migrate-vitest-to-bun.mjs [--check] [--snapshots] <dir>...`.
+_Superseded: the vitest-to-bun codemod and its CI steps were removed after the production cutover. Kept for history._
 
-**Where:** `scripts/migrate-vitest-to-bun.mjs`; `tests/unit/migrate-vitest-to-bun.test.js`
+The vitest-to-bun codemod (removed) was re-run on every merge from staging, which keeps bringing vitest-style tests, until the cutover. It rewrites only shapes with an exact Bun equivalent: named vitest imports, `vi.doMock`, `.fails`, and a missing `vi` import. Shapes with no exact equivalent (`importActual`, `importOriginal`, `doUnmock`, `expectTypeOf`, `assertType`, other vitest import forms) are reported as manual-review items and left unchanged rather than guessed at, so a human decides each one. It works on a masked copy of the source with comments and string text blanked, so a vitest import mentioned in a comment or string is never rewritten. It never adds comments; its `--snapshots` mode converts `.snap` files by changing the header and replacing the ` > ` key separator with a space, and re-lays multi-line string values out the way Bun prints them. `--check` exits non-zero when any file would change. 
+
+**Where:** the vitest-to-bun codemod and its test (removed)
 
 ### D11. Module mocks are not hoisted and cannot be undone within a file
 
@@ -111,7 +117,7 @@ Bun's `toMatchObject` replaces received values with the `expect.any(...)` matche
 
 `%s` interpolates only strings, `%d`, `%i` and `%f` only numbers, and `%o` prints a literal `O`; `%p`, `%j`, `%#` and `$prop` work. The codemod rewrites `%s` and `%o` to `%p`, and `verify-no-regression.mjs` warns on duplicate `file :: name` keys. An `.each` title with no placeholder gives every row the same name; add `%#` so the names stay distinct (`codex-compact.test.js`, `kiro-terminal-integrity.test.js`).
 
-**Where:** `scripts/migrate-vitest-to-bun.mjs`; `tests/__baseline__/verify-no-regression.mjs`; `tests/unit/codex-compact.test.js`; `tests/unit/kiro-terminal-integrity.test.js`
+**Where:** `tests/__baseline__/verify-no-regression.mjs`; `tests/unit/codex-compact.test.js`; `tests/unit/kiro-terminal-integrity.test.js`
 
 ### D17. The CA trust test asserts Bun's behaviour, not the server wiring
 
@@ -126,6 +132,8 @@ Per-file module isolation needs `--parallel` (see D4). A full run took about 11 
 **Where:** `tests/package.json`; `.github/workflows/test.yml`
 
 ### D19. Deleted tests are recorded in the count baseline
+
+_Superseded: the count baseline was removed after the production cutover; a test merge or deletion now proves its before/after assertions in its own PR. Kept for history._
 
 `test-counts.json` has a `"deleted": { "<file> :: <full name>": "<reason>" }` map; a whole-file deletion uses `"<file> :: *"`. `files` stays at the frozen vitest counts. `verify-test-counts.mjs` subtracts one from a file's expected count per deleted case, so a lowered count without an entry fails. A whole-file entry must state `(N cases)` equal to the frozen count and the file must run 0 cases. The gate prints the list on every run and fails when a deleted case still runs or its file has no frozen count.
 
