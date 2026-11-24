@@ -1,6 +1,6 @@
 services:
   literouter:
-    image: ghcr.io/raufimusaddiq/literouter:1.0.1
+    image: ghcr.io/raufimusaddiq/literouter:1.0.2
     container_name: literouter
     restart: always
     ports:
