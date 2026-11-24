@@ -106,7 +106,7 @@ export const MODEL_PRICING = {
   "kimi-k3":                      { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.00  },
   "k3":                           { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.00  },
   "k3.1-pro":                     { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.00  },
-  "k3.1-pro-highspeed":           { input: 0,     output: 0,     cached: 0,     reasoning: 0,      cache_creation: 0     },
+  "k3.1-pro-highspeed":           { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.00  },
   "kimi-k2.7-code":               { input: 0.95,  output: 4.00,  cached: 0.19,  reasoning: 4.00,   cache_creation: 0.95  },
   "kimi-k2.7-code-highspeed":     { input: 1.90,  output: 8.00,  cached: 0.38,  reasoning: 8.00,   cache_creation: 1.90  },
   "kimi-for-coding":              { input: 0.95,  output: 4.00,  cached: 0.19,  reasoning: 4.00,   cache_creation: 0.95  },
@@ -240,22 +240,22 @@ export const PROVIDER_PRICING = {
     "gpt-oss-120b":                 { input: 0.15, output: 0.6, reasoning: 0.6 },
   },
   "alitp-intl": {
-    "auto":                     { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "qwen4-max":                { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "qwen4-max-preview":        { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "qwen3.8-max":              { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "qwen3.8-max-preview":      { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "qwen3.8-flash":            { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "qwen3.7-max":              { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "qwen3.7-plus":             { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "qwen3.6-flash":            { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "glm-5.3":                  { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "glm-5.2":                  { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "deepseek-v4-pro":          { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "deepseek-v4-pro-0813":     { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "deepseek-v4-flash-0731":   { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "deepseek-v4.1-flash":      { input: 0, output: 0, cached: 0, reasoning: 0 },
-    "deepseek-v4.1-flash-1017": { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "auto":                     { input: 1.5, output: 4.5, reasoning: 4.5 },
+    "qwen4-max":                { input: 1.5, output: 4.5, reasoning: 4.5 },
+    "qwen4-max-preview":        { input: 1.5, output: 4.5, reasoning: 4.5 },
+    "qwen3.8-max":              { input: 2, output: 6, reasoning: 6 },
+    "qwen3.8-max-preview":      { input: 2, output: 6, reasoning: 6 },
+    "qwen3.8-flash":            { input: 0.15, output: 0.47, reasoning: 0.47 },
+    "qwen3.7-max":              { input: 2.5, output: 7.5, reasoning: 7.5 },
+    "qwen3.7-plus":             { input: 0.4, output: 1.6, reasoning: 1.6 },
+    "qwen3.6-flash":            { input: 0.25, output: 1.5, reasoning: 1.5 },
+    "glm-5.3":                  { input: 1.4, output: 4.4, cached: 0.26, reasoning: 4.4 },
+    "glm-5.2":                  { input: 1.4, output: 4.4, cached: 0.26, reasoning: 4.4 },
+    "deepseek-v4-pro":          { input: 1.32, output: 3.96, cached: 0.044, reasoning: 3.96 },
+    "deepseek-v4-pro-0813":     { input: 1.32, output: 3.96, cached: 0.044, reasoning: 3.96 },
+    "deepseek-v4-flash-0731":   { input: 0.3, output: 1.2, cached: 0.006, reasoning: 1.2 },
+    "deepseek-v4.1-flash":      { input: 0.3, output: 1.2, cached: 0.006, reasoning: 1.2 },
+    "deepseek-v4.1-flash-1017": { input: 0.3, output: 1.2, cached: 0.006, reasoning: 1.2 },
   },
   commandcode: {
     "stepfun/Step-3.5-Flash": { input: 0.09, output: 0.30, cached: 0.02, reasoning: 0.30 },
@@ -662,6 +662,34 @@ for (const [provider, table] of Object.entries(BACKFILL_PRICING)) {
   PROVIDER_PRICING[provider] = { ...table, ...PROVIDER_PRICING[provider] };
 }
 
+const ALIBABA_LIST = "alibabacloud.com/help/en/model-studio/model-pricing (first input tier)";
+const ZAI_LIST = "docs.z.ai/guides/overview/pricing";
+const DEEPSEEK_LIST = "api-docs.deepseek.com/quick_start/pricing (peak rate)";
+
+export const PRICING_STAND_INS = {
+  "alitp-intl": {
+    "auto": { family: "qwen4-max", source: ALIBABA_LIST },
+    "qwen4-max": { family: "qwen4-max", source: ALIBABA_LIST },
+    "qwen4-max-preview": { family: "qwen4-max", source: ALIBABA_LIST },
+    "qwen3.8-max": { family: "qwen3.8-max", source: ALIBABA_LIST },
+    "qwen3.8-max-preview": { family: "qwen3.8-max", source: ALIBABA_LIST },
+    "qwen3.8-flash": { family: "qwen3.8-flash", source: ALIBABA_LIST },
+    "qwen3.7-max": { family: "qwen3.7-max", source: ALIBABA_LIST },
+    "qwen3.7-plus": { family: "qwen3.7-plus", source: ALIBABA_LIST },
+    "qwen3.6-flash": { family: "qwen3.6-flash", source: ALIBABA_LIST },
+    "glm-5.3": { family: "glm-5.3", source: ZAI_LIST },
+    "glm-5.2": { family: "glm-5.2", source: ZAI_LIST },
+    "deepseek-v4-pro": { family: "deepseek-v4-pro", source: DEEPSEEK_LIST },
+    "deepseek-v4-pro-0813": { family: "deepseek-v4-pro", source: DEEPSEEK_LIST },
+    "deepseek-v4-flash-0731": { family: "deepseek-flash", source: DEEPSEEK_LIST },
+    "deepseek-v4.1-flash": { family: "deepseek-flash", source: DEEPSEEK_LIST },
+    "deepseek-v4.1-flash-1017": { family: "deepseek-flash", source: DEEPSEEK_LIST },
+  },
+  kimi: {
+    "k3.1-pro-highspeed": { family: "k3.1-pro", source: "k3.1-pro row (no Moonshot-published highspeed rate)" },
+  },
+};
+
 export const PATTERN_PRICING = [
   { pattern: "*-codex-xhigh",   pricing: { input: 10.00, output: 40.00, cached: 5.00,  reasoning: 60.00,  cache_creation: 10.00 } },
   { pattern: "*-codex-high",    pricing: { input: 8.00,  output: 32.00, cached: 4.00,  reasoning: 48.00,  cache_creation: 8.00  } },
@@ -674,6 +702,8 @@ export const PATTERN_PRICING = [
   { pattern: "codex-*",         pricing: { input: 1.75,  output: 14.00, cached: 0.175, reasoning: 14.00,  cache_creation: 1.75  } },
   { pattern: "*-codex",         pricing: { input: 1.75,  output: 14.00, cached: 0.175, reasoning: 14.00,  cache_creation: 1.75  } },
 
+  { pattern: "claude-opus-5-5*",   pricing: { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 5.00  } },
+  { pattern: "claude-sonnet-5-5*", pricing: { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 2.50  } },
   { pattern: "claude-opus-*",   pricing: { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 25.00,  cache_creation: 6.25  } },
   { pattern: "claude-sonnet-*", pricing: { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.75  } },
   { pattern: "claude-haiku-*",  pricing: { input: 1.00,  output: 5.00,  cached: 0.10,  reasoning: 5.00,   cache_creation: 1.25  } },
@@ -682,6 +712,8 @@ export const PATTERN_PRICING = [
   { pattern: "gemini-*-flash-lite", pricing: { input: 0.15, output: 1.25, cached: 0.015, reasoning: 1.875, cache_creation: 0.15 } },
   { pattern: "gemini-*-flash",  pricing: { input: 0.30,  output: 2.50,  cached: 0.03,  reasoning: 3.75,   cache_creation: 0.30  } },
   { pattern: "gemini-*-pro",    pricing: { input: 2.00,  output: 12.00, cached: 0.25,  reasoning: 18.00,  cache_creation: 2.00  } },
+  { pattern: "gemini-4-neon*",  pricing: { input: 3.00,  output: 15.00, cached: 0.15,  reasoning: 15.00,  cache_creation: 3.00  } },
+  { pattern: "gemini-4-argon*", pricing: { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 4.00  } },
   { pattern: "gemini-4-hydrogen*", pricing: { input: 1.50, output: 7.50, cached: 0.075, reasoning: 7.50, cache_creation: 1.50 } },
   { pattern: "gemini-4-*",      pricing: { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 0.1875 } },
   { pattern: "gemini-3-*",      pricing: { input: 0.50,  output: 3.00,  cached: 0.03,  reasoning: 4.50,   cache_creation: 0.50  } },

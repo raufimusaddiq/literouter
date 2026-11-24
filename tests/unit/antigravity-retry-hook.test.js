@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { AntigravityExecutor } from "../../open-sse/executors/antigravity.js";
+import { AntigravityExecutor, readBodyOnce } from "../../open-sse/executors/antigravity.js";
 import antigravity from "../../open-sse/providers/registry/antigravity.js";
 
 const MAX = 10000;
@@ -49,6 +49,15 @@ describe("antigravity computeRetryDelay hook (D3)", () => {
   it("does not retry non-transient 400 errors", async () => {
     const r = res(400, {}, { error: { message: "Invalid request" } });
     expect(await ag.computeRetryDelay(r, 1)).toBe(false);
+  });
+
+  it("reads a clone-less error body once and keeps it readable for the error parser", async () => {
+    let reads = 0;
+    const plain = { status: 429, headers: { get: () => null }, text: async () => (reads++ === 0 ? '{"error":{"message":"busy"}}' : "") };
+    expect(await ag.computeRetryDelay(plain, 1)).toBe(2000);
+    expect(await plain.text()).toBe('{"error":{"message":"busy"}}');
+    expect(await readBodyOnce(plain)).toBe('{"error":{"message":"busy"}}');
+    expect(reads).toBe(1);
   });
 
   it("deduplicates sanitized tool names", () => {
