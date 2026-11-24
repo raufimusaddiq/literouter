@@ -119,6 +119,8 @@ function kenariReasoning(provider, model) {
   return live?.reasoning === true && live.reasoningLevels?.length ? live : null;
 }
 
+const ANTIGRAVITY_GEMINI_LEVEL_CLAUDE = /claude-(?:sonnet|opus)-5[-.]5/i;
+
 function resolveFormat(targetFormat, model, provider) {
   if (targetFormat === "commandcode") return "commandcode";
   if (kenariReasoning(provider, model) && KENARI_FORMAT_BY_WIRE[targetFormat]) return KENARI_FORMAT_BY_WIRE[targetFormat];
@@ -126,6 +128,9 @@ function resolveFormat(targetFormat, model, provider) {
   const providerFmt = provider ? PROVIDERS[provider]?.thinkingFormat : null;
   if (providerFmt) return providerFmt;
   const caps = getCapabilitiesForModel(provider, model);
+  if (targetFormat === "antigravity" && caps.thinkingFormat === "claude-adaptive" && ANTIGRAVITY_GEMINI_LEVEL_CLAUDE.test(model)) {
+    return "gemini-level";
+  }
   const isOpenAIWire = targetFormat === "openai" || targetFormat === "openai-responses";
   if (caps.thinkingFormat === "openai-responses") return "openai-responses";
   if (caps.thinkingFormat && !(isOpenAIWire && NATIVE_ONLY_FORMATS.has(caps.thinkingFormat))) {
@@ -167,9 +172,15 @@ function normalizeOpenAILevel(level, supportedLevels, responsesMinimalClamp = fa
   return "xhigh";
 }
 
-function toGeminiThinkingLevel(cfg) {
-  const raw = cfg.mode === "auto" ? "high" : (toLevel(cfg) || "high");
-  return effortToThinkingLevel(raw);
+function toGeminiThinkingLevel(cfg, supportedLevels) {
+  const raw = String(cfg.mode === "auto" ? "high" : (toLevel(cfg) || "high")).toLowerCase();
+  const level = raw === "ultra" ? "max" : raw;
+  if (supportedLevels?.length) {
+    if (supportedLevels.includes(level)) return level;
+    if (level === "max" && supportedLevels.includes("xhigh")) return "xhigh";
+    if ((level === "max" || level === "xhigh") && supportedLevels.includes("high")) return "high";
+  }
+  return effortToThinkingLevel(level);
 }
 
 function toKimiReasoningEffort(cfg) {
@@ -284,8 +295,10 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels, display, responsesMi
       break;
     }
     case "gemini-level": {
-      let level = none ? "minimal" : toGeminiThinkingLevel(eff);
+      let level = none ? "minimal" : toGeminiThinkingLevel(eff, supportedLevels);
       if (level === "xhigh" && !supportedLevels?.includes("xhigh")) level = "high";
+      const lowest = supportedLevels?.find((l) => l !== "none");
+      if (lowest && !supportedLevels.includes(level)) level = lowest;
       setGeminiThinking(body, { thinkingLevel: level, includeThoughts: level !== "minimal" });
       ensureGeminiOutputFloor(body, geminiLevelOutputFloor(level), caps);
       break;

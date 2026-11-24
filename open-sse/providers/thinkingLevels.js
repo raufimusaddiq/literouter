@@ -33,8 +33,18 @@ const CODEX_GPT_5_6_LEVELS = ["none", "minimal", "low", "medium", "high", "xhigh
 
 const CLAUDE_NO_XHIGH = ["none", "low", "medium", "high", "max"];
 
+const GEMINI_4_XHIGH_LEVELS = ["low", "medium", "high", "xhigh"];
+
+const AG_CLAUDE_5_5_LEVELS = ["low", "medium", "high", "max"];
+
 const PATTERN_THINKING = [
-  { pattern: "*gemini-4-hydrogen*", levels: ["low", "medium", "high", "xhigh"] },
+  { pattern: "*gemini-4-neon*", levels: GEMINI_4_XHIGH_LEVELS },
+  { pattern: "*gemini-4-hydrogen*", levels: GEMINI_4_XHIGH_LEVELS },
+  { pattern: "*gemini-4*", levels: ["low", "medium", "high"] },
+  { provider: "antigravity", pattern: "*claude*sonnet-5-5*", levels: AG_CLAUDE_5_5_LEVELS },
+  { provider: "antigravity", pattern: "*claude*sonnet-5.5*", levels: AG_CLAUDE_5_5_LEVELS },
+  { provider: "antigravity", pattern: "*claude*opus-5-5*", levels: AG_CLAUDE_5_5_LEVELS },
+  { provider: "antigravity", pattern: "*claude*opus-5.5*", levels: AG_CLAUDE_5_5_LEVELS },
   { pattern: "*claude*4.6*", levels: CLAUDE_NO_XHIGH },
   { pattern: "*claude*4-6*", levels: CLAUDE_NO_XHIGH },
   { provider: "codex", pattern: "*gpt-6.1-sol*", levels: ["low", "medium", "high", "xhigh", "max"] },
@@ -60,7 +70,8 @@ const PATTERN_THINKING = [
 const OPENAI_MAX_EFFORT_MODEL = /(?:^|\/)gpt-(?:5\.6|6)(?:[.-]|$)/i;
 const isOpenAICompatibleNode = (provider) => String(provider || "").startsWith("openai-compatible-");
 
-export function getThinkingLevels(provider, model) {
+export function getThinkingLevels(rawProvider, model) {
+  const provider = rawProvider === "ag" ? "antigravity" : rawProvider;
   if (provider === "kiro" && resolveKiroEffortPath(model) === null) return null;
   const live = getProviderLiveData(provider, model);
   if (live?.reasoning === false) return null;
