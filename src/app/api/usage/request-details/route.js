@@ -1,6 +1,18 @@
 import { json } from "@/server/http.js";
 import { getRequestDetails } from "@/lib/usageDb";
 
+export function redactDetails(details) {
+  return (details || []).map((d) => {
+    const redacted = { ...d };
+    for (const key of ["request", "providerRequest", "providerResponse", "response"]) {
+      if (redacted[key] !== undefined) {
+        redacted[key] = { redacted: true };
+      }
+    }
+    return redacted;
+  });
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -44,17 +56,7 @@ export async function GET(request) {
     
     const result = await getRequestDetails(filter);
 
-    const redactedDetails = (result.details || []).map((d) => {
-      const redacted = { ...d };
-      for (const key of ["request", "providerRequest", "providerResponse", "response"]) {
-        if (redacted[key] !== undefined) {
-          redacted[key] = { redacted: true };
-        }
-      }
-      return redacted;
-    });
-
-    return json({ ...result, details: redactedDetails });
+    return json({ ...result, details: redactDetails(result.details) });
   } catch (error) {
     console.error("[API] Failed to get request details:", error);
     return json(

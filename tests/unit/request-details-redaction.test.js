@@ -1,16 +1,5 @@
 import { describe, it, expect } from "bun:test";
-
-function redactDetails(details) {
-  return (details || []).map((d) => {
-    const redacted = { ...d };
-    for (const key of ["request", "providerRequest", "providerResponse", "response"]) {
-      if (redacted[key] !== undefined) {
-        redacted[key] = { redacted: true };
-      }
-    }
-    return redacted;
-  });
-}
+import { redactDetails } from "@/app/api/usage/request-details/route.js";
 
 describe("request-details redaction", () => {
   it("removes conversation payloads but keeps metadata", () => {
