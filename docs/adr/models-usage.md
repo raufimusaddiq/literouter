@@ -10,7 +10,7 @@
 
 ## Pricing
 
-- **Rates are USD per 1M tokens; a zero row means "cost not tracked" (`TODO(<provider>)`), never "free".** Cost subtracts cached and cache_creation tokens from the cache-inclusive prompt before charging input. Pattern globs are case-insensitive, first match wins; existing `PROVIDER_PRICING` rows beat the backfill. Where: `open-sse/providers/pricing.js` `calculateCostFromTokens`.
+- **Rate conventions live in [pricing.md](pricing.md)**: what a zero row means, IDR-only vendors, and how to add a rate. Cost subtracts cached and cache_creation tokens from the cache-inclusive prompt before charging input. Pattern globs are case-insensitive, first match wins; existing `PROVIDER_PRICING` rows beat the backfill. Where: `open-sse/providers/pricing.js` `calculateCostFromTokens`.
 - **Runtime catalog rates (CommandCode) overlay and beat static tables**, bounded by `RUNTIME_PRICING_MAX_MODELS`, process-local. Catalog input is untrusted: a rate above `RUNTIME_RATE_MAX` (1000 per 1M) is a unit mistake and the entry is dropped; the store is null-prototype with `Object.hasOwn` lookups (`constructor`, `toString`). Where: `pricing.js` `setRuntimePricing`, `isSaneRate`.
 - **Models routed without a pricing or capability row are logged once, fail-open** (a silent $0 and the 200k/64k floor hide the gap; set size capped). Where: `open-sse/providers/trackingGaps.js`.
 
