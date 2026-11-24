@@ -60,6 +60,11 @@
 - Cloudflare System One regression tests in `tests/unit/systemone.test.js` (selector, shape validation, custom node, envelope unwrap with usage, untouched bodies, pricing) and Workers AI pricing/window rows in `tests/unit/cloudflare-ai-registry.test.js`.
 - Baseline refresh: `providers-baseline.json` and `alias-baseline.json`.
 
+## Review follow-ups
+
+- **CI round 1**: CodeQL flagged the Kiro machine-id hash of an API-key seed (now PBKDF2-SHA256 with a fixed salt, cached per seed) and two test patterns (full RegExp escape; compare against `REA_ALLOW_TEXT` instead of a URL substring). Unit failures: the version-gate test needed `clearKiroModelCache`, and the golden URL/header snapshots needed entries for `opendesign-go` and `deeprelay`.
+- **Hermes, head `79a656c0`**: Kiro `always` mode falls through to generateAssistantResponse on a non-ok CreateResponse (table test); parallel Responses `function_call` items keep their own tool index (two-call test); OpenDesign's Control Key and Workspace ID have optional write-only inputs in the add-key modal; all 16 Token Plan ids carry explicit zero pricing and capability rows; `applyReaAllow` reports a change only when it made one and reuses `isKiroBody`. Not changed: `stripKiro` still edits only the first user turn (the system-prompt prefix), which is upstream's design and keeps later user text untouched.
+
 ## Model tracking
 
 Every model this intake introduces or exposes. Pricing rows live in `open-sse/providers/pricing.js` (USD per 1M tokens: input / output / cache read / cache write), capability rows in `open-sse/providers/capabilities.js`. "Explicit zero" rows mean the vendor publishes no per-token rate, not that the model is free: **TODO** revisit when the vendor publishes one.
@@ -68,8 +73,7 @@ Every model this intake introduces or exposes. Pricing rows live in `open-sse/pr
 | --- | --- | --- | --- |
 | 33 seeded ids (`deepseek-v4.1-flash` ... `grok-4.5`) | opendesign-go | go.open-design.ai/models (per-model catalog): first input-length tier for the GPT 6.x/5.6 rows (≤272K) and Claude Haiku 5.5 (≤100K); cache write only where listed. e.g. `claude-opus-5.5` $4 / $20 / $0.20 / $5 | vendor publishes no context/output limits: rows copy the model-family capability row (Claude dotted ids use the dashed family); `hy4-preview` has no family, so it carries the default limits |
 | 17 seeded ids (`deepseek-v4.1-flash` ... `gpt-oss-120b`) | deeprelay | api.deeprelay.ai/v1/models (public JSON, `*_per_1m_tokens_cents`), DeepSeek V4.1 Flash at its peak rate ($0.135 / $0.54 / $0.0027); no cache write published | same feed's context length and max output (1M / 393K for DeepSeek, 1M / 131K for Kimi/GLM, ...), modality flags from the family row |
-| `qwen4-max`, `qwen4-max-preview`, `qwen3.8-max`, `qwen3.8-flash`, `deepseek-v4-pro-0813`, `auto` | alitp-intl | **explicit zero + TODO**: Token Plan bills credits, no per-token rate published | upstream rows (1M; 393K or 131K output); `auto` default limits |
-| `glm-5.3`, `deepseek-v4-flash-0731`, `deepseek-v4.1-flash`, `deepseek-v4.1-flash-1017` | alitp-intl | family rows already in `MODEL_PRICING`/patterns (list price; Token Plan credit rate unpublished) | family rows |
+| all 16 Token Plan ids (`auto`, `qwen4-max` ... `deepseek-v4.1-flash-1017`) | alitp-intl | **explicit zero + TODO**: Token Plan is a prepaid credit plan with no published per-token rate | upstream rows for the Qwen4/3.8/3.7 and `deepseek-v4-pro-0813` ids (1M; 393K or 131K output); the rest copy their family rows; `auto` default limits |
 | `gpt-6.2-sol`, `gpt-6.2-astra` | codex | already priced (`MODEL_PRICING`, $2/$10/$0.10 and $8/$40/$0.40) | `MODEL_CAPABILITIES`; Astra gets a Codex 272k row |
 | `k3.1-pro` | kimi | $2 / $10 / $0.20: the K3.1 Pro rate synthetic.new and DeepRelay both list for this model (Moonshot's own Code-plan rate not published) | upstream row (1,048,576 / 131,072, kimi thinking, vision/video) |
 | `k3.1-pro-highspeed` | kimi | **explicit zero + TODO** (no rate published) | same |
@@ -88,7 +92,7 @@ Every model this intake introduces or exposes. Pricing rows live in `open-sse/pr
 - **Kiro identity change.** Every Kiro call now sends the IDE 1.4.154 UA; the old one is being rejected upstream, so this is a fix, but it changes headers on every Kiro request. The CreateResponse fallback adds one replay (plus one 1.5 s retry) after a 429 `USER_REQUEST_RATE_EXCEEDED`.
 - **`/v1/models` reaches opencode.ai** when an OpenCode connection (or the no-auth free lane) is listed and `skipDynamicFetch` is off: at most once per 10 min per process, 5 s cap, failure falls back to the static rows.
 - **Gateway pricing is a snapshot.** OpenDesign Go and DeepRelay rates were read on 2026-11-24; tiered (input-length) rates bill at the first tier, and DeepSeek V4.1 Flash on DeepRelay at its peak rate, so long prompts and off-peak traffic are slightly mis-estimated.
-- **Explicit zero rows understate spend** for the Token Plan ids and `k3.1-pro-highspeed` until rates are published.
+- **Explicit zero rows understate spend** for all Token Plan ids (the six older ones used to bill at family list prices) and `k3.1-pro-highspeed` until rates are published.
 - **REA allow** is off by default. When on, it removes the client's security-policy paragraph from the system prompt of every request; the replacement still asks the model to refuse unlawful or unauthorized use.
 - Rollback: revert the merge. No schema, migration or deploy change; one new optional env var (`LITEROUTER_KIRO_CREATE_RESPONSE`).
 
