@@ -20,9 +20,11 @@ import EdgeMotion, {
   GlowDefs,
   REDUCED_MOTION_QUERY,
   RIPPLES,
+  arrivalTickDelay,
   glintDelay,
   rippleDelay,
   useMotionPause,
+  useNodeFx,
 } from "./TopologyMotion";
 
 const FE_ACTIVE_TIMEOUT_MS = 60000;
@@ -63,6 +65,10 @@ function edgeState(data) {
 
 function ProviderNode({ data }) {
   const { providerId, label, textIcon, active, error, status = "idle", index = 0 } = data;
+  const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY, false);
+  const fx = useNodeFx(edgeState(data), !reducedMotion);
+  const tickDelay = useMemo(() => (active ? arrivalTickDelay(Date.now()) : 0), [active]);
+  const fxClass = fx ? ` is-${fx.kind}` : "";
   const dotClass = STATUS_DOT[status] || STATUS_DOT.idle;
   const glintClass = STATUS_GLINT[status];
   const borderClass = error
@@ -73,8 +79,10 @@ function ProviderNode({ data }) {
 
   return (
     <div
-      className={`topology-node relative flex items-center gap-2.5 px-3.5 py-2 rounded-[6px] border bg-raise text-ink min-w-[150px] ${borderClass}`}
+      className={`topology-node relative flex items-center gap-2.5 px-3.5 py-2 rounded-[6px] border bg-raise text-ink min-w-[150px] ${borderClass}${fxClass}`}
+      style={active ? { "--tick-delay": `${tickDelay}s` } : undefined}
     >
+      {fx && <span key={fx.key} aria-hidden="true" className="topology-node-fx" data-fx={fx.kind} />}
       <Handle type="target" position={Position.Top} id="top" className="!bg-transparent !border-0 !w-0 !h-0" />
       <Handle type="target" position={Position.Bottom} id="bottom" className="!bg-transparent !border-0 !w-0 !h-0" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-transparent !border-0 !w-0 !h-0" />
@@ -266,6 +274,7 @@ function buildLayout(providers, activeSet, lastSet, errorSet) {
       textIcon: config.textIcon || (p.provider || "?").slice(0, 2).toUpperCase(),
       active,
       error,
+      last,
       index: i,
       status: getProviderStatus(p, active, error),
     };
