@@ -50,7 +50,8 @@ function setAuth(headers, spec, token) {
 
 function applyAuth(headers, desc, credentials) {
   if (desc.combined) {
-    setAuth(headers, desc, credentials.apiKey || credentials.accessToken);
+    const token = credentials.apiKey || credentials.accessToken;
+    if (token) setAuth(headers, desc, token);
     if (desc.anthropicVersion && !headers["anthropic-version"]) headers["anthropic-version"] = ANTHROPIC_API_VERSION;
     return;
   }

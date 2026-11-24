@@ -964,16 +964,13 @@ exports[`GOLDEN buildHeaders (default executor providers) mmf → headers (apiKe
 {
   "apiKey": {
     "Accept": "text/event-stream",
-    "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
   },
   "nonStream": {
-    "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
   },
   "oauth": {
     "Accept": "text/event-stream",
-    "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
   },
 }
