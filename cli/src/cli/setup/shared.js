@@ -16,6 +16,7 @@ const VALUE_FLAGS = {
   "--opus": "opus",
   "--sonnet": "sonnet",
   "--haiku": "haiku",
+  "--fable": "fable",
 };
 
 const BOOL_FLAGS = {
