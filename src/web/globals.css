@@ -289,11 +289,13 @@ button:disabled,
   transition-timing-function: var(--topo-out);
 }
 
-.topology-train {
+.topology-train,
+.topology-glow-wrap {
   animation: topology-fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   transition: opacity 0.6s var(--topo-out);
 }
-.topology-train.is-leaving {
+.topology-train.is-leaving,
+.topology-glow-wrap.is-leaving {
   opacity: 0;
 }
 .topology-edge-glow {

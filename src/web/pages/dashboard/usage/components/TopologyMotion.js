@@ -197,7 +197,7 @@ export default function EdgeMotion({ path, state = "idle", index = 0, target = n
   return (
     <g className="topology-edge" data-edge-state={state}>
       {shown && (
-        <g className={`topology-train${burning ? " is-leaving" : ""}`}>
+        <g className={`topology-glow-wrap${burning ? " is-leaving" : ""}`}>
           <path d={path} className="topology-edge-glow" filter={`url(#${GLOW_FILTER_ID})`} />
         </g>
       )}
@@ -205,7 +205,7 @@ export default function EdgeMotion({ path, state = "idle", index = 0, target = n
       {shown && <path d={path} pathLength="100" className={`topology-ignite${burning ? " is-burning" : ""}`} />}
       {shown && <Train path={path} burning={burning} target={target} />}
       {motion && !shown && state !== "error" && <Signal path={path} index={index} />}
-      {motion && state === "error" && <Shock path={path} target={target} />}
+      {motion && !shown && state === "error" && <Shock path={path} target={target} />}
     </g>
   );
 }
