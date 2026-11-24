@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { redactDetails } from "@/app/api/usage/request-details/route.js";
+import { redactDetails } from "@/lib/usage/redactDetails.js";
 
 describe("request-details redaction", () => {
   it("removes conversation payloads but keeps metadata", () => {

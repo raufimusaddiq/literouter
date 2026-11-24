@@ -1,17 +1,6 @@
 import { json } from "@/server/http.js";
 import { getRequestDetails } from "@/lib/usageDb";
-
-export function redactDetails(details) {
-  return (details || []).map((d) => {
-    const redacted = { ...d };
-    for (const key of ["request", "providerRequest", "providerResponse", "response"]) {
-      if (redacted[key] !== undefined) {
-        redacted[key] = { redacted: true };
-      }
-    }
-    return redacted;
-  });
-}
+import { redactDetails } from "@/lib/usage/redactDetails.js";
 
 export async function GET(request) {
   try {

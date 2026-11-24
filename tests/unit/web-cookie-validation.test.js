@@ -3,7 +3,7 @@ import { vi } from "#test/vi";
 import {
   validateGrokWeb,
   validatePerplexityWeb,
-} from "@/app/api/providers/validate/route.js";
+} from "@/lib/providers/webCookieValidators.js";
 
 const originalFetch = global.fetch;
 
