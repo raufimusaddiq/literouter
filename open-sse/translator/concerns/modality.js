@@ -1,16 +1,6 @@
 import { FORMATS } from "../formats.js";
-
-const PLACEHOLDER_CURRENT = {
-  vision: "[image omitted: model has no vision support]",
-  audioInput: "[audio omitted: model has no audio support]",
-  pdf: "[file omitted: model has no document support]",
-};
-const PLACEHOLDER_PREV = {
-  vision: "[Previous image omitted from context.]",
-  audioInput: "[Previous audio omitted from context.]",
-  pdf: "[Previous file omitted from context.]",
-};
-const ph = (cap, isLast) => (isLast ? PLACEHOLDER_CURRENT : PLACEHOLDER_PREV)[cap];
+import { MODALITY_PLACEHOLDER, MODALITY_PLACEHOLDER_PREV } from "../schema/defaults.js";
+const ph = (cap, isLast) => (isLast ? MODALITY_PLACEHOLDER : MODALITY_PLACEHOLDER_PREV)[cap];
 
 function capForMime(mime) {
   if (typeof mime !== "string") return null;

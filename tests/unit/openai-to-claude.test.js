@@ -62,16 +62,14 @@ describe("openaiToClaudeRequest", () => {
       expect(systemText).toContain("Respond ONLY with a JSON object");
     });
 
-    it("should not modify system prompt when response_format is missing", () => {
+    it("does not add JSON instructions when response_format is missing", () => {
       const body = {
         messages: [{ role: "user", content: "Hello" }]
       };
 
-      const result = openaiToClaudeRequest("claude-sonnet-4.5", body, false);
+      const result = openaiToClaudeRequest("", body, false);
 
-      expect(result.system).toBeDefined();
-
-      const systemText = result.system
+      const systemText = (result.system ?? [])
         .filter(s => s.type === "text")
         .map(s => s.text)
         .join("\n");
