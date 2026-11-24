@@ -37,10 +37,10 @@ export default function Drawer({
         aria-modal="true"
         aria-label={title || "Drawer"}
         className={cn(
-          "absolute right-0 top-0 h-full bg-raise flex flex-col",
+          "absolute right-0 top-0 h-full max-w-full bg-raise flex flex-col pt-[env(safe-area-inset-top)]",
           "shadow-[var(--shadow-float)]",
           "slide-in-right",
-          "border-l border-line-strong",
+          "border-l border-line-strong max-sm:border-l-0",
           widths[width] || widths.md,
           className
         )}
@@ -55,13 +55,13 @@ export default function Drawer({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-ink transition-colors"
+            className="inline-flex size-8 max-sm:size-11 shrink-0 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-ink transition-colors"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+        <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] custom-scrollbar">
           {children}
         </div>
       </div>

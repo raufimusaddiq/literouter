@@ -113,8 +113,43 @@ function statusVariant(status) {
   return "success";
 }
 
-const INPUT_CLASS =
-  "h-9 w-full min-w-0 rounded-md border border-line-strong bg-raise px-3 text-sm text-ink focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line";
+const FIELD_CLASS =
+  "block h-9 w-full min-w-0 max-w-full appearance-none rounded-md border border-line-strong bg-raise pl-3 pr-9 text-[16px] text-ink transition-[border-color,box-shadow] duration-150 focus:border-mark-line focus:outline-none focus:ring-2 focus:ring-mark-line max-sm:min-h-11 sm:text-sm";
+
+function FieldIcon({ name }) {
+  return (
+    <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-muted">
+      <span className="material-symbols-outlined text-[18px]">{name}</span>
+    </span>
+  );
+}
+
+export function DateTimeField({ id, label, value, onChange }) {
+  const [focused, setFocused] = useState(false);
+  const empty = !value;
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <label htmlFor={id} className="text-[13px] font-medium text-ink">{label}</label>
+      <div className="relative min-w-0">
+        <input
+          id={id}
+          type="datetime-local"
+          value={value}
+          onChange={onChange}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          className={cn(FIELD_CLASS, "lr-datetime relative cursor-pointer tabular-nums", empty && !focused && "text-transparent")}
+        />
+        {empty && !focused && (
+          <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[16px] text-faint sm:text-sm">
+            Any time
+          </span>
+        )}
+        <FieldIcon name="calendar_today" />
+      </div>
+    </div>
+  );
+}
 
 export default function RequestDetailsTab() {
   const [details, setDetails] = useState([]);
@@ -198,60 +233,52 @@ export default function RequestDetailsTab() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <Card variant="raised" padding="sm">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <label htmlFor="provider-filter" className="text-[13px] font-medium text-ink">Provider</label>
-            <select
-              id="provider-filter"
-              value={filters.provider}
-              onChange={(e) => setFilters({ ...filters, provider: e.target.value })}
-              className={cn(INPUT_CLASS, "cursor-pointer")}
-            >
-              <option value="">All providers</option>
-              {providers.map((provider) => (
-                <option key={provider.id} value={provider.id}>
-                  {provider.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <label htmlFor="start-date-filter" className="text-[13px] font-medium text-ink">Start date</label>
-            <input
-              id="start-date-filter"
-              type="datetime-local"
-              value={filters.startDate}
-              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-              className={INPUT_CLASS}
-            />
-          </div>
-
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <label htmlFor="end-date-filter" className="text-[13px] font-medium text-ink">End date</label>
-            <input
-              id="end-date-filter"
-              type="datetime-local"
-              value={filters.endDate}
-              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-              className={INPUT_CLASS}
-            />
-          </div>
-
-          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2 lg:col-span-1">
-            <span className="hidden text-[13px] font-medium text-ink opacity-0 lg:block" aria-hidden="true">Clear</span>
-            <Button
-              variant="secondary"
-              onClick={handleClearFilters}
-              disabled={!filters.provider && !filters.startDate && !filters.endDate}
-              className="h-9 w-full"
-            >
-              Clear filters
-            </Button>
-          </div>
+      <section aria-label="Filters" className="border-b border-line pb-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-ink">Filters</h2>
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            disabled={!filters.provider && !filters.startDate && !filters.endDate}
+            className="text-[13px] font-medium text-muted underline-offset-4 transition-colors hover:text-ink hover:underline disabled:pointer-events-none disabled:opacity-40 max-sm:min-h-11 max-sm:px-2"
+          >
+            Clear
+          </button>
         </div>
-      </Card>
+        <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="col-span-2 flex min-w-0 flex-col gap-1.5 lg:col-span-1">
+            <label htmlFor="provider-filter" className="text-[13px] font-medium text-ink">Provider</label>
+            <div className="relative min-w-0">
+              <select
+                id="provider-filter"
+                value={filters.provider}
+                onChange={(e) => setFilters({ ...filters, provider: e.target.value })}
+                className={cn(FIELD_CLASS, "cursor-pointer truncate")}
+              >
+                <option value="">All providers</option>
+                {providers.map((provider) => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.name}
+                  </option>
+                ))}
+              </select>
+              <FieldIcon name="expand_more" />
+            </div>
+          </div>
+          <DateTimeField
+            id="start-date-filter"
+            label="From"
+            value={filters.startDate}
+            onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+          />
+          <DateTimeField
+            id="end-date-filter"
+            label="To"
+            value={filters.endDate}
+            onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+          />
+        </div>
+      </section>
 
       <Card padding="none">
         <ul className="divide-y divide-line lg:hidden">
@@ -280,9 +307,9 @@ export default function RequestDetailsTab() {
                     <dd className="mt-0.5 font-mono text-ink tabular-nums">{formatDateTime(detail.timestamp)}</dd>
                   </div>
                   <div>
-                    <dt className="text-faint">Latency</dt>
+                    <dt className="text-faint">TTFT / total</dt>
                     <dd className="mt-0.5 font-mono text-ink tabular-nums">
-                      TTFT {detail.latency?.ttft || 0}ms / {detail.latency?.total || 0}ms
+                      {formatMs(detail.latency?.ttft)} / {formatMs(detail.latency?.total)}
                     </dd>
                   </div>
                   <div>

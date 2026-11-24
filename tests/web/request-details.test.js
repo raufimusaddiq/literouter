@@ -62,4 +62,16 @@ describe("request details drawer", () => {
     expect(text).toContain("02Client response");
     expect(text).toContain("hello");
   });
+
+  it("labels an empty date filter as any time and hides the label once it has a value", async () => {
+    const { DateTimeField } = await import("../../src/web/pages/dashboard/usage/components/RequestDetailsTab.js");
+    const field = (value) => React.createElement(DateTimeField, { id: "f", label: "From", value, onChange: () => {} });
+    const view = await mount(field(""));
+    const input = () => view.container.querySelector("#f");
+    expect(input().type).toBe("datetime-local");
+    expect(input().parentElement.textContent).toContain("Any time");
+    await view.rerender(field("2026-11-24T10:00"));
+    expect(input().parentElement.textContent).not.toContain("Any time");
+    await view.unmount();
+  });
 });
