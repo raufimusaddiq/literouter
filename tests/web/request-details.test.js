@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "bun:test";
-import React from "react";
+import React, { act } from "react";
 import { setupDom, setupViewportStubs, mount, flush, click } from "#test/dom";
 import RequestDetailsTab from "../../src/web/pages/dashboard/usage/components/RequestDetailsTab.js";
 
@@ -61,5 +61,23 @@ describe("request details drawer", () => {
     expect(text).toContain('"messages": []');
     expect(text).toContain("02Client response");
     expect(text).toContain("hello");
+  });
+
+  it("labels empty date filters as any time and enables Clear once one is set", async () => {
+    stubFetch([]);
+    const view = await mount(React.createElement(RequestDetailsTab), { settle: true });
+    const from = document.getElementById("start-date-filter");
+    const clear = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Clear");
+    expect(from.type).toBe("datetime-local");
+    expect(from.parentElement.textContent).toContain("Any time");
+    expect(clear.disabled).toBe(true);
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+      setter.call(from, "2026-11-24T10:00");
+      from.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(from.parentElement.textContent).not.toContain("Any time");
+    expect(clear.disabled).toBe(false);
+    await view.unmount();
   });
 });

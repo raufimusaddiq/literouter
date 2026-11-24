@@ -676,6 +676,22 @@ button:disabled,
   }
 }
 
+.lr-datetime::-webkit-date-and-time-value {
+  min-height: 1.25em;
+  text-align: left;
+}
+.lr-datetime::-webkit-datetime-edit {
+  padding: 0;
+}
+.lr-datetime::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  opacity: 0;
+  cursor: pointer;
+}
+
 .react-flow-controls-custom {
   background: var(--color-raise);
   border: 1px solid var(--color-line-strong);
