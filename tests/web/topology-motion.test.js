@@ -26,6 +26,7 @@ describe("topology edge motion", () => {
     expect(svg.querySelectorAll(".topology-comet-out").length).toBe(5);
     expect(svg.querySelectorAll(".topology-comet-return").length).toBe(2);
     expect(svg.querySelectorAll(".topology-impact").length).toBe(2);
+    expect(svg.querySelectorAll(".topology-comet-out .topology-comet-halo").length).toBe(5);
     expect(svg.querySelector(".topology-edge-glow")).not.toBeNull();
     expect(svg.querySelector(".topology-signal")).toBeNull();
     await view.unmount();
@@ -97,6 +98,40 @@ describe("topology motion pause", () => {
     });
     expect(el.getAttribute("data-motion")).toBe("paused");
     delete document.visibilityState;
+    await view.unmount();
+  });
+});
+
+describe("provider card motion", () => {
+  it.each([
+    ["idle", "active", "hit"],
+    ["last", "active", "hit"],
+    ["active", "last", "done"],
+    ["active", "idle", "done"],
+    ["active", "error", null],
+    ["idle", "error", null],
+    ["idle", "idle", null],
+  ])("reacts to %s -> %s with %p", async (before, after, kind) => {
+    const { nodeFxFor } = await import("../../src/web/pages/dashboard/usage/components/TopologyMotion.js");
+    expect(nodeFxFor(before, after)).toBe(kind);
+  });
+
+  it("bursts when a stream starts, clears after the effect, and stays still under reduced motion", async () => {
+    const { useNodeFx, NODE_FX_MS } = await import("../../src/web/pages/dashboard/usage/components/TopologyMotion.js");
+    function Card({ state, enabled }) {
+      const fx = useNodeFx(state, enabled);
+      return <div data-fx={fx ? fx.kind : "none"} />;
+    }
+    const view = await mount(<Card state="idle" enabled />);
+    const el = () => view.container.firstChild;
+    await view.rerender(<Card state="active" enabled />);
+    expect(el().getAttribute("data-fx")).toBe("hit");
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, NODE_FX_MS.hit + 50));
+    });
+    expect(el().getAttribute("data-fx")).toBe("none");
+    await view.rerender(<Card state="last" enabled={false} />);
+    expect(el().getAttribute("data-fx")).toBe("none");
     await view.unmount();
   });
 });

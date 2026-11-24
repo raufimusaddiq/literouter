@@ -331,7 +331,12 @@ button:disabled,
 }
 .topology-comet-tail {
   --len: var(--tail);
-  opacity: 0.32;
+  opacity: 0.5;
+}
+.topology-comet .topology-comet-halo {
+  --len: var(--halo);
+  stroke-width: calc(var(--w) * 3.2);
+  opacity: 0.28;
 }
 .topology-comet-head {
   --len: var(--head);
@@ -341,7 +346,8 @@ button:disabled,
   animation-name: topology-comet-out;
   animation-duration: 2.5s;
 }
-.topology-comet-out .topology-comet-head {
+.topology-comet-out .topology-comet-head,
+.topology-comet-out .topology-comet-halo {
   stroke: var(--color-mark);
 }
 .topology-comet-return path {
@@ -354,7 +360,7 @@ button:disabled,
   animation: topology-fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .topology-comet-signal {
-  opacity: 0.5;
+  opacity: 0.7;
 }
 .topology-comet-signal path {
   stroke: var(--color-wire-live);
@@ -419,6 +425,42 @@ button:disabled,
   pointer-events: none;
   opacity: 0;
   animation: topology-card-ring 1s cubic-bezier(0.22, 1, 0.36, 1) 0.6s both;
+}
+.topology-node.is-active::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px var(--color-mark-line),
+    0 0 14px color-mix(in srgb, var(--color-mark) 45%, transparent);
+  opacity: 0;
+  animation: topology-node-tick 0.5s cubic-bezier(0.22, 1, 0.36, 1) var(--tick-delay, 0s) infinite backwards;
+}
+.topology-node.is-hit {
+  animation: topology-node-bump 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.topology-node.is-done {
+  animation: topology-node-settle 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.topology-node-fx {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1.5px solid;
+  pointer-events: none;
+  opacity: 0;
+}
+.topology-node-fx[data-fx="hit"] {
+  border-color: var(--color-mark-line);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--color-mark) 55%, transparent);
+  animation: topology-node-burst 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.topology-node-fx[data-fx="done"] {
+  border-color: var(--color-ok);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--color-ok) 45%, transparent);
+  animation: topology-node-burst 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .topology-ping {
   animation: topology-ping 1.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
@@ -558,6 +600,24 @@ button:disabled,
   0% { opacity: 0.8; transform: scale(1); }
   100% { opacity: 0; transform: scale(1.06, 1.25); }
 }
+@keyframes topology-node-tick {
+  0% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+@keyframes topology-node-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+@keyframes topology-node-settle {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+@keyframes topology-node-burst {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.08, 1.4); }
+}
 @keyframes topology-ping {
   0% { transform: scale(1); opacity: 0.7; }
   100% { transform: scale(2.8); opacity: 0; }
@@ -601,8 +661,13 @@ button:disabled,
   .topology-glint {
     display: none;
   }
-  .topology-node.is-error::after {
+  .topology-node.is-error::after,
+  .topology-node.is-active::before {
     content: none;
+  }
+  .topology-node.is-hit,
+  .topology-node.is-done {
+    animation: none;
   }
   .topology-router-dot,
   .topology-badge,

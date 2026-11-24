@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
 
@@ -18,16 +18,19 @@ const GLINT_PERIOD_S = 6;
 const BURN_MS = 2500;
 
 const OUTBOUND = [
-  { head: 3, tail: 16, width: 2.5 },
-  { head: 2, tail: 10, width: 1.75 },
-  { head: 2.5, tail: 13, width: 2.25 },
-  { head: 1.5, tail: 8, width: 1.5 },
-  { head: 2.5, tail: 14, width: 2 },
+  { head: 5, tail: 24, width: 4 },
+  { head: 3.5, tail: 16, width: 3 },
+  { head: 4.5, tail: 20, width: 3.5 },
+  { head: 3, tail: 13, width: 2.5 },
+  { head: 4, tail: 20, width: 3.25 },
 ];
 const RETURN = [
-  { head: 2, tail: 12, width: 1.5, slot: 0.25 },
-  { head: 1.5, tail: 9, width: 1.25, slot: 1.5 },
+  { head: 3, tail: 16, width: 2.25, slot: 0.25 },
+  { head: 2.5, tail: 12, width: 2, slot: 1.5 },
 ];
+const SIGNAL = { head: 3, tail: 14, width: 2 };
+const SHOCK = { head: 6, tail: 30, width: 4 };
+export const NODE_FX_MS = { hit: 700, done: 1100 };
 const IMPACTS = [0, 1];
 export const RIPPLES = [0, 1, 2];
 
@@ -51,17 +54,53 @@ export function rippleDelay(k, now) {
   return syncedDelay(k * TRAIN_INTERVAL_S, TRAIN_INTERVAL_S * RIPPLES.length, now);
 }
 
+export function arrivalTickDelay(now) {
+  return syncedDelay(ARRIVAL_S, TRAIN_INTERVAL_S, now);
+}
+
+export function nodeFxFor(before, after) {
+  if (before === after) return null;
+  if (after === "active") return "hit";
+  if (before === "active" && after !== "error") return "done";
+  return null;
+}
+
+export function useNodeFx(state, enabled) {
+  const previous = useRef(state);
+  const [fx, setFx] = useState(null);
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = state;
+    const kind = enabled ? nodeFxFor(before, state) : null;
+    if (kind) setFx({ kind, key: `${kind}-${Date.now()}` });
+  }, [state, enabled]);
+  useEffect(() => {
+    if (!fx) return undefined;
+    const id = setTimeout(() => setFx(null), NODE_FX_MS[fx.kind]);
+    return () => clearTimeout(id);
+  }, [fx]);
+  return enabled ? fx : null;
+}
+
 export function glintDelay(index) {
   return -Number((goldenSlot(index) * GLINT_PERIOD_S).toFixed(2));
 }
 
 function cometStyle(spec, delay, extra) {
-  return { "--comet-delay": `${delay}s`, "--head": `${spec.head}px`, "--tail": `${spec.tail}px`, "--w": `${spec.width}px`, ...extra };
+  return {
+    "--comet-delay": `${delay}s`,
+    "--head": `${spec.head}px`,
+    "--tail": `${spec.tail}px`,
+    "--halo": `${spec.head + 4}px`,
+    "--w": `${spec.width}px`,
+    ...extra,
+  };
 }
 
 function Comet({ path, kind, style }) {
   return (
     <g className={`topology-comet topology-comet-${kind}`} style={style}>
+      <path d={path} pathLength="100" className="topology-comet-halo" />
       <path d={path} pathLength="100" className="topology-comet-tail" />
       <path d={path} pathLength="100" className="topology-comet-head" />
     </g>
@@ -108,7 +147,7 @@ function Signal({ path, index }) {
           path={path}
           kind="signal"
           style={cometStyle(
-            { head: 2, tail: 10, width: 1.25 },
+            SIGNAL,
             -Number(((base + (k * SIGNAL_PERIOD_S) / 2) % SIGNAL_PERIOD_S).toFixed(2)),
           )}
         />
@@ -169,7 +208,7 @@ function Shock({ path, target }) {
   return (
     <g className="topology-shock">
       <path d={path} className="topology-shock-glow" filter={`url(#${GLOW_FILTER_ID})`} />
-      <Comet path={path} kind="shock" style={cometStyle({ head: 4, tail: 24, width: 2.5 }, 0)} />
+      <Comet path={path} kind="shock" style={cometStyle(SHOCK, 0)} />
       {target && (
         <circle
           cx={target.x}
