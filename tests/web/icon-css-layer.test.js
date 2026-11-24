@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { collectIcons, readFontIcons } from "../../scripts/gen-icon-font.mjs";
 
 const read = (name) => readFileSync(fileURLToPath(new URL(`../../src/web/${name}`, import.meta.url)), "utf8");
 
@@ -32,7 +33,8 @@ describe("icon font CSS", () => {
     expect(unlayeredIconRules(read("globals.css"))).toEqual([]);
   });
 
-  it("imports the material-symbols stylesheet into the base layer", () => {
-    expect(read("fonts.css")).toContain('@import "material-symbols/outlined.css" layer(base);');
+  it("ships a glyph in the subset font for every icon name the source uses", () => {
+    const shipped = new Set(readFontIcons());
+    expect(collectIcons().filter((name) => !shipped.has(name))).toEqual([]);
   });
 });

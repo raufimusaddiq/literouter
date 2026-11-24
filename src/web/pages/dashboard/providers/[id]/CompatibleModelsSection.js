@@ -128,7 +128,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
 
     setImporting(true);
     try {
-      const res = await fetch(`/api/providers/${activeConnection.id}/models`);
+      const res = await fetch(`/api/providers/${activeConnection.id}/models?refresh=1`);
       const data = await res.json();
       if (!res.ok) {
         alert(data.error || "Failed to import models");

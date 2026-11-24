@@ -127,6 +127,7 @@ export default function DashboardOverview() {
   const load = useCallback(async () => {
     setError("");
     try {
+      const nodesRequest = fetch("/api/provider-nodes").then((r) => (r.ok ? r.json() : {})).then((d) => d.nodes || []).catch(() => []);
       const responses = await Promise.all([
         fetch("/api/providers"),
         fetch("/api/keys"),
@@ -134,7 +135,7 @@ export default function DashboardOverview() {
       ]);
       if (responses.some((response) => !response.ok)) throw new Error("Workspace data unavailable");
       const [providers, keys, settings] = await Promise.all(responses.map((response) => response.json()));
-      const nodes = await fetch("/api/provider-nodes").then((r) => (r.ok ? r.json() : {})).then((d) => d.nodes || []).catch(() => []);
+      const nodes = await nodesRequest;
       setData({ connections: providers.connections || [], keys: keys.keys || [], settings, nodes });
       setLastUpdated(new Date());
     } catch {

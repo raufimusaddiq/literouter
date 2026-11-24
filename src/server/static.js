@@ -2,6 +2,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import { realpath, stat } from "node:fs/promises";
 import { PUBLIC_DIR, isCompiled, isEmbeddedPath } from "./paths.js";
 import { getSpa, spaUnavailableResponse } from "./spaBuild.js";
+import { MIN_DECLARED_BYTES, assetEncoding, encodedAsset, isCompressible } from "./compress.js";
 
 const PUBLIC_CACHE_CONTROL = "public, max-age=0";
 const ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable";
@@ -41,6 +42,17 @@ function contentTypeOf(target, file) {
   return (dot >= 0 && CONTENT_TYPES[target.slice(dot).toLowerCase()]) || file.type;
 }
 
+async function encodedResponse(req, target, file, info, headers) {
+  if (req.method === "HEAD" || info.size < MIN_DECLARED_BYTES || !isCompressible(headers["content-type"])) return null;
+  const encoding = assetEncoding(req);
+  if (!encoding) return null;
+  const bytes = await encodedAsset(`${target}|${info.size}|${info.mtimeMs}`, encoding, () => file.bytes());
+  return new Response(bytes, {
+    status: 200,
+    headers: { ...headers, "content-encoding": encoding, "content-length": String(bytes.byteLength), vary: "Accept-Encoding" },
+  });
+}
+
 async function serveFrom(req, root, segments, cacheControl) {
   const target = resolveIn(root, segments);
   if (!target) return null;
@@ -58,6 +70,11 @@ async function serveFrom(req, root, segments, cacheControl) {
     "cache-control": cacheControl,
     "content-length": String(info.size),
   };
+  if (cacheControl === ASSET_CACHE_CONTROL) {
+    const encoded = await encodedResponse(req, target, file, info, headers);
+    if (encoded) return encoded;
+    if (isCompressible(headers["content-type"])) headers.vary = "Accept-Encoding";
+  }
   return new Response(req.method === "HEAD" ? null : file, { status: 200, headers });
 }
 

@@ -170,9 +170,9 @@ describe("wire-level effort for kenari/muse-ember-1-0", () => {
 });
 
 describe("/api/providers/[id]/models for kenari", () => {
-  const get = async () => {
+  const get = async (query = "?refresh=1") => {
     mocks.getProviderConnectionById.mockResolvedValue({ id: "c1", provider: "kenari", apiKey: "k" });
-    const res = await GET(new Request("http://x/api/providers/c1/models"), { params: Promise.resolve({ id: "c1" }) });
+    const res = await GET(new Request(`http://x/api/providers/c1/models${query}`), { params: Promise.resolve({ id: "c1" }) });
     return res.json();
   };
 
@@ -185,6 +185,15 @@ describe("/api/providers/[id]/models for kenari", () => {
     expect(models.find((m) => m.id === "gpt-image-2").kind).toBe("image");
     expect(models.find((m) => m.id === "gemini-3-8-flash-lite-tts").kind).toBe("tts");
     expect(models.find((m) => m.id === "gpt-image-2")).not.toHaveProperty("caps");
+  });
+
+  it("answers a repeat listing from the route cache until refresh=1 asks again", async () => {
+    install(normalizeKenariModels(fixture));
+    await get();
+    fs.rmSync(KENARI_CATALOG_FILE, { force: true });
+    invalidateKenariCatalog();
+    expect((await get("")).models.some((m) => m.id === "muse-ember-1-0")).toBe(true);
+    expect((await get()).models.some((m) => m.id === "muse-ember-1-0")).toBe(false);
   });
 
   it("falls back to the static list with no cache", async () => {

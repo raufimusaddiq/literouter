@@ -1,6 +1,13 @@
-@import "material-symbols/outlined.css" layer(base);
 @import "@fontsource-variable/schibsted-grotesk";
 @import "@fontsource-variable/jetbrains-mono";
+
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("./fonts/material-symbols-outlined.woff2") format("woff2");
+}
 
 :root {
   --font-schibsted: "Schibsted Grotesk Variable";
