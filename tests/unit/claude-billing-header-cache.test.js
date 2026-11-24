@@ -7,7 +7,7 @@ const instructions = "Follow the project instructions.\nKeep answers concise.";
 const convert = (content, extra = {}) => openaiToClaudeRequest("claude-opus-4-8", {
   messages: [{ role: "system", content }, { role: "user", content: "Hello" }],
   ...extra,
-}, false);
+}, false, null, "claude");
 
 describe("OpenAI to Claude billing header cache stability (#5739)", () => {
   it.each([

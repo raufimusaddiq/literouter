@@ -3,14 +3,21 @@ import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { prepareClaudeRequest } from "../../open-sse/translator/formats/claude.js";
+import { CLAUDE_SYSTEM_PROMPT } from "../../open-sse/config/appConstants.js";
+import { PLACEHOLDER_CURRENT } from "../../open-sse/translator/concerns/modality.js";
 
-const T = (body) =>
-  translateRequest(FORMATS.OPENAI, FORMATS.CLAUDE, "m", body, true, null, "anthropic-compatible-x");
+const T = (body, provider = "anthropic-compatible-x") =>
+  translateRequest(FORMATS.OPENAI, FORMATS.CLAUDE, "m", body, true, null, provider);
 
 describe("OpenAI → Claude context mapping", () => {
-  it.failing("does not inject Claude Code system prompt for compatible providers", () => {
+  it("does not inject the Claude Code system prompt for compatible providers", () => {
     const out = T({ messages: [{ role: "user", content: "hi" }] });
-    expect(JSON.stringify(out.system), "Claude Code prompt injected").not.toContain("Claude Code");
+    expect(out.system ?? [], "Claude Code prompt injected").toEqual([]);
+  });
+
+  it("injects the Claude Code system prompt for the official Claude OAuth provider", () => {
+    const out = T({ messages: [{ role: "user", content: "hi" }] }, "claude");
+    expect(out.system).toEqual([expect.objectContaining({ type: "text", text: CLAUDE_SYSTEM_PROMPT })]);
   });
 
   it("assistant reasoning_content becomes a thinking block", () => {
@@ -38,14 +45,17 @@ describe("OpenAI → Claude context mapping", () => {
     expect(out.tool_choice?.type, "none became auto → model may call tools").not.toBe("auto");
   });
 
-  it.failing("input_audio content is preserved", () => {
+  it("input_audio becomes an omission placeholder", () => {
     const out = T({
       messages: [{ role: "user", content: [
         { type: "text", text: "transcribe" },
         { type: "input_audio", input_audio: { data: "AUDIO_B64", format: "wav" } },
       ] }],
     });
-    expect(JSON.stringify(out), "audio dropped").toContain("AUDIO_B64");
+    expect(out.messages[0].content, "audio dropped silently").toContainEqual({
+      type: "text",
+      text: PLACEHOLDER_CURRENT.audioInput,
+    });
   });
 
   it("remote http image_url is preserved", () => {

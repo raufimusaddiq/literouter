@@ -4,6 +4,7 @@ import { CLAUDE_SYSTEM_PROMPT } from "../../config/appConstants.js";
 import { adjustMaxTokens } from "../formats/maxTokens.js";
 import { safeParseJSON } from "../concerns/json.js";
 import { parseDataUri } from "../concerns/image.js";
+import { PLACEHOLDER_CURRENT } from "../concerns/modality.js";
 import { stripAnthropicBillingHeader } from "../concerns/message.js";
 import { extractTextContent } from "../formats/gemini.js";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
@@ -13,7 +14,7 @@ import { normalizeStopSequences, STOP_SEQUENCE_LIMITS } from "../concerns/reques
 
 const CLAUDE_OAUTH_TOOL_PREFIX = "";
 
-export function openaiToClaudeRequest(model, body, stream) {
+export function openaiToClaudeRequest(model, body, stream, credentials, provider = null) {
   const toolNameMap = new Map();
   const toolNames = createToolNameSanitizer(collectChatToolNames(body));
   const modelCeiling = getCapabilitiesForModel(null, model).maxOutput || undefined;
@@ -129,16 +130,16 @@ Respond ONLY with the JSON object, no other text.`);
     }
   }
 
-  const claudeCodePrompt = { type: CLAUDE_BLOCK.TEXT, text: CLAUDE_SYSTEM_PROMPT };
+  const claudeCodePrompt = provider === "claude" ? [{ type: CLAUDE_BLOCK.TEXT, text: CLAUDE_SYSTEM_PROMPT }] : [];
 
   if (systemParts.length > 0) {
     const systemText = systemParts.join("\n");
     result.system = [
-      claudeCodePrompt,
+      ...claudeCodePrompt,
       { type: CLAUDE_BLOCK.TEXT, text: systemText, cache_control: { type: "ephemeral", ttl: "1h" } }
     ];
-  } else {
-    result.system = [claudeCodePrompt];
+  } else if (claudeCodePrompt.length > 0) {
+    result.system = claudeCodePrompt;
   }
 
   if (body.tools && Array.isArray(body.tools)) {
@@ -261,6 +262,8 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map(), safeName = (n
           }
         } else if (part.type === OPENAI_BLOCK.IMAGE && part.source) {
           blocks.push({ type: CLAUDE_BLOCK.IMAGE, source: part.source });
+        } else if (part.type === OPENAI_BLOCK.INPUT_AUDIO || part.type === OPENAI_BLOCK.AUDIO_URL) {
+          blocks.push({ type: CLAUDE_BLOCK.TEXT, text: PLACEHOLDER_CURRENT.audioInput });
         } else if (part.type === OPENAI_BLOCK.FILE && part.file) {
           const fileData = part.file.file_data;
           const parsed = parseDataUri(fileData);

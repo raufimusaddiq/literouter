@@ -1,6 +1,6 @@
 import { FORMATS } from "../formats.js";
 
-const PLACEHOLDER_CURRENT = {
+export const PLACEHOLDER_CURRENT = {
   vision: "[image omitted: model has no vision support]",
   audioInput: "[audio omitted: model has no audio support]",
   pdf: "[file omitted: model has no document support]",
