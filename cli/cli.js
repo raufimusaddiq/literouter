@@ -128,6 +128,17 @@ if (parsedCommand.command === "stop") {
   return;
 }
 
+if (parsedCommand.command === "setup") {
+  const { runSetup } = require("./src/cli/commands/setup");
+  runSetup(parsedCommand.rest)
+    .then((code) => process.exit(code))
+    .catch((err) => {
+      console.error(`❌ ${err?.message || err}`);
+      process.exit(1);
+    });
+  return;
+}
+
 if (parsedCommand.command === "xai" && parsedCommand.rest[0] === "video") {
   const { run } = require("./src/cli/commands/xaiVideo");
   run(parsedCommand.rest.slice(1))
@@ -205,6 +216,9 @@ Options:
 
 Commands:
   ${APP_NAME} stop    Stop the running LiteRouter server (exit 0 when none is running)
+  ${APP_NAME} setup <tool> [--url <url>] [--key <key>] [--dry-run]
+                      Point a coding tool on this machine at a LiteRouter server
+                      (tools: pi, claude-code, codex, opencode; see: ${APP_NAME} setup --help)
   xai video --prompt "..." --output video.mp4
                       Generate a Grok Imagine video via the running gateway
                       (see: ${APP_NAME} xai video --help)
