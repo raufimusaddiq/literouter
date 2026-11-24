@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { BaseExecutor } from "./base.js";
+import { BaseExecutor, discardResponse } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
 import { OAUTH_ENDPOINTS, ANTIGRAVITY_HEADERS, AG_DEFAULT_TOOLS, AG_TOOL_SUFFIX, ANTIGRAVITY_PROMPT_REWRITES, ANTIGRAVITY_DEFAULT_SYSTEM } from "../config/appConstants.js";
 import { GEMINI_ROLE } from "../translator/schema/roles.js";
@@ -10,6 +10,7 @@ import { refreshSignal } from "../utils/requestTimeouts.js";
 import { cleanJSONSchemaForAntigravity, normalizeGeminiContents } from "../translator/formats/gemini.js";
 import { DEFAULT_THINKING_AG_SIGNATURE } from "../config/defaultThinkingSignature.js";
 import { getGeminiThoughtSignatureSync } from "../services/thoughtSignatureStore.js";
+import { GEMINI_LONG_DECODE_MAX_OUTPUT, supportsGeminiLongDecode, wantsGeminiLongDecode, withGeminiLongDecode } from "../utils/geminiLongDecode.js";
 
 function sanitizeFunctionName(name) {
   if (!name) return "_unknown";
@@ -32,6 +33,28 @@ const ANTIGRAVITY_TRANSIENT_ERROR_PATTERNS = [
   /stream\s+(ended|closed|terminated|interrupted)/i,
   /empty\s+response/i,
 ];
+
+const ANTIGRAVITY_BARE_EXHAUSTED_MESSAGE = /^Resource has been exhausted \(e\.g\. check quota\)\.?$/;
+export const ANTIGRAVITY_PROMPT_REJECTED_MESSAGE = "Antigravity rejected this request (upstream 429 RESOURCE_EXHAUSTED with no quota details, so this is not your quota). "
+  + "Antigravity refuses system prompts that carry certain third-party agent text. LiteRouter rewrites the known strings "
+  + "(ANTIGRAVITY_PROMPT_REWRITES) and retries a refused prompt once with the system text moved into the first user turn, "
+  + "but this request was still refused.";
+
+export function isAntigravityPromptRejection(status, bodyText) {
+  if (status !== HTTP_STATUS.RATE_LIMITED || !bodyText) return false;
+  let err;
+  try { err = JSON.parse(bodyText)?.error; } catch { return false; }
+  if (err?.status !== "RESOURCE_EXHAUSTED") return false;
+  if (!ANTIGRAVITY_BARE_EXHAUSTED_MESSAGE.test(String(err.message || "").trim())) return false;
+  return !(Array.isArray(err.details) && err.details.length > 0);
+}
+
+export function moveSystemInstructionToContents(body) {
+  const { systemInstruction, ...request } = body?.request || {};
+  const parts = (systemInstruction?.parts || []).filter((p) => typeof p?.text === "string" && p.text.trim());
+  if (parts.length === 0) return null;
+  return { ...body, request: { ...request, contents: [{ role: GEMINI_ROLE.USER, parts }, ...(request.contents || [])] } };
+}
 
 const bodyTextReads = new WeakMap();
 
@@ -124,6 +147,33 @@ function buildIdeRequestId({ body, request, credentials, model, requestType }) {
 export class AntigravityExecutor extends BaseExecutor {
   constructor() {
     super("antigravity", PROVIDERS.antigravity);
+  }
+
+  async execute(args) {
+    let result = await super.execute(args);
+    if (result?.response?.status === HTTP_STATUS.RATE_LIMITED && !isImageModel(args.model)) {
+      const moved = moveSystemInstructionToContents(args.body);
+      if (moved && isAntigravityPromptRejection(result.response.status, await readBodyOnce(result.response))) {
+        args.log?.warn?.("ANTIGRAVITY", "System prompt rejected (fingerprinted third-party text not in ANTIGRAVITY_PROMPT_REWRITES); retrying with it in the first user turn");
+        discardResponse(result.response);
+        result.dispose?.();
+        args = { ...args, body: moved };
+        result = await super.execute(args);
+      }
+    }
+    if (!result?.response?.ok) return result;
+    const finalBody = result.transformedBody;
+    if (!wantsGeminiLongDecode(this.provider, finalBody?.model || args.model, finalBody?.request?.generationConfig)) return result;
+    const nextHop = (continuationToken) =>
+      super.execute({ ...args, body: { ...args.body, request: { ...args.body?.request, continuationToken } } });
+    return withGeminiLongDecode(result, { stream: args.stream, nextHop, signal: args.signal, log: args.log });
+  }
+
+  parseError(response, bodyText) {
+    if (isAntigravityPromptRejection(response.status, bodyText)) {
+      return { status: HTTP_STATUS.BAD_REQUEST, message: ANTIGRAVITY_PROMPT_REJECTED_MESSAGE };
+    }
+    return super.parseError(response, bodyText);
   }
 
   buildUrl(model, stream, urlIndex = 0) {
@@ -275,8 +325,11 @@ export class AntigravityExecutor extends BaseExecutor {
     }
 
     const generationConfig = { ...(requestWithoutTools.generationConfig || {}) };
-    if (generationConfig.maxOutputTokens > MAX_ANTIGRAVITY_OUTPUT_TOKENS) {
-      generationConfig.maxOutputTokens = MAX_ANTIGRAVITY_OUTPUT_TOKENS;
+    const outputCap = supportsGeminiLongDecode(this.provider, body.model || model)
+      ? GEMINI_LONG_DECODE_MAX_OUTPUT
+      : MAX_ANTIGRAVITY_OUTPUT_TOKENS;
+    if (generationConfig.maxOutputTokens > outputCap) {
+      generationConfig.maxOutputTokens = outputCap;
     }
 
     const transformedRequest = {
@@ -416,6 +469,8 @@ export class AntigravityExecutor extends BaseExecutor {
       errorJson = bodyText ? JSON.parse(bodyText) : null;
     } catch {
     }
+
+    if (isAntigravityPromptRejection(response.status, bodyText)) return false;
 
     const errorMessage = this.extractErrorMessage(errorJson, bodyText);
 

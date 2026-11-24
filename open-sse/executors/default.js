@@ -11,6 +11,7 @@ import { refreshSignal } from "../utils/requestTimeouts.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { stripUnsupportedParams } from "../translator/concerns/paramSupport.js";
 import { extractClaudeSessionIdFromUserId } from "../utils/claudeCloaking.js";
+import { wantsGeminiLongDecode, withGeminiLongDecode } from "../utils/geminiLongDecode.js";
 
 const BEARER = { combined: true, header: "Authorization", scheme: "bearer" };
 const XAPIKEY = { combined: true, header: "x-api-key", scheme: "raw" };
@@ -91,6 +92,14 @@ const REFRESH_GRANTS = Object.fromEntries(
 export class DefaultExecutor extends BaseExecutor {
   constructor(provider) {
     super(provider, PROVIDERS[provider] || PROVIDERS.openai);
+  }
+
+  async execute(args) {
+    const result = await super.execute(args);
+    if (this.config.format !== "gemini" || !result?.response?.ok) return result;
+    if (!wantsGeminiLongDecode(this.provider, args.model, result.transformedBody?.generationConfig)) return result;
+    const nextHop = (continuationToken) => super.execute({ ...args, body: { ...args.body, continuationToken } });
+    return withGeminiLongDecode(result, { stream: args.stream, nextHop, signal: args.signal, log: args.log });
   }
 
   transformRequest(model, body, stream) {
