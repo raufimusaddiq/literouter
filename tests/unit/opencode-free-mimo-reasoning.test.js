@@ -87,13 +87,13 @@ describe("oc/mimo-v2.6-flash-free reasoning levels", () => {
     }
   });
 
-  it("drops adaptive \"auto\" instead of shipping a value the lane 400s on", () => {
+  it("maps adaptive thinking to high instead of shipping the literal auto", () => {
     const body = { model: MODEL, messages: [{ role: "user", content: "hi" }], thinking: { type: "adaptive" } };
     const translated = translateRequest(FORMATS.OPENAI, FORMATS.OPENAI, MODEL, body, true, {}, PROVIDER);
-    expect(translated.reasoning_effort).toBe("auto");
+    expect(translated.reasoning_effort).toBe("high");
 
     const out = new OpenCodeExecutor().transformRequest(MODEL, translated, true, { connectionId: "oc-mimo-auto-test" });
-    expect(out.reasoning_effort).toBeUndefined();
+    expect(out.reasoning_effort).toBe("high");
 
     const kept = translateRequest(
       FORMATS.OPENAI,
