@@ -93,6 +93,7 @@ Only the `literouter` entry is changed; everything else in the file is kept. The
 | --- | --- | --- |
 | `pi` | `~/.pi/agent/models.json` (`$PI_CODING_AGENT_DIR`) | `providers.literouter` with each model's image input, reasoning, context/output limits and thinking levels; pick it in Pi with `/model` |
 | `claude-code` | `~/.claude/settings.json` (`$CLAUDE_CONFIG_DIR`) | `env.ANTHROPIC_BASE_URL` (the server root; Claude Code adds `/v1/messages`), `env.ANTHROPIC_AUTH_TOKEN`, and the tier models from `--opus`, `--sonnet`, `--haiku`, `--fable` (asked for in a terminal) |
+| `codex` | `~/.codex/config.toml` (`$CODEX_HOME`) | `[model_providers.literouter]` (Responses API on `<server>/v1`, key as a static `Authorization` header) and `[profiles.literouter]` with `--model`; run `codex --profile literouter`, or pass `--default` to make it the default profile |
 
 ---
 

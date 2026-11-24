@@ -218,7 +218,7 @@ Commands:
   ${APP_NAME} stop    Stop the running LiteRouter server (exit 0 when none is running)
   ${APP_NAME} setup <tool> [--url <url>] [--key <key>] [--dry-run]
                       Point a coding tool on this machine at a LiteRouter server
-                      (tools: pi, claude-code; see: ${APP_NAME} setup --help)
+                      (tools: pi, claude-code, codex; see: ${APP_NAME} setup --help)
   xai video --prompt "..." --output video.mp4
                       Generate a Grok Imagine video via the running gateway
                       (see: ${APP_NAME} xai video --help)
