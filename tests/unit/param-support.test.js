@@ -86,6 +86,33 @@ describe("stripUnsupportedParams", () => {
     }
   });
 
+  it.each([
+    ["groq", "openai/gpt-oss-120b"],
+    ["mistral", "codestral-latest"],
+    ["cerebras", "gpt-oss-120b"],
+  ])("drops is_error from tool messages for %s", (provider, model) => {
+    const body = {
+      messages: [
+        { role: "assistant", tool_calls: [{ id: "c1", type: "function", function: { name: "f", arguments: "{}" } }] },
+        { role: "tool", tool_call_id: "c1", content: "boom", is_error: true },
+      ],
+    };
+
+    stripUnsupportedParams(provider, model, body);
+
+    expect(body.messages[1]).toEqual({ role: "tool", tool_call_id: "c1", content: "boom" });
+  });
+
+  it("keeps is_error on tool messages for [OI]-compatible providers", () => {
+    const body = {
+      messages: [{ role: "tool", tool_call_id: "c1", content: "boom", is_error: true }],
+    };
+
+    stripUnsupportedParams("openai-compatible-custom", "any-model", body);
+
+    expect(body.messages[0].is_error).toBe(true);
+  });
+
   it("leaves reasoning fields alone for providers that accept or require them", () => {
     const body = {
       messages: [{ role: "assistant", content: "hello", reasoning_content: "thinking..." }],
