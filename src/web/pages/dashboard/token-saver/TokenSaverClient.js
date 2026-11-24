@@ -102,6 +102,7 @@ export default function TokenSaverClient() {
   const [cavemanLevel, setCavemanLevel] = useState("full");
   const [ponytailEnabled, setPonytailEnabled] = useState(false);
   const [ponytailLevel, setPonytailLevel] = useState("full");
+  const [reaAllowEnabled, setReaAllowEnabled] = useState(false);
   const [locale, setLocale] = useState("en");
 
   const { copied, copy } = useCopyToClipboard();
@@ -405,6 +406,11 @@ export default function TokenSaverClient() {
     patchSetting({ ponytailLevel: level });
   };
 
+  const handleReaAllowEnabled = (value) => {
+    setReaAllowEnabled(value);
+    patchSetting({ reaAllowEnabled: value });
+  };
+
   const handleHeadroomTimeoutBlur = () => {
     const raw = Math.round(Number(headroomTimeoutMs));
     const next = Number.isFinite(raw) && raw > 0 ? raw : 3000;
@@ -428,6 +434,7 @@ export default function TokenSaverClient() {
           setCavemanLevel(data.cavemanLevel || "full");
           setPonytailEnabled(!!data.ponytailEnabled);
           setPonytailLevel(data.ponytailLevel || "full");
+          setReaAllowEnabled(!!data.reaAllowEnabled);
           headroomHiddenRef.current = data.minimalProfile === true;
           refreshHeadroomStatus();
         }
@@ -664,6 +671,21 @@ export default function TokenSaverClient() {
                 />
               )}
             </>
+          }
+        />
+        <SettingRow
+          title={
+            <>
+              REA allow <SourceLink href="https://github.com/morluto/rea">(morluto/rea)</SourceLink>
+            </>
+          }
+          description="Replace the client's built-in security-policy paragraph with REA reverse-engineering guidance, and add the guidance to requests that carry none"
+          controls={
+            <Toggle
+              checked={reaAllowEnabled}
+              onChange={() => handleReaAllowEnabled(!reaAllowEnabled)}
+              aria-label="REA allow"
+            />
           }
         />
       </Card>
