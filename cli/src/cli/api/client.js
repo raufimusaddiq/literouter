@@ -60,8 +60,9 @@ function configure(options = {}) {
 function makeRequest(method, path, body = null, options = {}) {
   return new Promise((resolve) => {
     const httpModule = config.protocol === "https:" ? https : http;
-    
-    const options = {
+    const timeout = options?.timeout || 30000;
+
+    const requestOptions = {
       hostname: config.host,
       port: config.port,
       path: path,
@@ -74,10 +75,10 @@ function makeRequest(method, path, body = null, options = {}) {
 
     if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
       const bodyString = JSON.stringify(body);
-      options.headers["Content-Length"] = Buffer.byteLength(bodyString);
+      requestOptions.headers["Content-Length"] = Buffer.byteLength(bodyString);
     }
 
-    const req = httpModule.request(options, (res) => {
+    const req = httpModule.request(requestOptions, (res) => {
       let data = "";
 
       res.on("data", (chunk) => {
@@ -125,7 +126,7 @@ function makeRequest(method, path, body = null, options = {}) {
       });
     });
 
-    req.setTimeout(options.timeout || 30000);
+    req.setTimeout(timeout);
 
     if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
       req.write(JSON.stringify(body));
