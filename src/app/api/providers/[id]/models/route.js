@@ -544,15 +544,44 @@ const PROVIDER_MODELS_CONFIG = {
   }
 };
 
+const MODELS_CACHE_TTL_MS = 5 * 60 * 1000;
+const modelsCache = new Map();
+
+function credentialKey(connection) {
+  const { updatedAt, apiKey, accessToken, providerSpecificData } = connection;
+  return String(Bun.hash(JSON.stringify([updatedAt, apiKey, accessToken, providerSpecificData])));
+}
+
 export async function GET(request, { params }) {
+  let connection;
   try {
     const { id } = await params;
-    const connection = await getProviderConnectionById(id);
-
-    if (!connection) {
-      return json({ error: "Connection not found" }, { status: 404 });
+    connection = await getProviderConnectionById(id);
+  } catch (error) {
+    console.log("Error fetching provider models:", error);
+    return json({ error: "Failed to fetch models" }, { status: 500 });
+  }
+  if (!connection) {
+    return json({ error: "Connection not found" }, { status: 404 });
+  }
+  const key = credentialKey(connection);
+  const hit = modelsCache.get(connection.id);
+  const refresh = new URL(request.url).searchParams.has("refresh");
+  if (!refresh && hit?.key === key && Date.now() - hit.at < MODELS_CACHE_TTL_MS) return json(hit.body);
+  const res = await listModels(connection);
+  if (res.status === 200) {
+    const body = await res.clone().json().catch(() => null);
+    if (Array.isArray(body?.models) && body.models.length > 0 && !body.warning) {
+      modelsCache.set(connection.id, { key, at: Date.now(), body });
+    } else {
+      modelsCache.delete(connection.id);
     }
+  }
+  return res;
+}
 
+async function listModels(connection) {
+  try {
     if (isOpenAICompatibleProvider(connection.provider)) {
       const baseUrl = connection.providerSpecificData?.baseUrl;
       if (!baseUrl) {

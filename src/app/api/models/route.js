@@ -5,7 +5,16 @@ import { AI_MODELS } from "@/shared/constants/config";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
 
-export async function GET() {
+function revalidated(request, body) {
+  const text = JSON.stringify(body);
+  const etag = `"${Bun.hash(text).toString(36)}"`;
+  const headers = { etag, "cache-control": "private, no-cache" };
+  const sent = (request?.headers.get("if-none-match") || "").split(",").map((tag) => tag.trim().replace(/^W\//, ""));
+  if (sent.includes(etag)) return new Response(null, { status: 304, headers });
+  return new Response(text, { headers: { ...headers, "content-type": "application/json" } });
+}
+
+export async function GET(request) {
   try {
     const modelAliases = await getModelAliases();
     const disabled = await getDisabledModels();
@@ -62,7 +71,7 @@ export async function GET() {
       });
     }
 
-    return json({ models });
+    return revalidated(request, { models });
   } catch (error) {
     console.log("Error fetching models:", error);
     return json({ error: "Failed to fetch models" }, { status: 500 });

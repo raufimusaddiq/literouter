@@ -1,4 +1,6 @@
 # Unreleased
+- **Dashboard**: first loads are about 3.9 MB lighter. The icon font was the full 3.96 MB Material Symbols file; it is now a 20 KB subset with only the icons LiteRouter uses (`bun run gen:icons` regenerates it), so icons no longer stay hidden while it downloads.
+- **Dashboard**: JavaScript and CSS assets are compressed once with brotli (gzip for older clients) and reused, instead of gzip-streamed on every request. A provider's live model list is cached for five minutes (the import buttons still fetch fresh), `/api/models` revalidates with an ETag instead of resending 216 KB, and the usage chart groups hours in SQL. Reading 7/30/60-day and all-time stats no longer writes to the database first or re-parses unchanged days. Every API response carries a `Server-Timing` header.
 - **CLI**: the provider menu's model lookup gives up after three seconds, so an unresponsive server shows "Models: Unavailable (server not running)" quickly instead of waiting out the 30-second request timeout.
 
 # v1.0.2

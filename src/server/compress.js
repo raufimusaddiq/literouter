@@ -1,4 +1,5 @@
-import { constants, createGzip } from "node:zlib";
+import { promisify } from "node:util";
+import { brotliCompress, constants, createGzip, gzip } from "node:zlib";
 
 const COMPRESSIBLE_TYPES = new Set([
   "application/json",
@@ -25,11 +26,11 @@ const COMPRESSIBLE_TYPES = new Set([
   "font/opentype",
 ]);
 
-const MIN_DECLARED_BYTES = 1024;
+export const MIN_DECLARED_BYTES = 1024;
 
 const NEVER_COMPRESSED = new Set(["text/event-stream", "application/x-ndjson"]);
 
-function isCompressible(type) {
+export function isCompressible(type) {
   const t = type.split(";")[0].trim().toLowerCase();
   if (!t || NEVER_COMPRESSED.has(t)) return false;
   if (t.startsWith("text/")) return true;
@@ -37,14 +38,39 @@ function isCompressible(type) {
   return COMPRESSIBLE_TYPES.has(t);
 }
 
-function acceptsGzip(req) {
+function accepts(req, encoding) {
   const header = req.headers.get("accept-encoding") || "";
   return header.split(",").some((part) => {
     const [name, ...params] = part.trim().toLowerCase().split(";");
-    if (name.trim() !== "gzip") return false;
+    if (name.trim() !== encoding) return false;
     const q = params.map((p) => p.trim()).find((p) => p.startsWith("q="));
     return !q || Number(q.slice(2)) > 0;
   });
+}
+
+const ENCODERS = {
+  br: (bytes) => promisify(brotliCompress)(bytes, { params: { [constants.BROTLI_PARAM_QUALITY]: 10, [constants.BROTLI_PARAM_SIZE_HINT]: bytes.byteLength } }),
+  gzip: (bytes) => promisify(gzip)(bytes, { level: 9 }),
+};
+const ASSET_CACHE_LIMIT = 256;
+const assetCache = new Map();
+
+export function assetEncoding(req) {
+  if (accepts(req, "br")) return "br";
+  if (accepts(req, "gzip")) return "gzip";
+  return null;
+}
+
+export function encodedAsset(key, encoding, read) {
+  const cacheKey = `${encoding}|${key}`;
+  let hit = assetCache.get(cacheKey);
+  if (!hit) {
+    hit = read().then((bytes) => ENCODERS[encoding](bytes)).then((out) => new Uint8Array(out));
+    hit.catch(() => assetCache.delete(cacheKey));
+    assetCache.set(cacheKey, hit);
+    if (assetCache.size > ASSET_CACHE_LIMIT) assetCache.delete(assetCache.keys().next().value);
+  }
+  return hit;
 }
 
 function gzipStream(body) {
@@ -82,7 +108,7 @@ function gzipStream(body) {
 export async function maybeCompress(req, res) {
   if (!res || res.body === null || req.method === "HEAD") return res;
   if (res.status === 204 || res.status === 304 || res.status === 206) return res;
-  if (!acceptsGzip(req)) return res;
+  if (!accepts(req, "gzip")) return res;
   const headers = res.headers;
   if (headers.has("content-encoding")) return res;
   if (!isCompressible(headers.get("content-type") || "")) return res;

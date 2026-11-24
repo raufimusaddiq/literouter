@@ -616,15 +616,35 @@ export async function saveRequestUsage(entry) {
   });
 }
 
+const PARSED_DAY_LIMIT = 400;
+const parsedDays = new Map();
+
+function parseDay(dateKey, data) {
+  const hit = parsedDays.get(dateKey);
+  if (hit && hit.data === data) return hit.day;
+  const day = parseJson(data, {});
+  parsedDays.delete(dateKey);
+  parsedDays.set(dateKey, { data, day });
+  if (parsedDays.size > PARSED_DAY_LIMIT) parsedDays.delete(parsedDays.keys().next().value);
+  return day;
+}
+
 function loadDaysInRange(adapter, maxDays) {
-  flushUsageDailySync(adapter);
-  if (maxDays == null) {
-    return adapter.all(`SELECT dateKey, data FROM usageDaily`);
+  let cutoffKey = null;
+  if (maxDays != null) {
+    const today = new Date();
+    const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate() - maxDays + 1);
+    cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
   }
-  const today = new Date();
-  const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate() - maxDays + 1);
-  const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
-  return adapter.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ?`, [cutoffKey]);
+  const rows = cutoffKey == null
+    ? adapter.all(`SELECT dateKey, data FROM usageDaily`)
+    : adapter.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ?`, [cutoffKey]);
+  const days = new Map();
+  for (const r of rows) days.set(r.dateKey, parseDay(r.dateKey, r.data));
+  for (const [dateKey, slot] of dailyState.days) {
+    if (slot.dirty && (cutoffKey == null || dateKey >= cutoffKey)) days.set(dateKey, slot.day);
+  }
+  return [...days].map(([dateKey, day]) => ({ dateKey, day }));
 }
 
 const LIVE_STATS_TTL_MS = Math.max(0, Number(process.env.LIVE_STATS_TTL_MS || 3000));
@@ -783,8 +803,7 @@ export async function getUsageStats(period = "all") {
     const dayFallback = {};
 
     for (const dr of dayRows) {
-      const dateKey = dr.dateKey;
-      const day = parseJson(dr.data, {});
+      const { dateKey, day } = dr;
       stats.totalPromptTokens += day.promptTokens || 0;
       stats.totalCompletionTokens += day.completionTokens || 0;
       stats.totalCachedTokens += day.cachedTokens || 0;
@@ -1001,6 +1020,26 @@ export async function getUsageStats(period = "all") {
   return stats;
 }
 
+const EPOCH_MS = "CAST(ROUND((julianday(timestamp) - 2440587.5) * 86400000) AS INTEGER)";
+
+function hourlyTotals(db, startTime, endTime, inclusiveEnd) {
+  return db.all(
+    `SELECT (${EPOCH_MS} - ?) / 3600000 AS idx,
+            COUNT(*) AS requests, COALESCE(SUM(COALESCE(promptTokens, 0) + COALESCE(completionTokens, 0)), 0) AS tokens,
+            COALESCE(SUM(cost), 0) AS cost
+     FROM usageHistory
+     WHERE timestamp >= ? AND ${EPOCH_MS} ${inclusiveEnd ? "<=" : "<"} ?
+     GROUP BY idx`,
+    [startTime, new Date(startTime).toISOString(), endTime]
+  );
+}
+
+function addBucket(bucket, row) {
+  bucket.tokens += row.tokens;
+  bucket.cost += row.cost;
+  bucket.requests += row.requests;
+}
+
 export async function getChartData(period = "7d") {
   const db = await getAdapter();
   const now = Date.now();
@@ -1015,19 +1054,8 @@ export async function getChartData(period = "7d") {
     const labelFn = (ts) => new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
     const buckets = Array.from({ length: bucketCount }, (_, i) => ({ label: labelFn(startTime + i * bucketMs), tokens: 0, cost: 0, requests: 0 }));
 
-    const rows = db.all(
-      `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ?`,
-      [new Date(startTime).toISOString()]
-    );
-    for (const r of rows) {
-      const t = new Date(r.timestamp).getTime();
-      if (t < startTime || t >= endTime) continue;
-      const idx = Math.floor((t - startTime) / bucketMs);
-      if (idx >= 0 && idx < bucketCount) {
-        buckets[idx].tokens += (r.promptTokens || 0) + (r.completionTokens || 0);
-        buckets[idx].cost += r.cost || 0;
-        buckets[idx].requests += 1;
-      }
+    for (const r of hourlyTotals(db, startTime, endTime, false)) {
+      if (r.idx >= 0 && r.idx < bucketCount) addBucket(buckets[r.idx], r);
     }
     return buckets;
   }
@@ -1039,17 +1067,8 @@ export async function getChartData(period = "7d") {
     const startTime = now - bucketCount * bucketMs;
     const buckets = Array.from({ length: bucketCount }, (_, i) => ({ label: labelFn(startTime + i * bucketMs), tokens: 0, cost: 0, requests: 0 }));
 
-    const rows = db.all(
-      `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ?`,
-      [new Date(startTime).toISOString()]
-    );
-    for (const r of rows) {
-      const t = new Date(r.timestamp).getTime();
-      if (t < startTime || t > now) continue;
-      const idx = Math.min(Math.floor((t - startTime) / bucketMs), bucketCount - 1);
-      buckets[idx].tokens += (r.promptTokens || 0) + (r.completionTokens || 0);
-      buckets[idx].cost += r.cost || 0;
-      buckets[idx].requests += 1;
+    for (const r of hourlyTotals(db, startTime, now, true)) {
+      if (r.idx >= 0) addBucket(buckets[Math.min(r.idx, bucketCount - 1)], r);
     }
     return buckets;
   }
@@ -1058,9 +1077,8 @@ export async function getChartData(period = "7d") {
   const today = new Date();
   const labelFn = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-  const dayRows = loadDaysInRange(db, bucketCount);
   const dayMap = {};
-  for (const r of dayRows) dayMap[r.dateKey] = parseJson(r.data, {});
+  for (const r of loadDaysInRange(db, bucketCount)) dayMap[r.dateKey] = r.day;
 
   return Array.from({ length: bucketCount }, (_, i) => {
     const d = new Date(today);

@@ -52,14 +52,15 @@ async function fallback(req) {
 }
 
 async function serve(req, server, inner) {
+  const startedAt = performance.now();
   try {
     const redirect = trailingSlashRedirect(new URL(req.url));
     if (redirect) return redirect;
     setRequestContext(req, buildRequestContext(server.requestIP(req)?.address ?? "", req.headers));
     for (const name of STRIPPED_HEADERS) req.headers.delete(name);
     const blocked = await guard(req);
-    if (blocked) return await withBuildHeader(req, await maybeCompress(req, blocked));
-    return await withBuildHeader(req, await inner(req, server));
+    if (blocked) return await withBuildHeader(req, await maybeCompress(req, blocked), startedAt);
+    return await withBuildHeader(req, await inner(req, server), startedAt);
   } catch (err) {
     if (err?.message === BODY_LIMIT_ERROR) return new Response(null, { status: 413 });
     console.error("[server] request failed:", err);

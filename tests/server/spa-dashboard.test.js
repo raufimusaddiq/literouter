@@ -3,6 +3,7 @@ import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { brotliDecompressSync, gunzipSync } from "node:zlib";
 import { useTempDataDirAtLoad } from "../helpers/tempDataDir.js";
 import { mockBootCollaborators } from "../helpers/bootMocks.js";
 
@@ -221,6 +222,20 @@ describe("assets and public files", () => {
     const res = await get("/api/does-not-exist");
     expect(res.status).toBe(404);
     expect(await res.text()).not.toContain("__LR_BOOT__");
+  });
+
+  it.each([
+    ["br", brotliDecompressSync],
+    ["gzip", gunzipSync],
+  ])("serves an asset %s-encoded with bytes that decode to the built file", async (encoding, decode) => {
+    const html = fs.readFileSync(path.join(spaDir, "index.html"), "utf8");
+    const url = html.match(/src="(\/assets\/index-[^"]+\.js)"/)[1];
+    for (let i = 0; i < 2; i++) {
+      const res = await get(url, { headers: { "accept-encoding": encoding }, decompress: false });
+      expect(res.headers.get("content-encoding")).toBe(encoding);
+      expect(res.headers.get("vary")).toBe("Accept-Encoding");
+      expect(decode(new Uint8Array(await res.arrayBuffer())).equals(fs.readFileSync(path.join(spaDir, url)))).toBe(true);
+    }
   });
 
   it("HEAD on an asset has no body", async () => {

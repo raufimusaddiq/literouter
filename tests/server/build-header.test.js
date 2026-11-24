@@ -43,6 +43,7 @@ describe("build header", () => {
     const res = await get(pathname);
     expect(res.status).toBe(status);
     expect(res.headers.get(BUILD_HEADER)).toBe("/assets/index-abc123.js");
+    expect(res.headers.get("server-timing")).toMatch(/^app;dur=\d+\.\d$/);
   });
 
   it("a non-API response has none", async () => {
