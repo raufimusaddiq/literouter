@@ -254,7 +254,7 @@ export const PROVIDER_CAPABILITIES = {
     "deepseek-v4.1-flash-1017": { vision: true, reasoning: true, thinkingFormat: "deepseek", thinkingEffortSupported: true, contextWindow: 1000000, maxOutput: 128000 },
   },
   "ollama": {
-    "deepseek-v4.1-flash:cloud": { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
+    "deepseek-v4.1-flash:cloud": { vision: true, reasoning: true, thinkingFormat: "think", contextWindow: 1000000, maxOutput: 384000 },
   },
 };
 
