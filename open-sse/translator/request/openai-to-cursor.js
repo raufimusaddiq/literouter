@@ -108,6 +108,10 @@ function convertMessages(messages) {
             }
             continue;
           }
+          if (block.type === OPENAI_BLOCK.IMAGE_URL || block.type === CLAUDE_BLOCK.IMAGE) {
+            parts.push(CURSOR_IMAGE_PLACEHOLDER);
+            continue;
+          }
           if (block.type === CLAUDE_BLOCK.TOOL_RESULT) {
             const toolCallId = block.tool_use_id || "";
             const toolMeta =
