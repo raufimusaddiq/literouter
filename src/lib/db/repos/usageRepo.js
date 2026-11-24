@@ -616,7 +616,7 @@ export async function saveRequestUsage(entry) {
   });
 }
 
-const PARSED_DAY_LIMIT = 400;
+const PARSED_DAY_LIMIT = 120;
 const parsedDays = new Map();
 
 function parseDay(dateKey, data) {
@@ -1024,7 +1024,7 @@ const EPOCH_MS = "CAST(ROUND((julianday(timestamp) - 2440587.5) * 86400000) AS I
 
 function hourlyTotals(db, startTime, endTime, inclusiveEnd) {
   return db.all(
-    `SELECT (${EPOCH_MS} - ?) / 3600000 AS idx,
+    `SELECT (${EPOCH_MS} - CAST(? AS INTEGER)) / 3600000 AS idx,
             COUNT(*) AS requests, COALESCE(SUM(COALESCE(promptTokens, 0) + COALESCE(completionTokens, 0)), 0) AS tokens,
             COALESCE(SUM(cost), 0) AS cost
      FROM usageHistory

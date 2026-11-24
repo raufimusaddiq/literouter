@@ -73,6 +73,7 @@ async function serveFrom(req, root, segments, cacheControl) {
   if (cacheControl === ASSET_CACHE_CONTROL) {
     const encoded = await encodedResponse(req, target, file, info, headers);
     if (encoded) return encoded;
+    if (isCompressible(headers["content-type"])) headers.vary = "Accept-Encoding";
   }
   return new Response(req.method === "HEAD" ? null : file, { status: 200, headers });
 }

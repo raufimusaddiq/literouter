@@ -244,6 +244,7 @@ describe("assets and public files", () => {
     const head = await get(url, { method: "HEAD" });
     expect(head.status).toBe(200);
     expect(Number(head.headers.get("content-length"))).toBeGreaterThan(0);
+    expect(head.headers.get("vary")).toBe("Accept-Encoding");
     expect(await head.text()).toBe("");
   });
 });
