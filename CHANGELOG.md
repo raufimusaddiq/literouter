@@ -1,4 +1,5 @@
 # Unreleased
+- **Dashboard**: drawers fit on phones. The panel had a fixed width (600px for request details) anchored to the right, so on a phone its left side was cut off; it now caps at the screen width, pads for the notch and home indicator, and its close button is a 44px target.
 - **Dashboard**: Usage → Details filters fit on phones. The From/To date fields no longer overflow the card on iOS (its native date input ignored `min-width: 0`), say "Any time" when empty instead of showing a blank box, open the picker from anywhere in the field, and use 16px text so iOS does not zoom on focus. The provider dropdown uses the same chevron as the shared Select, the filters are a flat strip with a Clear link instead of a raised card, and phone rows read latency as `TTFT / total` in the drawer's format.
 
 # v1.0.1

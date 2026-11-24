@@ -22,6 +22,17 @@ async function withView(element, run) {
 }
 
 describe("Route Sheet base components", () => {
+  it.each(["sm", "md", "lg", "xl"])("Drawer width %s never exceeds the viewport on phones", async (width) => {
+    await withView(
+      <Drawer isOpen onClose={() => {}} title="Details" width={width}>
+        body
+      </Drawer>,
+      (container) => {
+        expect(container.querySelector('[role="dialog"]').className.split(/\s+/)).toContain("max-w-full");
+      },
+    );
+  });
+
   it("Drawer closes from Escape and the Close button and renders nothing while closed", async () => {
     let closed = 0;
     const onClose = () => {
