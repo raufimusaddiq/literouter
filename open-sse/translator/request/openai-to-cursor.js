@@ -2,16 +2,22 @@ import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
 import { DEFAULT_MIN_TOKENS } from "../../config/runtimeConfig.js";
+import { adjustMaxTokens } from "../formats/maxTokens.js";
+
+export const CURSOR_IMAGE_PLACEHOLDER = "[image omitted: not supported by Cursor]";
 
 function extractContent(content) {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return content
-      .filter(part => {
-        if (!part || typeof part !== "object") return false;
-        return part.type === OPENAI_BLOCK.TEXT && typeof part.text === "string";
+      .map(part => {
+        if (!part || typeof part !== "object") return "";
+        if (part.type === OPENAI_BLOCK.TEXT && typeof part.text === "string") return part.text;
+        if (part.type === OPENAI_BLOCK.IMAGE_URL || part.type === CLAUDE_BLOCK.IMAGE) {
+          return CURSOR_IMAGE_PLACEHOLDER;
+        }
+        return "";
       })
-      .map(part => part.text || "")
       .join("");
   }
   return "";
@@ -167,7 +173,7 @@ export function openaiToCursorRequest(model, body, stream, credentials) {
   return {
     ...rest,
     messages,
-    max_tokens: DEFAULT_MIN_TOKENS
+    max_tokens: adjustMaxTokens(body, DEFAULT_MIN_TOKENS)
   };
 }
 

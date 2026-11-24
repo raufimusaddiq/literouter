@@ -46,19 +46,24 @@ describe("OpenAI → Kiro", () => {
     ).not.toThrow();
   });
 
-  it.failing("respects client max_tokens", () => {
+  it("respects client max_tokens", () => {
     const out = O2K({ max_tokens: 100, messages: [{ role: "user", content: "hi" }] });
     expect(out.inferenceConfig?.maxTokens, "client max_tokens ignored").toBe(100);
   });
 
-  it.failing("remote image url is preserved as an image, not text", () => {
+  it("caps max_tokens at the Kiro ceiling", () => {
+    const out = O2K({ max_tokens: 999999, messages: [{ role: "user", content: "hi" }] });
+    expect(out.inferenceConfig?.maxTokens).toBe(32000);
+  });
+
+  it("data uri image becomes a Kiro image", () => {
     const out = O2K({
       messages: [{ role: "user", content: [
         { type: "text", text: "see" },
-        { type: "image_url", image_url: { url: "https://x.com/p.png" } },
+        { type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } },
       ] }],
     });
-    const content = out.conversationState?.currentMessage?.userInputMessage?.content || "";
-    expect(content, "remote image flattened to text").not.toContain("[Image:");
+    const images = out.conversationState?.currentMessage?.userInputMessage?.images || [];
+    expect(images).toEqual([{ format: "png", source: { bytes: "AAAA" } }]);
   });
 });
