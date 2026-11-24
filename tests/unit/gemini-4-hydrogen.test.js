@@ -37,6 +37,10 @@ describe("Gemini 4 Hydrogen on Antigravity", () => {
     expect(finalBody.request.generationConfig.thinkingConfig).toEqual({ thinkingLevel: level, includeThoughts: true });
   });
 
+  it.each(["gemini-4-hydrogen", "gemini-4-carbon"])("defaults bare %s to its high tier", (model) => {
+    expect(getModelUpstreamId("ag", model)).toBe(`${model}-high(high)`);
+  });
+
   it("downgrades xhigh to high on a Gemini 4 model without an xhigh tier", () => {
     const body = {
       model: "gemini-4-carbon",
