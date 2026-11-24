@@ -131,6 +131,14 @@ function systemReminderText(content) {
   return `<instructions>\n${text}\n</instructions>`;
 }
 
+function imageSourceUrl(source) {
+  if (source?.type === "base64" && source.data) {
+    return encodeDataUri(source.media_type, source.data);
+  }
+  if (source?.type === "url" && source.url) return source.url;
+  return null;
+}
+
 function convertClaudeMessage(msg) {
   if (msg.content && typeof msg.content === "object" && !Array.isArray(msg.content)) {
     msg.content = [msg.content];
@@ -150,6 +158,7 @@ function convertClaudeMessage(msg) {
     const parts = [];
     const toolCalls = [];
     const toolResults = [];
+    const reasoning = [];
 
     for (const block of msg.content) {
       switch (block.type) {
@@ -157,16 +166,24 @@ function convertClaudeMessage(msg) {
           parts.push({ type: OPENAI_BLOCK.TEXT, text: block.text });
           break;
 
-        case CLAUDE_BLOCK.IMAGE:
-          if (block.source?.type === "base64") {
+        case CLAUDE_BLOCK.THINKING:
+          if (block.thinking) reasoning.push(block.thinking);
+          break;
+
+        case CLAUDE_BLOCK.REDACTED_THINKING:
+          if (block.data) reasoning.push(block.data);
+          break;
+
+        case CLAUDE_BLOCK.IMAGE: {
+          const url = imageSourceUrl(block.source);
+          if (url) {
             parts.push({
               type: OPENAI_BLOCK.IMAGE_URL,
-              image_url: {
-                url: encodeDataUri(block.source.media_type, block.source.data)
-              }
+              image_url: { url }
             });
           }
           break;
+        }
 
         case CLAUDE_BLOCK.TOOL_USE:
           toolCalls.push({
@@ -186,10 +203,11 @@ function convertClaudeMessage(msg) {
             resultContent = block.content;
           } else if (Array.isArray(block.content)) {
             for (const c of block.content) {
-              if (c?.type === CLAUDE_BLOCK.IMAGE && c.source?.type === "base64") {
+              const url = c?.type === CLAUDE_BLOCK.IMAGE ? imageSourceUrl(c.source) : null;
+              if (url) {
                 resultImages.push({
                   type: OPENAI_BLOCK.IMAGE_URL,
-                  image_url: { url: encodeDataUri(c.source.media_type, c.source.data) }
+                  image_url: { url }
                 });
               }
             }
@@ -203,7 +221,8 @@ function convertClaudeMessage(msg) {
           toolResults.push({
             role: ROLE.TOOL,
             tool_call_id: block.tool_use_id,
-            content: resultContent
+            content: resultContent,
+            ...(block.is_error === true ? { is_error: true } : {})
           });
           if (resultImages.length) {
             parts.push({ type: OPENAI_BLOCK.TEXT, text: `[Image from tool result ${block.tool_use_id}]` });
@@ -227,14 +246,17 @@ function convertClaudeMessage(msg) {
         result.content = collapseTextParts(parts);
       }
       result.tool_calls = toolCalls;
+      if (reasoning.length) result.reasoning_content = reasoning.join("\n");
       return result;
     }
 
     if (parts.length > 0) {
-      return {
+      const result = {
         role,
         content: collapseTextParts(parts)
       };
+      if (role === ROLE.ASSISTANT && reasoning.length) result.reasoning_content = reasoning.join("\n");
+      return result;
     }
     
     if (msg.content.length === 0) {
