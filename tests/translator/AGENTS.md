@@ -76,13 +76,6 @@ Only add a dedicated test when a provider has a special format that does not rou
 
 Grouped per CLI/provider test file. Each row is an `it.fails` case.
 
-**Claude (`bugs-openai-bridge.test.js`, `bugs-claudeCode-context.test.js`)**
-| Bug | Source |
-|---|---|
-| Claude image `source.type="url"` dropped (only base64) | `request/claude-to-openai.js:133-141` |
-| `tool_result` image block → raw JSON | `request/claude-to-openai.js:155-173` |
-| `tool_result.is_error` lost | `request/claude-to-openai.js:155-173` |
-| `thinking`/`redacted_thinking` dropped via bridge | `request/claude-to-openai.js:128` |
 
 **OpenAI → Claude (`bugs-toClaude-context.test.js`)**
 | Bug | Source |

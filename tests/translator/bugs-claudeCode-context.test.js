@@ -33,7 +33,7 @@ describe("Claude Code CLI context → OpenAI", () => {
     expect(JSON.stringify(out)).toContain("step-by-step plan");
   });
 
-  it.failing("redacted_thinking block is not silently dropped", () => {
+  it("redacted_thinking block is not silently dropped", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       messages: [
         { role: "assistant", content: [
