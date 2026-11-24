@@ -4,7 +4,7 @@ import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { prepareClaudeRequest } from "../../open-sse/translator/formats/claude.js";
 import { CLAUDE_SYSTEM_PROMPT } from "../../open-sse/config/appConstants.js";
-import { PLACEHOLDER_CURRENT } from "../../open-sse/translator/concerns/modality.js";
+import { MODALITY_PLACEHOLDER } from "../../open-sse/translator/schema/index.js";
 
 const T = (body, provider = "anthropic-compatible-x") =>
   translateRequest(FORMATS.OPENAI, FORMATS.CLAUDE, "m", body, true, null, provider);
@@ -54,7 +54,7 @@ describe("OpenAI → Claude context mapping", () => {
     });
     expect(out.messages[0].content, "audio dropped silently").toContainEqual({
       type: "text",
-      text: PLACEHOLDER_CURRENT.audioInput,
+      text: MODALITY_PLACEHOLDER.audioInput,
     });
   });
 

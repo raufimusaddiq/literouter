@@ -4,10 +4,9 @@ import { CLAUDE_SYSTEM_PROMPT } from "../../config/appConstants.js";
 import { adjustMaxTokens } from "../formats/maxTokens.js";
 import { safeParseJSON } from "../concerns/json.js";
 import { parseDataUri } from "../concerns/image.js";
-import { PLACEHOLDER_CURRENT } from "../concerns/modality.js";
 import { stripAnthropicBillingHeader } from "../concerns/message.js";
 import { extractTextContent } from "../formats/gemini.js";
-import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
+import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK, MODALITY_PLACEHOLDER } from "../schema/index.js";
 import { getCapabilitiesForModel } from "../../providers/capabilities.js";
 import { createToolNameSanitizer, collectChatToolNames } from "../concerns/toolNames.js";
 import { normalizeStopSequences, STOP_SEQUENCE_LIMITS } from "../concerns/requestParams.js";
@@ -263,7 +262,7 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map(), safeName = (n
         } else if (part.type === OPENAI_BLOCK.IMAGE && part.source) {
           blocks.push({ type: CLAUDE_BLOCK.IMAGE, source: part.source });
         } else if (part.type === OPENAI_BLOCK.INPUT_AUDIO || part.type === OPENAI_BLOCK.AUDIO_URL) {
-          blocks.push({ type: CLAUDE_BLOCK.TEXT, text: PLACEHOLDER_CURRENT.audioInput });
+          blocks.push({ type: CLAUDE_BLOCK.TEXT, text: MODALITY_PLACEHOLDER.audioInput });
         } else if (part.type === OPENAI_BLOCK.FILE && part.file) {
           const fileData = part.file.file_data;
           const parsed = parseDataUri(fileData);
