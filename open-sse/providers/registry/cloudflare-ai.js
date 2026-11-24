@@ -44,8 +44,10 @@ export default {
     { id: "@cf/openai/gpt-oss-20b", name: "GPT OSS 20B" },
     { id: "@cf/qwen/qwen2.5-coder-32b-instruct", name: "Qwen 2.5 Coder 32B Instruct" },
     { id: "@cf/qwen/qwen3.8-27b", name: "Qwen 3.8 27B" },
-    { id: "@cf/cloudflare/clef", name: "Clef", kind: "systemone" },
-    { id: "@cf/cloudflare/clef-flash", name: "Clef Flash", kind: "systemone" },
+    { id: "@cf/cloudflare/clef", name: "Clef", kind: "systemone", upstreamModelId: "clef" },
+    { id: "@cf/cloudflare/clef-flash", name: "Clef Flash", kind: "systemone", upstreamModelId: "clef-flash" },
+    { id: "@cf/cloudflare/clef-omni", name: "Clef Omni", kind: "systemone", upstreamModelId: "clef-omni" },
+    { id: "@cf/cloudflare/clairic", name: "Clairic", kind: "systemone", upstreamModelId: "clairic", payloadShape: "fields" },
   ],
   serviceKinds: ["llm", "systemone"],
 };

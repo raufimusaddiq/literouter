@@ -258,6 +258,8 @@ export const PROVIDER_PRICING = {
   "cloudflare-ai": {
     "@cf/cloudflare/clef": { input: 0.24, output: 0 },
     "@cf/cloudflare/clef-flash": { input: 0.038, output: 0 },
+    "@cf/cloudflare/clef-omni": { input: 0.15, output: 0 },
+    "@cf/cloudflare/clairic": { input: 0.24, output: 0 },
     "@cf/meta/llama-4-scout-17b-16e-instruct": { input: 0.27, output: 0.85, reasoning: 0.85 },
     "@cf/deepseek-ai/deepseek-v4.1-flash-1017": { input: 0.30, output: 1.20, cached: 0.006, reasoning: 1.20 },
     "@cf/google/gemma-4-26b-a4b-it": { input: 0.10, output: 0.30, reasoning: 0.30 },

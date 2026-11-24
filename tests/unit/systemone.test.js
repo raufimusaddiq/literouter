@@ -141,3 +141,86 @@ describe("System One pass-through", () => {
     expect(calculateCostFromTokens({ prompt_tokens: 318, completion_tokens: 34 }, pricing)).toBeCloseTo(318 * 0.042 / 1_000_000);
   });
 });
+
+describe("Cloudflare System One", () => {
+  const STATE = { message: "hello" };
+  const QUESTIONS = { urgent: { type: "noul", instructions: "Is this urgent?" } };
+  const FIELDS = { name: { type: "string", instructions: "Customer name" } };
+
+  it.each([
+    ["@cf/cloudflare/clef", "clef", { questions: QUESTIONS }],
+    ["@cf/cloudflare/clef-flash", "clef-flash", { questions: QUESTIONS }],
+    ["@cf/cloudflare/clef-omni", "clef-omni", { questions: QUESTIONS }],
+    ["@cf/cloudflare/clairic", "clairic", { fields: FIELDS }],
+  ])("sends the short selector for %s as the body model", async (model, selector, payload) => {
+    const result = await normalizeSystemOneRequest({ model: `cloudflare-ai/${model}`, state: STATE, ...payload });
+    expect(result.error).toBeUndefined();
+    expect(result.model).toBe(model);
+    expect(result.body.model).toBe(selector);
+  });
+
+  it.each([
+    ["@cf/cloudflare/clairic", { questions: QUESTIONS }, "fields must be a non-empty object"],
+    ["@cf/cloudflare/clef", { fields: FIELDS }, "questions must be a non-empty object"],
+  ])("validates the payload shape %s declares", async (model, payload, error) => {
+    expect((await normalizeSystemOneRequest({ model: `cloudflare-ai/${model}`, state: STATE, ...payload })).error).toBe(error);
+  });
+
+  it.each([{ questions: QUESTIONS }, { fields: FIELDS }])("lets a custom node take either map (%j)", async (payload) => {
+    const result = await normalizeSystemOneRequest({ model: "systemone-node/any-model", state: STATE, ...payload });
+    expect(result.error).toBeUndefined();
+    expect(result.body.model).toBe("any-model");
+  });
+
+  it("rejects a custom node payload with neither map", async () => {
+    expect((await normalizeSystemOneRequest({ model: "systemone-node/any-model", state: STATE })).error)
+      .toBe("questions or fields must be a non-empty object");
+  });
+
+  it("unwraps the result envelope, keeps the full id in the URL and records usage", async () => {
+    mocks.getSettings.mockResolvedValue({ requireApiKey: false });
+    mocks.extractApiKey.mockReturnValue(null);
+    mocks.saveUsageStats.mockClear();
+    mocks.getProviderCredentials.mockResolvedValue({
+      apiKey: "cf-token",
+      connectionId: "cf-1",
+      providerSpecificData: { accountId: "acct" },
+    });
+    const inner = { answers: { name: { value: "Ada" } }, usage: { input_tokens: 120, output_tokens: 0 } };
+    mocks.proxyAwareFetch.mockResolvedValue(new Response(JSON.stringify({ result: inner, success: true, errors: [], messages: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+
+    const response = await handleSystemOne(new Request("http://localhost/v1/systemone", {
+      method: "POST",
+      body: JSON.stringify({ model: "cloudflare-ai/@cf/cloudflare/clairic", state: STATE, fields: FIELDS }),
+      headers: { "Content-Type": "application/json" },
+    }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(inner);
+    const [url, init] = mocks.proxyAwareFetch.mock.calls.at(-1);
+    expect(url).toBe("https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/cloudflare/clairic");
+    expect(JSON.parse(init.body).model).toBe("clairic");
+    expect(mocks.saveUsageStats).toHaveBeenCalledWith(expect.objectContaining({
+      provider: "cloudflare-ai",
+      model: "@cf/cloudflare/clairic",
+      tokens: expect.objectContaining({ prompt_tokens: 120 }),
+    }));
+  });
+
+  it.each([
+    ["a top-level answers body", { answers: { a: 1 }, result: { answers: { b: 2 } } }],
+    ["a result without answers", { result: { other: true } }],
+  ])("leaves %s untouched", async (_label, payload) => {
+    const { unwrapSystemOneEnvelope } = await import("@/sse/handlers/systemOne.js");
+    expect(unwrapSystemOneEnvelope(payload, "result")).toBe(payload);
+  });
+
+  it("prices the Clef family and Clairic per input token", async () => {
+    const { getPricingForModel } = await import("open-sse/providers/pricing.js");
+    expect(getPricingForModel("cloudflare-ai", "@cf/cloudflare/clef-omni")).toMatchObject({ input: 0.15, output: 0 });
+    expect(getPricingForModel("cloudflare-ai", "@cf/cloudflare/clairic")).toMatchObject({ input: 0.24, output: 0 });
+  });
+});

@@ -347,6 +347,10 @@ PROVIDER_CAPABILITIES.deeprelay = {
 };
 
 PROVIDER_CAPABILITIES["cloudflare-ai"] = {
+  "@cf/cloudflare/clef": { tools: false, contextWindow: 65536 },
+  "@cf/cloudflare/clef-flash": { tools: false, contextWindow: 24576 },
+  "@cf/cloudflare/clef-omni": { tools: false, vision: true, audioInput: true, videoInput: true, contextWindow: 64000 },
+  "@cf/cloudflare/clairic": { tools: false, contextWindow: 65536 },
   "@cf/meta/llama-4-scout-17b-16e-instruct": { vision: true, contextWindow: 131000 },
   "@cf/deepseek-ai/deepseek-v4.1-flash-1017": { vision: true, reasoning: true, thinkingFormat: "deepseek", thinkingEffortSupported: true, contextWindow: 1048576, maxOutput: 128000 },
   "@cf/google/gemma-4-26b-a4b-it": { vision: true, contextWindow: 256000 },
