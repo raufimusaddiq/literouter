@@ -266,7 +266,7 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels, display, responsesMi
       if (none && canDisable) { body.reasoning_effort = "none"; break; }
       const level = toLevel(eff);
       if (level) {
-        body.reasoning_effort = normalizeOpenAILevel(level, supportedLevels, responsesMinimalClamp);
+        body.reasoning_effort = normalizeOpenAILevel(level === "auto" ? "high" : level, supportedLevels, responsesMinimalClamp);
       }
       break;
     }
@@ -338,6 +338,15 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels, display, responsesMi
         : (level === "low" || level === "minimal") && supportedLevels?.includes("low") ? "low"
         : "high";
       body.reasoning_effort = want === "max" && supportedLevels && !supportedLevels.includes("max") ? "high" : want;
+      break;
+    }
+    case "think": {
+      if (none) { body.think = !canDisable; break; }
+      const level = toLevel(eff);
+      body.think = level === "auto" ? true
+        : level === "minimal" || level === "low" ? "low"
+        : level === "medium" ? "medium"
+        : "high";
       break;
     }
     case "kimi": {
