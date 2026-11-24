@@ -31,6 +31,13 @@ describe("gateway pricing", () => {
     expect(getPricingForModel(provider, model)).toMatchObject(rate);
   });
 
+  it.each(["auto", "qwen4-max", "qwen4-max-preview", "qwen3.8-max", "qwen3.8-flash", "deepseek-v4-pro-0813"])(
+    "alitp-intl/%s carries an explicit zero until Token Plan publishes a per-token rate",
+    (model) => {
+      expect(getPricingForModel("alitp-intl", model)).toMatchObject({ input: 0, output: 0 });
+    },
+  );
+
   it("bills unpublished cache reads at the input rate", () => {
     expect(getPricingForModel("deeprelay", "qwen3.8-flash").cached).toBeUndefined();
   });

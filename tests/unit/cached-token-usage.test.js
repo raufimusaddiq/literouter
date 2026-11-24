@@ -144,6 +144,17 @@ describe("Anthropic streaming usage (message_start carries cache, message_delta 
     expect(canon.completion_tokens).toBe(50);
   });
 
+  it("takes the delta's non-cached input when only message_delta carries cache fields", () => {
+    const start = extractUsage({ type: "message_start", message: { usage: { input_tokens: 1000, output_tokens: 1 } } });
+    const delta = extractUsage({
+      type: "message_delta",
+      usage: { input_tokens: 200, output_tokens: 50, cache_read_input_tokens: 800 },
+    });
+    const canon = canonicalizeUsage(mergeUsage(start, delta));
+    expect(canon.prompt_tokens).toBe(1000);
+    expect(canon.cached_tokens).toBe(800);
+  });
+
   it("does not let a NaN field poison the running max-merge", () => {
     const prev = { prompt_tokens: 100, cache_read_input_tokens: 200 };
     const bad = { prompt_tokens: NaN, completion_tokens: 50 };

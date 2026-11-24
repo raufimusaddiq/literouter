@@ -237,6 +237,14 @@ export const PROVIDER_PRICING = {
     "muse-glimmer-30b":             { input: 0.35, output: 1.5, cached: 0.04, reasoning: 1.5, cache_creation: 131072 },
     "gpt-oss-120b":                 { input: 0.15, output: 0.6, reasoning: 0.6, cache_creation: 131072 },
   },
+  "alitp-intl": {
+    "auto":                 { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "qwen4-max":            { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "qwen4-max-preview":    { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "qwen3.8-max":          { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "qwen3.8-flash":        { input: 0, output: 0, cached: 0, reasoning: 0 },
+    "deepseek-v4-pro-0813": { input: 0, output: 0, cached: 0, reasoning: 0 },
+  },
   commandcode: {
     "stepfun/Step-3.5-Flash": { input: 0.09, output: 0.30, cached: 0.02, reasoning: 0.30 },
   },
