@@ -27,6 +27,7 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
   let pendingReasoningEncrypted = "";
   const additionalTools = [];
   const customToolNames = new Set();
+  const emittedCallIds = new Set();
 
   const inputItems = normalizeResponsesInput(body.input);
   if (!inputItems) return body;
@@ -77,13 +78,13 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
           return c;
         }).filter(Boolean)
         : item.content;
+      if (Array.isArray(content) && content.length === 0) continue;
       const msg = { role: item.role, content };
       if (item.role === ROLE.ASSISTANT) attachPendingReasoning(msg);
       else {
         pendingReasoning = "";
         pendingReasoningEncrypted = "";
       }
-      if (Array.isArray(content) && content.length === 0) continue;
       result.messages.push(msg);
     }
     else if (itemType === RESPONSES_ITEM.FUNCTION_CALL || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL) {
@@ -108,8 +109,10 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
           arguments: typeof toolInput === "string" ? toolInput : JSON.stringify(toolInput ?? {})
         }
       });
+      emittedCallIds.add(item.call_id);
     }
     else if (itemType === RESPONSES_ITEM.FUNCTION_CALL_OUTPUT || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL_OUTPUT) {
+      if (!emittedCallIds.has(item.call_id)) continue;
       if (currentAssistantMsg) {
         result.messages.push(currentAssistantMsg);
         currentAssistantMsg = null;

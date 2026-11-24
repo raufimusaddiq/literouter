@@ -29,11 +29,43 @@ describe("Codex CLI Responses → OpenAI", () => {
     const out = R2O({
       input: [{ type: "message", role: "user", content: [
         { type: "input_image", file_id: "file-abc" },
+        { type: "input_text", text: "look" },
       ] }],
     });
     const userMsg = out.messages.find((m) => m.role === "user");
-    const img = Array.isArray(userMsg?.content) ? userMsg.content.find((c) => c.type === "image_url") : null;
-    expect(img?.image_url?.url === "file-abc").toBe(false);
+    expect(userMsg.content).toEqual([{ type: "text", text: "look" }]);
+  });
+
+  it("keeps pending reasoning when a message carries no content", () => {
+    const out = R2O({
+      input: [
+        { type: "reasoning", summary: [{ type: "summary_text", text: "thinking" }] },
+        { type: "message", role: "user", content: [{ type: "input_image", file_id: "file-abc" }] },
+        { type: "message", role: "assistant", content: [{ type: "output_text", text: "hi" }] },
+      ],
+    });
+    const asst = out.messages.find((m) => m.role === "assistant");
+    expect(asst.reasoning_content).toBe("thinking");
+  });
+
+  it("drops a function_call_output whose call was never emitted", () => {
+    const out = R2O({
+      input: [
+        { type: "function_call", call_id: "c1", name: "", arguments: "{}" },
+        { type: "function_call_output", call_id: "c1", output: "ok" },
+      ],
+    });
+    expect(out.messages.some((m) => m.role === "tool")).toBe(false);
+  });
+
+  it("keeps a function_call_output whose call was emitted", () => {
+    const out = R2O({
+      input: [
+        { type: "function_call", call_id: "c1", name: "f", arguments: "{}" },
+        { type: "function_call_output", call_id: "c1", output: "ok" },
+      ],
+    });
+    expect(out.messages.filter((m) => m.role === "tool").map((m) => m.tool_call_id)).toEqual(["c1"]);
   });
 });
 
