@@ -23,7 +23,7 @@ function buildModelEntry(model, prev) {
   const context = positive(info.contextWindow);
   const output = positive(info.maxOutput);
   if (context && output) entry.limit = { context, output };
-  entry.modalities = { input: info.vision ? ["text", "image"] : ["text"], output: ["text"] };
+  if (!isPlainObject(entry.modalities)) entry.modalities = { input: info.vision ? ["text", "image"] : ["text"], output: ["text"] };
   if (!isPlainObject(entry.variants) && info.thinkingLevels?.length) {
     entry.variants = Object.fromEntries(info.thinkingLevels.map((level) => [level, { reasoningEffort: level }]));
   }
@@ -48,8 +48,9 @@ function build({ text, filePath, baseUrl, apiKey, selection, opts }) {
     },
   };
   const changes = [`provider "${PROVIDER_KEY}" -> ${baseUrl}`, `${selection.length} model(s): ${selection.map((m) => m.id).join(", ")}`];
-  const owned = typeof config.model === "string" && config.model.startsWith(`${PROVIDER_KEY}/`) && models[config.model.slice(PROVIDER_KEY.length + 1)];
-  if (opts.makeDefault || !config.model || (config.model.startsWith(`${PROVIDER_KEY}/`) && !owned)) {
+  const current = typeof config.model === "string" ? config.model : "";
+  const ours = current.startsWith(`${PROVIDER_KEY}/`);
+  if (opts.makeDefault || !current || (ours && !models[current.slice(PROVIDER_KEY.length + 1)])) {
     next.model = `${PROVIDER_KEY}/${selection[0].id}`;
     changes.push(`model -> ${next.model}`);
   }

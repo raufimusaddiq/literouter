@@ -92,7 +92,7 @@ async function runSetup(argv, overrides = {}) {
     }
     if (deps.isTTY && !opts.yes && !(await deps.confirm(`Write ${filePath}?`))) {
       deps.log("Nothing written.");
-      return 1;
+      return 130;
     }
     const backupPath = writeConfigFile(filePath, content, previous, deps);
     deps.log(`${previous === null ? "Created" : "Updated"} ${filePath}`);

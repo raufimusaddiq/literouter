@@ -32,14 +32,14 @@ describe("literouter setup opencode", () => {
     expect(config.model).toBe("literouter/glm/glm-5");
   });
 
-  it("keeps other providers, the user's default model and tuned variants", async () => {
+  it("keeps other providers, the user's default model and tuned variants and modalities", async () => {
     const ctx = makeSetup("opencode", OPENCODE_FILE, {
       existing: {
         model: "anthropic/claude-sonnet",
         theme: "tokyonight",
         provider: {
           anthropic: { options: { apiKey: "{env:ANTHROPIC_API_KEY}" } },
-          literouter: { models: { "cx/gpt-5.5": { variants: { fast: { reasoningEffort: "low" } } } } },
+          literouter: { models: { "cx/gpt-5.5": { variants: { fast: { reasoningEffort: "low" } }, modalities: { input: ["text"], output: ["text"] } } } },
         },
       },
     });
@@ -48,7 +48,16 @@ describe("literouter setup opencode", () => {
     expect(config.model).toBe("anthropic/claude-sonnet");
     expect(config.theme).toBe("tokyonight");
     expect(config.provider.anthropic).toEqual({ options: { apiKey: "{env:ANTHROPIC_API_KEY}" } });
-    expect(config.provider.literouter.models["cx/gpt-5.5"].variants).toEqual({ fast: { reasoningEffort: "low" } });
+    expect(config.provider.literouter.models["cx/gpt-5.5"]).toMatchObject({
+      variants: { fast: { reasoningEffort: "low" } },
+      modalities: { input: ["text"], output: ["text"] },
+    });
+  });
+
+  it("treats a non-string root model as unset", async () => {
+    const ctx = makeSetup("opencode", OPENCODE_FILE, { existing: { model: 42 } });
+    expect(await ctx.run("--models", "cx/gpt-5.5")).toBe(0);
+    expect(ctx.read().model).toBe("literouter/cx/gpt-5.5");
   });
 
   it("honours XDG_CONFIG_HOME", async () => {
