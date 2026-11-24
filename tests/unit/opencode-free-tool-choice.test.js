@@ -25,7 +25,7 @@ function responsesBody(model, tool_choice) {
 }
 
 describe("opencode Free 1.3 tool_choice auto-only", () => {
-  it("khai quirk đúng model 1.3-Free trong registry", () => {
+  it("declares the quirk on the right 1.3-Free model in the registry", () => {
     expect(PROVIDERS.opencode.quirks?.forceAutoToolChoiceModels).toEqual([FREE_13]);
   });
 
@@ -45,7 +45,7 @@ describe("opencode Free 1.3 tool_choice auto-only", () => {
     }
   });
 
-  it("giữ auto và absent; tools/input nguyên vẹn", () => {
+  it("keeps auto and absent; tools/input intact", () => {
     const autoOut = new OpenCodeExecutor().transformRequest(
       FREE_13, responsesBody(FREE_13, "auto"), true, CREDS,
     );
@@ -66,14 +66,14 @@ describe("opencode Free 1.3 tool_choice auto-only", () => {
     ["future 1.4-Free", "muse-spark-1.4-contributor-free"],
     ["Go id", "muse-spark-1.3-contributor"],
     ["non-Muse", "big-pickle"],
-  ])("không đổi tool_choice của %p", (_label, model) => {
+  ])("leaves tool_choice unchanged for %p", (_label, model) => {
     const choice = { type: "function", name: "get_weather" };
     const body = responsesBody(model, structuredClone(choice));
     const out = new OpenCodeExecutor().transformRequest(model, body, true, CREDS);
     expect(out.tool_choice).toEqual(choice);
   });
 
-  it("wire: execute gửi choice auto tới /zen/v1/responses", async () => {
+  it("wire: execute sends the auto choice to /zen/v1/responses", async () => {
     proxyAwareFetch.mockClear();
     const ex = new OpenCodeExecutor();
     const body = responsesBody(FREE_13, { type: "function", name: "get_weather" });

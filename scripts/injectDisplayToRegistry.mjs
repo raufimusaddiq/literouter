@@ -172,6 +172,6 @@ for (const id of registryFiles) {
   results.push(`✅ ${id}`);
 }
 
-console.log(`\n📦 Inject display+category vào registry files:`);
+console.log(`\n📦 Injecting display+category into registry files:`);
 for (const r of results) console.log(` ${r}`);
 console.log(`\n✅ Injected: ${injected}  |  ⏭️ Skipped: ${skipped}`);
