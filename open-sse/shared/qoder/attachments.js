@@ -312,8 +312,6 @@ export async function rewriteQoderMessageAttachments(messages, {
   return stats;
 }
 
-export function clearQoderUploadCache() {}
-
 export const __test__ = {
   extractUrlFromUploadResponse,
   decodedBytes,

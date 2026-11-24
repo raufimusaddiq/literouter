@@ -1,6 +1,5 @@
 export const OPENCODE_MODELS_URL = "https://opencode.ai/zen/v1/models";
 export const KNOWN_FREE_OPENCODE_MODELS = ["big-pickle"];
-export const DEAD_FREE_OPENCODE_MODELS = new Set(["deepseek-v4-flash-free"]);
 
 const FETCH_TIMEOUT_MS = 5000;
 const SUCCESS_TTL_MS = 10 * 60 * 1000;
@@ -10,7 +9,7 @@ let cache = { value: null, expiresAt: 0 };
 let inFlight = null;
 
 export function isOpencodeFreeModelId(id) {
-  return typeof id === "string" && (id.endsWith("-free") || KNOWN_FREE_OPENCODE_MODELS.includes(id)) && !DEAD_FREE_OPENCODE_MODELS.has(id);
+  return typeof id === "string" && (id.endsWith("-free") || KNOWN_FREE_OPENCODE_MODELS.includes(id));
 }
 
 export function parseOpencodeFreeModels(data) {

@@ -1,5 +1,5 @@
 
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect } from "bun:test";
 import crypto from "crypto";
 
 import { qoderEncodeBody } from "../../open-sse/shared/qoder/encoding.js";
@@ -15,7 +15,6 @@ import { __test__ as qoderExecutorInternals } from "../../open-sse/executors/qod
 import { canonicalizeQoderUsage } from "../../open-sse/shared/qoder/sse.js";
 import {
   rewriteQoderMessageAttachments,
-  clearQoderUploadCache,
   buildMultipartFile,
 } from "../../open-sse/shared/qoder/attachments.js";
 import { qoderInferenceBase } from "../../open-sse/shared/qoder/constants.js";
@@ -622,8 +621,6 @@ describe("qoderInferenceBase", () => {
 });
 
 describe("rewriteQoderMessageAttachments", () => {
-  beforeEach(() => clearQoderUploadCache());
-
   it("uploads data-URI images and keeps only the OSS URL in the message", async () => {
     const messages = [{
       role: "user",
