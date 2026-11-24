@@ -124,7 +124,7 @@ function FieldIcon({ name }) {
   );
 }
 
-function DateTimeField({ id, label, value, onChange }) {
+export function DateTimeField({ id, label, value, onChange }) {
   const [focused, setFocused] = useState(false);
   const empty = !value;
   return (

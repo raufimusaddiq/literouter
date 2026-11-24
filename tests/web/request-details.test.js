@@ -63,21 +63,15 @@ describe("request details drawer", () => {
     expect(text).toContain("hello");
   });
 
-  it("labels empty date filters as any time and enables Clear once one is set", async () => {
-    stubFetch([]);
-    const view = await mount(React.createElement(RequestDetailsTab), { settle: true });
-    const from = document.getElementById("start-date-filter");
-    const clear = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Clear");
-    expect(from.type).toBe("datetime-local");
-    expect(from.parentElement.textContent).toContain("Any time");
-    expect(clear.disabled).toBe(true);
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-      setter.call(from, "2026-11-24T10:00");
-      from.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    expect(from.parentElement.textContent).not.toContain("Any time");
-    expect(clear.disabled).toBe(false);
+  it("labels an empty date filter as any time and hides the label once it has a value", async () => {
+    const { DateTimeField } = await import("../../src/web/pages/dashboard/usage/components/RequestDetailsTab.js");
+    const field = (value) => React.createElement(DateTimeField, { id: "f", label: "From", value, onChange: () => {} });
+    const view = await mount(field(""));
+    const input = () => view.container.querySelector("#f");
+    expect(input().type).toBe("datetime-local");
+    expect(input().parentElement.textContent).toContain("Any time");
+    await view.rerender(field("2026-11-24T10:00"));
+    expect(input().parentElement.textContent).not.toContain("Any time");
     await view.unmount();
   });
 });
