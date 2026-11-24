@@ -82,11 +82,9 @@ export default function ProfilePage() {
   const [proxyLoading, setProxyLoading] = useState(false);
   const [proxyTestLoading, setProxyTestLoading] = useState(false);
 
-  const [isRemoteHost, setIsRemoteHost] = useState(false);
-  useEffect(() => {
-    if (typeof window !== "undefined")
-      setIsRemoteHost(!["localhost", "127.0.0.1", "::1"].includes(window.location.hostname));
-  }, []);
+  const [isRemoteHost] = useState(
+    () => typeof window !== "undefined" && !["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
+  );
 
   useEffect(() => {
     fetch("/api/settings")

@@ -204,14 +204,15 @@ export default function ProviderDetailPage() {
     : providerAlias;
 
   const fetchDisabledModels = useCallback(async () => {
+    const alias = isCompatible ? providerId : getProviderAlias(providerId);
     try {
-      const res = await fetch(`/api/models/disabled?providerAlias=${encodeURIComponent(providerStorageAlias)}`, { cache: "no-store" });
+      const res = await fetch(`/api/models/disabled?providerAlias=${encodeURIComponent(alias)}`, { cache: "no-store" });
       const data = await res.json();
       if (res.ok) setDisabledModelIds(data.ids || []);
     } catch (error) {
       console.log("Error fetching disabled models:", error);
     }
-  }, [providerStorageAlias]);
+  }, [providerId, isCompatible]);
 
   const handleDisableModel = async (modelId) => {
     try {
