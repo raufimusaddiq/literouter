@@ -3,13 +3,14 @@ import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { CURSOR_IMAGE_PLACEHOLDER } from "../../open-sse/translator/request/openai-to-cursor.js";
+import { openaiToGeminiCLIRequest, openaiToAntigravityRequest } from "../../open-sse/translator/request/openai-to-gemini.js";
 
 const O2G = (body) => translateRequest(FORMATS.OPENAI, FORMATS.GEMINI, "m", body, true, null, "gemini");
 const O2C = (body) => translateRequest(FORMATS.OPENAI, FORMATS.CURSOR, "m", body, true, null, "cursor");
 const O2CC = (body) => translateRequest(FORMATS.OPENAI, FORMATS.COMMANDCODE, "m", body, true, null, "commandcode");
 
 describe("OpenAI → Gemini", () => {
-  it.failing("multiple system messages are all kept", () => {
+  it("multiple system messages are all kept in order", () => {
     const out = O2G({
       messages: [
         { role: "system", content: "RULE_ONE" },
@@ -17,7 +18,23 @@ describe("OpenAI → Gemini", () => {
         { role: "user", content: "hi" },
       ],
     });
-    expect(JSON.stringify(out.systemInstruction), "earlier system lost").toContain("RULE_ONE");
+    const texts = out.systemInstruction.parts.map((p) => p.text);
+    expect(texts, "earlier system lost").toEqual(["RULE_ONE", "RULE_TWO"]);
+  });
+
+  it("the CLI and antigravity envelopes carry every system message", () => {
+    const body = {
+      messages: [
+        { role: "system", content: "RULE_ONE" },
+        { role: "system", content: "RULE_TWO" },
+        { role: "user", content: "hi" },
+      ],
+    };
+    const texts = (si) => si.parts.map((p) => p.text);
+    const cli = openaiToGeminiCLIRequest("gemini-2.5-pro", body, true);
+    const anti = openaiToAntigravityRequest("gemini-2.5-pro", body, true);
+    expect(texts(cli.systemInstruction)).toEqual(["RULE_ONE", "RULE_TWO"]);
+    expect(texts(anti.request.systemInstruction)).toEqual(["RULE_ONE", "RULE_TWO"]);
   });
 });
 
