@@ -8,7 +8,8 @@ Code comments are banned. Non-obvious decisions live here, one short bullet each
 - [streaming.md](streaming.md): timeouts, stall watchdogs, SSE framing
 - [routing.md](routing.md): account fallback, combos, chatCore, token refresh
 - [translator.md](translator.md): format translation, Claude cache and cloaking, thinking, Responses, Gemini, RTK
-- [models-usage.md](models-usage.md): token accounting, pricing, capabilities, catalog, probes, quota
+- [models-usage.md](models-usage.md): token accounting, capabilities, catalog, probes, quota
+- [pricing.md](pricing.md): rate rows, zero and unpublished rates, IDR-only vendors, adding a rate
 - [providers.md](providers.md): per-provider quirks and OAuth flows
 - [storage.md](storage.md): SQLite, connections, usage persistence
 - [dashboard.md](dashboard.md): SPA build, router, hydration

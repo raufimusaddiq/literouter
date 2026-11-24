@@ -6,46 +6,6 @@ const { showMenuWithBack } = require("../utils/menuHelper");
 const { copyToClipboard } = require("../utils/clipboard");
 const { getEndpoint } = require("../utils/endpoint");
 
-function displayApiKeys(keys, port) {
-  console.log("┌─────────────────────────────────────────────────────────┐");
-  console.log("│  🔑 API Keys Management                                 │");
-  console.log("├─────────────────────────────────────────────────────────┤");
-  console.log("│                                                          │");
-  
-  if (keys.length === 0) {
-    console.log("│  No API keys found.                                     │");
-  } else {
-    console.log(`│  Your API Keys (${keys.length}):${" ".repeat(42 - String(keys.length).length)}│`);
-    
-    keys.forEach((key, index) => {
-      console.log("│                                                          │");
-      console.log(`│  ${index + 1}. ${key.name}${" ".repeat(52 - String(index + 1).length - key.name.length)}│`);
-      
-      const maskedKey = maskKey(key.key);
-      console.log(`│     Key: ${maskedKey}${" ".repeat(47 - maskedKey.length)}│`);
-      
-      const created = formatDate(key.createdAt);
-      console.log(`│     Created: ${created}${" ".repeat(43 - created.length)}│`);
-      
-      if (key.lastUsedAt) {
-        const lastUsed = getRelativeTime(key.lastUsedAt);
-        console.log(`│     Last used: ${lastUsed}${" ".repeat(41 - lastUsed.length)}│`);
-      } else {
-        console.log("│     Last used: Never                                    │");
-      }
-    });
-  }
-  
-  console.log("│                                                          │");
-  console.log("│  Actions:                                               │");
-  console.log("│  1. Create New API Key                                  │");
-  console.log("│  2. View Full Key (by number)                           │");
-  console.log("│  3. Copy Key to Clipboard (by number)                   │");
-  console.log("│  4. Delete Key (by number)                              │");
-  console.log("│  0. ← Back to Main Menu                                 │");
-  console.log("└─────────────────────────────────────────────────────────┘");
-}
-
 async function handleCreateKey() {
   console.log("\n📝 Create New API Key");
   console.log("─".repeat(30));

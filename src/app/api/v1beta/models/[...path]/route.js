@@ -9,23 +9,15 @@ import {
 import { getSettings } from "@/lib/localDb";
 import { PROVIDER_MODELS } from "@/shared/constants/models";
 import { GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS } from "open-sse/config/runtimeConfig.js";
-import { initTranslators, translateResponse, initState } from "open-sse/translator/index.js";
+import { translateResponse, initState } from "open-sse/translator/index.js";
 import { geminiToOpenAIRequest } from "open-sse/translator/request/gemini-to-openai.js";
 import { openaiCompletionToGemini } from "open-sse/translator/response/openai-to-gemini.js";
 import { FORMATS } from "open-sse/translator/formats.js";
 import { buildErrorBody } from "open-sse/utils/error.js";
 import { getKeyAccessContext, enforceKeyAccessResolved, extractClientApiKey } from "@/sse/services/keyAccess.js";
 
-let initialized = false;
 const GEMINI_NATIVE_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_NATIVE_MODEL_PATTERN = /^[a-zA-Z0-9_.:-]+$/;
-
-async function ensureInitialized() {
-  if (!initialized) {
-    await initTranslators();
-    initialized = true;
-  }
-}
 
 export async function OPTIONS() {
   return new Response(null, {
@@ -38,8 +30,6 @@ export async function OPTIONS() {
 }
 
 export async function POST(request, { params }) {
-  await ensureInitialized();
-
   try {
     const { path } = await params;
 

@@ -466,7 +466,9 @@ export async function pruneUsageHistory({ force = false, now = Date.now() } = {}
   try {
     const rdb = await getAdapter();
     rdb.run(`DELETE FROM usageRollup WHERE bucket < ?`, [bucketOf(new Date(now - ROLLUP_RETENTION_MS).toISOString())]);
-  } catch {}
+  } catch (e) {
+    console.error("[usageRepo] pruneUsageRollup failed:", e);
+  }
   try {
     const { getSettings } = await import("./settingsRepo.js");
     const days = Number((await getSettings()).usageHistoryRetentionDays);
@@ -475,7 +477,8 @@ export async function pruneUsageHistory({ force = false, now = Date.now() } = {}
     const cutoff = new Date(now - days * 86400000).toISOString();
     const res = db.run(`DELETE FROM usageHistory WHERE timestamp < ?`, [cutoff]);
     return res?.changes || 0;
-  } catch {
+  } catch (e) {
+    console.error("[usageRepo] pruneUsageHistory failed:", e);
     return 0;
   }
 }

@@ -276,7 +276,7 @@ export function estimateUsage(body, contentLength, targetFormat = FORMATS.OPENAI
   );
 }
 
-export function logUsage(provider, usage, model = null, connectionId = null, apiKey = null) {
+export function logUsageDebug(provider, usage, model = null, connectionId = null, apiKey = null) {
   if (!usage || typeof usage !== "object") return;
 
   if (!DEBUG_USAGE) return;

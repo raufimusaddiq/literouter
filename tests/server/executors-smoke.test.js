@@ -168,11 +168,11 @@ describe("executor case table", () => {
     const source = fs.readFileSync(path.join(import.meta.dir, "../../open-sse/executors/index.js"), "utf8");
     const block = source.match(/const factories = \{([\s\S]*?)\n\};/)[1];
     const keys = [...block.matchAll(/^\s*(?:"([^"]+)"|([A-Za-z0-9_]+)):\s*\(\)\s*=>/gm)].map((m) => m[1] ?? m[2]);
-    expect(keys).toHaveLength(28);
+    expect(keys).toHaveLength(26);
     const covered = cases.map((c) => c.provider);
     expect(new Set(covered).size).toBe(covered.length);
     expect([...covered].sort()).toEqual([...keys, "default"].sort());
-    expect(cases).toHaveLength(29);
+    expect(cases).toHaveLength(27);
   });
 });
 

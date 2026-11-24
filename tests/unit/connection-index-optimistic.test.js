@@ -1,26 +1,16 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { describe, it, expect, beforeAll, afterAll } from "bun:test";
+import { describe, it, expect, beforeAll } from "bun:test";
 import { vi } from "#test/vi";
+import { useTempDataDirAtLoad } from "#test/tempDataDir";
 
-const originalDataDir = process.env.DATA_DIR;
-let tempDir;
 let repo;
 
+useTempDataDirAtLoad("9router-connindex-");
+
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-connindex-"));
-  process.env.DATA_DIR = tempDir;
   vi.resetModules();
   const db = await import("@/lib/db/index.js");
   await db.initDb();
   repo = await import("@/lib/db/repos/connectionsRepo.js");
-});
-
-afterAll(() => {
-  try { if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
 });
 
 describe("connection index vs optimistic patch", () => {
