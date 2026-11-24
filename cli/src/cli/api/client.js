@@ -57,7 +57,7 @@ function configure(options = {}) {
   config = { ...config, ...options };
 }
 
-function makeRequest(method, path, body = null) {
+function makeRequest(method, path, body = null, options = {}) {
   return new Promise((resolve) => {
     const httpModule = config.protocol === "https:" ? https : http;
     
@@ -125,7 +125,7 @@ function makeRequest(method, path, body = null) {
       });
     });
 
-    req.setTimeout(30000);
+    req.setTimeout(options.timeout || 30000);
 
     if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
       req.write(JSON.stringify(body));
@@ -232,8 +232,8 @@ async function resetPassword() {
 }
 
 
-async function getModels() {
-  return makeRequest("GET", "/api/models");
+async function getModels(options) {
+  return makeRequest("GET", "/api/models", null, options);
 }
 
 async function getAvailableModels() {

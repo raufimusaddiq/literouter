@@ -1,3 +1,6 @@
+# Unreleased
+- **CLI**: the provider menu's model lookup gives up after three seconds, so an unresponsive server shows "Models: Unavailable (server not running)" quickly instead of waiting out the 30-second request timeout.
+
 # v1.0.2
 - **Translator**: a Claude history crossing the OpenAI bridge keeps what the model needs. `thinking` and `redacted_thinking` blocks ride the assistant turn as `reasoning_content` (the encrypted `data` included) instead of being dropped, a remote image (`source.type: "url"`) maps to an `image_url` on both the message and `tool_result` paths instead of disappearing, and a failed `tool_result` keeps `is_error: true` so the upstream model can see the tool call failed (it already reached a Claude target that way).
 - **Auth**: a request to a provider with no credential no longer carries `Authorization: Bearer undefined` (or a raw `x-api-key: undefined`). When the connection has neither an API key nor an access token the auth header is left off, and the upstream returns its own 401 instead of a confusing auth failure.

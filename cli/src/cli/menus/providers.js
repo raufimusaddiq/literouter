@@ -119,6 +119,7 @@ async function showProvidersMenu(breadcrumb = []) {
   });
 }
 
+const MODELS_TIMEOUT_MS = 3000;
 const MODELS_OFFLINE = "Unavailable (server not running)";
 
 function groupModelsByAlias(models) {
@@ -133,7 +134,7 @@ function groupModelsByAlias(models) {
 }
 
 async function fetchModelsByAlias() {
-  const res = await api.getModels();
+  const res = await api.getModels({ timeout: MODELS_TIMEOUT_MS });
   if (!res.success) return null;
   return groupModelsByAlias(res.data.models);
 }
