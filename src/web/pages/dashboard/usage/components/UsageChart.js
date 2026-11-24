@@ -17,24 +17,14 @@ import Card from "@/shared/components/Card";
 import SegmentedControl from "@/shared/components/SegmentedControl";
 import { Skeleton } from "@/shared/components/Loading";
 import { niceTicks } from "@/web/pages/dashboard/overview/niceTicks";
+import { fmtCompactTokens } from "./tokenDisplay";
 
 const VIEW_OPTIONS = [
   { value: "tokens", label: "Tokens" },
   { value: "cost", label: "Cost" },
 ];
 
-const fmtTokens = (n) => {
-  const v = Number(n) || 0;
-  if (v >= 1000000) {
-    const s = (v / 1000000).toFixed(1);
-    return `${s.endsWith(".0") ? s.slice(0, -2) : s}M`;
-  }
-  if (v >= 1000) {
-    const s = (v / 1000).toFixed(1);
-    return `${s.endsWith(".0") ? s.slice(0, -2) : s}K`;
-  }
-  return String(Math.round(v));
-};
+const fmtTokens = (n) => fmtCompactTokens(Math.round(Number(n) || 0)).replace(/\.0(?=[KMBT]$)/, "");
 
 const fmtCost = (n) => `$${(Number(n) || 0).toFixed(4)}`;
 
