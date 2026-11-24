@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { createHmac } from "crypto";
 import { afterEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
@@ -16,7 +16,9 @@ const { getKiroUsage } = await import("../../open-sse/services/usage/kiro.js");
 const { KiroService } = await import("../../src/lib/oauth/services/kiro.js");
 const { fetchKiroProfileArn } = await import("../../src/lib/oauth/providerHelpers.js");
 
-const sha256 = (s) => createHash("sha256").update(s).digest("hex");
+const { KIRO_MACHINE_ID_KEY } = await import("../../open-sse/shared/kiroIdentity.js");
+const machineIdOf = (s) => createHmac("sha256", KIRO_MACHINE_ID_KEY).update(s).digest("hex");
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const credentials = {
   accessToken: "test-access-token",
   refreshToken: "test-refresh-token",
@@ -39,8 +41,8 @@ function headerValue(headers, name) {
 function expectCurrentIdentity(headers) {
   const ua = headerValue(headers, "user-agent");
   const amz = headerValue(headers, "x-amz-user-agent");
-  expect(ua).toMatch(new RegExp(`KiroIDE-${KIRO_IDE_VERSION.replace(/\./g, "\\.")}-[0-9a-f]{64}$`));
-  expect(amz).toMatch(new RegExp(`^aws-sdk-js/1\\.0\\.0 KiroIDE-${KIRO_IDE_VERSION.replace(/\./g, "\\.")}-[0-9a-f]{64}$`));
+  expect(ua).toMatch(new RegExp(`KiroIDE-${escapeRegExp(KIRO_IDE_VERSION)}-[0-9a-f]{64}$`));
+  expect(amz).toMatch(new RegExp(`^aws-sdk-js/1\\.0\\.0 KiroIDE-${escapeRegExp(KIRO_IDE_VERSION)}-[0-9a-f]{64}$`));
   expect(ua).not.toContain("kiro-ide/");
   return { ua, amz };
 }
@@ -63,7 +65,7 @@ describe("Kiro client identity (#5613)", () => {
   it("derives a stable per-account machine id without leaking credentials", () => {
     const headers = buildKiroIdentityHeaders(credentials);
     const { ua } = expectCurrentIdentity(headers);
-    expect(ua.endsWith(sha256("test-client-id"))).toBe(true);
+    expect(ua.endsWith(machineIdOf("test-client-id"))).toBe(true);
     for (const secret of ["test-client-id", "test-refresh-token", "test-access-token"]) {
       expect(JSON.stringify(headers)).not.toContain(secret);
     }

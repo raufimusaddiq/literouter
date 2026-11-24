@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { stripSystemPromptSegments, applyReaAllow, SAFETY_RULE_SIGNATURES } from "../../open-sse/rtk/reaAllow.js";
+import { stripSystemPromptSegments, applyReaAllow, SAFETY_RULE_SIGNATURES, REA_ALLOW_TEXT } from "../../open-sse/rtk/reaAllow.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { RESPONSES_ITEM } from "../../open-sse/translator/schema/blocks.js";
 import { ROLE } from "../../open-sse/translator/schema/roles.js";
@@ -8,7 +8,6 @@ const PARA_SECURITY = "IMPORTANT: Assist with authorized security testing, defen
 const PARA_IDENTITY = "You are a Claude agent working with the user toward their goals.";
 const PARA_TOOLS = "# Tools\n\nBash runs commands.";
 const buildSystem = () => [PARA_IDENTITY, PARA_SECURITY, PARA_TOOLS].join("\n\n");
-const REA_LINK = "https://github.com/morluto/rea";
 
 describe("stripSystemPromptSegments", () => {
   it("exposes the two Claude Code safety-rule signatures", () => {
@@ -181,14 +180,14 @@ describe("applyReaAllow", () => {
     expect(applyReaAllow(body, FORMATS.CLAUDE)).toBe(true);
     expect(body.system[0].text).not.toContain("mass targeting");
     expect(body.system[0].text).toContain(PARA_IDENTITY);
-    const reaBlock = body.system.find(b => b && typeof b.text === "string" && b.text.includes(REA_LINK));
+    const reaBlock = body.system.find(b => b && typeof b.text === "string" && b.text === REA_ALLOW_TEXT);
     expect(reaBlock).toBeTruthy();
   });
 
   it("injects the REA guidance when nothing matched", () => {
     const body = { system: "You are helpful." };
     expect(applyReaAllow(body, FORMATS.CLAUDE)).toBe(true);
-    expect(body.system).toContain(REA_LINK);
+    expect(body.system.split("\n\n")).toContain(REA_ALLOW_TEXT);
     expect(body.system).toContain("You are helpful.");
   });
 
@@ -200,7 +199,7 @@ describe("applyReaAllow", () => {
       ],
     };
     applyReaAllow(body, FORMATS.OPENAI);
-    expect(body.messages[0].content).toContain(REA_LINK);
+    expect(body.messages[0].content.split("\n\n")).toContain(REA_ALLOW_TEXT);
     expect(body.messages[1].content).toBe("hi");
   });
 
@@ -208,7 +207,7 @@ describe("applyReaAllow", () => {
     const body = { system: "You are helpful." };
     applyReaAllow(body, FORMATS.CLAUDE);
     applyReaAllow(body, FORMATS.CLAUDE);
-    expect(body.system.split(REA_LINK)).toHaveLength(2);
+    expect(body.system.split("\n\n").filter((part) => part === REA_ALLOW_TEXT)).toHaveLength(1);
   });
 
   it("fail-open: tolerates invalid bodies", () => {

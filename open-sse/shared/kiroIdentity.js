@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { createHmac } from "crypto";
 import {
   KIRO_IDE_VERSION,
   KIRO_SDK_VERSION,
@@ -8,6 +8,8 @@ import {
   KIRO_SDK_CLIENTS,
 } from "../config/kiroClient.js";
 
+export const KIRO_MACHINE_ID_KEY = "literouter-kiro-machine-id";
+
 export function buildKiroIdentityHeaders(credentials, client = "runtime") {
   const seed =
     credentials?.providerSpecificData?.clientId
@@ -16,7 +18,7 @@ export function buildKiroIdentityHeaders(credentials, client = "runtime") {
     || credentials?.apiKey
     || credentials?.accessToken
     || "kiro-anonymous";
-  const machineId = createHash("sha256").update(String(seed)).digest("hex");
+  const machineId = createHmac("sha256", KIRO_MACHINE_ID_KEY).update(String(seed)).digest("hex");
   const { api, metrics } = KIRO_SDK_CLIENTS[client] || KIRO_SDK_CLIENTS.runtime;
   const identity = `KiroIDE-${KIRO_IDE_VERSION}-${machineId}`;
 
