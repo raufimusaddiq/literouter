@@ -270,63 +270,325 @@ button:disabled,
   fill: var(--color-mark-line);
 }
 
-@keyframes topology-router-pulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow:
-      0 0 8px color-mix(in srgb, var(--color-mark) 75%, transparent),
-      0 0 20px color-mix(in srgb, var(--color-mark-line) 50%, transparent),
-      inset 0 0 8px color-mix(in srgb, var(--color-mark-ink) 12%, transparent);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow:
-      0 0 14px var(--color-mark),
-      0 0 28px color-mix(in srgb, var(--color-mark-line) 70%, transparent),
-      inset 0 0 12px color-mix(in srgb, var(--color-mark-ink) 18%, transparent);
-  }
+.topology {
+  --topo-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --topo-settle: cubic-bezier(0.33, 0, 0.2, 1);
 }
-@keyframes topology-router-icon-shake {
-  0%, 100% { transform: rotate(0deg) scale(1); }
-  25% { transform: rotate(-5deg) scale(1.08); }
-  75% { transform: rotate(5deg) scale(1.08); }
+.topology[data-motion="paused"] *,
+.topology[data-motion="paused"] *::before,
+.topology[data-motion="paused"] *::after {
+  animation-play-state: paused !important;
 }
-@keyframes topology-router-label-flicker {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.85; }
+
+.topology-edge-path {
+  transition: stroke 2.5s var(--topo-settle), stroke-width 2.5s var(--topo-settle), opacity 2.5s var(--topo-settle);
 }
-@keyframes topology-edge-dash {
-  to { stroke-dashoffset: -36; }
+.topology-edge-path.is-active,
+.topology-edge-path.is-error {
+  transition-duration: 0.3s;
+  transition-timing-function: var(--topo-out);
 }
-@keyframes topology-edge-flicker {
-  0%, 100% { opacity: 0.85; }
-  40% { opacity: 1; }
-  55% { opacity: 0.55; }
-  70% { opacity: 1; }
+
+.topology-train,
+.topology-glow-wrap {
+  animation: topology-fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 0.6s var(--topo-out);
 }
-.topology-router-core {
-  animation: topology-router-pulse 0.75s ease-in-out infinite;
+.topology-train.is-leaving,
+.topology-glow-wrap.is-leaving {
+  opacity: 0;
 }
-.topology-router-icon {
-  animation: topology-router-icon-shake 0.45s ease-in-out infinite;
+.topology-edge-glow {
+  fill: none;
+  stroke: var(--color-mark);
+  stroke-width: 7px;
+  stroke-linecap: round;
+  animation: topology-glow-breathe 1.6s cubic-bezier(0.37, 0, 0.63, 1) 0.45s infinite backwards;
 }
-.topology-router-label {
-  animation: topology-router-label-flicker 0.7s ease-in-out infinite;
+.topology-ignite {
+  fill: none;
+  stroke: var(--color-mark-line);
+  stroke-width: 2px;
+  stroke-dasharray: 100px 100px;
+  stroke-dashoffset: 100px;
+  animation: topology-ignite 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
-.topology-router-badge {
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-mark-line) 55%, transparent);
+.topology-ignite.is-burning {
+  stroke-dashoffset: 0;
+  animation: topology-burn 2.5s cubic-bezier(0.45, 0, 0.2, 1) forwards;
 }
-.topology-edge-kame {
-  stroke-dasharray: 8 6;
-  animation: topology-edge-dash 0.22s linear infinite;
+
+.topology-comet path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: var(--w);
+  stroke-dasharray: var(--len) 400px;
+  stroke-dashoffset: calc(var(--len) + 1px);
+  animation-delay: var(--comet-delay);
+  animation-iteration-count: infinite;
+  animation-fill-mode: backwards;
+  animation-timing-function: linear;
 }
-.topology-edge-halo {
-  animation: topology-edge-flicker 0.18s steps(2) infinite;
+.topology-comet-tail {
+  --len: var(--tail);
+  opacity: 0.32;
 }
-.topology-edge-plasma {
-  stroke-dasharray: 14 10;
-  animation: topology-edge-dash 0.18s linear infinite, topology-edge-flicker 0.22s steps(3) infinite;
+.topology-comet-head {
+  --len: var(--head);
 }
+.topology-comet-out path {
+  stroke: var(--color-mark-line);
+  animation-name: topology-comet-out;
+  animation-duration: 2.5s;
+}
+.topology-comet-out .topology-comet-head {
+  stroke: var(--color-mark);
+}
+.topology-comet-return path {
+  stroke: color-mix(in srgb, var(--color-mark-line) 50%, var(--color-raise));
+  stroke-dashoffset: -101px;
+  animation-name: topology-comet-return;
+  animation-duration: 2.5s;
+}
+.topology-signal {
+  animation: topology-fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.topology-comet-signal {
+  opacity: 0.5;
+}
+.topology-comet-signal path {
+  stroke: var(--color-wire-live);
+  animation-name: topology-comet-signal;
+  animation-duration: 3.6s;
+}
+.topology-comet-shock path {
+  stroke: var(--color-danger);
+  animation-name: topology-comet-shock;
+  animation-duration: 0.8s;
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
+.topology-shimmer {
+  fill: none;
+  stroke: var(--color-wire-live);
+  stroke-width: 3px;
+  stroke-linecap: round;
+  opacity: 0.14;
+  stroke-dasharray: 28px 400px;
+  stroke-dashoffset: 29px;
+  animation: topology-shimmer 8s cubic-bezier(0.45, 0, 0.55, 1) var(--shimmer-delay) infinite;
+}
+.topology-impact,
+.topology-shock-ring {
+  fill: none;
+  stroke: var(--color-mark-line);
+  stroke-width: 1.25px;
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: topology-impact 1s cubic-bezier(0.22, 1, 0.36, 1) infinite backwards;
+}
+.topology-shock-ring {
+  stroke: var(--color-danger);
+  stroke-width: 1.5px;
+  animation: topology-impact 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.6s 1 both;
+}
+.topology-shock-glow {
+  fill: none;
+  stroke: var(--color-danger);
+  stroke-width: 6px;
+  stroke-linecap: round;
+  opacity: 0;
+  animation: topology-shock-glow 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.topology-node {
+  transition: border-color 1s var(--topo-settle);
+}
+.topology-node.is-active,
+.topology-node.is-error {
+  transition-duration: 0.3s;
+  transition-timing-function: var(--topo-out);
+}
+.topology-node.is-error::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid var(--color-danger);
+  pointer-events: none;
+  opacity: 0;
+  animation: topology-card-ring 1s cubic-bezier(0.22, 1, 0.36, 1) 0.6s both;
+}
+.topology-ping {
+  animation: topology-ping 1.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+.topology-glint {
+  opacity: 0;
+  animation: topology-glint 6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.topology-router-logo {
+  background: #111212;
+  color: #ecedee;
+}
+.topology-router-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: topology-dot-breathe 2.4s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+.topology-router-halo,
+.topology-router-ripples {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s var(--topo-out);
+}
+.topology-router-halo {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-mark) 35%, transparent);
+}
+.topology-router.is-powering .topology-router-halo,
+.topology-router.is-powering .topology-router-ripples {
+  opacity: 1;
+}
+.topology-router-halo-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--color-mark) 25%, transparent),
+    0 0 28px 4px color-mix(in srgb, var(--color-mark) 50%, transparent);
+  animation: topology-halo 1.8s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+.topology-router-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid var(--color-mark-line);
+  opacity: 0;
+  animation: topology-ripple 1.5s cubic-bezier(0.22, 1, 0.36, 1) infinite backwards;
+}
+.topology-orbit {
+  position: absolute;
+  left: -5px;
+  top: -5px;
+  width: calc(100% + 10px);
+  height: calc(100% + 10px);
+  overflow: visible;
+  pointer-events: none;
+}
+.topology-orbit rect {
+  fill: none;
+  stroke-linecap: round;
+  transition: opacity 0.6s var(--topo-out);
+}
+.topology-orbit-idle {
+  stroke: var(--color-wire-live);
+  stroke-width: 1.25px;
+  stroke-dasharray: 14px 86px;
+  opacity: 0.55;
+  animation: topology-orbit 7s linear infinite;
+}
+.topology-orbit-live {
+  stroke: var(--color-mark-line);
+  stroke-width: 1.5px;
+  stroke-dasharray: 16px 34px;
+  opacity: 0;
+  animation: topology-orbit 2.4s linear infinite;
+}
+.topology-router.is-powering .topology-orbit-idle {
+  opacity: 0;
+}
+.topology-router.is-powering .topology-orbit-live {
+  opacity: 1;
+}
+.topology-badge {
+  animation: topology-badge-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.topology-count {
+  animation: topology-count-in 0.42s linear(0, 0.22 8%, 0.58 18%, 0.9 30%, 1.05 42%, 1.07 50%, 1.02 64%, 0.99 80%, 1);
+}
+
+@keyframes topology-fade-in {
+  from { opacity: 0; }
+}
+@keyframes topology-glow-breathe {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.65; }
+}
+@keyframes topology-ignite {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes topology-burn {
+  from { stroke-dashoffset: 0; opacity: 1; }
+  to { stroke-dashoffset: -100px; opacity: 0.15; }
+}
+@keyframes topology-comet-out {
+  0% { stroke-dashoffset: calc(var(--len) + 1px); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  52%, 100% { stroke-dashoffset: calc(var(--len) - 117px); }
+}
+@keyframes topology-comet-return {
+  0% { stroke-dashoffset: -101px; animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  52%, 100% { stroke-dashoffset: calc(var(--tail) + 1px); }
+}
+@keyframes topology-comet-signal {
+  0% { stroke-dashoffset: calc(var(--len) + 1px); animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1); }
+  78%, 100% { stroke-dashoffset: calc(var(--len) - 117px); }
+}
+@keyframes topology-comet-shock {
+  0% { stroke-dashoffset: calc(var(--len) + 1px); animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1); }
+  100% { stroke-dashoffset: calc(var(--len) - 125px); }
+}
+@keyframes topology-shimmer {
+  from { stroke-dashoffset: 29px; }
+  to { stroke-dashoffset: -101px; }
+}
+@keyframes topology-impact {
+  0% { transform: scale(0.5); opacity: 0.8; }
+  90%, 100% { transform: scale(3); opacity: 0; }
+}
+@keyframes topology-shock-glow {
+  0% { opacity: 0; }
+  25% { opacity: 0.45; }
+  100% { opacity: 0; }
+}
+@keyframes topology-card-ring {
+  0% { opacity: 0.8; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.06, 1.25); }
+}
+@keyframes topology-ping {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+@keyframes topology-glint {
+  0% { transform: scale(1); opacity: 0; }
+  3% { opacity: 0.65; }
+  24%, 100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes topology-dot-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.86); }
+}
+@keyframes topology-halo {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+@keyframes topology-ripple {
+  0% { transform: scale(1); opacity: 0.7; }
+  80%, 100% { transform: scale(1.22, 1.6); opacity: 0; }
+}
+@keyframes topology-orbit {
+  to { stroke-dashoffset: -100px; }
+}
+@keyframes topology-badge-in {
+  from { opacity: 0; transform: scale(0.7); }
+}
+@keyframes topology-count-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.85); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lr-wire-live {
     stroke-dasharray: none;
@@ -335,19 +597,17 @@ button:disabled,
   .lr-packet {
     display: none;
   }
-  .topology-edge-kame,
-  .topology-edge-plasma {
-    stroke-dasharray: none;
-    animation: none;
-  }
-  .topology-edge-halo,
-  .topology-router-core,
-  .topology-router-icon,
-  .topology-router-label {
-    animation: none;
-  }
-  .topology-ping {
+  .topology-ping,
+  .topology-glint {
     display: none;
+  }
+  .topology-node.is-error::after {
+    content: none;
+  }
+  .topology-router-dot,
+  .topology-badge,
+  .topology-count {
+    animation: none;
   }
 }
 
