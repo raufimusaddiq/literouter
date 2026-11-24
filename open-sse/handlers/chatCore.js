@@ -298,7 +298,7 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     pxpipeSummary = pxpipeResult.summary;
     if (pxpipeResult.body) translatedBody = pxpipeResult.body;
     if (pxpipeSummary?.applied) xf.push(`PXPIPE:${pxpipeSummary.imageCount}img`);
-    try { onPxpipeEvent?.({ provider, model, ...pxpipeSummary }); } catch {}
+    try { onPxpipeEvent?.({ provider, model, ...pxpipeSummary }); } catch (e) { log?.debug?.("PXPIPE", `event hook failed: ${e?.message}`); }
   }
 
   if (xf.length && log?.line) log.line(reqTag, "⚙", xf.join(" · "));
@@ -354,6 +354,7 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
       const protocol = parsed.protocol || "http:";
       maskedProxyUrl = `${protocol}//${host}${port}`;
     } catch {
+      log?.debug?.("PROXY", `${provider.toUpperCase()} | ${model} | proxy url not parseable`);
     }
 
     const poolId = credentials?.providerSpecificData?.connectionProxyPoolId || "none";

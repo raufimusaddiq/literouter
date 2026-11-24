@@ -9,9 +9,9 @@ const STRIP_RULES = [
   { provider: "xiaomi-mimo", match: /preview/i, flattenContent: true },
   { provider: "volcengine-ark", match: /glm-5/i, clampToModelMaxOutput: true },
   { provider: "volcengine-ark", match: /kimi/i, maxOutputCap: 32768, clampToModelMaxOutput: true },
-  { provider: "groq", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"] },
-  { provider: "mistral", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"] },
-  { provider: "cerebras", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"] },
+  { provider: "groq", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"], dropToolFields: ["is_error"] },
+  { provider: "mistral", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"], dropToolFields: ["is_error"] },
+  { provider: "cerebras", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"], dropToolFields: ["is_error"] },
   {
     provider: "nvidia",
     drop: [
@@ -65,6 +65,14 @@ export function stripUnsupportedParams(provider, model, body) {
           delete msg[from];
         }
         for (const key of rule.dropMessageFields || []) {
+          if (msg[key] !== undefined) delete msg[key];
+        }
+      }
+    }
+    if (rule.dropToolFields && Array.isArray(body.messages)) {
+      for (const msg of body.messages) {
+        if (!msg || msg.role !== "tool") continue;
+        for (const key of rule.dropToolFields) {
           if (msg[key] !== undefined) delete msg[key];
         }
       }
