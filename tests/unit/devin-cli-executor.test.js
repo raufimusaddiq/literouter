@@ -344,9 +344,9 @@ describe("DevinCliExecutor ACP session/new", () => {
     expect(child.opts.env.DEVIN_PERMISSION_MODE).toBe("bypass");
   });
 
-  it("does not inject WINDSURF_API_KEY — devin-cli uses stored CLI creds (devin auth login)", async () => {
+  it("does not inject provider API keys — devin-cli uses stored CLI creds (devin auth login)", async () => {
     const { child } = await runExecute({ accessToken: "bogus-token", apiKey: "bogus-key" });
-    expect(child.opts.env.WINDSURF_API_KEY).toBeUndefined();
+    expect(child.opts.env.CURSOR_API_KEY).toBeUndefined();
   });
 
   it("respects an explicit DEVIN_PERMISSION_MODE override", async () => {

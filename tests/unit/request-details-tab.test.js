@@ -4,6 +4,11 @@ import path from "node:path";
 import { Database } from "bun:sqlite";
 import { describe, it, expect, beforeAll } from "bun:test";
 import { useTempDataDir } from "#test/tempDataDir";
+import {
+  getInputTokens,
+  getCachedTokens,
+  getCacheCreationTokens,
+} from "@/web/pages/dashboard/usage/components/tokenDisplay.js";
 
 useTempDataDir("9router-details-tab-", { scope: "all" });
 let db;
@@ -93,18 +98,6 @@ describe("request details — tab crash-risk cases", () => {
   });
 });
 
-function getCachedTokens(tokens) {
-  return tokens?.cached_tokens || tokens?.cache_read_input_tokens || 0;
-}
-function getCacheCreationTokens(tokens) {
-  return tokens?.cache_creation_input_tokens || 0;
-}
-function getInputTokens(tokens) {
-  const prompt = tokens?.prompt_tokens || tokens?.input_tokens || 0;
-  const cache = getCachedTokens(tokens);
-  return prompt < cache ? cache : prompt;
-}
-
 describe("backupDbLite — excludes requestDetails, keeps critical data", () => {
   it("backup file omits requestDetails rows but keeps other tables", async () => {
     const { backupDbLite } = await import("@/lib/db/backup.js");
@@ -149,22 +142,21 @@ describe("getDistinctProviders — providers route (no full-row parse)", () => {
 });
 
 describe("token helpers — render-time crash safety", () => {
-  it("undefined/null tokens → 0, no throw", () => {
-    expect(getInputTokens(undefined)).toBe(0);
-    expect(getInputTokens(null)).toBe(0);
-    expect(getCachedTokens(undefined)).toBe(0);
-    expect(getCacheCreationTokens(null)).toBe(0);
+  it.each([
+    ["undefined", undefined],
+    ["null", null],
+    ["an empty object", {}],
+  ])("all helpers return 0 for %s", (label, tokens) => {
+    expect(getInputTokens(tokens)).toBe(0);
+    expect(getCachedTokens(tokens)).toBe(0);
+    expect(getCacheCreationTokens(tokens)).toBe(0);
   });
 
-  it("empty object → 0 across all helpers", () => {
-    expect(getInputTokens({})).toBe(0);
-    expect(getCachedTokens({})).toBe(0);
-    expect(getCacheCreationTokens({})).toBe(0);
-  });
-
-  it("prompt_tokens preferred, falls back to input_tokens", () => {
-    expect(getInputTokens({ prompt_tokens: 100 })).toBe(100);
-    expect(getInputTokens({ input_tokens: 50 })).toBe(50);
+  it.each([
+    [{ prompt_tokens: 100 }, 100],
+    [{ input_tokens: 50 }, 50],
+  ])("input tokens from %p → %d", (tokens, expected) => {
+    expect(getInputTokens(tokens)).toBe(expected);
   });
 
   it("legacy Claude row (prompt < cache) → returns cache", () => {

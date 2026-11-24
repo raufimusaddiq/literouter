@@ -1,5 +1,7 @@
 import { describe, it, beforeAll } from "bun:test";
 import assert from "node:assert/strict";
+import { normalizeKimchiModel } from "../../open-sse/services/kimchiModels.js";
+import { findExistingOAuth } from "../../src/lib/db/repos/connectionsRepo.js";
 
 let kimchiEntry;
 
@@ -44,67 +46,35 @@ describe("kimchi registry entry", () => {
 });
 
 
-function mapKimchiMetadata(raw) {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((m) => ({
-    id: m.slug,
-    name: m.display_name || m.slug,
-    contextLength: m.limits?.context_window || null,
-    maxOutputTokens: m.limits?.max_output_tokens || null,
-    isReasoning: m.reasoning === true,
-  }));
-}
-
-describe("kimchiModels", () => {
-  it("maps Kimchi metadata entries to 9router model shape", () => {
-    const raw = [{
+describe("normalizeKimchiModel", () => {
+  it("maps Kimchi metadata to the model shape", () => {
+    const raw = {
       slug: "glm-5.2-fp8",
       display_name: "GLM 5.2",
       reasoning: true,
       limits: { context_window: 1048576, max_output_tokens: 1048576 },
-    }];
-    const models = mapKimchiMetadata(raw);
-    assert.equal(models.length, 1);
-    assert.deepEqual(models[0], {
-      id: "glm-5.2-fp8",
-      name: "GLM 5.2",
-      contextLength: 1048576,
-      maxOutputTokens: 1048576,
-      isReasoning: true,
-    });
+    };
+    const model = normalizeKimchiModel(raw);
+    assert.equal(model.id, "glm-5.2-fp8");
+    assert.equal(model.name, "GLM 5.2");
+    assert.equal(model.contextLength, 1048576);
+    assert.equal(model.maxOutputTokens, 1048576);
+    assert.equal(model.reasoning, true);
+    assert.equal(model.capabilities.vision, false);
   });
 
   it("falls back to slug as name when display_name is empty", () => {
-    const models = mapKimchiMetadata([{ slug: "kimi-k2.7", display_name: "", reasoning: false, limits: {} }]);
-    assert.equal(models[0].name, "kimi-k2.7");
-    assert.equal(models[0].contextLength, null);
-    assert.equal(models[0].isReasoning, false);
+    const model = normalizeKimchiModel({ slug: "kimi-k2.7", display_name: "", reasoning: false, limits: {} });
+    assert.equal(model.name, "kimi-k2.7");
+    assert.equal(model.contextLength, undefined);
+    assert.equal(model.reasoning, false);
   });
 
-  it("returns empty array for non-array input", () => {
-    assert.deepEqual(mapKimchiMetadata(null), []);
-    assert.deepEqual(mapKimchiMetadata({}), []);
+  it("returns null for entries without an id", () => {
+    assert.equal(normalizeKimchiModel(null), null);
+    assert.equal(normalizeKimchiModel({}), null);
   });
 });
-
-function findExistingOAuth(all, incoming) {
-  const incomingEmail = incoming.email;
-  const incomingUsername = incoming.providerSpecificData?.username;
-  const incomingWs = incoming.providerSpecificData?.chatgptAccountId;
-  return all.find((c) => {
-    if (c.authType !== "oauth" || c.email !== incomingEmail) return false;
-    const existingWs = c.providerSpecificData?.chatgptAccountId;
-    if (incomingWs && existingWs) return incomingWs === existingWs;
-    if (incomingWs && !existingWs) return false;
-    if (!incomingWs && existingWs) return false;
-    const existingUsername = c.providerSpecificData?.username;
-    if (incomingUsername && existingUsername) {
-      return incomingUsername === existingUsername;
-    }
-    if (incomingUsername || existingUsername) return false;
-    return true;
-  });
-}
 
 describe("kimchi OAuth dedup", () => {
   const google = { authType: "oauth", email: "x@y.com", providerSpecificData: { username: "google-oauth2|123" } };
@@ -139,5 +109,18 @@ describe("kimchi OAuth dedup", () => {
     const ws2 = { authType: "oauth", email: "a@b.com", providerSpecificData: { chatgptAccountId: "ws2" } };
     assert.equal(findExistingOAuth([ws1], ws1dup), ws1);
     assert.equal(findExistingOAuth([ws1], ws2), undefined);
+  });
+
+  it("codex dedupes on workspace ID only", () => {
+    const ws1 = { authType: "oauth", provider: "codex", email: "a@b.com", providerSpecificData: { chatgptAccountId: "ws1" } };
+    const ws1dup = { ...ws1, providerSpecificData: { chatgptAccountId: "ws1" } };
+    const ws2 = { ...ws1, providerSpecificData: { chatgptAccountId: "ws2" } };
+    assert.equal(findExistingOAuth([ws1], ws1dup), ws1);
+    assert.equal(findExistingOAuth([ws1], ws2), undefined);
+  });
+
+  it("codex without a workspace ID never matches, even on the same email", () => {
+    const noWs = { authType: "oauth", provider: "codex", email: "a@b.com", providerSpecificData: {} };
+    assert.equal(findExistingOAuth([noWs], { ...noWs }), undefined);
   });
 });

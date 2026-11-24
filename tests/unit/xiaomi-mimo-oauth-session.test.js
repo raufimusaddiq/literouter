@@ -25,8 +25,6 @@ vi.mock("open-sse/shared/mimoAccount.js", () => ({
   readDesktopPassToken: vi.fn(async () => ({ passToken: "pt-abc", userId: "u1", cUserId: "c1" })),
 }));
 
-vi.mock("@/lib/oauth/utils/ideDetect", () => ({ detectIdeInstalled: vi.fn() }));
-
 const sessions = new Map();
 const stopped = { count: 0 };
 
@@ -38,10 +36,6 @@ vi.mock("@/lib/oauth/utils/server", () => {
     getCodexSessionStatus: () => null, clearCodexSession: noop,
     startXaiProxy: notUsed, stopXaiProxy: noop, registerXaiSession: noop,
     getXaiSessionStatus: () => null, clearXaiSession: noop,
-    startTraeProxy: notUsed, stopTraeProxy: noop, registerTraeSession: noop,
-    getTraeSessionStatus: () => null, clearTraeSession: noop,
-    startWindsurfProxy: notUsed, stopWindsurfProxy: noop, registerWindsurfSession: noop,
-    getWindsurfSessionStatus: () => null, clearWindsurfSession: noop,
     startZedProxy: notUsed, stopZedProxy: noop, registerZedSession: noop,
     getZedSessionStatus: () => null, clearZedSession: noop,
     startXiaomiMimoProxy: notUsed,

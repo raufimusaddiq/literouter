@@ -6,27 +6,6 @@ import { Modal, Button, Card, Input } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { matchesOAuthState } from "@/shared/utils/oauthCallback";
 
-const PROXY_OAUTH_PROVIDERS = new Set(["trae", "windsurf", "zed"]);
-
-const PASTE_TOKEN_PROVIDERS = {
-  trae: {
-    label: "Cloud-IDE-JWT",
-    instructions:
-      "Sign in at trae.ai (or solo.trae.ai), open DevTools → Network, copy the Cloud-IDE-JWT token from any request's Authorization header (~14-day lifetime).",
-    placeholder: "Paste Cloud-IDE-JWT here...",
-    ideName: "Trae",
-    ideOptional: true,
-  },
-  windsurf: {
-    label: "Windsurf API key",
-    instructions:
-      "In the Windsurf/VS Code IDE, run the \"Windsurf: Provide Auth Token\" command, then copy the displayed sk-ws-... key.",
-    placeholder: "Paste sk-ws-... key here...",
-    ideName: "Windsurf",
-    ideOptional: false,
-  },
-};
-
 export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, onClose, oauthMeta, idcConfig }) {
   const [step, setStep] = useState("waiting");
   const [authData, setAuthData] = useState(null);
@@ -35,9 +14,6 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
   const [isDeviceCode, setIsDeviceCode] = useState(false);
   const [deviceData, setDeviceData] = useState(null);
   const [polling, setPolling] = useState(false);
-  const [authMode, setAuthMode] = useState("browser");
-  const [pasteToken, setPasteToken] = useState("");
-  const [ideStatus, setIdeStatus] = useState(null);
   const popupRef = useRef(null);
   const pollingAbortRef = useRef(false);
   const openedRef = useRef(false);
@@ -206,7 +182,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
     let regData = null;
     try {
       regData = await regRes.json();
-    } catch {
+    } catch (err) {
+      console.error("Session registration returned no JSON:", err);
       regData = null;
     }
     if (!regRes.ok || regData?.success === false) {
@@ -228,7 +205,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
       setCallbackUrl("");
       callbackProcessedRef.current = false;
 
-      if (PROXY_OAUTH_PROVIDERS.has(provider) && authMode === "browser") {
+      if (provider === "zed") {
         await startProxyFlow(provider);
         return;
       }
@@ -328,7 +305,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
           const proxyData = await proxyRes.json();
           codexProxyActive = proxyData.success;
           codexServerSide = !!proxyData.serverSide;
-        } catch {
+        } catch (err) {
+          console.error("Codex proxy start failed:", err);
           codexProxyActive = false;
         }
       }
@@ -417,17 +395,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
     setIsDeviceCode(false);
     setDeviceData(null);
     setPolling(false);
-    setAuthMode("browser");
-    setPasteToken("");
-    setIdeStatus(null);
     pollingAbortRef.current = false;
     flowRef.current = { proxyStarted: false, proxyProvider: null, stopSent: false };
-    if (PASTE_TOKEN_PROVIDERS[provider]) {
-      fetch(`/api/oauth/${provider}/ide-status`)
-        .then((r) => r.json())
-        .then((data) => setIdeStatus(data))
-        .catch(() => setIdeStatus({ installed: false, path: null }));
-    }
     startOAuthFlowRef.current();
   }, [isOpen, provider]);
 
@@ -473,7 +442,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
           setStep("error");
           return;
         }
-      } catch {
+      } catch (err) {
+        if (attempts >= MAX_ATTEMPTS) console.error("OAuth status polling failed:", err);
       }
       if (attempts >= MAX_ATTEMPTS) {
         callbackProcessedRef.current = true;
@@ -549,7 +519,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         }
         localStorage.removeItem("oauth_callback");
       }
-    } catch {
+    } catch (err) {
+      console.error("Discarding unreadable oauth_callback from localStorage:", err);
     }
 
     return () => {
@@ -563,24 +534,9 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
     try {
       setError(null);
 
-      if (authMode === "paste-token" && PASTE_TOKEN_PROVIDERS[provider]) {
-        const token = pasteToken.trim();
-        if (!token) throw new Error("Missing token");
-        const res = await fetch(`/api/oauth/${provider}/exchange`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: token }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        setStep("success");
-        onSuccessRef.current?.();
-        return;
-      }
-
       const input = callbackUrl.trim();
 
-      if (PROXY_OAUTH_PROVIDERS.has(provider) && input) {
+      if (provider === "zed" && input) {
         const res = await fetch(`/api/oauth/${provider}/exchange`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -660,74 +616,27 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
   return (
     <Modal isOpen={isOpen} title={modalTitle} onClose={handleClose} size="lg">
       <div className="flex flex-col gap-4">
-        {PROXY_OAUTH_PROVIDERS.has(provider) && (step === "waiting" || step === "input" || step === "error") && (
+        {provider === "zed" && (step === "waiting" || step === "input") && (
           <>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => { setAuthMode("browser"); setError(null); setStep("waiting"); startOAuthFlow(); }}
-                className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${authMode === "browser" ? "border-ink bg-ink text-bg" : "border-line-strong bg-bg text-muted hover:border-ink/40 hover:text-ink"}`}
-              >
-                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">language</span>
-                Sign in with browser
-              </button>
-              <button
-                type="button"
-                onClick={() => { setAuthMode("paste-token"); setError(null); setStep("input"); }}
-                className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${authMode === "paste-token" ? "border-ink bg-ink text-bg" : "border-line-strong bg-bg text-muted hover:border-ink/40 hover:text-ink"}`}
-              >
-                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">key</span>
-                Paste token
-              </button>
-            </div>
-
-            {authMode === "browser" && (
-              <>
-                {step === "waiting" && (
-                  <div className="flex items-center gap-2 rounded-md border border-line bg-bg px-3 py-2.5">
-                    <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px] text-ink">progress_activity</span>
-                    <span className="text-sm text-ink">Waiting for browser authorization…</span>
-                  </div>
-                )}
-                {step === "input" && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted">
-                      Popup was blocked. After authorizing in the browser, paste the full callback URL here:
-                    </p>
-                    <Input
-                      value={callbackUrl}
-                      onChange={(e) => setCallbackUrl(e.target.value)}
-                      placeholder="http://127.0.0.1:.../callback?..."
-                      inputClassName="font-mono text-xs"
-                    />
-                    <div className="flex gap-2">
-                      <Button onClick={handleManualSubmit} fullWidth disabled={!callbackUrl}>Connect</Button>
-                      <Button onClick={handleClose} variant="ghost" fullWidth>Cancel</Button>
-                    </div>
-                  </div>
-                )}
-              </>
+            {step === "waiting" && (
+              <div className="flex items-center gap-2 rounded-md border border-line bg-bg px-3 py-2.5">
+                <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px] text-ink">progress_activity</span>
+                <span className="text-sm text-ink">Waiting for browser authorization…</span>
+              </div>
             )}
-
-            {authMode === "paste-token" && (
+            {step === "input" && (
               <div className="space-y-3">
-                {ideStatus && !ideStatus.installed && (
-                  <div className={`rounded-md border px-3 py-2 text-sm ${PASTE_TOKEN_PROVIDERS[provider].ideOptional ? "border-line-strong bg-bg text-muted" : "border-warning/40 bg-warning/10 text-warning"}`}>
-                    {PASTE_TOKEN_PROVIDERS[provider].ideName} IDE not detected.
-                    {PASTE_TOKEN_PROVIDERS[provider].ideOptional
-                      ? " You can still grab the token from DevTools."
-                      : ` Install ${PASTE_TOKEN_PROVIDERS[provider].ideName} IDE to get the token, or use "Sign in with browser".`}
-                  </div>
-                )}
-                <p className="text-sm text-muted">{PASTE_TOKEN_PROVIDERS[provider].instructions}</p>
+                <p className="text-sm text-muted">
+                  Popup was blocked. After authorizing in the browser, paste the full callback URL here:
+                </p>
                 <Input
-                  value={pasteToken}
-                  onChange={(e) => setPasteToken(e.target.value)}
-                  placeholder={PASTE_TOKEN_PROVIDERS[provider].placeholder}
+                  value={callbackUrl}
+                  onChange={(e) => setCallbackUrl(e.target.value)}
+                  placeholder="http://127.0.0.1:.../callback?..."
                   inputClassName="font-mono text-xs"
                 />
                 <div className="flex gap-2">
-                  <Button onClick={handleManualSubmit} fullWidth disabled={!pasteToken}>Connect</Button>
+                  <Button onClick={handleManualSubmit} fullWidth disabled={!callbackUrl}>Connect</Button>
                   <Button onClick={handleClose} variant="ghost" fullWidth>Cancel</Button>
                 </div>
               </div>
@@ -735,7 +644,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
           </>
         )}
 
-        {(step === "waiting" || step === "input") && !isDeviceCode && !PROXY_OAUTH_PROVIDERS.has(provider) && (
+        {(step === "waiting" || step === "input") && !isDeviceCode && provider !== "zed" && (
           <>
             <div className="flex items-center gap-2 rounded-md border border-line bg-bg px-3 py-2.5">
               <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px] text-ink">

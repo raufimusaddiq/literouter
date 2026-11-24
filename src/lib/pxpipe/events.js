@@ -23,13 +23,19 @@ export function appendPxpipeEvent(event) {
       try { fileBytes = fs.statSync(/* turbopackIgnore: true */ EVENTS_FILE).size; } catch { fileBytes = 0; }
     }
     if (fileBytes > MAX_FILE_BYTES) {
-      try { fs.renameSync(/* turbopackIgnore: true */ EVENTS_FILE, ROTATED_FILE); } catch {}
+      try { fs.renameSync(/* turbopackIgnore: true */ EVENTS_FILE, ROTATED_FILE); } catch (e) {
+        if (e?.code !== "ENOENT") console.error("[pxpipe] events rotate failed:", e?.message);
+      }
       fileBytes = 0;
     }
     const line = JSON.stringify({ ts: Date.now(), ...event }) + "\n";
     fileBytes += Buffer.byteLength(line);
-    fs.appendFile(/* turbopackIgnore: true */ EVENTS_FILE, line, () => {});
-  } catch {}
+    fs.appendFile(/* turbopackIgnore: true */ EVENTS_FILE, line, (e) => {
+      if (e) console.error("[pxpipe] events append failed:", e?.message);
+    });
+  } catch (e) {
+    console.error("[pxpipe] events write failed:", e?.message);
+  }
 }
 
 export function readPxpipeEvents({ sinceMs = null, limit = null } = {}) {
@@ -43,9 +49,13 @@ export function readPxpipeEvents({ sinceMs = null, limit = null } = {}) {
           const ev = JSON.parse(line);
           if (sinceMs && ev.ts < sinceMs) continue;
           events.push(ev);
-        } catch {}
+        } catch (e) {
+          if (!(e instanceof SyntaxError)) console.error("[pxpipe] events parse failed:", e?.message);
+        }
       }
-    } catch {}
+    } catch (e) {
+      if (e?.code !== "ENOENT") console.error("[pxpipe] events read failed:", e?.message);
+    }
   }
   events.sort((a, b) => a.ts - b.ts);
   return limit ? events.slice(-limit) : events;

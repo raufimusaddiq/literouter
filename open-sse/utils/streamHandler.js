@@ -21,6 +21,7 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
   return {
     signal: abortController.signal,
     startTime,
+    log,
 
     isConnected: () => !disconnected,
 
@@ -80,7 +81,9 @@ export function createDisconnectAwareStream(transformStream, streamController, o
     try {
       const bytes = onAbortTerminal();
       if (bytes) controller.enqueue(bytes);
-    } catch {}
+    } catch (e) {
+      dbg("STREAM", `terminal emit failed: ${e?.message}`);
+    }
   };
 
   return new ReadableStream({
@@ -129,7 +132,9 @@ export function createDisconnectAwareStream(transformStream, streamController, o
           } else {
             controller.error(error);
           }
-        } catch (e) {}
+        } catch (e) {
+          dbg("STREAM", `close after error failed: ${e?.message}`);
+        }
       }
     },
 
@@ -154,6 +159,11 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
   const clearStall = () => {
     if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
   };
+  const logHookFailure = (what, e) => {
+    const message = `${what} hook failed: ${e?.message}`;
+    if (streamController.log?.debug) streamController.log.debug(tag, message);
+    else dbg(tag, message);
+  };
   const reportAbort = (reason, detail) => {
     if (abortReported) return;
     abortReported = true;
@@ -176,7 +186,7 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
       ` chunks=${info.chunks} bytes=${info.bytes} sinceLast=${info.sinceLastMs}ms` +
       (info.detail ? ` detail="${info.detail}"` : "")
     );
-    try { onAbort?.(info); } catch {}
+    try { onAbort?.(info); } catch (e) { logHookFailure("onAbort", e); }
   };
   const classifyError = (e) => {
     const msg = e?.message || "";
@@ -207,7 +217,7 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
       dbg(tag, `disconnect: ${r} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`);
       clearStall();
       streamController.handleDisconnect(r);
-      try { onCancel?.(r); } catch {}
+      try { onCancel?.(r); } catch (e) { logHookFailure("onCancel", e); }
     },
     abort: () => { clearStall(); streamController.abort(); }
   };
