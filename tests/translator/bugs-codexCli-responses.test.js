@@ -67,6 +67,16 @@ describe("Codex CLI Responses → OpenAI", () => {
     });
     expect(out.messages.filter((m) => m.role === "tool").map((m) => m.tool_call_id)).toEqual(["c1"]);
   });
+
+  it("forwards a function_call_output whose call id was never seen", () => {
+    const out = R2O({
+      input: [
+        { type: "message", role: "user", content: "hi" },
+        { type: "function_call_output", call_id: "from-previous-response", output: "ok" },
+      ],
+    });
+    expect(out.messages.filter((m) => m.role === "tool").map((m) => m.tool_call_id)).toEqual(["from-previous-response"]);
+  });
 });
 
 describe("OpenAI → Codex Responses (reverse)", () => {
