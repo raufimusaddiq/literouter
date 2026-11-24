@@ -459,7 +459,8 @@ async function wrapQoderSSE(response, model, log = null) {
             }
           }
         }
-      } catch {
+      } catch (error) {
+        log?.debug?.("QODER", `stream read failed: ${error?.message || error?.code || error}`);
       } finally {
         if (!doneEmitted) {
           try {
