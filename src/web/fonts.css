@@ -1,4 +1,4 @@
-@import "material-symbols/outlined.css";
+@import "material-symbols/outlined.css" layer(base);
 @import "@fontsource-variable/schibsted-grotesk";
 @import "@fontsource-variable/jetbrains-mono";
 
