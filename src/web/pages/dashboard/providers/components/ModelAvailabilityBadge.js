@@ -95,7 +95,7 @@ export default function ModelAvailabilityBadge() {
             <div className="flex items-center gap-2">
               <span
                 aria-hidden="true"
-                className={`size-2 shrink-0 rounded-full ${isHealthy ? "bg-ok" : "bg-warning"}`}
+                className={`size-2 shrink-0 rounded-full ${error ? "bg-danger" : isHealthy ? "bg-ok" : "bg-warning"}`}
               />
               <span className="text-sm font-semibold text-ink">Model Status</span>
             </div>

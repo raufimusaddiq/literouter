@@ -26,13 +26,17 @@ function legacyEntryPath(platform, { home = homeDir(), appData } = {}) {
   return null;
 }
 
+function isExpectedUnloadFailure(err) {
+  return !err?.code && err?.status !== 127;
+}
+
 function removeLegacyAutoStart(platform = process.platform, locations) {
   const legacyPath = legacyEntryPath(platform, locations);
   if (!legacyPath || !fs.existsSync(legacyPath)) return false;
   try {
     if (platform === "darwin") execSync(`launchctl unload "${legacyPath}"`, { stdio: "ignore" });
   } catch (e) {
-    if (e?.code === "ENOENT") throw e;
+    if (!isExpectedUnloadFailure(e)) console.error(`[autostart] legacy launchctl unload failed: ${e.message}`);
   }
   try {
     fs.unlinkSync(legacyPath);
@@ -186,7 +190,7 @@ ${argLines}
   try {
     execSync(`launchctl unload "${plistPath}"`, { stdio: "ignore" });
   } catch (e) {
-    if (e?.code === "ENOENT") throw e;
+    if (!isExpectedUnloadFailure(e)) console.error(`[autostart] launchctl unload failed: ${e.message}`);
   }
   try {
     execSync(`launchctl load -w "${plistPath}"`, { stdio: "ignore" });
@@ -203,7 +207,7 @@ function disableMacOS() {
     try {
       execSync(`launchctl unload "${plistPath}"`, { stdio: "ignore" });
     } catch (e) {
-      if (e?.code === "ENOENT") throw e;
+      if (!isExpectedUnloadFailure(e)) console.error(`[autostart] launchctl unload failed: ${e.message}`);
     }
   }
 
