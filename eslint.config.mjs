@@ -6,14 +6,13 @@ import importPlugin from "eslint-plugin-import";
 import globals from "globals";
 import noComments from "./eslint-rules/no-comments.mjs";
 
-const reactCompilerDebt = {
-  "react-hooks/set-state-in-effect": "warn",
-  "react-hooks/immutability": "warn",
-  "react-hooks/rules-of-hooks": "warn",
-  "react-hooks/refs": "warn",
-  "react-hooks/purity": "warn",
-  "react-hooks/preserve-manual-memoization": "warn",
-};
+const reactSources = [
+  "src/web/**/*.{js,jsx}",
+  "src/shared/components/**/*.{js,jsx}",
+  "src/shared/hooks/**/*.{js,jsx}",
+  "src/store/**/*.js",
+  "src/i18n/**/*.js",
+];
 
 const eslintConfig = defineConfig([
   {
@@ -21,7 +20,6 @@ const eslintConfig = defineConfig([
     files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
     plugins: {
       react,
-      "react-hooks": reactHooks,
       import: importPlugin,
       "jsx-a11y": jsxA11y,
     },
@@ -34,7 +32,6 @@ const eslintConfig = defineConfig([
     settings: { react: { version: "detect" } },
     rules: {
       ...react.configs.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
       "import/no-anonymous-default-export": "warn",
       "react/no-unknown-property": "off",
       "react/react-in-jsx-scope": "off",
@@ -46,7 +43,15 @@ const eslintConfig = defineConfig([
       "jsx-a11y/aria-unsupported-elements": "warn",
       "jsx-a11y/role-has-required-aria-props": "warn",
       "jsx-a11y/role-supports-aria-props": "warn",
-      ...reactCompilerDebt,
+    },
+  },
+  {
+    name: "literouter/react-hooks",
+    files: reactSources,
+    plugins: { "react-hooks": reactHooks },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      "react-hooks/set-state-in-effect": "warn",
     },
   },
   {

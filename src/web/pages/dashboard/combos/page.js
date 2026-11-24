@@ -56,10 +56,6 @@ export default function CombosPage() {
   const [confirmState, setConfirmState] = useState(null);
   const { copied, copy } = useCopyToClipboard();
 
-  useEffect(() => {
-    fetchData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const fetchData = async () => {
     try {
       const [combosRes, providersRes, settingsRes] = await Promise.all([
@@ -88,6 +84,10 @@ export default function CombosPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSetCapacityAdapter = async (next) => {
     setCapacityAdapter(next);

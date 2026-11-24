@@ -231,7 +231,9 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
   const period = periodProp ?? periodLocal;
   const setPeriod = setPeriodProp ?? setPeriodLocal;
   const periodRef = useRef(period);
-  periodRef.current = period;
+  useEffect(() => {
+    periodRef.current = period;
+  }, [period]);
 
   useEffect(() => {
     Promise.all([
@@ -545,6 +547,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           <Skeleton className="h-[200px] w-full rounded-md" />
         ) : activeTableConfig && (
           <UsageTable
+            key={activeTableConfig.storageKey}
             title=""
             columns={activeTableConfig.columns}
             groupedData={activeTableConfig.groupedData}

@@ -19,18 +19,28 @@ describe("eslint flat config", () => {
     expect(Object.keys(rules).filter((name) => name.startsWith("@next/"))).toEqual([]);
   });
 
-  it("keeps the React Compiler rules as warnings", async () => {
+  it("applies the React Compiler rules as errors to React sources", async () => {
     const rules = await rulesFor("src/web/main.jsx");
     for (const name of [
-      "react-hooks/set-state-in-effect",
       "react-hooks/immutability",
       "react-hooks/rules-of-hooks",
       "react-hooks/refs",
       "react-hooks/purity",
       "react-hooks/preserve-manual-memoization",
     ]) {
-      expect(severity(rules[name])).toBe(1);
+      expect(severity(rules[name])).toBe(2);
     }
+  });
+
+  it("keeps set-state-in-effect as a warning while data loaders set state after fetch", async () => {
+    const rules = await rulesFor("src/web/main.jsx");
+    expect(severity(rules["react-hooks/set-state-in-effect"])).toBe(1);
+  });
+
+  it("leaves the react-hooks rules out of non-React sources", async () => {
+    const rules = await rulesFor("tests/server/spa.test.js");
+    expect(rules["react-hooks/rules-of-hooks"]).toBeUndefined();
+    expect(rules["react-hooks/set-state-in-effect"]).toBeUndefined();
   });
 
   it("keeps exhaustive-deps as a warning", async () => {
