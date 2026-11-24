@@ -154,7 +154,7 @@ export default function ProviderDetailPage() {
   const isSystemOne = providerInfo?.serviceKinds?.includes("systemone");
   const isFreeNoAuth = !!FREE_PROVIDERS[providerId]?.noAuth;
   const staticModels = getModelsByProviderId(providerId);
-  const providerAlias = getProviderAlias(providerId);
+  const providerAlias = String(getProviderAlias(providerId));
   const models = LIVE_MODEL_CATALOG_PROVIDERS.has(providerId) && providerId !== "kenari" && liveModels.length > 0
     ? liveModels
     : applyQoderModelNames(staticModels, customModels, providerAlias);
@@ -454,28 +454,38 @@ export default function ProviderDetailPage() {
   };
 
   useEffect(() => {
-    fetchConnections();
-    fetchAliases();
-    fetchCustomModels();
-    fetchDisabledModels();
+    (async () => {
+      fetchConnections();
+      fetchAliases();
+      fetchCustomModels();
+      fetchDisabledModels();
+    })();
   }, [fetchConnections, fetchAliases, fetchCustomModels, fetchDisabledModels]);
 
   useEffect(() => {
     const isLiveCatalog = LIVE_MODEL_CATALOG_PROVIDERS.has(providerId);
     if (!isLiveCatalog) {
-      setLiveModels([]);
+      (async () => {
+        setLiveModels([]);
+      })();
       return;
     }
 
     const connection = connections.find((item) => item.isActive !== false);
     if (!connection?.id) {
-      setLiveModels([]);
-      if (providerId === "zed") setLiveModelsError(null);
+      (async () => {
+        setLiveModels([]);
+        if (providerId === "zed") setLiveModelsError(null);
+      })();
       return;
     }
 
     let cancelled = false;
-    if (providerId === "zed") setLiveModelsError(null);
+    if (providerId === "zed") {
+      (async () => {
+        setLiveModelsError(null);
+      })();
+    }
     fetch(`/api/providers/${connection.id}/models`, { cache: "no-store" })
       .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => null) }))
       .then(({ ok, data }) => {
@@ -942,7 +952,9 @@ export default function ProviderDetailPage() {
   };
 
   useEffect(() => {
-    setSelectedConnectionIds((prev) => prev.filter((id) => connections.some((conn) => conn.id === id)));
+    (async () => {
+      setSelectedConnectionIds((prev) => prev.filter((id) => connections.some((conn) => conn.id === id)));
+    })();
   }, [connections]);
 
   const selectedProxySummary = (() => {

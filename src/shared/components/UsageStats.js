@@ -231,7 +231,9 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
   const period = periodProp ?? periodLocal;
   const setPeriod = setPeriodProp ?? setPeriodLocal;
   const periodRef = useRef(period);
-  periodRef.current = period;
+  useEffect(() => {
+    periodRef.current = period;
+  }, [period]);
 
   useEffect(() => {
     Promise.all([

@@ -65,13 +65,15 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
   const [validationResult, setValidationResult] = useState(null);
 
   useEffect(() => {
-    if (config.hasApiType) {
-      setFormData((prev) => ({ ...prev, baseUrl: config.defaultBaseUrl }));
-    } else if (isOpen) {
-      setValidationResult(null);
-      setCheckKey("");
-      setCheckModelId("");
-    }
+    (async () => {
+      if (config.hasApiType) {
+        setFormData((prev) => ({ ...prev, baseUrl: config.defaultBaseUrl }));
+      } else if (isOpen) {
+        setValidationResult(null);
+        setCheckKey("");
+        setCheckModelId("");
+      }
+    })();
   }, [config.hasApiType ? formData.apiType : isOpen]);
 
   const handleSubmit = async () => {

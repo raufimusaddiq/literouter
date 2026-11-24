@@ -75,7 +75,9 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
   useEscapeLayer(isOpen, () => setIsOpen(false));
 
   useEffect(() => {
-    setLocale(getLocaleFromCookie());
+    (async () => {
+      setLocale(getLocaleFromCookie());
+    })();
   }, []);
 
   useEffect(() => {

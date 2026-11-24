@@ -142,7 +142,7 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
   };
 
   useEffect(() => {
-    if (isOpen) fetchModalData();
+    if (isOpen) (async () => fetchModalData())();
   }, [isOpen]);
 
   const validateName = (value) => {

@@ -15,7 +15,13 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (isOpen) { setModelId(""); setCaps(defaultCaps()); setTestStatus(null); setTestError(""); }
+    if (!isOpen) return;
+    (async () => {
+      setModelId("");
+      setCaps(defaultCaps());
+      setTestStatus(null);
+      setTestError("");
+    })();
   }, [isOpen]);
 
   const stripAlias = (id) => {

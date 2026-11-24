@@ -72,7 +72,7 @@ function CallbackContent() {
       return;
     }
 
-    setStatus("success");
+    setTimeout(() => setStatus("success"), 0);
     setTimeout(() => {
       window.close();
       setTimeout(() => setStatus("done"), 500);

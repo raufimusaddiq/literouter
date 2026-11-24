@@ -48,15 +48,10 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
   const startOAuthFlowRef = useRef(null);
   const { copied, copy } = useCopyToClipboard();
 
-  const [placeholderUrl, setPlaceholderUrl] = useState("/callback?code=...");
+  const [placeholderUrl] = useState(() =>
+    typeof window === "undefined" ? "/callback?code=..." : `${window.location.origin}/callback?code=...`
+  );
   const callbackProcessedRef = useRef(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setPlaceholderUrl(`${window.location.origin}/callback?code=...`);
-    }
-  }, []);
-
 
   const exchangeTokens = useCallback(async (code, state) => {
     if (!authData) return;

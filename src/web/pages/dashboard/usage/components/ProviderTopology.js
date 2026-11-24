@@ -67,7 +67,13 @@ function ProviderNode({ data }) {
   const { providerId, label, textIcon, active, error, status = "idle", index = 0 } = data;
   const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY, false);
   const fx = useNodeFx(edgeState(data), !reducedMotion);
-  const tickDelay = useMemo(() => (active ? arrivalTickDelay(Date.now()) : 0), [active]);
+  const [tickDelay, setTickDelay] = useState(0);
+  useEffect(() => {
+    (async () => {
+      setTickDelay(active ? arrivalTickDelay(Date.now()) : 0);
+    })();
+  }, [active]);
+
   const fxClass = fx ? ` is-${fx.kind}` : "";
   const dotClass = STATUS_DOT[status] || STATUS_DOT.idle;
   const glintClass = STATUS_GLINT[status];
@@ -332,6 +338,7 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
 
   const firstSeenRef = useRef({});
   const [tick, setTick] = useState(0);
+  const [activeSet, setActiveSet] = useState(() => new Set());
 
   useEffect(() => {
     const seen = firstSeenRef.current;
@@ -342,23 +349,21 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
     for (const p of Object.keys(seen)) {
       if (!rawActiveSet.has(p)) delete seen[p];
     }
-  }, [rawActiveSet]);
+    const filtered = new Set();
+    for (const p of rawActiveSet) {
+      const ts = seen[p];
+      if (!ts || now - ts < FE_ACTIVE_TIMEOUT_MS) filtered.add(p);
+    }
+    (async () => {
+      setActiveSet(filtered);
+    })();
+  }, [rawActiveSet, tick]);
 
   useEffect(() => {
     if (rawActiveSet.size === 0) return;
     const id = setInterval(() => setTick((t) => t + 1), FE_ACTIVE_TICK_MS);
     return () => clearInterval(id);
   }, [rawActiveSet]);
-
-  const activeSet = useMemo(() => {
-    const now = Date.now();
-    const filtered = new Set();
-    for (const p of rawActiveSet) {
-      const ts = firstSeenRef.current[p];
-      if (!ts || now - ts < FE_ACTIVE_TIMEOUT_MS) filtered.add(p);
-    }
-    return filtered;
-  }, [rawActiveSet, tick]);
 
   const { nodes, edges } = useMemo(
     () => buildLayout(providers, activeSet, lastSet, errorSet),

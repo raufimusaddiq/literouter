@@ -34,7 +34,9 @@ export default function ModelAvailabilityBadge() {
   }, []);
 
   useEffect(() => {
-    fetchStatus();
+    (async () => {
+      await fetchStatus();
+    })();
     const interval = setInterval(() => {
       if (!document.hidden) fetchStatus();
     }, 30000);
