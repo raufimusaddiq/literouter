@@ -17,17 +17,19 @@ export default function ModelAvailabilityBadge() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const [clearing, setClearing] = useState(null);
+  const [error, setError] = useState(null);
   const ref = useRef(null);
   const notify = useNotificationStore();
 
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/models/availability");
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      }
-    } catch {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setData(await res.json());
+      setError(null);
+    } catch (err) {
+      console.error("Failed to load model availability:", err);
+      setError(err?.message || "Failed to load model status");
     } finally {
       setLoading(false);
     }
@@ -63,8 +65,8 @@ export default function ModelAvailabilityBadge() {
       } else {
         notify.error("Failed to clear cooldown");
       }
-    } catch {
-      notify.error("Failed to clear cooldown");
+    } catch (err) {
+      notify.error(`Failed to clear cooldown: ${err?.message || err}`);
     } finally {
       setClearing(null);
     }
@@ -93,7 +95,7 @@ export default function ModelAvailabilityBadge() {
             <div className="flex items-center gap-2">
               <span
                 aria-hidden="true"
-                className={`size-2 shrink-0 rounded-full ${isHealthy ? "bg-ok" : "bg-warning"}`}
+                className={`size-2 shrink-0 rounded-full ${error ? "bg-danger" : isHealthy ? "bg-ok" : "bg-warning"}`}
               />
               <span className="text-sm font-semibold text-ink">Model Status</span>
             </div>
@@ -109,7 +111,9 @@ export default function ModelAvailabilityBadge() {
           </div>
 
           <div className="max-h-60 overflow-y-auto px-4 py-3">
-            {isHealthy ? (
+            {error ? (
+              <p className="py-2 text-center text-sm text-danger">{error}</p>
+            ) : isHealthy ? (
               <p className="py-2 text-center text-sm text-muted">
                 All models are responding normally.
               </p>
