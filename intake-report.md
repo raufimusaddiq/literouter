@@ -39,8 +39,8 @@
 | 26 | `35b920c6` | unwrap Cloudflare result envelope | keep, adapted | with #13 in one commit |
 | 27 | `ecb4d49e` | Cloudflare AI prune + replacements | keep, adapted | chat models only (no image handler, so no image rows); `serviceKinds` stays `["llm","systemone"]` |
 | 28 | `ada236da` | Kiro IDE 1.4.154 identity + Gemini 4 Hydrogen tiers | keep, adapted | Kiro identity as written; Hydrogen Antigravity tiers, usage list, xhigh levels, Hydrogen caps and pricing patterns. Not taken: request-body tier resolver in `getModelUpstreamId`, generic `*gemini-4*` level row, quota-family helpers (they build on upstream commits this fork never carried). Upstream Hydrogen test replaced by one covering what landed |
-| 29 | `109e4816` | Hydrogen long decode + prompt-rejection recovery | **deferred** | see Deferred |
-| 30 | `bc3a88b9` | align Hydrogen test expectations | **deferred** | only adjusts the tests of #29 |
+| 29 | `109e4816` | Hydrogen long decode + prompt-rejection recovery | deferred here, **ported in the follow-up** | see Follow-up |
+| 30 | `bc3a88b9` | align Hydrogen test expectations | deferred here, **ported in the follow-up** | folded into the #29 tests |
 | 31 | `767d7aeb` | correct Gemini 4 / Claude 5.5 ids and tiers | keep (partial here, completed in the follow-up) | bare Carbon and Hydrogen default to high; Hydrogen xhigh already in via #28. The follow-up adds Argon, Neon and Antigravity Claude 5.5 (see Follow-up) |
 | 32 | `9fb84c94` | CLI-tools pickers | drop | CLI-tools surface deleted (minimal profile) |
 | 33 | `1da78e2b` | Kiro identity on token refresh | keep | cherry-pick; CHANGELOG hunk not taken |
@@ -51,6 +51,20 @@
 
 - **`109e4816` (and its test follow-up `bc3a88b9`).** The Gemini long-decode loop (`utils/geminiLongDecode.js`, CONTINUATION hops past 64K output) and the prompt-rejection recovery (retry with the system text moved into the first user turn, classify the bare 429 as a request-scoped 400) hang off upstream executor code LiteRouter does not have: `AntigravityExecutor.execute`/`parseError` overrides with quota-reset parsing, `readBodyOnce`, `isAntigravityPromptRejection`, `isImageModel`, the DNS-bypass error path, and a `DefaultExecutor.execute` override next to Nous attribution. Carrying it means porting that base first; a half port would change retry and account-lock behaviour on every Antigravity 429. Already carried from it: the Hydrogen pricing pattern and the gemini registry row (LiteRouter had it).
 - **The rest of `767d7aeb`.** It corrects rows LiteRouter's Antigravity catalog never took: Gemini 4 Argon tiers and the bare Argon alias, the new Gemini 4 Neon family (xhigh), Claude Sonnet/Opus 5.5 max tiers and the medium default, their thinking-level rows, quota slots, MITM slots and CLI menus. Adding them is catalog expansion (the earlier `f172c3c4` was dropped for the same reason) and needs pricing/caps rows; it waits for an owner call.
+
+## Follow-up (branch `intake/20261124-antigravity-followup`)
+
+Owner approved the three open questions below on 2026-11-24.
+
+- **`767d7aeb` (rest)**: Gemini 4 Argon and Neon tiers, Antigravity Claude Sonnet/Opus 5.5 (max/high/medium/low, bare id medium), thinking levels, quota slots. Gemini 4 drops `minimal` (clamps to low); `max` maps to xhigh on Neon/Hydrogen. Antigravity Claude 5.5 effort goes out as a Gemini `thinkingLevel`; Claude 4.6 on Antigravity is untouched (upstream's broader claude-adaptive/claude-budget remap is not taken). Not taken: the request-body tier resolver in `getModelUpstreamId`, quota-family alias helpers, MITM and CLI-tools hunks.
+- **Groundwork for `109e4816`**: what the port needed and this fork lacked was an `AntigravityExecutor.execute` override, a `parseError` override and a single shared read of the error body (`readBodyOnce`). `isImageModel` and the `transformedBody`/`resetsAtMs` plumbing were already here. The DNS-bypass response shape upstream guards against does not exist here (proxyAwareFetch always returns a `Response`). Upstream's quota-reset parsing in `parseError` (`a07ed95b`, never taken) is **not** part of the dependency and is not ported.
+- **`109e4816` + `bc3a88b9`**: long decode (`utils/geminiLongDecode.js`, Gemini API and Antigravity executors, Hydrogen `longDecode` capability, Antigravity output cap lifted to 1M only for long-decode models) and the prompt-rejection recovery. Hop request signals are disposed with the turn (LiteRouter's base executor returns a `dispose`).
+- **Antigravity 429 behaviour, before vs after**:
+  - Bare 429 (`RESOURCE_EXHAUSTED`, generic "check quota" message, no `details`). Before: retried in place up to 3 times with 2/4/8 s backoff, then a quota refresh, a strike (3 in 60 s means a 15 min block), and a `checkFallbackError` backoff lock with rotation to the next account. After: no in-place retry; one retry with the system text in the first user turn; if that is refused too, a 400 with an explanation, request-scoped (no refresh, strike, lock or rotation).
+  - Every other 429 or 409 (with `details`, RetryInfo, ErrorInfo or another message): unchanged. Same in-place retry, quota refresh, strike breaker and backoff lock. `parseError` still returns no `resetsAtMs` for them.
+  - Non-Antigravity providers: unchanged. `DefaultExecutor.execute` only adds hops for `format: "gemini"` providers on a long-decode model with `maxOutputTokens` above 64K.
+- **Billing**: Token Plan ids and `k3.1-pro-highspeed` bill at family list prices as stand-ins (see Model tracking and the ADR bullet in `docs/adr/models-usage.md`).
+- Validation (production host): Bun parse of every changed module, a comment scan, `verify-providers`/`verify-alias`/`verify-oauth-urls` (byte-equal, no baseline change), `bun run gen:routes --check`, `bun scripts/check-test-hygiene.mjs --check`, and one-off Bun scripts that drove the real executors against a stubbed `fetch` (prompt move, refusal 400, one call for a rejection, continuation hops on both wire shapes, Argon still capped at 64000). Tests were not run locally; CI validates.
 
 ## Added by LiteRouter (not upstream)
 
@@ -101,6 +115,9 @@ Every model this intake introduces or exposes. Pricing rows live in `open-sse/pr
 - Rollback: revert the merge. No schema, migration or deploy change; one new optional env var (`LITEROUTER_KIRO_CREATE_RESPONSE`).
 
 ## Open questions for the owner
+
+All three were answered yes on 2026-11-24 and done in the follow-up.
+
 
 1. Take the rest of `767d7aeb` (Antigravity Gemini 4 Argon/Neon tiers, Claude 5.5 tiers) as a catalog expansion?
 2. Port the base Antigravity executor pieces so `109e4816` (long decode, prompt-rejection recovery) can follow?
