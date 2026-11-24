@@ -32,6 +32,16 @@ async function buildBoot(req) {
   };
 }
 
+function publicOrigin(req) {
+  try {
+    const url = new URL(req.url);
+    const proto = req.headers.get("x-forwarded-proto") === "https" ? "https:" : url.protocol;
+    return `${proto}//${url.host}`;
+  } catch {
+    return null;
+  }
+}
+
 export async function serveSpa(req) {
   let spa;
   try {
@@ -44,7 +54,7 @@ export async function serveSpa(req) {
   const html = await new HTMLRewriter()
     .on("head", {
       element(head) {
-        head.append(headExtras({ gaId: boot.gaId }), { html: true });
+        head.append(headExtras({ gaId: boot.gaId, origin: publicOrigin(req) }), { html: true });
         head.append(script, { html: true });
       },
     })
