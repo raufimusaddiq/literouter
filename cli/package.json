@@ -1,6 +1,6 @@
 {
   "name": "literouter",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "LiteRouter CLI - Start and manage LiteRouter server",
   "bin": {
     "literouter": "./cli.js"

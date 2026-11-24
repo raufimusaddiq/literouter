@@ -1,6 +1,6 @@
 {
   "name": "literouter",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Lean multi-provider AI routing gateway",
   "private": true,
   "engines": {

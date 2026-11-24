@@ -19,12 +19,12 @@ An OpenAI-compatible routing gateway and dashboard for coding tools: one endpoin
 
 ## 🐳 Docker
 
-From the `v1.0.1` tag the image is `ghcr.io/raufimusaddiq/literouter:1.0.1` (amd64 and arm64). [`docker-compose.yml`](docker-compose.yml) is a ready example: copy `.env.example` to `.env`, set `INITIAL_PASSWORD`, then `docker compose up -d`. Or without compose:
+From the `v1.0.2` tag the image is `ghcr.io/raufimusaddiq/literouter:1.0.2` (amd64 and arm64). [`docker-compose.yml`](docker-compose.yml) is a ready example: copy `.env.example` to `.env`, set `INITIAL_PASSWORD`, then `docker compose up -d`. Or without compose:
 
 ```bash
 docker run -d --name literouter -p 20128:20128 \
   -v literouter-data:/app/data -e DATA_DIR=/app/data \
-  --env-file .env ghcr.io/raufimusaddiq/literouter:1.0.1
+  --env-file .env ghcr.io/raufimusaddiq/literouter:1.0.2
 ```
 
 The `literouter-data` volume holds the SQLite database (`db/data.sqlite`) and backups; keep it across upgrades. To upgrade, set a newer version tag and recreate the container with the same volume. Tags are published per release (`v*`); there is no `latest` tag.
