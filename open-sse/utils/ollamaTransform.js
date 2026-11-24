@@ -1,3 +1,5 @@
+import { dbg } from "./debugLog.js";
+
 export function transformToOllama(response, model) {
   let buffer = "";
   let pendingToolCalls = {};
@@ -48,7 +50,7 @@ export function transformToOllama(response, model) {
               const formattedCalls = toolCallsArr.map(tc => ({
                 function: {
                   name: tc.function.name,
-                  arguments: (() => { try { return JSON.parse(tc.function.arguments || "{}"); } catch { return {}; } })()
+                  arguments: (() => { try { return JSON.parse(tc.function.arguments || "{}"); } catch (e) { if (!(e instanceof SyntaxError)) throw e; return {}; } })()
                 }
               }));
               const ollama = JSON.stringify({ 
@@ -64,6 +66,7 @@ export function transformToOllama(response, model) {
             }
           }
         } catch (e) {
+          dbg("OLLAMA", `chunk transform failed: ${e?.message}`);
         }
       }
     },
