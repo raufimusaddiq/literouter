@@ -16,6 +16,7 @@ const TOOLS = {
   pi: () => require("../setup/pi"),
   "claude-code": () => require("../setup/claudeCode"),
   codex: () => require("../setup/codex"),
+  opencode: () => require("../setup/opencode"),
 };
 
 const COMMON_HELP = `  --url <url>        LiteRouter server (default: LITEROUTER_URL or ${DEFAULT_URL}); /v1 is added

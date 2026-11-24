@@ -84,7 +84,7 @@ literouter setup pi --all --dry-run     # print the result (key masked), write n
 
 - `--url <url>`: the server (default `LITEROUTER_URL`, else `http://127.0.0.1:20128`); `/v1` is added when missing.
 - `--key <key>`: a LiteRouter API key from the dashboard (default `LITEROUTER_API_KEY`, else a hidden prompt; required when there is no terminal).
-- `--models <id,id>` or `--all` (Pi): which chat models to add; with neither, a numbered list is shown. Other tools take the per-tool flags in the table below.
+- `--models <id,id>` or `--all` (Pi, OpenCode): which chat models to add; with neither, a numbered list is shown. Other tools take the per-tool flags in the table below.
 - `--dry-run` prints the resulting file with the key masked; `-y, --yes` skips the confirmation.
 
 Only the `literouter` entry is changed; everything else in the file is kept. The previous file is saved next to it as `<file>.bak-<timestamp>`, the new one is written atomically with mode 0600, and a run that changes nothing writes nothing.
@@ -94,6 +94,7 @@ Only the `literouter` entry is changed; everything else in the file is kept. The
 | `pi` | `~/.pi/agent/models.json` (`$PI_CODING_AGENT_DIR`) | `providers.literouter` with each model's image input, reasoning, context/output limits and thinking levels; pick it in Pi with `/model` |
 | `claude-code` | `~/.claude/settings.json` (`$CLAUDE_CONFIG_DIR`) | `env.ANTHROPIC_BASE_URL` (the server root; Claude Code adds `/v1/messages`), `env.ANTHROPIC_AUTH_TOKEN`, and the tier models from `--opus`, `--sonnet`, `--haiku`, `--fable` (asked for in a terminal) |
 | `codex` | `~/.codex/config.toml` (`$CODEX_HOME`) | `[model_providers.literouter]` (Responses API on `<server>/v1`, key as a static `Authorization` header) and `[profiles.literouter]` with `--model`; run `codex --profile literouter`, or pass `--default` to make it the default profile |
+| `opencode` | `~/.config/opencode/opencode.json` (`$XDG_CONFIG_HOME`, `$OPENCODE_CONFIG`) | `provider.literouter` (`@ai-sdk/openai-compatible` on `<server>/v1`) with each model's limits, image input and reasoning variants; the first model becomes the default when none is set (`--default` forces it) |
 
 ---
 
