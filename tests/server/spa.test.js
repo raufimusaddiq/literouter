@@ -239,6 +239,8 @@ describe("static files", () => {
     expect(manifest.short_name).toBe("LiteRouter");
     expect(manifest.start_url).toBe("/");
     expect(manifest.icons).toHaveLength(3);
+    expect(manifest.icons.every((icon) => icon.type === "image/png")).toBe(true);
+    expect(manifest.icons.some((icon) => icon.purpose === "maskable")).toBe(true);
   });
 
   it("unknown non-dashboard path is 404", async () => {
