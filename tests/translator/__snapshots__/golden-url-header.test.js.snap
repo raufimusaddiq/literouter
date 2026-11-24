@@ -1175,7 +1175,6 @@ exports[`GOLDEN buildHeaders (default executor providers) poolside → headers (
 }
 `;
 
-
 exports[`GOLDEN buildHeaders (default executor providers) sambanova → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
@@ -1890,5 +1889,57 @@ exports[`GOLDEN buildUrl (default executor providers) zed → url (stream + non-
 {
   "nonStream": "https://cloud.zed.dev/completions",
   "stream": "https://cloud.zed.dev/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) deeprelay → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://api.deeprelay.ai/v1/chat/completions",
+  "stream": "https://api.deeprelay.ai/v1/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) deeprelay → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+  },
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) opendesign-go → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://amr-link.open-design.ai/v1/chat/completions",
+  "stream": "https://amr-link.open-design.ai/v1/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) opendesign-go → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+  },
 }
 `;

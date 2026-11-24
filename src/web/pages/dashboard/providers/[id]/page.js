@@ -25,7 +25,7 @@ import BulkImportGrokCliModal from "./BulkImportGrokCliModal";
 
 const ONE_BY_ONE_DELAY_MS = 1000;
 
-const LIVE_MODEL_CATALOG_PROVIDERS = new Set(["cursor", "zed", "claude", "commandcode", "kenari"]);
+const LIVE_MODEL_CATALOG_PROVIDERS = new Set(["cursor", "zed", "claude", "commandcode", "kenari", "antigravity"]);
 
 const AUTO_PING_SETTINGS_KEYS = {
   claude: "claudeAutoPing",

@@ -55,6 +55,20 @@ function md5Hex(input) {
   return crypto.createHash("md5").update(input).digest("hex");
 }
 
+function toBodyBuffer(body) {
+  return Buffer.isBuffer(body)
+    ? body
+    : typeof body === "string"
+      ? Buffer.from(body, "latin1")
+      : Buffer.from(body || []);
+}
+
+export function computeCosySignature({ payloadB64, cosyKey, timestamp, body, sigPath }) {
+  const bodyBuf = toBodyBuffer(body);
+  const sigInput = `${payloadB64}\n${cosyKey}\n${timestamp}\n${bodyBuf.toString("latin1")}\n${sigPath}`;
+  return md5Hex(Buffer.from(sigInput, "latin1"));
+}
+
 function computeSigPath(requestUrl) {
   let pathname;
   try {
@@ -72,15 +86,12 @@ export function generateMachineId() {
   return crypto.randomUUID();
 }
 
-export function buildCosyHeaders(body, requestUrl, creds) {
+export function buildCosyHeaders(body, requestUrl, creds, options = {}) {
   if (!creds?.userId) throw new Error("cosy: user id is empty");
   if (!creds?.authToken) throw new Error("cosy: auth token is empty");
 
-  const bodyBuf = Buffer.isBuffer(body)
-    ? body
-    : typeof body === "string"
-      ? Buffer.from(body, "latin1")
-      : Buffer.from(body || []);
+  const bodyBuf = toBodyBuffer(body);
+  const signatureBuf = toBodyBuffer(options.signatureBody ?? body);
 
   const { cosyKey, info } = encryptUserInfo({
     uid: creds.userId,
@@ -103,8 +114,7 @@ export function buildCosyHeaders(body, requestUrl, creds) {
   const payloadB64 = Buffer.from(payloadJson, "utf8").toString("base64");
 
   const sigPath = computeSigPath(requestUrl);
-  const sigInput = `${payloadB64}\n${cosyKey}\n${timestamp}\n${bodyBuf.toString("latin1")}\n${sigPath}`;
-  const sig = md5Hex(Buffer.from(sigInput, "latin1"));
+  const sig = computeCosySignature({ payloadB64, cosyKey, timestamp, body: signatureBuf, sigPath });
 
   const machineId = creds.machineId || generateMachineId();
   const bodyHash = md5Hex(bodyBuf);

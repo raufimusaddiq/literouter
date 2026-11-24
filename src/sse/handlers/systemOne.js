@@ -55,20 +55,32 @@ export async function normalizeSystemOneRequest(body) {
   if (!model || (!config?.systemOneTransport && config?.format !== "systemone" && config?.format !== "openai" && !isCustomNode)) {
     return { error: `Unsupported System One provider or model: ${rawModel}` };
   }
-  if (config?.systemOneTransport && !getModelsByProviderId(provider).some((entry) => entry.id === model)) {
-    return { error: `Unsupported model for ${provider}: ${model}` };
-  }
-  if (!config?.systemOneTransport && !isCustomNode && !getModelsByProviderId(provider).some((entry) => entry.id === model)) {
+  const entry = isCustomNode ? null : getModelsByProviderId(provider).find((candidate) => candidate.id === model);
+  if (!isCustomNode && !entry) {
     return { error: `Unsupported model for ${provider}: ${model}` };
   }
   if (!Object.prototype.hasOwnProperty.call(body, "state")) {
     return { error: "Missing state" };
   }
-  if (!body.questions || typeof body.questions !== "object" || Array.isArray(body.questions) || Object.keys(body.questions).length === 0) {
-    return { error: "questions must be a non-empty object" };
+  const shape = entry ? entry.payloadShape || "questions" : null;
+  if (shape) {
+    if (!isNonEmptyMap(body[shape])) return { error: `${shape} must be a non-empty object` };
+  } else if (!isNonEmptyMap(body.questions) && !isNonEmptyMap(body.fields)) {
+    return { error: "questions or fields must be a non-empty object" };
   }
 
-  return { provider, model, body: { ...body, model } };
+  const upstreamModel = config?.systemOneTransport && entry?.upstreamModelId ? entry.upstreamModelId : model;
+  return { provider, model, body: { ...body, model: upstreamModel } };
+}
+
+function isNonEmptyMap(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length > 0;
+}
+
+export function unwrapSystemOneEnvelope(payload, wrapper) {
+  const inner = wrapper && payload && typeof payload === "object" ? payload[wrapper] : null;
+  if (inner && typeof inner === "object" && inner.answers && !payload.answers) return inner;
+  return payload;
 }
 
 export function isCustomSystemOneProvider(providerId) {
@@ -103,10 +115,9 @@ async function readFailure(response) {
   return { text, message };
 }
 
-async function recordSystemOneUsage(response, provider, model, connectionId, apiKey) {
+function recordSystemOneUsage(payload, provider, model, connectionId, apiKey) {
   try {
-    const payload = await response.clone().json();
-    const usage = extractUsageFromResponse(payload?.result ?? payload);
+    const usage = extractUsageFromResponse(payload);
     saveUsageStats({
       provider,
       model,
@@ -190,8 +201,25 @@ export async function handleSystemOne(request) {
 
       if (response.ok) {
         await clearAccountError(credentials.connectionId, credentials, model);
-        recordSystemOneUsage(response, provider, model, credentials.connectionId, clientApiKey);
-        return new Response(response.body, {
+        const wrapper = config.systemOneTransport?.responseWrapper;
+        if (!wrapper) {
+          response.clone().json()
+            .then((payload) => recordSystemOneUsage(payload, provider, model, credentials.connectionId, clientApiKey))
+            .catch(() => {});
+          return new Response(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: copyHeaders(response),
+          });
+        }
+        const text = await response.text();
+        let payload = null;
+        try {
+          payload = JSON.parse(text);
+        } catch {}
+        const unwrapped = unwrapSystemOneEnvelope(payload, wrapper);
+        if (payload) recordSystemOneUsage(unwrapped === payload ? payload[wrapper] ?? payload : unwrapped, provider, model, credentials.connectionId, clientApiKey);
+        return new Response(unwrapped === payload ? text : JSON.stringify(unwrapped), {
           status: response.status,
           statusText: response.statusText,
           headers: copyHeaders(response),

@@ -605,6 +605,25 @@ export function parseQuotaData(provider, data) {
         }
         break;
 
+      case "opendesign-go":
+      case "deeprelay":
+      case "synthetic":
+        if (data.quotas) {
+          Object.entries(data.quotas).forEach(([name, quota]) => {
+            normalizedQuotas.push({
+              name: quota.name || name,
+              used: quota.used || 0,
+              total: quota.total || 0,
+              remainingPercentage: quota.remainingPercentage,
+              resetAt: quota.resetAt || null,
+              unlimited: quota.unlimited,
+              unit: quota.unit,
+              windowStart: quota.windowStart,
+            });
+          });
+        }
+        break;
+
       default:
         if (data.quotas) {
           Object.entries(data.quotas).forEach(([name, quota]) => {

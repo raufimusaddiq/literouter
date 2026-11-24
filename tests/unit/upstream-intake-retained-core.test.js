@@ -27,7 +27,7 @@ it("omits leaked Antigravity agent requestType and rewrites Hermes identity vari
       request: { contents: [{ role: "user", parts: [{ text: "hello" }] }], systemInstruction: { parts: [{ text: identity }] } },
     }, true, { projectId: "offline-project" });
     expect(body).not.toHaveProperty("requestType");
-    expect(body.request.systemInstruction.parts[0].text).toBe("You are an AI assistant.");
+    expect(body.request.systemInstruction.parts.at(-1).text).toBe("You are an AI assistant.");
   }
 });
 

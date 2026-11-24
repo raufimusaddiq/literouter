@@ -216,9 +216,16 @@ export function mergeUsage(prev, next) {
   if (!prev) return next || null;
   if (!next) return prev;
   const merged = { ...prev };
+  const nextHasCache = next.cache_read_input_tokens != null || next.cache_creation_input_tokens != null;
+  const prevHasCache = prev.cache_read_input_tokens != null || prev.cache_creation_input_tokens != null;
+  const preferNextInput = nextHasCache && !prevHasCache && next.prompt_tokens != null;
   for (const [k, v] of Object.entries(next)) {
     if (typeof v === "number" && Number.isFinite(v)) {
-      merged[k] = Math.max(typeof merged[k] === "number" ? merged[k] : 0, v);
+      if (k === "prompt_tokens" && preferNextInput) {
+        merged[k] = v;
+      } else {
+        merged[k] = Math.max(typeof merged[k] === "number" ? merged[k] : 0, v);
+      }
     } else if (v && typeof v === "object") {
       merged[k] = v;
     }

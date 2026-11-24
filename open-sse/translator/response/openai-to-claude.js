@@ -4,6 +4,7 @@ import { ROLE, CLAUDE_BLOCK, MODEL_FALLBACK, OPENAI_FINISH, CLAUDE_EVENT } from 
 import { fromOpenAIFinish } from "../concerns/finishReason.js";
 import { extractReasoningText } from "../concerns/reasoning.js";
 import { fallbackToolCallId } from "../concerns/toolCall.js";
+import { extractTextContent } from "../formats/gemini.js";
 
 const CLAUDE_OAUTH_TOOL_PREFIX = "proxy_";
 
@@ -148,7 +149,8 @@ export function openaiToClaudeResponse(chunk, state) {
     });
   }
 
-  if (delta?.content) {
+  const textContent = extractTextContent(delta?.content);
+  if (textContent) {
     stopThinkingBlock(state, results);
 
     if (!state.textBlockStarted) {
@@ -165,7 +167,7 @@ export function openaiToClaudeResponse(chunk, state) {
     results.push({
       type: CLAUDE_EVENT.CONTENT_BLOCK_DELTA,
       index: state.textBlockIndex,
-      delta: { type: "text_delta", text: delta.content }
+      delta: { type: "text_delta", text: textContent }
     });
   }
 

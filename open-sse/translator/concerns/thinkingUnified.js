@@ -284,7 +284,8 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels, display, responsesMi
       break;
     }
     case "gemini-level": {
-      const level = none ? "minimal" : toGeminiThinkingLevel(eff);
+      let level = none ? "minimal" : toGeminiThinkingLevel(eff);
+      if (level === "xhigh" && !supportedLevels?.includes("xhigh")) level = "high";
       setGeminiThinking(body, { thinkingLevel: level, includeThoughts: level !== "minimal" });
       ensureGeminiOutputFloor(body, geminiLevelOutputFloor(level), caps);
       break;

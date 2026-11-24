@@ -8,7 +8,7 @@ describe("Codex gpt-6 models", () => {
   const codex = PROVIDER_MODELS.cx || [];
   const byId = (id) => codex.find((m) => m.id === id);
 
-  it.each(["gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna"])("registers %p", (id) => {
+  it.each(["gpt-6.2-sol", "gpt-6.2-astra", "gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna"])("registers %p", (id) => {
     expect(byId(id), `${id} missing from the cx registry`).toBeDefined();
     expect(isValidModel("cx", id)).toBe(true);
   });

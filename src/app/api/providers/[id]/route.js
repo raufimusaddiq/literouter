@@ -5,6 +5,7 @@ import {
   updateProviderConnection,
   deleteProviderConnection,
 } from "@/models";
+import { toProviderConnectionResponse } from "@/lib/providerConnectionResponse.js";
 
 function normalizeProxyConfig(body = {}) {
   const hasAnyProxyField =
@@ -68,11 +69,7 @@ export async function GET(request, { params }) {
       return json({ error: "Connection not found" }, { status: 404 });
     }
 
-    const result = { ...connection };
-    delete result.apiKey;
-    delete result.accessToken;
-    delete result.refreshToken;
-    delete result.idToken;
+    const result = toProviderConnectionResponse(connection);
 
     return json({ connection: result });
   } catch (error) {
@@ -154,11 +151,7 @@ export async function PUT(request, { params }) {
 
     const updated = await updateProviderConnection(id, updateData);
 
-    const result = { ...updated };
-    delete result.apiKey;
-    delete result.accessToken;
-    delete result.refreshToken;
-    delete result.idToken;
+    const result = toProviderConnectionResponse(updated);
 
     return json({ connection: result });
   } catch (error) {

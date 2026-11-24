@@ -2,6 +2,7 @@
 import { proxyAwareFetch } from "../../utils/proxyFetch.js";
 import { resolveDefaultProfileArn } from "../../config/kiroConstants.js";
 import { U, parseResetTime } from "./shared.js";
+import { buildKiroIdentityHeaders } from "../../shared/kiroIdentity.js";
 
 function parseKiroQuotaData(data) {
   const usageList = data.usageBreakdownList || [];
@@ -47,6 +48,7 @@ export async function getKiroUsage(accessToken, providerSpecificData, proxyOptio
   const isExternalIdp = authMethod === "external_idp";
   const apiKeyHeaders = isApiKey ? { tokentype: "API_KEY" } : {};
   const externalIdpHeaders = isExternalIdp ? { TokenType: "EXTERNAL_IDP" } : {};
+  const identityHeaders = buildKiroIdentityHeaders({ accessToken, providerSpecificData });
 
   const profileArn = isApiKey
     ? (providerSpecificData?.profileArn || "")
@@ -68,8 +70,7 @@ export async function getKiroUsage(accessToken, providerSpecificData, proxyOptio
           headers: {
             "Authorization": `Bearer ${accessToken}`,
             "Accept": "application/json",
-            "x-amz-user-agent": "aws-sdk-js/1.0.0 KiroIDE",
-            "user-agent": "aws-sdk-js/1.0.0 KiroIDE",
+            ...identityHeaders,
             ...apiKeyHeaders,
             ...externalIdpHeaders,
           },
@@ -86,6 +87,7 @@ export async function getKiroUsage(accessToken, providerSpecificData, proxyOptio
           "Content-Type": "application/x-amz-json-1.0",
           "x-amz-target": "AmazonCodeWhispererService.GetUsageLimits",
           "Accept": "application/json",
+          ...identityHeaders,
           ...apiKeyHeaders,
           ...externalIdpHeaders,
         },
@@ -109,6 +111,7 @@ export async function getKiroUsage(accessToken, providerSpecificData, proxyOptio
           headers: {
             "Authorization": `Bearer ${accessToken}`,
             "Accept": "application/json",
+            ...identityHeaders,
             ...apiKeyHeaders,
             ...externalIdpHeaders,
           },
