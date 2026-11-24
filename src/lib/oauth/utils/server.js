@@ -1,7 +1,6 @@
 import http from "http";
 import { URL } from "url";
 import { CODEX_CONFIG, TRAE_CONFIG, WINDSURF_CONFIG, ZED_HOSTED_CONFIG } from "../constants/oauth.js";
-import { exchangeTokens } from "../providers.js";
 import { decryptCallback } from "../providers/xiaomi-mimo.js";
 import { createProviderConnection } from "@/models";
 
@@ -250,20 +249,23 @@ export function createFixedPortProxy({ provider, port, timeoutMs, exchange }) {
   };
 }
 
+async function exchangeProviderCode(provider, { code, state, session }) {
+  const { exchangeTokens } = await import("../providers.js");
+  return exchangeTokens(provider, code, session.redirectUri, session.codeVerifier, state);
+}
+
 const codexProxy = createFixedPortProxy({
   provider: "codex",
   port: CODEX_CONFIG.fixedPort,
   timeoutMs: 300000,
-  exchange: ({ code, state, session }) =>
-    exchangeTokens("codex", code, session.redirectUri, session.codeVerifier, state),
+  exchange: (ctx) => exchangeProviderCode("codex", ctx),
 });
 
 const xaiProxy = createFixedPortProxy({
   provider: "xai",
   port: 56121,
   timeoutMs: 300000,
-  exchange: ({ code, state, session }) =>
-    exchangeTokens("xai", code, session.redirectUri, session.codeVerifier, state),
+  exchange: (ctx) => exchangeProviderCode("xai", ctx),
 });
 
 export function registerCodexSession(session) {
@@ -361,6 +363,7 @@ export function startTraeProxy() {
       }
       const rawCallback = `${url.pathname}?${url.searchParams.toString()}`;
       try {
+        const { exchangeTokens } = await import("../providers.js");
         const tokenData = await exchangeTokens("trae", rawCallback);
         const connection = await createProviderConnection({
           provider: "trae",
@@ -456,6 +459,7 @@ export function startWindsurfProxy() {
       }
       const rawCallback = `${url.pathname}?${url.searchParams.toString()}`;
       try {
+        const { exchangeTokens } = await import("../providers.js");
         const tokenData = await exchangeTokens("windsurf", rawCallback, null, null, session.state);
         const connection = await createProviderConnection({
           provider: "windsurf",
@@ -562,6 +566,7 @@ export function startZedProxy(preferredPort = 0) {
       }
       const rawCallback = url.search ? `${url.pathname}?${url.searchParams.toString()}` : url.pathname;
       try {
+        const { exchangeTokens } = await import("../providers.js");
         const tokenData = await exchangeTokens(
           "zed",
           rawCallback,
