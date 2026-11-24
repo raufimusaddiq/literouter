@@ -73,6 +73,26 @@ literouter stop            # Stop the running LiteRouter server
 
 **Dashboard**: `http://localhost:20128/dashboard`
 
+### Configure a coding tool
+
+```bash
+literouter setup pi --url https://ai.example.com --models cx/gpt-5.5,glm/glm-5
+literouter setup pi --all --dry-run     # print the result (key masked), write nothing
+```
+
+`literouter setup <tool>` writes the tool's config on this machine so it uses a LiteRouter server, local or remote. Options:
+
+- `--url <url>`: the server (default `LITEROUTER_URL`, else `http://127.0.0.1:20128`); `/v1` is added when missing.
+- `--key <key>`: a LiteRouter API key from the dashboard (default `LITEROUTER_API_KEY`, else a hidden prompt; required when there is no terminal).
+- `--models <id,id>` or `--all`: which chat models to add; with neither, a numbered list is shown.
+- `--dry-run` prints the resulting file with the key masked; `-y, --yes` skips the confirmation.
+
+Only the `literouter` entry is changed; everything else in the file is kept. The previous file is saved next to it as `<file>.bak-<timestamp>`, the new one is written atomically with mode 0600, and a run that changes nothing writes nothing.
+
+| Tool | File | What is written |
+| --- | --- | --- |
+| `pi` | `~/.pi/agent/models.json` (`$PI_CODING_AGENT_DIR`) | `providers.literouter` with each model's image input, reasoning, context/output limits and thinking levels; pick it in Pi with `/model` |
+
 ---
 
 ## 💾 Data Location
