@@ -117,11 +117,13 @@ export class AntigravityExecutor extends BaseExecutor {
   }
 
   buildHeaders(credentials, stream = true, sessionId = null) {
-    return {
+    const headers = {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${credentials.accessToken}`,
       "User-Agent": this.config.headers?.["User-Agent"] || ANTIGRAVITY_HEADERS["User-Agent"],
     };
+    if (stream) headers["Accept"] = "text/event-stream";
+    return headers;
   }
 
   transformRequest(model, body, stream, credentials) {

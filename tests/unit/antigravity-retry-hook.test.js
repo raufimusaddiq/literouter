@@ -78,7 +78,11 @@ describe("antigravity computeRetryDelay hook (D3)", () => {
     expect(h["Authorization"]).toBe("Bearer tok");
     expect(h).not.toHaveProperty("X-Machine-Session-Id");
     expect(h).not.toHaveProperty("x-request-source");
-    expect(h).not.toHaveProperty("Accept");
+    expect(h["Accept"]).toBe("text/event-stream");
+  });
+
+  it("omits the SSE Accept header on non-streaming calls", () => {
+    expect(ag.buildHeaders({ accessToken: "tok" }, false)).not.toHaveProperty("Accept");
   });
 
   it("transforms chat requests with official IDE requestId shape and 64000 token cap", () => {
