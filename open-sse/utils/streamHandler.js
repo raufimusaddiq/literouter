@@ -21,6 +21,7 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
   return {
     signal: abortController.signal,
     startTime,
+    log,
 
     isConnected: () => !disconnected,
 
@@ -132,7 +133,7 @@ export function createDisconnectAwareStream(transformStream, streamController, o
             controller.error(error);
           }
         } catch (e) {
-          dbg(tag, `close after error failed: ${e?.message}`);
+          dbg("STREAM", `close after error failed: ${e?.message}`);
         }
       }
     },
@@ -158,6 +159,11 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
   const clearStall = () => {
     if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
   };
+  const logHookFailure = (what, e) => {
+    const message = `${what} hook failed: ${e?.message}`;
+    if (streamController.log?.debug) streamController.log.debug(tag, message);
+    else dbg(tag, message);
+  };
   const reportAbort = (reason, detail) => {
     if (abortReported) return;
     abortReported = true;
@@ -180,7 +186,7 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
       ` chunks=${info.chunks} bytes=${info.bytes} sinceLast=${info.sinceLastMs}ms` +
       (info.detail ? ` detail="${info.detail}"` : "")
     );
-    try { onAbort?.(info); } catch (e) { dbg(tag, `onAbort hook failed: ${e?.message}`); }
+    try { onAbort?.(info); } catch (e) { logHookFailure("onAbort", e); }
   };
   const classifyError = (e) => {
     const msg = e?.message || "";
@@ -211,7 +217,7 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
       dbg(tag, `disconnect: ${r} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`);
       clearStall();
       streamController.handleDisconnect(r);
-      try { onCancel?.(r); } catch (e) { dbg(tag, `onCancel hook failed: ${e?.message}`); }
+      try { onCancel?.(r); } catch (e) { logHookFailure("onCancel", e); }
     },
     abort: () => { clearStall(); streamController.abort(); }
   };

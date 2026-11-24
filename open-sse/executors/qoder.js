@@ -460,7 +460,7 @@ async function wrapQoderSSE(response, model, log = null) {
           }
         }
       } catch (error) {
-        log?.debug?.("QODER", `stream read failed: ${error?.message || error?.code || error}`);
+        log?.debug?.("QODER", `stream read failed: ${error?.code || error?.name || "unknown"}: ${error?.message || ""}`);
       } finally {
         if (!doneEmitted) {
           try {

@@ -353,8 +353,8 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
       const port = parsed.port ? `:${parsed.port}` : "";
       const protocol = parsed.protocol || "http:";
       maskedProxyUrl = `${protocol}//${host}${port}`;
-    } catch (e) {
-      log?.debug?.("PROXY", `${provider.toUpperCase()} | ${model} | proxy url not parseable: ${e?.message}`);
+    } catch {
+      log?.debug?.("PROXY", `${provider.toUpperCase()} | ${model} | proxy url not parseable`);
     }
 
     const poolId = credentials?.providerSpecificData?.connectionProxyPoolId || "none";
