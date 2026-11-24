@@ -33,6 +33,24 @@ const ANTIGRAVITY_TRANSIENT_ERROR_PATTERNS = [
   /empty\s+response/i,
 ];
 
+const bodyTextReads = new WeakMap();
+
+export function readBodyOnce(response) {
+  if (!response || typeof response !== "object") return Promise.resolve("");
+  const cached = bodyTextReads.get(response);
+  if (cached) return cached;
+  const canClone = typeof response.clone === "function";
+  const read = canClone ? () => response.clone().text()
+    : typeof response.text === "function" ? response.text.bind(response) : async () => "";
+  const pending = Promise.resolve().then(read).then((text) => (typeof text === "string" ? text : ""), () => "");
+  bodyTextReads.set(response, pending);
+  if (!canClone) {
+    response.text = () => pending;
+    response.json = async () => JSON.parse(await pending);
+  }
+  return pending;
+}
+
 const ANTIGRAVITY_TRANSIENT_STATUSES = new Set([
   HTTP_STATUS.SERVER_ERROR,
   HTTP_STATUS.BAD_GATEWAY,
@@ -394,7 +412,7 @@ export class AntigravityExecutor extends BaseExecutor {
     let retryMs = this.parseRetryHeaders(response.headers);
 
     try {
-      bodyText = await response.clone().text();
+      bodyText = await readBodyOnce(response);
       errorJson = bodyText ? JSON.parse(bodyText) : null;
     } catch {
     }
