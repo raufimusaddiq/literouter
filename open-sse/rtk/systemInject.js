@@ -45,7 +45,7 @@ export function injectSystemPrompt(body, format, prompt) {
   }
 }
 
-function isKiroBody(body) {
+export function isKiroBody(body) {
   if (!body || typeof body !== "object") return false;
   const cs = body.conversationState;
   if (!cs || typeof cs !== "object") return false;

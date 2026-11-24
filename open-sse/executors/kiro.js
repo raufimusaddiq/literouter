@@ -321,17 +321,13 @@ export class KiroExecutor extends BaseExecutor {
     if (crMode === "always" && args?.body?.conversationState) {
       args.log?.debug?.("KIRO", "Using /v1/responses CreateResponse (direct mode)");
       const crResult = await this.executeCreateResponse(args);
-      if (crResult?.response?.ok) {
-        return crResult;
-      }
-      if (crResult?.response) {
-        return crResult;
-      }
+      if (crResult?.response?.ok) return crResult;
+      args.log?.warn?.("KIRO", `CreateResponse (direct mode) answered ${crResult?.response?.status ?? "no response"}, using generateAssistantResponse`);
     }
 
     let result = await super.execute(args);
 
-    if (result?.response?.status === 429 && args?.body?.conversationState && crMode !== "off") {
+    if (result?.response?.status === 429 && args?.body?.conversationState && crMode !== "off" && crMode !== "always") {
       let isRateExceeded = false;
       let errorBody = "";
       try {

@@ -20,6 +20,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
 
   const isAzure = provider === "azure";
   const isCloudflareAi = provider === "cloudflare-ai";
+  const isOpenDesign = provider === "opendesign-go";
   const providerRegions = AI_PROVIDERS?.[provider]?.regions || null;
   const defaultRegion = AI_PROVIDERS?.[provider]?.defaultRegion || providerRegions?.[0]?.id || "";
 
@@ -38,6 +39,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     organization: "",
   });
   const [cloudflareData, setCloudflareData] = useState({ accountId: "" });
+  const [openDesignData, setOpenDesignData] = useState({ controlKey: "", workspaceId: "" });
   const [region, setRegion] = useState(defaultRegion);
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
@@ -66,6 +68,15 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     }
     if (isCloudflareAi) {
       return { accountId: cloudflareData.accountId };
+    }
+    if (isOpenDesign) {
+      const controlKey = openDesignData.controlKey.trim();
+      const workspaceId = openDesignData.workspaceId.trim();
+      const data = {
+        ...(controlKey ? { opendesignControlKey: controlKey } : {}),
+        ...(workspaceId ? { opendesignWorkspaceId: workspaceId } : {}),
+      };
+      return Object.keys(data).length ? data : undefined;
     }
     if (providerRegions && region) {
       return { region };
@@ -325,6 +336,30 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
             />
             <p className="mt-2 text-xs text-muted">
               Find your Account ID in the right sidebar of <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="font-medium text-ink underline underline-offset-[3px]">dash.cloudflare.com</a>
+            </p>
+          </Card>
+        )}
+        {isOpenDesign && (
+          <Card variant="raised" padding="sm">
+            <h3 className="mb-3 text-sm font-semibold text-ink">OpenDesign Go quota (optional)</h3>
+            <div className="flex flex-col gap-3">
+              <Input
+                label="Control Key"
+                type="password"
+                autoComplete="off"
+                value={openDesignData.controlKey}
+                onChange={(e) => setOpenDesignData({ ...openDesignData, controlKey: e.target.value })}
+                placeholder="vela_ctrl_..."
+              />
+              <Input
+                label="Workspace ID"
+                value={openDesignData.workspaceId}
+                onChange={(e) => setOpenDesignData({ ...openDesignData, workspaceId: e.target.value })}
+                placeholder="Only needed when the Control Key sees several workspaces"
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              The sk-amr runtime key cannot read quota. The Control Key is stored with the connection and never shown again.
             </p>
           </Card>
         )}

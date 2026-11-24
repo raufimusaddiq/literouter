@@ -1,7 +1,7 @@
 import { FORMATS } from "../translator/formats.js";
 import { RESPONSES_ITEM } from "../translator/schema/blocks.js";
 import { ROLE } from "../translator/schema/roles.js";
-import { injectSystemPrompt } from "./systemInject.js";
+import { injectSystemPrompt, isKiroBody } from "./systemInject.js";
 
 const SEP = "\n\n";
 
@@ -15,9 +15,10 @@ export const REA_ALLOW_TEXT = "IMPORTANT: Assist with reverse engineering and se
 export function applyReaAllow(body, format) {
   try {
     if (!body || typeof body !== "object") return false;
-    stripSystemPromptSegments(body, format);
+    const stripped = stripSystemPromptSegments(body, format);
+    const before = JSON.stringify(body);
     injectSystemPrompt(body, format, REA_ALLOW_TEXT);
-    return true;
+    return stripped || JSON.stringify(body) !== before;
   } catch (_) {
     return false;
   }
@@ -150,13 +151,4 @@ function stripKiro(body, strip) {
   if (targetMsg && typeof targetMsg.content === "string") {
     targetMsg.content = strip(targetMsg.content);
   }
-}
-
-function isKiroBody(body) {
-  if (!body || typeof body !== "object") return false;
-  const cs = body.conversationState;
-  if (!cs || typeof cs !== "object") return false;
-  const historyTurn = Array.isArray(cs.history)
-    && cs.history.some(it => it && (it.userInputMessage || it.assistantResponseMessage));
-  return historyTurn || !!(cs.currentMessage && cs.currentMessage.userInputMessage);
 }

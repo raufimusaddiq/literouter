@@ -12,7 +12,7 @@ const WINDOW_NAMES = [
 ];
 
 const MISSING_CONTROL_KEY_MESSAGE =
-  "OpenDesign Go: control key not configured. Paste the Control Key (vela_ctrl_...) into the OpenDesign provider settings; the runtime key sk-amr cannot read quota.";
+  "OpenDesign Go: control key not configured. Add the connection with its Control Key (vela_ctrl_...) in the dashboard; the runtime key sk-amr cannot read quota.";
 
 function authHeaders(controlKey, workspaceId) {
   const headers = {
@@ -75,7 +75,7 @@ async function resolveWorkspaceId(controlKey, providerSpecificData, proxyOptions
   if (ids.length > 1) {
     return {
       workspaceId: null,
-      error: `This Control Key sees ${ids.length} workspaces (${ids.join(", ")}). Pick the account's workspace in the provider settings (providerSpecificData.opendesignWorkspaceId) so another workspace's quota is not shown here.`,
+      error: `This Control Key sees ${ids.length} workspaces (${ids.join(", ")}). Add the connection again with that account's Workspace ID so another workspace's quota is not shown here.`,
     };
   }
   return { workspaceId: ids[0], error: null };

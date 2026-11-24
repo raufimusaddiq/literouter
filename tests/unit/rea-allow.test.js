@@ -203,10 +203,10 @@ describe("applyReaAllow", () => {
     expect(body.messages[1].content).toBe("hi");
   });
 
-  it("does not duplicate the guidance on repeated runs", () => {
+  it("does not duplicate the guidance on repeated runs and reports the no-op", () => {
     const body = { system: "You are helpful." };
-    applyReaAllow(body, FORMATS.CLAUDE);
-    applyReaAllow(body, FORMATS.CLAUDE);
+    expect(applyReaAllow(body, FORMATS.CLAUDE)).toBe(true);
+    expect(applyReaAllow(body, FORMATS.CLAUDE)).toBe(false);
     expect(body.system.split("\n\n").filter((part) => part === REA_ALLOW_TEXT)).toHaveLength(1);
   });
 

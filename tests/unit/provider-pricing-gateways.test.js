@@ -7,7 +7,7 @@ import REGISTRY from "../../open-sse/providers/registry/index.js";
 const staticIds = (providerId) =>
   (REGISTRY.find((entry) => entry.id === providerId)?.models || []).map((m) => m.id);
 
-describe.each(["opendesign-go", "deeprelay"])("%s model tracking", (provider) => {
+describe.each(["opendesign-go", "deeprelay", "alitp-intl"])("%s model tracking", (provider) => {
   it("has a pricing and a capability row for every static registry id", () => {
     const ids = staticIds(provider);
     expect(ids.length).toBeGreaterThan(0);
@@ -31,12 +31,11 @@ describe("gateway pricing", () => {
     expect(getPricingForModel(provider, model)).toMatchObject(rate);
   });
 
-  it.each(["auto", "qwen4-max", "qwen4-max-preview", "qwen3.8-max", "qwen3.8-flash", "deepseek-v4-pro-0813"])(
-    "alitp-intl/%s carries an explicit zero until Token Plan publishes a per-token rate",
-    (model) => {
-      expect(getPricingForModel("alitp-intl", model)).toMatchObject({ input: 0, output: 0 });
-    },
-  );
+  it("bills every prepaid Token Plan id at an explicit zero", () => {
+    for (const id of staticIds("alitp-intl")) {
+      expect(getPricingForModel("alitp-intl", id), id).toMatchObject({ input: 0, output: 0 });
+    }
+  });
 
   it("bills unpublished cache reads at the input rate", () => {
     expect(getPricingForModel("deeprelay", "qwen3.8-flash").cached).toBeUndefined();

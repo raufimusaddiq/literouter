@@ -171,6 +171,18 @@ export function transformCreateResponseStreamToSSE(responseStream, model) {
   let curCallId = null;
   const openCalls = new Set();
   const arguedCalls = new Set();
+  const callByItem = new Map();
+  const itemKeys = (event, item) => [
+    Number.isInteger(event?.output_index) ? `o:${event.output_index}` : null,
+    item?.id ?? event?.item_id ? `i:${item?.id ?? event.item_id}` : null,
+  ].filter(Boolean);
+  const findCall = (event) => {
+    for (const key of itemKeys(event, null)) {
+      const hit = callByItem.get(key);
+      if (hit) return hit;
+    }
+    return curCallId ? { callId: curCallId, index: toolIdx } : null;
+  };
   let hasToolCalls = false;
   let emittedRole = false;
 
@@ -217,6 +229,7 @@ export function transformCreateResponseStreamToSSE(responseStream, model) {
           openCalls.add(curCallId);
           hasToolCalls = true;
           toolIdx++;
+          for (const key of itemKeys(event, event.item)) callByItem.set(key, { callId: curCallId, index: toolIdx });
           controller.enqueue(
             sseChunk({
               tool_calls: [
@@ -233,22 +246,26 @@ export function transformCreateResponseStreamToSSE(responseStream, model) {
         }
 
         else if (type === "response.function_call_arguments.delta" && typeof event.delta === "string") {
-          if (curCallId) arguedCalls.add(curCallId);
-          controller.enqueue(
-            sseChunk({
-              tool_calls: [{ index: toolIdx, function: { arguments: event.delta } }]
-            })
-          );
+          const call = findCall(event);
+          if (call) {
+            arguedCalls.add(call.callId);
+            controller.enqueue(
+              sseChunk({
+                tool_calls: [{ index: call.index, function: { arguments: event.delta } }]
+              })
+            );
+          }
         }
 
         else if (type === "response.output_item.done" && event.item?.type === "function_call") {
           const callId = event.item.call_id ?? event.item.id ?? "";
           if (openCalls.has(callId)) {
             openCalls.delete(callId);
+            const index = (itemKeys(event, event.item).map((key) => callByItem.get(key)).find(Boolean) || { index: toolIdx }).index;
             if (!arguedCalls.delete(callId) && event.item.arguments) {
               controller.enqueue(
                 sseChunk({
-                  tool_calls: [{ index: toolIdx, function: { arguments: event.item.arguments } }]
+                  tool_calls: [{ index, function: { arguments: event.item.arguments } }]
                 })
               );
             }

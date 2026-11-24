@@ -258,6 +258,34 @@ describe("Kiro CreateResponse (/v1/responses) adapter", () => {
     expect(result).toContain('"finish_reason":"tool_calls"');
   });
 
+  it("keeps parallel tool-call argument deltas on their own index", async () => {
+    const events = [
+      { type: "response.output_item.added", output_index: 0, item: { type: "function_call", id: "fc_a", call_id: "call_a", name: "read" } },
+      { type: "response.output_item.added", output_index: 1, item: { type: "function_call", id: "fc_b", call_id: "call_b", name: "grep" } },
+      { type: "response.function_call_arguments.delta", output_index: 0, item_id: "fc_a", delta: "{\"path\":\"a\"}" },
+      { type: "response.function_call_arguments.delta", output_index: 1, item_id: "fc_b", delta: "{\"q\":\"b\"}" },
+      { type: "response.output_item.done", output_index: 0, item: { type: "function_call", id: "fc_a", call_id: "call_a" } },
+      { type: "response.output_item.done", output_index: 1, item: { type: "function_call", id: "fc_b", call_id: "call_b" } },
+      { type: "response.completed", response: { status: "completed" } },
+    ];
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      start(controller) {
+        for (const event of events) controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        controller.close();
+      },
+    });
+    const text = await new Response(transformCreateResponseStreamToSSE(readable, "claude-opus-5.5")).text();
+    const args = {};
+    for (const line of text.split("\n")) {
+      if (!line.startsWith("data: {")) continue;
+      for (const call of JSON.parse(line.slice(6)).choices?.[0]?.delta?.tool_calls || []) {
+        if (call.function?.arguments) args[call.index] = (args[call.index] || "") + call.function.arguments;
+      }
+    }
+    expect(args).toEqual({ 0: "{\"path\":\"a\"}", 1: "{\"q\":\"b\"}" });
+  });
+
   describe("KiroExecutor fallback execution", () => {
     afterEach(() => vi.restoreAllMocks());
 
@@ -297,6 +325,40 @@ describe("Kiro CreateResponse (/v1/responses) adapter", () => {
       expect(res).toBe(mockCrResult);
     });
 
+    it.each([
+      [200, 200, false],
+      [400, 200, true],
+    ])("always mode: CreateResponse %p -> client sees %p (legacy lane used: %p)", async (crStatus, finalStatus, legacyUsed) => {
+      const executor = new KiroExecutor();
+      vi.spyOn(executor, "executeCreateResponse").mockResolvedValue({
+        response: new Response("{}", { status: crStatus }),
+        url: "https://runtime.us-east-1.kiro.dev/v1/responses",
+        headers: {},
+        transformedBody: {},
+      });
+      const legacySpy = vi.spyOn(Object.getPrototypeOf(KiroExecutor.prototype), "execute").mockResolvedValue({
+        response: new Response("data: [DONE]\n\n", { status: 200 }),
+        url: "https://runtime.us-east-1.kiro.dev/generateAssistantResponse",
+        headers: {},
+        transformedBody: {},
+      });
+      vi.spyOn(executor, "attachIntegrityGate").mockImplementation(() => {});
+      const oldEnv = process.env.LITEROUTER_KIRO_CREATE_RESPONSE;
+      process.env.LITEROUTER_KIRO_CREATE_RESPONSE = "always";
+      try {
+        const res = await executor.execute({
+          model: "kr/claude-opus-5.5",
+          body: { conversationState: { currentMessage: { userInputMessage: { content: "hi" } } } },
+          credentials: { accessToken: "tok" },
+        });
+        expect(res.response.status).toBe(finalStatus);
+        expect(legacySpy.mock.calls.length > 0).toBe(legacyUsed);
+      } finally {
+        if (oldEnv === undefined) delete process.env.LITEROUTER_KIRO_CREATE_RESPONSE;
+        else process.env.LITEROUTER_KIRO_CREATE_RESPONSE = oldEnv;
+      }
+    });
+
     it("skips fallback when LITEROUTER_KIRO_CREATE_RESPONSE is off", async () => {
       const executor = new KiroExecutor();
       const crSpy = vi.spyOn(executor, "executeCreateResponse");
@@ -330,7 +392,8 @@ describe("Kiro CreateResponse (/v1/responses) adapter", () => {
         expect(crSpy).not.toHaveBeenCalled();
         expect(res.response.status).toBe(429);
       } finally {
-        process.env.LITEROUTER_KIRO_CREATE_RESPONSE = oldEnv;
+        if (oldEnv === undefined) delete process.env.LITEROUTER_KIRO_CREATE_RESPONSE;
+        else process.env.LITEROUTER_KIRO_CREATE_RESPONSE = oldEnv;
       }
     });
 
