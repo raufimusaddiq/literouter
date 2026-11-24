@@ -1,4 +1,5 @@
 # Unreleased
+- **Dashboard**: refresh and loading icons spin again, and icons render at their intended sizes. The icon-font rules (the `material-symbols` stylesheet and our own fade-in and sizing rules) were unlayered CSS, which beats every Tailwind utility, so `animate-spin` and `text-[Npx]` never applied to an icon. They now live in the `base` layer.
 - **Antigravity**: a bare 429 `RESOURCE_EXHAUSTED` with no quota details (Antigravity refusing the system prompt) is retried once with the system text moved into the first user turn, and otherwise reported as a 400 instead of locking the account. Other 429s are handled as before.
 - **Pricing**: Alibaba Token Plan ids and Kimi `k3.1-pro-highspeed` bill at their model family's public list price as a stand-in (no per-token plan rate is published) instead of $0.
 - **Gemini 4 Hydrogen**: a `max_tokens` above 64K now runs Gemini long decode (continuation hops, up to 1M output in one turn) on the Gemini API and Antigravity.
