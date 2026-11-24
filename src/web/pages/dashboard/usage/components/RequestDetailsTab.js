@@ -54,38 +54,53 @@ function getProviderName(providerId, cache) {
   return providerConfig?.name || providerId;
 }
 
-function CollapsibleSection({ title, children, defaultOpen = false, icon = null }) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+function isRedacted(value) {
+  return !!value && typeof value === "object" && value.redacted === true && Object.keys(value).length === 1;
+}
 
+function formatMs(value) {
+  return `${Number(value || 0).toLocaleString()} ms`;
+}
+
+function Stat({ value, label }) {
   return (
-    <div className="overflow-hidden rounded-md border border-line bg-raise">
+    <div className="min-w-0">
+      <strong className="block truncate text-[22px] leading-[26px] font-semibold tracking-[-0.03em] text-ink [font-variant-numeric:proportional-nums]">
+        {value}
+      </strong>
+      <span className="mt-1 block text-xs text-muted">{label}</span>
+    </div>
+  );
+}
+
+function PayloadRow({ index, title, children, defaultOpen = false }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  return (
+    <li>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between bg-bg-alt/60 p-3 transition-colors hover:bg-bg-alt"
+        aria-expanded={isOpen}
+        className="flex w-full items-center gap-3 py-3 text-left transition-colors hover:text-ink max-sm:min-h-[44px]"
       >
-        <div className="flex items-center gap-2">
-          {icon && <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-muted">{icon}</span>}
-          <span className="text-sm font-semibold text-ink">{title}</span>
-        </div>
+        <span className="w-6 shrink-0 font-mono text-xs text-faint tabular-nums">{String(index).padStart(2, "0")}</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{title}</span>
         <span
           aria-hidden="true"
-          className={cn(
-            "material-symbols-outlined text-[18px] text-muted transition-transform duration-200",
-            isOpen ? "rotate-90" : ""
-          )}
+          className={cn("material-symbols-outlined text-[18px] text-muted transition-transform duration-200", isOpen && "rotate-90")}
         >
           chevron_right
         </span>
       </button>
-
-      {isOpen && (
-        <div className="border-t border-line p-4">
-          {children}
-        </div>
-      )}
-    </div>
+      {isOpen && <div className="pb-4 pl-9">{children}</div>}
+    </li>
   );
+}
+
+const PRE_CLASS = "max-h-[300px] max-w-full overflow-auto rounded-md border border-line bg-bg p-3 font-mono text-xs leading-[18px] text-ink";
+
+function asText(value) {
+  return typeof value === "object" ? JSON.stringify(value, null, 2) : String(value);
 }
 
 function isErrorStatus(status) {
@@ -394,152 +409,105 @@ export default function RequestDetailsTab() {
         title="Request details"
         width="lg"
       >
-        {selectedDetail && (
-          <div className="space-y-6">
-            <div className="grid min-w-0 grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-              <div>
-                <span className="text-muted">ID:</span>{" "}
-                <span className="break-all font-mono text-ink">{selectedDetail.id}</span>
-              </div>
-              <div>
-                <span className="text-muted">Timestamp:</span>{" "}
-                <span className="font-mono text-ink tabular-nums">{formatDateTime(selectedDetail.timestamp)}</span>
-              </div>
-              <div>
-                <span className="text-muted">Provider:</span>{" "}
-                <span className="font-medium text-ink">{getProviderName(selectedDetail.provider, providerNameCache)}</span>
-              </div>
-              <div>
-                <span className="text-muted">Model:</span>{" "}
-                <span className="font-mono text-ink">{selectedDetail.model}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted">Status:</span>
-                <Badge variant={statusVariant(selectedDetail.status)} size="sm">
-                  {selectedDetail.status || "unknown"}
+        {selectedDetail && (() => {
+          const d = selectedDetail;
+          const cached = getCachedTokens(d.tokens);
+          const cacheCreation = getCacheCreationTokens(d.tokens);
+          const payloads = [
+            { key: "request", title: "Client request", value: d.request, open: true },
+            { key: "providerRequest", title: "Provider request (translated)", value: d.providerRequest },
+            { key: "providerResponse", title: "Provider response (raw)", value: d.providerResponse },
+          ].filter((entry) => entry.value !== undefined && entry.value !== null && !isRedacted(entry.value));
+          const responseRedacted = isRedacted(d.response);
+          const hasResponse = !responseRedacted && (d.response?.content || d.response?.thinking);
+          const allRedacted = payloads.length === 0 && !hasResponse;
+          return (
+            <div className="flex min-w-0 flex-col gap-6">
+              <header className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-all font-mono text-[15px] leading-[22px] text-ink">{d.model}</p>
+                  <p className="mt-1 text-sm text-muted">{getProviderName(d.provider, providerNameCache)}</p>
+                </div>
+                <Badge variant={statusVariant(d.status)} size="sm" className="shrink-0">
+                  {d.status || "unknown"}
                 </Badge>
-              </div>
-              <div>
-                <span className="text-muted">Latency:</span>{" "}
-                <span className="font-mono text-ink tabular-nums">
-                  TTFT {selectedDetail.latency?.ttft || 0}ms / Total {selectedDetail.latency?.total || 0}ms
-                </span>
-              </div>
-              <div>
-                <span className="text-muted">Input tokens:</span>{" "}
-                <span className="font-mono text-ink tabular-nums">
-                  {getInputTokens(selectedDetail.tokens).toLocaleString()}
-                </span>
-              </div>
-              {getCachedTokens(selectedDetail.tokens) > 0 && (
-                <div>
-                  <span className="text-muted">Cached tokens:</span>{" "}
-                  <span className="font-mono text-ink tabular-nums">
-                    {getCachedTokens(selectedDetail.tokens).toLocaleString()}
-                  </span>
-                </div>
-              )}
-              {getCacheCreationTokens(selectedDetail.tokens) > 0 && (
-                <div>
-                  <span className="text-muted">Cache creation:</span>{" "}
-                  <span className="font-mono text-ink tabular-nums">
-                    {getCacheCreationTokens(selectedDetail.tokens).toLocaleString()}
-                  </span>
-                </div>
-              )}
-              <div>
-                <span className="text-muted">Output tokens:</span>{" "}
-                <span className="font-mono text-ink tabular-nums">
-                  {getOutputTokens(selectedDetail.tokens).toLocaleString()}
-                </span>
-              </div>
-            </div>
+              </header>
 
-            {selectedDetail.pxpipe && (
-              <div className="rounded-md border border-line bg-raise p-4">
-                <div className="mb-2 flex items-center gap-2">
-                  <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-muted">image</span>
-                  <span className="text-sm font-semibold text-ink">PXPIPE</span>
-                  <Badge variant={selectedDetail.pxpipe.applied ? "success" : "warning"} size="sm">
-                    {selectedDetail.pxpipe.applied ? "Activated" : "Skipped"}
-                  </Badge>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-5 border-y border-line py-5 sm:grid-cols-3">
+                <Stat value={getInputTokens(d.tokens).toLocaleString()} label="input tokens" />
+                <Stat value={getOutputTokens(d.tokens).toLocaleString()} label="output tokens" />
+                {cached > 0 && <Stat value={cached.toLocaleString()} label="cached tokens" />}
+                {cacheCreation > 0 && <Stat value={cacheCreation.toLocaleString()} label="cache creation" />}
+                <Stat value={formatMs(d.latency?.ttft)} label="time to first token" />
+                <Stat value={formatMs(d.latency?.total)} label="total latency" />
+              </div>
+
+              <dl className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="min-w-0">
+                  <dt className="text-xs text-muted">Timestamp</dt>
+                  <dd className="mt-1 font-mono text-[13px] text-ink tabular-nums">{formatDateTime(d.timestamp)}</dd>
                 </div>
-                {selectedDetail.pxpipe.applied ? (
-                  <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-                    <div>
-                      <span className="block text-xs text-muted">Original (est.)</span>
-                      <span className="font-mono tabular-nums text-ink">{(selectedDetail.pxpipe.tokensBeforeEst || 0).toLocaleString()} tokens</span>
-                    </div>
-                    <div>
-                      <span className="block text-xs text-muted">Compressed (est.)</span>
-                      <span className="font-mono tabular-nums text-ink">{(selectedDetail.pxpipe.tokensAfterEst || 0).toLocaleString()} tokens</span>
-                    </div>
-                    <div>
-                      <span className="block text-xs text-muted">Saved</span>
-                      <span className="font-mono tabular-nums text-ok">{selectedDetail.pxpipe.savedPct || 0}%</span>
-                    </div>
-                    <div>
-                      <span className="block text-xs text-muted">Images</span>
-                      <span className="font-mono tabular-nums text-ink">{selectedDetail.pxpipe.imageCount || 0} ({selectedDetail.pxpipe.durationMs || 0}ms)</span>
-                    </div>
+                <div className="min-w-0 sm:col-span-2">
+                  <dt className="text-xs text-muted">Request ID</dt>
+                  <dd className="mt-1 break-all font-mono text-[13px] text-ink">{d.id}</dd>
+                </div>
+              </dl>
+
+              {d.pxpipe && (
+                <section className="border-t border-line pt-5">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-ink">PXPIPE</h3>
+                    <Badge variant={d.pxpipe.applied ? "success" : "warning"} size="sm">
+                      {d.pxpipe.applied ? "Activated" : "Skipped"}
+                    </Badge>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted">
-                    Reason: <span className="font-mono text-ink">{selectedDetail.pxpipe.reason}</span>
-                    {selectedDetail.pxpipe.detail ? ` — ${selectedDetail.pxpipe.detail}` : ""}
+                  {d.pxpipe.applied ? (
+                    <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
+                      <Stat value={(d.pxpipe.tokensBeforeEst || 0).toLocaleString()} label="original (est.)" />
+                      <Stat value={(d.pxpipe.tokensAfterEst || 0).toLocaleString()} label="compressed (est.)" />
+                      <Stat value={`${d.pxpipe.savedPct || 0}%`} label="saved" />
+                      <Stat value={`${d.pxpipe.imageCount || 0}`} label={`images, ${formatMs(d.pxpipe.durationMs)}`} />
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-muted">
+                      Reason: <span className="font-mono text-ink">{d.pxpipe.reason}</span>
+                      {d.pxpipe.detail ? ` — ${d.pxpipe.detail}` : ""}
+                    </p>
+                  )}
+                </section>
+              )}
+
+              <section className="border-t border-line pt-5">
+                <h3 className="text-sm font-semibold text-ink">Payloads</h3>
+                {allRedacted ? (
+                  <p className="mt-2 text-sm text-muted">
+                    Request and response bodies are redacted here, so only metadata is shown.
                   </p>
+                ) : (
+                  <ul className="mt-2 divide-y divide-line border-y border-line">
+                    {payloads.map((entry, i) => (
+                      <PayloadRow key={entry.key} index={i + 1} title={entry.title} defaultOpen={entry.open}>
+                        <pre className={PRE_CLASS}>{asText(entry.value)}</pre>
+                      </PayloadRow>
+                    ))}
+                    {hasResponse && (
+                      <PayloadRow index={payloads.length + 1} title="Client response" defaultOpen>
+                        {d.response.thinking && (
+                          <>
+                            <p className="mb-2 text-xs text-muted">Thinking</p>
+                            <pre className={cn(PRE_CLASS, "mb-4 max-h-[200px]")}>{d.response.thinking}</pre>
+                          </>
+                        )}
+                        <p className="mb-2 text-xs text-muted">Content</p>
+                        <pre className={PRE_CLASS}>{d.response.content || "No content"}</pre>
+                      </PayloadRow>
+                    )}
+                  </ul>
                 )}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <CollapsibleSection title="1. Client request (input)" defaultOpen={true} icon="input">
-                <pre className="max-h-[300px] max-w-full overflow-auto rounded-md border border-line bg-bg p-3 font-mono text-xs text-ink sm:p-4">
-                  {JSON.stringify(selectedDetail.request, null, 2)}
-                </pre>
-              </CollapsibleSection>
-
-              {selectedDetail.providerRequest && (
-                <CollapsibleSection title="2. Provider request (translated)" icon="translate">
-                  <pre className="max-h-[300px] max-w-full overflow-auto rounded-md border border-line bg-bg p-3 font-mono text-xs text-ink sm:p-4">
-                    {JSON.stringify(selectedDetail.providerRequest, null, 2)}
-                  </pre>
-                </CollapsibleSection>
-              )}
-
-              {selectedDetail.providerResponse && (
-                <CollapsibleSection title="3. Provider response (raw)" icon="data_object">
-                  <pre className="max-h-[300px] max-w-full overflow-auto rounded-md border border-line bg-bg p-3 font-mono text-xs text-ink sm:p-4">
-                    {typeof selectedDetail.providerResponse === "object"
-                      ? JSON.stringify(selectedDetail.providerResponse, null, 2)
-                      : selectedDetail.providerResponse}
-                  </pre>
-                </CollapsibleSection>
-              )}
-
-              <CollapsibleSection title="4. Client response (final)" defaultOpen={true} icon="output">
-                {selectedDetail.response?.thinking && (
-                  <div className="mb-4">
-                    <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted">
-                      <span aria-hidden="true" className="material-symbols-outlined text-[16px]">psychology</span>
-                      Thinking process
-                    </h4>
-                    <pre className="max-h-[200px] max-w-full overflow-auto rounded-md border border-line-strong bg-bg p-3 font-mono text-xs text-ink sm:p-4">
-                      {selectedDetail.response.thinking}
-                    </pre>
-                  </div>
-                )}
-
-                <h4 className="mb-2 text-xs font-semibold text-muted">
-                  Content
-                </h4>
-                <pre className="max-h-[300px] max-w-full overflow-auto rounded-md border border-line bg-bg p-3 font-mono text-xs text-ink sm:p-4">
-                  {selectedDetail.response?.content || "[No content]"}
-                </pre>
-              </CollapsibleSection>
+              </section>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </Drawer>
     </div>
   );

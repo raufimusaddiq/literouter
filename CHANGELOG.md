@@ -1,4 +1,5 @@
 # Unreleased
+- **Dashboard**: the Usage request details drawer uses the Route Sheet layout: model, provider and status up top, token and latency figures as stat tiles, a flat metadata list, and stored payloads as numbered disclosure rows. Bodies redacted by the server (all of them today, since the request-details API redacts every payload) show one plain note instead of four sections printing `{"redacted": true}` and `[No content]`.
 - **Antigravity**: a bare 429 `RESOURCE_EXHAUSTED` with no quota details (Antigravity refusing the system prompt) is retried once with the system text moved into the first user turn, and otherwise reported as a 400 instead of locking the account. Other 429s are handled as before.
 - **Pricing**: Alibaba Token Plan ids and Kimi `k3.1-pro-highspeed` bill at their model family's public list price as a stand-in (no per-token plan rate is published) instead of $0.
 - **Gemini 4 Hydrogen**: a `max_tokens` above 64K now runs Gemini long decode (continuation hops, up to 1M output in one turn) on the Gemini API and Antigravity.
