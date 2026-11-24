@@ -1,6 +1,6 @@
 "use client";
 
-export default function LogoMark({ size = 22, className = "" }) {
+export default function LogoMark({ size = 22, className = "", dotClassName }) {
   return (
     <svg
       width={size}
@@ -17,7 +17,7 @@ export default function LogoMark({ size = 22, className = "" }) {
         stroke="currentColor"
         strokeWidth="1.6"
       />
-      <circle cx="19" cy="11" r="2.5" fill="var(--color-mark)" />
+      <circle cx="19" cy="11" r="2.5" fill="var(--color-mark)" className={dotClassName} />
     </svg>
   );
 }

@@ -15,19 +15,29 @@ import { AI_PROVIDERS } from "@/shared/constants/providers";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { classifyConnection, HEALTH, ATTENTION_REASONS } from "@/shared/utils/connectionHealth";
 import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
+import LogoMark from "@/shared/components/shell/LogoMark";
+import EdgeMotion, {
+  GlowDefs,
+  REDUCED_MOTION_QUERY,
+  RIPPLES,
+  glintDelay,
+  rippleDelay,
+  useMotionPause,
+} from "./TopologyMotion";
 
 const FE_ACTIVE_TIMEOUT_MS = 60000;
 const FE_ACTIVE_TICK_MS = 1000;
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
-
-const KAME_PARTICLE_COUNT = 6;
-const SPARK_COUNT = 5;
 
 const STATUS_DOT = {
   ok: "bg-ok",
   warning: "bg-warning",
   danger: "bg-danger",
   idle: "bg-muted",
+};
+
+const STATUS_GLINT = {
+  ok: "border-ok",
+  idle: "border-faint",
 };
 
 function getProviderConfig(providerId) {
@@ -44,18 +54,26 @@ function getProviderStatus(provider, active, error) {
   return "idle";
 }
 
+function edgeState(data) {
+  if (data?.error) return "error";
+  if (data?.active) return "active";
+  if (data?.last) return "last";
+  return "idle";
+}
+
 function ProviderNode({ data }) {
-  const { providerId, label, textIcon, active, error, status = "idle" } = data;
+  const { providerId, label, textIcon, active, error, status = "idle", index = 0 } = data;
   const dotClass = STATUS_DOT[status] || STATUS_DOT.idle;
+  const glintClass = STATUS_GLINT[status];
   const borderClass = error
-    ? "border-danger"
+    ? "border-danger is-error"
     : active
-      ? "border-mark-line"
+      ? "border-mark-line is-active"
       : "border-line-strong";
 
   return (
     <div
-      className={`flex items-center gap-2.5 px-3.5 py-2 rounded-[6px] border bg-raise text-ink transition-colors duration-200 min-w-[150px] ${borderClass}`}
+      className={`topology-node relative flex items-center gap-2.5 px-3.5 py-2 rounded-[6px] border bg-raise text-ink min-w-[150px] ${borderClass}`}
     >
       <Handle type="target" position={Position.Top} id="top" className="!bg-transparent !border-0 !w-0 !h-0" />
       <Handle type="target" position={Position.Bottom} id="bottom" className="!bg-transparent !border-0 !w-0 !h-0" />
@@ -78,12 +96,15 @@ function ProviderNode({ data }) {
       </span>
 
       <span className="relative flex h-2 w-2 shrink-0 ml-auto" data-status={status}>
-        {active && (
+        {active ? (
+          <span className="topology-ping absolute inset-0 rounded-full border border-ok" />
+        ) : glintClass ? (
           <span
-            className={`topology-ping animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${dotClass}`}
+            className={`topology-glint absolute inset-0 rounded-full border ${glintClass}`}
+            style={{ animationDelay: `${glintDelay(index)}s` }}
           />
-        )}
-        <span className={`relative inline-flex rounded-full h-2 w-2 ${dotClass}`} />
+        ) : null}
+        <span className={`relative inline-flex rounded-full h-2 w-2 transition-colors duration-300 ${dotClass}`} />
       </span>
     </div>
   );
@@ -93,13 +114,35 @@ ProviderNode.propTypes = {
   data: PropTypes.object.isRequired,
 };
 
+function RouterMotion() {
+  const [now] = useState(() => Date.now());
+  return (
+    <>
+      <span aria-hidden="true" className="topology-router-halo">
+        <span className="topology-router-halo-pulse" />
+      </span>
+      <span aria-hidden="true" className="topology-router-ripples">
+        {RIPPLES.map((k) => (
+          <span key={k} className="topology-router-ripple" style={{ animationDelay: `${rippleDelay(k, now)}s` }} />
+        ))}
+      </span>
+      <svg aria-hidden="true" className="topology-orbit">
+        <rect className="topology-orbit-idle" width="100%" height="100%" rx="10" pathLength="100" />
+        <rect className="topology-orbit-live" width="100%" height="100%" rx="10" pathLength="100" />
+      </svg>
+    </>
+  );
+}
+
 function RouterNode({ data }) {
-  const powering = (data.activeCount || 0) > 0;
+  const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY, false);
+  const count = data.activeCount || 0;
+  const powering = count > 0;
   return (
     <div
-      className={`relative z-[1] flex items-center justify-center px-4 py-2.5 rounded-[6px] border min-w-[130px] ${
+      className={`topology-router relative z-[1] flex items-center justify-center px-4 py-2.5 rounded-[6px] border min-w-[130px] transition-colors duration-300 ${
         powering
-          ? "topology-router-core border-mark-line bg-mark text-mark-ink"
+          ? "is-powering border-mark-line bg-mark text-mark-ink"
           : "border-line-strong bg-raise text-ink"
       }`}
     >
@@ -108,19 +151,19 @@ function RouterNode({ data }) {
       <Handle type="source" position={Position.Left} id="left" className="!bg-transparent !border-0 !w-0 !h-0" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-transparent !border-0 !w-0 !h-0" />
 
-      <img
-        src="/favicon.svg"
-        alt="LiteRouter"
-        className={`w-6 h-6 mr-2 ${powering ? "topology-router-icon" : ""}`}
-        loading="lazy"
-        decoding="async"
-      />
-      <span className={`text-sm font-semibold ${powering ? "topology-router-label text-mark-ink" : "text-ink"}`}>
+      {!reducedMotion && <RouterMotion />}
+
+      <span className="topology-router-logo relative mr-2 flex h-6 w-6 items-center justify-center rounded-[5px]">
+        <LogoMark size={20} dotClassName="topology-router-dot" />
+      </span>
+      <span className="relative text-sm font-semibold">
         LiteRouter
       </span>
-      {data.activeCount > 0 && (
-        <span className="ml-2 px-1.5 py-0.5 rounded-full bg-mark-ink text-mark text-xs font-mono font-bold tabular-nums topology-router-badge">
-          {data.activeCount}
+      {powering && (
+        <span className="topology-badge relative ml-2 px-1.5 py-0.5 rounded-full bg-mark-ink text-mark text-xs font-mono font-bold tabular-nums">
+          <span key={count} className="topology-count inline-block">
+            {count}
+          </span>
         </span>
       )}
     </div>
@@ -142,7 +185,6 @@ function TopologyEdge({
   style = {},
   data,
 }) {
-  const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY, false);
   const [edgePath] = getBezierPath({
     sourceX,
     sourceY,
@@ -151,93 +193,12 @@ function TopologyEdge({
     targetY,
     targetPosition,
   });
-  const active = !!data?.active;
-  const stroke = style.stroke || "var(--color-wire)";
-  const filterId = `topo-electric-${id}`;
-
-  if (!active) {
-    return <BaseEdge id={id} path={edgePath} style={{ ...style, stroke }} />;
-  }
-
-  const filterRef = reducedMotion ? undefined : `url(#${filterId})`;
+  const state = edgeState(data);
 
   return (
-    <g className="topology-edge-electric">
-      {!reducedMotion && (
-        <defs>
-          <filter id={filterId} x="-40%" y="-40%" width="180%" height="180%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="2" result="noise">
-              <animate attributeName="baseFrequency" values="0.8;1.4;0.8" dur="0.25s" repeatCount="indefinite" />
-            </feTurbulence>
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G" />
-          </filter>
-        </defs>
-      )}
-      <path
-        d={edgePath}
-        fill="none"
-        stroke="var(--color-mark-line)"
-        strokeWidth={10}
-        strokeOpacity={0.35}
-        strokeLinecap="round"
-        filter={filterRef}
-        className="topology-edge-halo"
-      />
-      <path
-        d={edgePath}
-        fill="none"
-        stroke="var(--color-mark-line)"
-        strokeWidth={5}
-        strokeOpacity={0.7}
-        strokeLinecap="round"
-        filter={filterRef}
-        className="topology-edge-plasma"
-      />
-      <BaseEdge
-        id={id}
-        path={edgePath}
-        style={{ stroke: "var(--color-mark-line)", strokeWidth: 2.2, opacity: 1 }}
-        className="topology-edge-kame"
-      />
-      {!reducedMotion && Array.from({ length: KAME_PARTICLE_COUNT }, (_, i) => (
-        <circle
-          key={`${id}-p-${i}`}
-          r={i % 2 === 0 ? 4 : 2.5}
-          opacity={0.95}
-          className="lr-packet"
-          style={{ filter: "drop-shadow(0 0 4px var(--color-mark-line))" }}
-        >
-          <animateMotion
-            dur={`${0.4 + i * 0.08}s`}
-            repeatCount="indefinite"
-            path={edgePath}
-            begin={`${i * 0.09}s`}
-          />
-        </circle>
-      ))}
-      {!reducedMotion && Array.from({ length: SPARK_COUNT }, (_, i) => (
-        <circle
-          key={`${id}-s-${i}`}
-          r={1.8}
-          opacity={0}
-          className="lr-packet"
-        >
-          <animate
-            attributeName="opacity"
-            values="0;1;0;0;1;0"
-            dur={`${0.35 + (i % 3) * 0.1}s`}
-            begin={`${i * 0.07}s`}
-            repeatCount="indefinite"
-          />
-          <animateMotion
-            dur={`${0.28 + i * 0.05}s`}
-            repeatCount="indefinite"
-            path={edgePath}
-            begin={`${i * 0.11}s`}
-          />
-        </circle>
-      ))}
-    </g>
+    <EdgeMotion path={edgePath} state={state} index={data?.index ?? 0} target={{ x: targetX, y: targetY }}>
+      <BaseEdge id={id} path={edgePath} style={style} className={`topology-edge-path is-${state}`} />
+    </EdgeMotion>
   );
 }
 
@@ -287,8 +248,8 @@ function buildLayout(providers, activeSet, lastSet, errorSet) {
   });
 
   const edgeStyle = (active, last, error) => {
-    if (error) return { stroke: "var(--color-danger)", strokeWidth: 2, opacity: 0.9 };
-    if (active) return { stroke: "var(--color-mark-line)", strokeWidth: 2.5, opacity: 1 };
+    if (error) return { stroke: "var(--color-danger)", strokeWidth: 1.75, opacity: 0.9 };
+    if (active) return { stroke: "var(--color-mark-line)", strokeWidth: 1.75, opacity: 0.55 };
     if (last) return { stroke: "var(--color-wire-live)", strokeWidth: 1.5, opacity: 1 };
     return { stroke: "var(--color-wire)", strokeWidth: 1, opacity: 1 };
   };
@@ -305,6 +266,7 @@ function buildLayout(providers, activeSet, lastSet, errorSet) {
       textIcon: config.textIcon || (p.provider || "?").slice(0, 2).toUpperCase(),
       active,
       error,
+      index: i,
       status: getProviderStatus(p, active, error),
     };
 
@@ -339,7 +301,7 @@ function buildLayout(providers, activeSet, lastSet, errorSet) {
       target: nodeId,
       targetHandle,
       animated: false,
-      data: { active },
+      data: { active, last, error, index: i },
       style: edgeStyle(active, last, error),
     });
   });
@@ -401,6 +363,7 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
 
   const rfInstance = useRef(null);
   const containerRef = useRef(null);
+  const motionPaused = useMotionPause(containerRef);
   const fitOpts = { padding: 0.2, duration: 200 };
   const onInit = useCallback((instance) => {
     rfInstance.current = instance;
@@ -425,7 +388,12 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
   }, [nodes.length]);
 
   return (
-    <div ref={containerRef} className="h-[320px] w-full min-w-0 rounded-lg border border-line-strong bg-bg sm:h-[480px]">
+    <div
+      ref={containerRef}
+      data-motion={motionPaused ? "paused" : "running"}
+      className="topology relative h-[320px] w-full min-w-0 rounded-lg border border-line-strong bg-bg sm:h-[480px]"
+    >
+      <GlowDefs />
       {providers.length === 0 ? (
         <div className="h-full flex items-center justify-center text-muted text-sm">
           No providers connected
