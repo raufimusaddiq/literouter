@@ -1,8 +1,6 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from "bun:test";
 import { vi } from "#test/vi";
+import { useTempDataDirAtLoad } from "#test/tempDataDir";
 
 const CATALOG_URL = "https://api.commandcode.ai/provider/v1/models?view=client";
 
@@ -61,24 +59,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const originalDataDir = process.env.DATA_DIR;
 let GET;
 let createProviderConnection;
 
+useTempDataDirAtLoad("9router-commandcode-live-");
+
 beforeAll(async () => {
-  process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "9router-commandcode-live-"));
   vi.resetModules();
   ({ GET } = await import("@/app/api/providers/[id]/models/route.js"));
   ({ createProviderConnection } = await import("@/models/index.js"));
-});
-
-afterAll(() => {
-  try {
-    fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true });
-  } catch {
-  }
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
 });
 
 async function seedCommandCode(n) {
