@@ -3,12 +3,6 @@ import { vi } from "#test/vi";
 
 
 describe("xai/token-refresh wrapper", () => {
-  it("refreshXaiToken module loads without throwing", async () => {
-    const mod = await import("../../open-sse/services/tokenRefresh.js");
-    expect(typeof mod.refreshTokenByProvider).toBe("function");
-    expect(typeof mod.formatProviderCredentials).toBe("function");
-  });
-
   it("formatProviderCredentials returns Bearer-shape for xai", async () => {
     const mod = await import("../../open-sse/services/tokenRefresh.js");
     const out = mod.formatProviderCredentials(

@@ -5,6 +5,9 @@ import {
   applyThinking,
 } from "../../open-sse/translator/concerns/thinkingUnified.js";
 import { extractReasoningText } from "../../open-sse/translator/concerns/reasoning.js";
+import { translateRequest } from "../../open-sse/translator/index.js";
+import { FORMATS } from "../../open-sse/translator/formats.js";
+import "./registerAll.js";
 
 const apply = (targetFormat, model, body, provider) => {
   const b = JSON.parse(JSON.stringify(body));
@@ -178,6 +181,28 @@ describe("applyThinking per provider format", () => {
     const out = apply("openai", "kimi-k2.7", { reasoning_effort: "auto" }, "kimchi");
     expect(out.reasoning_effort).toBe("high");
   });
+  it.each([
+    { reasoning_effort: "auto" },
+    { thinking: { type: "adaptive" } },
+  ])("openai-format lane never ships the literal auto (%p)", (body) => {
+    expect(apply("openai", "gpt-5.3-codex", body, "codex").reasoning_effort).toBe("high");
+  });
+  it.each([
+    ["low", "low"],
+    ["medium", "medium"],
+    ["high", "high"],
+    ["minimal", "low"],
+    ["xhigh", "high"],
+    ["max", "high"],
+  ])("Ollama think %p → %p", (effort, think) => {
+    const out = apply("ollama", "deepseek-v4.1-flash:cloud", { reasoning_effort: effort }, "ollama");
+    expect(out.think).toBe(think);
+    expect(out.reasoning_effort).toBeUndefined();
+  });
+  it("Ollama think auto → true, off → false", () => {
+    expect(apply("ollama", "deepseek-v4.1-flash:cloud", { thinking: { type: "adaptive" } }, "ollama").think).toBe(true);
+    expect(apply("ollama", "deepseek-v4.1-flash:cloud", { reasoning_effort: "none" }, "ollama").think).toBe(false);
+  });
   it("Kimi unsupported OpenAI levels → supported reasoning_effort", () => {
     const minimal = apply("openai", "kimi-k2.7", { reasoning_effort: "minimal" }, "kimchi");
     const xhigh = apply("openai", "kimi-k2.7", { reasoning_effort: "xhigh" }, "kimchi");
@@ -312,5 +337,26 @@ describe("OpenCode Free ids with no capabilities entry (#2690)", () => {
 
   it("still strips it for a model that has no entry at all (control)", () => {
     expect(apply("openai", "oc/no-such-model-xyz", bunny("high"), "oc").reasoning_effort).toBeUndefined();
+  });
+});
+
+describe("Ollama Cloud think field", () => {
+  const MODEL = "deepseek-v4.1-flash:cloud";
+  const translate = (body) =>
+    translateRequest(FORMATS.OPENAI, FORMATS.OLLAMA, MODEL, { messages: [{ role: "user", content: "hi" }], ...body }, true, null, "ollama");
+
+  it("carries think through the openai→ollama translator", () => {
+    const out = translate({ reasoning_effort: "high" });
+    expect(out.think).toBe("high");
+    expect(out.reasoning_effort).toBeUndefined();
+    expect(out.thinking).toBeUndefined();
+  });
+
+  it("turns thinking off with think false", () => {
+    expect(translate({ reasoning_effort: "none" }).think).toBe(false);
+  });
+
+  it("keeps adaptive thinking as think true", () => {
+    expect(translate({ thinking: { type: "adaptive" } }).think).toBe(true);
   });
 });

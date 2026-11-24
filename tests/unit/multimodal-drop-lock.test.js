@@ -25,7 +25,7 @@ describe("openai→claude: image_url.detail is dropped (docs 11 §4)", () => {
     expect("detail" in imgBlock.source).toBe(false);
   });
 
-  it("drops input_audio entirely (claude has no audio block)", () => {
+  it("never emits an audio block for input_audio (claude has no audio block)", () => {
     const body = {
       model: "claude-sonnet-4-6",
       messages: [{ role: "user", content: [

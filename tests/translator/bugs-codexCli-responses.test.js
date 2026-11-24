@@ -8,14 +8,13 @@ const O2R = (body) => translateRequest(FORMATS.OPENAI, FORMATS.OPENAI_RESPONSES,
 const R2R = (body) => translateRequest(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI_RESPONSES, "m", body, true, null, null);
 
 describe("Codex CLI Responses → OpenAI", () => {
-  it.failing("assistant has no empty tool_calls array when all names are empty", () => {
+  it("assistant has no empty tool_calls array when all names are empty", () => {
     const out = R2O({
       input: [
         { type: "function_call", call_id: "c1", name: "", arguments: "{}" },
       ],
     });
-    const asst = out.messages.find((m) => m.role === "assistant" && m.tool_calls);
-    expect(asst?.tool_calls?.length ?? 0, "empty tool_calls[] produced").toBeGreaterThan(0);
+    expect(out.messages.every((m) => !m.tool_calls || m.tool_calls.length > 0)).toBe(true);
   });
 
   it("function_call arguments end up as a string", () => {
@@ -26,15 +25,57 @@ describe("Codex CLI Responses → OpenAI", () => {
     expect(typeof asst.tool_calls[0].function.arguments).toBe("string");
   });
 
-  it.failing("input_image with file_id is not used as a raw url", () => {
+  it("input_image with file_id is not used as a raw url", () => {
     const out = R2O({
       input: [{ type: "message", role: "user", content: [
         { type: "input_image", file_id: "file-abc" },
+        { type: "input_text", text: "look" },
       ] }],
     });
     const userMsg = out.messages.find((m) => m.role === "user");
-    const img = Array.isArray(userMsg?.content) ? userMsg.content.find((c) => c.type === "image_url") : null;
-    expect(img?.image_url?.url === "file-abc").toBe(false);
+    expect(userMsg.content).toEqual([{ type: "text", text: "look" }]);
+  });
+
+  it("keeps pending reasoning when a message carries no content", () => {
+    const out = R2O({
+      input: [
+        { type: "reasoning", summary: [{ type: "summary_text", text: "thinking" }] },
+        { type: "message", role: "user", content: [{ type: "input_image", file_id: "file-abc" }] },
+        { type: "message", role: "assistant", content: [{ type: "output_text", text: "hi" }] },
+      ],
+    });
+    const asst = out.messages.find((m) => m.role === "assistant");
+    expect(asst.reasoning_content).toBe("thinking");
+  });
+
+  it("drops a function_call_output whose call was never emitted", () => {
+    const out = R2O({
+      input: [
+        { type: "function_call", call_id: "c1", name: "", arguments: "{}" },
+        { type: "function_call_output", call_id: "c1", output: "ok" },
+      ],
+    });
+    expect(out.messages.some((m) => m.role === "tool")).toBe(false);
+  });
+
+  it("keeps a function_call_output whose call was emitted", () => {
+    const out = R2O({
+      input: [
+        { type: "function_call", call_id: "c1", name: "f", arguments: "{}" },
+        { type: "function_call_output", call_id: "c1", output: "ok" },
+      ],
+    });
+    expect(out.messages.filter((m) => m.role === "tool").map((m) => m.tool_call_id)).toEqual(["c1"]);
+  });
+
+  it("forwards a function_call_output whose call id was never seen", () => {
+    const out = R2O({
+      input: [
+        { type: "message", role: "user", content: "hi" },
+        { type: "function_call_output", call_id: "from-previous-response", output: "ok" },
+      ],
+    });
+    expect(out.messages.filter((m) => m.role === "tool").map((m) => m.tool_call_id)).toEqual(["from-previous-response"]);
   });
 });
 
