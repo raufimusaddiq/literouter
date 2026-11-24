@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "bun:test";
-import React, { act } from "react";
+import React from "react";
 import { setupDom, setupViewportStubs, mount, flush, click } from "#test/dom";
 import RequestDetailsTab from "../../src/web/pages/dashboard/usage/components/RequestDetailsTab.js";
 

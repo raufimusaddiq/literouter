@@ -26,18 +26,14 @@ describe("iOS focus zoom", () => {
   });
 
   it("keeps the rule outside cascade layers so it beats text-sm utilities", () => {
-    const before = css.slice(0, iosBlock().start);
-    const opened = (before.match(/@layer\b[^{;]*\{/g) || []).length;
     let depth = 0;
-    let layered = 0;
-    for (const match of before.matchAll(/@layer\b[^{;]*\{|\{|\}/g)) {
-      if (match[0].startsWith("@layer")) {
-        depth += 1;
-        layered += 1;
-      } else if (match[0] === "{") depth += 1;
-      else depth -= 1;
-    }
-    expect(opened).toBe(layered);
+    for (const match of css.slice(0, iosBlock().start).matchAll(/\{|\}/g)) depth += match[0] === "{" ? 1 : -1;
     expect(depth).toBe(0);
+  });
+
+  it("stretches the date picker hit area only on iOS so desktop users can still click into date segments", () => {
+    const outside = css.slice(0, iosBlock().start) + css.slice(iosBlock().start + iosBlock().body.length);
+    expect(iosBlock().body).toContain(".lr-datetime::-webkit-calendar-picker-indicator");
+    expect(outside).not.toContain("-webkit-calendar-picker-indicator");
   });
 });

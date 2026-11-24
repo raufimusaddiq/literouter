@@ -28,7 +28,10 @@ describe("Route Sheet base components", () => {
         body
       </Drawer>,
       (container) => {
-        expect(container.querySelector('[role="dialog"]').className.split(/\s+/)).toContain("max-w-full");
+        const classes = container.querySelector('[role="dialog"]').className.split(/\s+/);
+        expect(classes.some((c) => /^w-\[\d+px\]$/.test(c))).toBe(true);
+        expect(classes).toContain("max-w-full");
+        expect(classes.filter((c) => /^(min-w-|max-w-(?!full$))/.test(c))).toEqual([]);
       },
     );
   });
