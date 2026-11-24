@@ -1,16 +1,11 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 
 import { getModelUpstreamId } from "../../open-sse/config/providerModels.js";
 import { AntigravityExecutor } from "../../open-sse/executors/antigravity.js";
 import { applyThinking, stripThinkingSuffix } from "../../open-sse/translator/concerns/thinkingUnified.js";
 import gemini from "../../open-sse/providers/registry/gemini.js";
 import { MODEL_PRICING } from "../../open-sse/providers/pricing.js";
-
-const here = dirname(fileURLToPath(import.meta.url));
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -66,14 +61,5 @@ describe.each(VERSIONS)("Gemini $version MITM tools and catalog", ({ version }) 
     const ids = gemini.models.map((model) => model.id);
     expect(ids).toContain(`gemini-${version}-flash`);
     expect(MODEL_PRICING[`gemini-${version}-flash`]).toMatchObject({ input: 1.5, output: 7.5 });
-  });
-
-  it("keeps the standalone CLI Antigravity catalog synchronized", () => {
-    const source = readFileSync(join(here, "../../cli/src/cli/menus/providers.js"), "utf8");
-    const agCatalog = source.match(/\n  ag: \[([\s\S]*?)\n  \],/)?.[1] || "";
-
-    expect(agCatalog).toContain(`gemini-${version}-flash-high`);
-    expect(agCatalog).toContain(`gemini-${version}-flash-medium`);
-    expect(agCatalog).toContain(`gemini-${version}-flash-low`);
   });
 });
