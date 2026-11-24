@@ -255,7 +255,8 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
       }
 
       Object.assign(quotas, weeklyQuotas);
-    } catch {
+    } catch (error) {
+      console.error("[Antigravity Usage] weekly quota merge failed:", error.message);
     }
 
     return {

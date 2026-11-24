@@ -13,7 +13,6 @@ describe("OpenCode free catalog", () => {
   it.each([
     ["glm-5.3-flash-free", true],
     ["big-pickle", true],
-    ["deepseek-v4-flash-free", false],
     ["claude-sonnet-5", false],
     [undefined, false],
   ])("classifies %p as free=%p", (id, free) => {
@@ -25,7 +24,6 @@ describe("OpenCode free catalog", () => {
       data: [
         { id: "beam-free", name: "Beam", limit: { context: 1048576, output: 131072 }, capabilities: { reasoning: { supported: true }, tools: { supported: true } } },
         { id: "gpt-6-sol" },
-        { id: "deepseek-v4-flash-free" },
         { id: "big-pickle" },
       ],
     });

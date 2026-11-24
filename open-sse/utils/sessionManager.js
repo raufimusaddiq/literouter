@@ -74,7 +74,7 @@ function extractClaudeCodeSession(userId) {
     const m = userId.match(CLAUDE_CODE_SESSION_RE);
     if (m) return m[1];
     if (userId[0] === "{") {
-        try { return normalizeSessionId(JSON.parse(userId)?.session_id); } catch {}
+        try { return normalizeSessionId(JSON.parse(userId)?.session_id); } catch (e) { if (!(e instanceof SyntaxError)) throw e; }
     }
     return null;
 }

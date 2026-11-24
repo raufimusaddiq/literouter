@@ -187,7 +187,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
     let regData = null;
     try {
       regData = await regRes.json();
-    } catch {
+    } catch (err) {
+      console.error("Session registration returned no JSON:", err);
       regData = null;
     }
     if (!regRes.ok || regData?.success === false) {
@@ -309,7 +310,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
           const proxyData = await proxyRes.json();
           codexProxyActive = proxyData.success;
           codexServerSide = !!proxyData.serverSide;
-        } catch {
+        } catch (err) {
+          console.error("Codex proxy start failed:", err);
           codexProxyActive = false;
         }
       }
@@ -445,7 +447,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
           setStep("error");
           return;
         }
-      } catch {
+      } catch (err) {
+        if (attempts >= MAX_ATTEMPTS) console.error("OAuth status polling failed:", err);
       }
       if (attempts >= MAX_ATTEMPTS) {
         callbackProcessedRef.current = true;
@@ -521,7 +524,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         }
         localStorage.removeItem("oauth_callback");
       }
-    } catch {
+    } catch (err) {
+      console.error("Discarding unreadable oauth_callback from localStorage:", err);
     }
 
     return () => {

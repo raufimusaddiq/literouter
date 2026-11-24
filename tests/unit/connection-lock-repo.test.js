@@ -1,29 +1,19 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { describe, it, expect, beforeAll, afterAll } from "bun:test";
+import { describe, it, expect, beforeAll } from "bun:test";
 import { vi } from "#test/vi";
+import { useTempDataDirAtLoad } from "#test/tempDataDir";
 
-const originalDataDir = process.env.DATA_DIR;
-let tempDir;
 let db;
 let auth;
 
 vi.mock("@/lib/network/connectionProxy", () => ({ pickProxyPoolId: vi.fn(), resolveConnectionProxyConfig: vi.fn() }));
 
+useTempDataDirAtLoad("9router-lock-repo-");
+
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-lock-repo-"));
-  process.env.DATA_DIR = tempDir;
   vi.resetModules();
   db = await import("@/lib/db/index.js");
   await db.initDb();
   auth = await import("../../src/sse/services/auth.js");
-});
-
-afterAll(() => {
-  try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
-  if (originalDataDir === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = originalDataDir;
 });
 
 const lockKeys = (c) => Object.keys(c).filter((k) => k.startsWith("modelLock_"));

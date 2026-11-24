@@ -1,6 +1,8 @@
 import http from "http";
 import { URL } from "url";
 import { CODEX_CONFIG, ZED_HOSTED_CONFIG } from "../constants/oauth.js";
+import { decryptCallback } from "../providers/xiaomi-mimo.js";
+import { createProviderConnection } from "@/models";
 
 function isLoopbackOrigin(origin) {
   if (!origin) return true;
@@ -106,33 +108,6 @@ export function waitForCallback(timeoutMs = 300000) {
   });
 }
 
-let codexProxyServer = null;
-let codexProxyTimeout = null;
-
-const CODEX_PROXY_TIMEOUT_MS = 300000;
-const CODEX_PORT = CODEX_CONFIG.fixedPort;
-
-const pendingExchanges = new Map();
-
-export function registerCodexSession({ state, codeVerifier, redirectUri }) {
-  if (!state || !codeVerifier || !redirectUri) return false;
-  pendingExchanges.set(state, {
-    codeVerifier,
-    redirectUri,
-    status: "pending",
-    createdAt: Date.now(),
-  });
-  return true;
-}
-
-export function getCodexSessionStatus(state) {
-  return pendingExchanges.get(state) || null;
-}
-
-export function clearCodexSession(state) {
-  pendingExchanges.delete(state);
-}
-
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -155,229 +130,182 @@ function renderCodexResultPage(success, message) {
 </div></body></html>`;
 }
 
-export function startCodexProxy(appPort) {
-  return new Promise((resolve) => {
-    if (codexProxyServer) {
-      resolve({ success: true });
-      return;
+export function createFixedPortProxy({ provider, port, timeoutMs, exchange }) {
+  const sessions = new Map();
+  let server = null;
+  let timer = null;
+  let activePort = null;
+
+  const stop = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
     }
+    if (server) {
+      server.close();
+      server = null;
+    }
+    activePort = null;
+  };
 
-    const server = http.createServer(async (req, res) => {
-      const url = new URL(req.url, "http://localhost");
-
-      if (url.pathname !== "/callback" && url.pathname !== "/auth/callback") {
-        res.writeHead(404);
-        res.end("Not found");
+  const start = (appPort) =>
+    new Promise((resolve) => {
+      if (server) {
+        resolve({ success: true, port: activePort });
         return;
       }
 
-      const code = url.searchParams.get("code");
-      const state = url.searchParams.get("state");
-      const errorParam = url.searchParams.get("error");
-      const session = state ? pendingExchanges.get(state) : null;
+      const created = http.createServer(async (req, res) => {
+        const url = new URL(req.url, "http://localhost");
 
-      if (session) {
-        try {
-          if (errorParam) {
-            throw new Error(url.searchParams.get("error_description") || errorParam);
-          }
-          if (!code) throw new Error("No authorization code received");
-
-          const { exchangeTokens } = await import("../providers.js");
-          const { createProviderConnection } = await import("@/models");
-
-          const tokenData = await exchangeTokens(
-            "codex",
-            code,
-            session.redirectUri,
-            session.codeVerifier,
-            state
-          );
-          const connection = await createProviderConnection({
-            provider: "codex",
-            authType: "oauth",
-            ...tokenData,
-            expiresAt: tokenData.expiresIn
-              ? new Date(Date.now() + tokenData.expiresIn * 1000).toISOString()
-              : null,
-            testStatus: "active",
-          });
-
-          session.status = "done";
-          session.connectionId = connection.id;
-          session.email = connection.email;
-
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(renderCodexResultPage(true, "You can close this window."));
-        } catch (err) {
-          session.status = "error";
-          session.error = err.message;
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(renderCodexResultPage(false, err.message));
-        } finally {
-          stopCodexProxy();
+        if (url.pathname !== "/callback" && url.pathname !== "/auth/callback") {
+          res.writeHead(404);
+          res.end("Not found");
+          return;
         }
-        return;
-      }
 
-      const redirectUrl = `http://localhost:${appPort}/callback${url.search}`;
-      res.writeHead(302, { Location: redirectUrl });
-      res.end();
-      stopCodexProxy();
+        const state = url.searchParams.get("state");
+        const session = state ? sessions.get(state) : null;
+
+        if (session) {
+          try {
+            const errorParam = url.searchParams.get("error");
+            if (errorParam) {
+              throw new Error(url.searchParams.get("error_description") || errorParam);
+            }
+            const code = url.searchParams.get("code");
+            if (!code) throw new Error("No authorization code received");
+
+            const tokenData = await exchange({ provider, code, state, session });
+            const connection = await createProviderConnection({
+              provider,
+              authType: "oauth",
+              ...tokenData,
+              expiresAt: tokenData.expiresIn
+                ? new Date(Date.now() + tokenData.expiresIn * 1000).toISOString()
+                : null,
+              testStatus: "active",
+            });
+
+            session.status = "done";
+            session.connectionId = connection.id;
+            session.email = connection.email;
+
+            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(renderCodexResultPage(true, "You can close this window."));
+          } catch (err) {
+            session.status = "error";
+            session.error = err.message;
+            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(renderCodexResultPage(false, err.message));
+          } finally {
+            stop();
+          }
+          return;
+        }
+
+        res.writeHead(302, { Location: `http://localhost:${appPort}/callback${url.search}` });
+        res.end();
+        stop();
+      });
+
+      server = created;
+
+      created.listen(port, "127.0.0.1", () => {
+        activePort = created.address().port;
+        timer = setTimeout(stop, timeoutMs);
+        resolve({ success: true, port: activePort });
+      });
+
+      created.on("error", (err) => {
+        server = null;
+        if (err.code === "EADDRINUSE") {
+          resolve({ success: false, reason: "port_busy" });
+        } else {
+          resolve({ success: false, reason: err.message });
+        }
+      });
     });
 
-    server.listen(CODEX_PORT, "127.0.0.1", () => {
-      codexProxyServer = server;
-      codexProxyTimeout = setTimeout(() => stopCodexProxy(), CODEX_PROXY_TIMEOUT_MS);
-      resolve({ success: true });
+  const registerSession = ({ state, codeVerifier, redirectUri }) => {
+    if (!state || !codeVerifier || !redirectUri) return false;
+    sessions.set(state, {
+      codeVerifier,
+      redirectUri,
+      status: "pending",
+      createdAt: Date.now(),
     });
+    return true;
+  };
 
-    server.on("error", (err) => {
-      if (err.code === "EADDRINUSE") {
-        resolve({ success: false, reason: "port_busy" });
-      } else {
-        resolve({ success: false, reason: err.message });
-      }
-    });
-  });
+  return {
+    start,
+    stop,
+    registerSession,
+    getSession: (state) => sessions.get(state) || null,
+    clearSession: (state) => {
+      sessions.delete(state);
+    },
+  };
+}
+
+async function exchangeProviderCode(provider, { code, state, session }) {
+  const { exchangeTokens } = await import("../providers.js");
+  return exchangeTokens(provider, code, session.redirectUri, session.codeVerifier, state);
+}
+
+const codexProxy = createFixedPortProxy({
+  provider: "codex",
+  port: CODEX_CONFIG.fixedPort,
+  timeoutMs: 300000,
+  exchange: (ctx) => exchangeProviderCode("codex", ctx),
+});
+
+const xaiProxy = createFixedPortProxy({
+  provider: "xai",
+  port: 56121,
+  timeoutMs: 300000,
+  exchange: (ctx) => exchangeProviderCode("xai", ctx),
+});
+
+export function registerCodexSession(session) {
+  return codexProxy.registerSession(session);
+}
+
+export function getCodexSessionStatus(state) {
+  return codexProxy.getSession(state);
+}
+
+export function clearCodexSession(state) {
+  codexProxy.clearSession(state);
+}
+
+export function startCodexProxy(appPort) {
+  return codexProxy.start(appPort);
 }
 
 export function stopCodexProxy() {
-  if (codexProxyTimeout) {
-    clearTimeout(codexProxyTimeout);
-    codexProxyTimeout = null;
-  }
-  if (codexProxyServer) {
-    codexProxyServer.close();
-    codexProxyServer = null;
-  }
+  codexProxy.stop();
 }
 
-
-let xaiProxyServer = null;
-let xaiProxyTimeout = null;
-const XAI_PROXY_TIMEOUT_MS = 300000;
-const XAI_PROXY_PORT = 56121;
-const xaiPendingExchanges = new Map();
-
-export function registerXaiSession({ state, codeVerifier, redirectUri }) {
-  if (!state || !codeVerifier || !redirectUri) return false;
-  xaiPendingExchanges.set(state, {
-    codeVerifier,
-    redirectUri,
-    status: "pending",
-    createdAt: Date.now(),
-  });
-  return true;
+export function registerXaiSession(session) {
+  return xaiProxy.registerSession(session);
 }
 
 export function getXaiSessionStatus(state) {
-  return xaiPendingExchanges.get(state) || null;
+  return xaiProxy.getSession(state);
 }
 
 export function clearXaiSession(state) {
-  xaiPendingExchanges.delete(state);
-}
-
-function renderXaiResultPage(success, message) {
-  return renderCodexResultPage(success, message);
+  xaiProxy.clearSession(state);
 }
 
 export function startXaiProxy(appPort) {
-  return new Promise((resolve) => {
-    if (xaiProxyServer) {
-      resolve({ success: true });
-      return;
-    }
-
-    const server = http.createServer(async (req, res) => {
-      const url = new URL(req.url, "http://localhost");
-      if (url.pathname !== "/callback" && url.pathname !== "/auth/callback") {
-        res.writeHead(404);
-        res.end("Not found");
-        return;
-      }
-
-      const code = url.searchParams.get("code");
-      const state = url.searchParams.get("state");
-      const errorParam = url.searchParams.get("error");
-      const session = state ? xaiPendingExchanges.get(state) : null;
-
-      if (session) {
-        try {
-          if (errorParam) {
-            throw new Error(url.searchParams.get("error_description") || errorParam);
-          }
-          if (!code) throw new Error("No authorization code received");
-
-          const { exchangeTokens } = await import("../providers.js");
-          const { createProviderConnection } = await import("@/models");
-
-          const tokenData = await exchangeTokens(
-            "xai",
-            code,
-            session.redirectUri,
-            session.codeVerifier,
-            state
-          );
-          const connection = await createProviderConnection({
-            provider: "xai",
-            authType: "oauth",
-            ...tokenData,
-            expiresAt: tokenData.expiresIn
-              ? new Date(Date.now() + tokenData.expiresIn * 1000).toISOString()
-              : null,
-            testStatus: "active",
-          });
-
-          session.status = "done";
-          session.connectionId = connection.id;
-          session.email = connection.email;
-
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(renderXaiResultPage(true, "You can close this window."));
-        } catch (err) {
-          session.status = "error";
-          session.error = err.message;
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(renderXaiResultPage(false, err.message));
-        } finally {
-          stopXaiProxy();
-        }
-        return;
-      }
-
-      const redirectUrl = `http://localhost:${appPort}/callback${url.search}`;
-      res.writeHead(302, { Location: redirectUrl });
-      res.end();
-      stopXaiProxy();
-    });
-
-    server.listen(XAI_PROXY_PORT, "127.0.0.1", () => {
-      xaiProxyServer = server;
-      xaiProxyTimeout = setTimeout(() => stopXaiProxy(), XAI_PROXY_TIMEOUT_MS);
-      resolve({ success: true });
-    });
-
-    server.on("error", (err) => {
-      if (err.code === "EADDRINUSE") {
-        resolve({ success: false, reason: "port_busy" });
-      } else {
-        resolve({ success: false, reason: err.message });
-      }
-    });
-  });
+  return xaiProxy.start(appPort);
 }
 
 export function stopXaiProxy() {
-  if (xaiProxyTimeout) {
-    clearTimeout(xaiProxyTimeout);
-    xaiProxyTimeout = null;
-  }
-  if (xaiProxyServer) {
-    xaiProxyServer.close();
-    xaiProxyServer = null;
-  }
+  xaiProxy.stop();
 }
 
 
@@ -450,7 +378,6 @@ export function startZedProxy(preferredPort = 0) {
       const rawCallback = url.search ? `${url.pathname}?${url.searchParams.toString()}` : url.pathname;
       try {
         const { exchangeTokens } = await import("../providers.js");
-        const { createProviderConnection } = await import("@/models");
         const tokenData = await exchangeTokens(
           "zed",
           rawCallback,
@@ -601,7 +528,6 @@ export function startXiaomiMimoProxy() {
       }
 
       try {
-        const { decryptCallback } = await import("../providers/xiaomi-mimo.js");
         let result = null;
         let matchedState = null;
 

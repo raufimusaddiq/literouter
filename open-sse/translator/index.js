@@ -77,7 +77,7 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
   if (sourceFormat !== targetFormat) {
     const directFn = requestRegistry.get(`${sourceFormat}:${targetFormat}`);
     if (directFn) {
-      result = directFn(model, result, stream, credentials);
+      result = directFn(model, result, stream, credentials, provider);
     } else {
       if (sourceFormat !== FORMATS.OPENAI) {
         const toOpenAI = requestRegistry.get(`${sourceFormat}:${FORMATS.OPENAI}`);
@@ -90,7 +90,7 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
       if (targetFormat !== FORMATS.OPENAI) {
         const fromOpenAI = requestRegistry.get(`${FORMATS.OPENAI}:${targetFormat}`);
         if (fromOpenAI) {
-          result = fromOpenAI(model, result, stream, credentials);
+          result = fromOpenAI(model, result, stream, credentials, provider);
         }
       }
     }
@@ -244,9 +244,6 @@ export function initState(sourceFormat) {
   }
 
   return base;
-}
-
-export function initTranslators() {
 }
 
 import "./request/claude-to-openai.js";
