@@ -245,6 +245,30 @@ function reorderInTx(db, providerId) {
   });
 }
 
+export function findExistingOAuth(all, data) {
+  const incomingUsername = data.providerSpecificData?.username;
+  const incomingWs = data.providerSpecificData?.chatgptAccountId;
+  return all.find(c => {
+    if (c.authType !== "oauth" || c.email !== data.email) return false;
+
+    if (data.provider === "codex") {
+      const existingWs = c.providerSpecificData?.chatgptAccountId;
+      return !!incomingWs && !!existingWs && incomingWs === existingWs;
+    }
+
+    const existingWs = c.providerSpecificData?.chatgptAccountId;
+    if (incomingWs && existingWs) return incomingWs === existingWs;
+    if (incomingWs && !existingWs) return false;
+    if (!incomingWs && existingWs) return false;
+    const existingUsername = c.providerSpecificData?.username;
+    if (incomingUsername && existingUsername) {
+      return incomingUsername === existingUsername;
+    }
+    if (incomingUsername || existingUsername) return false;
+    return true;
+  });
+}
+
 export async function createProviderConnection(data) {
   const db = await getAdapter();
   const now = new Date().toISOString();
@@ -264,27 +288,7 @@ export async function createProviderConnection(data) {
 
     let existing = null;
     if (data.authType === "oauth" && data.email) {
-      const incomingUsername = data.providerSpecificData?.username;
-      const incomingWs = data.providerSpecificData?.chatgptAccountId;
-      existing = all.find(c => {
-        if (c.authType !== "oauth" || c.email !== data.email) return false;
-
-        if (data.provider === "codex") {
-          const existingWs = c.providerSpecificData?.chatgptAccountId;
-          return !!incomingWs && !!existingWs && incomingWs === existingWs;
-        }
-
-        const existingWs = c.providerSpecificData?.chatgptAccountId;
-        if (incomingWs && existingWs) return incomingWs === existingWs;
-        if (incomingWs && !existingWs) return false;
-        if (!incomingWs && existingWs) return false;
-        const existingUsername = c.providerSpecificData?.username;
-        if (incomingUsername && existingUsername) {
-          return incomingUsername === existingUsername;
-        }
-        if (incomingUsername || existingUsername) return false;
-        return true;
-      });
+      existing = findExistingOAuth(all, data);
     } else if (data.authType === "apikey" && data.name) {
       existing = all.find(c => c.authType === "apikey" && c.name === data.name);
     }
