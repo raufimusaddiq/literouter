@@ -92,12 +92,7 @@ Grouped per CLI/provider test file. Each row is an `it.fails` case.
 | `tool_choice:"none"` → `auto` | `request/openai-to-claude.js:298` |
 | `input_audio` dropped | `request/openai-to-claude.js` (no audio branch) |
 
-**Codex Responses (`bugs-codexCli-responses.test.js`)**
-| Bug | Source |
-|---|---|
-| Empty-name function_call can leave `tool_calls: []` | `request/openai-responses.js:103` |
-| `arguments` not coerced to string | `request/openai-responses.js:109-110` |
-| `input_image` uses `file_id` as raw url | `request/openai-responses.js:75-77` |
+**Codex Responses (`bugs-codexCli-responses.test.js`)** — no open cases.
 
 **Antigravity (`bugs-antigravity.test.js`)**
 | Bug | Source |

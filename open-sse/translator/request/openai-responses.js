@@ -70,11 +70,12 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
           if (c.type === RESPONSES_ITEM.INPUT_TEXT) return { type: OPENAI_BLOCK.TEXT, text: c.text };
           if (c.type === RESPONSES_ITEM.OUTPUT_TEXT) return { type: OPENAI_BLOCK.TEXT, text: c.text };
           if (c.type === RESPONSES_ITEM.INPUT_IMAGE) {
-            const url = c.image_url || c.file_id || "";
+            const url = typeof c.image_url === "string" ? c.image_url : c.image_url?.url;
+            if (!url) return null;
             return { type: OPENAI_BLOCK.IMAGE_URL, image_url: { url, detail: c.detail || "auto" } };
           }
           return c;
-        })
+        }).filter(Boolean)
         : item.content;
       const msg = { role: item.role, content };
       if (item.role === ROLE.ASSISTANT) attachPendingReasoning(msg);
@@ -82,9 +83,11 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
         pendingReasoning = "";
         pendingReasoningEncrypted = "";
       }
+      if (Array.isArray(content) && content.length === 0) continue;
       result.messages.push(msg);
     }
     else if (itemType === RESPONSES_ITEM.FUNCTION_CALL || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL) {
+      if (!item.name || typeof item.name !== "string" || item.name.trim() === "") continue;
       if (!currentAssistantMsg) {
         currentAssistantMsg = {
           role: ROLE.ASSISTANT,
@@ -93,7 +96,6 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
         };
         attachPendingReasoning(currentAssistantMsg);
       }
-      if (!item.name || typeof item.name !== "string" || item.name.trim() === "") continue;
       if (itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL) customToolNames.add(item.name);
       const toolInput = itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL
         ? { input: typeof item.input === "string" ? item.input : JSON.stringify(item.input ?? "") }
