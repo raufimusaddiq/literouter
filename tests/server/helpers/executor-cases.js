@@ -4,7 +4,6 @@ import {
   concatBytes,
   eventStreamFrame,
   eventStreamResponse,
-  eventSse,
   geminiSse,
   ndjson,
   openaiChunks,
@@ -27,8 +26,6 @@ const pointAt = (path) => (executor, m) => {
 };
 
 const openaiSseAt = (path, text) => (m) => m.on("POST", path, () => sse(openaiChunks(text)));
-
-const grpcTextFrame = (text) => connectFrame(protoString(1, protoString(1, text)));
 
 const lengthDelimited = (fieldNum, ...parts) => protoString(fieldNum, concatBytes(parts));
 
@@ -383,27 +380,6 @@ export const cases = [
     expectText: "codebuddy-intl-ok",
   },
   {
-    provider: "trae",
-    wire: "web-sse",
-    model: "gpt-4o",
-    credentials: { accessToken: "trae-jwt", providerSpecificData: {} },
-    body: chatBody("gpt-4o"),
-    path: "/trae/chat_sessions",
-    auth: { header: "authorization", pattern: /^Cloud-IDE-JWT trae-jwt$/ },
-    prepare: (executor, m) => {
-      executor.base = () => `${m.url}/trae`;
-    },
-    mock: (m) => {
-      m.on("POST", "/trae/chat_sessions", () => Response.json({ code: 0, data: { chat_session_id: "sess-1", message_id: "msg-1" } }));
-      m.on("GET", "/trae/chat_sessions/sess-1/events", () => eventSse([
-        ["plan_item", { id: "p1", thought: "trae-ok" }],
-        ["token_usage", { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 }],
-        ["done", {}],
-      ]));
-    },
-    expectText: "trae-ok",
-  },
-  {
     provider: "zed",
     wire: "ndjson",
     model: "grok-4",
@@ -420,20 +396,6 @@ export const cases = [
       m.on("POST", "/zed/completions", () => ndjson([zedEvent("zed-ok"), { status: "stream_ended" }]));
     },
     expectText: "zed-ok",
-  },
-  {
-    provider: "windsurf",
-    wire: "grpc-web",
-    model: "swe-1.5",
-    credentials: { accessToken: "ws-token" },
-    body: chatBody("swe-1.5"),
-    path: "/windsurf/GetChatMessage",
-    auth: bearer("ws-token"),
-    prepare: pointAt("/windsurf/GetChatMessage"),
-    mock: (m) => m.on("POST", "/windsurf/GetChatMessage", () => new Response(concatBytes([grpcTextFrame("windsurf-ok")]), {
-      headers: { "content-type": "application/grpc-web+proto" },
-    })),
-    expectText: "windsurf-ok",
   },
   {
     provider: "devin-cli",

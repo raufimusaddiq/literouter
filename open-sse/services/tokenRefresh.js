@@ -15,9 +15,7 @@ import {
   refreshCopilotToken,
   refreshCodebuddyToken,
   refreshCodebuddyIntlToken,
-  refreshTraeToken,
   refreshZedToken,
-  refreshWindsurfToken,
   classifyOAuthRefreshError,
 } from "./tokenRefresh/providers.js";
 
@@ -34,9 +32,7 @@ export {
   refreshCopilotToken,
   refreshCodebuddyToken,
   refreshCodebuddyIntlToken,
-  refreshTraeToken,
   refreshZedToken,
-  refreshWindsurfToken,
   classifyOAuthRefreshError,
 };
 
@@ -144,11 +140,9 @@ const REFRESH_HANDLERS = {
   gcli: (c, log) => refreshXaiToken(c.refreshToken, log),
   "codebuddy-cn": (c, log) => refreshCodebuddyToken(c.refreshToken, log),
   "codebuddy-intl": (c, log) => refreshCodebuddyIntlToken(c.refreshToken, log),
-  trae: (c, log) => refreshTraeToken(c.refreshToken, c, log),
   cline: (c, log) => refreshClineToken(c.refreshToken, log),
   clinepass: (c, log) => refreshClineToken(c.refreshToken, log),
   zed: () => refreshZedToken(),
-  windsurf: (c, log) => refreshWindsurfToken(c, log),
   kimi: (c, log) => refreshKimiToken(c.refreshToken, c, log),
   "kimi-coding": (c, log) => refreshKimiToken(c.refreshToken, c, log),
   vertex: vertexRefreshHandler,
