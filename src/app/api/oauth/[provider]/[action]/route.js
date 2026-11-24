@@ -21,16 +21,6 @@ import {
   registerXaiSession,
   getXaiSessionStatus,
   clearXaiSession,
-  startTraeProxy,
-  stopTraeProxy,
-  registerTraeSession,
-  getTraeSessionStatus,
-  clearTraeSession,
-  startWindsurfProxy,
-  stopWindsurfProxy,
-  registerWindsurfSession,
-  getWindsurfSessionStatus,
-  clearWindsurfSession,
   startZedProxy,
   stopZedProxy,
   registerZedSession,
@@ -42,7 +32,6 @@ import {
   getXiaomiMimoSessionStatus,
   clearXiaomiMimoSession,
 } from "@/lib/oauth/utils/server";
-import { detectIdeInstalled } from "@/lib/oauth/utils/ideDetect";
 import { ZED_HOSTED_CONFIG } from "@/lib/oauth/constants/oauth";
 
 async function completeXaiManualCode(code, state) {
@@ -129,14 +118,6 @@ export async function GET(request, { params }) {
     }
 
     if (action === "start-proxy") {
-      if (provider === "trae") {
-        const result = await startTraeProxy();
-        return json(result);
-      }
-      if (provider === "windsurf") {
-        const result = await startWindsurfProxy();
-        return json(result);
-      }
       if (provider === "zed") {
         const result = await startZedProxy(searchParams.get("native_app_port") || ZED_HOSTED_CONFIG.defaultNativeAppPort);
         return json(result);
@@ -146,7 +127,7 @@ export async function GET(request, { params }) {
         return json(result);
       }
       if (!["codex", "xai"].includes(provider)) {
-        return json({ error: "Proxy only supported for codex/xai/trae/windsurf/zed" }, { status: 400 });
+        return json({ error: "Proxy only supported for codex/xai/zed" }, { status: 400 });
       }
       const appPort = searchParams.get("app_port");
       if (!appPort) {
@@ -173,13 +154,11 @@ export async function GET(request, { params }) {
         return json({ error: "Missing state" }, { status: 400 });
       }
       let session;
-      if (provider === "trae") session = getTraeSessionStatus(state);
-      else if (provider === "windsurf") session = getWindsurfSessionStatus(state);
-      else if (provider === "zed") session = getZedSessionStatus(state);
+      if (provider === "zed") session = getZedSessionStatus(state);
       else if (provider === "xai") session = getXaiSessionStatus(state);
       else if (provider === "codex") session = getCodexSessionStatus(state);
       else if (provider === "xiaomi-mimo") session = getXiaomiMimoSessionStatus(state);
-      else return json({ error: "Poll only supported for codex/xai/trae/windsurf/zed/xiaomi-mimo" }, { status: 400 });
+      else return json({ error: "Poll only supported for codex/xai/zed/xiaomi-mimo" }, { status: 400 });
       if (!session) return json({ status: "unknown" });
       if (session.status === "done" || session.status === "error") {
         const payload = { ...session };
@@ -190,9 +169,7 @@ export async function GET(request, { params }) {
           }
           return json(payload);
         }
-        if (provider === "trae") clearTraeSession(state);
-        else if (provider === "windsurf") clearWindsurfSession(state);
-        else if (provider === "zed") clearZedSession(state);
+        if (provider === "zed") clearZedSession(state);
         else if (provider === "xai") clearXaiSession(state);
         else clearCodexSession(state);
         return json(payload);
@@ -201,22 +178,12 @@ export async function GET(request, { params }) {
     }
 
     if (action === "stop-proxy") {
-      if (provider === "trae") stopTraeProxy();
-      else if (provider === "windsurf") stopWindsurfProxy();
-      else if (provider === "zed") stopZedProxy();
+      if (provider === "zed") stopZedProxy();
       else if (provider === "xai") stopXaiProxy();
       else if (provider === "codex") stopCodexProxy();
       else if (provider === "xiaomi-mimo") stopXiaomiMimoProxy();
-      else return json({ error: "Proxy only supported for codex/xai/trae/windsurf/zed/xiaomi-mimo" }, { status: 400 });
+      else return json({ error: "Proxy only supported for codex/xai/zed/xiaomi-mimo" }, { status: 400 });
       return json({ success: true });
-    }
-
-    if (action === "ide-status") {
-      if (provider !== "trae" && provider !== "windsurf") {
-        return json({ error: "ide-status only supported for trae/windsurf" }, { status: 400 });
-      }
-      const status = await detectIdeInstalled(provider);
-      return json(status);
     }
 
     if (action === "device-code") {
@@ -283,10 +250,8 @@ export async function POST(request, { params }) {
       const state = searchParams.get("state") || body?.state;
       if (!state) return json({ error: "Missing state" }, { status: 400 });
       let ok = false;
-      if (provider === "trae") ok = registerTraeSession({ state });
-      else if (provider === "windsurf") ok = registerWindsurfSession({ state });
-      else if (provider === "zed") ok = registerZedSession({ state, codeVerifier: body?.codeVerifier, systemId: body?.systemId });
-      else return json({ error: "register-session only supported for trae/windsurf/zed" }, { status: 400 });
+      if (provider === "zed") ok = registerZedSession({ state, codeVerifier: body?.codeVerifier, systemId: body?.systemId });
+      else return json({ error: "register-session only supported for zed" }, { status: 400 });
       return json({ success: ok });
     }
 
@@ -345,36 +310,6 @@ export async function POST(request, { params }) {
         } catch (err) {
           clearXiaomiMimoSession(state);
           stopXiaomiMimoProxy();
-          return json({ error: err.message }, { status: 500 });
-        }
-      }
-
-      if (provider === "trae" || provider === "windsurf") {
-        const token = typeof code === "string" ? code.trim() : "";
-        if (!token) {
-          return json({ error: "Missing token or callback URL" }, { status: 400 });
-        }
-        try {
-          const tokenData = await exchangeTokens(provider, token, null, null, state);
-          const connection = await createProviderConnection({
-            provider,
-            authType: provider === "windsurf" ? "api_key" : "oauth",
-            ...tokenData,
-            expiresAt: tokenData.expiresIn
-              ? new Date(Date.now() + tokenData.expiresIn * 1000).toISOString()
-              : null,
-            testStatus: "active",
-          });
-          return json({
-            success: true,
-            connection: {
-              id: connection.id,
-              provider: connection.provider,
-              email: connection.email,
-              displayName: connection.displayName,
-            }
-          });
-        } catch (err) {
           return json({ error: err.message }, { status: 500 });
         }
       }

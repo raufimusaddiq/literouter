@@ -22,8 +22,6 @@ import gitlab from "./gitlab.js";
 import codebuddyCn from "./codebuddy-cn.js";
 import codebuddyIntl from "./codebuddy-intl.js";
 import kimchi from "./kimchi.js";
-import trae from "./trae.js";
-import windsurf from "./windsurf.js";
 import zed from "./zed.js";
 
 const PROVIDERS = {
@@ -46,8 +44,6 @@ const PROVIDERS = {
   "codebuddy-cn": codebuddyCn,
   "codebuddy-intl": codebuddyIntl,
   kimchi,
-  trae,
-  windsurf,
   zed,
 };
 
