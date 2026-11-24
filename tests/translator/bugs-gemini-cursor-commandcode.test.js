@@ -2,6 +2,7 @@ import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
+import { CURSOR_IMAGE_PLACEHOLDER } from "../../open-sse/translator/request/openai-to-cursor.js";
 
 const O2G = (body) => translateRequest(FORMATS.OPENAI, FORMATS.GEMINI, "m", body, true, null, "gemini");
 const O2C = (body) => translateRequest(FORMATS.OPENAI, FORMATS.CURSOR, "m", body, true, null, "cursor");
@@ -21,24 +22,24 @@ describe("OpenAI → Gemini", () => {
 });
 
 describe("OpenAI → Cursor", () => {
-  it.failing("image content is preserved", () => {
+  it("image content becomes an explicit placeholder", () => {
     const out = O2C({
       messages: [{ role: "user", content: [
         { type: "text", text: "look" },
         { type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } },
       ] }],
     });
-    expect(JSON.stringify(out), "image dropped").toContain("AAAA");
+    expect(JSON.stringify(out), "image dropped silently").toContain(CURSOR_IMAGE_PLACEHOLDER);
   });
 
-  it.failing("respects client max_tokens", () => {
+  it("respects client max_tokens", () => {
     const out = O2C({ max_tokens: 200, messages: [{ role: "user", content: "hi" }] });
     expect(out.max_tokens).toBe(200);
   });
 });
 
 describe("OpenAI → CommandCode", () => {
-  it.failing("malformed tool arguments are not silently emptied", () => {
+  it("malformed tool arguments are not silently emptied", () => {
     const out = O2CC({
       messages: [
         { role: "user", content: "go" },

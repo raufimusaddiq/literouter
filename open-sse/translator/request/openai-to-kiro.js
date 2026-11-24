@@ -13,6 +13,8 @@ import {
   usesKiroNativeGptEffort
 } from "../../config/kiroConstants.js";
 import { parseDataUri } from "../concerns/image.js";
+import { adjustMaxTokens } from "../formats/maxTokens.js";
+import { DEFAULT_MIN_TOKENS } from "../../config/runtimeConfig.js";
 import { DEFAULT_IMAGE_MIME } from "../schema/index.js";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
 import {
@@ -256,7 +258,7 @@ function convertMessages(messages, model) {
 export function openaiToKiroRequest(model, body, stream, credentials) {
   const messages = body.messages || [];
   const tools = body.tools || [];
-  const maxTokens = 32000;
+  const maxTokens = adjustMaxTokens(body, DEFAULT_MIN_TOKENS);
   const temperature = body.temperature;
   const topP = body.top_p;
 

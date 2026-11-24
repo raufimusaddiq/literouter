@@ -246,9 +246,6 @@ export function initState(sourceFormat) {
   return base;
 }
 
-export function initTranslators() {
-}
-
 import "./request/claude-to-openai.js";
 import "./request/openai-to-claude.js";
 import "./request/gemini-to-openai.js";
