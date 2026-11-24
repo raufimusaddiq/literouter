@@ -1,4 +1,3 @@
-import { createHmac } from "crypto";
 import { afterEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
@@ -9,15 +8,13 @@ vi.mock("../../open-sse/utils/proxyFetch.js", async () => ({
 }));
 
 const { KIRO_IDE_VERSION } = await import("../../open-sse/config/kiroClient.js");
-const { buildKiroIdentityHeaders } = await import("../../open-sse/shared/kiroIdentity.js");
+const { buildKiroIdentityHeaders, deriveKiroMachineId } = await import("../../open-sse/shared/kiroIdentity.js");
 const { KiroExecutor } = await import("../../open-sse/executors/kiro.js");
 const { resolveKiroModels, clearKiroModelCache } = await import("../../open-sse/services/kiroModels.js");
 const { getKiroUsage } = await import("../../open-sse/services/usage/kiro.js");
 const { KiroService } = await import("../../src/lib/oauth/services/kiro.js");
 const { fetchKiroProfileArn } = await import("../../src/lib/oauth/providerHelpers.js");
 
-const { KIRO_MACHINE_ID_KEY } = await import("../../open-sse/shared/kiroIdentity.js");
-const machineIdOf = (s) => createHmac("sha256", KIRO_MACHINE_ID_KEY).update(s).digest("hex");
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const credentials = {
   accessToken: "test-access-token",
@@ -65,7 +62,7 @@ describe("Kiro client identity (#5613)", () => {
   it("derives a stable per-account machine id without leaking credentials", () => {
     const headers = buildKiroIdentityHeaders(credentials);
     const { ua } = expectCurrentIdentity(headers);
-    expect(ua.endsWith(machineIdOf("test-client-id"))).toBe(true);
+    expect(ua.endsWith(deriveKiroMachineId("test-client-id"))).toBe(true);
     for (const secret of ["test-client-id", "test-refresh-token", "test-access-token"]) {
       expect(JSON.stringify(headers)).not.toContain(secret);
     }

@@ -1,4 +1,4 @@
-import { createHmac } from "crypto";
+import { pbkdf2Sync } from "crypto";
 import {
   KIRO_IDE_VERSION,
   KIRO_SDK_VERSION,
@@ -9,6 +9,17 @@ import {
 } from "../config/kiroClient.js";
 
 export const KIRO_MACHINE_ID_KEY = "literouter-kiro-machine-id";
+const MACHINE_ID_CACHE_MAX = 256;
+const machineIds = new Map();
+
+export function deriveKiroMachineId(seed) {
+  const cached = machineIds.get(seed);
+  if (cached) return cached;
+  const id = pbkdf2Sync(seed, KIRO_MACHINE_ID_KEY, 1000, 32, "sha256").toString("hex");
+  if (machineIds.size >= MACHINE_ID_CACHE_MAX) machineIds.delete(machineIds.keys().next().value);
+  machineIds.set(seed, id);
+  return id;
+}
 
 export function buildKiroIdentityHeaders(credentials, client = "runtime") {
   const seed =
@@ -18,7 +29,7 @@ export function buildKiroIdentityHeaders(credentials, client = "runtime") {
     || credentials?.apiKey
     || credentials?.accessToken
     || "kiro-anonymous";
-  const machineId = createHmac("sha256", KIRO_MACHINE_ID_KEY).update(String(seed)).digest("hex");
+  const machineId = deriveKiroMachineId(String(seed));
   const { api, metrics } = KIRO_SDK_CLIENTS[client] || KIRO_SDK_CLIENTS.runtime;
   const identity = `KiroIDE-${KIRO_IDE_VERSION}-${machineId}`;
 

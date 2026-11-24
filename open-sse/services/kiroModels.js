@@ -209,3 +209,7 @@ export async function resolveKiroModels(credentials, options = {}) {
 
   return { models: expanded, rawModels: raw };
 }
+
+export function clearKiroModelCache() {
+  catalogCache.clear();
+}
