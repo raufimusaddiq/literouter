@@ -49,7 +49,10 @@ const eslintConfig = defineConfig([
     name: "literouter/react-hooks",
     files: reactSources,
     plugins: { "react-hooks": reactHooks },
-    rules: { ...reactHooks.configs.recommended.rules },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      "react-hooks/set-state-in-effect": "warn",
+    },
   },
   {
     name: "literouter/cli-entry",

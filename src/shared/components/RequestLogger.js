@@ -25,9 +25,7 @@ export default function RequestLogger() {
   };
 
   useEffect(() => {
-    (async () => {
-      await fetchLogs();
-    })();
+    fetchLogs();
   }, []);
 
   useEffect(() => {

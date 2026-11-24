@@ -454,38 +454,28 @@ export default function ProviderDetailPage() {
   };
 
   useEffect(() => {
-    (async () => {
-      fetchConnections();
-      fetchAliases();
-      fetchCustomModels();
-      fetchDisabledModels();
-    })();
+    fetchConnections();
+    fetchAliases();
+    fetchCustomModels();
+    fetchDisabledModels();
   }, [fetchConnections, fetchAliases, fetchCustomModels, fetchDisabledModels]);
 
   useEffect(() => {
     const isLiveCatalog = LIVE_MODEL_CATALOG_PROVIDERS.has(providerId);
     if (!isLiveCatalog) {
-      (async () => {
-        setLiveModels([]);
-      })();
+      setLiveModels([]);
       return;
     }
 
     const connection = connections.find((item) => item.isActive !== false);
     if (!connection?.id) {
-      (async () => {
-        setLiveModels([]);
-        if (providerId === "zed") setLiveModelsError(null);
-      })();
+      setLiveModels([]);
+      if (providerId === "zed") setLiveModelsError(null);
       return;
     }
 
     let cancelled = false;
-    if (providerId === "zed") {
-      (async () => {
-        setLiveModelsError(null);
-      })();
-    }
+    if (providerId === "zed") setLiveModelsError(null);
     fetch(`/api/providers/${connection.id}/models`, { cache: "no-store" })
       .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => null) }))
       .then(({ ok, data }) => {
@@ -952,9 +942,7 @@ export default function ProviderDetailPage() {
   };
 
   useEffect(() => {
-    (async () => {
-      setSelectedConnectionIds((prev) => prev.filter((id) => connections.some((conn) => conn.id === id)));
-    })();
+    setSelectedConnectionIds((prev) => prev.filter((id) => connections.some((conn) => conn.id === id)));
   }, [connections]);
 
   const selectedProxySummary = (() => {

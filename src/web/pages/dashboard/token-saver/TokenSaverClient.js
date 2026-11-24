@@ -108,9 +108,7 @@ export default function TokenSaverClient() {
   const { copied, copy } = useCopyToClipboard();
 
   useEffect(() => {
-    (async () => {
-      setLocale(getCurrentLocale());
-    })();
+    setLocale(getCurrentLocale());
     return onLocaleChange(() => setLocale(getCurrentLocale()));
   }, []);
 
@@ -134,10 +132,8 @@ export default function TokenSaverClient() {
   useEffect(() => {
     const current = CAVEMAN_LEVELS.find((lvl) => lvl.id === cavemanLevel);
     if (current?.wenyan && !isWenyanLocale) {
-      (async () => {
-        setCavemanLevel("ultra");
-        await patchSetting({ cavemanLevel: "ultra" });
-      })();
+      setCavemanLevel("ultra");
+      patchSetting({ cavemanLevel: "ultra" });
     }
   }, [isWenyanLocale, cavemanLevel]);
 

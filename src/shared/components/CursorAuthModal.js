@@ -41,9 +41,7 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }) {
 
   useEffect(() => {
     if (!isOpen) return;
-    (async () => {
-      await runAutoDetect();
-    })();
+    runAutoDetect();
   }, [isOpen]);
 
   const handleImportToken = async () => {

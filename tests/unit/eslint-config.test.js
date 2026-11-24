@@ -22,7 +22,6 @@ describe("eslint flat config", () => {
   it("applies the React Compiler rules as errors to React sources", async () => {
     const rules = await rulesFor("src/web/main.jsx");
     for (const name of [
-      "react-hooks/set-state-in-effect",
       "react-hooks/immutability",
       "react-hooks/rules-of-hooks",
       "react-hooks/refs",
@@ -31,6 +30,11 @@ describe("eslint flat config", () => {
     ]) {
       expect(severity(rules[name])).toBe(2);
     }
+  });
+
+  it("keeps set-state-in-effect as a warning while data loaders set state after fetch", async () => {
+    const rules = await rulesFor("src/web/main.jsx");
+    expect(severity(rules["react-hooks/set-state-in-effect"])).toBe(1);
   });
 
   it("leaves the react-hooks rules out of non-React sources", async () => {

@@ -117,15 +117,11 @@ function useBurn(active, enabled) {
   const [shown, setShown] = useState(active && enabled);
   useEffect(() => {
     if (active && enabled) {
-      (async () => {
-        setShown(true);
-      })();
+      setShown(true);
       return undefined;
     }
     if (!enabled) {
-      (async () => {
-        setShown(false);
-      })();
+      setShown(false);
       return undefined;
     }
     const id = setTimeout(() => setShown(false), BURN_MS);

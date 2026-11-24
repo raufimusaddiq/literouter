@@ -19,9 +19,7 @@ export default function HeaderLanguage() {
   const [locale, setLocale] = useState("en");
 
   useEffect(() => {
-    (async () => {
-      setLocale(getLocaleFromCookie());
-    })();
+    setLocale(getLocaleFromCookie());
   }, [open]);
 
   return (

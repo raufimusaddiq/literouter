@@ -67,11 +67,9 @@ function ProviderNode({ data }) {
   const { providerId, label, textIcon, active, error, status = "idle", index = 0 } = data;
   const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY, false);
   const fx = useNodeFx(edgeState(data), !reducedMotion);
-  const [tickDelay, setTickDelay] = useState(0);
+  const [tickDelay, setTickDelay] = useState(() => (active ? arrivalTickDelay(Date.now()) : 0));
   useEffect(() => {
-    (async () => {
-      setTickDelay(active ? arrivalTickDelay(Date.now()) : 0);
-    })();
+    setTickDelay(active ? arrivalTickDelay(Date.now()) : 0);
   }, [active]);
 
   const fxClass = fx ? ` is-${fx.kind}` : "";
@@ -336,34 +334,34 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
   const lastSet = useMemo(() => new Set(lastKey ? [lastKey] : []), [lastKey]);
   const errorSet = useMemo(() => new Set(errorKey ? [errorKey] : []), [errorKey]);
 
-  const firstSeenRef = useRef({});
-  const [tick, setTick] = useState(0);
-  const [activeSet, setActiveSet] = useState(() => new Set());
+  const [seenAt, setSeenAt] = useState({});
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const seen = firstSeenRef.current;
-    const now = Date.now();
-    for (const p of rawActiveSet) {
-      if (!seen[p]) seen[p] = now;
-    }
-    for (const p of Object.keys(seen)) {
-      if (!rawActiveSet.has(p)) delete seen[p];
-    }
-    const filtered = new Set();
-    for (const p of rawActiveSet) {
-      const ts = seen[p];
-      if (!ts || now - ts < FE_ACTIVE_TIMEOUT_MS) filtered.add(p);
-    }
-    (async () => {
-      setActiveSet(filtered);
-    })();
-  }, [rawActiveSet, tick]);
+    const ts = Date.now();
+    setSeenAt((prev) => {
+      const next = {};
+      for (const p of rawActiveSet) next[p] = prev[p] ?? ts;
+      const prevKeys = Object.keys(prev);
+      const unchanged = prevKeys.length === rawActiveSet.size && prevKeys.every((k) => next[k] === prev[k]);
+      return unchanged ? prev : next;
+    });
+  }, [rawActiveSet]);
 
   useEffect(() => {
     if (rawActiveSet.size === 0) return;
-    const id = setInterval(() => setTick((t) => t + 1), FE_ACTIVE_TICK_MS);
+    const id = setInterval(() => setNow(Date.now()), FE_ACTIVE_TICK_MS);
     return () => clearInterval(id);
   }, [rawActiveSet]);
+
+  const activeSet = useMemo(() => {
+    const filtered = new Set();
+    for (const p of rawActiveSet) {
+      const ts = seenAt[p];
+      if (!ts || now - ts < FE_ACTIVE_TIMEOUT_MS) filtered.add(p);
+    }
+    return filtered;
+  }, [rawActiveSet, seenAt, now]);
 
   const { nodes, edges } = useMemo(
     () => buildLayout(providers, activeSet, lastSet, errorSet),

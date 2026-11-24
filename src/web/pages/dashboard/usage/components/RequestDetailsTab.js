@@ -207,15 +207,11 @@ export default function RequestDetailsTab() {
   }, [pagination.page, pagination.pageSize, filters]);
 
   useEffect(() => {
-    (async () => {
-      await fetchProviders();
-    })();
+    fetchProviders();
   }, [fetchProviders]);
 
   useEffect(() => {
-    (async () => {
-      await fetchDetails();
-    })();
+    fetchDetails();
   }, [fetchDetails]);
 
   const handleViewDetail = (detail) => {

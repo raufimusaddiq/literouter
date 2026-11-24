@@ -27,9 +27,7 @@ export default function PricingSettingsPage() {
   };
 
   useEffect(() => {
-    (async () => {
-      await loadPricing();
-    })();
+    loadPricing();
   }, []);
 
   const handlePricingUpdated = () => {

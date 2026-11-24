@@ -86,10 +86,8 @@ export default function CombosPage() {
   };
 
   useEffect(() => {
-    (async () => {
-      await fetchData();
-    })();
-  }, []);
+    fetchData();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSetCapacityAdapter = async (next) => {
     setCapacityAdapter(next);

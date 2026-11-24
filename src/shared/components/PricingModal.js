@@ -32,10 +32,9 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
   };
 
   useEffect(() => {
-    if (!isOpen) return;
-    (async () => {
-      await loadPricing();
-    })();
+    if (isOpen) {
+      loadPricing();
+    }
   }, [isOpen]);
 
   const handlePricingChange = (provider, model, field, value) => {

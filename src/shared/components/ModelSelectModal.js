@@ -29,9 +29,7 @@ function useLiveProviderModels(isOpen, connectionIds, label) {
   useEffect(() => {
     const ids = idsKey ? idsKey.split("|") : [];
     if (!isOpen || ids.length === 0) {
-      (async () => {
-        setModels([]);
-      })();
+      setModels([]);
       return undefined;
     }
 
@@ -118,7 +116,7 @@ export default function ModelSelectModal({
   };
 
   useEffect(() => {
-    if (isOpen) (async () => fetchCombos())();
+    if (isOpen) fetchCombos();
   }, [isOpen]);
 
   const fetchProviderNodes = async () => {
@@ -134,7 +132,7 @@ export default function ModelSelectModal({
   };
 
   useEffect(() => {
-    if (isOpen) (async () => fetchProviderNodes())();
+    if (isOpen) fetchProviderNodes();
   }, [isOpen]);
 
   const fetchCustomModels = async () => {
@@ -150,7 +148,7 @@ export default function ModelSelectModal({
   };
 
   useEffect(() => {
-    if (isOpen) (async () => fetchCustomModels())();
+    if (isOpen) fetchCustomModels();
   }, [isOpen]);
 
   const fetchDisabledModels = async () => {
@@ -166,7 +164,7 @@ export default function ModelSelectModal({
   };
 
   useEffect(() => {
-    if (isOpen) (async () => fetchDisabledModels())();
+    if (isOpen) fetchDisabledModels();
   }, [isOpen]);
 
   const allProviders = useMemo(() => ({ ...OAUTH_PROVIDERS, ...FREE_PROVIDERS, ...FREE_TIER_PROVIDERS, ...APIKEY_PROVIDERS }), []);

@@ -75,10 +75,8 @@ export default function SystemOnePage() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      setForm(loadStoredForm());
-      setHydrated(true);
-    })();
+    setForm(loadStoredForm());
+    setHydrated(true);
   }, []);
 
   useEffect(() => {

@@ -18,15 +18,14 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
   const [validationResult, setValidationResult] = useState(null);
 
   useEffect(() => {
-    if (!node) return;
-    (async () => {
+    if (node) {
       setFormData({
         name: node.name || "",
         prefix: node.prefix || "",
         apiType: node.apiType || "chat",
         baseUrl: node.baseUrl || (isAnthropic ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"),
       });
-    })();
+    }
   }, [node, isAnthropic]);
 
   const apiTypeOptions = [
