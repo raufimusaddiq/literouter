@@ -31,7 +31,9 @@ function removeLegacyAutoStart(platform = process.platform, locations) {
   if (!legacyPath || !fs.existsSync(legacyPath)) return false;
   try {
     if (platform === "darwin") execSync(`launchctl unload "${legacyPath}"`, { stdio: "ignore" });
-  } catch (e) {}
+  } catch (e) {
+    if (e?.code === "ENOENT") throw e;
+  }
   try {
     fs.unlinkSync(legacyPath);
   } catch (e) {
@@ -68,6 +70,7 @@ function enableAutoStart(cliPath, opts = {}) {
     if (platform === "win32") return enableWindows(cliPath, opts);
     if (platform === "linux") return enableLinux(cliPath, opts);
   } catch (err) {
+    console.error(`[autostart] enable failed: ${err.message}`);
   }
   return false;
 }
@@ -79,7 +82,9 @@ function disableAutoStart() {
     if (platform === "darwin") return disableMacOS();
     if (platform === "win32") return disableWindows();
     if (platform === "linux") return disableLinux();
-  } catch (err) {}
+  } catch (err) {
+    console.error(`[autostart] disable failed: ${err.message}`);
+  }
   return false;
 }
 
@@ -106,7 +111,9 @@ function isAutoStartEnabled() {
       const desktopPath = path.join(homeDir(), ".config", "autostart", `${APP_NAME}.desktop`);
       return fs.existsSync(desktopPath);
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error(`[autostart] status check failed: ${e.message}`);
+  }
   return false;
 }
 
@@ -178,10 +185,13 @@ ${argLines}
 
   try {
     execSync(`launchctl unload "${plistPath}"`, { stdio: "ignore" });
-  } catch (e) {}
+  } catch (e) {
+    if (e?.code === "ENOENT") throw e;
+  }
   try {
     execSync(`launchctl load -w "${plistPath}"`, { stdio: "ignore" });
   } catch (e) {
+    console.error(`[autostart] launchctl load failed: ${e.message}`);
   }
   return true;
 }
@@ -192,7 +202,9 @@ function disableMacOS() {
   if (!isAgentSelfMacOS()) {
     try {
       execSync(`launchctl unload "${plistPath}"`, { stdio: "ignore" });
-    } catch (e) {}
+    } catch (e) {
+      if (e?.code === "ENOENT") throw e;
+    }
   }
 
   if (fs.existsSync(plistPath)) {
