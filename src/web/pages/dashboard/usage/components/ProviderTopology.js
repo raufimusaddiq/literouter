@@ -68,7 +68,10 @@ function ProviderNode({ data }) {
   const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY, false);
   const fx = useNodeFx(edgeState(data), !reducedMotion);
   const [tickDelay, setTickDelay] = useState(() => (active ? arrivalTickDelay(Date.now()) : 0));
+  const previousActive = useRef(active);
   useEffect(() => {
+    if (previousActive.current === active) return;
+    previousActive.current = active;
     setTickDelay(active ? arrivalTickDelay(Date.now()) : 0);
   }, [active]);
 

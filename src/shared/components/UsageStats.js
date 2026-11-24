@@ -547,6 +547,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           <Skeleton className="h-[200px] w-full rounded-md" />
         ) : activeTableConfig && (
           <UsageTable
+            key={activeTableConfig.storageKey}
             title=""
             columns={activeTableConfig.columns}
             groupedData={activeTableConfig.groupedData}

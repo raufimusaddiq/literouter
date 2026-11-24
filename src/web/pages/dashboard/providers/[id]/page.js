@@ -154,7 +154,7 @@ export default function ProviderDetailPage() {
   const isSystemOne = providerInfo?.serviceKinds?.includes("systemone");
   const isFreeNoAuth = !!FREE_PROVIDERS[providerId]?.noAuth;
   const staticModels = getModelsByProviderId(providerId);
-  const providerAlias = String(getProviderAlias(providerId));
+  const providerAlias = getProviderAlias(providerId);
   const models = LIVE_MODEL_CATALOG_PROVIDERS.has(providerId) && providerId !== "kenari" && liveModels.length > 0
     ? liveModels
     : applyQoderModelNames(staticModels, customModels, providerAlias);
@@ -204,14 +204,15 @@ export default function ProviderDetailPage() {
     : providerAlias;
 
   const fetchDisabledModels = useCallback(async () => {
+    const alias = isCompatible ? providerId : getProviderAlias(providerId);
     try {
-      const res = await fetch(`/api/models/disabled?providerAlias=${encodeURIComponent(providerStorageAlias)}`, { cache: "no-store" });
+      const res = await fetch(`/api/models/disabled?providerAlias=${encodeURIComponent(alias)}`, { cache: "no-store" });
       const data = await res.json();
       if (res.ok) setDisabledModelIds(data.ids || []);
     } catch (error) {
       console.log("Error fetching disabled models:", error);
     }
-  }, [providerStorageAlias]);
+  }, [providerId, isCompatible]);
 
   const handleDisableModel = async (modelId) => {
     try {
