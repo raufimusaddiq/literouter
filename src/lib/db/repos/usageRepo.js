@@ -587,15 +587,13 @@ async function noteKeyBudgetSpend(prepared, rawApiKey) {
   try {
     const { getApiKeyByKey } = await import("./apiKeysRepo.js");
     const record = await getApiKeyByKey(rawApiKey);
-    if (!record?.budget) return;
+    if (!record) return;
     const tokens = prepared.tokens || {};
     prepared.budgetKeyId = record.id;
-    prepared.budgetPeriod = record.budget.period;
     prepared.budgetTokens = (tokens.prompt_tokens || tokens.input_tokens || 0) + (tokens.completion_tokens || tokens.output_tokens || 0);
     prepared.budgetCost = Number(prepared.cost) || 0;
     noteBudgetSpend({
       keyId: record.id,
-      period: record.budget.period,
       tokens: prepared.budgetTokens,
       cost: prepared.budgetCost,
       ts: Date.parse(prepared.timestamp),

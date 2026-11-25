@@ -96,7 +96,7 @@ export function keyAccessDeniedResponse(ctx, requested) {
 }
 
 export async function enforceKeyAccess(ctx, requested) {
-  if (!ctx?.restricted) return null;
+  if (!ctx || ctx.restricted === false) return null;
   if (typeof requested !== "string" || !requested) return keyAccessDeniedResponse(ctx, String(requested ?? ""));
   const sets = await getAllowSets(ctx);
   const comboModels = await getComboModels(requested);
@@ -107,7 +107,7 @@ export async function enforceKeyAccess(ctx, requested) {
 }
 
 export async function enforceKeyAccessResolved(ctx, requested, provider, model) {
-  if (!ctx?.restricted) return null;
+  if (!ctx || ctx.restricted === false) return null;
   const label = requested || (provider ? `${provider}/${model ?? ""}` : "");
   if (!provider || !model) return keyAccessDeniedResponse(ctx, label);
   const sets = await getAllowSets(ctx);
@@ -115,7 +115,7 @@ export async function enforceKeyAccessResolved(ctx, requested, provider, model) 
 }
 
 export async function enforceKeyAccessProvider(ctx, requested, comboModels) {
-  if (!ctx?.restricted) return null;
+  if (!ctx || ctx.restricted === false) return null;
   if (typeof requested !== "string" || !requested) return keyAccessDeniedResponse(ctx, String(requested ?? ""));
   const sets = await getAllowSets(ctx);
   const allowed = comboModels
@@ -154,7 +154,7 @@ export async function enforceKeyBudget(ctx) {
 }
 
 export async function filterAdapterModels(ctx, augmented, original) {
-  if (!ctx?.restricted || !Array.isArray(augmented)) return augmented;
+  if (!ctx || ctx.restricted === false || !Array.isArray(augmented)) return augmented;
   const keep = new Set(original || []);
   const out = [];
   for (const m of augmented) {
@@ -165,7 +165,7 @@ export async function filterAdapterModels(ctx, augmented, original) {
 }
 
 export async function filterModelsListForKey(ctx, list) {
-  if (!ctx?.restricted || !Array.isArray(list)) return list;
+  if (!ctx || ctx.restricted === false || !Array.isArray(list)) return list;
   const sets = await getAllowSets(ctx);
   const out = [];
   for (const entry of list) {
