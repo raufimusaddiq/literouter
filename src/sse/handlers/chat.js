@@ -134,13 +134,14 @@ async function handleChatImpl(request, clientRawRequest = null) {
       body,
       models: soloAugmented,
       handleSingleModel: withCapacityAdapterStripping(
-        (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+        (b, m, attemptMeta) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, [], attemptMeta),
         adapterAdded
       ),
       log,
       comboName: modelStr,
       comboStrategy: getActiveAdapterStrategy(requiredCapabilities, settings),
-      signal: request.signal
+      signal: request.signal,
+      preContentFailover: true
     });
   }
 
@@ -207,7 +208,7 @@ async function dispatchCombo({
     body,
     models: augmentedModels,
     handleSingleModel: withCapacityAdapterStripping(
-      (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, nextChain),
+      (b, m, attemptMeta) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, nextChain, attemptMeta),
       adapterAdded
     ),
     log,
@@ -215,10 +216,11 @@ async function dispatchCombo({
     comboStrategy,
     comboStickyLimit,
     signal: request?.signal,
+    preContentFailover: true,
   });
 }
 
-async function handleSingleModelChat(body, modelStr, clientRawRequest = null, request = null, apiKey = null, chain = []) {
+async function handleSingleModelChat(body, modelStr, clientRawRequest = null, request = null, apiKey = null, chain = [], attemptMeta = null) {
   const modelInfo = await getModelInfo(modelStr);
 
   if (!modelInfo.provider) {
@@ -326,6 +328,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
       onPxpipeEvent: appendPxpipeEvent,
       providerThinking,
+      allowPreContentFailover: attemptMeta?.hasFallback === true,
       sourceFormatOverride: request?.url ? detectFormatByEndpoint(new URL(request.url).pathname, body) : null,
       onCredentialsRefreshed: async (newCreds) => {
         await updateProviderCredentials(credentials.connectionId, {
@@ -343,6 +346,10 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     if (result.success) return result.response;
 
     if (result.status === CLIENT_CLOSED_REQUEST || request?.signal?.aborted || result.status === HTTP_STATUS.GATEWAY_TIMEOUT) {
+      return result.response;
+    }
+
+    if (result.preContentStall) {
       return result.response;
     }
 

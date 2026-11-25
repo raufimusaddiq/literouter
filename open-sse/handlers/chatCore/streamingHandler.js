@@ -5,7 +5,15 @@ import { createSSETransformStreamWithLogger, createPassthroughStreamWithLogger, 
 import { createResponsesEventRewriter } from "../../translator/concerns/responsesFunctionTools.js";
 import { pipeWithDisconnect } from "../../utils/streamHandler.js";
 import { PROVIDERS } from "../../config/providers.js";
-import { HTTP_STATUS, STREAM_STALL_TIMEOUT_MS, STREAM_STALL_TIMEOUT_FLASH_MS } from "../../config/runtimeConfig.js";
+import {
+  HTTP_STATUS,
+  STREAM_STALL_TIMEOUT_MS,
+  STREAM_STALL_TIMEOUT_FLASH_MS,
+  STREAM_PRE_CONTENT_TIMEOUT_MS,
+  STREAM_PRE_CONTENT_TIMEOUT_FLASH_MS,
+} from "../../config/runtimeConfig.js";
+import { recordUpstreamStall, recordUpstreamSuccess } from "../../services/upstreamHealth.js";
+import { waitForMeaningfulContent } from "../../utils/preContentGate.js";
 import { buildAbortedResponsesTerminalBytes } from "../../utils/responsesStreamHelpers.js";
 import { createErrorResult } from "../../utils/error.js";
 import { buildStreamErrorBytes } from "../../utils/streamHelpers.js";
@@ -59,7 +67,13 @@ export function resolveStallTimeoutMs(provider, model) {
   return FLASH_MODEL_RE.test(String(model || "")) ? STREAM_STALL_TIMEOUT_FLASH_MS : STREAM_STALL_TIMEOUT_MS;
 }
 
-export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, onStreamAbort, streamDetailId, pxpipe, reqTag, log, credentials }) {
+export function resolvePreContentTimeoutMs(provider, model) {
+  const providerMs = PROVIDERS[provider]?.preContentTimeoutMs;
+  if (providerMs) return providerMs;
+  return FLASH_MODEL_RE.test(String(model || "")) ? STREAM_PRE_CONTENT_TIMEOUT_FLASH_MS : STREAM_PRE_CONTENT_TIMEOUT_MS;
+}
+
+export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, onStreamAbort, streamDetailId, pxpipe, reqTag, log, credentials, allowPreContentFailover = false, preContentTimeoutMs = null, clientSignal = null, disposeUpstreamSignals = null }) {
   const upstreamContentType = (providerResponse.headers.get('content-type') || '').toLowerCase();
   if (upstreamContentType && !upstreamContentType.includes('text/event-stream') && !upstreamContentType.includes('application/json')) {
     const bodyText = await providerResponse.text().catch(() => '');
@@ -75,14 +89,22 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     ${shortMsg}`);
     else console.warn(`[STREAM] ${provider} | ${model} | blocked pipe: ${shortMsg} [${status}]`);
     streamController?.handleError?.(new Error(`upstream non-SSE: ${upstreamStatus}`));
+    disposeUpstreamSignals?.();
     return createErrorResult(status, message);
   }
 
   let streamAborted = false;
   let successReported = false;
+  let firstContentElapsedMs = 0;
   const onStreamCompleteWrapped = (...args) => {
+    const ttftAt = args[2];
+    const extra = args[3];
+    if (!streamAborted && extra?.cancelled !== true) {
+      const measuredTtft = ttftAt ? ttftAt - requestStartTime : 0;
+      recordUpstreamSuccess(provider, model, Math.max(measuredTtft, firstContentElapsedMs));
+    }
     try { onStreamComplete?.(...args); } finally {
-      if (onRequestSuccess && !streamAborted && !successReported && args[3]?.cancelled !== true) {
+      if (onRequestSuccess && !streamAborted && !successReported && extra?.cancelled !== true) {
         successReported = true;
         Promise.resolve()
           .then(onRequestSuccess)
@@ -92,6 +114,12 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
   };
   const onStreamAbortWrapped = (info) => {
     streamAborted = true;
+    if (info?.reason === "stall_timeout" || info?.reason === "pre_content_stall" || info?.reason === "upstream_terminated") {
+      recordUpstreamStall(provider, model, {
+        reason: info.reason,
+        immediate: info.reason === "pre_content_stall",
+      });
+    }
     return onStreamAbort?.(info);
   };
 
@@ -108,10 +136,57 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     onCancel: () => transformStream.finalizeOnCancel?.(),
   });
 
+  let responseBody = transformedBody;
+  if (allowPreContentFailover) {
+    const gateTimeoutMs = preContentTimeoutMs ?? resolvePreContentTimeoutMs(provider, model);
+    if (gateTimeoutMs > 0) {
+      const gated = await waitForMeaningfulContent(transformedBody, {
+        sourceFormat,
+        timeoutMs: gateTimeoutMs,
+        signal: clientSignal,
+        isAborted: () => streamAborted,
+      });
+      if (gated.status === "client_aborted") {
+        streamController?.handleDisconnect?.("client_closed");
+        streamController?.abort?.();
+        disposeUpstreamSignals?.();
+        gated.reader?.cancel?.("client_closed").catch(() => {});
+        return createErrorResult(499, "Request aborted");
+      }
+      if (gated.status === "pre_content_stall" || gated.status === "pre_content_error") {
+        if (gated.status === "pre_content_stall" && !streamAborted) {
+          onStreamAbortWrapped({
+            reason: "pre_content_stall",
+            requestId: streamDetailId,
+            provider,
+            model,
+            streamKind: `${sourceFormat}->${targetFormat}`,
+            elapsedMs: gated.elapsedMs,
+            timeoutMs: gateTimeoutMs,
+            chunks: gated.chunks,
+            bytes: gated.bytes,
+            sinceLastMs: gated.elapsedMs,
+            detail: `no meaningful content for ${gateTimeoutMs}ms`,
+          });
+        }
+        log?.warn?.("STREAM", `PRE-CONTENT ${gated.status.toUpperCase()} · ${provider}/${model} · ${gated.elapsedMs}ms (${gated.chunks} chunks, ${gated.bytes}B)`);
+        streamController?.handleError?.(new Error(gated.status === "pre_content_stall" ? "pre-content stall timeout" : "upstream stream error before content"));
+        streamController?.abort?.();
+        disposeUpstreamSignals?.();
+        gated.reader?.cancel?.(gated.status).catch(() => {});
+        return {
+          ...createErrorResult(HTTP_STATUS.SERVICE_UNAVAILABLE, `Upstream stalled before emitting content (${provider}/${model}, ${gated.elapsedMs}ms)`),
+          preContentStall: true,
+        };
+      }
+      firstContentElapsedMs = gated.elapsedMs || 0;
+      responseBody = gated.stream;
+    }
+  }
 
   return {
     success: true,
-    response: new Response(transformedBody, { headers: { ...SSE_HEADERS, ...upstreamResponseHeaders(providerResponse.headers) } })
+    response: new Response(responseBody, { headers: { ...SSE_HEADERS, ...upstreamResponseHeaders(providerResponse.headers) } })
   };
 }
 
