@@ -28,4 +28,17 @@ describe("mergeWithDefaults", () => {
     expect(second.capacityAdapter.pdf.models).toEqual([]);
     expect(second.providerStrategies).toEqual({});
   });
+
+  it("preserves and clones unknown capacityAdapter modalities alongside defaults", () => {
+    const custom = { enabled: true, roundRobin: false, models: ["anthropic/claude-3-7-sonnet"] };
+    const merged = mergeWithDefaults({
+      capacityAdapter: {
+        customModality: custom,
+      },
+    });
+
+    expect(merged.capacityAdapter.customModality).toEqual(custom);
+    expect(merged.capacityAdapter.customModality).not.toBe(custom);
+    expect(merged.capacityAdapter.vision).toEqual({ enabled: false, roundRobin: false, models: [] });
+  });
 });

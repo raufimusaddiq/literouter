@@ -40,12 +40,20 @@ export function createTtlLruMap(
         const now = Date.now();
         for (const k of keys) {
           const entry = stores.get(k);
-          if (!entry || entry.ttlMs <= 0) continue;
+          if (!entry) {
+            keys.delete(k);
+            continue;
+          }
+          if (entry.ttlMs <= 0) continue;
           for (const [itemKey, item] of entry.map) {
             if (now - item.lastUsed > entry.ttlMs) {
               entry.map.delete(itemKey);
             }
           }
+        }
+        if (keys.size === 0) {
+          clearInterval(timer);
+          timers.delete(cleanupIntervalMs);
         }
       }, cleanupIntervalMs);
       timer.unref?.();
@@ -110,6 +118,20 @@ export function createTtlLruMap(
       return this.entries();
     },
     prune,
+    dispose() {
+      state.map.clear();
+      if (!hasGlobalKey) return;
+      globalThis.__liteRouterTtlLruStores?.delete(globalKey);
+      const timers = globalThis.__liteRouterTtlLruTimers;
+      if (!timers) return;
+      for (const [interval, record] of timers) {
+        record.keys.delete(globalKey);
+        if (record.keys.size === 0) {
+          clearInterval(record.timer);
+          timers.delete(interval);
+        }
+      }
+    },
     get size() {
       return state.map.size;
     },

@@ -79,4 +79,20 @@ describe("createTtlLruMap", () => {
     expect(record.keys.has("test:global-a")).toBe(true);
     expect(record.keys.has("test:global-b")).toBe(true);
   });
+
+  it("removes global state and stops the shared timer once all stores using it are disposed", () => {
+    const interval = 70_000 + Math.floor(Math.random() * 1000);
+    const first = makeTestStore("test:dispose-a", { maxSize: 4, ttlMs: 1000, cleanupIntervalMs: interval });
+    const second = makeTestStore("test:dispose-b", { maxSize: 4, ttlMs: 1000, cleanupIntervalMs: interval });
+    first.set("x", 1, 10);
+
+    first.dispose();
+    expect(globalThis.__liteRouterTtlLruStores.has("test:dispose-a")).toBe(false);
+    expect(globalThis.__liteRouterTtlLruTimers.get(interval)?.keys.has("test:dispose-a")).toBe(false);
+    expect(globalThis.__liteRouterTtlLruTimers.has(interval)).toBe(true);
+
+    second.dispose();
+    expect(globalThis.__liteRouterTtlLruStores.has("test:dispose-b")).toBe(false);
+    expect(globalThis.__liteRouterTtlLruTimers.has(interval)).toBe(false);
+  });
 });

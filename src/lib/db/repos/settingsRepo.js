@@ -74,6 +74,10 @@ const OBJECT_DEFAULT_KEYS = new Set([
 function mergeCapacityAdapter(rawAdapter) {
   const source = rawAdapter && typeof rawAdapter === "object" ? rawAdapter : {};
   const result = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (key in DEFAULT_SETTINGS.capacityAdapter) continue;
+    result[key] = value && typeof value === "object" && !Array.isArray(value) ? { ...value } : value;
+  }
   for (const [modality, defEntry] of Object.entries(DEFAULT_SETTINGS.capacityAdapter)) {
     const rawEntry = source[modality] && typeof source[modality] === "object" ? source[modality] : {};
     result[modality] = {
