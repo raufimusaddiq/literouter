@@ -150,8 +150,8 @@ describe("budget storage", () => {
     const dayWindow = entry.timestamp.slice(0, 10);
     const monthWindow = dayWindow.slice(0, 7);
     expect(rows).toEqual([
-      { window: dayWindow, tokens: 15 },
       { window: monthWindow, tokens: 15 },
+      { window: dayWindow, tokens: 15 },
     ]);
   });
 
