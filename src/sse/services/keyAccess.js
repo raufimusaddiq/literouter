@@ -8,8 +8,10 @@ import {
   KEY_ACCESS_PROVIDER_AS_MODEL_KINDS,
   keyAccessDeniedMessage,
 } from "@/shared/constants/keyAccess.js";
-import { errorResponse } from "open-sse/utils/error.js";
+import { errorResponse, buildErrorBody } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
+import { FORMATS } from "open-sse/translator/formats.js";
+import { getBudgetSpend } from "@/lib/db/repos/keyBudgetRepo.js";
 import * as log from "../utils/logger.js";
 
 const lower = (s) => String(s).toLowerCase();
@@ -35,11 +37,17 @@ export async function getKeyAccessContext(request) {
   const apiKey = extractClientApiKey(request);
   if (!apiKey) return null;
   const record = await getApiKeyByKey(apiKey);
-  if (!record?.access?.restricted) return null;
+  if (!record) return null;
+  const restricted = record.access?.restricted === true;
+  const budgetInvalid = record.budgetInvalid === true;
+  if (!restricted && !record.budget && !budgetInvalid) return null;
   return {
     keyId: record.id,
     keyName: record.name || record.id,
-    allow: record.access.allow || [],
+    restricted,
+    allow: record.access?.allow || [],
+    budget: record.budget || null,
+    budgetInvalid,
     _sets: null,
   };
 }
@@ -90,7 +98,7 @@ export function keyAccessDeniedResponse(ctx, requested) {
 }
 
 export async function enforceKeyAccess(ctx, requested) {
-  if (!ctx) return null;
+  if (!ctx || ctx.restricted === false) return null;
   if (typeof requested !== "string" || !requested) return keyAccessDeniedResponse(ctx, String(requested ?? ""));
   const sets = await getAllowSets(ctx);
   const comboModels = await getComboModels(requested);
@@ -101,7 +109,7 @@ export async function enforceKeyAccess(ctx, requested) {
 }
 
 export async function enforceKeyAccessResolved(ctx, requested, provider, model) {
-  if (!ctx) return null;
+  if (!ctx || ctx.restricted === false) return null;
   const label = requested || (provider ? `${provider}/${model ?? ""}` : "");
   if (!provider || !model) return keyAccessDeniedResponse(ctx, label);
   const sets = await getAllowSets(ctx);
@@ -109,7 +117,7 @@ export async function enforceKeyAccessResolved(ctx, requested, provider, model) 
 }
 
 export async function enforceKeyAccessProvider(ctx, requested, comboModels) {
-  if (!ctx) return null;
+  if (!ctx || ctx.restricted === false) return null;
   if (typeof requested !== "string" || !requested) return keyAccessDeniedResponse(ctx, String(requested ?? ""));
   const sets = await getAllowSets(ctx);
   const allowed = comboModels
@@ -118,8 +126,45 @@ export async function enforceKeyAccessProvider(ctx, requested, comboModels) {
   return allowed ? null : keyAccessDeniedResponse(ctx, requested);
 }
 
+export function keyBudgetDeniedResponse(ctx, spend, dimension) {
+  const budget = ctx.budget;
+  const label = budget.period === "day" ? "daily" : "monthly";
+  const limit = dimension === "tokens" ? `${budget.maxTokens} tokens` : `$${budget.maxCost}`;
+  const message = `API key "${ctx.keyName}" reached its ${label} ${dimension} budget of ${limit}`;
+  const retryAfter = Math.max(1, Math.ceil((Date.parse(spend.resetsAt) - Date.now()) / 1000));
+  log.warn("AUTH", `key-budget: key "${ctx.keyName}" refused (${label} ${dimension} budget ${limit})`);
+  const body = buildErrorBody(HTTP_STATUS.RATE_LIMITED, message, FORMATS.OPENAI);
+  body.error.type = "insufficient_quota";
+  body.error.code = "insufficient_quota";
+  return new Response(JSON.stringify(body), {
+    status: HTTP_STATUS.RATE_LIMITED,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "retry-after": String(retryAfter),
+    },
+  });
+}
+
+export function keyBudgetInvalidResponse(ctx) {
+  const message = `API key "${ctx.keyName}" has an invalid budget stored; re-save its budget`;
+  log.warn("AUTH", `key-budget: key "${ctx.keyName}" refused (stored budget is invalid)`);
+  return errorResponse(HTTP_STATUS.FORBIDDEN, message, null, FORMATS.OPENAI, "invalid_key_budget");
+}
+
+export async function enforceKeyBudget(ctx) {
+  if (!ctx) return null;
+  if (ctx.budgetInvalid) return keyBudgetInvalidResponse(ctx);
+  if (!ctx.budget) return null;
+  const spend = await getBudgetSpend(ctx.keyId, ctx.budget.period);
+  const overTokens = ctx.budget.maxTokens != null && spend.tokens >= ctx.budget.maxTokens;
+  const overCost = ctx.budget.maxCost != null && spend.cost >= ctx.budget.maxCost;
+  if (!overTokens && !overCost) return null;
+  return keyBudgetDeniedResponse(ctx, spend, overTokens ? "tokens" : "cost");
+}
+
 export async function filterAdapterModels(ctx, augmented, original) {
-  if (!ctx || !Array.isArray(augmented)) return augmented;
+  if (!ctx || ctx.restricted === false || !Array.isArray(augmented)) return augmented;
   const keep = new Set(original || []);
   const out = [];
   for (const m of augmented) {
@@ -130,7 +175,7 @@ export async function filterAdapterModels(ctx, augmented, original) {
 }
 
 export async function filterModelsListForKey(ctx, list) {
-  if (!ctx || !Array.isArray(list)) return list;
+  if (!ctx || ctx.restricted === false || !Array.isArray(list)) return list;
   const sets = await getAllowSets(ctx);
   const out = [];
   for (const entry of list) {

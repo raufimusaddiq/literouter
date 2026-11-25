@@ -185,6 +185,25 @@ export default function APIPageClient() {
     }
   };
 
+  const handleUpdateKeyBudget = async (id, budget) => {
+    try {
+      const res = await fetch(`/api/keys/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ budget }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.key) {
+        setKeys(prev => prev.map(k => k.id === id ? { ...k, budget: data.key.budget, budgetUsage: data.key.budgetUsage } : k));
+        return null;
+      }
+      return data.error || `Failed to update budget (${res.status})`;
+    } catch (error) {
+      console.log("Error updating key budget:", error);
+      return "Failed to update budget";
+    }
+  };
+
   const handleToggleRequest = (key, checked) => {
     if (key.isActive !== false && !checked) {
       setConfirmState({
@@ -263,6 +282,7 @@ It will only be able to call the combos and models you add. Until you add one, i
         onToggle={handleToggleRequest}
         onDelete={handleDeleteKey}
         onUpdateAccess={handleUpdateKeyAccess}
+        onUpdateBudget={handleUpdateKeyBudget}
         onRequestRestrict={handleRequestRestrict}
       />
 

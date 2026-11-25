@@ -4,6 +4,7 @@ import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { fingerprintKey } from "open-sse/utils/keyFingerprint.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
 import { bucketOf, clearRollupKeyCache, getRollupKeyId, ROLLUP_RETENTION_MS } from "../usageRollup.js";
+import { addBudgetSpend, noteBudgetSpend, pruneBudgetSpend, settleBudgetSpend } from "./keyBudgetRepo.js";
 
 function maskApiKey(key) {
   return fingerprintKey(key);
@@ -398,6 +399,7 @@ function writeUsageBatch(db, entries) {
 
       insertedCount++;
       insertedEntries.push(entry);
+      if (entry.budgetKeyId) addBudgetSpend(db, entry);
 
       const bucket = bucketOf(entry.timestamp);
       const rk = [bucket, entry.provider || "", entry.model || "", entry.connectionId || "", entry.apiKey || "", entry.endpoint || ""];
@@ -446,6 +448,7 @@ function writeUsageBatch(db, entries) {
     aggregateEntryToDay(slot.day, entry);
     slot.dirty = true;
   }
+  settleBudgetSpend(entries);
   if (insertedEntries.length) scheduleDailyFlush();
 
   return insertedEntries;
@@ -466,6 +469,7 @@ export async function pruneUsageHistory({ force = false, now = Date.now() } = {}
   try {
     const rdb = await getAdapter();
     rdb.run(`DELETE FROM usageRollup WHERE bucket < ?`, [bucketOf(new Date(now - ROLLUP_RETENTION_MS).toISOString())]);
+    pruneBudgetSpend(rdb, now);
   } catch (e) {
     console.error("[usageRepo] pruneUsageRollup failed:", e);
   }
@@ -500,11 +504,14 @@ function settlePersistedBatch(batch) {
 
 function handleUsageBatchFailure(batch, error) {
   const retry = [];
+  const dropped = [];
   for (const item of batch) {
     item.attempts = (item.attempts || 0) + 1;
     if (item.attempts < 3) retry.push(item);
-    else item.reject?.(error);
+    else dropped.push(item);
   }
+  for (const item of dropped) item.reject?.(error);
+  settleBudgetSpend(dropped.map((item) => item.entry));
   if (retry.length) usageWriteBuffer.items.unshift(...retry);
   console.error(`Failed to persist usage batch (${batch.length} events):`, error);
 }
@@ -579,6 +586,27 @@ function drainUsageSync() {
 
 globalThis.__liteRouterUsageDrainSync = drainUsageSync;
 
+async function noteKeyBudgetSpend(prepared, rawApiKey) {
+  if (!rawApiKey) return;
+  try {
+    const { getApiKeyByKey } = await import("./apiKeysRepo.js");
+    const record = await getApiKeyByKey(rawApiKey);
+    if (!record) return;
+    const tokens = prepared.tokens || {};
+    prepared.budgetKeyId = record.id;
+    prepared.budgetTokens = (tokens.prompt_tokens || tokens.input_tokens || 0) + (tokens.completion_tokens || tokens.output_tokens || 0);
+    prepared.budgetCost = Number(prepared.cost) || 0;
+    noteBudgetSpend({
+      keyId: record.id,
+      tokens: prepared.budgetTokens,
+      cost: prepared.budgetCost,
+      ts: Date.parse(prepared.timestamp),
+    });
+  } catch (e) {
+    console.error("Failed to note key budget spend:", e);
+  }
+}
+
 export async function saveRequestUsage(entry) {
   const prepared = {
     ...sanitizeUsageEntry(entry),
@@ -591,6 +619,8 @@ export async function saveRequestUsage(entry) {
     console.error("Failed to calculate usage cost:", e);
     prepared.cost = Number(prepared.cost) || 0;
   }
+
+  await noteKeyBudgetSpend(prepared, entry.apiKey);
 
   return new Promise((resolve, reject) => {
     const enqueue = async () => {

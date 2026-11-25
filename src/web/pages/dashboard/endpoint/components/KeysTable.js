@@ -5,6 +5,7 @@ import { useState, useMemo } from "react";
 import PropTypes from "prop-types";
 import { Card, Button, Toggle } from "@/shared/components";
 import KeyAccessControls from "./KeyAccessControls";
+import KeyBudgetControls from "./KeyBudgetControls";
 import KeyRowMenu from "./KeyRowMenu";
 import { maskKey, relativeTime, sortKeysByLastUsed } from "../keyFormat";
 
@@ -17,7 +18,7 @@ function accessLabel(key) {
 }
 
 export default function KeysTable({
-  keys, usage, usageState = "ready", copied, onCopy, onCreate, onToggle, onDelete, onUpdateAccess, onRequestRestrict,
+  keys, usage, usageState = "ready", copied, onCopy, onCreate, onToggle, onDelete, onUpdateAccess, onUpdateBudget, onRequestRestrict,
 }) {
   const reqText = (u) => (usageState === "loading" ? "…" : usageState === "error" ? "—" : (u?.requests24h ?? 0).toLocaleString());
   const lastText = (u) => (usageState === "loading" ? "…" : usageState === "error" ? "—" : relativeTime(u?.lastUsed));
@@ -130,6 +131,7 @@ export default function KeysTable({
                     onChange={(access) => onUpdateAccess(k.id, access)}
                     onRequestRestrict={() => onRequestRestrict(k)}
                   />
+                  <KeyBudgetControls apiKey={k} onChange={(budget) => onUpdateBudget(k.id, budget)} />
                 </div>
               )}
             </div>
@@ -150,5 +152,6 @@ KeysTable.propTypes = {
   onToggle: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
   onUpdateAccess: PropTypes.func.isRequired,
+  onUpdateBudget: PropTypes.func.isRequired,
   onRequestRestrict: PropTypes.func.isRequired,
 };

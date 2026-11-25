@@ -9,6 +9,7 @@ import { getAppVersion } from "./version.js";
 import { stringifyJson } from "./helpers/jsonCol.js";
 import { fingerprintKey } from "open-sse/utils/keyFingerprint.js";
 import { rewriteUsageDay } from "./migrations/003-fingerprint-usage-api-keys.js";
+import { budgetToColumns, validateKeyBudgetInput } from "@/shared/utils/keyBudget.js";
 import { backfillUsageRollup, ROLLUP_RETENTION_MS } from "./usageRollup.js";
 
 const MIGRATED_MARKER = path.join(DB_DIR, ".migrated-from-json");
@@ -131,9 +132,16 @@ function importLegacyMain(adapter, data) {
   }, (p) => ({ id: p.id ?? null }));
 
   importWithAssertion(adapter, "apiKeys", data.apiKeys || [], (k) => {
+    let budget = null;
+    if (k.budget !== undefined && k.budget !== null) {
+      const checked = validateKeyBudgetInput(k.budget);
+      if (!checked.ok) throw new Error(checked.error);
+      budget = checked.value;
+    }
+    const budgetCols = budgetToColumns(budget);
     adapter.run(
-      `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt) VALUES(?, ?, ?, ?, ?, ?)`,
-      [k.id, k.key, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString()]
+      `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt, budgetPeriod, budgetMaxTokens, budgetMaxCost) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [k.id, k.key, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString(), budgetCols.budgetPeriod, budgetCols.budgetMaxTokens, budgetCols.budgetMaxCost]
     );
   }, (k) => ({ id: k.id ?? null, name: k.name ?? null }));
 

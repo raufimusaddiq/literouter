@@ -9,7 +9,7 @@ import {
 } from "../services/auth.js";
 import { PROVIDERS } from "open-sse/config/providers.js";
 import { getModelsByProviderId } from "open-sse/config/providerModels.js";
-import { getKeyAccessContext, enforceKeyAccessResolved, enforceKeyAccess } from "../services/keyAccess.js";
+import { getKeyAccessContext, enforceKeyAccessResolved, enforceKeyAccess, enforceKeyBudget } from "../services/keyAccess.js";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 import { extractUsageFromResponse, saveUsageStats } from "open-sse/handlers/chatCore/requestDetail.js";
 import { trackPendingRequest } from "@/lib/usageDb.js";
@@ -147,6 +147,8 @@ export async function handleSystemOne(request) {
   const rawModel = typeof parsedBody?.model === "string" ? parsedBody.model.trim() : "";
   const keyAccessDenied = await enforceKeyAccess(keyAccess, rawModel);
   if (keyAccessDenied) return keyAccessDenied;
+  const keyBudgetDenied = await enforceKeyBudget(keyAccess);
+  if (keyBudgetDenied) return keyBudgetDenied;
 
   const input = await normalizeSystemOneRequest(parsedBody);
   if (input.error) return systemOneError(400, input.error);

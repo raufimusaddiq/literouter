@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -78,8 +78,20 @@ export const TABLES = {
       createdAt: "TEXT NOT NULL",
       accessRestricted: "INTEGER DEFAULT 0",
       accessAllow: "TEXT",
+      budgetPeriod: "TEXT",
+      budgetMaxTokens: "INTEGER",
+      budgetMaxCost: "REAL",
     },
     indexes: ["CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)"],
+  },
+  apiKeyBudgetSpend: {
+    columns: {
+      keyId: "TEXT NOT NULL",
+      window: "TEXT NOT NULL",
+      tokens: "INTEGER NOT NULL DEFAULT 0",
+      cost: "REAL NOT NULL DEFAULT 0",
+    },
+    primaryKey: "PRIMARY KEY (keyId, window)",
   },
   combos: {
     columns: {

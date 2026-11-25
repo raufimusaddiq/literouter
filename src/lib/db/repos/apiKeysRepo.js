@@ -2,6 +2,7 @@ import { bumpConfigVersion } from "../configVersion.js";
 import { safeEqual } from "@/shared/utils/safeEqual.js";
 import { getAdapter } from "../driver.js";
 import { keyAccessFromColumns, keyAccessToColumns } from "@/shared/utils/keyAccess.js";
+import { budgetToColumns, storedBudget } from "@/shared/utils/keyBudget.js";
 import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
 
 const keyCache = global.__liteRouterApiKeyCache ??= { rows: null, expiresAt: 0 };
@@ -19,13 +20,14 @@ function findRowByKey(rows, key) {
 async function allKeys() {
   if (keyCache.rows && keyCache.expiresAt > Date.now()) return keyCache.rows;
   const db = await getAdapter();
-  keyCache.rows = db.all(`SELECT id, key, name, isActive, accessRestricted, accessAllow FROM apiKeys`);
+  keyCache.rows = db.all(`SELECT id, key, name, isActive, accessRestricted, accessAllow, budgetPeriod, budgetMaxTokens, budgetMaxCost FROM apiKeys`);
   keyCache.expiresAt = Date.now() + CACHE_TTL_MS;
   return keyCache.rows;
 }
 
 function rowToKey(row) {
   if (!row) return null;
+  const stored = storedBudget(row.budgetPeriod, row.budgetMaxTokens, row.budgetMaxCost);
   return {
     id: row.id,
     key: row.key,
@@ -34,6 +36,8 @@ function rowToKey(row) {
     isActive: row.isActive === 1 || row.isActive === true,
     createdAt: row.createdAt,
     access: keyAccessFromColumns(row.accessRestricted, row.accessAllow),
+    budget: stored.budget,
+    budgetInvalid: stored.invalid,
   };
 }
 
@@ -67,6 +71,7 @@ export async function createApiKey(name, machineId) {
     isActive: true,
     createdAt: new Date().toISOString(),
     access: { restricted: false, allow: [] },
+    budget: null,
   };
   const cols = keyAccessToColumns(KEY_ACCESS_UNRESTRICTED);
   db.run(
@@ -85,9 +90,12 @@ export async function updateApiKey(id, data) {
     if (!row) return;
     const merged = { ...rowToKey(row), ...data };
     const cols = keyAccessToColumns(merged.access);
+    const budget = Object.hasOwn(data, "budget")
+      ? budgetToColumns(data.budget)
+      : { budgetPeriod: row.budgetPeriod, budgetMaxTokens: row.budgetMaxTokens, budgetMaxCost: row.budgetMaxCost };
     db.run(
-      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, accessRestricted = ?, accessAllow = ? WHERE id = ?`,
-      [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, cols.accessRestricted, cols.accessAllow, id]
+      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, accessRestricted = ?, accessAllow = ?, budgetPeriod = ?, budgetMaxTokens = ?, budgetMaxCost = ? WHERE id = ?`,
+      [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, cols.accessRestricted, cols.accessAllow, budget.budgetPeriod, budget.budgetMaxTokens, budget.budgetMaxCost, id]
     );
     result = rowToKey(db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]));
   });
@@ -97,9 +105,13 @@ export async function updateApiKey(id, data) {
 
 export async function deleteApiKey(id) {
   const db = await getAdapter();
-  const res = db.run(`DELETE FROM apiKeys WHERE id = ?`, [id]);
+  let changes = 0;
+  db.transaction(() => {
+    db.run(`DELETE FROM apiKeyBudgetSpend WHERE keyId = ?`, [id]);
+    changes = db.run(`DELETE FROM apiKeys WHERE id = ?`, [id])?.changes ?? 0;
+  });
   invalidateApiKeyCache();
-  return (res?.changes ?? 0) > 0;
+  return changes > 0;
 }
 
 export async function validateApiKey(key) {
