@@ -1,6 +1,8 @@
 import { json } from "@/server/http.js";
 import { deleteApiKey, getApiKeyById, updateApiKey } from "@/lib/localDb";
 import { validateKeyAccessInput } from "@/shared/utils/keyAccess.js";
+import { validateKeyBudgetInput } from "@/shared/utils/keyBudget.js";
+import { getBudgetSpend } from "@/lib/db/repos/keyBudgetRepo.js";
 
 export async function GET(request, { params }) {
   try {
@@ -20,7 +22,7 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { isActive, access } = body;
+    const { isActive, access, budget } = body;
 
     const existing = await getApiKeyById(id);
     if (!existing) {
@@ -34,10 +36,16 @@ export async function PUT(request, { params }) {
       if (!checked.ok) return json({ error: checked.error }, { status: 400 });
       updateData.access = checked.value;
     }
+    if (budget !== undefined) {
+      const checked = validateKeyBudgetInput(budget);
+      if (!checked.ok) return json({ error: checked.error }, { status: 400 });
+      updateData.budget = checked.value;
+    }
 
     const updated = await updateApiKey(id, updateData);
+    const key = updated?.budget ? { ...updated, budgetUsage: await getBudgetSpend(updated.id, updated.budget.period) } : updated;
 
-    return json({ key: updated });
+    return json({ key });
   } catch (error) {
     console.log("Error updating key:", error);
     return json({ error: "Failed to update key" }, { status: 500 });

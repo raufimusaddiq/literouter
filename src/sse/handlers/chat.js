@@ -26,7 +26,7 @@ import * as log from "../utils/logger.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { getProjectIdForConnection } from "open-sse/services/projectId.js";
 import { stripModelContextMarker } from "open-sse/utils/modelMarkers.js";
-import { getKeyAccessContext, enforceKeyAccess, filterAdapterModels } from "../services/keyAccess.js";
+import { getKeyAccessContext, enforceKeyAccess, enforceKeyBudget, filterAdapterModels } from "../services/keyAccess.js";
 import { PROVIDERS } from "open-sse/config/providers.js";
 import { isAbortError } from "open-sse/utils/requestTimeouts.js";
 
@@ -101,6 +101,8 @@ async function handleChatImpl(request, clientRawRequest = null) {
   const keyAccess = await getKeyAccessContext(request);
   const keyAccessDenied = await enforceKeyAccess(keyAccess, modelStr);
   if (keyAccessDenied) return keyAccessDenied;
+  const keyBudgetDenied = await enforceKeyBudget(keyAccess);
+  if (keyBudgetDenied) return keyBudgetDenied;
 
   const userAgent = request?.headers?.get("user-agent") || "";
   const bypassResponse = handleBypassRequest(body, modelStr, userAgent, !!settings.ccFilterNaming);

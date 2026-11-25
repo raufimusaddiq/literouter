@@ -14,7 +14,7 @@ import { geminiToOpenAIRequest } from "open-sse/translator/request/gemini-to-ope
 import { openaiCompletionToGemini } from "open-sse/translator/response/openai-to-gemini.js";
 import { FORMATS } from "open-sse/translator/formats.js";
 import { buildErrorBody } from "open-sse/utils/error.js";
-import { getKeyAccessContext, enforceKeyAccessResolved, extractClientApiKey } from "@/sse/services/keyAccess.js";
+import { getKeyAccessContext, enforceKeyAccessResolved, enforceKeyBudget, extractClientApiKey } from "@/sse/services/keyAccess.js";
 
 const GEMINI_NATIVE_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_NATIVE_MODEL_PATTERN = /^[a-zA-Z0-9_.:-]+$/;
@@ -209,8 +209,11 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
     return geminiErrorResponse(400, "Invalid model");
   }
 
-  const keyAccessDenied = await enforceKeyAccessResolved(await getKeyAccessContext(request), model, "gemini", modelId);
+  const keyAccess = await getKeyAccessContext(request);
+  const keyAccessDenied = await enforceKeyAccessResolved(keyAccess, model, "gemini", modelId);
   if (keyAccessDenied) return keyAccessDenied;
+  const keyBudgetDenied = await enforceKeyBudget(keyAccess);
+  if (keyBudgetDenied) return keyBudgetDenied;
   const excludeConnectionIds = new Set();
   const bodyText = JSON.stringify(body);
   let lastError = null;

@@ -2,6 +2,7 @@ import { bumpConfigVersion } from "../configVersion.js";
 import { safeEqual } from "@/shared/utils/safeEqual.js";
 import { getAdapter } from "../driver.js";
 import { keyAccessFromColumns, keyAccessToColumns } from "@/shared/utils/keyAccess.js";
+import { budgetFromColumns, budgetToColumns } from "@/shared/utils/keyBudget.js";
 import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
 
 const keyCache = global.__liteRouterApiKeyCache ??= { rows: null, expiresAt: 0 };
@@ -19,7 +20,7 @@ function findRowByKey(rows, key) {
 async function allKeys() {
   if (keyCache.rows && keyCache.expiresAt > Date.now()) return keyCache.rows;
   const db = await getAdapter();
-  keyCache.rows = db.all(`SELECT id, key, name, isActive, accessRestricted, accessAllow FROM apiKeys`);
+  keyCache.rows = db.all(`SELECT id, key, name, isActive, accessRestricted, accessAllow, budgetPeriod, budgetMaxTokens, budgetMaxCost FROM apiKeys`);
   keyCache.expiresAt = Date.now() + CACHE_TTL_MS;
   return keyCache.rows;
 }
@@ -34,6 +35,7 @@ function rowToKey(row) {
     isActive: row.isActive === 1 || row.isActive === true,
     createdAt: row.createdAt,
     access: keyAccessFromColumns(row.accessRestricted, row.accessAllow),
+    budget: budgetFromColumns(row.budgetPeriod, row.budgetMaxTokens, row.budgetMaxCost),
   };
 }
 
@@ -85,9 +87,10 @@ export async function updateApiKey(id, data) {
     if (!row) return;
     const merged = { ...rowToKey(row), ...data };
     const cols = keyAccessToColumns(merged.access);
+    const budget = budgetToColumns(merged.budget);
     db.run(
-      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, accessRestricted = ?, accessAllow = ? WHERE id = ?`,
-      [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, cols.accessRestricted, cols.accessAllow, id]
+      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, accessRestricted = ?, accessAllow = ?, budgetPeriod = ?, budgetMaxTokens = ?, budgetMaxCost = ? WHERE id = ?`,
+      [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, cols.accessRestricted, cols.accessAllow, budget.budgetPeriod, budget.budgetMaxTokens, budget.budgetMaxCost, id]
     );
     result = rowToKey(db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]));
   });
