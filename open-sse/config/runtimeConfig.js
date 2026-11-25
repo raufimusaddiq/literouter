@@ -54,6 +54,24 @@ export const UPSTREAM_HEALTH_STALL_THRESHOLD = Math.max(
   Number.parseInt(process.env.UPSTREAM_HEALTH_STALL_THRESHOLD || "2", 10) || 2,
 );
 
+export const MAX_PRE_CONTENT_BYTES = 64 * 1024;
+
+export const UPSTREAM_HEALTH_STORE_TTL_MS = envMs("UPSTREAM_HEALTH_STORE_TTL_MS", 15 * 60 * 1000);
+
+export const UPSTREAM_HEALTH_STORE_SWEEP_MS = envMs("UPSTREAM_HEALTH_STORE_SWEEP_MS", 5 * 60 * 1000);
+
+export const UPSTREAM_HEALTH_MAX_ENTRIES = Math.max(
+  10,
+  Number.parseInt(process.env.UPSTREAM_HEALTH_MAX_ENTRIES || "500", 10) || 500,
+);
+
+export const UPSTREAM_HEALTH_EWMA_ALPHA = 0.25;
+
+export const UPSTREAM_HEALTH_SLOW_MIN_SAMPLES = Math.max(
+  1,
+  Number.parseInt(process.env.UPSTREAM_HEALTH_SLOW_MIN_SAMPLES || "3", 10) || 3,
+);
+
 export const TRANSLATE_HEARTBEAT_MS = envMs("STREAM_HEARTBEAT_MS", 5 * 1000);
 
 export const STREAM_FIRST_CHUNK_TIMEOUT_MS = envMs("STREAM_FIRST_CHUNK_TIMEOUT_MS", 200 * 1000);

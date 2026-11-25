@@ -1,7 +1,8 @@
 import { FORMATS } from "../translator/formats.js";
 import { CLAUDE_EVENT } from "../translator/schema/index.js";
+import { MAX_PRE_CONTENT_BYTES } from "../config/runtimeConfig.js";
 
-export const MAX_PRE_CONTENT_BYTES = 64 * 1024;
+export { MAX_PRE_CONTENT_BYTES };
 
 function isClaudeMeaningful(parsed) {
   if (parsed.type === CLAUDE_EVENT.CONTENT_BLOCK_DELTA) {
@@ -91,7 +92,7 @@ export function hasMeaningfulSSEBytes(text, sourceFormat) {
     if (!line.startsWith("data:")) continue;
     const payload = line.slice(5).trim();
     if (!payload) continue;
-    if (payload === "[DONE]") return true;
+    if (payload === "[DONE]") continue;
     try {
       const parsed = JSON.parse(payload);
       if (isPayloadMeaningful(parsed, sourceFormat)) return true;
@@ -101,7 +102,7 @@ export function hasMeaningfulSSEBytes(text, sourceFormat) {
   return false;
 }
 
-export function createPrefixedStream(buffered, reader) {
+export function createPrefixedStream(buffered, reader, onDrain = null) {
   let index = 0;
   return new ReadableStream({
     async pull(controller) {
@@ -116,6 +117,7 @@ export function createPrefixedStream(buffered, reader) {
       try {
         const { done, value } = await reader.read();
         if (done) {
+          onDrain?.();
           controller.close();
           return;
         }
@@ -133,7 +135,7 @@ export function createPrefixedStream(buffered, reader) {
 
 export async function waitForMeaningfulContent(
   readable,
-  { sourceFormat, timeoutMs, maxWaitMs = null, signal = null, isAborted = () => false } = {},
+  { sourceFormat, timeoutMs, maxWaitMs = null, signal = null, isAborted = () => false, onDrain = null } = {},
 ) {
   const reader = readable.getReader();
   const startedAt = Date.now();
@@ -196,7 +198,11 @@ export async function waitForMeaningfulContent(
 
       const { done, value } = step.res;
       if (done) {
-        return { status: "ready", stream: createPrefixedStream(buffered, reader), elapsedMs: Date.now() - startedAt };
+        accumulatedText += decoder.decode();
+        if (bufferedBytes >= MAX_PRE_CONTENT_BYTES || hasMeaningfulSSEBytes(accumulatedText, sourceFormat)) {
+          return { status: "ready", stream: createPrefixedStream(buffered, reader, onDrain), elapsedMs: Date.now() - startedAt };
+        }
+        return { status: "pre_content_error", reader, elapsedMs: Date.now() - startedAt, chunks: buffered.length, bytes: bufferedBytes };
       }
 
       armIdle();
@@ -205,7 +211,7 @@ export async function waitForMeaningfulContent(
       accumulatedText += decoder.decode(value, { stream: true });
 
       if (bufferedBytes >= MAX_PRE_CONTENT_BYTES || hasMeaningfulSSEBytes(accumulatedText, sourceFormat)) {
-        return { status: "ready", stream: createPrefixedStream(buffered, reader), elapsedMs: Date.now() - startedAt };
+        return { status: "ready", stream: createPrefixedStream(buffered, reader, onDrain), elapsedMs: Date.now() - startedAt };
       }
     }
   } catch {

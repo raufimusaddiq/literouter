@@ -6,17 +6,17 @@ import {
   UPSTREAM_HEALTH_DEGRADE_MAX_MS,
   UPSTREAM_HEALTH_SLOW_TTFT_MS,
   UPSTREAM_HEALTH_STALL_THRESHOLD,
+  UPSTREAM_HEALTH_STORE_TTL_MS,
+  UPSTREAM_HEALTH_STORE_SWEEP_MS,
+  UPSTREAM_HEALTH_MAX_ENTRIES,
+  UPSTREAM_HEALTH_EWMA_ALPHA,
+  UPSTREAM_HEALTH_SLOW_MIN_SAMPLES,
 } from "../config/runtimeConfig.js";
 
-const HEALTH_STORE_TTL_MS = 15 * 60 * 1000;
-const HEALTH_STORE_SWEEP_MS = 5 * 60 * 1000;
-const EWMA_ALPHA = 0.25;
-const SLOW_MIN_SAMPLES = 3;
-
 const healthStore = createTtlLruMap("combo:upstreamHealth", {
-  maxSize: 500,
-  ttlMs: HEALTH_STORE_TTL_MS,
-  cleanupIntervalMs: HEALTH_STORE_SWEEP_MS,
+  maxSize: UPSTREAM_HEALTH_MAX_ENTRIES,
+  ttlMs: UPSTREAM_HEALTH_STORE_TTL_MS,
+  cleanupIntervalMs: UPSTREAM_HEALTH_STORE_SWEEP_MS,
 });
 
 export function normalizeHealthKey(providerOrModelStr, model) {
@@ -64,7 +64,7 @@ export function getUpstreamHealth(providerOrModelStr, model, now = Date.now()) {
     : 0;
   const degraded = Boolean(entry?.degradedUntil && entry.degradedUntil > now);
   const slow = !degraded &&
-    (entry?.samples || 0) >= SLOW_MIN_SAMPLES &&
+    (entry?.samples || 0) >= UPSTREAM_HEALTH_SLOW_MIN_SAMPLES &&
     (entry?.ewmaTtftMs || 0) >= UPSTREAM_HEALTH_SLOW_TTFT_MS;
   return {
     key,
@@ -104,7 +104,7 @@ export function recordUpstreamSuccess(provider, model, ttftMs, now = Date.now())
   entry.samples = (entry.samples || 0) + 1;
   entry.ewmaTtftMs = entry.ewmaTtftMs === null
     ? ttftMs
-    : entry.ewmaTtftMs * (1 - EWMA_ALPHA) + ttftMs * EWMA_ALPHA;
+    : entry.ewmaTtftMs * (1 - UPSTREAM_HEALTH_EWMA_ALPHA) + ttftMs * UPSTREAM_HEALTH_EWMA_ALPHA;
   if (ttftMs < UPSTREAM_HEALTH_SLOW_TTFT_MS) {
     entry.degradeCount = 0;
     entry.degradedUntil = 0;

@@ -49,7 +49,8 @@ describe("hasMeaningfulSSEBytes", () => {
     [FORMATS.OPENAI, 'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n', true],
     [FORMATS.OPENAI, 'data: {"choices":[{"delta":{"reasoning_content":"step"}}]}\n\n', true],
     [FORMATS.OPENAI, 'data: {"choices":[{"delta":{"tool_calls":[{"id":"call_1"}]}}]}\n\n', true],
-    [FORMATS.OPENAI, "data: [DONE]\n\n", true],
+    [FORMATS.OPENAI, 'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n', true],
+    [FORMATS.OPENAI, "data: [DONE]\n\n", false],
     [FORMATS.CLAUDE, 'event: message_start\ndata: {"type":"message_start"}\n\n', false],
     [FORMATS.CLAUDE, 'event: ping\ndata: {"type":"ping"}\n\n', false],
     [FORMATS.CLAUDE, 'event: content_block_start\ndata: {"type":"content_block_start","content_block":{"type":"text","text":""}}\n\n', false],
@@ -278,5 +279,49 @@ describe("handleStreamingResponse pre-content failover gate", () => {
     ));
     expect(loginErr.status).toBe(401);
     expect(getUpstreamHealth("kenari", "deepseek-v4-1-flash:high").degraded).toBe(false);
+  });
+
+  it("fails over cleanly and demotes health when upstream sends empty framing then closes EOF without content", async () => {
+    const emptyEof = new Response(new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('data: {"choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}\n\n'));
+        c.close();
+      },
+    }), { status: 200, headers: { "content-type": "text/event-stream" } });
+
+    const fallbackResponse = new Response(new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"eof-backup"}}]}\n\n'));
+        c.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+        c.close();
+      },
+    }), { status: 200, headers: { "content-type": "text/event-stream" } });
+
+    const onRequestSuccess = vi.fn();
+    const out = await handleComboChat({
+      body: { messages: [{ role: "user", content: "hi" }] },
+      models: ["kn/deepseek-v4-1-flash:high", "ocg/deepseek-v4.1-flash"],
+      handleSingleModel: vi.fn(async (_body, modelStr) => {
+        if (modelStr === "kn/deepseek-v4-1-flash:high") {
+          const r = await handleStreamingResponse(baseStreamOpts(emptyEof, {
+            allowPreContentFailover: true,
+            preContentTimeoutMs: 200,
+            onRequestSuccess,
+            onStreamAbort: vi.fn(),
+          }));
+          return r.response;
+        }
+        return fallbackResponse;
+      }),
+      log: { info: vi.fn(), warn: vi.fn(), debug: vi.fn() },
+      comboName: "empty-eof-combo",
+      comboStrategy: "fallback",
+      preContentFailover: true,
+    });
+
+    expect(out.ok).toBe(true);
+    expect(await out.text()).toContain("eof-backup");
+    expect(onRequestSuccess).not.toHaveBeenCalled();
+    expect(getUpstreamHealth("kenari", "deepseek-v4-1-flash:high").degraded).toBe(true);
   });
 });

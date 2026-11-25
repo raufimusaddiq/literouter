@@ -68,6 +68,8 @@ export function resolveStallTimeoutMs(provider, model) {
 }
 
 export function resolvePreContentTimeoutMs(provider, model) {
+  const providerMs = PROVIDERS[provider]?.preContentTimeoutMs;
+  if (providerMs) return providerMs;
   return FLASH_MODEL_RE.test(String(model || "")) ? STREAM_PRE_CONTENT_TIMEOUT_FLASH_MS : STREAM_PRE_CONTENT_TIMEOUT_MS;
 }
 
@@ -98,7 +100,13 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
   let stallRecordedImmediate = false;
   let successReported = false;
   let firstContentElapsedMs = 0;
+  let gateResolved = !allowPreContentFailover;
+  let deferredCompleteArgs = null;
   const onStreamCompleteWrapped = (...args) => {
+    if (!gateResolved) {
+      deferredCompleteArgs = args;
+      return;
+    }
     const ttftAt = args[2];
     const extra = args[3];
     if (!streamAborted && extra?.cancelled !== true) {
@@ -154,8 +162,16 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
         maxWaitMs: Math.min(stallTimeoutMs, Math.max(gateTimeoutMs * 3, gateTimeoutMs)),
         signal: clientSignal,
         isAborted: () => streamAborted,
+        onDrain: () => {
+          if (deferredCompleteArgs) {
+            const args = deferredCompleteArgs;
+            deferredCompleteArgs = null;
+            onStreamCompleteWrapped(...args);
+          }
+        },
       });
       if (gated.status === "client_aborted") {
+        deferredCompleteArgs = null;
         streamController?.handleDisconnect?.("client_closed");
         streamController?.abort?.();
         disposeUpstreamSignals?.();
@@ -163,6 +179,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
         return createErrorResult(499, "Request aborted");
       }
       if (gated.status === "pre_content_stall" || gated.status === "pre_content_error") {
+        deferredCompleteArgs = null;
         if (!streamAborted) {
           onStreamAbortWrapped({
             reason: gated.status,
@@ -193,8 +210,11 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
           preContentStall: true,
         };
       }
+      gateResolved = true;
       firstContentElapsedMs = Math.max(gated.elapsedMs || 0, Date.now() - requestStartTime);
       responseBody = gated.stream;
+    } else {
+      gateResolved = true;
     }
   }
 
