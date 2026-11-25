@@ -1,39 +1,41 @@
-import { EventEmitter } from "events";
 import { getAdapter, getAdapterSync } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { fingerprintKey } from "open-sse/utils/keyFingerprint.js";
-import { getMeta, setMeta } from "../helpers/metaStore.js";
 import { bucketOf, clearRollupKeyCache, getRollupKeyId, ROLLUP_RETENTION_MS } from "../usageRollup.js";
 import { addBudgetSpend, noteBudgetSpend, pruneBudgetSpend, settleBudgetSpend } from "./keyBudgetRepo.js";
+import {
+  pendingRequests,
+  lastErrorProvider,
+  statsEmitter,
+  scheduleStatsEvent,
+  pushToRing,
+  trackPendingRequest,
+  getActiveRequests,
+} from "./usageLive.js";
+import {
+  sanitizeUsageEntry,
+  getLocalDateKey,
+  isLaterTs,
+  dayKeyToFallbackTs,
+  noteDayFallback,
+  aggregateEntryToDay,
+  emptyDay,
+  formatLogDate,
+  calculateCost,
+} from "./usageHelpers.js";
+
+export { statsEmitter, trackPendingRequest, getActiveRequests };
 
 function maskApiKey(key) {
   return fingerprintKey(key);
 }
 
-function sanitizeUsageEntry(entry) {
-  if (!entry || !entry.apiKey) return entry;
-  return { ...entry, apiKey: fingerprintKey(entry.apiKey) || undefined };
-}
-
-const PENDING_TIMEOUT_MS = 60 * 1000;
-const RING_CAP = 50;
-const CONN_CACHE_TTL_MS = 30 * 1000;
 const PERIOD_MS = { "24h": 86400000, "7d": 604800000, "30d": 2592000000, "60d": 5184000000 };
 
 const USAGE_BATCH_SIZE = Math.max(1, Number.parseInt(process.env.USAGE_BATCH_SIZE || "50", 10) || 50);
 const USAGE_FLUSH_INTERVAL_MS = Math.max(10, Number.parseInt(process.env.USAGE_FLUSH_INTERVAL_MS || "100", 10) || 100);
 const USAGE_MAX_BUFFERED = Math.max(USAGE_BATCH_SIZE, Number.parseInt(process.env.USAGE_MAX_BUFFERED || "5000", 10) || 5000);
 
-if (!global._pendingRequests) global._pendingRequests = { byModel: {}, byAccount: {} };
-if (!global._lastErrorProvider) global._lastErrorProvider = { provider: "", ts: 0 };
-if (!global._statsEmitter) {
-  global._statsEmitter = new EventEmitter();
-  global._statsEmitter.setMaxListeners(50);
-}
-if (!global._pendingTimers) global._pendingTimers = {};
-if (!global._recentRing) global._recentRing = { items: [], initialized: false };
-if (!global._connectionMapCache) global._connectionMapCache = { map: {}, ts: 0 };
-if (!global._statsEmitTimers) global._statsEmitTimers = { pending: null, update: null };
 if (!global._usageWriteBuffer) {
   global._usageWriteBuffer = {
     items: [],
@@ -43,257 +45,17 @@ if (!global._usageWriteBuffer) {
   };
 }
 
-const pendingRequests = global._pendingRequests;
-const lastErrorProvider = global._lastErrorProvider;
-const pendingTimers = global._pendingTimers;
-const recentRing = global._recentRing;
-const connCache = global._connectionMapCache;
-const statsEmitTimers = global._statsEmitTimers;
 const usageWriteBuffer = global._usageWriteBuffer;
 
-export const statsEmitter = global._statsEmitter;
 export const __usageBuffer__ = {
   size: () => usageWriteBuffer.items.length,
   batchSize: USAGE_BATCH_SIZE,
   maxBuffered: USAGE_MAX_BUFFERED,
 };
 
-function scheduleStatsEvent(event, delayMs = 150) {
-  const key = event === "update" ? "update" : "pending";
-  if (statsEmitTimers[key]) return;
-  statsEmitTimers[key] = setTimeout(() => {
-    statsEmitTimers[key] = null;
-    statsEmitter.emit(event);
-  }, delayMs);
-  statsEmitTimers[key]?.unref?.();
-}
-
-function getLocalDateKey(timestamp) {
-  const d = timestamp ? new Date(timestamp) : new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function addToCounter(target, key, values) {
-  if (!target[key]) target[key] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0 };
-  target[key].requests += values.requests || 1;
-  target[key].promptTokens += values.promptTokens || 0;
-  target[key].completionTokens += values.completionTokens || 0;
-  target[key].cachedTokens += values.cachedTokens || 0;
-  target[key].cost += values.cost || 0;
-  if (values.meta) Object.assign(target[key], values.meta);
-  if (values.ts && isLaterTs(values.ts, target[key].lastTs)) target[key].lastTs = values.ts;
-}
-
-const ISO_TS_RE = /^\d{4}-\d{2}-\d{2}T/;
-function isLaterTs(candidate, current) {
-  if (typeof candidate !== "string" || !ISO_TS_RE.test(candidate)) return false;
-  const c = Date.parse(candidate);
-  if (Number.isNaN(c)) return false;
-  if (typeof current !== "string" || !ISO_TS_RE.test(current)) return true;
-  const cur = Date.parse(current);
-  return Number.isNaN(cur) || c > cur;
-}
-
-function dayKeyToFallbackTs(dateKey) {
-  const [y, m, d] = String(dateKey).split("-").map(Number);
-  const t = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
-  if (Number.isNaN(t)) return null;
-  return new Date(Math.min(t, Date.now())).toISOString();
-}
-
-function noteDayFallback(store, dim, key, dateKey) {
-  const bucket = store[dim] || (store[dim] = {});
-  if (!bucket[key] || dateKey > bucket[key]) bucket[key] = dateKey;
-}
-
-function aggregateEntryToDay(day, entry) {
-  const promptTokens = entry.tokens?.prompt_tokens || entry.tokens?.input_tokens || 0;
-  const completionTokens = entry.tokens?.completion_tokens || entry.tokens?.output_tokens || 0;
-  const cachedTokens = entry.tokens?.cached_tokens || entry.tokens?.cache_read_input_tokens || 0;
-  const cost = entry.cost || 0;
-  const vals = { promptTokens, completionTokens, cachedTokens, cost, ts: entry.timestamp };
-
-  day.requests = (day.requests || 0) + 1;
-  day.promptTokens = (day.promptTokens || 0) + promptTokens;
-  day.completionTokens = (day.completionTokens || 0) + completionTokens;
-  day.cachedTokens = (day.cachedTokens || 0) + cachedTokens;
-  day.cost = (day.cost || 0) + cost;
-
-  day.byProvider ||= {};
-  day.byModel ||= {};
-  day.byAccount ||= {};
-  day.byApiKey ||= {};
-  day.byEndpoint ||= {};
-
-  if (entry.provider) addToCounter(day.byProvider, entry.provider, vals);
-
-  const modelKey = entry.provider ? `${entry.model}|${entry.provider}` : entry.model;
-  addToCounter(day.byModel, modelKey, { ...vals, meta: { rawModel: entry.model, provider: entry.provider } });
-
-  if (entry.connectionId) {
-    addToCounter(day.byAccount, entry.connectionId, { ...vals, meta: { rawModel: entry.model, provider: entry.provider } });
-  }
-
-  const apiKeyVal = entry.apiKey && typeof entry.apiKey === "string" ? entry.apiKey : "local-no-key";
-  const akModelKey = `${apiKeyVal}|${entry.model}|${entry.provider || "unknown"}`;
-  addToCounter(day.byApiKey, akModelKey, { ...vals, meta: { rawModel: entry.model, provider: entry.provider, apiKey: entry.apiKey || null } });
-
-  const endpoint = entry.endpoint || "Unknown";
-  const epKey = `${endpoint}|${entry.model}|${entry.provider || "unknown"}`;
-  addToCounter(day.byEndpoint, epKey, { ...vals, meta: { endpoint, rawModel: entry.model, provider: entry.provider } });
-}
-
-function pushToRing(entry) {
-  recentRing.items.push(entry);
-  if (recentRing.items.length > RING_CAP) {
-    recentRing.items = recentRing.items.slice(-RING_CAP);
-  }
-}
-
-async function getConnectionMapCached() {
-  if (Date.now() - connCache.ts < CONN_CACHE_TTL_MS) return connCache.map;
-  try {
-    const { getProviderConnections } = await import("./connectionsRepo.js");
-    const all = await getProviderConnections({}, { clone: false });
-    const map = {};
-    for (const c of all) map[c.id] = c.name || c.email || c.id;
-    connCache.map = map;
-    connCache.ts = Date.now();
-  } catch {}
-  return connCache.map;
-}
-
-async function ensureRingInitialized() {
-  if (recentRing.initialized) return;
-  recentRing.initialized = true;
-  try {
-    const db = await getAdapter();
-    const rows = db.all(`SELECT timestamp, provider, model, connectionId, apiKey, endpoint, cost, status, tokens FROM usageHistory ORDER BY id DESC LIMIT ?`, [RING_CAP]);
-    recentRing.items = rows.reverse().map((r) => ({
-      timestamp: r.timestamp, provider: r.provider, model: r.model, connectionId: r.connectionId,
-      apiKey: fingerprintKey(r.apiKey) || undefined, endpoint: r.endpoint, cost: r.cost, status: r.status,
-      tokens: parseJson(r.tokens, {}),
-    }));
-  } catch {}
-}
-
-async function calculateCost(provider, model, tokens) {
-  if (!tokens || !provider || !model) return 0;
-  try {
-    const { getPricingForModel } = await import("./pricingRepo.js");
-    const pricing = await getPricingForModel(provider, model);
-    if (!pricing) {
-      const { noteUntrackedModel } = await import("open-sse/providers/trackingGaps.js");
-      noteUntrackedModel(provider, model, "cost");
-      return 0;
-    }
-
-    const { calculateCostFromTokens } = await import("open-sse/providers/pricing.js");
-    return calculateCostFromTokens(tokens, pricing);
-  } catch (e) {
-    console.error("Error calculating cost:", e);
-    return 0;
-  }
-}
-
-export function trackPendingRequest(model, provider, connectionId, started, error = false) {
-  const modelKey = provider ? `${model} (${provider})` : model;
-  const timerKey = `${connectionId}|${modelKey}`;
-
-  if (!pendingRequests.byModel[modelKey]) pendingRequests.byModel[modelKey] = 0;
-  pendingRequests.byModel[modelKey] = Math.max(0, pendingRequests.byModel[modelKey] + (started ? 1 : -1));
-  if (pendingRequests.byModel[modelKey] === 0) delete pendingRequests.byModel[modelKey];
-
-  if (connectionId) {
-    if (!pendingRequests.byAccount[connectionId]) pendingRequests.byAccount[connectionId] = {};
-    if (!pendingRequests.byAccount[connectionId][modelKey]) pendingRequests.byAccount[connectionId][modelKey] = 0;
-    pendingRequests.byAccount[connectionId][modelKey] = Math.max(0, pendingRequests.byAccount[connectionId][modelKey] + (started ? 1 : -1));
-    if (pendingRequests.byAccount[connectionId][modelKey] === 0) {
-      delete pendingRequests.byAccount[connectionId][modelKey];
-      if (Object.keys(pendingRequests.byAccount[connectionId]).length === 0) {
-        delete pendingRequests.byAccount[connectionId];
-      }
-    }
-  }
-
-  if (started) {
-    clearTimeout(pendingTimers[timerKey]);
-    pendingTimers[timerKey] = setTimeout(() => {
-      delete pendingTimers[timerKey];
-      if (pendingRequests.byModel[modelKey] > 0) pendingRequests.byModel[modelKey] = 0;
-      if (connectionId && pendingRequests.byAccount[connectionId]?.[modelKey] > 0) {
-        pendingRequests.byAccount[connectionId][modelKey] = 0;
-      }
-      scheduleStatsEvent("pending");
-    }, PENDING_TIMEOUT_MS);
-  } else {
-    clearTimeout(pendingTimers[timerKey]);
-    delete pendingTimers[timerKey];
-  }
-
-  if (!started && error && provider) {
-    lastErrorProvider.provider = provider.toLowerCase();
-    lastErrorProvider.ts = Date.now();
-  }
-
-  scheduleStatsEvent("pending");
-}
-
-export async function getActiveRequests() {
-  const activeRequests = [];
-  const connectionMap = await getConnectionMapCached();
-
-  for (const [connectionId, models] of Object.entries(pendingRequests.byAccount)) {
-    for (const [modelKey, count] of Object.entries(models)) {
-      if (count > 0) {
-        const accountName = connectionMap[connectionId] || `Account ${connectionId.slice(0, 8)}...`;
-        const match = modelKey.match(/^(.*) \((.*)\)$/);
-        activeRequests.push({
-          model: match ? match[1] : modelKey,
-          provider: match ? match[2] : "unknown",
-          account: accountName, count,
-        });
-      }
-    }
-  }
-
-  await ensureRingInitialized();
-  const seen = new Set();
-  const recentRequests = [...recentRing.items]
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-    .map((e) => {
-      const t = e.tokens || {};
-      return {
-        timestamp: e.timestamp, model: e.model, provider: e.provider || "",
-        promptTokens: t.prompt_tokens || t.input_tokens || 0,
-        completionTokens: t.completion_tokens || t.output_tokens || 0,
-        status: e.status || "ok",
-      };
-    })
-    .filter((e) => {
-      if (e.promptTokens === 0 && e.completionTokens === 0) return false;
-      const minute = e.timestamp ? e.timestamp.slice(0, 16) : "";
-      const key = `${e.model}|${e.provider}|${e.promptTokens}|${e.completionTokens}|${minute}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 20);
-
-  const errorProvider = (Date.now() - lastErrorProvider.ts < 10000) ? lastErrorProvider.provider : "";
-  return { activeRequests, recentRequests, errorProvider, pending: pendingRequests };
-}
-
 const DAILY_FLUSH_INTERVAL_MS = Math.max(250, Number(process.env.USAGE_DAILY_FLUSH_MS || 5000));
 const MAX_CACHED_DAYS = 4;
 const dailyState = globalThis.__liteRouterUsageDailyState ??= { days: new Map(), timer: null };
-
-function emptyDay() {
-  return {
-    requests: 0, promptTokens: 0, completionTokens: 0, cost: 0,
-    byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
-  };
-}
 
 function getCachedDay(db, dateKey) {
   let slot = dailyState.days.get(dateKey);
@@ -1122,11 +884,6 @@ export async function getChartData(period = "7d") {
       requests: dayData ? (dayData.requests || 0) : 0,
     };
   });
-}
-
-function formatLogDate(date = new Date()) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 export async function getRecentLogs(limit = 200) {
