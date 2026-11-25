@@ -104,6 +104,22 @@ describe("upstreamHealth state machine", () => {
     expect(recovered.degraded).toBe(false);
     expect(recovered.recentStalls).toBe(0);
   });
+
+  it("ignores unmeasurable TTFT values so missing timing never clears an active cooldown", () => {
+    const t0 = 4_000_000;
+    recordUpstreamStall("kn", "deepseek-v4-1-flash:high", {
+      reason: "pre_content_stall",
+      immediate: true,
+      now: t0,
+    });
+
+    for (const unmeasurable of [0, -10, Number.NaN, null, undefined]) {
+      recordUpstreamSuccess("kenari", "deepseek-v4-1-flash:high", unmeasurable, t0 + 50);
+      const health = getUpstreamHealth("kn/deepseek-v4-1-flash:high", undefined, t0 + 100);
+      expect(health.degraded).toBe(true);
+      expect(health.recentStalls).toBe(1);
+    }
+  });
 });
 
 describe("combo health ordering", () => {

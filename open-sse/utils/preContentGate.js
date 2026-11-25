@@ -133,7 +133,7 @@ export function createPrefixedStream(buffered, reader) {
 
 export async function waitForMeaningfulContent(
   readable,
-  { sourceFormat, timeoutMs, signal = null, isAborted = () => false } = {},
+  { sourceFormat, timeoutMs, maxWaitMs = null, signal = null, isAborted = () => false } = {},
 ) {
   const reader = readable.getReader();
   const startedAt = Date.now();
@@ -145,19 +145,33 @@ export async function waitForMeaningfulContent(
   const buffered = [];
   let bufferedBytes = 0;
   let accumulatedText = "";
-  let timer = null;
+  let idleTimer = null;
+  let maxTimer = null;
   let onAbort = null;
+  let resolveRace;
 
   const racePromise = new Promise((resolve) => {
-    if (timeoutMs > 0) {
-      timer = setTimeout(() => resolve({ kind: "timeout" }), timeoutMs);
-      timer.unref?.();
-    }
-    if (signal) {
-      onAbort = () => resolve({ kind: "abort" });
-      signal.addEventListener("abort", onAbort, { once: true });
-    }
+    resolveRace = resolve;
   });
+
+  const armIdle = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    if (timeoutMs > 0) {
+      idleTimer = setTimeout(() => resolveRace({ kind: "timeout" }), timeoutMs);
+      idleTimer.unref?.();
+    }
+  };
+
+  armIdle();
+  const effectiveMaxWaitMs = maxWaitMs ?? (timeoutMs > 0 ? timeoutMs * 3 : 0);
+  if (effectiveMaxWaitMs > 0 && (timeoutMs <= 0 || effectiveMaxWaitMs > timeoutMs)) {
+    maxTimer = setTimeout(() => resolveRace({ kind: "timeout" }), effectiveMaxWaitMs);
+    maxTimer.unref?.();
+  }
+  if (signal) {
+    onAbort = () => resolveRace({ kind: "abort" });
+    signal.addEventListener("abort", onAbort, { once: true });
+  }
 
   try {
     while (true) {
@@ -185,6 +199,7 @@ export async function waitForMeaningfulContent(
         return { status: "ready", stream: createPrefixedStream(buffered, reader), elapsedMs: Date.now() - startedAt };
       }
 
+      armIdle();
       buffered.push(value);
       bufferedBytes += value?.byteLength || value?.length || 0;
       accumulatedText += decoder.decode(value, { stream: true });
@@ -203,7 +218,8 @@ export async function waitForMeaningfulContent(
       bytes: bufferedBytes,
     };
   } finally {
-    if (timer) clearTimeout(timer);
+    if (idleTimer) clearTimeout(idleTimer);
+    if (maxTimer) clearTimeout(maxTimer);
     if (signal && onAbort) signal.removeEventListener("abort", onAbort);
   }
 }

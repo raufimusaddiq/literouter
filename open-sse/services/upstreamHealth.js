@@ -99,15 +99,13 @@ export function recordUpstreamStall(provider, model, { reason = "stall_timeout",
 
 export function recordUpstreamSuccess(provider, model, ttftMs, now = Date.now()) {
   const key = normalizeHealthKey(provider, model);
-  if (!key) return;
+  if (!key || !Number.isFinite(ttftMs) || ttftMs <= 0) return;
   const entry = healthStore.get(key, now) || emptyHealthEntry();
   entry.samples = (entry.samples || 0) + 1;
-  if (Number.isFinite(ttftMs) && ttftMs > 0) {
-    entry.ewmaTtftMs = entry.ewmaTtftMs === null
-      ? ttftMs
-      : entry.ewmaTtftMs * (1 - EWMA_ALPHA) + ttftMs * EWMA_ALPHA;
-  }
-  if (!Number.isFinite(ttftMs) || ttftMs <= 0 || ttftMs < UPSTREAM_HEALTH_SLOW_TTFT_MS) {
+  entry.ewmaTtftMs = entry.ewmaTtftMs === null
+    ? ttftMs
+    : entry.ewmaTtftMs * (1 - EWMA_ALPHA) + ttftMs * EWMA_ALPHA;
+  if (ttftMs < UPSTREAM_HEALTH_SLOW_TTFT_MS) {
     entry.degradeCount = 0;
     entry.degradedUntil = 0;
     entry.stalls = [];

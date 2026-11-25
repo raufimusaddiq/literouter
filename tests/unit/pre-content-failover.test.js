@@ -198,4 +198,85 @@ describe("handleStreamingResponse pre-content failover gate", () => {
     expect(out.success).toBe(true);
     await out.response.body.cancel();
   });
+
+  it("resets the pre-content idle timer on keepalive frames until content arrives before hard cap", async () => {
+    const enc = new TextEncoder();
+    const res = new Response(new ReadableStream({
+      start(c) {
+        c.enqueue(enc.encode(": keepalive\n\n"));
+        setTimeout(() => c.enqueue(enc.encode(": keepalive\n\n")), 25);
+        setTimeout(() => {
+          c.enqueue(enc.encode('data: {"choices":[{"index":0,"delta":{"content":"thinking-done"}}]}\n\n'));
+          c.enqueue(enc.encode("data: [DONE]\n\n"));
+          c.close();
+        }, 55);
+      },
+    }), { status: 200, headers: { "content-type": "text/event-stream" } });
+
+    const out = await handleStreamingResponse(baseStreamOpts(res, {
+      allowPreContentFailover: true,
+      preContentTimeoutMs: 40,
+    }));
+
+    expect(out.success).toBe(true);
+    expect(await out.response.text()).toContain("thinking-done");
+  });
+
+  it("demotes and fails over on pre-content stream errors", async () => {
+    const broken = new Response(new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"role":"assistant"}}]}\n\n'));
+        setTimeout(() => c.error(new Error("socket reset")), 10);
+      },
+    }), { status: 200, headers: { "content-type": "text/event-stream" } });
+
+    const fallbackResponse = new Response(new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"backup"}}]}\n\n'));
+        c.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+        c.close();
+      },
+    }), { status: 200, headers: { "content-type": "text/event-stream" } });
+
+    const out = await handleComboChat({
+      body: { messages: [{ role: "user", content: "hi" }] },
+      models: ["kn/deepseek-v4-1-flash:high", "ocg/deepseek-v4.1-flash"],
+      handleSingleModel: vi.fn(async (_body, modelStr) => {
+        if (modelStr === "kn/deepseek-v4-1-flash:high") {
+          const r = await handleStreamingResponse(baseStreamOpts(broken, {
+            allowPreContentFailover: true,
+            preContentTimeoutMs: 200,
+            onStreamAbort: vi.fn(),
+          }));
+          return r.response;
+        }
+        return fallbackResponse;
+      }),
+      log: { info: vi.fn(), warn: vi.fn(), debug: vi.fn() },
+      comboName: "pre-content-error-combo",
+      comboStrategy: "fallback",
+      preContentFailover: true,
+    });
+
+    expect(out.ok).toBe(true);
+    expect(await out.text()).toContain("backup");
+    expect(getUpstreamHealth("kenari", "deepseek-v4-1-flash:high").degraded).toBe(true);
+  });
+
+  it("records immediate stall for 5xx HTML error pages but not 401 login pages", async () => {
+    const htmlErr = await handleStreamingResponse(baseStreamOpts(
+      new Response("<html><title>Bad Gateway</title></html>", { status: 200, headers: { "content-type": "text/html" } }),
+      { provider: "kenari", model: "deepseek-v4-1-flash:high" },
+    ));
+    expect(htmlErr.status).toBe(502);
+    expect(getUpstreamHealth("kenari", "deepseek-v4-1-flash:high").degraded).toBe(true);
+
+    resetUpstreamHealth();
+    const loginErr = await handleStreamingResponse(baseStreamOpts(
+      new Response("<html><title>Sign in</title></html>", { status: 200, headers: { "content-type": "text/html" } }),
+      { provider: "kenari", model: "deepseek-v4-1-flash:high" },
+    ));
+    expect(loginErr.status).toBe(401);
+    expect(getUpstreamHealth("kenari", "deepseek-v4-1-flash:high").degraded).toBe(false);
+  });
 });
