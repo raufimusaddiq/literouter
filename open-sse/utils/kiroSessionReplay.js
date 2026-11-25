@@ -1,7 +1,11 @@
 import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
+import { createTtlLruMap } from "./ttlLruMap.js";
 
-const sessionStartStore = new Map();
-const MAX_SESSION_STARTS = 5000;
+const sessionStartStore = createTtlLruMap("kiro:sessionStart", {
+  maxSize: 5000,
+  ttlMs: MEMORY_CONFIG.sessionTtlMs,
+  cleanupIntervalMs: MEMORY_CONFIG.sessionCleanupIntervalMs,
+});
 
 function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -51,10 +55,7 @@ function canReplaceSessionStart(history, firstUserIndex) {
 }
 
 function rememberSessionStart(key, entry) {
-  if (sessionStartStore.size >= MAX_SESSION_STARTS) {
-    sessionStartStore.delete(sessionStartStore.keys().next().value);
-  }
-  sessionStartStore.set(key, { ...entry, lastUsed: Date.now() });
+  sessionStartStore.set(key, entry);
 }
 
 export function applyKiroSessionReplay({
@@ -73,7 +74,6 @@ export function applyKiroSessionReplay({
   const baseCurrent = clone(currentMessage) || { userInputMessage: { content: "" } };
 
   if (existing && existing.modelId === modelId && existing.systemPrompt === systemPrompt) {
-    existing.lastUsed = Date.now();
     const firstUserIndex = findFirstUserIndex(baseHistory);
     const sessionStart = ensureUserMessageModelId(clone(existing.sessionStart), modelId);
     if (canReplaceSessionStart(baseHistory, firstUserIndex)) {
@@ -129,11 +129,3 @@ export function applyKiroSessionReplay({
 export function clearKiroSessionReplayStore() {
   sessionStartStore.clear();
 }
-
-const cleanup = setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of sessionStartStore) {
-    if (now - entry.lastUsed > MEMORY_CONFIG.sessionTtlMs) sessionStartStore.delete(key);
-  }
-}, MEMORY_CONFIG.sessionCleanupIntervalMs);
-if (cleanup.unref) cleanup.unref();

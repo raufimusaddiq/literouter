@@ -111,7 +111,7 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
     if (mode === "on" || mode === "off") {
       if (!body.thinking) {
         if (mode === "on") {
-          console.log("Injecting provider-level thinking config override: on");
+          log?.debug?.("THINKING", "Injecting provider-level thinking config override: on");
           body = { ...body, thinking: { type: "enabled", budget_tokens: 10000 } };
         } else {
           body = { ...body, thinking: { type: "disabled" } };
@@ -259,7 +259,7 @@ async function handleChatCoreInner({ body, modelInfo, credentials, log, onCreden
 
   const rtkStats = preTranslateRtk || compressMessages(translatedBody, tokenSaverEnabled && rtkEnabled);
   const rtkLine = formatRtkLog(rtkStats);
-  if (rtkLine) console.log(rtkLine);
+  if (rtkLine) log?.info?.("RTK", rtkLine);
 
   const headroomDiagnostics = {};
   const headroomStats = await compressWithHeadroom(translatedBody, { enabled: tokenSaverEnabled && headroomEnabled, url: headroomUrl, model: upstreamModel, format: finalFormat, compressUserMessages: headroomCompressUserMessages, timeoutMs: headroomTimeoutMs, diagnostics: headroomDiagnostics });

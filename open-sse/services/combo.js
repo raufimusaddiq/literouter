@@ -5,6 +5,7 @@ import { unavailableResponse, errorResponse, buildErrorBody } from "../utils/err
 import { abortableSleep, isAbortError } from "../utils/requestTimeouts.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
 import { extractTextContent } from "../translator/formats/gemini.js";
+import { createTtlLruMap } from "../utils/ttlLruMap.js";
 
 const HARD_CAPS = new Set(["vision", "pdf", "audioInput", "videoInput"]);
 
@@ -71,7 +72,7 @@ export function reorderByCapabilities(models, required) {
     .map((x) => x.m);
 }
 
-const comboRotationState = new Map();
+const comboRotationState = createTtlLruMap("combo:rotation", { maxSize: 1000, ttlMs: 0 });
 
 function trailingUserItems(arr) {
   if (!Array.isArray(arr) || arr.length === 0) return [];
