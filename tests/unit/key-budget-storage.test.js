@@ -14,7 +14,15 @@ const load = async () => {
   return { ...repo, ...keys, ...usage, db: await getAdapter() };
 };
 
-const settleNote = () => new Promise((resolve) => setTimeout(resolve, 25));
+const waitForBuffered = async (minCount = 1, timeoutMs = 2000) => {
+  const deadline = Date.now() + timeoutMs;
+  while ((globalThis._usageWriteBuffer?.items?.length || 0) < minCount) {
+    if (Date.now() >= deadline) {
+      throw new Error(`Timed out waiting for ${minCount} buffered usage item(s)`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+};
 
 const usageEntry = (apiKey, timestamp = new Date().toISOString()) => ({
   provider: "openai",
@@ -150,7 +158,7 @@ describe("budget storage", () => {
     const created = await createApiKey("k", "machine-1");
     const entry = usageEntry(created.key);
     const done = saveRequestUsage(entry);
-    await settleNote();
+    await waitForBuffered();
     expect(db.get(`SELECT COUNT(*) AS c FROM apiKeyBudgetSpend`).c).toBe(0);
     expect(db.get(`SELECT COUNT(*) AS c FROM usageHistory`).c).toBe(0);
     expect((await getBudgetSpend(created.id, "day")).tokens).toBe(15);
@@ -183,11 +191,11 @@ describe("budget storage", () => {
     const created = await createApiKey("k", "machine-1");
     const entry = usageEntry(created.key);
     const first = saveRequestUsage({ ...entry });
-    await settleNote();
+    await waitForBuffered();
     await flushUsageQueue();
     await first;
     const again = saveRequestUsage({ ...entry });
-    await settleNote();
+    await waitForBuffered();
     expect((await getBudgetSpend(created.id, "day")).tokens).toBe(30);
     await flushUsageQueue();
     await again;
