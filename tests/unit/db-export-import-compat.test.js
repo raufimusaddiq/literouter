@@ -69,9 +69,16 @@ describe("export/import and file compatibility with main", () => {
     const adapter = await getAdapter();
     const after = Object.fromEntries(adapter.all(`SELECT key, value FROM _meta`).map((r) => [r.key, r.value]));
     expect(after.schemaVersion).toBe(String(latestVersion()));
-    expect(after.backupSchemaVersion).toBe(before.backupSchemaVersion);
-    expect(Number(before.backupSchemaVersion)).toBe(SCHEMA_VERSION);
-    expect(fs.readdirSync(path.join(dbDir, "backups"))).toEqual([]);
+    expect(after.backupSchemaVersion).toBe(String(SCHEMA_VERSION));
+    expect(Number(before.backupSchemaVersion)).toBe(SCHEMA_VERSION - 1);
+    const backups = fs.readdirSync(path.join(dbDir, "backups"));
+    expect(backups).toHaveLength(1);
+    expect(backups[0]).toMatch(new RegExp(`^schema-${before.backupSchemaVersion}-to-${SCHEMA_VERSION}-`));
+    const snapshot = new Database(path.join(dbDir, "backups", backups[0], "data.sqlite"), { readonly: true });
+    const snapMeta = Object.fromEntries(snapshot.query(`SELECT key, value FROM _meta`).all().map((r) => [r.key, r.value]));
+    snapshot.close(true);
+    expect(snapMeta.schemaVersion).toBe(before.schemaVersion);
+    expect(snapMeta.backupSchemaVersion).toBe(before.backupSchemaVersion);
   });
 
   it("a DB file written by the new build passes integrity_check and keeps WAL", async () => {

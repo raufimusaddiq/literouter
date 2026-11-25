@@ -3,6 +3,8 @@ import { vi } from "#test/vi";
 import { useTempDataDir } from "#test/tempDataDir";
 import { validateKeyBudgetInput } from "@/shared/utils/keyBudget.js";
 
+process.env.USAGE_FLUSH_INTERVAL_MS = "60000";
+
 const temp = useTempDataDir("9router-key-budget-");
 
 const load = async () => {
@@ -12,6 +14,17 @@ const load = async () => {
   const { getAdapter } = await import("@/lib/db/driver.js");
   return { ...repo, ...keys, ...usage, db: await getAdapter() };
 };
+
+const settleNote = () => new Promise((resolve) => setTimeout(resolve, 25));
+
+const usageEntry = (apiKey, timestamp = new Date().toISOString()) => ({
+  provider: "openai",
+  model: "model-a",
+  tokens: { prompt_tokens: 10, completion_tokens: 5 },
+  apiKey,
+  endpoint: "/v1/chat/completions",
+  timestamp,
+});
 
 describe("budget input validation", () => {
   it.each([
@@ -53,7 +66,9 @@ describe("budget storage", () => {
     const { createApiKey, getApiKeyById, db } = await load();
     const created = await createApiKey("legacy", "machine-1");
     m006.up(db);
-    expect((await getApiKeyById(created.id)).budget).toBeNull();
+    const key = await getApiKeyById(created.id);
+    expect(key.budget).toBeNull();
+    expect(key.budgetInvalid).toBe(false);
   });
 
   it("stores a budget on the key and reads it back", async () => {
@@ -66,12 +81,40 @@ describe("budget storage", () => {
     expect((await updateApiKey(created.id, { budget: null })).budget).toBeNull();
   });
 
+  it("marks a stored budget that no longer parses as invalid instead of unlimited", async () => {
+    const { createApiKey, getApiKeyById, db } = await load();
+    const created = await createApiKey("k", "machine-1");
+    db.run(`UPDATE apiKeys SET budgetPeriod = 'week', budgetMaxTokens = 5 WHERE id = ?`, [created.id]);
+    const key = await getApiKeyById(created.id);
+    expect(key.budget).toBeNull();
+    expect(key.budgetInvalid).toBe(true);
+  });
+
+  it("keeps an unparseable stored budget when an unrelated field is updated", async () => {
+    const { createApiKey, updateApiKey, getApiKeyById, db } = await load();
+    const created = await createApiKey("k", "machine-1");
+    db.run(`UPDATE apiKeys SET budgetPeriod = 'week', budgetMaxTokens = 5 WHERE id = ?`, [created.id]);
+    const updated = await updateApiKey(created.id, { isActive: false });
+    expect(updated.budgetInvalid).toBe(true);
+    expect((await getApiKeyById(created.id)).budgetInvalid).toBe(true);
+    expect((await updateApiKey(created.id, { budget: null })).budgetInvalid).toBe(false);
+  });
+
+  it("deletes the key's spend counters with the key", async () => {
+    const { createApiKey, deleteApiKey, addBudgetSpend, db } = await load();
+    const created = await createApiKey("k", "machine-1");
+    addBudgetSpend(db, { budgetKeyId: created.id, budgetTokens: 5, budgetCost: 0.1, timestamp: new Date().toISOString() });
+    expect(db.get(`SELECT COUNT(*) AS c FROM apiKeyBudgetSpend WHERE keyId = ?`, [created.id]).c).toBeGreaterThan(0);
+    expect(await deleteApiKey(created.id)).toBe(true);
+    expect(db.get(`SELECT COUNT(*) AS c FROM apiKeyBudgetSpend WHERE keyId = ?`, [created.id]).c).toBe(0);
+  });
+
   it("adds spend per UTC day window and reports the reset time", async () => {
     const { createApiKey, addBudgetSpend, getBudgetSpend, db } = await load();
     const created = await createApiKey("k", "machine-1");
     const noon = Date.parse("2026-03-05T12:00:00.000Z");
-    addBudgetSpend(db, { budgetKeyId: created.id, budgetPeriod: "day", budgetTokens: 30, budgetCost: 0.25, timestamp: "2026-03-05T12:00:00.000Z" });
-    addBudgetSpend(db, { budgetKeyId: created.id, budgetPeriod: "day", budgetTokens: 12, budgetCost: 0.5, timestamp: "2026-03-05T18:00:00.000Z" });
+    addBudgetSpend(db, { budgetKeyId: created.id, budgetTokens: 30, budgetCost: 0.25, timestamp: "2026-03-05T12:00:00.000Z" });
+    addBudgetSpend(db, { budgetKeyId: created.id, budgetTokens: 12, budgetCost: 0.5, timestamp: "2026-03-05T18:00:00.000Z" });
     expect(await getBudgetSpend(created.id, "day", noon)).toEqual({
       tokens: 42,
       cost: 0.75,
@@ -82,8 +125,8 @@ describe("budget storage", () => {
   it("starts a fresh window at UTC midnight and UTC month start", async () => {
     const { createApiKey, addBudgetSpend, getBudgetSpend, db } = await load();
     const created = await createApiKey("k", "machine-1");
-    addBudgetSpend(db, { budgetKeyId: created.id, budgetPeriod: "day", budgetTokens: 5, budgetCost: 0, timestamp: "2026-03-05T23:59:59.000Z" });
-    addBudgetSpend(db, { budgetKeyId: created.id, budgetPeriod: "month", budgetTokens: 9, budgetCost: 0, timestamp: "2026-03-31T23:00:00.000Z" });
+    addBudgetSpend(db, { budgetKeyId: created.id, budgetTokens: 5, budgetCost: 0, timestamp: "2026-03-05T23:59:59.000Z" });
+    addBudgetSpend(db, { budgetKeyId: created.id, budgetTokens: 9, budgetCost: 0, timestamp: "2026-03-31T23:00:00.000Z" });
     const nextDay = Date.parse("2026-03-06T00:00:00.000Z");
     const nextMonth = Date.parse("2026-04-01T00:00:00.000Z");
     expect((await getBudgetSpend(created.id, "day", nextDay)).tokens).toBe(0);
@@ -91,20 +134,34 @@ describe("budget storage", () => {
     expect((await getBudgetSpend(created.id, "month", nextMonth)).resetsAt).toBe("2026-05-01T00:00:00.000Z");
   });
 
-  it("counts a completed request before the usage flush and does not double count after it", async () => {
-    const { createApiKey, getBudgetSpend, saveRequestUsage, flushUsageQueue } = await load();
+  it("shows a completed request's spend before the usage row is flushed", async () => {
+    const { createApiKey, getBudgetSpend, saveRequestUsage, flushUsageQueue, db } = await load();
     const created = await createApiKey("k", "machine-1");
-    await flushUsageQueue();
-    expect((await getBudgetSpend(created.id, "day")).tokens).toBe(0);
-    await saveRequestUsage({
-      provider: "openai",
-      model: "model-a",
-      tokens: { prompt_tokens: 10, completion_tokens: 5 },
-      apiKey: created.key,
-      endpoint: "/v1/chat/completions",
-    });
+    const done = saveRequestUsage(usageEntry(created.key));
+    await settleNote();
+    expect(db.get(`SELECT COUNT(*) AS c FROM apiKeyBudgetSpend`).c).toBe(0);
+    expect(db.get(`SELECT COUNT(*) AS c FROM usageHistory`).c).toBe(0);
     expect((await getBudgetSpend(created.id, "day")).tokens).toBe(15);
     await flushUsageQueue();
+    await done;
+    expect((await getBudgetSpend(created.id, "day")).tokens).toBe(15);
+    expect(db.get(`SELECT COUNT(*) AS c FROM apiKeyBudgetSpend`).c).toBe(1);
+  });
+
+  it("settles the spend of a deduplicated usage entry so it is not counted twice", async () => {
+    const { createApiKey, getBudgetSpend, saveRequestUsage, flushUsageQueue, db } = await load();
+    const created = await createApiKey("k", "machine-1");
+    const entry = usageEntry(created.key);
+    const first = saveRequestUsage({ ...entry });
+    await settleNote();
+    await flushUsageQueue();
+    await first;
+    const again = saveRequestUsage({ ...entry });
+    await settleNote();
+    expect((await getBudgetSpend(created.id, "day")).tokens).toBe(30);
+    await flushUsageQueue();
+    await again;
+    expect(db.get(`SELECT COUNT(*) AS c FROM usageHistory`).c).toBe(1);
     expect((await getBudgetSpend(created.id, "day")).tokens).toBe(15);
   });
 });

@@ -2,7 +2,7 @@ import { bumpConfigVersion } from "../configVersion.js";
 import { safeEqual } from "@/shared/utils/safeEqual.js";
 import { getAdapter } from "../driver.js";
 import { keyAccessFromColumns, keyAccessToColumns } from "@/shared/utils/keyAccess.js";
-import { budgetFromColumns, budgetToColumns } from "@/shared/utils/keyBudget.js";
+import { budgetToColumns, storedBudget } from "@/shared/utils/keyBudget.js";
 import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
 
 const keyCache = global.__liteRouterApiKeyCache ??= { rows: null, expiresAt: 0 };
@@ -27,6 +27,7 @@ async function allKeys() {
 
 function rowToKey(row) {
   if (!row) return null;
+  const stored = storedBudget(row.budgetPeriod, row.budgetMaxTokens, row.budgetMaxCost);
   return {
     id: row.id,
     key: row.key,
@@ -35,7 +36,8 @@ function rowToKey(row) {
     isActive: row.isActive === 1 || row.isActive === true,
     createdAt: row.createdAt,
     access: keyAccessFromColumns(row.accessRestricted, row.accessAllow),
-    budget: budgetFromColumns(row.budgetPeriod, row.budgetMaxTokens, row.budgetMaxCost),
+    budget: stored.budget,
+    budgetInvalid: stored.invalid,
   };
 }
 
@@ -88,7 +90,9 @@ export async function updateApiKey(id, data) {
     if (!row) return;
     const merged = { ...rowToKey(row), ...data };
     const cols = keyAccessToColumns(merged.access);
-    const budget = budgetToColumns(merged.budget);
+    const budget = Object.hasOwn(data, "budget")
+      ? budgetToColumns(data.budget)
+      : { budgetPeriod: row.budgetPeriod, budgetMaxTokens: row.budgetMaxTokens, budgetMaxCost: row.budgetMaxCost };
     db.run(
       `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, accessRestricted = ?, accessAllow = ?, budgetPeriod = ?, budgetMaxTokens = ?, budgetMaxCost = ? WHERE id = ?`,
       [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, cols.accessRestricted, cols.accessAllow, budget.budgetPeriod, budget.budgetMaxTokens, budget.budgetMaxCost, id]
@@ -101,9 +105,13 @@ export async function updateApiKey(id, data) {
 
 export async function deleteApiKey(id) {
   const db = await getAdapter();
-  const res = db.run(`DELETE FROM apiKeys WHERE id = ?`, [id]);
+  let changes = 0;
+  db.transaction(() => {
+    db.run(`DELETE FROM apiKeyBudgetSpend WHERE keyId = ?`, [id]);
+    changes = db.run(`DELETE FROM apiKeys WHERE id = ?`, [id])?.changes ?? 0;
+  });
   invalidateApiKeyCache();
-  return (res?.changes ?? 0) > 0;
+  return changes > 0;
 }
 
 export async function validateApiKey(key) {

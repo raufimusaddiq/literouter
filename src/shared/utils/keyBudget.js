@@ -29,10 +29,10 @@ export function validateKeyBudgetInput(input) {
   return { ok: true, value };
 }
 
-export function budgetFromColumns(period, maxTokens, maxCost) {
-  if (!period) return null;
+export function storedBudget(period, maxTokens, maxCost) {
+  if (!period) return { budget: null, invalid: false };
   const checked = validateKeyBudgetInput({ period, maxTokens, maxCost });
-  return checked.ok ? checked.value : null;
+  return checked.ok ? { budget: checked.value, invalid: false } : { budget: null, invalid: true };
 }
 
 export function budgetToColumns(budget) {

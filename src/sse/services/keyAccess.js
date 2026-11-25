@@ -39,13 +39,15 @@ export async function getKeyAccessContext(request) {
   const record = await getApiKeyByKey(apiKey);
   if (!record) return null;
   const restricted = record.access?.restricted === true;
-  if (!restricted && !record.budget) return null;
+  const budgetInvalid = record.budgetInvalid === true;
+  if (!restricted && !record.budget && !budgetInvalid) return null;
   return {
     keyId: record.id,
     keyName: record.name || record.id,
     restricted,
     allow: record.access?.allow || [],
     budget: record.budget || null,
+    budgetInvalid,
     _sets: null,
   };
 }
@@ -144,8 +146,16 @@ export function keyBudgetDeniedResponse(ctx, spend, dimension) {
   });
 }
 
+export function keyBudgetInvalidResponse(ctx) {
+  const message = `API key "${ctx.keyName}" has an invalid budget stored; re-save its budget`;
+  log.warn("AUTH", `key-budget: key "${ctx.keyName}" refused (stored budget is invalid)`);
+  return errorResponse(HTTP_STATUS.FORBIDDEN, message, null, FORMATS.OPENAI, "invalid_key_budget");
+}
+
 export async function enforceKeyBudget(ctx) {
-  if (!ctx?.budget) return null;
+  if (!ctx) return null;
+  if (ctx.budgetInvalid) return keyBudgetInvalidResponse(ctx);
+  if (!ctx.budget) return null;
   const spend = await getBudgetSpend(ctx.keyId, ctx.budget.period);
   const overTokens = ctx.budget.maxTokens != null && spend.tokens >= ctx.budget.maxTokens;
   const overCost = ctx.budget.maxCost != null && spend.cost >= ctx.budget.maxCost;

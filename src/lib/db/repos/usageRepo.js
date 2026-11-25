@@ -448,7 +448,7 @@ function writeUsageBatch(db, entries) {
     aggregateEntryToDay(slot.day, entry);
     slot.dirty = true;
   }
-  settleBudgetSpend(insertedEntries);
+  settleBudgetSpend(entries);
   if (insertedEntries.length) scheduleDailyFlush();
 
   return insertedEntries;
@@ -503,11 +503,14 @@ function settlePersistedBatch(batch) {
 
 function handleUsageBatchFailure(batch, error) {
   const retry = [];
+  const dropped = [];
   for (const item of batch) {
     item.attempts = (item.attempts || 0) + 1;
     if (item.attempts < 3) retry.push(item);
-    else item.reject?.(error);
+    else dropped.push(item);
   }
+  for (const item of dropped) item.reject?.(error);
+  settleBudgetSpend(dropped.map((item) => item.entry));
   if (retry.length) usageWriteBuffer.items.unshift(...retry);
   console.error(`Failed to persist usage batch (${batch.length} events):`, error);
 }

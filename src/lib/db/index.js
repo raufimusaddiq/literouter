@@ -3,7 +3,7 @@ import { bumpConfigVersion } from "./configVersion.js";
 import { stringifyJson, parseJson } from "./helpers/jsonCol.js";
 import { keyAccessFromColumns, keyAccessToColumns, validateKeyAccessInput } from "@/shared/utils/keyAccess.js";
 import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
-import { budgetFromColumns, budgetToColumns, validateKeyBudgetInput } from "@/shared/utils/keyBudget.js";
+import { budgetToColumns, storedBudget, validateKeyBudgetInput } from "@/shared/utils/keyBudget.js";
 
 export {
   getSettings, updateSettings, isCloudEnabled, getCloudUrl, exportSettings,
@@ -61,7 +61,7 @@ export {
 } from "./repos/requestDetailsRepo.js";
 
 function exportedBudget(row) {
-  const budget = budgetFromColumns(row.budgetPeriod, row.budgetMaxTokens, row.budgetMaxCost);
+  const { budget } = storedBudget(row.budgetPeriod, row.budgetMaxTokens, row.budgetMaxCost);
   return budget ? { budget } : {};
 }
 

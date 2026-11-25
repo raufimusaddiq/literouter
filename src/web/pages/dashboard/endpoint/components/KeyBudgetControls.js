@@ -62,6 +62,11 @@ export default function KeyBudgetControls({ apiKey, onChange }) {
           if (!checked) clear();
         }}
       />
+      {apiKey.budgetInvalid && (
+        <p role="alert" className="mt-1 text-[12.5px] text-danger">
+          The stored budget is invalid, so this key is refused. Save a valid budget to restore it.
+        </p>
+      )}
       {budget && (
         <p className="mt-1 text-[12.5px] text-muted">
           {limitLine(budget, apiKey.budgetUsage)}
@@ -122,6 +127,7 @@ KeyBudgetControls.propTypes = {
       maxTokens: PropTypes.number,
       maxCost: PropTypes.number,
     }),
+    budgetInvalid: PropTypes.bool,
     budgetUsage: PropTypes.shape({ tokens: PropTypes.number, cost: PropTypes.number, resetsAt: PropTypes.string }),
   }).isRequired,
   onChange: PropTypes.func.isRequired,
