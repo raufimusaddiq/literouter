@@ -29,6 +29,7 @@ const usageEntry = (apiKey, timestamp = new Date().toISOString()) => ({
 describe("budget input validation", () => {
   it.each([
     [{ period: "week", maxTokens: 10 }, "period"],
+    [{ period: "", maxTokens: 10 }, "period"],
     [{ period: "day" }, "maxTokens and/or maxCost"],
     [{ period: "day", maxTokens: 0 }, "positive integer"],
     [{ period: "day", maxTokens: -5 }, "positive integer"],
@@ -88,6 +89,16 @@ describe("budget storage", () => {
     const key = await getApiKeyById(created.id);
     expect(key.budget).toBeNull();
     expect(key.budgetInvalid).toBe(true);
+  });
+
+  it("exports an invalid stored budget so re-importing it is refused", async () => {
+    const { createApiKey, exportDb, importDb, db } = await load();
+    const created = await createApiKey("k", "machine-1");
+    db.run(`UPDATE apiKeys SET budgetPeriod = 'week', budgetMaxTokens = 5 WHERE id = ?`, [created.id]);
+    const dump = await exportDb();
+    const key = dump.apiKeys.find((k) => k.id === created.id);
+    expect(key.budget).toEqual({ period: "week", maxTokens: 5, maxCost: null });
+    await expect(importDb(dump)).rejects.toThrow("budget.period");
   });
 
   it("keeps an unparseable stored budget when an unrelated field is updated", async () => {

@@ -61,8 +61,9 @@ export {
 } from "./repos/requestDetailsRepo.js";
 
 function exportedBudget(row) {
-  const { budget } = storedBudget(row.budgetPeriod, row.budgetMaxTokens, row.budgetMaxCost);
-  return budget ? { budget } : {};
+  if (row.budgetPeriod == null) return {};
+  const { budget, invalid } = storedBudget(row.budgetPeriod, row.budgetMaxTokens, row.budgetMaxCost);
+  return { budget: invalid ? { period: row.budgetPeriod, maxTokens: row.budgetMaxTokens, maxCost: row.budgetMaxCost } : budget };
 }
 
 export async function exportDb() {

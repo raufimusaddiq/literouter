@@ -30,7 +30,7 @@ export function validateKeyBudgetInput(input) {
 }
 
 export function storedBudget(period, maxTokens, maxCost) {
-  if (!period) return { budget: null, invalid: false };
+  if (period == null) return { budget: null, invalid: false };
   const checked = validateKeyBudgetInput({ period, maxTokens, maxCost });
   return checked.ok ? { budget: checked.value, invalid: false } : { budget: null, invalid: true };
 }
