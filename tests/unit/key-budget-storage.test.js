@@ -11,9 +11,8 @@ const load = async () => {
   const repo = await import("@/lib/db/repos/keyBudgetRepo.js");
   const keys = await import("@/lib/db/repos/apiKeysRepo.js");
   const usage = await import("@/lib/db/repos/usageRepo.js");
-  const { exportDb, importDb } = await import("@/lib/db/index.js");
   const { getAdapter } = await import("@/lib/db/driver.js");
-  return { ...repo, ...keys, ...usage, exportDb, importDb, db: await getAdapter() };
+  return { ...repo, ...keys, ...usage, db: await getAdapter() };
 };
 
 const settleNote = () => new Promise((resolve) => setTimeout(resolve, 25));
@@ -93,7 +92,8 @@ describe("budget storage", () => {
   });
 
   it("exports an invalid stored budget so re-importing it is refused", async () => {
-    const { createApiKey, exportDb, importDb, db } = await load();
+    const { createApiKey, db } = await load();
+    const { exportDb, importDb } = await import("@/lib/db/index.js");
     const created = await createApiKey("k", "machine-1");
     db.run(`UPDATE apiKeys SET budgetPeriod = 'week', budgetMaxTokens = 5 WHERE id = ?`, [created.id]);
     const dump = await exportDb();
