@@ -1,5 +1,3 @@
-const { formatNumber } = require("./format");
-
 const COLORS = {
   reset: "\x1b[0m",
   success: "\x1b[32m",

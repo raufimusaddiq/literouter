@@ -1,11 +1,10 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { vi } from "#test/vi";
 import { useTempDataDir } from "#test/tempDataDir";
 import { validateKeyBudgetInput } from "@/shared/utils/keyBudget.js";
 
 process.env.USAGE_FLUSH_INTERVAL_MS = "60000";
 
-const temp = useTempDataDir("9router-key-budget-");
+useTempDataDir("9router-key-budget-");
 
 const load = async () => {
   const repo = await import("@/lib/db/repos/keyBudgetRepo.js");

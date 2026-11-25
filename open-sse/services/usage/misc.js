@@ -7,12 +7,8 @@ export { getGlmUsage } from "./glm.js";
 
 const VERCEL_AI_GATEWAY_CREDITS_URL = U("vercel-ai-gateway").url;
 
-export async function getIflowUsage(accessToken) {
-  try {
-    return { message: "iFlow connected. Usage tracked per request." };
-  } catch (error) {
-    return { message: "Unable to fetch iFlow usage." };
-  }
+export async function getIflowUsage() {
+  return { message: "iFlow connected. Usage tracked per request." };
 }
 
 const OLLAMA_LIMIT_WINDOWS = {

@@ -192,8 +192,6 @@ describe("cline free-models envelope in nonStreamingHandler", () => {
 });
 
 describe("cline /api/v1/models aggregation (resolveClineModels vs resolveClinepassModels)", () => {
-  const API_MODELS_URL = "https://api.cline.bot/api/v1/models";
-
   const API_RESPONSE = [
     { id: "cline-pass/deepseek-v4-flash", name: "DeepSeek V4 Flash" },
     { id: "cline-pass/glm-5.2", name: "GLM-5.2" },

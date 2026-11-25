@@ -1,4 +1,4 @@
-import { buildModelsList, LLM_KIND } from "../route.js";
+import { buildModelsList } from "../route.js";
 import { getKeyAccessContext, filterModelsListForKey } from "@/sse/services/keyAccess.js";
 import { nextUrl } from "@/server/http.js";
 

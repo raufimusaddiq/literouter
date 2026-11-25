@@ -1,5 +1,3 @@
-import { GOOGLE_OAUTH_CLIENT } from "../shared.js";
-
 export default {
   id: "gemini",
   priority: 50,

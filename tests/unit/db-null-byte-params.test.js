@@ -1,7 +1,4 @@
-import fs from "node:fs";
-import path from "node:path";
 import { describe, it, expect } from "bun:test";
-import { vi } from "#test/vi";
 import { useTempDataDir } from "#test/tempDataDir";
 import { stripNullBytes } from "@/lib/db/helpers/nullBytes.js";
 

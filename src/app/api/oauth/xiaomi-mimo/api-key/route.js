@@ -84,7 +84,7 @@ export async function POST(request) {
       ),
     );
     if (existing) {
-      const updated = await updateProviderConnection(existing.id, {
+      await updateProviderConnection(existing.id, {
         accessToken: key,
         providerSpecificData: {
           ...existing.providerSpecificData,

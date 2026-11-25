@@ -174,7 +174,7 @@ describe("minimal profile route boundary", () => {
     expect(shadowed, "/api/console-logs must not be hidden").toBe(false);
     expect(hidden).not.toContain("/api/translator");
 
-    const protectedBlock = source.match(/const PROTECTED_API_PATHS = \[([\s\S]*?)\];/)?.[1] || "";
-    expect(protectedBlock).toContain('"/api/console-logs"');
+    const publicBlock = source.match(/const PUBLIC_API_PATHS = \[([\s\S]*?)\];/)?.[1] || "";
+    expect(publicBlock).not.toContain('"/api/console-logs"');
   });
 });

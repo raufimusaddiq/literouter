@@ -1,20 +1,18 @@
 
 import crypto from "crypto";
 import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
+import { createTtlLruMap } from "./ttlLruMap.js";
 
-const runtimeSessionStore = new Map();
-const continuationStore = new Map();
-
-const cleanupInterval = setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of runtimeSessionStore) {
-        if (now - entry.lastUsed > MEMORY_CONFIG.sessionTtlMs) {
-            runtimeSessionStore.delete(key);
-        }
-    }
-}, MEMORY_CONFIG.sessionCleanupIntervalMs);
-
-if (cleanupInterval.unref) cleanupInterval.unref();
+const runtimeSessionStore = createTtlLruMap("session:runtime", {
+  maxSize: 1000,
+  ttlMs: MEMORY_CONFIG.sessionTtlMs,
+  cleanupIntervalMs: MEMORY_CONFIG.sessionCleanupIntervalMs,
+});
+const continuationStore = createTtlLruMap("session:continuation", {
+  maxSize: 5000,
+  ttlMs: MEMORY_CONFIG.sessionTtlMs,
+  cleanupIntervalMs: MEMORY_CONFIG.sessionCleanupIntervalMs,
+});
 
 export function deriveSessionId(connectionId) {
     if (!connectionId) {
@@ -23,18 +21,11 @@ export function deriveSessionId(connectionId) {
 
     const existing = runtimeSessionStore.get(connectionId);
     if (existing) {
-        existing.lastUsed = Date.now();
-        return existing.sessionId;
-    }
-
-    const MAX_SESSIONS = 1000;
-    if (runtimeSessionStore.size >= MAX_SESSIONS) {
-      const oldest = runtimeSessionStore.keys().next().value;
-      runtimeSessionStore.delete(oldest);
+        return existing;
     }
 
     const sessionId = generateBinaryStyleId();
-    runtimeSessionStore.set(connectionId, { sessionId, lastUsed: Date.now() });
+    runtimeSessionStore.set(connectionId, sessionId);
     return sessionId;
 }
 
@@ -48,11 +39,13 @@ export function clearSessionStore() {
     continuationStore.clear();
 }
 
-const assistantSessionStore = new Map();
+const assistantSessionStore = createTtlLruMap("session:assistant", {
+  maxSize: 5000,
+  ttlMs: MEMORY_CONFIG.sessionTtlMs,
+  cleanupIntervalMs: MEMORY_CONFIG.sessionCleanupIntervalMs,
+});
 const ASSISTANT_MIN_LEN = 50;
 const ASSISTANT_CAP_LEN = 50;
-const MAX_ASSISTANT_SESSIONS = 5000;
-const MAX_CONTINUATION_SESSIONS = 5000;
 
 const SESSION_HEADER_KEYS = ["x-session-id", "session-id", "session_id", "x-amp-thread-id", "x-opencode-session"];
 const CLAUDE_CODE_SESSION_RE = /_session_([a-f0-9-]+)$/;
@@ -139,14 +132,10 @@ function assistantTextSessionId(scope, body) {
     const hash = sha16(`${scope}:${text.slice(0, ASSISTANT_CAP_LEN)}`);
     const existing = assistantSessionStore.get(hash);
     if (existing) {
-        existing.lastUsed = Date.now();
-        return existing.sessionId;
-    }
-    if (assistantSessionStore.size >= MAX_ASSISTANT_SESSIONS) {
-        assistantSessionStore.delete(assistantSessionStore.keys().next().value);
+        return existing;
     }
     const sessionId = generateBinaryStyleId();
-    assistantSessionStore.set(hash, { sessionId, lastUsed: Date.now() });
+    assistantSessionStore.set(hash, sessionId);
     return sessionId;
 }
 
@@ -170,16 +159,10 @@ export function resolveContinuationId({ sessionId, connectionId, scope = "", eph
     const key = `${scope}:${connectionId || ""}:${sessionId || ""}`;
     const existing = continuationStore.get(key);
     if (existing) {
-        existing.lastUsed = Date.now();
-        continuationStore.delete(key);
-        continuationStore.set(key, existing);
-        return existing.continuationId;
+        return existing;
     }
     const continuationId = crypto.randomUUID();
-    if (continuationStore.size >= MAX_CONTINUATION_SESSIONS) {
-        continuationStore.delete(continuationStore.keys().next().value);
-    }
-    continuationStore.set(key, { continuationId, lastUsed: Date.now() });
+    continuationStore.set(key, continuationId);
     return continuationId;
 }
 
@@ -195,14 +178,3 @@ export function toNumericSessionId(sessionId) {
     const n = h.readBigUInt64BE(0) & 0x7fffffffffffffffn;
     return `-${n.toString()}`;
 }
-
-const assistantCleanup = setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of assistantSessionStore) {
-        if (now - entry.lastUsed > MEMORY_CONFIG.sessionTtlMs) assistantSessionStore.delete(key);
-    }
-    for (const [key, entry] of continuationStore) {
-        if (now - entry.lastUsed > MEMORY_CONFIG.sessionTtlMs) continuationStore.delete(key);
-    }
-}, MEMORY_CONFIG.sessionCleanupIntervalMs);
-if (assistantCleanup.unref) assistantCleanup.unref();

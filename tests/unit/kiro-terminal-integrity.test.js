@@ -106,17 +106,6 @@ function controlledResponse(frames = []) {
   };
 }
 
-async function text(stream) {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let output = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) return output + decoder.decode();
-    output += decoder.decode(value, { stream: true });
-  }
-}
-
 async function execute(executor = new KiroExecutor(), overrides = {}) {
   return executor.execute({
     model: "kr/claude-opus-4.8",

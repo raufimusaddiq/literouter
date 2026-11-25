@@ -164,16 +164,13 @@ describe("buildPplxRequestBody", () => {
 });
 
 describe("PerplexityWebExecutor.execute", () => {
-  let capturedUrl;
   let capturedOpts;
   let capturedBody;
 
   beforeEach(() => {
-    capturedUrl = null;
     capturedOpts = null;
     capturedBody = null;
     global.fetch = vi.fn(async (url, opts) => {
-      capturedUrl = url;
       capturedOpts = opts;
       capturedBody = JSON.parse(opts.body);
       return mockPplxStream([

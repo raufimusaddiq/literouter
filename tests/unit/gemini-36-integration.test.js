@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
-import { createRequire } from "node:module";
 
 import { getModelUpstreamId } from "../../open-sse/config/providerModels.js";
 import { AntigravityExecutor } from "../../open-sse/executors/antigravity.js";
@@ -14,7 +13,6 @@ import {
   removeConnection,
 } from "../../open-sse/services/projectId.js";
 
-const require = createRequire(import.meta.url);
 function cloudCodeResponse(projectId) {
   return {
     ok: true,

@@ -47,7 +47,7 @@ export function startCacheCleanup() {
 startCacheCleanup();
 
 
-export async function getProjectIdForConnection(connectionId, accessToken, provider = "gemini-cli") {
+export async function getProjectIdForConnection(connectionId, accessToken, provider = "gemini-cli", log = null) {
     if (!connectionId || !accessToken) return null;
 
     const cached = projectIdCache.get(connectionId);
@@ -63,7 +63,7 @@ export async function getProjectIdForConnection(connectionId, accessToken, provi
 
     const promise = (async () => {
         try {
-            const projectId = await fetchProjectId(accessToken, controller.signal, provider);
+            const projectId = await fetchProjectId(accessToken, controller.signal, provider, log);
             if (projectId) {
                 projectIdCache.set(connectionId, {projectId, fetchedAt: Date.now()});
                 return projectId;
@@ -97,7 +97,7 @@ export function removeConnection(connectionId) {
 }
 
 
-async function fetchProjectId(accessToken, signal, provider) {
+async function fetchProjectId(accessToken, signal, provider, log = null) {
     const endpoints = CLOUD_CODE_API[provider] || CLOUD_CODE_API["gemini-cli"];
     const headers = provider === "antigravity" ? ANTIGRAVITY_LOAD_CODE_ASSIST_HEADERS : LOAD_CODE_ASSIST_HEADERS;
     const response = await fetch(endpoints.loadCodeAssist, {
@@ -128,11 +128,11 @@ async function fetchProjectId(accessToken, signal, provider) {
         }
     }
 
-    return onboardUser(accessToken, tierID, signal, endpoints, provider);
+    return onboardUser(accessToken, tierID, signal, endpoints, provider, log);
 }
 
-async function onboardUser(accessToken, tierID, externalSignal, endpoints, provider) {
-    console.log(`[ProjectId] Onboarding user with tier: ${tierID}`);
+async function onboardUser(accessToken, tierID, externalSignal, endpoints, provider, log = null) {
+    log?.info?.("PROJECT_ID", `Onboarding user with tier: ${tierID}`);
 
     const reqBody = { tierId: tierID, metadata: LOAD_CODE_ASSIST_METADATA };
     const headers = provider === "antigravity" ? ANTIGRAVITY_LOAD_CODE_ASSIST_HEADERS : LOAD_CODE_ASSIST_HEADERS;
@@ -167,14 +167,14 @@ async function onboardUser(accessToken, tierID, externalSignal, endpoints, provi
             if (data.done === true) {
                 const projectId = extractProjectIdFromOnboard(data);
                 if (projectId) {
-                    console.log(`[ProjectId] Successfully onboarded, project ID: ${projectId}`);
+                    log?.info?.("PROJECT_ID", `Successfully onboarded, project ID: ${projectId}`);
                     return projectId;
                 }
                 throw new Error("onboardUser done but no project_id in response");
             }
 
             const jitter = Math.floor(Math.random() * 5000);
-            console.log(`[ProjectId] Onboard attempt ${attempt}/${MAX_ATTEMPTS}: not done yet, waiting...`);
+            log?.info?.("PROJECT_ID", `Onboard attempt ${attempt}/${MAX_ATTEMPTS}: not done yet, waiting...`);
             await new Promise(resolve => setTimeout(resolve, BASE_RETRY_DELAY_MS + jitter));
 
         } catch (error) {

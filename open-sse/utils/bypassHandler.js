@@ -200,7 +200,6 @@ function mergeChunksToResponse(chunks, sourceFormat) {
   if (sourceFormat === FORMATS.CLAUDE) {
     const messageStop = chunks.find(c => c.type === CLAUDE_EVENT.MESSAGE_STOP);
     if (messageStop) {
-      const contentDelta = chunks.find(c => c.type === CLAUDE_EVENT.CONTENT_BLOCK_DELTA);
       const messageDelta = chunks.find(c => c.type === CLAUDE_EVENT.MESSAGE_DELTA);
       const messageStart = chunks.find(c => c.type === CLAUDE_EVENT.MESSAGE_START);
 

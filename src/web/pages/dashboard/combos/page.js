@@ -286,7 +286,6 @@ function ComboCard({ combo, comboByName, getCaps, activeProviders = [], copied, 
   const current = strategy.fallbackStrategy || "fallback";
   const judge = strategy.judgeModel || "";
   const isFusion = current === "fusion";
-  const comboCaps = aggregateComboCapabilities(combo.models, comboByName, getCaps);
 
   return (
     <div className="border-b border-line py-4">

@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { vi } from "#test/vi";
 import { XiaomiMimoExecutor, __test__ } from "../../open-sse/executors/xiaomi-mimo.js";
 import { getExecutor } from "../../open-sse/executors/index.js";
 

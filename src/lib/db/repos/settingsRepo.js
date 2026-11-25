@@ -64,16 +64,48 @@ async function readRaw() {
   return cache.raw;
 }
 
+const OBJECT_DEFAULT_KEYS = new Set([
+  "providerStrategies",
+  "quotaVisibility",
+  "comboStrategies",
+  "dnsToolEnabled",
+]);
+
+function mergeCapacityAdapter(rawAdapter) {
+  const source = rawAdapter && typeof rawAdapter === "object" ? rawAdapter : {};
+  const result = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (key in DEFAULT_SETTINGS.capacityAdapter) continue;
+    result[key] = value && typeof value === "object" && !Array.isArray(value) ? { ...value } : value;
+  }
+  for (const [modality, defEntry] of Object.entries(DEFAULT_SETTINGS.capacityAdapter)) {
+    const rawEntry = source[modality] && typeof source[modality] === "object" ? source[modality] : {};
+    result[modality] = {
+      ...defEntry,
+      ...rawEntry,
+      models: Array.isArray(rawEntry.models) ? [...rawEntry.models] : [...defEntry.models],
+    };
+  }
+  return result;
+}
+
 export function mergeWithDefaults(raw) {
-  const merged = { ...DEFAULT_SETTINGS, ...(raw || {}) };
+  const source = raw || {};
+  const merged = { ...DEFAULT_SETTINGS, ...source };
   for (const [key, defVal] of Object.entries(DEFAULT_SETTINGS)) {
-    if (merged[key] === undefined) {
+    if (key === "capacityAdapter") {
+      merged.capacityAdapter = mergeCapacityAdapter(merged.capacityAdapter);
+    } else if (OBJECT_DEFAULT_KEYS.has(key) && source[key] === undefined) {
+      merged[key] = { ...defVal };
+    } else if (merged[key] === undefined) {
       if (
         key === "outboundProxyEnabled" &&
         typeof merged.outboundProxyUrl === "string" &&
         merged.outboundProxyUrl.trim()
       ) {
         merged[key] = true;
+      } else if (OBJECT_DEFAULT_KEYS.has(key)) {
+        merged[key] = { ...defVal };
       } else {
         merged[key] = defVal;
       }
@@ -116,7 +148,6 @@ export async function getCloudUrl() {
   return (
     settings.cloudUrl ||
     process.env.CLOUD_URL ||
-    process.env.NEXT_PUBLIC_CLOUD_URL ||
     ""
   );
 }

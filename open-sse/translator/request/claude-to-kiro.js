@@ -242,7 +242,7 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
     scope: "kiro",
   });
   const conversationId = sessionIdentity.sessionId;
-  const continuationId = resolveContinuationId({
+  resolveContinuationId({
     sessionId: conversationId,
     connectionId: credentials?.connectionId,
     scope: "kiro",

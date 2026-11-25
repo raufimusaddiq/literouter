@@ -5,6 +5,7 @@ import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
 import { getThinkingLevels } from "../providers/thinkingLevels.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
+import { createTtlLruMap } from "../utils/ttlLruMap.js";
 import { isMuseSparkModel } from "../providers/models/helpers.js";
 import { applyFingerprintTools } from "../utils/opencodeFingerprint.js";
 import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
@@ -108,17 +109,11 @@ export function generateRequestId(timestamp = Date.now()) {
   return `msg_${time}${unstableRandom()}`;
 }
 
-const translatedOpencodeSessions = new Map();
-const MAX_TRANSLATED_SESSIONS = 1000;
-const translatedSessionCleanup = setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of translatedOpencodeSessions) {
-    if (now - entry.lastUsed > MEMORY_CONFIG.sessionTtlMs) {
-      translatedOpencodeSessions.delete(key);
-    }
-  }
-}, MEMORY_CONFIG.sessionCleanupIntervalMs);
-if (translatedSessionCleanup.unref) translatedSessionCleanup.unref();
+const translatedOpencodeSessions = createTtlLruMap("opencode:translated", {
+  maxSize: 1000,
+  ttlMs: MEMORY_CONFIG.sessionTtlMs,
+  cleanupIntervalMs: MEMORY_CONFIG.sessionCleanupIntervalMs,
+});
 
 export function translateSessionId(sessionId, clientTool = "") {
   if (typeof sessionId === "string" && OPENCODE_SESSION_RE.test(sessionId.trim())) {
@@ -127,16 +122,10 @@ export function translateSessionId(sessionId, clientTool = "") {
   const key = `opencode:ses:${clientTool || "generic"}:${sessionId || ""}`;
   const existing = translatedOpencodeSessions.get(key);
   if (existing) {
-    existing.lastUsed = Date.now();
-    translatedOpencodeSessions.delete(key);
-    translatedOpencodeSessions.set(key, existing);
-    return existing.sessionId;
+    return existing;
   }
   const id = generateSessionId();
-  if (translatedOpencodeSessions.size >= MAX_TRANSLATED_SESSIONS) {
-    translatedOpencodeSessions.delete(translatedOpencodeSessions.keys().next().value);
-  }
-  translatedOpencodeSessions.set(key, { sessionId: id, lastUsed: Date.now() });
+  translatedOpencodeSessions.set(key, id);
   return id;
 }
 
@@ -158,17 +147,11 @@ function nativeSession(headers) {
   return null;
 }
 
-const stableOpencodeSessions = new Map();
-const MAX_STABLE_SESSIONS = 1000;
-const stableSessionCleanup = setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of stableOpencodeSessions) {
-    if (now - entry.lastUsed > MEMORY_CONFIG.sessionTtlMs) {
-      stableOpencodeSessions.delete(key);
-    }
-  }
-}, MEMORY_CONFIG.sessionCleanupIntervalMs);
-if (stableSessionCleanup.unref) stableSessionCleanup.unref();
+const stableOpencodeSessions = createTtlLruMap("opencode:stable", {
+  maxSize: 1000,
+  ttlMs: MEMORY_CONFIG.sessionTtlMs,
+  cleanupIntervalMs: MEMORY_CONFIG.sessionCleanupIntervalMs,
+});
 
 function identityKey(credentials) {
   const connectionId = credentials?.connectionId || credentials?.id;
@@ -186,16 +169,10 @@ export function stableSessionId(credentials) {
   const key = identityKey(credentials);
   const existing = stableOpencodeSessions.get(key);
   if (existing) {
-    existing.lastUsed = Date.now();
-    stableOpencodeSessions.delete(key);
-    stableOpencodeSessions.set(key, existing);
-    return existing.sessionId;
+    return existing;
   }
   const sessionId = generateSessionId();
-  if (stableOpencodeSessions.size >= MAX_STABLE_SESSIONS) {
-    stableOpencodeSessions.delete(stableOpencodeSessions.keys().next().value);
-  }
-  stableOpencodeSessions.set(key, { sessionId, lastUsed: Date.now() });
+  stableOpencodeSessions.set(key, sessionId);
   return sessionId;
 }
 
@@ -255,8 +232,8 @@ export function forgetOpencodeSession(sessionId) {
   if (!sessionId) return false;
   let removed = false;
   for (const store of [stableOpencodeSessions, translatedOpencodeSessions]) {
-    for (const [key, entry] of store) {
-      if (entry.sessionId === sessionId) {
+    for (const [key, value] of store) {
+      if (value === sessionId) {
         store.delete(key);
         removed = true;
       }

@@ -232,7 +232,7 @@ export async function runMigrationOnce(adapter) {
     }
   }
 
-  const migInfo = runVersionedMigrations(adapter);
+  runVersionedMigrations(adapter);
 
   syncSchemaFromTables(adapter);
 

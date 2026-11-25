@@ -1,23 +1,24 @@
 "use client";
 
-import { formatDateTime } from "@/shared/utils/dateTime";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ProviderIcon from "@/shared/components/ProviderIcon";
-import QuotaTable from "./QuotaTable";
 import Toggle from "@/shared/components/Toggle";
-import Tooltip from "@/shared/components/Tooltip";
+import ConnectionQuotaCard from "./ConnectionQuotaCard";
+import PaginationBar from "./PaginationBar";
+import ResetCreditsModal from "./ResetCreditsModal";
+import {
+  AUTO_PING_SETTINGS_KEYS,
+  providerLabel,
+} from "./helpers";
 import {
   parseQuotaData,
   calculatePercentage,
-  filterQuotasByVisibility,
-  getHiddenQuotaRows,
   getQuotaVisibilityKey,
   getConnectionLabel,
   sortVisibleConnections,
   buildLoadingState,
   filterQuotaStateByConnections,
   getConnectionsEmptyMessage,
-  getPageSizeLabel,
   getConnectionsPaginationSummary,
   getSafePagination,
   getSafeTotals,
@@ -39,96 +40,14 @@ import {
   QUOTA_SORT_OPTIONS,
 } from "./utils";
 import Card from "@/shared/components/Card";
-import { Button, ConfirmModal, EditConnectionModal, Input, Modal, Select } from "@/shared/components";
-import { USAGE_SUPPORTED_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers";
+import { Button, ConfirmModal, EditConnectionModal, Select } from "@/shared/components";
+import { USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { runWithConcurrency, withTimeout, TimeoutError } from "@/lib/asyncLimits";
 
 const QUOTA_FETCH_CONCURRENCY = 4;
 const QUOTA_FETCH_TIMEOUT_MS = 8000;
 const QUOTA_STALE_MS = 30000;
-
-const KIRO_METHOD_LABELS = {
-  "builder-id": "AWS Builder ID",
-  idc: "IAM Identity Center",
-  google: "Google",
-  github: "GitHub",
-  imported: "Imported Token",
-  api_key: "API Key",
-};
-
-const ICON_BUTTON =
-  "flex size-8 max-sm:size-11 items-center justify-center rounded-md text-muted transition-colors hover:bg-bg hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line disabled:cursor-not-allowed disabled:opacity-50";
-
-const AUTO_PING_SETTINGS_KEYS = {
-  claude: "claudeAutoPing",
-  codex: "codexAutoPing",
-};
-
-const AUTO_PING_TOOLTIPS = {
-  claude: "When your 5h quota runs out, auto-sends a request the moment it resets so a new window starts right away.",
-  codex: "Auto-starts the next 5h Codex window after reset by sending a tiny gpt-5.6-terra request. Consumes a small amount of quota.",
-};
-
-function kiroMethodLabel(conn) {
-  const m = conn.providerSpecificData?.authMethod;
-  if (m && KIRO_METHOD_LABELS[m]) return KIRO_METHOD_LABELS[m];
-  return conn.authType === "api_key" ? "API Key" : "OAuth";
-}
-
-function getConnectionSecondaryLabel(connection) {
-  if (connection.name?.trim() && connection.email?.trim() && connection.name.trim() !== connection.email.trim()) {
-    return connection.email.trim();
-  }
-
-  if (connection.name?.trim() && connection.displayName?.trim() && connection.name.trim() !== connection.displayName.trim()) {
-    return connection.displayName.trim();
-  }
-
-  return null;
-}
-
-function kiroRegion(conn) {
-  const r = conn.providerSpecificData?.region;
-  if (r) return r;
-  const arn = conn.providerSpecificData?.profileArn;
-  const seg = typeof arn === "string" ? arn.split(":")[3] : "";
-  return seg || "";
-}
-
-function getCodexResetCreditCount(quota) {
-  const value = quota?.raw?.resetCredits?.availableCount;
-  const count = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(count) ? Math.max(0, count) : 0;
-}
-
-function providerLabel(providerId) {
-  return AI_PROVIDERS[providerId]?.name || providerId;
-}
-
-function formatCreditDate(value) {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "N/A";
-  return formatDateTime(date, undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function formatTimeRemaining(value) {
-  if (!value) return "N/A";
-  const diffMs = new Date(value).getTime() - Date.now();
-  if (!Number.isFinite(diffMs)) return "N/A";
-  if (diffMs <= 0) return "Expired";
-  const totalHours = Math.ceil(diffMs / (60 * 60 * 1000));
-  const days = Math.floor(totalHours / 24);
-  const hours = totalHours % 24;
-  return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
-}
 
 export default function ProviderLimits() {
   const { copied, copy } = useCopyToClipboard();
@@ -138,7 +57,6 @@ export default function ProviderLimits() {
   const [errors, setErrors] = useState({});
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [autoPingMaps, setAutoPingMaps] = useState({ claude: {}, codex: {} });
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [hasHydratedAutoRefresh, setHasHydratedAutoRefresh] = useState(false);
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [countdown, setCountdown] = useState(60);
@@ -306,7 +224,6 @@ export default function ProviderLimits() {
   const refreshProvider = useCallback(
     async (connectionId, provider) => {
       await fetchQuota(connectionId, provider, { force: true });
-      setLastUpdated(new Date());
     },
     [fetchQuota],
   );
@@ -327,7 +244,6 @@ export default function ProviderLimits() {
         }
 
         await fetchQuota(connectionId, provider);
-        setLastUpdated(new Date());
       } catch (error) {
         setErrors((prev) => ({ ...prev, [connectionId]: error.message || "Failed to reset Codex limit" }));
       } finally {
@@ -501,8 +417,6 @@ export default function ProviderLimits() {
         QUOTA_FETCH_CONCURRENCY,
         (conn) => fetchQuota(conn.id, conn.provider),
       );
-
-      setLastUpdated(new Date());
     } catch (error) {
       console.error("Error refreshing all providers:", error);
     } finally {
@@ -529,7 +443,6 @@ export default function ProviderLimits() {
         QUOTA_FETCH_CONCURRENCY,
         (conn) => fetchQuota(conn.id, conn.provider),
       );
-      setLastUpdated(new Date());
     };
 
     initializeData();
@@ -786,7 +699,6 @@ export default function ProviderLimits() {
   );
   const connectionsPageSummary = getConnectionsPaginationSummary(pagination);
   const isCustomPageSize = !ACCOUNT_PAGE_SIZE_OPTIONS.includes(pageSize);
-  const pageSizeLabel = getPageSizeLabel(pageSize, isCustomPageSize);
 
   if (!connectionsLoading && !hasEligibleConnections) {
     return (
@@ -1034,389 +946,50 @@ export default function ProviderLimits() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {sortedConnections.map((conn) => {
-          const quota = quotaData[conn.id];
-          const isLoading = loading[conn.id];
-          const error = errors[conn.id];
-
-          const isInactive = conn.isActive === false;
-          const isCodex = conn.provider === "codex";
-          const resetCreditCount = getCodexResetCreditCount(quota);
-          const isResettingLimit = resettingLimitId === conn.id;
-          const rowBusy = deletingId === conn.id || togglingId === conn.id || isResettingLimit;
-          const rawQuotas = quota?.quotas || [];
-          const visibleQuotas = filterQuotasByVisibility(conn.provider, rawQuotas, quotaVisibility);
-          const hiddenQuotaRows = getHiddenQuotaRows(conn.provider, rawQuotas, quotaVisibility);
-          const kiroStatusDot = isInactive
-            ? "bg-faint"
-            : conn.testStatus === "active" || conn.testStatus === "success"
-              ? "bg-ok"
-              : conn.testStatus === "error" || conn.testStatus === "expired" || conn.testStatus === "unavailable"
-                ? "bg-danger"
-                : "bg-faint";
-
-          return (
-            <Card
-              key={conn.id}
-              variant="raised"
-              padding="none"
-              className={`min-w-0 ${isInactive ? "opacity-60" : ""}`}
-            >
-              <div className="px-3 py-2 border-b border-line">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-8 h-8 shrink-0 rounded-md flex items-center justify-center overflow-hidden">
-                      <ProviderIcon
-                        src={`/providers/${conn.provider}.png`}
-                        alt={conn.provider}
-                        size={32}
-                        className="object-contain"
-                        fallbackText={
-                          conn.provider?.slice(0, 2).toUpperCase() || "PR"
-                        }
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <h2 className="text-sm font-semibold text-ink truncate">
-                        {providerLabel(conn.provider)}
-                      </h2>
-                      {getConnectionLabel(conn) ? (
-                        <p className="text-xs text-muted truncate">
-                          {getConnectionLabel(conn)}
-                        </p>
-                      ) : null}
-                      {getConnectionSecondaryLabel(conn) ? (
-                        <p className="text-[11px] text-faint truncate">
-                          {getConnectionSecondaryLabel(conn)}
-                        </p>
-                      ) : null}
-                      {conn.provider === "kiro" && (
-                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="rounded border border-line px-1.5 py-0.5 text-[11px] font-medium text-muted">
-                            {kiroMethodLabel(conn)}
-                          </span>
-                          {kiroRegion(conn) && (
-                            <span className="rounded border border-line px-1.5 py-0.5 font-mono text-[11px] text-muted">
-                              {kiroRegion(conn)}
-                            </span>
-                          )}
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted">
-                            <span aria-hidden="true" className={`size-1.5 rounded-full ${kiroStatusDot}`} />
-                            {isInactive ? "disabled" : conn.testStatus || "unknown"}
-                          </span>
-                          {conn.providerSpecificData?.profileArn && (
-                            <button
-                              type="button"
-                              onClick={() => copy(conn.providerSpecificData.profileArn, conn.id)}
-                              title={conn.providerSpecificData.profileArn}
-                              className="inline-flex max-w-full items-center gap-1 rounded border border-line px-1.5 py-0.5 text-[11px] text-muted transition-colors hover:text-ink"
-                            >
-                              <span aria-hidden="true" className="material-symbols-outlined text-[12px]">
-                                {copied === conn.id ? "check" : "content_copy"}
-                              </span>
-                              <code className="truncate font-mono">
-                                {conn.providerSpecificData.profileArn}
-                              </code>
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 max-sm:gap-2 shrink-0">
-                    {isCodex && (
-                      <>
-                        <Tooltip
-                          text={
-                            resetCreditCount > 0
-                              ? `Use one Codex reset credit. Available: ${resetCreditCount}`
-                              : "No Codex reset credits available"
-                          }
-                        >
-                          <button
-                            type="button"
-                            onClick={() => setResetConfirmState({ connection: conn, resetCreditCount })}
-                            disabled={resetCreditCount <= 0 || isLoading || rowBusy}
-                            aria-label={
-                              resetCreditCount > 0
-                                ? `Use one Codex reset credit. ${resetCreditCount} available.`
-                                : "No Codex reset credits available"
-                            }
-                            className={`flex h-8 min-w-10 items-center justify-center gap-1 rounded-md border px-2 font-mono text-[11px] font-medium tabular-nums transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line disabled:cursor-not-allowed disabled:opacity-60 ${
-                              resetCreditCount > 0
-                                ? "border-line-strong text-ink hover:bg-bg"
-                                : "border-line text-faint"
-                            }`}
-                          >
-                            <span aria-hidden="true" className={`material-symbols-outlined text-[15px] ${isResettingLimit ? "animate-spin" : ""}`}>
-                              {isResettingLimit ? "progress_activity" : "restart_alt"}
-                            </span>
-                            <span>{resetCreditCount}</span>
-                          </button>
-                        </Tooltip>
-                        <Tooltip text="View Codex reset credit expiry">
-                          <button
-                            type="button"
-                            onClick={() => handleViewCodexResetCredits(conn)}
-                            disabled={isLoading || rowBusy}
-                            aria-label="View Codex reset credit expiry"
-                            className={ICON_BUTTON}
-                          >
-                            <span aria-hidden="true" className="material-symbols-outlined text-[17px]">schedule</span>
-                          </button>
-                        </Tooltip>
-                      </>
-                    )}
-                    {AUTO_PING_SETTINGS_KEYS[conn.provider] && conn.authType === "oauth" && (
-                      <Tooltip text={AUTO_PING_TOOLTIPS[conn.provider]}>
-                        <button
-                          type="button"
-                          onClick={() => toggleAutoPing(conn.id, conn.provider, !(autoPingMaps[conn.provider]?.[conn.id] === true))}
-                          aria-label="Toggle auto-ping"
-                          className={`${ICON_BUTTON} ${autoPingMaps[conn.provider]?.[conn.id] === true ? "bg-bg text-ink" : ""}`}
-                        >
-                          <span aria-hidden="true" className="material-symbols-outlined text-[18px]">bolt</span>
-                        </button>
-                      </Tooltip>
-                    )}
-                    <Tooltip text="Refresh quota">
-                      <button
-                        type="button"
-                        onClick={() => refreshProvider(conn.id, conn.provider)}
-                        disabled={isLoading || rowBusy}
-                        aria-label="Refresh quota"
-                        className={ICON_BUTTON}
-                      >
-                        <span aria-hidden="true"
-                          className={`material-symbols-outlined text-[18px] ${isLoading ? "animate-spin" : ""}`}
-                        >
-                          refresh
-                        </span>
-                      </button>
-                    </Tooltip>
-                    <Tooltip text="Edit connection">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedConnection(conn);
-                          setShowEditModal(true);
-                        }}
-                        disabled={rowBusy}
-                        aria-label="Edit connection"
-                        className={ICON_BUTTON}
-                      >
-                        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
-                          edit
-                        </span>
-                      </button>
-                    </Tooltip>
-                    <Tooltip text="Delete connection">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteConnection(conn.id)}
-                        disabled={rowBusy}
-                        aria-label="Delete connection"
-                        className="flex size-8 max-sm:size-11 items-center justify-center rounded-md text-danger transition-colors hover:bg-danger/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mark-line disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <span aria-hidden="true"
-                          className={`material-symbols-outlined text-[18px] ${deletingId === conn.id ? "animate-pulse" : ""}`}
-                        >
-                          delete
-                        </span>
-                      </button>
-                    </Tooltip>
-                    <div
-                      className="inline-flex items-center pl-0.5"
-                      title={
-                        (conn.isActive ?? true)
-                          ? "Disable connection"
-                          : "Enable connection"
-                      }
-                    >
-                      <Toggle
-                        size="sm"
-                        checked={conn.isActive ?? true}
-                        disabled={rowBusy}
-                        aria-label={`${conn.isActive === false ? "Enable" : "Disable"} connection ${conn.name || conn.id}`}
-                        onChange={(nextActive) =>
-                          handleToggleConnectionActive(conn.id, nextActive)
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-2 py-1.5">
-                {isLoading && !quota ? (
-                  <div className="text-center py-5 text-muted">
-                    <span aria-hidden="true" className="material-symbols-outlined text-[28px] animate-spin">
-                      progress_activity
-                    </span>
-                  </div>
-                ) : error ? (
-                  <div className="text-center py-5">
-                    <span aria-hidden="true" className="material-symbols-outlined text-[28px] text-danger">
-                      error
-                    </span>
-                    <p className="mt-1.5 text-xs text-muted">{error}</p>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon="refresh"
-                      onClick={() => refreshProvider(conn.id, conn.provider)}
-                      disabled={rowBusy}
-                      className="mt-2"
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                ) : quota?.message ? (
-                  <div className="text-center py-5">
-                    <p className="text-xs text-muted">{quota.message}</p>
-                  </div>
-                ) : (
-                  <QuotaTable
-                    quotas={visibleQuotas}
-                    compact
-                    sortMode="default"
-                    showSortLabel={
-                      conn.provider === "codex" && quotaSortMode !== "default"
-                    }
-                    onHideQuota={(quotaRow) => handleHideQuota(conn.provider, quotaRow)}
-                  />
-                )}
-                {quota?.message && !error && !isLoading && (
-                  <p className="mt-2 px-1 text-[11px] leading-relaxed text-muted">
-                    {quota.message}
-                  </p>
-                )}
-                {hiddenQuotaRows.length > 0 && (
-                  <div className="mt-2 flex min-w-0 items-center gap-1 border-t border-line pt-2 text-[11px] text-muted">
-                    <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[14px]">
-                      visibility_off
-                    </span>
-                    <span className="shrink-0">Hidden:</span>
-                    <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap pb-2">
-                      {hiddenQuotaRows.map((quotaRow) => (
-                        <button
-                          key={getQuotaVisibilityKey(quotaRow)}
-                          type="button"
-                          onClick={() => handleShowQuota(conn.provider, quotaRow)}
-                          className="shrink-0 rounded-md border border-line px-1.5 py-0.5 transition-colors hover:bg-bg hover:text-ink"
-                          title="Show this quota row"
-                        >
-                          {quotaRow.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Card>
-          );
-        })}
+        {sortedConnections.map((conn) => (
+          <ConnectionQuotaCard
+            key={conn.id}
+            conn={conn}
+            quota={quotaData[conn.id]}
+            isLoading={loading[conn.id]}
+            error={errors[conn.id]}
+            resettingLimitId={resettingLimitId}
+            deletingId={deletingId}
+            togglingId={togglingId}
+            quotaVisibility={quotaVisibility}
+            quotaSortMode={quotaSortMode}
+            autoPingMaps={autoPingMaps}
+            copied={copied}
+            copy={copy}
+            onResetConfirm={setResetConfirmState}
+            onViewCodexResetCredits={handleViewCodexResetCredits}
+            onToggleAutoPing={toggleAutoPing}
+            onRefreshProvider={refreshProvider}
+            onEditConnection={(connection) => {
+              setSelectedConnection(connection);
+              setShowEditModal(true);
+            }}
+            onDeleteConnection={handleDeleteConnection}
+            onToggleConnectionActive={handleToggleConnectionActive}
+            onHideQuota={handleHideQuota}
+            onShowQuota={handleShowQuota}
+          />
+        ))}
       </div>
 
-      <div className="border-t border-line-strong pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="font-mono text-xs tabular-nums text-muted">{connectionsPageSummary}</span>
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={isCustomPageSize ? "custom" : String(pageSize)}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                if (nextValue === "custom") return;
-                const nextPageSize = Number.parseInt(nextValue, 10);
-                if (Number.isFinite(nextPageSize)) {
-                  setPage(1);
-                  setPageSize(nextPageSize);
-                  setCustomPageSizeInput(String(nextPageSize));
-                }
-              }}
-              options={[
-                ...ACCOUNT_PAGE_SIZE_OPTIONS.map((option) => ({ value: String(option), label: `${option} / page` })),
-                { value: "custom", label: "Custom" },
-              ]}
-              aria-label="Accounts per page"
-            />
-            <Input
-              type="number"
-              min="1"
-              max={String(ACCOUNT_PAGE_SIZE_MAX)}
-              inputMode="numeric"
-              value={customPageSizeInput}
-              onChange={(event) => setCustomPageSizeInput(event.target.value)}
-              onBlur={commitPageSize}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") commitPageSize();
-              }}
-              className="w-24"
-              inputClassName="font-mono tabular-nums"
-              aria-label="Custom accounts per page"
-              placeholder="Custom"
-            />
-            {pagination.totalPages > 1 && (
-              <span className="font-mono text-xs tabular-nums text-muted">Page {pagination.page} / {pagination.totalPages}</span>
-            )}
-          </div>
-          {pagination.totalPages > 1 && (
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={() => setPage(1)}
-                disabled={
-                  pagination.page <= 1 || connectionsLoading || refreshingAll
-                }
-              >
-                First Page
-              </Button>
-              <Button
-                variant="secondary"
-                size="lg"
-                icon="chevron_left"
-                onClick={() =>
-                  setPage((currentPage) => Math.max(1, currentPage - 1))
-                }
-                disabled={
-                  pagination.page <= 1 || connectionsLoading || refreshingAll
-                }
-                aria-label="Previous accounts page"
-              />
-              <Button
-                variant="secondary"
-                size="lg"
-                icon="chevron_right"
-                onClick={() =>
-                  setPage((currentPage) =>
-                    Math.min(pagination.totalPages, currentPage + 1),
-                  )
-                }
-                disabled={
-                  pagination.page >= pagination.totalPages ||
-                  connectionsLoading ||
-                  refreshingAll
-                }
-                aria-label="Next accounts page"
-              />
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={() => setPage(pagination.totalPages)}
-                disabled={
-                  pagination.page >= pagination.totalPages ||
-                  connectionsLoading ||
-                  refreshingAll
-                }
-              >
-                Last Page
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
+      <PaginationBar
+        connectionsPageSummary={connectionsPageSummary}
+        isCustomPageSize={isCustomPageSize}
+        pageSize={pageSize}
+        customPageSizeInput={customPageSizeInput}
+        setCustomPageSizeInput={setCustomPageSizeInput}
+        commitPageSize={commitPageSize}
+        setPage={setPage}
+        setPageSize={setPageSize}
+        pagination={pagination}
+        connectionsLoading={connectionsLoading}
+        refreshingAll={refreshingAll}
+      />
 
       <ConfirmModal
         isOpen={Boolean(resetConfirmState)}
@@ -1437,65 +1010,10 @@ export default function ProviderLimits() {
         loading={Boolean(resettingLimitId)}
       />
 
-      <Modal
-        isOpen={Boolean(resetCreditsState)}
+      <ResetCreditsModal
+        resetCreditsState={resetCreditsState}
         onClose={() => setResetCreditsState(null)}
-        title="Codex Reset Credit Expiry"
-        size="full"
-      >
-        {resetCreditsState && (
-          <div className="space-y-3">
-            <p className="truncate text-xs text-muted">
-              {getConnectionLabel(resetCreditsState.connection) || "Codex account"}
-            </p>
-            {resetCreditsState.loading ? (
-              <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted">
-                <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
-                Loading reset credits...
-              </div>
-            ) : resetCreditsState.error ? (
-              <div className="rounded-lg border border-danger px-3 py-2 text-sm text-danger">
-                {resetCreditsState.error}
-              </div>
-            ) : resetCreditsState.data?.credits?.length ? (
-              <>
-                <div className="flex items-center justify-between border-b border-line pb-2 font-mono text-xs tabular-nums text-muted">
-                  <span>{resetCreditsState.data.credits.length} reset credit{resetCreditsState.data.credits.length === 1 ? "" : "s"}</span>
-                  <span>{resetCreditsState.data.availableCount ?? 0} available</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-left text-sm">
-                    <thead className="text-xs text-muted">
-                      <tr className="border-b border-line-strong">
-                        <th className="px-3 py-2 font-medium">Status</th>
-                        <th className="px-3 py-2 font-medium">Granted At</th>
-                        <th className="px-3 py-2 font-medium">Expires At</th>
-                        <th className="px-3 py-2 font-medium">Remaining</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {resetCreditsState.data.credits.map((credit, index) => (
-                        <tr key={`${credit.status}-${credit.expiresAt || index}`} className="border-b border-line last:border-b-0">
-                          <td className="px-3 py-2 text-ink">
-                            {credit.status || "unknown"}
-                          </td>
-                          <td className="px-3 py-2 font-mono tabular-nums text-muted">{formatCreditDate(credit.grantedAt)}</td>
-                          <td className="px-3 py-2 font-mono tabular-nums text-ink">{formatCreditDate(credit.expiresAt)}</td>
-                          <td className="px-3 py-2 font-mono font-medium tabular-nums text-ink">{formatTimeRemaining(credit.expiresAt)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <div className="px-3 py-8 text-center text-sm text-muted">
-                No reset credit details returned for this account.
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
+      />
 
       <EditConnectionModal
         isOpen={showEditModal}
