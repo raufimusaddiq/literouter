@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { useTempDataDir } from "#test/tempDataDir";
 

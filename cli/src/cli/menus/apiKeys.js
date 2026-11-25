@@ -1,7 +1,7 @@
 const api = require("../api/client");
 const { prompt, confirm, pause } = require("../utils/input");
-const { clearScreen, showStatus, showHeader } = require("../utils/display");
-const { maskKey, formatDate, getRelativeTime } = require("../utils/format");
+const { clearScreen, showStatus } = require("../utils/display");
+const { maskKey, formatDate } = require("../utils/format");
 const { showMenuWithBack } = require("../utils/menuHelper");
 const { copyToClipboard } = require("../utils/clipboard");
 const { getEndpoint } = require("../utils/endpoint");
@@ -43,23 +43,6 @@ async function handleCreateKey() {
   
   await pause();
   return true;
-}
-
-async function handleViewFullKey(key) {
-  console.log("\n🔍 Full API Key");
-  console.log("─".repeat(30));
-  console.log(`Name: ${key.name}`);
-  console.log(`Key: ${key.key}`);
-  console.log(`ID: ${key.id}`);
-  console.log(`Created: ${formatDate(key.createdAt)}`);
-  
-  if (key.lastUsedAt) {
-    console.log(`Last used: ${getRelativeTime(key.lastUsedAt)}`);
-  } else {
-    console.log("Last used: Never");
-  }
-  
-  await pause();
 }
 
 async function handleCopyKey(key) {

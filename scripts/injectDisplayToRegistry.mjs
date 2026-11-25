@@ -28,21 +28,6 @@ const CATEGORIES = {
   webCookie: /export const WEB_COOKIE_PROVIDERS\s*=\s*\{([\s\S]*?)\n\};/,
 };
 
-const ENTRY_RE = /^\s{2}["']?([\w-]+)["']?\s*:\s*\{[^}]*?id:\s*["']([\w-]+)["'][^}]*?alias:\s*["']([\w-]+)["']([\s\S]*?)(?=\n\s{2}["']?[\w-]|\n\};)/gm;
-
-const EXTRA_FIELDS = [
-  "thinkingConfig",
-  "regions",
-  "defaultRegion",
-  "hasProviderSpecificData",
-  "authType",
-  "authHint",
-  "passthroughModels",
-  "noAuth",
-  "hasOAuth",
-  "authModes",
-];
-
 const THINKING_CONFIG = {
   extended: { options: ["auto", "on", "off"], defaultMode: "auto", defaultBudgetTokens: 10000 },
   effort: { options: ["auto", "none", "low", "medium", "high"], defaultMode: "auto" },

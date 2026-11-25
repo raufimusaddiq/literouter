@@ -9,17 +9,6 @@ const LOG_FILE = process.env.RTK_E2E_LOG || "";
 const RUN = process.env.RUN_E2E === "1";
 const maybe = RUN ? describe : describe.skip;
 
-function readLogTail(bytes = 8192) {
-  if (!LOG_FILE || !fs.existsSync(LOG_FILE)) return "";
-  const stat = fs.statSync(LOG_FILE);
-  const start = Math.max(0, stat.size - bytes);
-  const fd = fs.openSync(LOG_FILE, "r");
-  const buf = Buffer.alloc(stat.size - start);
-  fs.readSync(fd, buf, 0, buf.length, start);
-  fs.closeSync(fd);
-  return buf.toString("utf8");
-}
-
 function readLogSince(offset) {
   if (!LOG_FILE || !fs.existsSync(LOG_FILE)) return { text: "", next: offset };
   const stat = fs.statSync(LOG_FILE);

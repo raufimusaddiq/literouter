@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { OpenCodeGoExecutor } from "../../open-sse/executors/opencode-go.js";
 
 const executor = new OpenCodeGoExecutor();

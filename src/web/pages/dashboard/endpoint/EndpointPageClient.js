@@ -32,9 +32,6 @@ export default function APIPageClient() {
   const { copied, copy } = useCopyToClipboard();
 
   const isLoginUnsafe = !requireLogin || !hasPassword;
-  const unsafeReason = !requireLogin
-    ? "Enable \"Require login\" and set a custom password before exposing the endpoint."
-    : "Change the default dashboard password before exposing the endpoint.";
 
   const loadSettings = async () => {
     try {

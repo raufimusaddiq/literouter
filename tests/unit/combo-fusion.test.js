@@ -50,7 +50,7 @@ describe("fusion combo", () => {
     expect(seen.slice(0, 3).sort()).toEqual(["p/a", "p/b", "p/c"]);
     expect(seen[3]).toBe("p/judge");
 
-    for (const [body, model, isPanel] of handleSingleModel.mock.calls.filter(([, m]) => m !== "p/judge")) {
+    for (const [body, , isPanel] of handleSingleModel.mock.calls.filter(([, m]) => m !== "p/judge")) {
       expect(body.stream).toBe(false);
       expect(body.tools).toBeUndefined();
       expect(isPanel).toBe(true);

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
 
 import { applyFingerprintTools, restoreToolNames } from "../../open-sse/utils/opencodeFingerprint.js";
-import { createSSEStream, createPassthroughStreamWithLogger } from "../../open-sse/utils/stream.js";
+import { createPassthroughStreamWithLogger } from "../../open-sse/utils/stream.js";
 
 const CALLER_TOOLS = [
   {

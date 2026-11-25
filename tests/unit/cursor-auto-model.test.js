@@ -12,9 +12,7 @@ vi.mock("../../open-sse/services/cursorModels.js", async () => {
 import { parseCursorUsableModels, parseCursorAvailableModels, resolveAutoModelSelection, mergeCursorModelFlags } from "../../open-sse/services/cursorModels.js";
 import { resolveCursorModels } from "../../open-sse/services/cursorModels.js";
 import { CursorExecutor } from "../../open-sse/executors/cursor.js";
-import { decodeMessage, encodeField, wrapConnectRPCFrame } from "../../open-sse/utils/cursorProtobuf.js";
-
-const LEN = 2;
+import { decodeMessage } from "../../open-sse/utils/cursorProtobuf.js";
 
 function varint(value) {
   const bytes = [];

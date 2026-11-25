@@ -33,8 +33,6 @@ function CallbackContent() {
       fullUrl: window.location.href,
     };
 
-    let relayed = false;
-
     const expectedOrigins = [
       window.location.origin,
       "http://localhost:1455",
@@ -44,7 +42,6 @@ function CallbackContent() {
       for (const origin of expectedOrigins) {
         try {
           window.opener.postMessage({ type: "oauth_callback", data: callbackData }, origin);
-          relayed = true;
         } catch (e) {
           console.log("postMessage failed:", e);
         }
@@ -55,14 +52,12 @@ function CallbackContent() {
       const channel = new BroadcastChannel("oauth_callback");
       channel.postMessage(callbackData);
       channel.close();
-      relayed = true;
     } catch (e) {
       console.log("BroadcastChannel failed:", e);
     }
 
     try {
       localStorage.setItem("oauth_callback", JSON.stringify({ ...callbackData, timestamp: Date.now() }));
-      relayed = true;
     } catch (e) {
       console.log("localStorage failed:", e);
     }

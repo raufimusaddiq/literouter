@@ -224,7 +224,7 @@ describe("PR #1175 - integration with compressMessages", () => {
   it("compressed output never grows input (safety guard)", () => {
     const text = "npm ERR! error line 1\nnpm ERR! error line 2\nnpm ERR! error line 3\n".repeat(20);
     const body = buildBody(text);
-    const stats = compressMessages(body, true);
+    compressMessages(body, true);
     const after = body.messages[0].content[0].content;
     expect(after.length).toBeLessThanOrEqual(text.length);
   });

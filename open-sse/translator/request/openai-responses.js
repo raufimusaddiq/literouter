@@ -9,8 +9,6 @@ import {
 import { ROLE, OPENAI_BLOCK, RESPONSES_ITEM } from "../schema/index.js";
 import { createToolNameSanitizer, collectChatToolNames } from "../concerns/toolNames.js";
 
-const MAX_TOOL_NAME_LEN = 128;
-
 export function openaiResponsesToOpenAIRequest(model, body, stream, credentials) {
   if (!body.input) return body;
 

@@ -178,7 +178,6 @@ const MAX_PORT_ATTEMPTS = 10;
 
 let port = DEFAULT_PORT;
 let host = DEFAULT_HOST;
-let noBrowser = false;
 let skipUpdate = false;
 let showLog = false;
 let trayMode = false;
@@ -191,7 +190,7 @@ for (let i = 0; i < args.length; i++) {
     host = args[i + 1] || DEFAULT_HOST;
     i++;
   } else if (args[i] === "--no-browser" || args[i] === "-n") {
-    noBrowser = true;
+    continue;
   } else if (args[i] === "--log" || args[i] === "-l") {
     showLog = true;
   } else if (args[i] === "--skip-update") {
@@ -279,18 +278,6 @@ async function claimPort() {
   }
 }
 
-
-function isRestrictedEnvironment() {
-  if (process.env.CODESPACES === "true" || process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN) {
-    return "GitHub Codespaces";
-  }
-
-  if (fs.existsSync("/.dockerenv") || (fs.existsSync("/proc/1/cgroup") && fs.readFileSync("/proc/1/cgroup", "utf8").includes("docker"))) {
-    return "Docker";
-  }
-
-  return null;
-}
 
 function checkForUpdate() {
   return new Promise((resolve) => {

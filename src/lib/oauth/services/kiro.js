@@ -142,7 +142,7 @@ export class KiroService {
   }
 
   async refreshToken(refreshToken, providerSpecificData = {}) {
-    const { authMethod, clientId, clientSecret, region } = providerSpecificData;
+    const { clientId, clientSecret, region } = providerSpecificData;
 
     if (clientId && clientSecret) {
       const safeRegion = region || "us-east-1";

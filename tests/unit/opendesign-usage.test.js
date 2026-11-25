@@ -18,7 +18,6 @@ const API_BASE = "https://amr-api.open-design.ai/api/v1";
 const WORKSPACES_URL = `${API_BASE}/workspaces`;
 const WS = "c9cvnjeqq8watiii2r7p3k6g";
 const PREFLIGHT_URL = `${API_BASE}/workspaces/${WS}/billing/preflight`;
-const BALANCE_URL = `${API_BASE}/workspaces/${WS}/wallet/balance`;
 const CONTROL_KEY = "vela_ctrl_test_key";
 
 function jsonResponse(body, status = 200) {

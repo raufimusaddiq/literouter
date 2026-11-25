@@ -294,7 +294,7 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
 
   const sessionIdentity = resolveSessionIdentity({ headers: credentials?.rawHeaders, body, connectionId: credentials?.connectionId, scope: "kiro" });
   const conversationId = sessionIdentity.sessionId;
-  const continuationId = resolveContinuationId({
+  resolveContinuationId({
     sessionId: conversationId,
     connectionId: credentials?.connectionId,
     scope: "kiro",

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import "./registerAll.js";
-import { translateRequest, translateResponse, initState } from "../../open-sse/translator/index.js";
+import { translateRequest, initState } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { applyThinking } from "../../open-sse/translator/concerns/thinkingUnified.js";
 import { kiroToClaudeResponse } from "../../open-sse/translator/response/kiro-to-claude.js";

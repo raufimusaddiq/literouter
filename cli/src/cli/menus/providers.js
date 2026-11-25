@@ -1,7 +1,6 @@
 const api = require("../api/client");
 const { prompt, confirm, pause } = require("../utils/input");
 const { clearScreen, showStatus, showHeader } = require("../utils/display");
-const { formatDate, getRelativeTime } = require("../utils/format");
 const { showMenuWithBack } = require("../utils/menuHelper");
 const { copyToClipboard } = require("../utils/clipboard");
 
@@ -34,10 +33,6 @@ const APIKEY_PROVIDERS = {
 };
 
 const ALL_PROVIDERS = { ...OAUTH_PROVIDERS, ...APIKEY_PROVIDERS };
-
-function getAuthType(providerId) {
-  return OAUTH_PROVIDERS[providerId] ? "oauth" : "apikey";
-}
 
 function countConnectionsByProvider(connections) {
   const counts = {};

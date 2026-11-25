@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { vi } from "#test/vi";
 
 vi.mock("@/lib/dataDir.js", async () => {

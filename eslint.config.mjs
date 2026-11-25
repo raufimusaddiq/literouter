@@ -27,11 +27,14 @@ const eslintConfig = defineConfig([
       ecmaVersion: "latest",
       sourceType: "module",
       parserOptions: { ecmaFeatures: { jsx: true } },
-      globals: { ...globals.browser, ...globals.node },
+      globals: { ...globals.browser, ...globals.node, Bun: "readonly", HTMLRewriter: "readonly" },
     },
     settings: { react: { version: "detect" } },
     rules: {
       ...react.configs.recommended.rules,
+      "no-undef": "error",
+      "no-unreachable": "error",
+      "no-unused-vars": ["error", { args: "none", varsIgnorePattern: "^_", ignoreRestSiblings: true, caughtErrors: "none" }],
       "import/no-anonymous-default-export": "warn",
       "react/no-unknown-property": "off",
       "react/react-in-jsx-scope": "off",
@@ -58,6 +61,11 @@ const eslintConfig = defineConfig([
     name: "literouter/cli-entry",
     files: ["cli/cli.js"],
     languageOptions: { sourceType: "commonjs" },
+  },
+  {
+    name: "literouter/service-worker",
+    files: ["public/sw.js"],
+    languageOptions: { globals: { ...globals.serviceworker } },
   },
   {
     files: ["**/*.{js,jsx,mjs,cjs}"],
