@@ -6,6 +6,7 @@ import { abortableSleep, isAbortError } from "../utils/requestTimeouts.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
 import { extractTextContent } from "../translator/formats/gemini.js";
 import { createTtlLruMap } from "../utils/ttlLruMap.js";
+import { reorderByUpstreamHealth, getUpstreamHealth } from "./upstreamHealth.js";
 
 const HARD_CAPS = new Set(["vision", "pdf", "audioInput", "videoInput"]);
 
@@ -218,8 +219,15 @@ export function getComboModelsFromData(modelStr, combosData) {
 
 const COMBO_GENERIC_ERROR = "All combo models failed";
 
-export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, signal = null }) {
+export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, signal = null, preContentFailover = false }) {
   let rotatedModels = getRotatedModels(models, comboName, comboStrategy, comboStickyLimit);
+
+  const healthOrdered = reorderByUpstreamHealth(rotatedModels);
+  if (healthOrdered[0] !== rotatedModels[0]) {
+    const h = getUpstreamHealth(rotatedModels[0]);
+    log.info("COMBO", `health-demote ${rotatedModels[0]} → ${healthOrdered[0]} (${h.degraded ? `degraded:${h.lastReason || "stall"}` : `slow:${Math.round(h.ewmaTtftMs || 0)}ms`})`);
+  }
+  rotatedModels = healthOrdered;
 
   if (autoSwitch) {
     const required = detectRequiredCapabilities(body);
@@ -244,7 +252,9 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     log.info("COMBO", `Trying model ${i + 1}/${rotatedModels.length}: ${modelStr}`);
 
     try {
-      const result = await handleSingleModel(body, modelStr);
+      const result = preContentFailover
+        ? await handleSingleModel(body, modelStr, { hasFallback: i < rotatedModels.length - 1 })
+        : await handleSingleModel(body, modelStr);
 
       if (result.status === 499 || result.status === 504 || signal?.aborted) return result;
 
