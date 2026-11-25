@@ -65,6 +65,14 @@ export function addBudgetSpend(db, entry) {
   }
 }
 
+export function pruneBudgetSpend(db, now = Date.now()) {
+  const d = new Date(now);
+  const prev = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1));
+  const month = `${prev.getUTCFullYear()}-${pad(prev.getUTCMonth() + 1)}`;
+  db.run(`DELETE FROM apiKeyBudgetSpend WHERE length(window) = 7 AND window < ?`, [month]);
+  db.run(`DELETE FROM apiKeyBudgetSpend WHERE length(window) > 7 AND window < ?`, [`${month}-01`]);
+}
+
 export async function getBudgetSpend(keyId, period, now = Date.now()) {
   const db = await getAdapter();
   const window = budgetWindow(period, now);

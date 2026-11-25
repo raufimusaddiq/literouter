@@ -4,6 +4,7 @@ import { Database } from "bun:sqlite";
 import { describe, it, expect } from "bun:test";
 import { vi } from "#test/vi";
 import { useTempDataDir } from "#test/tempDataDir";
+import { SCHEMA_VERSION } from "@/lib/db/schema.js";
 
 const temp = useTempDataDir("9router-key-access-");
 
@@ -45,7 +46,8 @@ describe("apiKeys access columns: upgrade from the previous schema", () => {
     expect((await db.getApiKeyByKey("sk-legacy-one")).access.restricted).toBe(false);
 
     const backups = fs.readdirSync(path.join(temp.dir, "db", "backups"));
-    expect(backups.some((d) => d.startsWith("schema-1-to-3"))).toBe(true);
+    expect(backups).toHaveLength(1);
+    expect(backups[0]).toMatch(new RegExp(`^schema-1-to-${SCHEMA_VERSION}-`));
   });
 
   it("persists access through update, new keys default to unrestricted", async () => {

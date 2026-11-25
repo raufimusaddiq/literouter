@@ -4,7 +4,7 @@ import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { fingerprintKey } from "open-sse/utils/keyFingerprint.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
 import { bucketOf, clearRollupKeyCache, getRollupKeyId, ROLLUP_RETENTION_MS } from "../usageRollup.js";
-import { addBudgetSpend, noteBudgetSpend, settleBudgetSpend } from "./keyBudgetRepo.js";
+import { addBudgetSpend, noteBudgetSpend, pruneBudgetSpend, settleBudgetSpend } from "./keyBudgetRepo.js";
 
 function maskApiKey(key) {
   return fingerprintKey(key);
@@ -469,6 +469,7 @@ export async function pruneUsageHistory({ force = false, now = Date.now() } = {}
   try {
     const rdb = await getAdapter();
     rdb.run(`DELETE FROM usageRollup WHERE bucket < ?`, [bucketOf(new Date(now - ROLLUP_RETENTION_MS).toISOString())]);
+    pruneBudgetSpend(rdb, now);
   } catch (e) {
     console.error("[usageRepo] pruneUsageRollup failed:", e);
   }

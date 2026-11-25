@@ -137,7 +137,8 @@ describe("budget storage", () => {
   it("shows a completed request's spend before the usage row is flushed", async () => {
     const { createApiKey, getBudgetSpend, saveRequestUsage, flushUsageQueue, db } = await load();
     const created = await createApiKey("k", "machine-1");
-    const done = saveRequestUsage(usageEntry(created.key));
+    const entry = usageEntry(created.key);
+    const done = saveRequestUsage(entry);
     await settleNote();
     expect(db.get(`SELECT COUNT(*) AS c FROM apiKeyBudgetSpend`).c).toBe(0);
     expect(db.get(`SELECT COUNT(*) AS c FROM usageHistory`).c).toBe(0);
@@ -145,7 +146,25 @@ describe("budget storage", () => {
     await flushUsageQueue();
     await done;
     expect((await getBudgetSpend(created.id, "day")).tokens).toBe(15);
-    expect(db.get(`SELECT COUNT(*) AS c FROM apiKeyBudgetSpend`).c).toBe(1);
+    const rows = db.all(`SELECT window, tokens FROM apiKeyBudgetSpend WHERE keyId = ? ORDER BY window`, [created.id]);
+    const dayWindow = entry.timestamp.slice(0, 10);
+    const monthWindow = dayWindow.slice(0, 7);
+    expect(rows).toEqual([
+      { window: dayWindow, tokens: 15 },
+      { window: monthWindow, tokens: 15 },
+    ]);
+  });
+
+  it("prunes day and month windows older than the previous month", async () => {
+    const { createApiKey, addBudgetSpend, pruneUsageHistory, db } = await load();
+    const created = await createApiKey("k", "machine-1");
+    const now = Date.parse("2026-04-15T00:00:00.000Z");
+    for (const timestamp of ["2026-01-10T00:00:00.000Z", "2026-02-20T00:00:00.000Z", "2026-03-05T00:00:00.000Z", "2026-04-02T00:00:00.000Z"]) {
+      addBudgetSpend(db, { budgetKeyId: created.id, budgetTokens: 1, budgetCost: 0, timestamp });
+    }
+    await pruneUsageHistory({ force: true, now });
+    const windows = db.all(`SELECT window FROM apiKeyBudgetSpend WHERE keyId = ? ORDER BY window`, [created.id]).map((r) => r.window);
+    expect(windows).toEqual(["2026-03", "2026-03-05", "2026-04", "2026-04-02"]);
   });
 
   it("settles the spend of a deduplicated usage entry so it is not counted twice", async () => {
