@@ -37,7 +37,7 @@ describe("export/import and file compatibility with main", () => {
     expect(JSON.stringify(sortKeys(await db.exportDb()))).toBe(JSON.stringify(sortKeys(readJson("main-export.json"))));
   });
 
-  it("a DB file written by main opens unchanged", async () => {
+  it("a DB file written by main opens unchanged, applying only newer migrations", async () => {
     const dbDir = path.join(temp.dir, "db");
     fs.mkdirSync(dbDir, { recursive: true });
     const file = path.join(dbDir, "data.sqlite");
@@ -50,16 +50,27 @@ describe("export/import and file compatibility with main", () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const db = await boot();
     const exported = await db.exportDb();
-    const applied = log.mock.calls.filter((c) => String(c[0]).includes("[DB][migrate] applied"));
+    const applied = log.mock.calls
+      .map((c) => String(c[0]))
+      .filter((line) => line.includes("[DB][migrate] applied"))
+      .map((line) => line.replace(/^.*applied #(\d+) (\S+).*$/, "#$1 $2"));
     log.mockRestore();
 
-    expect(applied).toEqual([]);
+    const { MIGRATIONS, latestVersion } = await import("@/lib/db/migrations/index.js");
+    const { SCHEMA_VERSION } = await import("@/lib/db/schema.js");
+    const expected = MIGRATIONS
+      .filter((m) => m.version > Number(before.schemaVersion))
+      .map((m) => `#${m.version} ${m.name}`);
+    expect(expected.length).toBeGreaterThan(0);
+    expect(applied).toEqual(expected);
+
     expect(exported).toEqual(readJson("main-export.json"));
     const { getAdapter } = await import("@/lib/db/driver.js");
     const adapter = await getAdapter();
     const after = Object.fromEntries(adapter.all(`SELECT key, value FROM _meta`).map((r) => [r.key, r.value]));
-    expect(after.schemaVersion).toBe(before.schemaVersion);
+    expect(after.schemaVersion).toBe(String(latestVersion()));
     expect(after.backupSchemaVersion).toBe(before.backupSchemaVersion);
+    expect(Number(before.backupSchemaVersion)).toBe(SCHEMA_VERSION);
     expect(fs.readdirSync(path.join(dbDir, "backups"))).toEqual([]);
   });
 

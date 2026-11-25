@@ -6,7 +6,7 @@ Frozen at `main@90ac4b20952622cc42186e3f316d0e093ed425cf` ("chore: repo-wide com
 | --- | --- |
 | `legacy-main.seed.json` | Input payload: settings, 2 connections, 1 provider node, 1 proxy pool, 2 API keys (one restricted), 1 combo, 1 alias, 1 custom model, pricing. Some fields are omitted so `importDb` fills defaults. |
 | `main-export.json` | `exportDb()` of `main@90ac4b20` after `importDb(legacy-main.seed.json)` on a fresh DB. |
-| `main-written.sqlite` | The `data.sqlite` that run left behind (written by the Node image's `node:sqlite` driver, checkpointed and closed, migrations #1-#5 applied; `bun:sqlite` still reads it unchanged, which is what the test checks). |
+| `main-written.sqlite` | The `data.sqlite` that run left behind (written by the Node image's `node:sqlite` driver, checkpointed and closed, migrations #1-#5 applied; `bun:sqlite` still reads it unchanged). Opening it now applies every migration newer than #5 (`#6 key-budgets` today) and leaves the data and the export unchanged; the fixture stays frozen at #5. |
 
 ## Used by
 
