@@ -11,8 +11,9 @@ const load = async () => {
   const repo = await import("@/lib/db/repos/keyBudgetRepo.js");
   const keys = await import("@/lib/db/repos/apiKeysRepo.js");
   const usage = await import("@/lib/db/repos/usageRepo.js");
+  const { exportDb, importDb } = await import("@/lib/db/index.js");
   const { getAdapter } = await import("@/lib/db/driver.js");
-  return { ...repo, ...keys, ...usage, db: await getAdapter() };
+  return { ...repo, ...keys, ...usage, exportDb, importDb, db: await getAdapter() };
 };
 
 const settleNote = () => new Promise((resolve) => setTimeout(resolve, 25));
